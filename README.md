@@ -1,23 +1,24 @@
 # Interactive Globe
 
-![Globe View](screenshots/globe-view.png)
+![Demo](screenshots/demo.gif)
 
 A smooth, animated transition between a 3D rotating globe and a 2D flat map — built with React and D3.js on an HTML Canvas.
 
 Drag to rotate, scroll to zoom, click the toggle to unfurl the globe into a flat equirectangular projection (and back again). The transition uses a custom projection interpolator that "unfurls" hidden-side countries from the globe's edge.
 
+![Globe View](screenshots/globe-view.png)
 ![Map View](screenshots/map-view.png)
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/andrewvoirol/interactive-globe.git
+git clone https://github.com/AndrewVoirol/interactive-globe.git
 cd interactive-globe
 npm install
 npm run dev
 ```
 
-Opens at [http://localhost:3000](http://localhost:3000).
+Opens at [http://localhost:3000](http://localhost:3000). Requires Node.js 18+.
 
 ## How It Works
 
