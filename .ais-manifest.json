@@ -1,0 +1,54 @@
+{
+  "project": {
+    "name": "Interactive Globe",
+    "slug": "ais-interactive-globe-to-map",
+    "description": "A smooth, animated transition between a 3D rotating globe and a 2D flat map — built with React and D3.js on an HTML Canvas.",
+    "category": "data-visualization",
+    "tags": [
+      "d3",
+      "geojson",
+      "topojson-client"
+    ],
+    "status": "shipped",
+    "aistudioUrl": ""
+  },
+  "tech": {
+    "framework": "vite",
+    "frameworkVersion": "^6.2.0",
+    "react": "^19.1.1",
+    "styling": "tailwind",
+    "stylingVersion": "^3.4.3",
+    "three": null,
+    "usesGeminiApi": false,
+    "geminiApiRole": "none",
+    "keyDependencies": [
+      "d3",
+      "geojson",
+      "topojson-client",
+      "@vitejs/plugin-react",
+      "autoprefixer"
+    ],
+    "hasBackend": false
+  },
+  "quality": {
+    "hasReadme": true,
+    "readmeIsCustom": true,
+    "hasDemoGif": true,
+    "hasScreenshots": true,
+    "screenshotCount": 2,
+    "hasFavicon": false,
+    "hasCustomPackageName": true,
+    "hasScaffoldCruft": false,
+    "buildVerified": false,
+    "lastVerifiedDate": null
+  },
+  "repo": {
+    "github": "https://github.com/AndrewVoirol/interactive-globe.git",
+    "defaultBranch": "main"
+  },
+  "_meta": {
+    "generatedAt": "2026-08-07T02:03:57.767Z",
+    "generatedBy": "ais-fleet/generate-manifests",
+    "needsReview": []
+  }
+}
