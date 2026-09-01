@@ -2,6 +2,8 @@
 
 ![Demo](screenshots/demo.gif)
 
+> **Part of the [Cartography Featured Project](https://andrewvoirol.com/work/cartography) on [andrewvoirol.com](https://andrewvoirol.com) • [Live Interactive Lab](https://andrewvoirol.com/lab/dot-matrix)**
+
 A smooth, animated transition between a 3D rotating globe and a 2D flat map — built with React and D3.js on an HTML Canvas.
 
 Drag to rotate, scroll to zoom, click the toggle to unfurl the globe into a flat equirectangular projection (and back again). The transition uses a custom projection interpolator that "unfurls" hidden-side countries from the globe's edge.
