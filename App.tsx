@@ -75,9 +75,7 @@ void main() {
 
     vec3 pos3D = position;
     vec3 pos2D = vec3(target2D.x, target2D.y, 0.0);
-    float ease = clampedUnfurl < 0.5 
-        ? 4.0 * clampedUnfurl * clampedUnfurl * clampedUnfurl 
-        : 1.0 - pow(max(0.0, -2.0 * clampedUnfurl + 2.0), 3.0) / 2.0;
+    float ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
 
     vec3 finalPos;
     vec3 dynamicNormal;
@@ -151,51 +149,30 @@ void main() {
         }
     } else if (u_mode == 3) {
         // =========================================================================
-        // Mode 3: Incompressible Fluid Advection & SPH Vorticity (engine-audit.md §4.3)
+        // Mode 3: Incompressible Fluid Advection (Continuous Hermite Formulation)
         // =========================================================================
         float t = ease;
-        if (t >= 0.999) {
-            finalPos = pos2D;
-            dynamicNormal = vec3(0.0, 0.0, 1.0);
-            localVorticity = 0.0;
-        } else if (t <= 0.001) {
-            // Subtle damped cursor surface eddy on 3D globe (anti-strobe)
-            float hitDist = length(pos3D - u_cursorHitPos);
-            float coreRadius = 0.85;
-            float vortexCirculation = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.05);
-            vec3 surfaceNormal = normalize(pos3D);
-            vec3 vortexTangent = normalize(cross(surfaceNormal, pos3D - u_cursorHitPos + vec3(0.001)));
-            float clampedSpeed = clamp(u_cursorVel.w, 0.0, 1.5);
-            vec3 vortexVelocity = vortexTangent * (u_cursorActive * clampedSpeed * vortexCirculation * 0.35);
-            vec3 wakeAdvection = normalize(u_cursorVel.xyz + vec3(0.0001)) * (clampedSpeed * 0.15 * u_cursorActive * exp(-hitDist * hitDist / 1.5));
+        float rawSin = sin(PI * clampedUnfurl);
+        float liquefaction = pow(max(0.0, rawSin), 1.15);
+        vec3 basePos = mix(pos3D, pos2D, t);
+        vec3 naturalVelocity = computeCurlNoise(basePos, u_time);
+        
+        // Passive cursor vortex perturbation (damped & smooth)
+        float hitDist = length(basePos - u_cursorHitPos);
+        float coreRadius = 0.85;
+        float vortexCirculation = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.05);
+        vec3 surfaceNormal = length(basePos) > 0.001 ? normalize(basePos) : vec3(0.0, 0.0, 1.0);
+        vec3 vortexTangent = normalize(cross(surfaceNormal, basePos - u_cursorHitPos + vec3(0.001)));
+        float clampedSpeed = clamp(u_cursorVel.w, 0.0, 1.5);
+        vec3 vortexVelocity = vortexTangent * (u_cursorActive * clampedSpeed * vortexCirculation * 0.35);
+        vec3 wakeAdvection = normalize(u_cursorVel.xyz + vec3(0.0001)) * (clampedSpeed * 0.15 * u_cursorActive * exp(-hitDist * hitDist / 1.5));
 
-            vec3 totalVelocity = vortexVelocity + wakeAdvection;
-            localVorticity = length(totalVelocity) * u_cursorActive;
-            finalPos = pos3D + totalVelocity * (u_cursorActive * 0.20);
-            dynamicNormal = normalize(finalPos);
-        } else {
-            float rawSin = sin(PI * clamp(u_unfurl, 0.0, 1.0));
-            float liquefaction = pow(max(0.0, rawSin), 1.2);
-            vec3 basePos = mix(pos3D, pos2D, t);
-            vec3 naturalVelocity = computeCurlNoise(basePos, u_time);
-            
-            // Subtle damped cursor vortex injection (anti-strobe)
-            float hitDist = length(basePos - u_cursorHitPos);
-            float coreRadius = 0.85;
-            float vortexCirculation = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.05);
-            vec3 surfaceNormal = normalize(basePos);
-            vec3 vortexTangent = normalize(cross(surfaceNormal, basePos - u_cursorHitPos + vec3(0.001)));
-            float clampedSpeed = clamp(u_cursorVel.w, 0.0, 1.5);
-            vec3 vortexVelocity = vortexTangent * (u_cursorActive * clampedSpeed * vortexCirculation * 0.35);
-            vec3 wakeAdvection = normalize(u_cursorVel.xyz + vec3(0.0001)) * (clampedSpeed * 0.15 * u_cursorActive * exp(-hitDist * hitDist / 1.5));
+        vec3 totalVelocity = naturalVelocity + vortexVelocity + wakeAdvection;
+        localVorticity = length(totalVelocity) * max(liquefaction, u_cursorActive * 0.3);
+        vec3 advectionOffset = naturalVelocity * (liquefaction * 1.85) + (vortexVelocity + wakeAdvection) * (u_cursorActive * 0.25);
 
-            vec3 totalVelocity = naturalVelocity + vortexVelocity + wakeAdvection;
-            localVorticity = length(totalVelocity) * max(liquefaction, u_cursorActive * 0.3);
-            vec3 advectionOffset = naturalVelocity * (liquefaction * 1.85) + (vortexVelocity + wakeAdvection) * (u_cursorActive * 0.25);
-
-            finalPos = basePos + advectionOffset;
-            dynamicNormal = mix(normalize(pos3D), vec3(0.0, 0.0, 1.0), t);
-        }
+        finalPos = basePos + advectionOffset;
+        dynamicNormal = mix(normalize(pos3D), vec3(0.0, 0.0, 1.0), t);
     } else {
         // Mode 0: Legacy Linear Mix
         finalPos = mix(pos3D, pos2D, ease);
@@ -241,51 +218,99 @@ void main() {
 const pointFragmentShader = `
 uniform int u_mode;
 uniform int u_layerMode;
+uniform int u_theme; // 0 = Dark Cyber, 1 = Light Monochrome
 varying float vPointType;
 varying float vFacing;
 varying float vStrain;
 varying float vVorticity;
 varying float vAlphaMultiplier;
 
+// Analytical OKLCH to Linear sRGB Conversion
+vec3 oklch2rgb(vec3 c) {
+    float L = c.x;
+    float C = c.y;
+    float hRad = c.z * 0.01745329251; // degrees to radians
+    float a = C * cos(hRad);
+    float b = C * sin(hRad);
+
+    float l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+    float m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+    float s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+
+    float l = l_ * l_ * l_;
+    float m = m_ * m_ * m_;
+    float s = s_ * s_ * s_;
+
+    float r = +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+    float g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+    float bl = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+
+    return clamp(vec3(r, g, bl), 0.0, 1.0);
+}
+
 void main() {
     if (u_layerMode == 2 || vAlphaMultiplier < 0.001) {
         discard; // Instantly drop points in [Wireframe Only] mode
     }
 
-    float backfaceDimming = mix(0.15, 1.0, smoothstep(-0.5, 0.2, vFacing));
+    float backfaceDimming = mix(u_theme == 1 ? 0.35 : 0.15, 1.0, smoothstep(-0.5, 0.2, vFacing));
     
     // 102:1 Contrast Ratio (GIS Coastline Clarity at 1M Nodes)
     // Geographic coastline points (vType = 1.0): alpha = 0.95, vibrant cyan vec3(0.49, 0.827, 0.988)
     // Structural ocean points (vType = 0.0): alpha = 0.03, dark navy vec3(0.05, 0.12, 0.22)
     vec3 geographicColor = vec3(0.49, 0.827, 0.988);
     vec3 structuralColor = vec3(0.05, 0.12, 0.22);
+    if (u_theme == 0) {
+        // Precise OKLCH mapping for dark cyber palette
+        geographicColor = oklch2rgb(vec3(0.85, 0.16, 210.0));
+        structuralColor = oklch2rgb(vec3(0.18, 0.04, 240.0));
+    } else if (u_theme == 1) {
+        // Light Monochrome: Architectural Charcoal Ink on Archival Paper
+        geographicColor = vec3(0.08, 0.09, 0.11);
+        structuralColor = vec3(0.82, 0.85, 0.89);
+    }
     vec3 baseColor = mix(structuralColor, geographicColor, vPointType);
+    float alpha = mix(0.03, 0.95, vPointType);
+    if (u_theme == 1) {
+        alpha = mix(0.12, 0.95, vPointType);
+    }
     
     vec3 finalColor = baseColor;
-    float alpha = mix(0.03, 0.95, vPointType);
 
     if (u_mode == 2) {
         // Mode 2: Griffith LEFM strain energy color mapping
-        vec3 tensionAmber = vec3(1.0, 0.65, 0.15);
-        vec3 ruptureCrimson = vec3(0.98, 0.20, 0.12);
-        vec3 activeCrackWhite = vec3(1.0, 0.98, 0.90);
-        
-        vec3 stressColor = mix(baseColor, tensionAmber, smoothstep(0.12, 0.45, vStrain));
-        stressColor = mix(stressColor, ruptureCrimson, smoothstep(0.45, 0.78, vStrain));
-        stressColor = mix(stressColor, activeCrackWhite, smoothstep(0.78, 1.0, vStrain));
-        finalColor = stressColor;
+        if (u_theme == 1) {
+            vec3 warmUmber = vec3(0.45, 0.25, 0.15);
+            vec3 carbonInk = vec3(0.02, 0.02, 0.02);
+            finalColor = mix(baseColor, warmUmber, smoothstep(0.15, 0.55, vStrain));
+            finalColor = mix(finalColor, carbonInk, smoothstep(0.55, 0.90, vStrain));
+        } else {
+            vec3 tensionAmber = oklch2rgb(vec3(0.72, 0.22, 40.0));
+            vec3 ruptureCrimson = oklch2rgb(vec3(0.62, 0.28, 25.0));
+            vec3 activeCrackWhite = vec3(1.0, 0.98, 0.90);
+            
+            vec3 stressColor = mix(baseColor, tensionAmber, smoothstep(0.12, 0.45, vStrain));
+            stressColor = mix(stressColor, ruptureCrimson, smoothstep(0.45, 0.78, vStrain));
+            stressColor = mix(stressColor, activeCrackWhite, smoothstep(0.78, 1.0, vStrain));
+            finalColor = stressColor;
+        }
         if (vStrain > 0.4) alpha = mix(alpha, 1.0, (vStrain - 0.4) * 1.8);
     } else if (u_mode == 3) {
         // Mode 3: Hydrodynamic Vorticity Palette
-        vec3 oceanicIndigo = vec3(0.06, 0.22, 0.45);
-        vec3 biolumCyan = vec3(0.20, 0.88, 0.96);
-        vec3 eddyViolet = vec3(0.85, 0.25, 0.98);
+        if (u_theme == 1) {
+            vec3 charcoalStreamline = vec3(0.35, 0.38, 0.42);
+            vec3 obsidianCore = vec3(0.02, 0.03, 0.05);
+            vec3 fluidGray = mix(charcoalStreamline, obsidianCore, smoothstep(0.3, 0.9, vVorticity));
+            finalColor = mix(baseColor, fluidGray, smoothstep(0.05, 0.4, vVorticity));
+        } else {
+            vec3 oceanicIndigo = oklch2rgb(vec3(0.25, 0.08, 240.0));
+            vec3 biolumCyan = oklch2rgb(vec3(0.72, 0.18, 220.0));
+            vec3 eddyViolet = oklch2rgb(vec3(0.68, 0.24, 310.0));
 
-        vec3 fluidColor = mix(oceanicIndigo, biolumCyan, smoothstep(0.05, 0.50, vVorticity));
-        fluidColor = mix(fluidColor, eddyViolet, smoothstep(0.50, 0.95, vVorticity));
-        
-        // When quiescent at alpha=0 or condensed at alpha=1, seamlessly blend back to base geographic colors
-        finalColor = mix(baseColor, fluidColor, smoothstep(0.0, 0.15, vVorticity));
+            vec3 fluidColor = mix(oceanicIndigo, biolumCyan, smoothstep(0.05, 0.50, vVorticity));
+            fluidColor = mix(fluidColor, eddyViolet, smoothstep(0.50, 0.95, vVorticity));
+            finalColor = mix(baseColor, fluidColor, smoothstep(0.0, 0.15, vVorticity));
+        }
         if (vVorticity > 0.1) alpha = mix(alpha, 1.0, vVorticity);
     }
 
@@ -299,6 +324,7 @@ const meshFragmentShader = `
 uniform int u_mode;
 uniform float u_unfurl;
 uniform int u_layerMode;
+uniform int u_theme; // 0 = Dark Cyber, 1 = Light Monochrome
 uniform float u_wireOpacityScale;
 varying float vPointType;
 varying float vFacing;
@@ -310,34 +336,52 @@ void main() {
         discard; // Instantly drop wireframe in [Points Only] mode
     }
 
-    float backfaceDimming = mix(0.15, 1.0, smoothstep(-0.5, 0.2, vFacing));
-    vec3 geographicColor = vec3(0.22, 0.74, 0.97) * 0.8;
-    vec3 structuralColor = vec3(0.02, 0.1, 0.2) * 0.3;
-    vec3 baseColor = mix(structuralColor, geographicColor, vPointType);
+    float backfaceDimming = mix(u_theme == 1 ? 0.30 : 0.15, 1.0, smoothstep(-0.5, 0.2, vFacing));
+    
+    vec3 baseColor;
+    float densityFactor = clamp(u_wireOpacityScale, 0.01, 1.0);
+    float alpha;
+
+    if (u_theme == 1) {
+        // Light Monochrome: Soft Graphite Architectural Lines
+        vec3 structuralWire = vec3(0.80, 0.83, 0.86);
+        vec3 geographicWire = vec3(0.65, 0.68, 0.72);
+        baseColor = mix(structuralWire, geographicWire, vPointType);
+        alpha = mix(0.04 * densityFactor, 0.40 * densityFactor, pow(vPointType, 2.0));
+    } else {
+        vec3 geographicColor = vec3(0.22, 0.74, 0.97) * 0.8;
+        vec3 structuralColor = vec3(0.02, 0.1, 0.2) * 0.3;
+        baseColor = mix(structuralColor, geographicColor, vPointType);
+        alpha = mix(0.03 * densityFactor, 0.50 * densityFactor, pow(vPointType, 2.0));
+    }
     
     vec3 finalColor = baseColor;
-    // Base wireframe alpha scaled by node density (e.g. sqrt(100k / N)) to prevent moiré at 1M nodes
-    float densityFactor = clamp(u_wireOpacityScale, 0.01, 1.0);
-    float alpha = mix(0.03 * densityFactor, 0.50 * densityFactor, pow(vPointType, 2.0));
 
     // Dynamic Polar Line Tapering: Attenuate needle wire stretching near poles as map unrolls
     float polarFade = 1.0 - smoothstep(0.20, 0.95, u_unfurl) * smoothstep(0.85, 0.985, vLatitudeNorm);
     alpha = alpha * polarFade;
 
     if (u_mode == 2) {
-        vec3 tensionAmber = vec3(0.95, 0.50, 0.10);
-        vec3 ruptureCrimson = vec3(0.95, 0.15, 0.10);
-        vec3 activeCrackWhite = vec3(1.0, 0.95, 0.85);
-        
-        vec3 stressColor = mix(baseColor, tensionAmber, smoothstep(0.12, 0.45, vStrain));
-        stressColor = mix(stressColor, ruptureCrimson, smoothstep(0.45, 0.78, vStrain));
-        stressColor = mix(stressColor, activeCrackWhite, smoothstep(0.78, 1.0, vStrain));
-        finalColor = stressColor;
+        if (u_theme == 1) {
+            vec3 warmUmber = vec3(0.50, 0.30, 0.20);
+            vec3 carbonInk = vec3(0.05, 0.05, 0.05);
+            finalColor = mix(baseColor, warmUmber, smoothstep(0.15, 0.55, vStrain));
+            finalColor = mix(finalColor, carbonInk, smoothstep(0.55, 0.90, vStrain));
+        } else {
+            vec3 tensionAmber = vec3(0.95, 0.50, 0.10);
+            vec3 ruptureCrimson = vec3(0.95, 0.15, 0.10);
+            vec3 activeCrackWhite = vec3(1.0, 0.95, 0.85);
+            
+            vec3 stressColor = mix(baseColor, tensionAmber, smoothstep(0.12, 0.45, vStrain));
+            stressColor = mix(stressColor, ruptureCrimson, smoothstep(0.45, 0.78, vStrain));
+            stressColor = mix(stressColor, activeCrackWhite, smoothstep(0.78, 1.0, vStrain));
+            finalColor = stressColor;
+        }
         if (vStrain > 0.35) alpha = mix(alpha, 0.95 * densityFactor, (vStrain - 0.35) * 1.5);
     } else if (u_mode == 3) {
-        // Viscous Phase Transition: Mesh lines melt away during peak liquefaction
+        // Viscous Phase Transition: Mesh lines melt away during peak liquefaction (continuous)
         float rawSin = sin(3.14159265 * clamp(u_unfurl, 0.0, 1.0));
-        float liquefaction = (u_unfurl <= 0.001 || u_unfurl >= 0.999) ? 0.0 : pow(max(0.0, rawSin), 1.2);
+        float liquefaction = pow(max(0.0, rawSin), 1.15);
         alpha = alpha * (1.0 - liquefaction * 0.92);
     }
     
@@ -357,6 +401,7 @@ interface GeometryLayerProps {
   unfurlProgress: number;
   mode: 0 | 1 | 2 | 3;
   layerMode: 0 | 1 | 2;
+  theme: 0 | 1; // 0 = Dark Cyber, 1 = Light Monochrome
   resolution: '100k' | '1M';
   cameraTarget: THREE.Vector3;
   cursorPhysicsEnabled: boolean;
@@ -368,6 +413,7 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
   unfurlProgress, 
   mode, 
   layerMode,
+  theme,
   resolution,
   cameraTarget,
   cursorPhysicsEnabled,
@@ -504,6 +550,7 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
       meshMaterialRef.current.uniforms.u_unfurl.value = unfurlProgress;
       meshMaterialRef.current.uniforms.u_mode.value = mode;
       meshMaterialRef.current.uniforms.u_layerMode.value = layerMode;
+      meshMaterialRef.current.uniforms.u_theme.value = theme;
       meshMaterialRef.current.uniforms.u_wireOpacityScale.value = wireOpacityScale;
       meshMaterialRef.current.uniforms.u_time.value = elapsedTime;
       meshMaterialRef.current.uniforms.u_cameraCenter.value.copy(cameraTarget);
@@ -516,6 +563,7 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
       pointMaterialRef.current.uniforms.u_unfurl.value = unfurlProgress;
       pointMaterialRef.current.uniforms.u_mode.value = mode;
       pointMaterialRef.current.uniforms.u_layerMode.value = layerMode;
+      pointMaterialRef.current.uniforms.u_theme.value = theme;
       pointMaterialRef.current.uniforms.u_time.value = elapsedTime;
       pointMaterialRef.current.uniforms.u_cameraCenter.value.copy(cameraTarget);
       pointMaterialRef.current.uniforms.u_cursorRayOrig.value.copy(cursorUniforms.u_cursorRayOrig);
@@ -577,6 +625,7 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
             u_unfurl: { value: 0 }, 
             u_mode: { value: 3 }, 
             u_layerMode: { value: 0 },
+            u_theme: { value: 0 },
             u_wireOpacityScale: { value: 1.0 },
             u_time: { value: 0 },
             u_cameraCenter: { value: new THREE.Vector3(0, 0, 0) },
@@ -599,6 +648,7 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
             u_unfurl: { value: 0 }, 
             u_mode: { value: 3 }, 
             u_layerMode: { value: 0 },
+            u_theme: { value: 0 },
             u_time: { value: 0 },
             u_cameraCenter: { value: new THREE.Vector3(0, 0, 0) },
             u_cursorRayOrig: { value: new THREE.Vector3(0, 0, 15) },
@@ -615,6 +665,7 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
 
 export default function App() {
   const [backend, setBackend] = useState<'webgl2' | 'webgpu'>('webgl2');
+  const [theme, setTheme] = useState<0 | 1>(0); // 0 = Dark Cyber, 1 = Light Monochrome
   const [hasWebGPU, setHasWebGPU] = useState<boolean>(false);
   const [alpha, setAlpha] = useState(0); 
   const [mode, setMode] = useState<0 | 1 | 2 | 3>(3); // Default to Mode 3 (Fluid Advection)
@@ -641,12 +692,14 @@ export default function App() {
     (window as any).setLayerMode = setLayerMode;
     (window as any).setResolution = setResolution;
     (window as any).setBackend = setBackend;
+    (window as any).setTheme = setTheme;
+    (window as any).theme = theme;
     (window as any).setCursorPhysicsEnabled = setCursorPhysicsEnabled;
     (window as any).backend = backend;
     isWebGPUSupported().then((supported) => {
       setHasWebGPU(supported);
     });
-  }, [backend]);
+  }, [backend, theme]);
 
   const handleFpsUpdate = useCallback((val: number) => {
     setFps(val);
@@ -654,6 +707,11 @@ export default function App() {
 
   const handleDataLoaded = useCallback((info: LoadedDataInfo) => {
     setDataInfo(info);
+  }, []);
+
+  const handleWebGPUError = useCallback((err: Error) => {
+    console.warn('WebGPU runtime error, falling back to WebGL2:', err);
+    setBackend('webgl2');
   }, []);
 
   const snapCamera = (view: 'equator' | 'pole' | 'seam' | 'isometric') => {
@@ -677,6 +735,17 @@ export default function App() {
     setCameraTarget(new THREE.Vector3(0, 0, 0));
   };
 
+  const isLight = theme === 1;
+
+  // Cartographic navigation telemetry
+  const latDeg = Math.round((cameraTarget.y / RADIUS) * 90);
+  const lonDeg = Math.round(Math.atan2(cameraTarget.x, cameraTarget.z || 15) * (180 / Math.PI));
+  const latStr = `${Math.abs(latDeg).toString().padStart(2, '0')}°00'${latDeg >= 0 ? 'N' : 'S'}`;
+  const lonStr = `${Math.abs(lonDeg).toString().padStart(3, '0')}°00'${lonDeg >= 0 ? 'E' : 'W'}`;
+  const mapScaleStr = alpha < 0.01 
+    ? '1 : 127,420,000' 
+    : `1 : ${Math.round(127420000 / Math.max(0.2, Math.cos((latDeg * Math.PI) / 180))).toLocaleString('en-US')}`;
+
   // Metrics calculation
   const originRadiusLinear = (RADIUS * (1.0 - alpha)).toFixed(2);
   const originRadiusScroll = RADIUS.toFixed(2);
@@ -689,19 +758,21 @@ export default function App() {
   const isRelaxed = alpha >= 0.65;
 
   // Fluid Hydrodynamics calculation
-  const liquefactionRatio = Math.pow(Math.sin(Math.PI * alpha), 1.2);
+  const liquefactionRatio = Math.pow(Math.sin(Math.PI * alpha), 1.15);
   const reynoldsNumber = Math.round(liquefactionRatio * 4200);
   const isTurbulent = alpha >= 0.12 && alpha < 0.88;
   const isCondensing = alpha >= 0.88;
 
   return (
-    <div className="relative w-screen h-screen flex flex-col font-mono bg-[#020408] overflow-hidden select-none">
+    <div className={`relative w-screen h-screen flex flex-col font-mono overflow-hidden select-none transition-colors duration-500 ${
+      isLight ? 'bg-[#F8FAFC]' : 'bg-[#020408]'
+    }`}>
       {/* Viewport Canvas (WebGL2 or WebGPU) */}
       <div className="w-full h-full relative">
         {backend === 'webgpu' ? (
           <React.Suspense fallback={
-            <div className="w-full h-full flex items-center justify-center bg-[#020408] text-purple-400 font-mono text-xs">
-              <span className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></span>
+            <div className={`w-full h-full flex items-center justify-center font-mono text-xs ${isLight ? 'bg-[#F8FAFC] text-zinc-700' : 'bg-[#020408] text-purple-400'}`}>
+              <span className={`w-6 h-6 border-2 border-t-transparent rounded-full animate-spin ${isLight ? 'border-zinc-800' : 'border-purple-400'}`}></span>
               <span className="ml-2">Initializing WebGPU WGSL Pipeline...</span>
             </div>
           }>
@@ -709,15 +780,13 @@ export default function App() {
               unfurlProgress={alpha}
               mode={mode}
               layerMode={layerMode}
+              theme={theme}
               resolution={resolution}
               cameraTarget={cameraTarget}
               cameraPosition={webgpuCameraPos}
               onFpsUpdate={handleFpsUpdate}
               onDataLoaded={handleDataLoaded}
-              onError={(err) => {
-                console.warn('WebGPU runtime error, falling back to WebGL2:', err);
-                setBackend('webgl2');
-              }}
+              onError={handleWebGPUError}
             />
           </React.Suspense>
         ) : (
@@ -727,6 +796,7 @@ export default function App() {
                 unfurlProgress={alpha} 
                 mode={mode} 
                 layerMode={layerMode}
+                theme={theme}
                 resolution={resolution}
                 cameraTarget={cameraTarget}
                 cursorPhysicsEnabled={cursorPhysicsEnabled}
@@ -751,45 +821,86 @@ export default function App() {
         )}
       </div>
 
-      {/* Top-Right Telemetry & Enterprise Benchmark HUD */}
+      {/* Top-Right Telemetry & Cartographic HUD */}
       <div className="absolute top-4 right-4 z-20 pointer-events-auto max-w-sm w-96">
-        <div className="rounded-2xl bg-black/75 border border-sky-500/25 backdrop-blur-xl shadow-2xl p-4 text-xs font-mono text-zinc-300 transition-all duration-300">
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+        <div className={`rounded-2xl border backdrop-blur-xl shadow-2xl p-4 text-xs font-mono transition-all duration-300 ${
+          isLight 
+            ? 'bg-white/85 border-zinc-200 text-zinc-800 shadow-zinc-200/50' 
+            : 'bg-black/75 border-sky-500/25 text-zinc-300'
+        }`}>
+          <div className={`flex items-center justify-between pb-3 border-b ${isLight ? 'border-zinc-200' : 'border-zinc-800/80'}`}>
             <div className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${
-                backend === 'webgpu' ? 'bg-purple-400' : mode === 3 ? 'bg-purple-400' : mode === 2 ? 'bg-rose-400' : mode === 1 ? 'bg-sky-400' : 'bg-amber-400'
+                backend === 'webgpu' 
+                  ? 'bg-purple-400' 
+                  : isLight 
+                    ? 'bg-zinc-800' 
+                    : mode === 3 ? 'bg-purple-400' : mode === 2 ? 'bg-rose-400' : mode === 1 ? 'bg-sky-400' : 'bg-amber-400'
               } animate-pulse`}></span>
               <span className={`text-[11px] font-bold tracking-widest uppercase ${
-                backend === 'webgpu' ? 'text-purple-400' : mode === 3 ? 'text-purple-400' : mode === 2 ? 'text-rose-400' : mode === 1 ? 'text-sky-400' : 'text-amber-400'
+                isLight 
+                  ? 'text-zinc-900' 
+                  : backend === 'webgpu' ? 'text-purple-400' : mode === 3 ? 'text-purple-400' : mode === 2 ? 'text-rose-400' : mode === 1 ? 'text-sky-400' : 'text-amber-400'
               }`}>
-                {backend === 'webgpu' ? (resolution === '1M' ? '1M WebGPU (120 FPS)' : 'WebGPU Compute (120 FPS)') : (resolution === '1M' ? '1M Matrix Enterprise' : 'Engine Telemetry')}
+                {backend === 'webgpu' ? (resolution === '1M' ? '1M WebGPU (120 FPS)' : 'WebGPU Compute (120 FPS)') : (resolution === '1M' ? '1M Matrix Enterprise' : 'Cartographic Telemetry')}
               </span>
             </div>
-            <button 
-              onClick={() => setIsHudOpen(!isHudOpen)}
-              className="text-[10px] text-zinc-400 hover:text-sky-300 px-2 py-0.5 rounded border border-zinc-700/60 hover:border-sky-500/40 transition-colors"
-            >
-              {isHudOpen ? 'Collapse' : 'Expand'}
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button 
+                onClick={() => setTheme(theme === 0 ? 1 : 0)}
+                title={isLight ? 'Switch to Dark Cyber' : 'Switch to Light Monochrome'}
+                className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${
+                  isLight 
+                    ? 'border-zinc-300 bg-zinc-100 text-zinc-800 hover:bg-zinc-200' 
+                    : 'border-zinc-700/60 bg-zinc-900 text-zinc-400 hover:text-sky-300 hover:border-sky-500/40'
+                }`}
+              >
+                {isLight ? '● Light' : '○ Dark'}
+              </button>
+              <button 
+                onClick={() => setIsHudOpen(!isHudOpen)}
+                className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                  isLight 
+                    ? 'border-zinc-300 text-zinc-600 hover:text-zinc-900' 
+                    : 'border-zinc-700/60 text-zinc-400 hover:text-sky-300 hover:border-sky-500/40'
+                }`}
+              >
+                {isHudOpen ? 'Collapse' : 'Expand'}
+              </button>
+            </div>
           </div>
 
           {isHudOpen && (
             <div className="mt-3 flex flex-col gap-3">
+              {/* Cartographic Coordinate & Scale Telemetry */}
+              <div className={`p-2 rounded-xl border text-[10px] flex items-center justify-between ${
+                isLight ? 'bg-zinc-100/70 border-zinc-200 text-zinc-700' : 'bg-zinc-950/60 border-zinc-800/80 text-zinc-400'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isLight ? 'bg-zinc-800' : 'bg-emerald-400'}`}></span>
+                  <span className="font-bold tracking-wider">{latStr} {lonStr}</span>
+                </div>
+                <div className="flex items-center gap-1 text-[9px]">
+                  <span className={isLight ? 'text-zinc-400' : 'text-zinc-500'}>SCALE</span>
+                  <span className={`font-semibold ${isLight ? 'text-zinc-900' : 'text-zinc-200'}`}>{mapScaleStr}</span>
+                </div>
+              </div>
+
               {/* Engine Backend Selector (WebGL2 vs WebGPU) */}
               <div>
-                <div className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 flex justify-between">
+                <div className={`text-[10px] uppercase tracking-wider mb-1 flex justify-between ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
                   <span>Engine Backend</span>
-                  <span className={`font-bold ${backend === 'webgpu' ? 'text-purple-400' : 'text-sky-400'}`}>
+                  <span className={`font-bold ${isLight ? (backend === 'webgpu' ? 'text-purple-700' : 'text-zinc-900') : (backend === 'webgpu' ? 'text-purple-400' : 'text-sky-400')}`}>
                     {backend === 'webgpu' ? 'WebGPU (120 FPS Compute)' : 'WebGL2 (Rasterizer)'}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-900/80 rounded-xl border border-zinc-800">
+                <div className={`grid grid-cols-2 gap-1 p-1 rounded-xl border ${isLight ? 'bg-zinc-100 border-zinc-200' : 'bg-zinc-900/80 border-zinc-800'}`}>
                   <button
                     onClick={() => setBackend('webgl2')}
                     className={`py-1 px-2 rounded-lg text-[10px] font-bold tracking-wide transition-all text-center ${
                       backend === 'webgl2' 
-                        ? 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm' 
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        ? (isLight ? 'bg-white text-zinc-900 shadow-sm border border-zinc-300' : 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm') 
+                        : (isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200')
                     }`}
                   >
                     WebGL2
@@ -806,10 +917,10 @@ export default function App() {
                     title={hasWebGPU ? 'Dedicated WGSL Compute Pipeline' : 'WebGPU Unsupported on this device/browser'}
                     className={`py-1 px-2 rounded-lg text-[10px] font-bold tracking-wide transition-all text-center ${
                       backend === 'webgpu' 
-                        ? 'bg-purple-500/25 text-purple-300 border border-purple-500/50 shadow-sm' 
+                        ? (isLight ? 'bg-purple-600 text-white shadow-sm' : 'bg-purple-500/25 text-purple-300 border border-purple-500/50 shadow-sm') 
                         : hasWebGPU 
-                        ? 'text-zinc-400 hover:text-purple-300' 
-                        : 'text-zinc-600 cursor-not-allowed opacity-50'
+                        ? (isLight ? 'text-zinc-600 hover:text-purple-700' : 'text-zinc-400 hover:text-purple-300') 
+                        : 'text-zinc-400 cursor-not-allowed opacity-40'
                     }`}
                   >
                     WebGPU {hasWebGPU ? '(120 FPS)' : '(N/A)'}
@@ -818,23 +929,25 @@ export default function App() {
               </div>
 
               {/* Hardware & WebGPU Pipeline Status Badge */}
-              <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-zinc-900/60 border border-zinc-800/80 text-[10px]">
+              <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl border text-[10px] ${
+                isLight ? 'bg-zinc-50 border-zinc-200 text-zinc-700' : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-400'
+              }`}>
                 <div className="flex items-center gap-1.5">
                   <span className={`w-1.5 h-1.5 rounded-full ${
                     backend === 'webgpu' 
                       ? 'bg-purple-400 animate-pulse' 
                       : hasWebGPU 
                         ? 'bg-emerald-400' 
-                        : 'bg-zinc-600'
+                        : 'bg-zinc-500'
                   }`}></span>
-                  <span className="text-zinc-400">Pipeline Status:</span>
+                  <span className={isLight ? 'text-zinc-500' : 'text-zinc-400'}>Pipeline Status:</span>
                 </div>
                 <span className={`font-semibold ${
                   backend === 'webgpu' 
-                    ? 'text-purple-300' 
+                    ? (isLight ? 'text-purple-700' : 'text-purple-300') 
                     : hasWebGPU 
-                      ? 'text-emerald-300' 
-                      : 'text-zinc-500'
+                      ? (isLight ? 'text-emerald-700' : 'text-emerald-300') 
+                      : 'text-zinc-400'
                 }`}>
                   {backend === 'webgpu' 
                     ? 'WGSL Compute Active (120 FPS)' 
@@ -846,17 +959,17 @@ export default function App() {
 
               {/* Matrix Resolution Selector (100k vs 1M) */}
               <div>
-                <div className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 flex justify-between">
+                <div className={`text-[10px] uppercase tracking-wider mb-1 flex justify-between ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
                   <span>Matrix Density</span>
-                  <span className="text-emerald-400 font-bold">{resolution} Nodes</span>
+                  <span className={`font-bold ${isLight ? 'text-zinc-900' : 'text-emerald-400'}`}>{resolution} Nodes</span>
                 </div>
-                <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-900/80 rounded-xl border border-zinc-800">
+                <div className={`grid grid-cols-2 gap-1 p-1 rounded-xl border ${isLight ? 'bg-zinc-100 border-zinc-200' : 'bg-zinc-900/80 border-zinc-800'}`}>
                   <button
                     onClick={() => setResolution('100k')}
                     className={`py-1 px-2 rounded-lg text-[10px] font-bold tracking-wide transition-all text-center ${
                       resolution === '100k' 
-                        ? 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm' 
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        ? (isLight ? 'bg-white text-zinc-900 shadow-sm border border-zinc-300' : 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm') 
+                        : (isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200')
                     }`}
                   >
                     100,000 Nodes
@@ -865,8 +978,8 @@ export default function App() {
                     onClick={() => setResolution('1M')}
                     className={`py-1 px-2 rounded-lg text-[10px] font-bold tracking-wide transition-all text-center ${
                       resolution === '1M' 
-                        ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 shadow-sm' 
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        ? (isLight ? 'bg-white text-zinc-900 shadow-sm border border-zinc-300' : 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 shadow-sm') 
+                        : (isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200')
                     }`}
                   >
                     1,000,000 Nodes
@@ -874,21 +987,21 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Interactive HUD Display Layer Selector (Milestone M2 / Feature F4) */}
+              {/* Interactive HUD Display Layer Selector */}
               <div>
-                <div className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 flex justify-between">
+                <div className={`text-[10px] uppercase tracking-wider mb-1 flex justify-between ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
                   <span>Display Layer</span>
-                  <span className="text-sky-400 font-bold">
+                  <span className={`font-bold ${isLight ? 'text-zinc-900' : 'text-sky-400'}`}>
                     {layerMode === 0 ? 'Both' : layerMode === 1 ? 'Points Only' : 'Wireframe Only'}
                   </span>
                 </div>
-                <div className="grid grid-cols-3 gap-1 p-1 bg-zinc-900/80 rounded-xl border border-zinc-800">
+                <div className={`grid grid-cols-3 gap-1 p-1 rounded-xl border ${isLight ? 'bg-zinc-100 border-zinc-200' : 'bg-zinc-900/80 border-zinc-800'}`}>
                   <button
                     onClick={() => setLayerMode(0)}
                     className={`py-1.5 px-1 rounded-lg text-[10px] font-bold tracking-wide transition-all text-center ${
                       layerMode === 0 
-                        ? 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm' 
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        ? (isLight ? 'bg-white text-zinc-900 shadow-sm border border-zinc-300' : 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm') 
+                        : (isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200')
                     }`}
                   >
                     Both
@@ -897,8 +1010,8 @@ export default function App() {
                     onClick={() => setLayerMode(1)}
                     className={`py-1.5 px-1 rounded-lg text-[10px] font-bold tracking-wide transition-all text-center ${
                       layerMode === 1 
-                        ? 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm' 
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        ? (isLight ? 'bg-white text-zinc-900 shadow-sm border border-zinc-300' : 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm') 
+                        : (isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200')
                     }`}
                   >
                     Points
@@ -907,8 +1020,8 @@ export default function App() {
                     onClick={() => setLayerMode(2)}
                     className={`py-1.5 px-1 rounded-lg text-[10px] font-bold tracking-wide transition-all text-center ${
                       layerMode === 2 
-                        ? 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm' 
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        ? (isLight ? 'bg-white text-zinc-900 shadow-sm border border-zinc-300' : 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm') 
+                        : (isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200')
                     }`}
                   >
                     Wireframe
@@ -918,19 +1031,19 @@ export default function App() {
 
               {/* Cursor Interaction Experimental Toggle */}
               <div>
-                <div className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 flex justify-between">
+                <div className={`text-[10px] uppercase tracking-wider mb-1 flex justify-between ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
                   <span>Cursor Interaction</span>
-                  <span className={`font-bold ${cursorPhysicsEnabled ? 'text-purple-400' : 'text-zinc-500'}`}>
+                  <span className={`font-bold ${cursorPhysicsEnabled ? (isLight ? 'text-purple-700' : 'text-purple-400') : (isLight ? 'text-zinc-500' : 'text-zinc-500')}`}>
                     {cursorPhysicsEnabled ? 'Active (Experimental)' : 'Off (Smooth Scrub)'}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-900/80 rounded-xl border border-zinc-800">
+                <div className={`grid grid-cols-2 gap-1 p-1 rounded-xl border ${isLight ? 'bg-zinc-100 border-zinc-200' : 'bg-zinc-900/80 border-zinc-800'}`}>
                   <button
                     onClick={() => setCursorPhysicsEnabled(false)}
                     className={`py-1.5 px-2 rounded-lg text-[10px] font-bold tracking-wide transition-all text-center ${
                       !cursorPhysicsEnabled 
-                        ? 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm' 
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        ? (isLight ? 'bg-white text-zinc-900 shadow-sm border border-zinc-300' : 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm') 
+                        : (isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200')
                     }`}
                   >
                     Off (Default)
@@ -939,8 +1052,8 @@ export default function App() {
                     onClick={() => setCursorPhysicsEnabled(true)}
                     className={`py-1.5 px-2 rounded-lg text-[10px] font-bold tracking-wide transition-all text-center ${
                       cursorPhysicsEnabled 
-                        ? 'bg-purple-500/25 text-purple-300 border border-purple-500/50 shadow-sm' 
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        ? (isLight ? 'bg-purple-600 text-white shadow-sm' : 'bg-purple-500/25 text-purple-300 border border-purple-500/50 shadow-sm') 
+                        : (isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200')
                     }`}
                   >
                     On (Tactile)
@@ -950,21 +1063,23 @@ export default function App() {
 
               {/* 4-Way Simulation Paradigm Selector */}
               <div>
-                <div className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1.5 flex justify-between">
+                <div className={`text-[10px] uppercase tracking-wider mb-1.5 flex justify-between ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
                   <span>Simulation Paradigm</span>
                   <span className={`font-bold ${
-                    mode === 3 ? 'text-purple-400' : mode === 2 ? 'text-rose-400' : mode === 1 ? 'text-sky-400' : 'text-amber-400'
+                    isLight 
+                      ? 'text-zinc-900' 
+                      : mode === 3 ? 'text-purple-400' : mode === 2 ? 'text-rose-400' : mode === 1 ? 'text-sky-400' : 'text-amber-400'
                   }`}>
                     {mode === 3 ? 'Fluid Flow' : mode === 2 ? 'Griffith LEFM' : mode === 1 ? 'Cylindrical Scroll' : 'Linear Mix'}
                   </span>
                 </div>
-                <div className="grid grid-cols-4 gap-1 p-1 bg-zinc-900/80 rounded-xl border border-zinc-800">
+                <div className={`grid grid-cols-4 gap-1 p-1 rounded-xl border ${isLight ? 'bg-zinc-100 border-zinc-200' : 'bg-zinc-900/80 border-zinc-800'}`}>
                   <button
                     onClick={() => setMode(0)}
                     className={`py-1.5 px-0.5 rounded-lg text-[9px] font-bold tracking-tight transition-all text-center ${
                       mode === 0 
-                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm' 
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        ? (isLight ? 'bg-white text-zinc-900 shadow-sm border border-zinc-300' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm') 
+                        : (isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200')
                     }`}
                   >
                     Linear
@@ -973,8 +1088,8 @@ export default function App() {
                     onClick={() => setMode(1)}
                     className={`py-1.5 px-0.5 rounded-lg text-[9px] font-bold tracking-tight transition-all text-center ${
                       mode === 1 
-                        ? 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm' 
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        ? (isLight ? 'bg-white text-zinc-900 shadow-sm border border-zinc-300' : 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm') 
+                        : (isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200')
                     }`}
                   >
                     Scroll
@@ -983,8 +1098,8 @@ export default function App() {
                     onClick={() => setMode(2)}
                     className={`py-1.5 px-0.5 rounded-lg text-[9px] font-bold tracking-tight transition-all text-center ${
                       mode === 2 
-                        ? 'bg-rose-500/25 text-rose-300 border border-rose-500/50 shadow-sm' 
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        ? (isLight ? 'bg-white text-zinc-900 shadow-sm border border-zinc-300' : 'bg-rose-500/25 text-rose-300 border border-rose-500/50 shadow-sm') 
+                        : (isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200')
                     }`}
                   >
                     Griffith
@@ -993,8 +1108,8 @@ export default function App() {
                     onClick={() => setMode(3)}
                     className={`py-1.5 px-0.5 rounded-lg text-[9px] font-bold tracking-tight transition-all text-center ${
                       mode === 3 
-                        ? 'bg-purple-500/25 text-purple-300 border border-purple-500/50 shadow-sm' 
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        ? (isLight ? 'bg-white text-zinc-900 shadow-sm border border-zinc-300' : 'bg-purple-500/25 text-purple-300 border border-purple-500/50 shadow-sm') 
+                        : (isLight ? 'text-zinc-600 hover:text-zinc-900' : 'text-zinc-400 hover:text-zinc-200')
                     }`}
                   >
                     Fluid
@@ -1004,11 +1119,13 @@ export default function App() {
 
               {/* Dynamic Metric Card based on Active Paradigm */}
               {mode === 3 ? (
-                <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
+                <div className={`p-2.5 rounded-xl border ${isLight ? 'bg-zinc-50 border-zinc-200' : 'bg-zinc-950/60 border-zinc-800/80'}`}>
                   <div className="flex justify-between items-center text-[10px]">
-                    <span className="text-zinc-400">Hydrodynamic Flow (Re):</span>
+                    <span className={isLight ? 'text-zinc-600' : 'text-zinc-400'}>Hydrodynamic Flow (Re):</span>
                     <span className={`font-bold ${
-                      isCondensing ? 'text-emerald-400' : isTurbulent ? 'text-purple-400 animate-pulse' : 'text-sky-400'
+                      isLight 
+                        ? 'text-zinc-900' 
+                        : isCondensing ? 'text-emerald-400' : isTurbulent ? 'text-purple-400 animate-pulse' : 'text-sky-400'
                     }`}>
                       {isCondensing 
                         ? 'Planar Freeze (Re → 0)' 
@@ -1017,31 +1134,35 @@ export default function App() {
                           : 'Solid Crystal (Re ≈ 0)'}
                     </span>
                   </div>
-                  <div className="w-full bg-zinc-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div className={`w-full h-1.5 rounded-full mt-2 overflow-hidden ${isLight ? 'bg-zinc-200' : 'bg-zinc-800'}`}>
                     <div 
                       className={`h-full transition-all duration-150 ${
-                        isCondensing 
-                          ? 'bg-emerald-400' 
-                          : isTurbulent 
-                            ? 'bg-gradient-to-r from-sky-400 via-indigo-500 to-purple-500' 
-                            : 'bg-sky-400'
+                        isLight 
+                          ? 'bg-zinc-800' 
+                          : isCondensing 
+                            ? 'bg-emerald-400' 
+                            : isTurbulent 
+                              ? 'bg-gradient-to-r from-sky-400 via-indigo-500 to-purple-500' 
+                              : 'bg-sky-400'
                       }`}
                       style={{ 
                         width: isCondensing ? '100%' : `${liquefactionRatio * 100}%` 
                       }}
                     ></div>
                   </div>
-                  <div className="text-[9px] text-zinc-500 mt-1.5 flex justify-between">
+                  <div className={`text-[9px] mt-1.5 flex justify-between ${isLight ? 'text-zinc-500' : 'text-zinc-500'}`}>
                     <span>Field: 3D Curl-Noise (div u = 0)</span>
                     <span>{isTurbulent ? 'Vortices Active' : isCondensing ? 'Laminarizing' : 'Quiescent'}</span>
                   </div>
                 </div>
               ) : mode === 2 ? (
-                <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
+                <div className={`p-2.5 rounded-xl border ${isLight ? 'bg-zinc-50 border-zinc-200' : 'bg-zinc-950/60 border-zinc-800/80'}`}>
                   <div className="flex justify-between items-center text-[10px]">
-                    <span className="text-zinc-400">Griffith Energy Release:</span>
+                    <span className={isLight ? 'text-zinc-600' : 'text-zinc-400'}>Griffith Energy Release:</span>
                     <span className={`font-bold ${
-                      isRelaxed ? 'text-emerald-400' : isCrackActive ? 'text-rose-400 animate-pulse' : 'text-amber-400'
+                      isLight 
+                        ? 'text-zinc-900' 
+                        : isRelaxed ? 'text-emerald-400' : isCrackActive ? 'text-rose-400 animate-pulse' : 'text-amber-400'
                     }`}>
                       {isRelaxed 
                         ? 'Relaxed (G/Gc ≈ 0)' 
@@ -1050,40 +1171,42 @@ export default function App() {
                           : `Pre-Strain (G/Gc = ${gRatio.toFixed(2)})`}
                     </span>
                   </div>
-                  <div className="w-full bg-zinc-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div className={`w-full h-1.5 rounded-full mt-2 overflow-hidden ${isLight ? 'bg-zinc-200' : 'bg-zinc-800'}`}>
                     <div 
                       className={`h-full transition-all duration-150 ${
-                        isRelaxed 
-                          ? 'bg-emerald-400' 
-                          : isCrackActive 
-                            ? 'bg-gradient-to-r from-amber-400 via-rose-500 to-white' 
-                            : 'bg-amber-400'
+                        isLight 
+                          ? 'bg-zinc-800' 
+                          : isRelaxed 
+                            ? 'bg-emerald-400' 
+                            : isCrackActive 
+                              ? 'bg-gradient-to-r from-amber-400 via-rose-500 to-white' 
+                              : 'bg-amber-400'
                       }`}
                       style={{ 
                         width: isRelaxed ? '100%' : `${gRatio * 100}%` 
                       }}
                     ></div>
                   </div>
-                  <div className="text-[9px] text-zinc-500 mt-1.5 flex justify-between">
+                  <div className={`text-[9px] mt-1.5 flex justify-between ${isLight ? 'text-zinc-500' : 'text-zinc-500'}`}>
                     <span>Seam: Antimeridian (180°)</span>
                     <span>{isCrackActive ? 'Acoustic Flutter' : isRelaxed ? 'Conformal Sheet' : 'Tensile Tension'}</span>
                   </div>
                 </div>
               ) : (
-                <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
+                <div className={`p-2.5 rounded-xl border ${isLight ? 'bg-zinc-50 border-zinc-200' : 'bg-zinc-950/60 border-zinc-800/80'}`}>
                   <div className="flex justify-between items-center text-[10px]">
-                    <span className="text-zinc-400">Radial Volume Collapse:</span>
-                    <span className={`font-bold ${mode === 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    <span className={isLight ? 'text-zinc-600' : 'text-zinc-400'}>Radial Volume Collapse:</span>
+                    <span className={`font-bold ${isLight ? 'text-zinc-900' : (mode === 0 ? 'text-amber-400' : 'text-emerald-400')}`}>
                       {mode === 0 ? `-${sagPercent}% Sag (R = ${originRadiusLinear})` : `0.0% Sag (R ≡ ${originRadiusScroll})`}
                     </span>
                   </div>
-                  <div className="w-full bg-zinc-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div className={`w-full h-1.5 rounded-full mt-2 overflow-hidden ${isLight ? 'bg-zinc-200' : 'bg-zinc-800'}`}>
                     <div 
-                      className={`h-full transition-all duration-200 ${mode === 0 ? 'bg-amber-500' : 'bg-sky-400'}`}
+                      className={`h-full transition-all duration-200 ${isLight ? 'bg-zinc-800' : (mode === 0 ? 'bg-amber-500' : 'bg-sky-400')}`}
                       style={{ width: mode === 0 ? `${(1.0 - alpha) * 100}%` : '100%' }}
                     ></div>
                   </div>
-                  <div className="text-[9px] text-zinc-500 mt-1.5 flex justify-between">
+                  <div className={`text-[9px] mt-1.5 flex justify-between ${isLight ? 'text-zinc-500' : 'text-zinc-500'}`}>
                     <span>Origin R: {mode === 0 ? originRadiusLinear : originRadiusScroll} / 5.0</span>
                     <span>{mode === 0 ? 'Chord Contraction' : 'Isometric Scroll'}</span>
                   </div>
@@ -1091,69 +1214,91 @@ export default function App() {
               )}
 
               {/* Data & Buffer Telemetry */}
-              <div className="p-2 rounded-xl bg-zinc-950/60 border border-zinc-800/80 text-[10px] flex flex-col gap-1">
+              <div className={`p-2 rounded-xl border text-[10px] flex flex-col gap-1 ${
+                isLight ? 'bg-zinc-50 border-zinc-200' : 'bg-zinc-950/60 border-zinc-800/80'
+              }`}>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Payload Format:</span>
-                  <span className="text-emerald-400 font-bold">{dataInfo.format}</span>
+                  <span className={isLight ? 'text-zinc-500' : 'text-zinc-500'}>Payload Format:</span>
+                  <span className={`font-bold ${isLight ? 'text-zinc-900' : 'text-emerald-400'}`}>{dataInfo.format}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Buffer Load Time:</span>
-                  <span className="text-zinc-200 font-mono">{dataInfo.loadTimeMs} ms</span>
+                  <span className={isLight ? 'text-zinc-500' : 'text-zinc-500'}>Buffer Load Time:</span>
+                  <span className={`font-mono ${isLight ? 'text-zinc-800' : 'text-zinc-200'}`}>{dataInfo.loadTimeMs} ms</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">VRAM Allocation:</span>
-                  <span className="text-sky-300 font-mono font-bold">{dataInfo.vramMb} MB</span>
+                  <span className={isLight ? 'text-zinc-500' : 'text-zinc-500'}>VRAM Allocation:</span>
+                  <span className={`font-mono font-bold ${isLight ? 'text-zinc-900' : 'text-sky-300'}`}>{dataInfo.vramMb} MB</span>
                 </div>
               </div>
 
-              {/* Rendering & Overdraw Telemetry */}
+              {/* Live Telemetry Cards */}
               <div className="grid grid-cols-2 gap-2 text-[10px]">
-                <div className="p-2 rounded-xl bg-zinc-950/60 border border-zinc-800/80 flex flex-col">
-                  <span className="text-zinc-500">Live Framerate</span>
-                  <span className={`text-base font-bold mt-0.5 ${fps >= 55 ? 'text-emerald-400' : fps >= 30 ? 'text-amber-400' : 'text-red-400'}`}>
-                    {fps} <span className="text-[10px] font-normal text-zinc-400">FPS</span>
+                <div className={`p-2 rounded-xl border flex flex-col ${isLight ? 'bg-zinc-50 border-zinc-200' : 'bg-zinc-950/60 border-zinc-800/80'}`}>
+                  <span className={isLight ? 'text-zinc-500' : 'text-zinc-500'}>Live Framerate</span>
+                  <span className={`text-base font-bold mt-0.5 ${
+                    isLight 
+                      ? (fps >= 55 ? 'text-zinc-900' : 'text-amber-700') 
+                      : (fps >= 55 ? 'text-emerald-400' : fps >= 30 ? 'text-amber-400' : 'text-red-400')
+                  }`}>
+                    {fps} <span className={`text-[10px] font-normal ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>FPS</span>
                   </span>
                 </div>
-                <div className="p-2 rounded-xl bg-zinc-950/60 border border-zinc-800/80 flex flex-col">
-                  <span className="text-zinc-500">Point Vertices</span>
-                  <span className="text-base font-bold text-emerald-400 mt-0.5 flex items-baseline gap-1">
+                <div className={`p-2 rounded-xl border flex flex-col ${isLight ? 'bg-zinc-50 border-zinc-200' : 'bg-zinc-950/60 border-zinc-800/80'}`}>
+                  <span className={isLight ? 'text-zinc-500' : 'text-zinc-500'}>Point Vertices</span>
+                  <span className={`text-base font-bold mt-0.5 flex items-baseline gap-1 ${isLight ? 'text-zinc-900' : 'text-emerald-400'}`}>
                     {dataInfo.pointCount.toLocaleString()}
-                    <span className="text-[9px] text-emerald-500/80 font-normal">1x</span>
+                    <span className={`text-[9px] font-normal ${isLight ? 'text-zinc-400' : 'text-emerald-500/80'}`}>1x</span>
                   </span>
-                  <span className="text-[8px] text-zinc-500">RTC Precision Active</span>
+                  <span className={`text-[8px] ${isLight ? 'text-zinc-400' : 'text-zinc-500'}`}>RTC Precision Active</span>
                 </div>
               </div>
 
-              <div className="flex justify-between text-[10px] px-1 text-zinc-400">
+              <div className={`flex justify-between text-[10px] px-1 ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
                 <span>Mesh Edges:</span>
-                <span className="text-zinc-200 font-semibold">{dataInfo.lineCount.toLocaleString()} ({(dataInfo.lineCount * 2).toLocaleString()} idx)</span>
+                <span className={`font-semibold ${isLight ? 'text-zinc-800' : 'text-zinc-200'}`}>{dataInfo.lineCount.toLocaleString()} ({(dataInfo.lineCount * 2).toLocaleString()} idx)</span>
               </div>
 
               {/* Viewport Camera Snaps */}
               <div>
-                <span className="text-[10px] text-zinc-500 block mb-1.5 uppercase tracking-wider">Inspect Topology</span>
+                <span className={`text-[10px] block mb-1.5 uppercase tracking-wider ${isLight ? 'text-zinc-500' : 'text-zinc-500'}`}>Inspect Topology</span>
                 <div className="grid grid-cols-4 gap-1">
                   <button 
                     onClick={() => snapCamera('equator')} 
-                    className="py-1 px-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 rounded-lg text-[9px] transition-colors text-center"
+                    className={`py-1 px-1 rounded-lg text-[9px] transition-colors text-center border ${
+                      isLight 
+                        ? 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700' 
+                        : 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 hover:border-zinc-700 text-zinc-300'
+                    }`}
                   >
                     Equator
                   </button>
                   <button 
                     onClick={() => snapCamera('seam')} 
-                    className="py-1 px-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-rose-300/90 rounded-lg text-[9px] transition-colors text-center font-bold"
+                    className={`py-1 px-1 rounded-lg text-[9px] transition-colors text-center font-bold border ${
+                      isLight 
+                        ? 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-rose-700' 
+                        : 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 hover:border-zinc-700 text-rose-300/90'
+                    }`}
                   >
                     Seam 180°
                   </button>
                   <button 
                     onClick={() => snapCamera('pole')} 
-                    className="py-1 px-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 rounded-lg text-[9px] transition-colors text-center text-sky-400/90"
+                    className={`py-1 px-1 rounded-lg text-[9px] transition-colors text-center border ${
+                      isLight 
+                        ? 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-blue-700' 
+                        : 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 hover:border-zinc-700 text-sky-400/90'
+                    }`}
                   >
                     North Pole
                   </button>
                   <button 
                     onClick={() => snapCamera('isometric')} 
-                    className="py-1 px-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 rounded-lg text-[9px] transition-colors text-center"
+                    className={`py-1 px-1 rounded-lg text-[9px] transition-colors text-center border ${
+                      isLight 
+                        ? 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700' 
+                        : 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 hover:border-zinc-700 text-zinc-300'
+                    }`}
                   >
                     Perspective
                   </button>
@@ -1166,8 +1311,14 @@ export default function App() {
 
       {/* Bottom Morph Slider Dock */}
       <div className="absolute bottom-10 inset-x-0 flex flex-col items-center gap-2 z-10 pointer-events-none">
-        <div className="flex items-center gap-4 px-6 py-3 rounded-full bg-black/70 border border-sky-500/25 backdrop-blur-xl shadow-2xl pointer-events-auto">
-          <span className="text-[10px] text-sky-400 font-bold uppercase tracking-widest flex items-center gap-1">
+        <div className={`flex items-center gap-4 px-6 py-3 rounded-full backdrop-blur-xl shadow-2xl pointer-events-auto border transition-colors ${
+          isLight 
+            ? 'bg-white/90 border-zinc-200 text-zinc-800 shadow-zinc-300/50' 
+            : 'bg-black/70 border-sky-500/25 text-zinc-300'
+        }`}>
+          <span className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 ${
+            isLight ? 'text-zinc-900' : 'text-sky-400'
+          }`}>
             Globe
           </span>
           <input 
@@ -1177,12 +1328,20 @@ export default function App() {
             step="0.001" 
             value={alpha} 
             onChange={(e) => setAlpha(parseFloat(e.target.value))} 
-            className="w-48 sm:w-72 h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-sky-400 hover:bg-zinc-700 transition-colors" 
+            className={`w-48 sm:w-72 h-1.5 rounded-lg appearance-none cursor-pointer transition-colors ${
+              isLight 
+                ? 'bg-zinc-200 accent-zinc-900 hover:bg-zinc-300' 
+                : 'bg-zinc-800 accent-sky-400 hover:bg-zinc-700'
+            }`} 
           />
-          <span className="text-[10px] text-sky-400 font-bold uppercase tracking-widest flex items-center gap-1">
+          <span className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 ${
+            isLight ? 'text-zinc-900' : 'text-sky-400'
+          }`}>
             Map
           </span>
-          <span className="text-[9px] text-zinc-400 font-mono pl-2 border-l border-zinc-800">
+          <span className={`text-[9px] font-mono pl-2 border-l ${
+            isLight ? 'text-zinc-600 border-zinc-200' : 'text-zinc-400 border-zinc-800'
+          }`}>
             {alpha.toFixed(3)}
           </span>
         </div>

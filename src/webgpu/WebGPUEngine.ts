@@ -5,7 +5,6 @@
 // ============================================================================
 
 import * as THREE from 'three';
-import { generateDymaxionBuffer } from '../utils/dymaxion';
 import { isWebGPUSupported } from './support';
 
 export { isWebGPUSupported };
@@ -20,7 +19,6 @@ export interface WebGPUInitConfig {
   pointsData: Float32Array;   // 3 * N (xyz)
   target2DData: Float32Array; // 2 * N (xy)
   typeData: Float32Array;     // N (vType)
-  dymaxion2DData?: Float32Array; // 2 * N (xy)
   lineIndices: Uint32Array;   // 2 * M (line segment index pairs)
 }
 
@@ -28,6 +26,7 @@ export interface WebGPUFrameParams {
   unfurl: number;
   mode: number;
   layerMode?: number; // 0 = Both, 1 = Points Only, 2 = Wireframe Only
+  theme?: number;     // 0 = Dark Cyber, 1 = Light Monochrome
   time: number;
   dt: number;
   cursorRayOrig?: THREE.Vector3;
@@ -99,11 +98,8 @@ export class WebGPUEngine {
     this.device = await adapter.requestDevice();
 
     this.device.lost?.then((info) => {
-      console.warn('WebGPU device was lost:', info);
       this.isInitialized = false;
-      if (this.onDeviceLostCallback) {
-        this.onDeviceLostCallback(info);
-      }
+      this.onDeviceLostCallback?.(info);
     }).catch(() => {});
 
     this.context = config.canvas.getContext('webgpu') as GPUCanvasContext;
@@ -120,9 +116,6 @@ export class WebGPUEngine {
 
     this.pointCount = config.pointCount;
     this.lineIndexCount = config.lineIndices.length;
-
-    // Generate Dymaxion 2D buffer if not pre-provided
-    const dymaxionBuffer = config.dymaxion2DData || generateDymaxionBuffer(config.pointsData);
 
     // 1. Pack and Upload Interleaved Particle Buffer (64 bytes / node = 16 floats / node)
     const particleFloatCount = this.pointCount * 16;
@@ -414,7 +407,7 @@ export class WebGPUEngine {
     simFloats[4] = params.dt;
     simFloats[5] = params.cursorActive ? 1.0 : 0.0;
     simUints[6] = this.pointCount;
-    simFloats[7] = 0.0;
+    simUints[7] = params.theme !== undefined ? params.theme : 0; // 0 = Dark, 1 = Light Monochrome
 
     // [8..11]: cursorRayOrig
     if (params.cursorRayOrig) {
@@ -493,11 +486,14 @@ export class WebGPUEngine {
       params.renderLayers === 'points' ? 1 : params.renderLayers === 'wireframe' ? 2 : 0
     );
 
+    const isLight = params.theme === 1;
     const renderPass = commandEncoder.beginRenderPass({
       colorAttachments: [
         {
           view: this.context.getCurrentTexture().createView(),
-          clearValue: { r: 0.008, g: 0.016, b: 0.031, a: 1.0 },
+          clearValue: isLight
+            ? { r: 0.973, g: 0.980, b: 0.988, a: 1.0 } // #F8FAFC archival paper
+            : { r: 0.008, g: 0.016, b: 0.031, a: 1.0 }, // #020408 obsidian
           loadOp: 'clear',
           storeOp: 'store',
         },
@@ -545,6 +541,7 @@ export class WebGPUEngine {
 
   public dispose(): void {
     if (!this.isInitialized) return;
+    this.onDeviceLostCallback = undefined;
     this.particleBuffers[0]?.destroy();
     this.particleBuffers[1]?.destroy();
     this.lineIndexBuffer?.destroy();
