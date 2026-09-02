@@ -8,11 +8,10 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { WebGPUEngine } from './WebGPUEngine';
 import { CursorTracker } from '../utils/raycast';
-import { generateDymaxionBuffer } from '../utils/dymaxion';
 
 export interface WebGPUCanvasProps {
   unfurlProgress: number;
-  mode: 0 | 1 | 2 | 3 | 4;
+  mode: 0 | 1 | 2 | 3;
   layerMode: 0 | 1 | 2;
   resolution: '100k' | '1M';
   cameraTarget?: THREE.Vector3;
@@ -216,7 +215,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const target2DData = new Float32Array(buffer, tOffset, pointCount * 2);
         const typeData = new Float32Array(buffer, typOffset, pointCount);
         const lineIndices = new Uint32Array(buffer, iOffset, indexCount);
-        const dymaxion2DData = generateDymaxionBuffer(pointsData);
 
         const engine = engineRef.current;
         await engine.initialize({
@@ -225,7 +223,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           pointsData,
           target2DData,
           typeData,
-          dymaxion2DData,
           lineIndices,
         });
 
@@ -233,7 +230,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         setIsLoading(false);
 
         const t1 = performance.now();
-        const vramBytes = pointsData.byteLength + target2DData.byteLength + dymaxion2DData.byteLength + typeData.byteLength + lineIndices.byteLength;
+        const vramBytes = pointsData.byteLength + target2DData.byteLength + typeData.byteLength + lineIndices.byteLength;
 
         onDataLoaded?.({
           pointCount,
@@ -262,7 +259,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           const target2DData = new Float32Array(data.target2DBuffer);
           const typeData = new Float32Array(data.typeBuffer);
           const lineIndices = new Uint32Array(data.lineIndices);
-          const dymaxion2DData = generateDymaxionBuffer(pointsData);
 
           const engine = engineRef.current;
           await engine.initialize({
@@ -271,7 +267,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             pointsData,
             target2DData,
             typeData,
-            dymaxion2DData,
             lineIndices,
           });
 
@@ -279,7 +274,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           setIsLoading(false);
 
           const t1 = performance.now();
-          const vramBytes = pointsData.byteLength + target2DData.byteLength + dymaxion2DData.byteLength + typeData.byteLength + lineIndices.byteLength;
+          const vramBytes = pointsData.byteLength + target2DData.byteLength + typeData.byteLength + lineIndices.byteLength;
 
           onDataLoaded?.({
             pointCount: pointsData.length / 3,

@@ -63,7 +63,6 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pIn = particlesIn[index];
     let pos3D = pIn.rest_sphere.xyz;
     let pos2D = vec3<f32>(pIn.rest_map.xy, 0.0);
-    let dymaxionTarget = vec3<f32>(pIn.rest_map.zw, 0.0);
     let pointType = pIn.position.w;
 
     let clampedUnfurl = clamp(sim.u_unfurl, 0.0, 1.0);
@@ -77,16 +76,8 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var finalVel = vec3<f32>(0.0);
     var metric = 0.0;
 
-    // Mode 4: Fuller Dymaxion Polyhedral Unfolding (R3)
-    if (sim.u_mode == 4u) {
-        let arch = sin(PI * ease) * 0.45;
-        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
-        finalPos = mix(pos3D, dymaxionTarget, ease) + sphereNorm * arch;
-        finalVel = vec3<f32>(0.0);
-        metric = 0.0;
-    }
     // Mode 1: Cylindrical Scroll (engine-audit.md §3.6)
-    else if (sim.u_mode == 1u) {
+    if (sim.u_mode == 1u) {
         let t = ease;
         let lambda = atan2(pos3D.x, pos3D.z);
         let phi = asin(clamp(pos3D.y / RADIUS, -1.0, 1.0));

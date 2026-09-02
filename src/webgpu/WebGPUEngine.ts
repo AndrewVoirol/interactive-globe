@@ -148,11 +148,11 @@ export class WebGPUEngine {
       initialParticles[base + 10] = config.pointsData[i * 3 + 2];
       initialParticles[base + 11] = 5.0;
 
-      // rest_map (xy: Mercator 2D, zw: Dymaxion 2D)
+      // rest_map (xy: Mercator 2D, zw: reserved)
       initialParticles[base + 12] = config.target2DData[i * 2 + 0];
       initialParticles[base + 13] = config.target2DData[i * 2 + 1];
-      initialParticles[base + 14] = dymaxionBuffer[i * 2 + 0];
-      initialParticles[base + 15] = dymaxionBuffer[i * 2 + 1];
+      initialParticles[base + 14] = 0.0;
+      initialParticles[base + 15] = 0.0;
     }
 
     const bufferByteSize = initialParticles.byteLength;
@@ -162,20 +162,26 @@ export class WebGPUEngine {
       size: bufferByteSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     });
-    this.device.queue.writeBuffer(this.particleBuffers[0], 0, initialParticles.buffer);
+    this.device.queue.writeBuffer(this.particleBuffers[0], 0, initialParticles.buffer, initialParticles.byteOffset, initialParticles.byteLength);
 
     this.particleBuffers[1] = this.device.createBuffer({
       size: bufferByteSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     });
-    this.device.queue.writeBuffer(this.particleBuffers[1], 0, initialParticles.buffer);
+    this.device.queue.writeBuffer(this.particleBuffers[1], 0, initialParticles.buffer, initialParticles.byteOffset, initialParticles.byteLength);
 
-    // 2. Index Buffer for Line Segments
+    // 2. Index Buffer for Line Segments (Must use exact byteOffset and byteLength to prevent ArrayBuffer overflow)
     this.lineIndexBuffer = this.device.createBuffer({
       size: config.lineIndices.byteLength,
       usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
     });
-    this.device.queue.writeBuffer(this.lineIndexBuffer, 0, config.lineIndices.buffer);
+    this.device.queue.writeBuffer(
+      this.lineIndexBuffer,
+      0,
+      config.lineIndices.buffer,
+      config.lineIndices.byteOffset,
+      config.lineIndices.byteLength
+    );
 
     // 3. Sim Uniform Buffer (256 bytes, 16-byte aligned)
     this.simUniformBuffer = this.device.createBuffer({
