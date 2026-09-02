@@ -1,0 +1,208 @@
+// ============================================================================
+// File: src/webgpu/shaders/physics_sim.wgsl
+// Target: Dedicated WebGPU WGSL Compute Pipeline (@compute @workgroup_size(256))
+// Description: 1,000,000-Node Continuum Physics Simulation for Globe-to-Map Morphing
+// ============================================================================
+
+struct Particle {
+    position: vec4<f32>,     // xyz: Position, w: pointType (1.0 = Land, 0.0 = Ocean)
+    velocity: vec4<f32>,     // xyz: Velocity, w: metric (vStrain / vVorticity)
+    rest_sphere: vec4<f32>,  // xyz: S² Coordinate, w: Rest Radius (5.0)
+    rest_map: vec4<f32>,     // xy: 2D Mercator Target, zw: 2D Dymaxion Target
+};
+
+struct SimUniforms {
+    u_unfurl: f32,           // Morph Progress [0.0 -> 1.0]
+    u_mode: u32,             // 0=Linear, 1=Scroll, 2=Griffith, 3=Fluid, 4=Dymaxion
+    u_layerMode: u32,        // 0=Both, 1=Points Only, 2=Wireframe Only
+    u_time: f32,             // Elapsed Time (s)
+    u_dt: f32,               // Timestep Delta (s)
+    u_cursorActive: f32,     // 1.0 = Active Hover, 0.0 = Inactive
+    u_numParticles: u32,     // Node Count (e.g. 1,000,000)
+    u_pad1: f32,
+    u_cursorRayOrig: vec4<f32>, // xyz: Camera Ray Origin
+    u_cursorRayDir: vec4<f32>,  // xyz: Camera Ray Direction
+    u_cursorHitPos: vec4<f32>,  // xyz: Unprojected Manifold Hit Point
+    u_cursorVel: vec4<f32>,     // xyz: Cursor Velocity, w: Speed
+    u_viewMatrix: mat4x4<f32>,
+    u_projectionMatrix: mat4x4<f32>,
+    u_cameraPos: vec4<f32>,
+};
+
+@group(0) @binding(0) var<uniform> sim: SimUniforms;
+@group(0) @binding(1) var<storage, read> particlesIn: array<Particle>;
+@group(0) @binding(2) var<storage, read_write> particlesOut: array<Particle>;
+
+const PI: f32 = 3.14159265358979323846;
+const RADIUS: f32 = 5.0;
+
+// Analytical 3D Divergence-Free Curl Noise (div u = 0 guaranteed)
+fn computeCurlNoise(p: vec3<f32>, time: f32) -> vec3<f32> {
+    let k1: f32 = 0.55;
+    let k2: f32 = 1.10;
+    let t: f32 = time * 0.8;
+    
+    let u_x = -k1 * cos(k1 * p.y + t * 0.7) - k2 * cos(k2 * p.z - t * 0.5);
+    let u_y = -k1 * cos(k1 * p.z + t * 0.9) - k2 * cos(k2 * p.x - t * 0.6);
+    let u_z = -k1 * cos(k1 * p.x + t * 0.8) - k2 * cos(k2 * p.y - t * 0.4);
+    
+    let u2_x = 0.35 * sin(1.8 * p.y - t * 1.2);
+    let u2_y = 0.35 * sin(1.8 * p.z - t * 1.1);
+    let u2_z = 0.35 * sin(1.8 * p.x - t * 1.3);
+
+    return vec3<f32>(u_x + u2_x, u_y + u2_y, u_z + u2_z);
+}
+
+@compute @workgroup_size(256, 1, 1)
+fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let index = global_id.x;
+    if (index >= sim.u_numParticles) {
+        return;
+    }
+
+    let pIn = particlesIn[index];
+    let pos3D = pIn.rest_sphere.xyz;
+    let pos2D = vec3<f32>(pIn.rest_map.xy, 0.0);
+    let dymaxionTarget = vec3<f32>(pIn.rest_map.zw, 0.0);
+    let pointType = pIn.position.w;
+
+    let clampedUnfurl = clamp(sim.u_unfurl, 0.0, 1.0);
+    let ease = select(
+        1.0 - pow(max(0.0, -2.0 * clampedUnfurl + 2.0), 3.0) * 0.5,
+        4.0 * clampedUnfurl * clampedUnfurl * clampedUnfurl,
+        clampedUnfurl < 0.5
+    );
+
+    var finalPos = pos3D;
+    var finalVel = vec3<f32>(0.0);
+    var metric = 0.0;
+
+    // Mode 4: Fuller Dymaxion Polyhedral Unfolding (R3)
+    if (sim.u_mode == 4u) {
+        let arch = sin(PI * ease) * 0.45;
+        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
+        finalPos = mix(pos3D, dymaxionTarget, ease) + sphereNorm * arch;
+        finalVel = vec3<f32>(0.0);
+        metric = 0.0;
+    }
+    // Mode 1: Cylindrical Scroll (engine-audit.md §3.6)
+    else if (sim.u_mode == 1u) {
+        let t = ease;
+        let lambda = atan2(pos3D.x, pos3D.z);
+        let phi = asin(clamp(pos3D.y / RADIUS, -1.0, 1.0));
+
+        if (t < 0.999) {
+            let invOneMinusT = 1.0 / (1.0 - t);
+            let curAngle = (1.0 - t) * lambda;
+            let curX = (RADIUS * invOneMinusT) * sin(curAngle);
+            let curZ = (RADIUS * cos(phi) * invOneMinusT) * (cos(curAngle) - 1.0) + (RADIUS * cos(phi) * (1.0 - t));
+            let curY = mix(pos3D.y, pos2D.y, t);
+            finalPos = vec3<f32>(curX, curY, curZ);
+        } else {
+            finalPos = pos2D;
+        }
+        finalVel = vec3<f32>(0.0);
+        metric = 0.0;
+    }
+    // Mode 2: Griffith LEFM Fracture + Cursor Hoop Stress Probe
+    else if (sim.u_mode == 2u) {
+        let t = ease;
+        let lambda = atan2(pos3D.x, pos3D.z);
+        let phi = asin(clamp(pos3D.y / RADIUS, -1.0, 1.0));
+        let distToSeam = PI - abs(lambda);
+        let seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
+
+        // Passive cursor raycast distance and tensile hoop stress concentration
+        let hitDist = length(pos3D - sim.u_cursorHitPos.xyz);
+        let cursorInfluence = sim.u_cursorActive * exp(-hitDist * hitDist / (2.0 * 0.64));
+        let hoopStress = cursorInfluence * 0.65 * (1.0 + 2.0 * cos(phi) * cos(phi));
+
+        let tRupture = 0.18;
+        if (t < tRupture) {
+            let strainProgress = t / tRupture;
+            let localStrain = seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress;
+            let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
+            let outwardTension = sphereNorm * (localStrain * 0.40);
+            finalPos = pos3D + outwardTension;
+            metric = clamp(localStrain, 0.0, 1.0);
+        } else {
+            let postRuptureT = smoothstep(tRupture, 1.0, t);
+            let crackLatitudeFront = (PI * 0.5) * smoothstep(tRupture, 0.60, t);
+            let distToCrackTip = abs(abs(phi) - crackLatitudeFront);
+            let crackTipGlow = select(0.0, 1.0 - smoothstep(0.0, 0.3, distToCrackTip), (t < 0.65 && seamFactor > 0.3));
+
+            let flutterWave = sin(distToSeam * 16.0 - t * 24.0);
+            let flutterDecay = exp(-4.2 * (t - tRupture));
+            let flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.30) * flutterWave * flutterDecay;
+            let flutterOffset = vec3<f32>(0.0, 0.0, flutterAmp);
+
+            let peeledPos = mix(pos3D, pos2D, postRuptureT);
+            finalPos = peeledPos + flutterOffset;
+            let localStrain = mix(seamFactor * (1.0 - postRuptureT) * 0.9 + crackTipGlow + hoopStress, 0.0, pow(postRuptureT, 1.8));
+            metric = clamp(localStrain, 0.0, 1.0);
+        }
+        finalVel = vec3<f32>(0.0);
+    }
+    // Mode 3: Fluid Flow + Lamb-Oseen Trailing Vortex Wake
+    else if (sim.u_mode == 3u) {
+        let t = ease;
+        if (t >= 0.999) {
+            finalPos = pos2D;
+            finalVel = vec3<f32>(0.0);
+            metric = 0.0;
+        } else if (t <= 0.001) {
+            let hitDist = length(pos3D - sim.u_cursorHitPos.xyz);
+            let coreRadius: f32 = 0.65;
+            let vortexCirculation = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.001);
+            let surfaceNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
+            let relHit = pos3D - sim.u_cursorHitPos.xyz + vec3<f32>(0.001, 0.001, 0.001);
+            let vortexTangent = normalize(cross(surfaceNormal, relHit));
+            let vortexVelocity = vortexTangent * (sim.u_cursorActive * sim.u_cursorVel.w * vortexCirculation * 2.2);
+            let wakeAdvection = sim.u_cursorVel.xyz * (sim.u_cursorActive * exp(-hitDist * hitDist / 1.2));
+
+            let totalVelocity = vortexVelocity + wakeAdvection;
+            let localVorticity = length(totalVelocity) * sim.u_cursorActive;
+            finalPos = pos3D + totalVelocity * (sim.u_cursorActive * 0.35);
+            finalVel = totalVelocity;
+            metric = clamp(localVorticity, 0.0, 1.0);
+        } else {
+            let rawSin = sin(PI * clampedUnfurl);
+            let liquefaction = pow(max(0.0, rawSin), 1.2);
+            let basePos = mix(pos3D, pos2D, t);
+            let naturalVelocity = computeCurlNoise(basePos, sim.u_time);
+
+            // Cursor Lamb-Oseen Vortex Wake Injection
+            let hitDist = length(basePos - sim.u_cursorHitPos.xyz);
+            let coreRadius: f32 = 0.65;
+            let vortexCirculation = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.001);
+            let surfaceNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(basePos), length(basePos) > 0.001);
+            let relHit = basePos - sim.u_cursorHitPos.xyz + vec3<f32>(0.001, 0.001, 0.001);
+            let vortexTangent = normalize(cross(surfaceNormal, relHit));
+            let vortexVelocity = vortexTangent * (sim.u_cursorActive * sim.u_cursorVel.w * vortexCirculation * 2.2);
+            let wakeAdvection = sim.u_cursorVel.xyz * (sim.u_cursorActive * exp(-hitDist * hitDist / 1.2));
+
+            let totalVelocity = naturalVelocity + vortexVelocity + wakeAdvection;
+            let localVorticity = length(totalVelocity) * max(liquefaction, sim.u_cursorActive * 0.3);
+            let advectionOffset = totalVelocity * (liquefaction * 1.85 + sim.u_cursorActive * 0.4);
+
+            finalPos = basePos + advectionOffset;
+            finalVel = totalVelocity;
+            metric = clamp(localVorticity, 0.0, 1.0);
+        }
+    }
+    // Mode 0: Linear Mix (Fallback)
+    else {
+        finalPos = mix(pos3D, pos2D, ease);
+        finalVel = vec3<f32>(0.0);
+        metric = 0.0;
+    }
+
+    // Write computed state to output storage buffer
+    var pOut: Particle;
+    pOut.position = vec4<f32>(finalPos, pointType);
+    pOut.velocity = vec4<f32>(finalVel, metric);
+    pOut.rest_sphere = pIn.rest_sphere;
+    pOut.rest_map = pIn.rest_map;
+
+    particlesOut[index] = pOut;
+}

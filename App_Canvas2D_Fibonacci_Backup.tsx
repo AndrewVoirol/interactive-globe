@@ -25,7 +25,7 @@ const morphMutator = d3.geoProjectionMutator((t: number) => {
   };
 });
 
-const sharedProj = morphMutator(0);
+const sharedProj = (morphMutator as any)(0);
 const sharedPath = d3.geoPath(sharedProj);
 const graticule = d3.geoGraticule().step([15, 15])();
 const sphere = { type: 'Sphere' } as any;
@@ -165,7 +165,7 @@ export const GlobeVisualization: React.FC = () => {
       const mapScale = (p.width * 0.44) / Math.PI;
       const scale = (1 - alpha) * globeRadius + alpha * mapScale;
 
-      morphMutator(alpha);
+      (morphMutator as any)(alpha);
       sharedProj.scale(scale).translate([cx, cy]).rotate([p.lon, p.lat * (1 - alpha), 0]);
 
       const clipAngle = 90 + alpha * 90;

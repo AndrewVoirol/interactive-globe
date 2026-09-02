@@ -42,6 +42,9 @@ export interface TelemetryData {
   isAutoRotating: boolean;
 }
 
+export type SimulationMode = 0 | 1 | 2 | 3 | 4; // 0 = Linear, 1 = Scroll, 2 = Griffith, 3 = Fluid, 4 = Dymaxion
+export type LayerMode = 0 | 1 | 2; // 0 = Both, 1 = Points Only, 2 = Wireframe Only
+
 export interface CustomInterpolatorInstance {
   t: number;
   source: GeoProjection;
@@ -49,4 +52,12 @@ export interface CustomInterpolatorInstance {
   projection: GeoProjection;
   interpolatePoint: (coords: [number, number], tOverride?: number) => [number, number] | null;
 }
+
+export interface DymaxionProjectionResult {
+  faceIndex: number;
+  maxDot: number;
+  gnomonicPos: [number, number, number];
+  dymaxion2D: [number, number];
+}
+
 
