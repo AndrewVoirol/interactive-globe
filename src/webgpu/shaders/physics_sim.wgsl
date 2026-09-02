@@ -66,11 +66,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pointType = pIn.position.w;
 
     let clampedUnfurl = clamp(sim.u_unfurl, 0.0, 1.0);
-    let ease = select(
-        1.0 - pow(max(0.0, -2.0 * clampedUnfurl + 2.0), 3.0) * 0.5,
-        4.0 * clampedUnfurl * clampedUnfurl * clampedUnfurl,
-        clampedUnfurl < 0.5
-    );
+    let ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
 
     var finalPos = pos3D;
     var finalVel = vec3<f32>(0.0);
@@ -106,14 +102,14 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // Passive cursor raycast distance and tensile hoop stress concentration
         let hitDist = length(pos3D - sim.u_cursorHitPos.xyz);
         let cursorInfluence = sim.u_cursorActive * exp(-hitDist * hitDist / (2.0 * 0.64));
-        let hoopStress = cursorInfluence * 0.65 * (1.0 + 2.0 * cos(phi) * cos(phi));
+        let hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cos(phi) * cos(phi));
 
         let tRupture = 0.18;
         if (t < tRupture) {
             let strainProgress = t / tRupture;
             let localStrain = seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress;
             let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
-            let outwardTension = sphereNorm * (localStrain * 0.40);
+            let outwardTension = sphereNorm * (localStrain * 0.30);
             finalPos = pos3D + outwardTension;
             metric = clamp(localStrain, 0.0, 1.0);
         } else {
@@ -124,7 +120,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
             let flutterWave = sin(distToSeam * 16.0 - t * 24.0);
             let flutterDecay = exp(-4.2 * (t - tRupture));
-            let flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.30) * flutterWave * flutterDecay;
+            let flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay;
             let flutterOffset = vec3<f32>(0.0, 0.0, flutterAmp);
 
             let peeledPos = mix(pos3D, pos2D, postRuptureT);
@@ -134,52 +130,32 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
         finalVel = vec3<f32>(0.0);
     }
-    // Mode 3: Fluid Flow + Lamb-Oseen Trailing Vortex Wake
+    // Mode 3: Fluid Flow + Lamb-Oseen Trailing Vortex Wake (Continuous Hermite Formulation)
     else if (sim.u_mode == 3u) {
         let t = ease;
-        if (t >= 0.999) {
-            finalPos = pos2D;
-            finalVel = vec3<f32>(0.0);
-            metric = 0.0;
-        } else if (t <= 0.001) {
-            let hitDist = length(pos3D - sim.u_cursorHitPos.xyz);
-            let coreRadius: f32 = 0.65;
-            let vortexCirculation = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.001);
-            let surfaceNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
-            let relHit = pos3D - sim.u_cursorHitPos.xyz + vec3<f32>(0.001, 0.001, 0.001);
-            let vortexTangent = normalize(cross(surfaceNormal, relHit));
-            let vortexVelocity = vortexTangent * (sim.u_cursorActive * sim.u_cursorVel.w * vortexCirculation * 2.2);
-            let wakeAdvection = sim.u_cursorVel.xyz * (sim.u_cursorActive * exp(-hitDist * hitDist / 1.2));
+        let rawSin = sin(PI * clampedUnfurl);
+        let liquefaction = pow(max(0.0, rawSin), 1.15);
+        let basePos = mix(pos3D, pos2D, t);
+        let naturalVelocity = computeCurlNoise(basePos, sim.u_time);
 
-            let totalVelocity = vortexVelocity + wakeAdvection;
-            let localVorticity = length(totalVelocity) * sim.u_cursorActive;
-            finalPos = pos3D + totalVelocity * (sim.u_cursorActive * 0.35);
-            finalVel = totalVelocity;
-            metric = clamp(localVorticity, 0.0, 1.0);
-        } else {
-            let rawSin = sin(PI * clampedUnfurl);
-            let liquefaction = pow(max(0.0, rawSin), 1.2);
-            let basePos = mix(pos3D, pos2D, t);
-            let naturalVelocity = computeCurlNoise(basePos, sim.u_time);
+        // Cursor Lamb-Oseen Vortex Wake Injection (anti-strobe)
+        let hitDist = length(basePos - sim.u_cursorHitPos.xyz);
+        let coreRadius: f32 = 0.85;
+        let vortexCirculation = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.05);
+        let surfaceNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(basePos), length(basePos) > 0.001);
+        let relHit = basePos - sim.u_cursorHitPos.xyz + vec3<f32>(0.001, 0.001, 0.001);
+        let vortexTangent = normalize(cross(surfaceNormal, relHit));
+        let clampedSpeed = clamp(sim.u_cursorVel.w, 0.0, 1.5);
+        let vortexVelocity = vortexTangent * (sim.u_cursorActive * clampedSpeed * vortexCirculation * 0.35);
+        let wakeAdvection = normalize(sim.u_cursorVel.xyz + vec3<f32>(0.0001)) * (clampedSpeed * 0.15 * sim.u_cursorActive * exp(-hitDist * hitDist / 1.5));
 
-            // Cursor Lamb-Oseen Vortex Wake Injection
-            let hitDist = length(basePos - sim.u_cursorHitPos.xyz);
-            let coreRadius: f32 = 0.65;
-            let vortexCirculation = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.001);
-            let surfaceNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(basePos), length(basePos) > 0.001);
-            let relHit = basePos - sim.u_cursorHitPos.xyz + vec3<f32>(0.001, 0.001, 0.001);
-            let vortexTangent = normalize(cross(surfaceNormal, relHit));
-            let vortexVelocity = vortexTangent * (sim.u_cursorActive * sim.u_cursorVel.w * vortexCirculation * 2.2);
-            let wakeAdvection = sim.u_cursorVel.xyz * (sim.u_cursorActive * exp(-hitDist * hitDist / 1.2));
+        let totalVelocity = naturalVelocity + vortexVelocity + wakeAdvection;
+        let localVorticity = length(totalVelocity) * max(liquefaction, sim.u_cursorActive * 0.3);
+        let advectionOffset = naturalVelocity * (liquefaction * 1.85) + (vortexVelocity + wakeAdvection) * (sim.u_cursorActive * 0.25);
 
-            let totalVelocity = naturalVelocity + vortexVelocity + wakeAdvection;
-            let localVorticity = length(totalVelocity) * max(liquefaction, sim.u_cursorActive * 0.3);
-            let advectionOffset = totalVelocity * (liquefaction * 1.85 + sim.u_cursorActive * 0.4);
-
-            finalPos = basePos + advectionOffset;
-            finalVel = totalVelocity;
-            metric = clamp(localVorticity, 0.0, 1.0);
-        }
+        finalPos = basePos + advectionOffset;
+        finalVel = totalVelocity;
+        metric = clamp(localVorticity, 0.0, 1.0);
     }
     // Mode 0: Linear Mix (Fallback)
     else {

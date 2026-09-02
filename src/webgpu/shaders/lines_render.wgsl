@@ -12,7 +12,7 @@ struct SimUniforms {
     u_dt: f32,
     u_cursorActive: f32,
     u_numParticles: u32,
-    u_pad1: f32,
+    u_theme: u32,            // 0 = Dark Cyber, 1 = Light Monochrome
     u_cursorRayOrig: vec4<f32>,
     u_cursorRayDir: vec4<f32>,
     u_cursorHitPos: vec4<f32>,
@@ -64,10 +64,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let densityFactor = sqrt(100000.0 / max(f32(sim.u_numParticles), 1.0));
     let backfaceDimming = mix(0.15, 1.0, smoothstep(-0.5, 0.2, in.vFacing));
 
-    let structuralWire = vec3<f32>(0.05, 0.15, 0.25);
-    let geographicWire = vec3<f32>(0.25, 0.55, 0.85);
-    let wireColor = mix(structuralWire, geographicWire, in.vPointType);
+    var structuralWire = vec3<f32>(0.05, 0.15, 0.25);
+    var geographicWire = vec3<f32>(0.25, 0.55, 0.85);
 
+    if (sim.u_theme == 1u) {
+        // Light Monochrome: Soft graphite architectural lines
+        structuralWire = vec3<f32>(0.80, 0.83, 0.86);
+        geographicWire = vec3<f32>(0.65, 0.68, 0.72);
+    }
+
+    let wireColor = mix(structuralWire, geographicWire, in.vPointType);
     let alpha = mix(0.04, 0.35, in.vPointType) * densityFactor;
 
     return vec4<f32>(wireColor, alpha * backfaceDimming);

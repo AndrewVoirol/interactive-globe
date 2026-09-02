@@ -12,7 +12,7 @@ struct SimUniforms {
     u_dt: f32,
     u_cursorActive: f32,
     u_numParticles: u32,
-    u_pad1: f32,
+    u_theme: u32,            // 0 = Dark Cyber, 1 = Light Monochrome
     u_cursorRayOrig: vec4<f32>,
     u_cursorRayDir: vec4<f32>,
     u_cursorHitPos: vec4<f32>,
@@ -67,37 +67,59 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let backfaceDimming = mix(0.15, 1.0, smoothstep(-0.5, 0.2, in.vFacing));
 
-    // 102:1 Contrast Ratio (GIS Coastline Clarity at 1M Nodes)
-    let geographicColor = vec3<f32>(0.49, 0.827, 0.988);
-    let structuralColor = vec3<f32>(0.05, 0.12, 0.22);
-    let baseColor = mix(structuralColor, geographicColor, in.vPointType);
+    // Theme Palette: 0 = Dark Cyber, 1 = Light Monochrome
+    var geographicColor = vec3<f32>(0.49, 0.827, 0.988);
+    var structuralColor = vec3<f32>(0.05, 0.12, 0.22);
+    var baseAlpha = mix(0.03, 0.95, in.vPointType);
 
+    if (sim.u_theme == 1u) {
+        // Light Monochrome: Architectural Charcoal Land on Misty Silver Ocean
+        geographicColor = vec3<f32>(0.08, 0.09, 0.11);
+        structuralColor = vec3<f32>(0.82, 0.85, 0.89);
+        baseAlpha = mix(0.12, 0.95, in.vPointType);
+    }
+
+    let baseColor = mix(structuralColor, geographicColor, in.vPointType);
     var finalColor = baseColor;
-    var alpha = mix(0.03, 0.95, in.vPointType);
+    var alpha = baseAlpha;
 
     // Mode 2: Griffith LEFM Fracture Palette
     if (sim.u_mode == 2u) {
-        let tensionAmber = vec3<f32>(1.0, 0.65, 0.15);
-        let ruptureCrimson = vec3<f32>(0.98, 0.20, 0.12);
-        let activeCrackWhite = vec3<f32>(1.0, 0.98, 0.90);
+        if (sim.u_theme == 1u) {
+            let warmUmber = vec3<f32>(0.45, 0.25, 0.15);
+            let carbonInk = vec3<f32>(0.02, 0.02, 0.02);
+            finalColor = mix(baseColor, warmUmber, smoothstep(0.15, 0.55, in.vMetric));
+            finalColor = mix(finalColor, carbonInk, smoothstep(0.55, 0.90, in.vMetric));
+        } else {
+            let tensionAmber = vec3<f32>(1.0, 0.65, 0.15);
+            let ruptureCrimson = vec3<f32>(0.98, 0.20, 0.12);
+            let activeCrackWhite = vec3<f32>(1.0, 0.98, 0.90);
 
-        var stressColor = mix(baseColor, tensionAmber, smoothstep(0.12, 0.45, in.vMetric));
-        stressColor = mix(stressColor, ruptureCrimson, smoothstep(0.45, 0.78, in.vMetric));
-        stressColor = mix(stressColor, activeCrackWhite, smoothstep(0.78, 1.0, in.vMetric));
-        finalColor = stressColor;
+            var stressColor = mix(baseColor, tensionAmber, smoothstep(0.12, 0.45, in.vMetric));
+            stressColor = mix(stressColor, ruptureCrimson, smoothstep(0.45, 0.78, in.vMetric));
+            stressColor = mix(stressColor, activeCrackWhite, smoothstep(0.78, 1.0, in.vMetric));
+            finalColor = stressColor;
+        }
         if (in.vMetric > 0.4) {
             alpha = mix(alpha, 1.0, (in.vMetric - 0.4) * 1.8);
         }
     }
     // Mode 3: Hydrodynamic Vorticity Palette
     else if (sim.u_mode == 3u) {
-        let oceanicIndigo = vec3<f32>(0.06, 0.22, 0.45);
-        let biolumCyan = vec3<f32>(0.20, 0.88, 0.96);
-        let eddyViolet = vec3<f32>(0.85, 0.25, 0.98);
+        if (sim.u_theme == 1u) {
+            let charcoalStreamline = vec3<f32>(0.35, 0.38, 0.42);
+            let obsidianCore = vec3<f32>(0.02, 0.03, 0.05);
+            let fluidGray = mix(charcoalStreamline, obsidianCore, smoothstep(0.3, 0.9, in.vMetric));
+            finalColor = mix(baseColor, fluidGray, smoothstep(0.05, 0.4, in.vMetric));
+        } else {
+            let oceanicIndigo = vec3<f32>(0.06, 0.22, 0.45);
+            let biolumCyan = vec3<f32>(0.20, 0.88, 0.96);
+            let eddyViolet = vec3<f32>(0.85, 0.25, 0.98);
 
-        var fluidColor = mix(oceanicIndigo, biolumCyan, smoothstep(0.05, 0.50, in.vMetric));
-        fluidColor = mix(fluidColor, eddyViolet, smoothstep(0.50, 0.95, in.vMetric));
-        finalColor = mix(baseColor, fluidColor, smoothstep(0.0, 0.15, in.vMetric));
+            var fluidColor = mix(oceanicIndigo, biolumCyan, smoothstep(0.05, 0.50, in.vMetric));
+            fluidColor = mix(fluidColor, eddyViolet, smoothstep(0.50, 0.95, in.vMetric));
+            finalColor = mix(baseColor, fluidColor, smoothstep(0.0, 0.15, in.vMetric));
+        }
         if (in.vMetric > 0.1) {
             alpha = mix(alpha, 1.0, in.vMetric);
         }
