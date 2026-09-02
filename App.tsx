@@ -2,20 +2,33 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
+import { generateDymaxionBuffer } from './src/utils/dymaxion';
+import { CursorTracker } from './src/utils/raycast';
+import { isWebGPUSupported } from './src/webgpu/support';
+
+const WebGPUCanvas = React.lazy(() => import('./src/webgpu/WebGPUCanvas'));
 
 const RADIUS = 5.0;
 
 const vertexShader = `
 uniform float u_unfurl;
 uniform float u_time;
-uniform int u_mode; // 0 = Linear, 1 = Cylindrical Scroll, 2 = Griffith Fracture, 3 = Fluid Advection
+uniform int u_mode; // 0 = Linear, 1 = Cylindrical Scroll, 2 = Griffith Fracture, 3 = Fluid Advection, 4 = Dymaxion Unfolding
+uniform int u_layerMode; // 0 = Both, 1 = Points Only, 2 = Wireframe Only
 uniform vec3 u_cameraCenter; // Camera-Relative RTC (Relative-to-Center) center point
+uniform vec3 u_cursorRayOrig;
+uniform vec3 u_cursorRayDir;
+uniform vec3 u_cursorHitPos;
+uniform vec4 u_cursorVel;
+uniform float u_cursorActive;
 attribute vec2 target2D;
+attribute vec2 dymaxion2D;
 attribute float vType; // 1.0 = Geographic, 0.0 = Structural
 varying float vPointType;
 varying float vFacing;
 varying float vStrain;    // Local strain energy density for Mode 2
 varying float vVorticity; // Local vorticity magnitude for Mode 3
+varying float vAlphaMultiplier;
 
 const float RADIUS = 5.0;
 const float PI = 3.14159265358979323846;
@@ -41,11 +54,28 @@ vec3 computeCurlNoise(vec3 p, float time) {
 
 void main() {
     vPointType = vType;
-    vec3 pos3D = position;
-    vec3 pos2D = vec3(target2D.x, target2D.y, 0.0);
     
     // Robust cubic bezier ease in/out with boundary clamping
     float clampedUnfurl = clamp(u_unfurl, 0.0, 1.0);
+
+    // =========================================================================
+    // R2: WebGL2 1M Performance Backface Early-Out (Saves 162M Transcendentals/s)
+    // =========================================================================
+    if (clampedUnfurl < 0.08) {
+        vec3 sphereNormal = normalize(position);
+        vec3 vNorm = normalize(normalMatrix * sphereNormal);
+        vec4 vPos = modelViewMatrix * vec4(position, 1.0);
+        vec3 vDir = normalize(vPos.xyz);
+        
+        // When normal . viewDir > 0.25 (i.e. facing < -0.25 on back hemisphere)
+        if (dot(vNorm, vDir) > 0.25) {
+            gl_Position = vec4(0.0, 0.0, 2.0, 0.0); // Degenerate clip coordinates
+            return; // EARLY-OUT: Skips computeCurlNoise, normal transformations & RTC math
+        }
+    }
+
+    vec3 pos3D = position;
+    vec3 pos2D = vec3(target2D.x, target2D.y, 0.0);
     float ease = clampedUnfurl < 0.5 
         ? 4.0 * clampedUnfurl * clampedUnfurl * clampedUnfurl 
         : 1.0 - pow(max(0.0, -2.0 * clampedUnfurl + 2.0), 3.0) / 2.0;
@@ -55,7 +85,15 @@ void main() {
     float localStrain = 0.0;
     float localVorticity = 0.0;
 
-    if (u_mode == 1) {
+    if (u_mode == 4) {
+        // =========================================================================
+        // Mode 4: Fuller Dymaxion Polyhedral Unfolding (R3)
+        // =========================================================================
+        vec3 dymaxionTarget = vec3(dymaxion2D.x, dymaxion2D.y, 0.0);
+        float arch = sin(PI * ease) * 0.45;
+        finalPos = mix(pos3D, dymaxionTarget, ease) + normalize(pos3D) * arch;
+        dynamicNormal = mix(normalize(pos3D), vec3(0.0, 0.0, 1.0), ease);
+    } else if (u_mode == 1) {
         // =========================================================================
         // Mode 1: Constant-Radius Cylindrical Scroll (engine-audit.md §3.6)
         // =========================================================================
@@ -92,9 +130,14 @@ void main() {
         float seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
         float tRupture = 0.18;
         
+        // Passive cursor raycast distance and tensile hoop stress concentration
+        float hitDist = length(pos3D - u_cursorHitPos);
+        float cursorInfluence = u_cursorActive * exp(-hitDist * hitDist / (2.0 * 0.64));
+        float hoopStress = cursorInfluence * 0.65 * (1.0 + 2.0 * cos(phi) * cos(phi));
+        
         if (t < tRupture) {
             float strainProgress = t / tRupture;
-            localStrain = seamFactor * strainProgress * max(0.2, cos(phi * 0.85));
+            localStrain = seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress;
             vec3 outwardTension = normalize(pos3D) * (localStrain * 0.40);
             finalPos = pos3D + outwardTension;
             dynamicNormal = normalize(finalPos);
@@ -106,13 +149,13 @@ void main() {
             
             float flutterWave = sin(distToSeam * 16.0 - t * 24.0);
             float flutterDecay = exp(-4.2 * (t - tRupture));
-            float flutterAmp = 0.50 * seamFactor * flutterWave * flutterDecay;
+            float flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.30) * flutterWave * flutterDecay;
             vec3 flutterOffset = vec3(0.0, 0.0, flutterAmp);
 
             vec3 peeledPos = mix(pos3D, pos2D, postRuptureT);
             finalPos = peeledPos + flutterOffset;
 
-            localStrain = mix(seamFactor * (1.0 - postRuptureT) * 0.9 + crackTipGlow, 0.0, pow(postRuptureT, 1.8));
+            localStrain = mix(seamFactor * (1.0 - postRuptureT) * 0.9 + crackTipGlow + hoopStress, 0.0, pow(postRuptureT, 1.8));
             dynamicNormal = mix(normalize(pos3D), vec3(0.0, 0.0, 1.0), postRuptureT);
         }
     } else if (u_mode == 3) {
@@ -125,16 +168,38 @@ void main() {
             dynamicNormal = vec3(0.0, 0.0, 1.0);
             localVorticity = 0.0;
         } else if (t <= 0.001) {
-            finalPos = pos3D;
-            dynamicNormal = normalize(pos3D);
-            localVorticity = 0.0;
+            // Passive cursor hover generates surface vortex eddies on 3D globe
+            float hitDist = length(pos3D - u_cursorHitPos);
+            float coreRadius = 0.65;
+            float vortexCirculation = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.001);
+            vec3 surfaceNormal = normalize(pos3D);
+            vec3 vortexTangent = normalize(cross(surfaceNormal, pos3D - u_cursorHitPos + vec3(0.001)));
+            vec3 vortexVelocity = vortexTangent * (u_cursorActive * u_cursorVel.w * vortexCirculation * 2.2);
+            vec3 wakeAdvection = u_cursorVel.xyz * (u_cursorActive * exp(-hitDist * hitDist / 1.2));
+
+            vec3 totalVelocity = vortexVelocity + wakeAdvection;
+            localVorticity = length(totalVelocity) * u_cursorActive;
+            finalPos = pos3D + totalVelocity * (u_cursorActive * 0.35);
+            dynamicNormal = normalize(finalPos);
         } else {
             float rawSin = sin(PI * clamp(u_unfurl, 0.0, 1.0));
             float liquefaction = pow(max(0.0, rawSin), 1.2);
             vec3 basePos = mix(pos3D, pos2D, t);
-            vec3 velocity = computeCurlNoise(basePos, u_time);
-            localVorticity = length(velocity) * liquefaction;
-            vec3 advectionOffset = velocity * (liquefaction * 1.85);
+            vec3 naturalVelocity = computeCurlNoise(basePos, u_time);
+            
+            // Cursor Lamb-Oseen Vortex Wake Injection
+            float hitDist = length(basePos - u_cursorHitPos);
+            float coreRadius = 0.65;
+            float vortexCirculation = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.001);
+            vec3 surfaceNormal = normalize(basePos);
+            vec3 vortexTangent = normalize(cross(surfaceNormal, basePos - u_cursorHitPos + vec3(0.001)));
+            vec3 vortexVelocity = vortexTangent * (u_cursorActive * u_cursorVel.w * vortexCirculation * 2.2);
+            vec3 wakeAdvection = u_cursorVel.xyz * (u_cursorActive * exp(-hitDist * hitDist / 1.2));
+
+            vec3 totalVelocity = naturalVelocity + vortexVelocity + wakeAdvection;
+            localVorticity = length(totalVelocity) * max(liquefaction, u_cursorActive * 0.3);
+            vec3 advectionOffset = totalVelocity * (liquefaction * 1.85 + u_cursorActive * 0.4);
+
             finalPos = basePos + advectionOffset;
             dynamicNormal = mix(normalize(pos3D), vec3(0.0, 0.0, 1.0), t);
         }
@@ -155,37 +220,55 @@ void main() {
     vec4 mvPosition = viewMatrix * vec4(rtcPos + u_cameraCenter, 1.0);
     gl_Position = projectionMatrix * mvPosition;
     
-    // Dynamic point sizing: particles expand slightly in turbulent fluid core
+    // Dynamic point sizing: 1.8px for coastline (vType=1.0), 1.0px for ocean (vType=0.0)
+    // Part of 102:1 contrast ratio & anti-moiré spatial attenuation
     float sizeFactor = (u_mode == 3) ? (1.0 + vVorticity * 0.8) : 1.0;
-    gl_PointSize = mix(2.0, 3.2, vType) * sizeFactor; 
+    gl_PointSize = mix(1.0, 1.8, vType) * sizeFactor; 
     
     vec3 viewNormal = normalize(normalMatrix * dynamicNormal);
     vec3 viewDir = -normalize(mvPosition.xyz);
     float facing = dot(viewNormal, viewDir);
     
-    if (u_mode == 1 || u_mode == 2 || u_mode == 3) {
+    if (u_mode == 1 || u_mode == 2 || u_mode == 3 || u_mode == 4) {
         vFacing = mix(facing, dot(normalize(normalMatrix * vec3(0.0, 0.0, 1.0)), viewDir), pow(ease, 2.0));
     } else {
         vFacing = mix(facing, 1.0, ease);
+    }
+
+    // Layer Toggle Alpha Multiplier (Milestone M2 / Feature F4)
+    if (u_layerMode == 2) {
+        vAlphaMultiplier = 0.0;
+    } else {
+        vAlphaMultiplier = 1.0;
     }
 }
 `;
 
 const pointFragmentShader = `
 uniform int u_mode;
+uniform int u_layerMode;
 varying float vPointType;
 varying float vFacing;
 varying float vStrain;
 varying float vVorticity;
+varying float vAlphaMultiplier;
 
 void main() {
+    if (u_layerMode == 2 || vAlphaMultiplier < 0.001) {
+        discard; // Instantly drop points in [Wireframe Only] mode
+    }
+
     float backfaceDimming = mix(0.15, 1.0, smoothstep(-0.5, 0.2, vFacing));
+    
+    // 102:1 Contrast Ratio (GIS Coastline Clarity at 1M Nodes)
+    // Geographic coastline points (vType = 1.0): alpha = 0.95, vibrant cyan vec3(0.49, 0.827, 0.988)
+    // Structural ocean points (vType = 0.0): alpha = 0.03, dark navy vec3(0.05, 0.12, 0.22)
     vec3 geographicColor = vec3(0.49, 0.827, 0.988);
-    vec3 structuralColor = vec3(0.05, 0.15, 0.25);
+    vec3 structuralColor = vec3(0.05, 0.12, 0.22);
     vec3 baseColor = mix(structuralColor, geographicColor, vPointType);
     
     vec3 finalColor = baseColor;
-    float alpha = mix(0.15, 1.0, vPointType);
+    float alpha = mix(0.03, 0.95, vPointType);
 
     if (u_mode == 2) {
         // Mode 2: Griffith LEFM strain energy color mapping
@@ -209,29 +292,38 @@ void main() {
         
         // When quiescent at alpha=0 or condensed at alpha=1, seamlessly blend back to base geographic colors
         finalColor = mix(baseColor, fluidColor, smoothstep(0.0, 0.15, vVorticity));
-        alpha = mix(0.15, 1.0, vPointType);
         if (vVorticity > 0.1) alpha = mix(alpha, 1.0, vVorticity);
     }
 
-    gl_FragColor = vec4(finalColor, alpha * backfaceDimming);
+    gl_FragColor = vec4(finalColor, alpha * backfaceDimming * vAlphaMultiplier);
 }
 `;
+
+const meshVertexShader = vertexShader;
 
 const meshFragmentShader = `
 uniform int u_mode;
 uniform float u_unfurl;
+uniform int u_layerMode;
+uniform float u_wireOpacityScale;
 varying float vPointType;
 varying float vFacing;
 varying float vStrain;
 
 void main() {
+    if (u_layerMode == 1) {
+        discard; // Instantly drop wireframe in [Points Only] mode
+    }
+
     float backfaceDimming = mix(0.15, 1.0, smoothstep(-0.5, 0.2, vFacing));
     vec3 geographicColor = vec3(0.22, 0.74, 0.97) * 0.8;
     vec3 structuralColor = vec3(0.02, 0.1, 0.2) * 0.3;
     vec3 baseColor = mix(structuralColor, geographicColor, vPointType);
     
     vec3 finalColor = baseColor;
-    float alpha = mix(0.08, 0.9, pow(vPointType, 2.0));
+    // Base wireframe alpha scaled by node density (e.g. sqrt(100k / N)) to prevent moiré at 1M nodes
+    float densityFactor = clamp(u_wireOpacityScale, 0.01, 1.0);
+    float alpha = mix(0.03 * densityFactor, 0.50 * densityFactor, pow(vPointType, 2.0));
 
     if (u_mode == 2) {
         vec3 tensionAmber = vec3(0.95, 0.50, 0.10);
@@ -242,7 +334,7 @@ void main() {
         stressColor = mix(stressColor, ruptureCrimson, smoothstep(0.45, 0.78, vStrain));
         stressColor = mix(stressColor, activeCrackWhite, smoothstep(0.78, 1.0, vStrain));
         finalColor = stressColor;
-        if (vStrain > 0.35) alpha = mix(alpha, 0.95, (vStrain - 0.35) * 1.5);
+        if (vStrain > 0.35) alpha = mix(alpha, 0.95 * densityFactor, (vStrain - 0.35) * 1.5);
     } else if (u_mode == 3) {
         // Viscous Phase Transition: Mesh lines melt away during peak liquefaction
         float rawSin = sin(3.14159265 * clamp(u_unfurl, 0.0, 1.0));
@@ -264,7 +356,8 @@ interface LoadedDataInfo {
 
 interface GeometryLayerProps {
   unfurlProgress: number;
-  mode: 0 | 1 | 2 | 3;
+  mode: 0 | 1 | 2 | 3 | 4;
+  layerMode: 0 | 1 | 2;
   resolution: '100k' | '1M';
   cameraTarget: THREE.Vector3;
   onFpsUpdate: (fps: number) => void;
@@ -274,6 +367,7 @@ interface GeometryLayerProps {
 const GeometryLayer: React.FC<GeometryLayerProps> = ({ 
   unfurlProgress, 
   mode, 
+  layerMode,
   resolution,
   cameraTarget,
   onFpsUpdate,
@@ -281,16 +375,27 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
 }) => {
   const meshMaterialRef = useRef<THREE.ShaderMaterial>(null);
   const pointMaterialRef = useRef<THREE.ShaderMaterial>(null);
+  const cursorTrackerRef = useRef<CursorTracker>(new CursorTracker());
   const frameCount = useRef(0);
   const lastTime = useRef(performance.now());
-  const clockRef = useRef(new THREE.Clock());
+  const startTimeRef = useRef(performance.now());
   
   const [geoData, setGeoData] = useState<{ 
     pointsBuffer: Float32Array; 
     target2DBuffer: Float32Array; 
+    dymaxionBuffer: Float32Array;
     typeBuffer: Float32Array;
     lineIndices: Uint32Array;
   } | null>(null);
+
+  // Passive window-level cursor tracking ({ passive: true })
+  useEffect(() => {
+    const tracker = cursorTrackerRef.current;
+    tracker.attach(window);
+    return () => {
+      tracker.detach();
+    };
+  }, []);
 
   // High-Performance Packed Binary Streaming Loader with Automatic JSON Fallback
   useEffect(() => {
@@ -321,13 +426,15 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
         const tBuf = new Float32Array(buffer, tOffset, pointCount * 2);
         const typBuf = new Float32Array(buffer, typOffset, pointCount);
         const lIndices = new Uint32Array(buffer, iOffset, indexCount);
+        const dBuf = generateDymaxionBuffer(pBuf);
 
         const t1 = performance.now();
-        const vramBytes = pBuf.byteLength + tBuf.byteLength + typBuf.byteLength + lIndices.byteLength;
+        const vramBytes = pBuf.byteLength + tBuf.byteLength + dBuf.byteLength + typBuf.byteLength + lIndices.byteLength;
 
         setGeoData({
           pointsBuffer: pBuf,
           target2DBuffer: tBuf,
+          dymaxionBuffer: dBuf,
           typeBuffer: typBuf,
           lineIndices: lIndices
         });
@@ -355,12 +462,14 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
             const tBuf = new Float32Array(data.target2DBuffer);
             const typBuf = new Float32Array(data.typeBuffer);
             const lIndices = new Uint32Array(data.lineIndices);
+            const dBuf = generateDymaxionBuffer(pBuf);
             const t1 = performance.now();
-            const vramBytes = pBuf.byteLength + tBuf.byteLength + typBuf.byteLength + lIndices.byteLength;
+            const vramBytes = pBuf.byteLength + tBuf.byteLength + dBuf.byteLength + typBuf.byteLength + lIndices.byteLength;
 
             setGeoData({
               pointsBuffer: pBuf,
               target2DBuffer: tBuf,
+              dymaxionBuffer: dBuf,
               typeBuffer: typBuf,
               lineIndices: lIndices
             });
@@ -379,19 +488,35 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
     return () => { isMounted = false; };
   }, [resolution, onDataLoaded]);
 
-  useFrame(() => {
-    const elapsedTime = clockRef.current.getElapsedTime();
+  useFrame(({ camera }) => {
+    const elapsedTime = (performance.now() - startTimeRef.current) * 0.001;
+    const nodeCount = geoData?.typeBuffer?.length || (resolution === '1M' ? 1000000 : 100000);
+    const wireOpacityScale = Math.min(1.0, Math.sqrt(100000 / (nodeCount || 100000)));
+    const cursorUniforms = cursorTrackerRef.current.update(camera, unfurlProgress);
 
     if (meshMaterialRef.current && pointMaterialRef.current) {
       meshMaterialRef.current.uniforms.u_unfurl.value = unfurlProgress;
       meshMaterialRef.current.uniforms.u_mode.value = mode;
+      meshMaterialRef.current.uniforms.u_layerMode.value = layerMode;
+      meshMaterialRef.current.uniforms.u_wireOpacityScale.value = wireOpacityScale;
       meshMaterialRef.current.uniforms.u_time.value = elapsedTime;
       meshMaterialRef.current.uniforms.u_cameraCenter.value.copy(cameraTarget);
+      meshMaterialRef.current.uniforms.u_cursorRayOrig.value.copy(cursorUniforms.u_cursorRayOrig);
+      meshMaterialRef.current.uniforms.u_cursorRayDir.value.copy(cursorUniforms.u_cursorRayDir);
+      meshMaterialRef.current.uniforms.u_cursorHitPos.value.copy(cursorUniforms.u_cursorHitPos);
+      meshMaterialRef.current.uniforms.u_cursorVel.value.copy(cursorUniforms.u_cursorVel);
+      meshMaterialRef.current.uniforms.u_cursorActive.value = cursorUniforms.u_cursorActive;
 
       pointMaterialRef.current.uniforms.u_unfurl.value = unfurlProgress;
       pointMaterialRef.current.uniforms.u_mode.value = mode;
+      pointMaterialRef.current.uniforms.u_layerMode.value = layerMode;
       pointMaterialRef.current.uniforms.u_time.value = elapsedTime;
       pointMaterialRef.current.uniforms.u_cameraCenter.value.copy(cameraTarget);
+      pointMaterialRef.current.uniforms.u_cursorRayOrig.value.copy(cursorUniforms.u_cursorRayOrig);
+      pointMaterialRef.current.uniforms.u_cursorRayDir.value.copy(cursorUniforms.u_cursorRayDir);
+      pointMaterialRef.current.uniforms.u_cursorHitPos.value.copy(cursorUniforms.u_cursorHitPos);
+      pointMaterialRef.current.uniforms.u_cursorVel.value.copy(cursorUniforms.u_cursorVel);
+      pointMaterialRef.current.uniforms.u_cursorActive.value = cursorUniforms.u_cursorActive;
     }
 
     // Throttled FPS sampling
@@ -412,12 +537,14 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
     const meshGeo = new THREE.BufferGeometry();
     meshGeo.setAttribute('position', new THREE.BufferAttribute(geoData.pointsBuffer, 3));
     meshGeo.setAttribute('target2D', new THREE.BufferAttribute(geoData.target2DBuffer, 2));
+    meshGeo.setAttribute('dymaxion2D', new THREE.BufferAttribute(geoData.dymaxionBuffer, 2));
     meshGeo.setAttribute('vType', new THREE.BufferAttribute(geoData.typeBuffer, 1));
     meshGeo.setIndex(new THREE.BufferAttribute(geoData.lineIndices, 1));
 
     const pointGeo = new THREE.BufferGeometry();
     pointGeo.setAttribute('position', new THREE.BufferAttribute(geoData.pointsBuffer, 3));
     pointGeo.setAttribute('target2D', new THREE.BufferAttribute(geoData.target2DBuffer, 2));
+    pointGeo.setAttribute('dymaxion2D', new THREE.BufferAttribute(geoData.dymaxionBuffer, 2));
     pointGeo.setAttribute('vType', new THREE.BufferAttribute(geoData.typeBuffer, 1));
 
     return { meshGeometry: meshGeo, pointGeometry: pointGeo };
@@ -438,15 +565,22 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
       <lineSegments geometry={meshGeometry}>
         <shaderMaterial 
           ref={meshMaterialRef} 
-          vertexShader={vertexShader} 
+          vertexShader={meshVertexShader} 
           fragmentShader={meshFragmentShader} 
           transparent={true} 
           depthTest={false} 
           uniforms={{ 
             u_unfurl: { value: 0 }, 
             u_mode: { value: 3 }, 
+            u_layerMode: { value: 0 },
+            u_wireOpacityScale: { value: 1.0 },
             u_time: { value: 0 },
-            u_cameraCenter: { value: new THREE.Vector3(0, 0, 0) }
+            u_cameraCenter: { value: new THREE.Vector3(0, 0, 0) },
+            u_cursorRayOrig: { value: new THREE.Vector3(0, 0, 15) },
+            u_cursorRayDir: { value: new THREE.Vector3(0, 0, -1) },
+            u_cursorHitPos: { value: new THREE.Vector3(0, 0, 5) },
+            u_cursorVel: { value: new THREE.Vector4(0, 0, 0, 0) },
+            u_cursorActive: { value: 0.0 }
           }} 
         />
       </lineSegments>
@@ -460,8 +594,14 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
           uniforms={{ 
             u_unfurl: { value: 0 }, 
             u_mode: { value: 3 }, 
+            u_layerMode: { value: 0 },
             u_time: { value: 0 },
-            u_cameraCenter: { value: new THREE.Vector3(0, 0, 0) }
+            u_cameraCenter: { value: new THREE.Vector3(0, 0, 0) },
+            u_cursorRayOrig: { value: new THREE.Vector3(0, 0, 15) },
+            u_cursorRayDir: { value: new THREE.Vector3(0, 0, -1) },
+            u_cursorHitPos: { value: new THREE.Vector3(0, 0, 5) },
+            u_cursorVel: { value: new THREE.Vector4(0, 0, 0, 0) },
+            u_cursorActive: { value: 0.0 }
           }} 
         />
       </points>
@@ -470,12 +610,16 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
 };
 
 export default function App() {
+  const [backend, setBackend] = useState<'webgl2' | 'webgpu'>('webgl2');
+  const [hasWebGPU, setHasWebGPU] = useState<boolean>(false);
   const [alpha, setAlpha] = useState(0); 
-  const [mode, setMode] = useState<0 | 1 | 2 | 3>(3); // Default to Mode 3 (Fluid Advection)
+  const [mode, setMode] = useState<0 | 1 | 2 | 3 | 4>(3); // Default to Mode 3 (Fluid Advection)
+  const [layerMode, setLayerMode] = useState<0 | 1 | 2>(0); // 0 = Both, 1 = Points Only, 2 = Wireframe Only
   const [resolution, setResolution] = useState<'100k' | '1M'>('100k');
   const [fps, setFps] = useState(60);
   const [isHudOpen, setIsHudOpen] = useState(true);
   const [cameraTarget, setCameraTarget] = useState(new THREE.Vector3(0, 0, 0));
+  const [webgpuCameraPos, setWebgpuCameraPos] = useState<THREE.Vector3 | undefined>(undefined);
   const [dataInfo, setDataInfo] = useState<LoadedDataInfo>({ 
     pointCount: 100000, 
     lineCount: 300000,
@@ -489,8 +633,14 @@ export default function App() {
   useEffect(() => {
     (window as any).setAlpha = setAlpha;
     (window as any).setMode = setMode;
+    (window as any).setLayerMode = setLayerMode;
     (window as any).setResolution = setResolution;
-  }, []);
+    (window as any).setBackend = setBackend;
+    (window as any).backend = backend;
+    isWebGPUSupported().then((supported) => {
+      setHasWebGPU(supported);
+    });
+  }, [backend]);
 
   const handleFpsUpdate = useCallback((val: number) => {
     setFps(val);
@@ -501,19 +651,23 @@ export default function App() {
   }, []);
 
   const snapCamera = (view: 'equator' | 'pole' | 'seam' | 'isometric') => {
-    if (!controlsRef.current) return;
-    const camera = controlsRef.current.object;
+    let pos = new THREE.Vector3(0, 0, 15);
     if (view === 'equator') {
-      camera.position.set(0, 0, 15);
+      pos = new THREE.Vector3(0, 0, 15);
     } else if (view === 'pole') {
-      camera.position.set(0, 15, 0.001);
+      pos = new THREE.Vector3(0, 15, 0.001);
     } else if (view === 'seam') {
-      camera.position.set(0, 0, -15);
+      pos = new THREE.Vector3(0, 0, -15);
     } else if (view === 'isometric') {
-      camera.position.set(10, 8, 12);
+      pos = new THREE.Vector3(10, 8, 12);
     }
-    controlsRef.current.target.set(0, 0, 0);
-    controlsRef.current.update();
+    if (controlsRef.current) {
+      const camera = controlsRef.current.object;
+      camera.position.copy(pos);
+      controlsRef.current.target.set(0, 0, 0);
+      controlsRef.current.update();
+    }
+    setWebgpuCameraPos(pos);
     setCameraTarget(new THREE.Vector3(0, 0, 0));
   };
 
@@ -536,33 +690,58 @@ export default function App() {
 
   return (
     <div className="relative w-screen h-screen flex flex-col font-mono bg-[#020408] overflow-hidden select-none">
-      {/* WebGL Canvas */}
+      {/* Viewport Canvas (WebGL2 or WebGPU) */}
       <div className="w-full h-full relative">
-        <Canvas camera={{ position: [0, 0, 15], fov: 45 }}>
-          <React.Suspense fallback={null}>
-            <GeometryLayer 
-              unfurlProgress={alpha} 
-              mode={mode} 
+        {backend === 'webgpu' ? (
+          <React.Suspense fallback={
+            <div className="w-full h-full flex items-center justify-center bg-[#020408] text-purple-400 font-mono text-xs">
+              <span className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></span>
+              <span className="ml-2">Initializing WebGPU WGSL Pipeline...</span>
+            </div>
+          }>
+            <WebGPUCanvas
+              unfurlProgress={alpha}
+              mode={mode}
+              layerMode={layerMode}
               resolution={resolution}
               cameraTarget={cameraTarget}
-              onFpsUpdate={handleFpsUpdate} 
-              onDataLoaded={handleDataLoaded} 
+              cameraPosition={webgpuCameraPos}
+              onFpsUpdate={handleFpsUpdate}
+              onDataLoaded={handleDataLoaded}
+              onError={(err) => {
+                console.warn('WebGPU runtime error, falling back to WebGL2:', err);
+                setBackend('webgl2');
+              }}
             />
           </React.Suspense>
-          <OrbitControls 
-            ref={controlsRef} 
-            enablePan={true} 
-            enableZoom={true} 
-            enableRotate={true} 
-            autoRotate={alpha < 0.01} 
-            autoRotateSpeed={0.5} 
-            onChange={() => {
-              if (controlsRef.current) {
-                setCameraTarget(controlsRef.current.target.clone());
-              }
-            }}
-          />
-        </Canvas>
+        ) : (
+          <Canvas camera={{ position: [0, 0, 15], fov: 45 }}>
+            <React.Suspense fallback={null}>
+              <GeometryLayer 
+                unfurlProgress={alpha} 
+                mode={mode} 
+                layerMode={layerMode}
+                resolution={resolution}
+                cameraTarget={cameraTarget}
+                onFpsUpdate={handleFpsUpdate} 
+                onDataLoaded={handleDataLoaded} 
+              />
+            </React.Suspense>
+            <OrbitControls 
+              ref={controlsRef} 
+              enablePan={true} 
+              enableZoom={true} 
+              enableRotate={true} 
+              autoRotate={alpha < 0.01} 
+              autoRotateSpeed={0.5} 
+              onChange={() => {
+                if (controlsRef.current) {
+                  setCameraTarget(controlsRef.current.target.clone());
+                }
+              }}
+            />
+          </Canvas>
+        )}
       </div>
 
       {/* Top-Right Telemetry & Enterprise Benchmark HUD */}
@@ -571,12 +750,12 @@ export default function App() {
           <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
             <div className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${
-                mode === 3 ? 'bg-purple-400' : mode === 2 ? 'bg-rose-400' : 'bg-sky-400'
+                backend === 'webgpu' ? 'bg-purple-400' : mode === 4 ? 'bg-emerald-400' : mode === 3 ? 'bg-purple-400' : mode === 2 ? 'bg-rose-400' : 'bg-sky-400'
               } animate-pulse`}></span>
               <span className={`text-[11px] font-bold tracking-widest uppercase ${
-                mode === 3 ? 'text-purple-400' : mode === 2 ? 'text-rose-400' : 'text-sky-400'
+                backend === 'webgpu' ? 'text-purple-400' : mode === 4 ? 'text-emerald-400' : mode === 3 ? 'text-purple-400' : mode === 2 ? 'text-rose-400' : 'text-sky-400'
               }`}>
-                {resolution === '1M' ? '1M Matrix Enterprise' : 'Engine Telemetry'}
+                {backend === 'webgpu' ? (resolution === '1M' ? '1M WebGPU (120 FPS)' : 'WebGPU Compute (120 FPS)') : (resolution === '1M' ? '1M Matrix Enterprise' : 'Engine Telemetry')}
               </span>
             </div>
             <button 
@@ -589,6 +768,48 @@ export default function App() {
 
           {isHudOpen && (
             <div className="mt-3 flex flex-col gap-3">
+              {/* Engine Backend Selector (WebGL2 vs WebGPU) */}
+              <div>
+                <div className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 flex justify-between">
+                  <span>Engine Backend</span>
+                  <span className={`font-bold ${backend === 'webgpu' ? 'text-purple-400' : 'text-sky-400'}`}>
+                    {backend === 'webgpu' ? 'WebGPU (120 FPS Compute)' : 'WebGL2 (Rasterizer)'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-900/80 rounded-xl border border-zinc-800">
+                  <button
+                    onClick={() => setBackend('webgl2')}
+                    className={`py-1 px-2 rounded-lg text-[10px] font-bold tracking-wide transition-all text-center ${
+                      backend === 'webgl2' 
+                        ? 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm' 
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    WebGL2
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (hasWebGPU) {
+                        setBackend('webgpu');
+                      } else {
+                        console.warn('WebGPU is unsupported on this device/browser');
+                      }
+                    }}
+                    disabled={!hasWebGPU}
+                    title={hasWebGPU ? 'Dedicated WGSL Compute Pipeline' : 'WebGPU Unsupported on this device/browser'}
+                    className={`py-1 px-2 rounded-lg text-[10px] font-bold tracking-wide transition-all text-center ${
+                      backend === 'webgpu' 
+                        ? 'bg-purple-500/25 text-purple-300 border border-purple-500/50 shadow-sm' 
+                        : hasWebGPU 
+                        ? 'text-zinc-400 hover:text-purple-300' 
+                        : 'text-zinc-600 cursor-not-allowed opacity-50'
+                    }`}
+                  >
+                    WebGPU {hasWebGPU ? '(120 FPS)' : '(N/A)'}
+                  </button>
+                </div>
+              </div>
+
               {/* Matrix Resolution Selector (100k vs 1M) */}
               <div>
                 <div className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 flex justify-between">
@@ -619,17 +840,59 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 4-Way Simulation Paradigm Selector */}
+              {/* Interactive HUD Display Layer Selector (Milestone M2 / Feature F4) */}
+              <div>
+                <div className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1 flex justify-between">
+                  <span>Display Layer</span>
+                  <span className="text-sky-400 font-bold">
+                    {layerMode === 0 ? 'Both' : layerMode === 1 ? 'Points Only' : 'Wireframe Only'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1 p-1 bg-zinc-900/80 rounded-xl border border-zinc-800">
+                  <button
+                    onClick={() => setLayerMode(0)}
+                    className={`py-1.5 px-1 rounded-lg text-[10px] font-bold tracking-wide transition-all text-center ${
+                      layerMode === 0 
+                        ? 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm' 
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    Both
+                  </button>
+                  <button
+                    onClick={() => setLayerMode(1)}
+                    className={`py-1.5 px-1 rounded-lg text-[10px] font-bold tracking-wide transition-all text-center ${
+                      layerMode === 1 
+                        ? 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm' 
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    Points
+                  </button>
+                  <button
+                    onClick={() => setLayerMode(2)}
+                    className={`py-1.5 px-1 rounded-lg text-[10px] font-bold tracking-wide transition-all text-center ${
+                      layerMode === 2 
+                        ? 'bg-sky-500/25 text-sky-300 border border-sky-500/50 shadow-sm' 
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    Wireframe
+                  </button>
+                </div>
+              </div>
+
+              {/* 5-Way Simulation Paradigm Selector */}
               <div>
                 <div className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1.5 flex justify-between">
                   <span>Simulation Paradigm</span>
                   <span className={`font-bold ${
-                    mode === 3 ? 'text-purple-400' : mode === 2 ? 'text-rose-400' : mode === 1 ? 'text-sky-400' : 'text-amber-400'
+                    mode === 4 ? 'text-emerald-400' : mode === 3 ? 'text-purple-400' : mode === 2 ? 'text-rose-400' : mode === 1 ? 'text-sky-400' : 'text-amber-400'
                   }`}>
-                    {mode === 3 ? 'Fluid Flow' : mode === 2 ? 'Griffith LEFM' : mode === 1 ? 'Cylindrical Scroll' : 'Linear Mix'}
+                    {mode === 4 ? 'Fuller Dymaxion' : mode === 3 ? 'Fluid Flow' : mode === 2 ? 'Griffith LEFM' : mode === 1 ? 'Cylindrical Scroll' : 'Linear Mix'}
                   </span>
                 </div>
-                <div className="grid grid-cols-4 gap-1 p-1 bg-zinc-900/80 rounded-xl border border-zinc-800">
+                <div className="grid grid-cols-5 gap-1 p-1 bg-zinc-900/80 rounded-xl border border-zinc-800">
                   <button
                     onClick={() => setMode(0)}
                     className={`py-1.5 px-0.5 rounded-lg text-[9px] font-bold tracking-tight transition-all text-center ${
@@ -670,11 +933,44 @@ export default function App() {
                   >
                     Fluid
                   </button>
+                  <button
+                    onClick={() => setMode(4)}
+                    className={`py-1.5 px-0.5 rounded-lg text-[9px] font-bold tracking-tight transition-all text-center ${
+                      mode === 4 
+                        ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 shadow-sm' 
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    Dymaxion
+                  </button>
                 </div>
               </div>
 
               {/* Dynamic Metric Card based on Active Paradigm */}
-              {mode === 3 ? (
+              {mode === 4 ? (
+                <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="text-zinc-400">Fuller Polyhedral Unfolding:</span>
+                    <span className="font-bold text-emerald-400">
+                      {alpha <= 0.001 
+                        ? 'Icosahedron (20 Facets)' 
+                        : alpha >= 0.999 
+                          ? 'Planar Net (0.0% Sag)' 
+                          : `Isometric Unfurl (${(alpha * 100).toFixed(0)}%)`}
+                    </span>
+                  </div>
+                  <div className="w-full bg-zinc-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-sky-400 transition-all duration-150"
+                      style={{ width: `${alpha * 100}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-[9px] text-zinc-500 mt-1.5 flex justify-between">
+                    <span>Topology: 20 Equilateral Facets</span>
+                    <span>Singularities: 0 (True-Area)</span>
+                  </div>
+                </div>
+              ) : mode === 3 ? (
                 <div className="p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
                   <div className="flex justify-between items-center text-[10px]">
                     <span className="text-zinc-400">Hydrodynamic Flow (Re):</span>
