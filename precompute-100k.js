@@ -19,7 +19,8 @@ const toSphere = (lon, lat) => {
 
 const toMercator = (lon, lat) => {
   const lambda = lon * (Math.PI / 180);
-  const clampedLat = Math.max(-85, Math.min(85, lat));
+  const MAX_LAT = 85.0511287798066; // EPSG:3857 Web Mercator limit
+  const clampedLat = Math.max(-MAX_LAT, Math.min(MAX_LAT, lat));
   const phi = clampedLat * (Math.PI / 180);
   const x = lambda * RADIUS;
   const y = RADIUS * Math.log(Math.tan(Math.PI / 4 + phi / 2));
@@ -95,8 +96,10 @@ if (isMainThread) {
         }
         
         const lineEdges = new Set();
+        // True Antimeridian Seam Culling: cull ONLY edges that cross the flat map boundary (|lonA - lonB| > 180).
+        // Preserves all valid polar Delaunay triangles, healing the Arctic and Antarctic voids.
         const addEdge = (a, b) => {
-            if (Math.abs(allPoints[a][0] - allPoints[b][0]) > 90) return;
+            if (Math.abs(allPoints[a][0] - allPoints[b][0]) > 180) return;
             const key = a < b ? `${a}-${b}` : `${b}-${a}`;
             lineEdges.add(key);
         };
@@ -116,6 +119,7 @@ if (isMainThread) {
 
         console.log(`Generated ${lineIndicesArray.length / 2} geometric edges.`);
         
+        // 1. Write JSON fallback
         console.log('Writing to public/geo-mesh-100k.json...');
         const output = {
             pointsBuffer: pointsArray,
@@ -125,6 +129,48 @@ if (isMainThread) {
         };
         fs.writeFileSync('public/geo-mesh-100k.json', JSON.stringify(output));
         console.log('Done! (geo-mesh-100k.json)');
+
+        // 2. Write Packed Binary Buffer (.bin)
+        console.log('Writing to public/geo-mesh-100k.bin...');
+        const headerSize = 32;
+        const pBytes = TOTAL_POINTS * 3 * 4;
+        const tBytes = TOTAL_POINTS * 2 * 4;
+        const typBytes = TOTAL_POINTS * 1 * 4;
+        const iBytes = lineIndicesArray.length * 4;
+        const totalBytes = headerSize + pBytes + tBytes + typBytes + iBytes;
+
+        const binBuffer = Buffer.alloc(totalBytes);
+        // Header (32 bytes)
+        binBuffer.writeUInt32LE(0x47454F4D, 0); // 'GEOM' magic bytes
+        binBuffer.writeUInt32LE(1, 4);          // version 1
+        binBuffer.writeUInt32LE(TOTAL_POINTS, 8);
+        binBuffer.writeUInt32LE(lineIndicesArray.length, 12);
+        
+        const pOffset = headerSize;
+        const tOffset = pOffset + pBytes;
+        const typOffset = tOffset + tBytes;
+        const iOffset = typOffset + typBytes;
+
+        binBuffer.writeUInt32LE(pOffset, 16);
+        binBuffer.writeUInt32LE(tOffset, 20);
+        binBuffer.writeUInt32LE(typOffset, 24);
+        binBuffer.writeUInt32LE(iOffset, 28);
+
+        // Body: Direct copy of typed array buffers
+        const pFloatView = new Float32Array(pointsArray);
+        Buffer.from(pFloatView.buffer).copy(binBuffer, pOffset);
+
+        const tFloatView = new Float32Array(target2DArray);
+        Buffer.from(tFloatView.buffer).copy(binBuffer, tOffset);
+
+        const typFloatView = new Float32Array(isLandArray);
+        Buffer.from(typFloatView.buffer).copy(binBuffer, typOffset);
+
+        const iUintView = new Uint32Array(lineIndicesArray);
+        Buffer.from(iUintView.buffer).copy(binBuffer, iOffset);
+
+        fs.writeFileSync('public/geo-mesh-100k.bin', binBuffer);
+        console.log(`Done! (geo-mesh-100k.bin: ${(totalBytes / 1024 / 1024).toFixed(2)} MB)`);
     }
     precompute();
 } else {
