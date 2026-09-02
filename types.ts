@@ -42,7 +42,7 @@ export interface TelemetryData {
   isAutoRotating: boolean;
 }
 
-export type SimulationMode = 0 | 1 | 2 | 3 | 4; // 0 = Linear, 1 = Scroll, 2 = Griffith, 3 = Fluid, 4 = Dymaxion
+export type SimulationMode = 0 | 1 | 2 | 3; // 0 = Linear, 1 = Scroll, 2 = Griffith, 3 = Fluid
 export type LayerMode = 0 | 1 | 2; // 0 = Both, 1 = Points Only, 2 = Wireframe Only
 
 export interface CustomInterpolatorInstance {

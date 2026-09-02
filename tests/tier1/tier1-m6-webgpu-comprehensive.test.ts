@@ -41,9 +41,9 @@ describe('Milestone M6: Comprehensive WebGPU WGSL Compute & Render Pipeline Test
       expect(physicsSimWGSL).toContain('sim.u_mode == 3u');
       expect(physicsSimWGSL).toContain('computeCurlNoise');
       expect(physicsSimWGSL).toContain('vortexCirculation');
-      // Mode 4: Fuller Dymaxion
-      expect(physicsSimWGSL).toContain('sim.u_mode == 4u');
-      expect(physicsSimWGSL).toContain('dymaxionTarget');
+      // Verify Dymaxion is excluded to maintain zero overhead
+      expect(physicsSimWGSL).not.toContain('sim.u_mode == 4u');
+      expect(physicsSimWGSL).not.toContain('dymaxionTarget');
     });
   });
 
