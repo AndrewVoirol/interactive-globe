@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "precompute": "node scripts/precompute.js",
+    "precompute:vectors": "tsx scripts/precompute-vectors.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

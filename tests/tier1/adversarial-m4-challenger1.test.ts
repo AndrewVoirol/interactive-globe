@@ -352,32 +352,31 @@ describe('Adversarial Challenger 1: Milestone M4 Fuller Dymaxion Polyhedral Unfo
   // 4. Full GPU Shader Architecture & Integration in App.tsx
   // =========================================================================
   describe('4. Shader Architecture & App.tsx Integration', () => {
-    it('CH1-M4-T10: verifies App.tsx vertex shader excludes Dymaxion to prevent main thread freeze and maintain flow state', () => {
-      expect(appCode).not.toContain('attribute vec2 dymaxion2D;');
-      expect(appCode).not.toContain('if (u_mode == 4)');
+    it('CH1-M4-T10: verifies App.tsx vertex shader includes Dymaxion (Mode 4) and all 5 morphing paradigms', () => {
+      expect(appCode).toContain('attribute vec2 dymaxion2D;');
       expect(appCode).toContain('if (u_mode == 1)');
       expect(appCode).toContain('else if (u_mode == 2)');
       expect(appCode).toContain('else if (u_mode == 3)');
+      expect(appCode).toContain('else if (u_mode == 4)');
     });
 
-    it('CH1-M4-T11: verifies App.tsx normal/facing blending supports the 3 dynamic morphing modes', () => {
-      expect(appCode).toContain('if (u_mode == 1 || u_mode == 2 || u_mode == 3)');
+    it('CH1-M4-T11: verifies App.tsx normal/facing blending supports the dynamic morphing modes', () => {
+      expect(appCode).toMatch(/if\s*\(\s*u_mode\s*==\s*1\s*\|\|\s*u_mode\s*==\s*2\s*\|\|\s*u_mode\s*==\s*3/);
       expect(appCode).toContain('vFacing = mix(facing, dot(normalize(normalMatrix * vec3(0.0, 0.0, 1.0)), viewDir), pow(ease, 2.0));');
     });
 
-    it('CH1-M4-T12: verifies GeometryLayer eliminates dymaxion2D buffer to save VRAM and avoid CPU load stalls', () => {
-      expect(appCode).not.toContain('geoData.dymaxionBuffer');
-      expect(appCode).not.toContain("meshGeo.setAttribute('dymaxion2D'");
-      expect(appCode).not.toContain("pointGeo.setAttribute('dymaxion2D'");
+    it('CH1-M4-T12: verifies GeometryLayer provides dymaxion2D attribute for icosahedral net projection', () => {
+      expect(appCode).toContain("meshGeo.setAttribute('dymaxion2D'");
+      expect(appCode).toContain("pointGeo.setAttribute('dymaxion2D'");
     });
 
-    it('CH1-M4-T13: verifies HUD selector is focused on the 4 core paradigms in a clean 4-column layout', () => {
-      expect(appCode).toContain('grid-cols-4');
-      expect(appCode).not.toContain('grid-cols-5');
+    it('CH1-M4-T13: verifies HUD selector displays all 5 paradigms in a clean 5-column layout', () => {
+      expect(appCode).toContain('grid-cols-5');
       expect(appCode).toContain('Linear');
       expect(appCode).toContain('Scroll');
       expect(appCode).toContain('Griffith');
       expect(appCode).toContain('Fluid');
+      expect(appCode).toContain('Dymaxion');
     });
   });
 });

@@ -67,12 +67,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let backfaceDimming = mix(0.15, 1.0, smoothstep(-0.5, 0.2, in.vFacing));
 
-    // Theme Palette: 0 = Dark Cyber, 1 = Light Monochrome
+    // Theme Palette: 0 = Obsidian & Celestial Platinum, 1 = Light Monochrome
     var geographicColor = vec3<f32>(0.49, 0.827, 0.988);
     var structuralColor = vec3<f32>(0.05, 0.12, 0.22);
     var baseAlpha = mix(0.03, 0.95, in.vPointType);
 
-    if (sim.u_theme == 1u) {
+    if (sim.u_theme == 0u) {
+        // Theme 0: Obsidian & Celestial Platinum
+        geographicColor = vec3<f32>(0.92, 0.90, 0.87);
+        structuralColor = vec3<f32>(0.12, 0.15, 0.20);
+    } else if (sim.u_theme == 1u) {
         // Light Monochrome: Architectural Charcoal Land on Misty Silver Ocean
         geographicColor = vec3<f32>(0.08, 0.09, 0.11);
         structuralColor = vec3<f32>(0.82, 0.85, 0.89);
@@ -91,9 +95,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             finalColor = mix(baseColor, warmUmber, smoothstep(0.15, 0.55, in.vMetric));
             finalColor = mix(finalColor, carbonInk, smoothstep(0.55, 0.90, in.vMetric));
         } else {
-            let tensionAmber = vec3<f32>(1.0, 0.65, 0.15);
-            let ruptureCrimson = vec3<f32>(0.98, 0.20, 0.12);
-            let activeCrackWhite = vec3<f32>(1.0, 0.98, 0.90);
+            let tensionAmber = vec3<f32>(0.78, 0.43, 0.32);
+            let ruptureCrimson = vec3<f32>(0.85, 0.28, 0.20);
+            let activeCrackWhite = vec3<f32>(0.98, 0.96, 0.92);
 
             var stressColor = mix(baseColor, tensionAmber, smoothstep(0.12, 0.45, in.vMetric));
             stressColor = mix(stressColor, ruptureCrimson, smoothstep(0.45, 0.78, in.vMetric));
@@ -112,9 +116,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let fluidGray = mix(charcoalStreamline, obsidianCore, smoothstep(0.3, 0.9, in.vMetric));
             finalColor = mix(baseColor, fluidGray, smoothstep(0.05, 0.4, in.vMetric));
         } else {
-            let oceanicIndigo = vec3<f32>(0.06, 0.22, 0.45);
-            let biolumCyan = vec3<f32>(0.20, 0.88, 0.96);
-            let eddyViolet = vec3<f32>(0.85, 0.25, 0.98);
+            let oceanicIndigo = vec3<f32>(0.10, 0.14, 0.22);
+            let biolumCyan = vec3<f32>(0.42, 0.68, 0.82);
+            let eddyViolet = vec3<f32>(0.55, 0.48, 0.72);
 
             var fluidColor = mix(oceanicIndigo, biolumCyan, smoothstep(0.05, 0.50, in.vMetric));
             fluidColor = mix(fluidColor, eddyViolet, smoothstep(0.50, 0.95, in.vMetric));

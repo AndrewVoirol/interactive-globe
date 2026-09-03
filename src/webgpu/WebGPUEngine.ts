@@ -6,6 +6,7 @@
 
 import * as THREE from 'three';
 import { isWebGPUSupported } from './support';
+import { projectToDymaxion2D } from '../utils/dymaxion';
 
 export { isWebGPUSupported };
 
@@ -20,6 +21,7 @@ export interface WebGPUInitConfig {
   target2DData: Float32Array; // 2 * N (xy)
   typeData: Float32Array;     // N (vType)
   lineIndices: Uint32Array;   // 2 * M (line segment index pairs)
+  dymaxion2DData?: Float32Array; // 2 * N (xy Dymaxion target)
 }
 
 export interface WebGPUFrameParams {
@@ -141,11 +143,21 @@ export class WebGPUEngine {
       initialParticles[base + 10] = config.pointsData[i * 3 + 2];
       initialParticles[base + 11] = 5.0;
 
-      // rest_map (xy: Mercator 2D, zw: reserved)
+      // rest_map (xy: Mercator 2D, zw: Dymaxion 2D)
       initialParticles[base + 12] = config.target2DData[i * 2 + 0];
       initialParticles[base + 13] = config.target2DData[i * 2 + 1];
-      initialParticles[base + 14] = 0.0;
-      initialParticles[base + 15] = 0.0;
+      if (config.dymaxion2DData) {
+        initialParticles[base + 14] = config.dymaxion2DData[i * 2 + 0];
+        initialParticles[base + 15] = config.dymaxion2DData[i * 2 + 1];
+      } else {
+        const [dymU, dymV] = projectToDymaxion2D([
+          config.pointsData[i * 3 + 0],
+          config.pointsData[i * 3 + 1],
+          config.pointsData[i * 3 + 2]
+        ]);
+        initialParticles[base + 14] = dymU;
+        initialParticles[base + 15] = dymV;
+      }
     }
 
     const bufferByteSize = initialParticles.byteLength;

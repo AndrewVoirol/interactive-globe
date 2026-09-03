@@ -257,3 +257,97 @@ export function computeDymaxionMorph(
     arch,
   };
 }
+
+/**
+ * Filters line indices for Dymaxion mode to eliminate spiderweb edges crossing cut facet seams.
+ * Two vertices in the same facet or connected hinge have ||u_a - u_b|| < 0.45.
+ * Edges crossing severed seams have ||u_a - u_b|| >= 0.45.
+ */
+export function filterDymaxionLineIndices(
+  lineIndices: Uint32Array,
+  dymaxionBuffer: Float32Array,
+  maxEdgeDist = 0.80
+): Uint32Array {
+  const maxDistSq = maxEdgeDist * maxEdgeDist;
+  const filtered: number[] = [];
+  const len = lineIndices.length;
+
+  for (let i = 0; i < len; i += 2) {
+    const a = lineIndices[i];
+    const b = lineIndices[i + 1];
+
+    const ax = dymaxionBuffer[a * 2 + 0];
+    const ay = dymaxionBuffer[a * 2 + 1];
+    const bx = dymaxionBuffer[b * 2 + 0];
+    const by = dymaxionBuffer[b * 2 + 1];
+
+    const dx = ax - bx;
+    const dy = ay - by;
+
+    if (dx * dx + dy * dy < maxDistSq) {
+      filtered.push(a, b);
+    }
+  }
+
+  return new Uint32Array(filtered);
+}
+
+/**
+ * Generates the 20 icosahedral facet frame boundary lines for architectural folding visualization.
+ * Returns { points3D, dymaxion2D, indices } for LineSegments rendering.
+ */
+export function generateIcosahedronFrameLines(samplesPerEdge = 6): {
+  points3D: Float32Array;
+  dymaxion2D: Float32Array;
+} {
+  const linePoints3D: number[] = [];
+  const lineDymaxion2D: number[] = [];
+
+  for (let f = 0; f < 20; f++) {
+    const face = ICOSAHEDRON_FACES[f];
+    const v3D = [UNIT_VERTICES[face[0]], UNIT_VERTICES[face[1]], UNIT_VERTICES[face[2]]];
+    const v2D = DYMAXION_FACE_VERTICES_2D[f];
+
+    const edges: [number, number][] = [[0, 1], [1, 2], [2, 0]];
+    for (const [e0, e1] of edges) {
+      const pA3D = v3D[e0];
+      const pB3D = v3D[e1];
+      const pA2D = v2D[e0];
+      const pB2D = v2D[e1];
+
+      for (let s = 0; s < samplesPerEdge; s++) {
+        const t0 = s / samplesPerEdge;
+        const t1 = (s + 1) / samplesPerEdge;
+
+        // Spherical slerp for 3D
+        const slerp3D = (t: number): [number, number, number] => {
+          const x = (1 - t) * pA3D[0] + t * pB3D[0];
+          const y = (1 - t) * pA3D[1] + t * pB3D[1];
+          const z = (1 - t) * pA3D[2] + t * pB3D[2];
+          const len = Math.hypot(x, y, z) || 1.0;
+          return [(x / len) * RADIUS * 1.002, (y / len) * RADIUS * 1.002, (z / len) * RADIUS * 1.002];
+        };
+
+        const lerp2D = (t: number): [number, number] => {
+          return [
+            ((1 - t) * pA2D[0] + t * pB2D[0] - 2.0) * 2.35,
+            ((1 - t) * pA2D[1] + t * pB2D[1]) * 2.35,
+          ];
+        };
+
+        const pt0_3D = slerp3D(t0);
+        const pt1_3D = slerp3D(t1);
+        const pt0_2D = lerp2D(t0);
+        const pt1_2D = lerp2D(t1);
+
+        linePoints3D.push(pt0_3D[0], pt0_3D[1], pt0_3D[2], pt1_3D[0], pt1_3D[1], pt1_3D[2]);
+        lineDymaxion2D.push(pt0_2D[0], pt0_2D[1], pt1_2D[0], pt1_2D[1]);
+      }
+    }
+  }
+
+  return {
+    points3D: new Float32Array(linePoints3D),
+    dymaxion2D: new Float32Array(lineDymaxion2D),
+  };
+}

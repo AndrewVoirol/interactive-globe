@@ -6,17 +6,24 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { WebGPUEngine } from './WebGPUEngine';
 import { CursorTracker } from '../utils/raycast';
+import { GeodesicOverlayLayer } from '../core/GeodesicOverlayLayer';
+import { VectorOverlayLayer } from '../core/VectorOverlayLayer';
 
 export interface WebGPUCanvasProps {
   unfurlProgress: number;
-  mode: 0 | 1 | 2 | 3;
+  mode: 0 | 1 | 2 | 3 | 4;
   layerMode: 0 | 1 | 2;
   theme?: 0 | 1; // 0 = Dark Cyber, 1 = Light Monochrome
   resolution: '100k' | '1M';
   cameraTarget?: THREE.Vector3;
   cameraPosition?: THREE.Vector3;
+  activeOverlay?: 'off' | 'antipodes' | 'conveyor' | 'migration';
+  showLandmarks?: boolean;
+  showTissot?: boolean;
+  showVectors?: boolean;
   onFpsUpdate?: (fps: number) => void;
   onDataLoaded?: (info: {
     pointCount: number;
@@ -28,6 +35,19 @@ export interface WebGPUCanvasProps {
   onError?: (error: Error) => void;
 }
 
+const OverlayCameraSync: React.FC<{ sourceCamera: THREE.PerspectiveCamera }> = ({ sourceCamera }) => {
+  useFrame(({ camera }) => {
+    camera.position.copy(sourceCamera.position);
+    camera.quaternion.copy(sourceCamera.quaternion);
+    if ('fov' in camera && 'aspect' in camera) {
+      (camera as THREE.PerspectiveCamera).fov = sourceCamera.fov;
+      (camera as THREE.PerspectiveCamera).aspect = sourceCamera.aspect;
+      camera.updateProjectionMatrix();
+    }
+  });
+  return null;
+};
+
 export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   unfurlProgress,
   mode,
@@ -36,6 +56,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   resolution,
   cameraTarget,
   cameraPosition,
+  activeOverlay = 'off',
+  showLandmarks = false,
+  showTissot = false,
+  showVectors = false,
   onFpsUpdate,
   onDataLoaded,
   onError,
@@ -93,17 +117,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     }
   }, [cameraTarget]);
 
-  useEffect(() => {
-    if (cameraPosition) {
-      const cam = cameraRef.current;
-      cam.position.copy(cameraPosition);
-      const offset = new THREE.Vector3().subVectors(cam.position, targetRef.current);
-      sphericalRef.current.radius = offset.length();
-      sphericalRef.current.theta = Math.atan2(offset.x, offset.z);
-      sphericalRef.current.phi = Math.acos(Math.min(Math.max(offset.y / sphericalRef.current.radius, -1), 1));
-    }
-  }, [cameraPosition]);
-
   // Update Camera Matrix from Spherical Coordinates
   const updateCameraTransform = useCallback(() => {
     const cam = cameraRef.current;
@@ -119,6 +132,18 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     cam.lookAt(target);
     cam.updateMatrixWorld();
   }, []);
+
+  useEffect(() => {
+    if (cameraPosition) {
+      const cam = cameraRef.current;
+      cam.position.copy(cameraPosition);
+      const offset = new THREE.Vector3().subVectors(cam.position, targetRef.current);
+      sphericalRef.current.radius = offset.length();
+      sphericalRef.current.theta = Math.atan2(offset.x, offset.z);
+      sphericalRef.current.phi = Math.acos(Math.min(Math.max(offset.y / sphericalRef.current.radius, -1), 1));
+      updateCameraTransform();
+    }
+  }, [cameraPosition, updateCameraTransform]);
 
   // Initialize Camera position
   useEffect(() => {
@@ -184,18 +209,20 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
     const onContextMenu = (e: MouseEvent) => e.preventDefault();
 
-    canvas.addEventListener('pointerdown', onPointerDown);
+    const container = containerRef.current || canvas;
+
+    container.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
-    canvas.addEventListener('wheel', onWheel, { passive: false });
-    canvas.addEventListener('contextmenu', onContextMenu);
+    container.addEventListener('wheel', onWheel, { passive: false });
+    container.addEventListener('contextmenu', onContextMenu);
 
     return () => {
-      canvas.removeEventListener('pointerdown', onPointerDown);
+      container.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
-      canvas.removeEventListener('wheel', onWheel);
-      canvas.removeEventListener('contextmenu', onContextMenu);
+      container.removeEventListener('wheel', onWheel);
+      container.removeEventListener('contextmenu', onContextMenu);
     };
   }, [updateCameraTransform]);
 
@@ -407,11 +434,40 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   }, [updateCameraTransform]);
 
   return (
-    <div ref={containerRef} className={`w-full h-full relative overflow-hidden transition-colors duration-500 ${theme === 1 ? 'bg-[#F8FAFC]' : 'bg-[#020408]'}`}>
+    <div ref={containerRef} className={`w-full h-full relative overflow-hidden transition-colors duration-500 ${theme === 1 ? 'bg-[#F8FAFC]' : 'bg-[#090B10]'}`}>
       <canvas
         ref={canvasRef}
         className="w-full h-full block cursor-grab active:cursor-grabbing"
       />
+      {/* High-Performance Geodesic, Tissot & Vector Overlay Layer for WebGPU */}
+      {(activeOverlay !== 'off' || showLandmarks || showTissot || showVectors) && (
+        <div className="absolute inset-0 pointer-events-none z-10">
+          <Canvas
+            className="w-full h-full pointer-events-none"
+            style={{ pointerEvents: 'none' }}
+            camera={{ position: [0, 0, 15], fov: 45 }}
+            gl={{ alpha: true, antialias: true }}
+            events={() => false as any}
+          >
+            <OverlayCameraSync sourceCamera={cameraRef.current} />
+            <GeodesicOverlayLayer
+              unfurlProgress={unfurlProgress}
+              mode={mode}
+              activeOverlay={activeOverlay}
+              showLandmarks={showLandmarks}
+              showTissot={showTissot}
+              theme={theme}
+            />
+            <VectorOverlayLayer
+              unfurlProgress={unfurlProgress}
+              mode={mode}
+              theme={theme}
+              visible={showVectors}
+              cameraTarget={cameraTarget}
+            />
+          </Canvas>
+        </div>
+      )}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-10">
           <div className="flex flex-col items-center gap-2 text-sky-400 font-mono text-xs">

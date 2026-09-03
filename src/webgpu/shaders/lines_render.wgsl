@@ -64,8 +64,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let densityFactor = sqrt(100000.0 / max(f32(sim.u_numParticles), 1.0));
     let backfaceDimming = mix(0.15, 1.0, smoothstep(-0.5, 0.2, in.vFacing));
 
-    var structuralWire = vec3<f32>(0.05, 0.15, 0.25);
-    var geographicWire = vec3<f32>(0.25, 0.55, 0.85);
+    var structuralWire = vec3<f32>(0.14, 0.18, 0.24);
+    var geographicWire = vec3<f32>(0.35, 0.42, 0.52);
 
     if (sim.u_theme == 1u) {
         // Light Monochrome: Soft graphite architectural lines
