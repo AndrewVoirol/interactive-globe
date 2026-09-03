@@ -10,7 +10,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, '.'),
+      '@': path.resolve(__dirname, './src'),
     }
   },
   build: {
@@ -29,6 +29,9 @@ export default defineConfig({
           }
           if (id.includes('node_modules/lucide-react')) {
             return 'lucide-vendor';
+          }
+          if (id.includes('src/components/hud')) {
+            return 'hud-components';
           }
         }
       }

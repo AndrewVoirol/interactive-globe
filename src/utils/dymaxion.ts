@@ -330,8 +330,8 @@ export function generateIcosahedronFrameLines(samplesPerEdge = 6): {
 
         const lerp2D = (t: number): [number, number] => {
           return [
-            ((1 - t) * pA2D[0] + t * pB2D[0] - 2.0) * 2.35,
-            ((1 - t) * pA2D[1] + t * pB2D[1]) * 2.35,
+            ((1 - t) * pA2D[0] + t * pB2D[0] - 2.0) * 3.2,
+            ((1 - t) * pA2D[1] + t * pB2D[1]) * 3.2,
           ];
         };
 

@@ -77,7 +77,8 @@ describe('Vector Coastline & Major Waterway Overlay Architecture', () => {
   });
 
   it('VEC-T03: verifies App.tsx and TelemetryHUD.tsx define showVectors and onVectorsToggle contract', () => {
-    const appCode = fs.readFileSync(path.join(projectRoot, 'App.tsx'), 'utf8');
+    const appTsxPath = fs.existsSync(path.join(projectRoot, 'src/App.tsx')) ? path.join(projectRoot, 'src/App.tsx') : path.join(projectRoot, 'App.tsx');
+    const appCode = fs.readFileSync(appTsxPath, 'utf8');
     const hudCode = fs.readFileSync(path.join(projectRoot, 'src/components/hud/TelemetryHUD.tsx'), 'utf8');
 
     expect(appCode).toContain('showVectors');

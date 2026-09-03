@@ -31,7 +31,7 @@ const RADIUS_SPHERE = 5.015;
 const RADIUS_MERCATOR = 5.0;
 const MAX_LAT = 85.0511287798066;
 
-function toSphere(lon, lat, r = RADIUS_SPHERE) {
+function toSphere(lon: number, lat: number, r = RADIUS_SPHERE): [number, number, number] {
   const lambda = lon * (Math.PI / 180);
   const phi = lat * (Math.PI / 180);
   return [
@@ -41,7 +41,7 @@ function toSphere(lon, lat, r = RADIUS_SPHERE) {
   ];
 }
 
-function toMercator(lon, lat) {
+function toMercator(lon: number, lat: number): [number, number] {
   const lambda = lon * (Math.PI / 180);
   const clampedLat = Math.max(-MAX_LAT, Math.min(MAX_LAT, lat));
   const phi = clampedLat * (Math.PI / 180);
@@ -75,13 +75,13 @@ async function run() {
   // Step 3: Process Line Segments with Antimeridian Seam Protection
   console.log('\n[3/4] Processing Geometry & Antimeridian Clipping...');
   
-  const positions3DList = [];
-  const target2DList = [];
-  const dymaxion2DList = [];
-  const vTypeList = [];
-  const indicesList = [];
+  const positions3DList: number[] = [];
+  const target2DList: number[] = [];
+  const dymaxion2DList: number[] = [];
+  const vTypeList: number[] = [];
+  const indicesList: number[] = [];
 
-  function addLineString(coords, typeValue) {
+  function addLineString(coords: any[], typeValue: number) {
     if (!coords || coords.length < 2) return;
 
     for (let i = 0; i < coords.length - 1; i++) {

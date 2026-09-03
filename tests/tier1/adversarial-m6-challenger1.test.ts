@@ -325,44 +325,57 @@ describe('Adversarial Challenge Suite: Milestone M6 (Challenger 1)', () => {
         mode: 4,
         layerMode: 8,
         time: 12,
-        dt: 16,
-        cursorActive: 20,
-        numParticles: 24,
+        cursorActive: 16,
+        numParticles: 20,
+        theme: 24,
         pad1: 28,
-        cursorRayOrig: 32,
-        cursorRayDir: 48,
-        cursorHitPos: 64,
-        cursorVel: 80,
-        viewMatrix: 96,
-        projectionMatrix: 160,
-        cameraPos: 224,
+        cursorHitPos: 32,
+        cursorVel: 48,
+        viewMatrix: 64,
+        projectionMatrix: 128,
+        cameraPos: 192,
       };
 
       // Every vec4 and mat4 must start on a 16-byte boundary
-      expect(offsets.cursorRayOrig % 16).toBe(0);
-      expect(offsets.cursorRayDir % 16).toBe(0);
       expect(offsets.cursorHitPos % 16).toBe(0);
       expect(offsets.cursorVel % 16).toBe(0);
       expect(offsets.viewMatrix % 16).toBe(0);
       expect(offsets.projectionMatrix % 16).toBe(0);
       expect(offsets.cameraPos % 16).toBe(0);
 
-      // Verify SimUniforms in all 3 WGSL files
-      for (const shader of [physicsSimWGSL, pointsRenderWGSL, linesRenderWGSL]) {
+      // Verify active SimUniforms in physics_sim.wgsl
+      expect(physicsSimWGSL).toContain('u_unfurl: f32');
+      expect(physicsSimWGSL).toContain('u_mode: u32');
+      expect(physicsSimWGSL).toContain('u_layerMode: u32');
+      expect(physicsSimWGSL).toContain('u_time: f32');
+      expect(physicsSimWGSL).toContain('u_cursorActive: f32');
+      expect(physicsSimWGSL).toContain('u_numParticles: u32');
+      expect(physicsSimWGSL).toContain('u_theme: u32');
+      expect(physicsSimWGSL).toContain('u_cursorHitPos: vec4<f32>');
+      expect(physicsSimWGSL).toContain('u_cursorVel: vec4<f32>');
+      expect(physicsSimWGSL).not.toContain('u_dt: f32');
+      expect(physicsSimWGSL).not.toContain('u_cursorRayOrig: vec4<f32>');
+      expect(physicsSimWGSL).not.toContain('u_cursorRayDir: vec4<f32>');
+      expect(physicsSimWGSL).not.toContain('u_viewMatrix: mat4x4<f32>');
+      expect(physicsSimWGSL).not.toContain('u_projectionMatrix: mat4x4<f32>');
+      expect(physicsSimWGSL).not.toContain('u_cameraPos: vec4<f32>');
+
+      // Verify active SimUniforms in render shaders
+      for (const shader of [pointsRenderWGSL, linesRenderWGSL]) {
         expect(shader).toContain('u_unfurl: f32');
         expect(shader).toContain('u_mode: u32');
         expect(shader).toContain('u_layerMode: u32');
         expect(shader).toContain('u_time: f32');
-        expect(shader).toContain('u_dt: f32');
         expect(shader).toContain('u_cursorActive: f32');
         expect(shader).toContain('u_numParticles: u32');
-        expect(shader).toContain('u_cursorRayOrig: vec4<f32>');
-        expect(shader).toContain('u_cursorRayDir: vec4<f32>');
+        expect(shader).toContain('u_theme: u32');
         expect(shader).toContain('u_cursorHitPos: vec4<f32>');
         expect(shader).toContain('u_cursorVel: vec4<f32>');
         expect(shader).toContain('u_viewMatrix: mat4x4<f32>');
         expect(shader).toContain('u_projectionMatrix: mat4x4<f32>');
         expect(shader).toContain('u_cameraPos: vec4<f32>');
+        expect(shader).not.toContain('u_cursorRayOrig: vec4<f32>');
+        expect(shader).not.toContain('u_cursorRayDir: vec4<f32>');
       }
     });
 
@@ -379,35 +392,32 @@ describe('Adversarial Challenge Suite: Milestone M6 (Challenger 1)', () => {
       uints[1] = 3;     // mode
       uints[2] = 0;     // layerMode
       floats[3] = 42.5; // time
-      floats[4] = 0.00833; // dt
-      floats[5] = 1.0;  // cursorActive
-      uints[6] = 1000000; // numParticles
+      floats[4] = 1.0;  // cursorActive
+      uints[5] = 1000000; // numParticles
+      uints[6] = 0;     // theme
       floats[7] = 0.0;  // pad1
 
-      floats[8] = 0; floats[9] = 0; floats[10] = 15; floats[11] = 0; // rayOrig
-      floats[12] = 0; floats[13] = 0; floats[14] = -1; floats[15] = 0; // rayDir
-      floats[16] = 1.2; floats[17] = 2.4; floats[18] = 3.6; floats[19] = 0; // hitPos
-      floats[20] = 0.1; floats[21] = 0.2; floats[22] = 0.0; floats[23] = 0.2236; // vel + speed
+      floats[8] = 1.2; floats[9] = 2.4; floats[10] = 3.6; floats[11] = 0; // hitPos
+      floats[12] = 0.1; floats[13] = 0.2; floats[14] = 0.0; floats[15] = 0.2236; // vel + speed
 
-      camera.matrixWorldInverse.toArray(floats, 24);
-      camera.projectionMatrix.toArray(floats, 40);
-      floats[56] = camera.position.x;
-      floats[57] = camera.position.y;
-      floats[58] = camera.position.z;
-      floats[59] = 1.0;
+      camera.matrixWorldInverse.toArray(floats, 16);
+      camera.projectionMatrix.toArray(floats, 32);
+      floats[48] = camera.position.x;
+      floats[49] = camera.position.y;
+      floats[50] = camera.position.z;
+      floats[51] = 1.0;
 
       expect(floats[0]).toBe(0.75);
       expect(uints[1]).toBe(3);
       expect(uints[2]).toBe(0);
       expect(floats[3]).toBe(42.5);
-      expect(uints[6]).toBe(1000000);
-      expect(floats[10]).toBe(15);
-      expect(floats[14]).toBe(-1);
-      expect(floats[16]).toBeCloseTo(1.2, 5);
-      expect(floats[23]).toBeCloseTo(0.2236, 4);
-      expect(floats[56]).toBe(2);
-      expect(floats[57]).toBe(4);
-      expect(floats[58]).toBe(15);
+      expect(floats[4]).toBe(1.0);
+      expect(uints[5]).toBe(1000000);
+      expect(floats[8]).toBeCloseTo(1.2, 5);
+      expect(floats[15]).toBeCloseTo(0.2236, 4);
+      expect(floats[48]).toBe(2);
+      expect(floats[49]).toBe(4);
+      expect(floats[50]).toBe(15);
     });
   });
 

@@ -16,9 +16,13 @@ import {
 
 describe('Adversarial Challenger 1: Milestone M5 Passive Raycast Cursor Perturbation Stress Suite', () => {
   const projectRoot = path.resolve(__dirname, '../..');
-  const appTsxPath = path.join(projectRoot, 'App.tsx');
+  const appTsxPath = fs.existsSync(path.join(projectRoot, 'src/App.tsx')) ? path.join(projectRoot, 'src/App.tsx') : path.join(projectRoot, 'App.tsx');
   const raycastTsPath = path.join(projectRoot, 'src/utils/raycast.ts');
-  const appCode = fs.readFileSync(appTsxPath, 'utf8');
+  let appCode = fs.readFileSync(appTsxPath, 'utf8');
+  const geoLayerPath = path.join(projectRoot, 'src/components/canvas/GeometryLayer.tsx');
+  if (fs.existsSync(geoLayerPath)) {
+    appCode += '\n' + fs.readFileSync(geoLayerPath, 'utf8');
+  }
   const raycastCode = fs.readFileSync(raycastTsPath, 'utf8');
 
   // =========================================================================

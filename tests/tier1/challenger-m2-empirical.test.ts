@@ -6,9 +6,13 @@ import { getLayerOpacities, computeWireframeOpacityScale } from '../helpers/math
 
 describe('Challenger 1 Empirical Verification: Milestone M2', () => {
   const projectRoot = path.resolve(__dirname, '../..');
-  const appTsxPath = path.join(projectRoot, 'App.tsx');
+  const appTsxPath = fs.existsSync(path.join(projectRoot, 'src/App.tsx')) ? path.join(projectRoot, 'src/App.tsx') : path.join(projectRoot, 'App.tsx');
   const precomputePath = path.join(projectRoot, 'scripts/precompute.js');
-  const appCode = fs.readFileSync(appTsxPath, 'utf8');
+  let appCode = fs.readFileSync(appTsxPath, 'utf8');
+  const geoLayerPath = path.join(projectRoot, 'src/components/canvas/GeometryLayer.tsx');
+  if (fs.existsSync(geoLayerPath)) {
+    appCode += '\n' + fs.readFileSync(geoLayerPath, 'utf8');
+  }
   const precomputeCode = fs.readFileSync(precomputePath, 'utf8');
 
   describe('1. Layer Toggling State Machine & Rapid Switching Stress', () => {

@@ -106,13 +106,21 @@ export const GeodesicOverlayLayer: React.FC<GeodesicOverlayLayerProps> = ({
     return geo;
   }, []);
 
+  const lastCacheKeyRef = useRef<string>('');
+
   // Frame Update: Morph arc, pulse beads, and Tissot distortion synchronously
   useFrame(() => {
     const effectiveStart = startTime !== undefined ? startTime : localStartTimeRef.current;
     const elapsedTime = (performance.now() - effectiveStart) * 0.001;
 
+    // Cache key: when mode !== 3, time is static for geometry morphing
+    const timeKey = mode === 3 ? Math.floor(elapsedTime * 30) : 0;
+    const currentKey = `${unfurlProgress.toFixed(4)}_${mode}_${activeOverlay}_${showTissot}_${showLandmarks}_${timeKey}`;
+    const keyChanged = lastCacheKeyRef.current !== currentKey;
+    lastCacheKeyRef.current = currentKey;
+
     // 1. Update Arcs & Animated Flow Beads
-    if (arcLineRef.current && arcVertexCount > 0) {
+    if (keyChanged && arcLineRef.current && arcVertexCount > 0) {
       const posAttr = arcLineRef.current.geometry.attributes.position as THREE.BufferAttribute;
       const array = posAttr.array as Float32Array;
       let ptr = 0;
@@ -180,7 +188,7 @@ export const GeodesicOverlayLayer: React.FC<GeodesicOverlayLayerProps> = ({
     }
 
     // 2. Update Tissot Indicatrix Circles & Principal Axes
-    if (tissotLinesRef.current && tissotVertexCount > 0) {
+    if (keyChanged && tissotLinesRef.current && tissotVertexCount > 0) {
       const posAttr = tissotLinesRef.current.geometry.attributes.position as THREE.BufferAttribute;
       const colAttr = tissotLinesRef.current.geometry.attributes.color as THREE.BufferAttribute;
       const posArray = posAttr.array as Float32Array;
@@ -251,7 +259,7 @@ export const GeodesicOverlayLayer: React.FC<GeodesicOverlayLayerProps> = ({
     }
 
     // 3. Update Landmark Anchors
-    if (landmarkPointsRef.current && showLandmarks) {
+    if (keyChanged && landmarkPointsRef.current && showLandmarks) {
       const posAttr = landmarkPointsRef.current.geometry.attributes.position as THREE.BufferAttribute;
       const array = posAttr.array as Float32Array;
 

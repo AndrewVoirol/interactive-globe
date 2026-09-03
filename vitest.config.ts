@@ -4,10 +4,10 @@ import path from 'path';
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'node',
-    include: ['tests/**/*.{test,spec}.ts', 'tests/**/*.{test,spec}.js'],
+    environment: 'happy-dom',
+    include: ['tests/**/*.{test,spec}.{ts,js,tsx,jsx}'],
     alias: {
-      '@': path.resolve(__dirname, '.'),
+      '@': path.resolve(__dirname, './src'),
     },
     testTimeout: 30000,
     hookTimeout: 30000,

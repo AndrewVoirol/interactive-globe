@@ -46,11 +46,17 @@ export class WebGPUEngine {
   private format!: GPUTextureFormat;
 
   private particleBuffers: [GPUBuffer, GPUBuffer] = [null!, null!];
+  private staticBuffer!: GPUBuffer;
   private lineIndexBuffer!: GPUBuffer;
   private lineIndexCount: number = 0;
   private pointCount: number = 0;
 
   private simUniformBuffer!: GPUBuffer;
+  private simFloats: Float32Array = new Float32Array(64);
+  private simUints: Uint32Array = new Uint32Array(this.simFloats.buffer);
+
+  private depthTexture: GPUTexture | null = null;
+  private depthTextureView: GPUTextureView | null = null;
 
   private computePipeline!: GPUComputePipeline;
   private pointsRenderPipeline!: GPURenderPipeline;
@@ -119,50 +125,68 @@ export class WebGPUEngine {
     this.pointCount = config.pointCount;
     this.lineIndexCount = config.lineIndices.length;
 
-    // 1. Pack and Upload Interleaved Particle Buffer (64 bytes / node = 16 floats / node)
-    const particleFloatCount = this.pointCount * 16;
+    this.updateDepthTexture(config.canvas.width || 800, config.canvas.height || 600);
+
+    // 1. Pack dynamic particles (32 bytes / node = 8 floats) & static particles (32 bytes / node = 8 floats)
+    const particleFloatCount = this.pointCount * 8;
     const initialParticles = new Float32Array(particleFloatCount);
+    const initialStaticParticles = new Float32Array(particleFloatCount);
 
     for (let i = 0; i < this.pointCount; i++) {
-      const base = i * 16;
+      const pBase = i * 8;
+      const sBase = i * 8;
+
       // position (xyz) + pointType (w)
-      initialParticles[base + 0] = config.pointsData[i * 3 + 0];
-      initialParticles[base + 1] = config.pointsData[i * 3 + 1];
-      initialParticles[base + 2] = config.pointsData[i * 3 + 2];
-      initialParticles[base + 3] = config.typeData[i];
+      initialParticles[pBase + 0] = config.pointsData[i * 3 + 0];
+      initialParticles[pBase + 1] = config.pointsData[i * 3 + 1];
+      initialParticles[pBase + 2] = config.pointsData[i * 3 + 2];
+      initialParticles[pBase + 3] = config.typeData[i];
 
       // velocity (xyz) + metric (w)
-      initialParticles[base + 4] = 0.0;
-      initialParticles[base + 5] = 0.0;
-      initialParticles[base + 6] = 0.0;
-      initialParticles[base + 7] = 0.0;
+      initialParticles[pBase + 4] = 0.0;
+      initialParticles[pBase + 5] = 0.0;
+      initialParticles[pBase + 6] = 0.0;
+      initialParticles[pBase + 7] = 0.0;
 
       // rest_sphere (xyz) + rest_radius (w)
-      initialParticles[base + 8] = config.pointsData[i * 3 + 0];
-      initialParticles[base + 9] = config.pointsData[i * 3 + 1];
-      initialParticles[base + 10] = config.pointsData[i * 3 + 2];
-      initialParticles[base + 11] = 5.0;
+      initialStaticParticles[sBase + 0] = config.pointsData[i * 3 + 0];
+      initialStaticParticles[sBase + 1] = config.pointsData[i * 3 + 1];
+      initialStaticParticles[sBase + 2] = config.pointsData[i * 3 + 2];
+      initialStaticParticles[sBase + 3] = 5.0;
 
       // rest_map (xy: Mercator 2D, zw: Dymaxion 2D)
-      initialParticles[base + 12] = config.target2DData[i * 2 + 0];
-      initialParticles[base + 13] = config.target2DData[i * 2 + 1];
+      initialStaticParticles[sBase + 4] = config.target2DData[i * 2 + 0];
+      initialStaticParticles[sBase + 5] = config.target2DData[i * 2 + 1];
       if (config.dymaxion2DData) {
-        initialParticles[base + 14] = config.dymaxion2DData[i * 2 + 0];
-        initialParticles[base + 15] = config.dymaxion2DData[i * 2 + 1];
+        initialStaticParticles[sBase + 6] = config.dymaxion2DData[i * 2 + 0];
+        initialStaticParticles[sBase + 7] = config.dymaxion2DData[i * 2 + 1];
       } else {
         const [dymU, dymV] = projectToDymaxion2D([
           config.pointsData[i * 3 + 0],
           config.pointsData[i * 3 + 1],
           config.pointsData[i * 3 + 2]
         ]);
-        initialParticles[base + 14] = dymU;
-        initialParticles[base + 15] = dymV;
+        initialStaticParticles[sBase + 6] = dymU;
+        initialStaticParticles[sBase + 7] = dymV;
       }
     }
 
+    // Create Dedicated Static GPU Storage Buffer
+    this.staticBuffer = this.device.createBuffer({
+      size: initialStaticParticles.byteLength,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    this.device.queue.writeBuffer(
+      this.staticBuffer,
+      0,
+      initialStaticParticles.buffer,
+      initialStaticParticles.byteOffset,
+      initialStaticParticles.byteLength
+    );
+
     const bufferByteSize = initialParticles.byteLength;
 
-    // Create Ping-Pong Storage Buffers (Buffer A & Buffer B)
+    // Create Ping-Pong Storage Buffers (Buffer 0 & Buffer 1)
     this.particleBuffers[0] = this.device.createBuffer({
       size: bufferByteSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
@@ -175,7 +199,7 @@ export class WebGPUEngine {
     });
     this.device.queue.writeBuffer(this.particleBuffers[1], 0, initialParticles.buffer, initialParticles.byteOffset, initialParticles.byteLength);
 
-    // 2. Index Buffer for Line Segments (Must use exact byteOffset and byteLength to prevent ArrayBuffer overflow)
+    // 2. Index Buffer for Line Segments
     this.lineIndexBuffer = this.device.createBuffer({
       size: config.lineIndices.byteLength,
       usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
@@ -198,6 +222,27 @@ export class WebGPUEngine {
     await this.setupPipelines();
     this.currentStep = 0;
     this.isInitialized = true;
+  }
+
+  private updateDepthTexture(width: number, height: number): void {
+    if (this.depthTexture) {
+      this.depthTexture.destroy();
+      this.depthTexture = null;
+      this.depthTextureView = null;
+    }
+    if (!this.device || typeof this.device.createTexture !== 'function') return;
+    const w = Math.max(1, width);
+    const h = Math.max(1, height);
+    try {
+      this.depthTexture = this.device.createTexture({
+        size: [w, h],
+        format: 'depth24plus',
+        usage: typeof GPUTextureUsage !== 'undefined' ? GPUTextureUsage.RENDER_ATTACHMENT : 16,
+      });
+      this.depthTextureView = this.depthTexture.createView();
+    } catch {
+      // Mock environment guard
+    }
   }
 
   private async setupPipelines(): Promise<void> {
@@ -236,6 +281,11 @@ export class WebGPUEngine {
           visibility: GPUShaderStage.COMPUTE,
           buffer: { type: 'storage' },
         },
+        {
+          binding: 3,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: 'read-only-storage' },
+        },
       ],
     });
 
@@ -272,6 +322,7 @@ export class WebGPUEngine {
         { binding: 0, resource: { buffer: this.simUniformBuffer } },
         { binding: 1, resource: { buffer: this.particleBuffers[0] } },
         { binding: 2, resource: { buffer: this.particleBuffers[1] } },
+        { binding: 3, resource: { buffer: this.staticBuffer } },
       ],
     });
 
@@ -282,6 +333,7 @@ export class WebGPUEngine {
         { binding: 0, resource: { buffer: this.simUniformBuffer } },
         { binding: 1, resource: { buffer: this.particleBuffers[1] } },
         { binding: 2, resource: { buffer: this.particleBuffers[0] } },
+        { binding: 3, resource: { buffer: this.staticBuffer } },
       ],
     });
 
@@ -294,9 +346,9 @@ export class WebGPUEngine {
       ],
     });
 
-    // 6. Common Vertex Buffer Layout (64-byte particle stride, zero-copy)
+    // 6. Common Vertex Buffer Layout (32-byte particle stride, zero-copy)
     const vertexBufferLayout: GPUVertexBufferLayout = {
-      arrayStride: 64,
+      arrayStride: 32,
       stepMode: 'vertex',
       attributes: [
         {
@@ -309,16 +361,6 @@ export class WebGPUEngine {
           offset: 16,
           format: 'float32x4', // velocity (xyz) + metric (w)
         },
-        {
-          shaderLocation: 2,
-          offset: 32,
-          format: 'float32x4', // rest_sphere (xyz) + radius (w)
-        },
-        {
-          shaderLocation: 3,
-          offset: 48,
-          format: 'float32x4', // rest_map (xy: target2D, zw: dymaxion2D)
-        },
       ],
     };
 
@@ -326,7 +368,7 @@ export class WebGPUEngine {
       bindGroupLayouts: [renderBindGroupLayout],
     });
 
-    // 7. Points Render Pipeline
+    // 7. Points Render Pipeline with Depth Stencil
     this.pointsRenderPipeline = this.device.createRenderPipeline({
       label: 'points_render_pipeline',
       layout: renderPipelineLayout,
@@ -356,13 +398,18 @@ export class WebGPUEngine {
           },
         ],
       },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less-equal',
+        format: 'depth24plus',
+      },
       primitive: {
         topology: 'point-list',
         cullMode: 'none',
       },
     });
 
-    // 8. Lines Render Pipeline
+    // 8. Lines Render Pipeline with Depth Stencil
     this.linesRenderPipeline = this.device.createRenderPipeline({
       label: 'lines_render_pipeline',
       layout: renderPipelineLayout,
@@ -392,6 +439,11 @@ export class WebGPUEngine {
           },
         ],
       },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+        format: 'depth24plus',
+      },
       primitive: {
         topology: 'line-list',
         cullMode: 'none',
@@ -402,8 +454,8 @@ export class WebGPUEngine {
   public updateUniforms(params: WebGPUFrameParams): void {
     if (!this.isInitialized || !this.simUniformBuffer) return;
 
-    const simFloats = new Float32Array(64);
-    const simUints = new Uint32Array(simFloats.buffer);
+    const simFloats = this.simFloats;
+    const simUints = this.simUints;
 
     const layerMode = params.layerMode !== undefined ? params.layerMode : (
       params.renderLayers === 'points' ? 1 : params.renderLayers === 'wireframe' ? 2 : 0
@@ -415,68 +467,63 @@ export class WebGPUEngine {
     simUints[2] = layerMode;
     simFloats[3] = params.time;
 
-    // [4..7]: dt, cursorActive, numParticles, pad1
-    simFloats[4] = params.dt;
-    simFloats[5] = params.cursorActive ? 1.0 : 0.0;
-    simUints[6] = this.pointCount;
-    simUints[7] = params.theme !== undefined ? params.theme : 0; // 0 = Dark, 1 = Light Monochrome
+    // [4..7]: cursorActive, numParticles, theme, pad1
+    simFloats[4] = params.cursorActive ? 1.0 : 0.0;
+    simUints[5] = this.pointCount;
+    simUints[6] = params.theme !== undefined ? params.theme : 0; // 0 = Dark, 1 = Light Monochrome
+    simFloats[7] = 0.0; // padding to align vec4 to offset 32
 
-    // [8..11]: cursorRayOrig
-    if (params.cursorRayOrig) {
-      simFloats[8] = params.cursorRayOrig.x;
-      simFloats[9] = params.cursorRayOrig.y;
-      simFloats[10] = params.cursorRayOrig.z;
+    // [8..11]: cursorHitPos
+    if (params.cursorHitPos) {
+      simFloats[8] = params.cursorHitPos.x;
+      simFloats[9] = params.cursorHitPos.y;
+      simFloats[10] = params.cursorHitPos.z;
+    } else {
+      simFloats[8] = 0.0;
+      simFloats[9] = 0.0;
+      simFloats[10] = 0.0;
     }
     simFloats[11] = 0.0;
 
-    // [12..15]: cursorRayDir
-    if (params.cursorRayDir) {
-      simFloats[12] = params.cursorRayDir.x;
-      simFloats[13] = params.cursorRayDir.y;
-      simFloats[14] = params.cursorRayDir.z;
-    }
-    simFloats[15] = 0.0;
-
-    // [16..19]: cursorHitPos
-    if (params.cursorHitPos) {
-      simFloats[16] = params.cursorHitPos.x;
-      simFloats[17] = params.cursorHitPos.y;
-      simFloats[18] = params.cursorHitPos.z;
-    }
-    simFloats[19] = 0.0;
-
-    // [20..23]: cursorVel (xyz) + speed (w)
+    // [12..15]: cursorVel (xyz) + speed (w)
     if (params.cursorVel) {
-      simFloats[20] = params.cursorVel.x;
-      simFloats[21] = params.cursorVel.y;
-      simFloats[22] = params.cursorVel.z;
+      simFloats[12] = params.cursorVel.x;
+      simFloats[13] = params.cursorVel.y;
+      simFloats[14] = params.cursorVel.z;
       const speed = 'w' in params.cursorVel ? params.cursorVel.w : Math.hypot(params.cursorVel.x, params.cursorVel.y, params.cursorVel.z);
-      simFloats[23] = speed;
+      simFloats[15] = speed;
     } else {
-      simFloats[20] = 0.0;
-      simFloats[21] = 0.0;
-      simFloats[22] = 0.0;
-      simFloats[23] = 0.0;
+      simFloats[12] = 0.0;
+      simFloats[13] = 0.0;
+      simFloats[14] = 0.0;
+      simFloats[15] = 0.0;
     }
 
-    // [24..39]: viewMatrix (16 floats)
+    // [16..31]: viewMatrix (16 floats)
     params.camera.updateMatrixWorld();
-    params.camera.matrixWorldInverse.toArray(simFloats, 24);
+    params.camera.matrixWorldInverse.toArray(simFloats, 16);
 
-    // [40..55]: projectionMatrix (16 floats)
-    params.camera.projectionMatrix.toArray(simFloats, 40);
+    // [32..47]: projectionMatrix (16 floats)
+    params.camera.projectionMatrix.toArray(simFloats, 32);
 
-    // [56..59]: cameraPos (xyz) + pad
-    simFloats[56] = params.camera.position.x;
-    simFloats[57] = params.camera.position.y;
-    simFloats[58] = params.camera.position.z;
-    simFloats[59] = 1.0;
+    // [48..51]: cameraPos (xyz) + pad
+    simFloats[48] = params.camera.position.x;
+    simFloats[49] = params.camera.position.y;
+    simFloats[50] = params.camera.position.z;
+    simFloats[51] = 1.0;
 
     this.device.queue.writeBuffer(this.simUniformBuffer, 0, simFloats.buffer);
   }
 
   public render(params: WebGPUFrameParams): void {
     if (!this.isInitialized) return;
+
+    // Ensure depth texture matches current canvas dimensions
+    const canvasWidth = this.context.canvas?.width || 800;
+    const canvasHeight = this.context.canvas?.height || 600;
+    if (!this.depthTexture || this.depthTexture.width !== canvasWidth || this.depthTexture.height !== canvasHeight) {
+      this.updateDepthTexture(canvasWidth, canvasHeight);
+    }
 
     // 1. Update Sim Uniforms
     this.updateUniforms(params);
@@ -510,6 +557,14 @@ export class WebGPUEngine {
           storeOp: 'store',
         },
       ],
+      depthStencilAttachment: this.depthTextureView
+        ? {
+            view: this.depthTextureView,
+            depthClearValue: 1.0,
+            depthLoadOp: 'clear',
+            depthStoreOp: 'store',
+          }
+        : undefined,
     });
 
     renderPass.setBindGroup(0, this.renderBindGroup);
@@ -545,6 +600,7 @@ export class WebGPUEngine {
       format: this.format,
       alphaMode: 'premultiplied',
     });
+    this.updateDepthTexture(width, height);
   }
 
   public onDeviceLost(callback: (info: GPUDeviceLostInfo) => void): void {
@@ -556,8 +612,12 @@ export class WebGPUEngine {
     this.onDeviceLostCallback = undefined;
     this.particleBuffers[0]?.destroy();
     this.particleBuffers[1]?.destroy();
+    this.staticBuffer?.destroy();
     this.lineIndexBuffer?.destroy();
     this.simUniformBuffer?.destroy();
+    this.depthTexture?.destroy();
+    this.depthTexture = null;
+    this.depthTextureView = null;
     this.device?.destroy?.();
     this.isInitialized = false;
   }
