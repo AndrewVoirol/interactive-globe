@@ -433,6 +433,7 @@ interface GeometryLayerProps {
   cursorPhysicsEnabled: boolean;
   onFpsUpdate: (fps: number) => void;
   onDataLoaded: (info: LoadedDataInfo) => void;
+  startTime?: number;
 }
 
 const GeometryLayer: React.FC<GeometryLayerProps> = ({ 
@@ -444,7 +445,8 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
   cameraTarget,
   cursorPhysicsEnabled,
   onFpsUpdate,
-  onDataLoaded
+  onDataLoaded,
+  startTime,
 }) => {
   const meshMaterialRef = useRef<THREE.ShaderMaterial>(null);
   const pointMaterialRef = useRef<THREE.ShaderMaterial>(null);
@@ -571,7 +573,8 @@ const GeometryLayer: React.FC<GeometryLayerProps> = ({
   }, [resolution, onDataLoaded]);
 
   useFrame(({ camera }) => {
-    const elapsedTime = (performance.now() - startTimeRef.current) * 0.001;
+    const effectiveStart = startTime !== undefined ? startTime : startTimeRef.current;
+    const elapsedTime = (performance.now() - effectiveStart) * 0.001;
     const nodeCount = geoData?.typeBuffer?.length || (resolution === '1M' ? 1000000 : 100000);
     const wireOpacityScale = Math.min(1.0, Math.sqrt(100000 / (nodeCount || 100000)));
     
@@ -820,6 +823,7 @@ export default function App() {
   });
 
   const controlsRef = useRef<any>(null);
+  const appStartTimeRef = useRef(performance.now());
 
   useEffect(() => {
     (window as any).setAlpha = setAlpha;
@@ -905,6 +909,10 @@ export default function App() {
         setTheme((t) => (t === 0 ? 1 : 0));
       } else if (e.key === 'v' || e.key === 'V') {
         setShowVectors((s) => !s);
+      } else if (e.key === 'b' || e.key === 'B') {
+        if (hasWebGPU) {
+          setBackend((b) => (b === 'webgpu' ? 'webgl2' : 'webgpu'));
+        }
       } else if (e.key === '1') setMode(0);
       else if (e.key === '2') setMode(1);
       else if (e.key === '3') setMode(2);
@@ -913,7 +921,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [glideToAlpha]);
+  }, [glideToAlpha, hasWebGPU]);
 
   const handleFpsUpdate = useCallback((val: number) => {
     setFps(val);
@@ -997,6 +1005,8 @@ export default function App() {
               showLandmarks={showLandmarks}
               showTissot={showTissot}
               showVectors={showVectors}
+              cursorPhysicsEnabled={cursorPhysicsEnabled}
+              startTime={appStartTimeRef.current}
               onFpsUpdate={handleFpsUpdate}
               onDataLoaded={handleDataLoaded}
               onError={handleWebGPUError}
@@ -1013,6 +1023,7 @@ export default function App() {
                 resolution={resolution}
                 cameraTarget={cameraTarget}
                 cursorPhysicsEnabled={cursorPhysicsEnabled}
+                startTime={appStartTimeRef.current}
                 onFpsUpdate={handleFpsUpdate} 
                 onDataLoaded={handleDataLoaded} 
               />
@@ -1023,6 +1034,7 @@ export default function App() {
                 showLandmarks={showLandmarks}
                 showTissot={showTissot}
                 theme={theme}
+                startTime={appStartTimeRef.current}
               />
               <VectorOverlayLayer
                 unfurlProgress={alpha}
@@ -1030,6 +1042,8 @@ export default function App() {
                 theme={theme}
                 visible={showVectors}
                 cameraTarget={cameraTarget}
+                cursorPhysicsEnabled={cursorPhysicsEnabled}
+                startTime={appStartTimeRef.current}
               />
               <KinematicCameraController
                 targetPos={targetCameraPos}

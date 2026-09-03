@@ -33,6 +33,8 @@ export interface WebGPUCanvasProps {
     vramMb: number;
   }) => void;
   onError?: (error: Error) => void;
+  cursorPhysicsEnabled?: boolean;
+  startTime?: number;
 }
 
 const OverlayCameraSync: React.FC<{ sourceCamera: THREE.PerspectiveCamera }> = ({ sourceCamera }) => {
@@ -63,12 +65,18 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   onFpsUpdate,
   onDataLoaded,
   onError,
+  cursorPhysicsEnabled = false,
+  startTime,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<WebGPUEngine>(new WebGPUEngine());
   const cursorTrackerRef = useRef<CursorTracker>(new CursorTracker());
   const animFrameRef = useRef<number>(0);
+  const cursorPhysicsEnabledRef = useRef(cursorPhysicsEnabled);
+  useEffect(() => {
+    cursorPhysicsEnabledRef.current = cursorPhysicsEnabled;
+  }, [cursorPhysicsEnabled]);
 
   // Camera & Orbit State
   const cameraRef = useRef<THREE.PerspectiveCamera>(
@@ -84,6 +92,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   const isDraggingRef = useRef(false);
   const dragButtonRef = useRef(0);
   const lastMousePosRef = useRef({ x: 0, y: 0 });
+  const targetCameraPosRef = useRef<THREE.Vector3 | null>(null);
 
   // FPS Telemetry
   const frameCountRef = useRef(0);
@@ -135,15 +144,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
   useEffect(() => {
     if (cameraPosition) {
-      const cam = cameraRef.current;
-      cam.position.copy(cameraPosition);
-      const offset = new THREE.Vector3().subVectors(cam.position, targetRef.current);
-      sphericalRef.current.radius = offset.length();
-      sphericalRef.current.theta = Math.atan2(offset.x, offset.z);
-      sphericalRef.current.phi = Math.acos(Math.min(Math.max(offset.y / sphericalRef.current.radius, -1), 1));
-      updateCameraTransform();
+      targetCameraPosRef.current = cameraPosition.clone();
     }
-  }, [cameraPosition, updateCameraTransform]);
+  }, [cameraPosition]);
 
   // Initialize Camera position
   useEffect(() => {
@@ -167,6 +170,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
     const onPointerDown = (e: PointerEvent) => {
       isDraggingRef.current = true;
+      targetCameraPosRef.current = null;
       dragButtonRef.current = e.button;
       lastMousePosRef.current = { x: e.clientX, y: e.clientY };
     };
@@ -384,12 +388,31 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       const { unfurlProgress: curUnfurl, mode: curMode, layerMode: curLayer, theme: curTheme } = stateRef.current;
 
       if (engine.initialized) {
-        const time = (now - startTimeRef.current) / 1000;
+        const appStartTime = startTime !== undefined ? startTime : startTimeRef.current;
+        const time = (now - appStartTime) / 1000;
         const dt = Math.min((now - lastFrameTimeRef.current) / 1000, 0.1);
         lastFrameTimeRef.current = now;
 
-        // Auto-rotation when alpha near zero and not dragging
-        if (curUnfurl < 0.01 && !isDraggingRef.current) {
+        // Smooth kinematic camera gliding for camera preset transitions (matching WebGL2 KinematicCameraController)
+        if (targetCameraPosRef.current && !isDraggingRef.current) {
+          const targetPos = targetCameraPosRef.current;
+          camera.position.lerp(targetPos, 0.08);
+          targetRef.current.lerp(new THREE.Vector3(0, 0, 0), 0.08);
+          const offset = new THREE.Vector3().subVectors(camera.position, targetRef.current);
+          sphericalRef.current.radius = offset.length();
+          sphericalRef.current.theta = Math.atan2(offset.x, offset.z);
+          sphericalRef.current.phi = Math.acos(Math.min(Math.max(offset.y / Math.max(sphericalRef.current.radius, 0.001), -1), 1));
+          updateCameraTransform();
+
+          if (camera.position.distanceTo(targetPos) < 0.05) {
+            camera.position.copy(targetPos);
+            targetCameraPosRef.current = null;
+            updateCameraTransform();
+          }
+        }
+
+        // Auto-rotation when alpha near zero and not dragging or snapping
+        if (curUnfurl < 0.01 && !isDraggingRef.current && !targetCameraPosRef.current) {
           sphericalRef.current.theta += 0.003;
           updateCameraTransform();
         }
@@ -408,7 +431,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           cursorRayDir: cursorUniforms.u_cursorRayDir,
           cursorHitPos: cursorUniforms.u_cursorHitPos,
           cursorVel: cursorUniforms.u_cursorVel,
-          cursorActive: cursorUniforms.u_cursorActive > 0.001,
+          cursorActive: cursorPhysicsEnabledRef.current ? (cursorUniforms.u_cursorActive > 0.001) : false,
           camera,
         });
 
@@ -457,6 +480,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
               showLandmarks={showLandmarks}
               showTissot={showTissot}
               theme={theme}
+              startTime={startTime !== undefined ? startTime : startTimeRef.current}
             />
             <VectorOverlayLayer
               unfurlProgress={unfurlProgress}
@@ -464,6 +488,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
               theme={theme}
               visible={showVectors}
               cameraTarget={cameraTarget}
+              cursorPhysicsEnabled={cursorPhysicsEnabled}
+              startTime={startTime !== undefined ? startTime : startTimeRef.current}
             />
           </Canvas>
         </div>
