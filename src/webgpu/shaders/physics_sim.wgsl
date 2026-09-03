@@ -36,21 +36,28 @@ struct SimUniforms {
 const PI: f32 = 3.14159265358979323846;
 const RADIUS: f32 = 5.0;
 
-// Analytical 3D Divergence-Free Curl Noise (div u = 0 guaranteed)
+// Analytical 3D Solenoidal Vector Field (div u = 0 guaranteed, zero Cartesian lattice)
 fn computeCurlNoise(p: vec3<f32>, time: f32) -> vec3<f32> {
-    let k1: f32 = 0.55;
-    let k2: f32 = 1.10;
-    let t: f32 = time * 0.8;
+    let t: f32 = time * 0.75;
     
-    let u_x = -k1 * cos(k1 * p.y + t * 0.7) - k2 * cos(k2 * p.z - t * 0.5);
-    let u_y = -k1 * cos(k1 * p.z + t * 0.9) - k2 * cos(k2 * p.x - t * 0.6);
-    let u_z = -k1 * cos(k1 * p.x + t * 0.8) - k2 * cos(k2 * p.y - t * 0.4);
-    
-    let u2_x = 0.35 * sin(1.8 * p.y - t * 1.2);
-    let u2_y = 0.35 * sin(1.8 * p.z - t * 1.1);
-    let u2_z = 0.35 * sin(1.8 * p.x - t * 1.3);
+    let rot = mat3x3<f32>(
+        vec3<f32>(0.00, -0.80, -0.60),
+        vec3<f32>(0.80,  0.36, -0.48),
+        vec3<f32>(0.60, -0.48,  0.64)
+    );
 
-    return vec3<f32>(u_x + u2_x, u_y + u2_y, u_z + u2_z);
+    let q1 = rot * (p * 0.45);
+    let q2 = rot * (rot * (p * 0.95));
+
+    let u_x = -0.55 * cos(0.55 * q1.y + t * 0.7) - 0.45 * cos(0.95 * q1.z - t * 0.5);
+    let u_y = -0.55 * cos(0.55 * q1.z + t * 0.9) - 0.45 * cos(0.95 * q1.x - t * 0.6);
+    let u_z = -0.55 * cos(0.55 * q1.x + t * 0.8) - 0.45 * cos(0.95 * q1.y - t * 0.4);
+
+    let u2_x = 0.25 * sin(1.5 * q2.y - t * 1.2);
+    let u2_y = 0.25 * sin(1.5 * q2.z - t * 1.1);
+    let u2_z = 0.25 * sin(1.5 * q2.x - t * 1.3);
+
+    return rot * vec3<f32>(u_x + u2_x, u_y + u2_y, u_z + u2_z);
 }
 
 @compute @workgroup_size(256, 1, 1)
@@ -151,11 +158,27 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         let totalVelocity = naturalVelocity + vortexVelocity + wakeAdvection;
         let localVorticity = length(totalVelocity) * max(liquefaction, sim.u_cursorActive * 0.3);
-        let advectionOffset = naturalVelocity * (liquefaction * 1.85) + (vortexVelocity + wakeAdvection) * (sim.u_cursorActive * 0.25);
+
+        // Silk drape wave dynamics: smooth traveling normal wave simulating delicate silk billowing in water
+        let wavePhase1 = dot(basePos, vec3<f32>(0.35, 0.62, 0.42)) * 1.35 - sim.u_time * 1.25;
+        let wavePhase2 = dot(basePos, vec3<f32>(-0.45, 0.30, 0.65)) * 1.75 - sim.u_time * 0.90;
+        let silkWave = (sin(wavePhase1) * 0.65 + cos(wavePhase2) * 0.35) * liquefaction * 0.65;
+        let silkDrapeOffset = surfaceNormal * silkWave;
+
+        let advectionOffset = naturalVelocity * (liquefaction * 1.55) + silkDrapeOffset + (vortexVelocity + wakeAdvection) * (sim.u_cursorActive * 0.25);
 
         finalPos = basePos + advectionOffset;
         finalVel = totalVelocity;
         metric = clamp(localVorticity, 0.0, 1.0);
+    }
+    // Mode 4: Fuller Dymaxion Polyhedral Net Unfolding
+    else if (sim.u_mode == 4u) {
+        let arch = sin(PI * ease) * 0.45;
+        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
+        let dymaxionTarget = vec3<f32>(pIn.rest_map.zw, 0.0);
+        finalPos = mix(pos3D, dymaxionTarget, ease) + sphereNorm * arch;
+        finalVel = vec3<f32>(0.0);
+        metric = 0.0;
     }
     // Mode 0: Linear Mix (Fallback)
     else {
