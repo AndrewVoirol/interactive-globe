@@ -17,6 +17,7 @@ export interface GeodesicOverlayLayerProps {
   showLandmarks: boolean;
   showTissot: boolean;
   theme: number; // 0 = Dark, 1 = Light
+  startTime?: number;
 }
 
 export const GeodesicOverlayLayer: React.FC<GeodesicOverlayLayerProps> = ({
@@ -26,8 +27,10 @@ export const GeodesicOverlayLayer: React.FC<GeodesicOverlayLayerProps> = ({
   showLandmarks,
   showTissot,
   theme,
+  startTime,
 }) => {
   const arcLineRef = useRef<THREE.LineSegments>(null);
+  const localStartTimeRef = useRef(performance.now());
   const pulseBeadsRef = useRef<THREE.Points>(null);
   const landmarkPointsRef = useRef<THREE.Points>(null);
   const tissotLinesRef = useRef<THREE.LineSegments>(null);
@@ -104,8 +107,9 @@ export const GeodesicOverlayLayer: React.FC<GeodesicOverlayLayerProps> = ({
   }, []);
 
   // Frame Update: Morph arc, pulse beads, and Tissot distortion synchronously
-  useFrame(({ clock }) => {
-    const elapsedTime = clock.getElapsedTime();
+  useFrame(() => {
+    const effectiveStart = startTime !== undefined ? startTime : localStartTimeRef.current;
+    const elapsedTime = (performance.now() - effectiveStart) * 0.001;
 
     // 1. Update Arcs & Animated Flow Beads
     if (arcLineRef.current && arcVertexCount > 0) {

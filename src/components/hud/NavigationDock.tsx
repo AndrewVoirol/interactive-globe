@@ -151,7 +151,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
       </div>
 
       <div className="text-[9px] tracking-wide text-zinc-500 pointer-events-none">
-        Space: Play/Pause • G: Globe • M: Map • V: Vectors • H: Zen Mode • 1-5: Paradigms • T: Theme • Drag/Scroll: Orbit
+        Space: Play/Pause • G: Globe • M: Map • V: Vectors • B: Backend • 1-5: Paradigms • T: Theme • H: Zen
       </div>
     </div>
   );
