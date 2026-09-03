@@ -9,12 +9,9 @@ struct SimUniforms {
     u_mode: u32,
     u_layerMode: u32,
     u_time: f32,
-    u_dt: f32,
     u_cursorActive: f32,
     u_numParticles: u32,
     u_theme: u32,            // 0 = Dark Cyber, 1 = Light Monochrome
-    u_cursorRayOrig: vec4<f32>,
-    u_cursorRayDir: vec4<f32>,
     u_cursorHitPos: vec4<f32>,
     u_cursorVel: vec4<f32>,
     u_viewMatrix: mat4x4<f32>,
@@ -27,8 +24,8 @@ struct SimUniforms {
 struct VertexInput {
     @location(0) position: vec4<f32>,     // xyz: Position, w: pointType
     @location(1) velocity: vec4<f32>,     // xyz: Velocity, w: metric
-    @location(2) rest_sphere: vec4<f32>,
-    @location(3) rest_map: vec4<f32>,
+    // @location(2) rest_sphere: vec4<f32> (Separated into dedicated staticParticles storage buffer)
+    // @location(3) rest_map: vec4<f32> (Separated into dedicated staticParticles storage buffer)
 };
 
 struct VertexOutput {
@@ -50,7 +47,8 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     out.clipPos = sim.u_projectionMatrix * viewPos;
 
     // Backface Normal Facing Angle
-    let dynamicNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos), length(pos) > 0.001);
+    var dynamicNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos), length(pos) > 0.001);
+    dynamicNormal = normalize(mix(dynamicNormal, vec3<f32>(0.0, 0.0, 1.0), sim.u_unfurl));
     let viewDir = normalize(sim.u_cameraPos.xyz - pos);
     out.vFacing = dot(dynamicNormal, viewDir);
     out.vPointType = pointType;
@@ -62,15 +60,14 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if (sim.u_layerMode == 2u) {
-        discard; // Discard points when in [Wireframe Only] mode
+        discard;
     }
-
     let backfaceDimming = mix(0.15, 1.0, smoothstep(-0.5, 0.2, in.vFacing));
 
     // Theme Palette: 0 = Obsidian & Celestial Platinum, 1 = Light Monochrome
     var geographicColor = vec3<f32>(0.49, 0.827, 0.988);
     var structuralColor = vec3<f32>(0.05, 0.12, 0.22);
-    var baseAlpha = mix(0.03, 0.95, in.vPointType);
+    var baseAlpha = mix(0.03, 0.98, in.vPointType);
 
     if (sim.u_theme == 0u) {
         // Theme 0: Obsidian & Celestial Platinum

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CursorTracker } from '../utils/raycast';
+import { useCursorTracker } from './CursorContext';
 
 export interface VectorOverlayLayerProps {
   unfurlProgress: number;
@@ -18,7 +18,6 @@ uniform float u_unfurl;
 uniform float u_time;
 uniform int u_mode;
 uniform int u_theme;
-uniform vec3 u_cameraCenter;
 uniform vec3 u_cursorRayOrig;
 uniform vec3 u_cursorRayDir;
 uniform vec3 u_cursorHitPos;
@@ -31,6 +30,8 @@ attribute float vType;
 
 varying float vPointType;
 varying float vFacing;
+varying float vStrain;
+varying float vVorticity;
 
 const float RADIUS = 5.0;
 const float PI = 3.14159265358979323846;
@@ -64,22 +65,21 @@ void main() {
     float ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
 
     vec3 pos3D = position;
-    // Slight elevation in 2D to avoid coplanar z-fighting with the base plane
     vec3 pos2D = vec3(target2D.x, target2D.y, 0.015);
 
     vec3 finalPos;
     vec3 dynamicNormal;
+    float localStrain = 0.0;
+    float localVorticity = 0.0;
 
     if (u_mode == 1) {
-        // =========================================================================
-        // Mode 1: Constant-Radius Cylindrical Scroll
-        // =========================================================================
         float t = ease;
         float lambda = atan(pos3D.x, pos3D.z);
         float curR = length(pos3D);
         float phi = asin(clamp(pos3D.y / curR, -1.0, 1.0));
+        float oneMinusT = 1.0 - t;
 
-        if (t < 0.999) {
+        if (oneMinusT > 0.001) {
             float invOneMinusT = 1.0 / (1.0 - t);
             float curAngle = (1.0 - t) * lambda;
             
@@ -93,13 +93,17 @@ void main() {
             vec3 rawNorm = cross(T_lambda, T_phi);
             dynamicNormal = length(rawNorm) > 0.0001 ? normalize(rawNorm) : normalize(pos3D);
         } else {
-            finalPos = pos2D;
+            // Taylor Series Guard for oneMinusT <= 0.001 (prevents division by zero & cancellation)
+            float u = oneMinusT * lambda;
+            float sinTerm = lambda * (1.0 - (u * u) / 6.0);
+            float cosTerm = oneMinusT * (lambda * lambda) * (-0.5 + (u * u) / 24.0);
+            float curX = curR * sinTerm;
+            float curZ = curR * cos(phi) * cosTerm + curR * cos(phi) * oneMinusT;
+            float curY = mix(pos3D.y, pos2D.y, t);
+            finalPos = vec3(curX, curY, curZ);
             dynamicNormal = vec3(0.0, 0.0, 1.0);
         }
     } else if (u_mode == 2) {
-        // =========================================================================
-        // Mode 2: Griffith Linear Elastic Fracture Mechanics (LEFM)
-        // =========================================================================
         float t = ease;
         float lambda = atan(pos3D.x, pos3D.z);
         float curR = length(pos3D);
@@ -109,14 +113,13 @@ void main() {
         float seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
         float tRupture = 0.18;
         
-        // Passive cursor raycast distance and tensile hoop stress concentration
         float hitDist = length(pos3D - u_cursorHitPos);
         float cursorInfluence = u_cursorActive * exp(-hitDist * hitDist / (2.0 * 0.64));
         float hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cos(phi) * cos(phi));
         
         if (t < tRupture) {
             float strainProgress = t / tRupture;
-            float localStrain = seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress;
+            localStrain = seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress;
             vec3 outwardTension = normalize(pos3D) * (localStrain * 0.30);
             finalPos = pos3D + outwardTension;
             dynamicNormal = normalize(finalPos);
@@ -132,9 +135,6 @@ void main() {
             dynamicNormal = mix(normalize(pos3D), vec3(0.0, 0.0, 1.0), postRuptureT);
         }
     } else if (u_mode == 3) {
-        // =========================================================================
-        // Mode 3: Incompressible Fluid Advection
-        // =========================================================================
         float t = ease;
         float rawSin = sin(PI * clampedUnfurl);
         float liquefaction = pow(max(0.0, rawSin), 1.15);
@@ -143,7 +143,6 @@ void main() {
         vec3 basePos = mix(unElevatedSphere, unElevatedMap, t);
         vec3 naturalVelocity = computeCurlNoise(basePos, u_time);
         
-        // Passive cursor vortex perturbation
         float hitDist = length(basePos - u_cursorHitPos);
         float coreRadius = 0.85;
         float vortexCirculation = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.05);
@@ -153,7 +152,6 @@ void main() {
         vec3 vortexVelocity = vortexTangent * (u_cursorActive * clampedSpeed * vortexCirculation * 0.35);
         vec3 wakeAdvection = normalize(u_cursorVel.xyz + vec3(0.0001)) * (clampedSpeed * 0.15 * u_cursorActive * exp(-hitDist * hitDist / 1.5));
 
-        // Silk drape wave dynamics
         float wavePhase1 = dot(basePos, vec3(0.35, 0.62, 0.42)) * 1.35 - u_time * 1.25;
         float wavePhase2 = dot(basePos, vec3(-0.45, 0.30, 0.65)) * 1.75 - u_time * 0.90;
         float silkWave = (sin(wavePhase1) * 0.65 + cos(wavePhase2) * 0.35) * liquefaction * 0.65;
@@ -164,9 +162,6 @@ void main() {
         finalPos = basePos + advectionOffset + surfaceNormal * 0.015;
         dynamicNormal = mix(normalize(unElevatedSphere + silkDrapeOffset * 0.5), vec3(0.0, 0.0, 1.0), t);
     } else if (u_mode == 4) {
-        // =========================================================================
-        // Mode 4: Fuller Dymaxion Polyhedral Net Unfolding
-        // =========================================================================
         float t = ease;
         vec3 dymaxionPos2D = vec3(dymaxion2D.x, dymaxion2D.y, 0.015);
         float arch = sin(PI * clampedUnfurl) * 0.45;
@@ -174,17 +169,13 @@ void main() {
         finalPos = mix(pos3D, dymaxionPos2D, t) + sphereNorm * arch;
         dynamicNormal = mix(sphereNorm, vec3(0.0, 0.0, 1.0), t);
     } else {
-        // Mode 0: Linear Mix
         finalPos = mix(pos3D, pos2D, ease);
         dynamicNormal = normalize(pos3D);
     }
 
-    // Camera-Relative RTC Projection
-    vec3 rtcPos = finalPos - u_cameraCenter;
-    vec4 mvPosition = modelViewMatrix * vec4(rtcPos + u_cameraCenter, 1.0);
+    vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
 
-    // Correct view-space normal transformation for backface culling
     vec3 viewNormal = normalize(normalMatrix * dynamicNormal);
     vec3 viewDir = -normalize(mvPosition.xyz);
     float facing = dot(viewNormal, viewDir);
@@ -259,15 +250,8 @@ export const VectorOverlayLayer: React.FC<VectorOverlayLayerProps> = ({
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
   const localStartTimeRef = useRef(performance.now());
 
-  // Passive cursor tracker for fluid vortex and Griffith hoop stress interaction
-  const cursorTracker = useMemo(() => new CursorTracker(), []);
-
-  useEffect(() => {
-    cursorTracker.attach(window);
-    return () => {
-      cursorTracker.detach();
-    };
-  }, [cursorTracker]);
+  // Shared cursor tracker for fluid vortex and Griffith hoop stress interaction
+  const cursorTracker = useCursorTracker();
 
   // Lazy fetch the zero-copy binary buffer only when first enabled
   useEffect(() => {
@@ -331,7 +315,6 @@ export const VectorOverlayLayer: React.FC<VectorOverlayLayerProps> = ({
       u_time: { value: 0 },
       u_mode: { value: mode },
       u_theme: { value: theme },
-      u_cameraCenter: { value: new THREE.Vector3(0, 0, 0) },
       u_cursorRayOrig: { value: new THREE.Vector3(0, 0, 0) },
       u_cursorRayDir: { value: new THREE.Vector3(0, 0, 1) },
       u_cursorHitPos: { value: new THREE.Vector3(0, 0, 0) },
@@ -349,9 +332,6 @@ export const VectorOverlayLayer: React.FC<VectorOverlayLayerProps> = ({
     mat.uniforms.u_time.value = (performance.now() - effectiveStartTime) * 0.001;
     mat.uniforms.u_mode.value = mode;
     mat.uniforms.u_theme.value = theme;
-    if (cameraTarget) {
-      mat.uniforms.u_cameraCenter.value.copy(cameraTarget);
-    }
 
     // Sample passive cursor tracker
     const cursorUniforms = cursorTracker.update(state.camera, unfurlProgress);

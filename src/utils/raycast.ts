@@ -302,9 +302,16 @@ export class CursorTracker {
   private alphaEma = 0.35; // Smoothing factor for Exponential Moving Average
   private tauDecay = 0.25; // Inactivity decay time constant in seconds (250 ms)
 
+  private static sharedListenersMap = new Map<EventTarget, {
+    instances: Set<CursorTracker>;
+    onPointerMove: (e: any) => void;
+    onPointerLeave: () => void;
+  }>();
+
   /**
    * Attaches passive window pointer event listeners ({ passive: true })
    * Does NOT call stopPropagation or preventDefault, preserving OrbitControls gestures.
+   * Consolidates duplicate target listeners into a single shared manager.
    */
   public attach(container?: HTMLElement | Window | EventTarget): void {
     const target = container || (typeof window !== 'undefined' ? window : null);
@@ -312,35 +319,56 @@ export class CursorTracker {
 
     this.detach();
 
-    const onPointerMove = (e: any) => {
-      const width = (typeof window !== 'undefined' && target === window) || !('clientWidth' in (target as any))
-        ? (typeof window !== 'undefined' ? window.innerWidth : 1920)
-        : (target as HTMLElement).clientWidth;
-      const height = (typeof window !== 'undefined' && target === window) || !('clientHeight' in (target as any))
-        ? (typeof window !== 'undefined' ? window.innerHeight : 1080)
-        : (target as HTMLElement).clientHeight;
+    let entry = CursorTracker.sharedListenersMap.get(target);
+    if (!entry) {
+      const instances = new Set<CursorTracker>();
+      const onPointerMove = (e: any) => {
+        const width = (typeof window !== 'undefined' && target === window) || !('clientWidth' in (target as any))
+          ? (typeof window !== 'undefined' ? window.innerWidth : 1920)
+          : (target as HTMLElement).clientWidth;
+        const height = (typeof window !== 'undefined' && target === window) || !('clientHeight' in (target as any))
+          ? (typeof window !== 'undefined' ? window.innerHeight : 1080)
+          : (target as HTMLElement).clientHeight;
 
-      const { ndcX, ndcY } = screenToNDC(e.clientX ?? 0, e.clientY ?? 0, width, height);
+        const { ndcX, ndcY } = screenToNDC(e.clientX ?? 0, e.clientY ?? 0, width, height);
+        const now = performance.now();
 
-      this.prevNdcX = this.ndcX;
-      this.prevNdcY = this.ndcY;
-      this.ndcX = ndcX;
-      this.ndcY = ndcY;
-      this.lastMoveTime = performance.now();
-      this.isInside = true;
-      this.activeIntensity = 1.0;
-    };
+        instances.forEach((inst) => {
+          inst.prevNdcX = inst.ndcX;
+          inst.prevNdcY = inst.ndcY;
+          inst.ndcX = ndcX;
+          inst.ndcY = ndcY;
+          inst.lastMoveTime = now;
+          inst.isInside = true;
+          inst.activeIntensity = 1.0;
+        });
+      };
 
-    const onPointerLeave = () => {
-      this.isInside = false;
-    };
+      const onPointerLeave = () => {
+        instances.forEach((inst) => {
+          inst.isInside = false;
+        });
+      };
 
-    target.addEventListener('pointermove', onPointerMove as EventListener, { passive: true });
-    target.addEventListener('pointerleave', onPointerLeave as EventListener, { passive: true });
+      target.addEventListener('pointermove', onPointerMove as EventListener, { passive: true });
+      target.addEventListener('pointerleave', onPointerLeave as EventListener, { passive: true });
+
+      entry = { instances, onPointerMove, onPointerLeave };
+      CursorTracker.sharedListenersMap.set(target, entry);
+    }
+
+    entry.instances.add(this);
 
     this.cleanupListeners = () => {
-      target.removeEventListener('pointermove', onPointerMove as EventListener);
-      target.removeEventListener('pointerleave', onPointerLeave as EventListener);
+      const currentEntry = CursorTracker.sharedListenersMap.get(target);
+      if (currentEntry) {
+        currentEntry.instances.delete(this);
+        if (currentEntry.instances.size === 0) {
+          target.removeEventListener('pointermove', currentEntry.onPointerMove as EventListener);
+          target.removeEventListener('pointerleave', currentEntry.onPointerLeave as EventListener);
+          CursorTracker.sharedListenersMap.delete(target);
+        }
+      }
     };
   }
 

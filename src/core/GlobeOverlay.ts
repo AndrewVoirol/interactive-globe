@@ -148,6 +148,40 @@ export function geoToMercator(lon: number, lat: number, r = RADIUS): [number, nu
   return [x, y];
 }
 
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+function computeCurlNoiseTS(p: [number, number, number], time: number): [number, number, number] {
+  const t = time * 0.75;
+  const q1x = (0.80 * p[1] + 0.60 * p[2]) * 0.45;
+  const q1y = (-0.80 * p[0] + 0.36 * p[1] - 0.48 * p[2]) * 0.45;
+  const q1z = (-0.60 * p[0] - 0.48 * p[1] + 0.64 * p[2]) * 0.45;
+
+  const q2x = (0.80 * q1y + 0.60 * q1z) * 0.95;
+  const q2y = (-0.80 * q1x + 0.36 * q1y - 0.48 * q1z) * 0.95;
+  const q2z = (-0.60 * q1x - 0.48 * q1y + 0.64 * q1z) * 0.95;
+
+  const ux = -0.55 * Math.cos(0.55 * q1y + t * 0.7) - 0.45 * Math.cos(0.95 * q1z - t * 0.5);
+  const uy = -0.55 * Math.cos(0.55 * q1z + t * 0.9) - 0.45 * Math.cos(0.95 * q1x - t * 0.6);
+  const uz = -0.55 * Math.cos(0.55 * q1x + t * 0.8) - 0.45 * Math.cos(0.95 * q1y - t * 0.4);
+
+  const u2x = 0.25 * Math.sin(1.5 * q2y - t * 1.2);
+  const u2y = 0.25 * Math.sin(1.5 * q2z - t * 1.1);
+  const u2z = 0.25 * Math.sin(1.5 * q2x - t * 1.3);
+
+  const vx = ux + u2x;
+  const vy = uy + u2y;
+  const vz = uz + u2z;
+
+  return [
+    0.00 * vx + 0.80 * vy + 0.60 * vz,
+    -0.80 * vx + 0.36 * vy - 0.48 * vz,
+    -0.60 * vx - 0.48 * vy + 0.64 * vz,
+  ];
+}
+
 /**
  * Evaluates the exact dynamic position of a geographic point (lon, lat) at morph progress alpha
  * across any of the 5 simulation paradigms (0=Linear, 1=Scroll, 2=Griffith, 3=Fluid, 4=Dymaxion)
@@ -158,7 +192,10 @@ export function evaluatePointMorph(
   alpha: number,
   mode: number,
   time = 0,
-  elevationOffset = 0.05
+  elevationOffset = 0.05,
+  cursorHitPos?: [number, number, number],
+  cursorVel?: [number, number, number, number],
+  cursorActive = 0
 ): [number, number, number] {
   const p3D = geoToSphere(lon, lat, RADIUS + elevationOffset);
   const p2D = geoToMercator(lon, lat, RADIUS);
@@ -179,46 +216,63 @@ export function evaluatePointMorph(
       (1 - ease) * p3D[2] + ease * 0.0 + nz * arch,
     ];
   } else if (mode === 1) {
-    // Mode 1: Cylindrical Scroll
+    // Mode 1: Constant-Radius Cylindrical Scroll with Taylor Expansion Guard
     const t = ease;
     const lambda = (lon * PI) / 180;
     const phi = (Math.max(-MAX_LAT, Math.min(MAX_LAT, lat)) * PI) / 180;
-    if (t < 0.999) {
-      const invOneMinusT = 1.0 / (1.0 - t);
-      const curAngle = (1.0 - t) * lambda;
+    const oneMinusT = 1.0 - t;
+
+    if (oneMinusT > 0.001) {
+      const invOneMinusT = 1.0 / oneMinusT;
+      const curAngle = oneMinusT * lambda;
       const curX = (RADIUS * invOneMinusT) * Math.sin(curAngle);
-      const curZ = (RADIUS * Math.cos(phi) * invOneMinusT) * (Math.cos(curAngle) - 1.0) + (RADIUS * Math.cos(phi) * (1.0 - t));
+      const curZ = (RADIUS * Math.cos(phi) * invOneMinusT) * (Math.cos(curAngle) - 1.0) + (RADIUS * Math.cos(phi) * oneMinusT);
       const curY = (1.0 - t) * p3D[1] + t * p2D[1];
       return [curX, curY, curZ];
     } else {
-      return [p2D[0], p2D[1], 0];
+      // Taylor Series Guard for oneMinusT <= 0.001 (prevents division by zero & cancellation)
+      const u = oneMinusT * lambda;
+      const sinTerm = lambda * (1.0 - (u * u) / 6.0);
+      const cosTerm = oneMinusT * (lambda * lambda) * (-0.5 + (u * u) / 24.0);
+      const curX = RADIUS * sinTerm;
+      const curZ = RADIUS * Math.cos(phi) * cosTerm + RADIUS * Math.cos(phi) * oneMinusT;
+      const curY = (1.0 - t) * p3D[1] + t * p2D[1];
+      return [curX, curY, curZ];
     }
   } else if (mode === 2) {
-    // Mode 2: Griffith Fracture
+    // Mode 2: Griffith LEFM Fracture
     const t = ease;
     const lambda = (lon * PI) / 180;
+    const phi = (Math.max(-MAX_LAT, Math.min(MAX_LAT, lat)) * PI) / 180;
     const distToSeam = PI - Math.abs(lambda);
-    const seamFactor = 1.0 - Math.max(0, Math.min(1, distToSeam / 0.75));
+    const seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
     const tRupture = 0.18;
+
+    const hitDist = cursorHitPos ? Math.hypot(p3D[0] - cursorHitPos[0], p3D[1] - cursorHitPos[1], p3D[2] - cursorHitPos[2]) : Infinity;
+    const cursorInfluence = cursorActive * Math.exp(-hitDist * hitDist / (2.0 * 0.64));
+
     if (t < tRupture) {
-      const strain = seamFactor * (t / tRupture);
+      const strainProgress = t / tRupture;
+      const hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * Math.cos(phi) * Math.cos(phi));
+      const localStrain = seamFactor * strainProgress * Math.max(0.2, Math.cos(phi * 0.85)) + hoopStress;
       const normLen = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
       return [
-        p3D[0] + (p3D[0] / normLen) * strain * 0.3,
-        p3D[1] + (p3D[1] / normLen) * strain * 0.3,
-        p3D[2] + (p3D[2] / normLen) * strain * 0.3,
+        p3D[0] + (p3D[0] / normLen) * localStrain * 0.3,
+        p3D[1] + (p3D[1] / normLen) * localStrain * 0.3,
+        p3D[2] + (p3D[2] / normLen) * localStrain * 0.3,
       ];
     } else {
-      const postRuptureT = (t - tRupture) / (1 - tRupture);
+      const postRuptureT = smoothstep(tRupture, 1.0, t);
       const peeledX = (1 - postRuptureT) * p3D[0] + postRuptureT * p2D[0];
       const peeledY = (1 - postRuptureT) * p3D[1] + postRuptureT * p2D[1];
       const flutterWave = Math.sin(distToSeam * 16.0 - t * 24.0);
       const flutterDecay = Math.exp(-4.2 * (t - tRupture));
-      const flutterZ = (1 - postRuptureT) * p3D[2] + 0.5 * seamFactor * flutterWave * flutterDecay;
+      const flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay;
+      const flutterZ = (1 - postRuptureT) * p3D[2] + flutterAmp;
       return [peeledX, peeledY, flutterZ];
     }
   } else if (mode === 3) {
-    // Mode 3: Fluid Flow
+    // Mode 3: Incompressible Fluid Advection
     const t = ease;
     const rawSin = Math.sin(PI * clampedAlpha);
     const liquefaction = Math.pow(Math.max(0, rawSin), 1.15);
@@ -227,15 +281,64 @@ export function evaluatePointMorph(
       (1 - t) * p3D[1] + t * p2D[1],
       (1 - t) * p3D[2] + t * 0.0,
     ];
-    // Gentle macro fluid displacement
-    const k1 = 0.55;
-    const uX = -k1 * Math.cos(k1 * basePos[1] + time * 0.56);
-    const uY = -k1 * Math.cos(k1 * basePos[2] + time * 0.72);
-    const uZ = -k1 * Math.cos(k1 * basePos[0] + time * 0.64);
+    const naturalVelocity = computeCurlNoiseTS(basePos, time);
+
+    const wavePhase1 = (basePos[0] * 0.35 + basePos[1] * 0.62 + basePos[2] * 0.42) * 1.35 - time * 1.25;
+    const wavePhase2 = (-basePos[0] * 0.45 + basePos[1] * 0.30 + basePos[2] * 0.65) * 1.75 - time * 0.90;
+    const silkWave = (Math.sin(wavePhase1) * 0.65 + Math.cos(wavePhase2) * 0.35) * liquefaction * 0.65;
+
+    const baseLen = Math.hypot(basePos[0], basePos[1], basePos[2]) || 1.0;
+    const surfaceNormal: [number, number, number] = baseLen > 0.001
+      ? [basePos[0] / baseLen, basePos[1] / baseLen, basePos[2] / baseLen]
+      : [0.0, 0.0, 1.0];
+
+    const silkDrapeOffset: [number, number, number] = [
+      surfaceNormal[0] * silkWave,
+      surfaceNormal[1] * silkWave,
+      surfaceNormal[2] * silkWave,
+    ];
+
+    let vortexVelocity: [number, number, number] = [0, 0, 0];
+    let wakeAdvection: [number, number, number] = [0, 0, 0];
+    if (cursorHitPos && cursorVel && cursorActive > 0.001) {
+      const dx = basePos[0] - cursorHitPos[0];
+      const dy = basePos[1] - cursorHitPos[1];
+      const dz = basePos[2] - cursorHitPos[2];
+      const hitDist = Math.hypot(dx, dy, dz);
+      const coreRadius = 0.85;
+      const vortexCirculation = (1.0 - Math.exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.05);
+      const clampedSpeed = Math.min(1.5, Math.max(0.0, cursorVel[3] ?? Math.hypot(cursorVel[0], cursorVel[1], cursorVel[2])));
+
+      const cx = surfaceNormal[1] * (dz + 0.001) - surfaceNormal[2] * (dy + 0.001);
+      const cy = surfaceNormal[2] * (dx + 0.001) - surfaceNormal[0] * (dz + 0.001);
+      const cz = surfaceNormal[0] * (dy + 0.001) - surfaceNormal[1] * (dx + 0.001);
+      const cLen = Math.hypot(cx, cy, cz) || 1.0;
+      const vortexTangent: [number, number, number] = [cx / cLen, cy / cLen, cz / cLen];
+      vortexVelocity = [
+        vortexTangent[0] * (cursorActive * clampedSpeed * vortexCirculation * 0.35),
+        vortexTangent[1] * (cursorActive * clampedSpeed * vortexCirculation * 0.35),
+        vortexTangent[2] * (cursorActive * clampedSpeed * vortexCirculation * 0.35),
+      ];
+
+      const vLen = Math.hypot(cursorVel[0], cursorVel[1], cursorVel[2]) || 0.0001;
+      const wakeFactor = clampedSpeed * 0.15 * cursorActive * Math.exp(-hitDist * hitDist / 1.5);
+      wakeAdvection = [
+        (cursorVel[0] / vLen) * wakeFactor,
+        (cursorVel[1] / vLen) * wakeFactor,
+        (cursorVel[2] / vLen) * wakeFactor,
+      ];
+    }
+
+    const advectionOffset: [number, number, number] = [
+      naturalVelocity[0] * (liquefaction * 1.55) + silkDrapeOffset[0] + (vortexVelocity[0] + wakeAdvection[0]) * (cursorActive * 0.25),
+      naturalVelocity[1] * (liquefaction * 1.55) + silkDrapeOffset[1] + (vortexVelocity[1] + wakeAdvection[1]) * (cursorActive * 0.25),
+      naturalVelocity[2] * (liquefaction * 1.55) + silkDrapeOffset[2] + (vortexVelocity[2] + wakeAdvection[2]) * (cursorActive * 0.25),
+    ];
+
     return [
-      basePos[0] + uX * liquefaction * 1.2,
-      basePos[1] + uY * liquefaction * 1.2,
-      basePos[2] + uZ * liquefaction * 1.2,
+      basePos[0] + advectionOffset[0],
+      basePos[1] + advectionOffset[1],
+      basePos[2] + advectionOffset[2],
     ];
   } else {
     // Mode 0: Linear Mix

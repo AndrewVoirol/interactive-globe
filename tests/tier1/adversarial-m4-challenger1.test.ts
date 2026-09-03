@@ -20,8 +20,12 @@ import {
 
 describe('Adversarial Challenger 1: Milestone M4 Fuller Dymaxion Polyhedral Unfolding Stress Suite', () => {
   const projectRoot = path.resolve(__dirname, '../..');
-  const appTsxPath = path.join(projectRoot, 'App.tsx');
-  const appCode = fs.readFileSync(appTsxPath, 'utf8');
+  const appTsxPath = fs.existsSync(path.join(projectRoot, 'src/App.tsx')) ? path.join(projectRoot, 'src/App.tsx') : path.join(projectRoot, 'App.tsx');
+  let appCode = fs.readFileSync(appTsxPath, 'utf8');
+  const geoLayerPath = path.join(projectRoot, 'src/components/canvas/GeometryLayer.tsx');
+  if (fs.existsSync(geoLayerPath)) {
+    appCode += '\n' + fs.readFileSync(geoLayerPath, 'utf8');
+  }
 
   // =========================================================================
   // 1. 100,000 Randomized 3D Spherical Coordinates NaN & Inf Stress Test

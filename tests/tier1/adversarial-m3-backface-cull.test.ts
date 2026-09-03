@@ -5,8 +5,12 @@ import { shouldCullBackface, computeCurlNoise, computeDivergence } from '../help
 
 describe('Milestone M3 Verification: WebGL2 1M Performance Optimization & Backface Early-Out', () => {
   const projectRoot = path.resolve(__dirname, '../..');
-  const appTsxPath = path.join(projectRoot, 'App.tsx');
-  const appCode = fs.readFileSync(appTsxPath, 'utf8');
+  const appTsxPath = fs.existsSync(path.join(projectRoot, 'src/App.tsx')) ? path.join(projectRoot, 'src/App.tsx') : path.join(projectRoot, 'App.tsx');
+  let appCode = fs.readFileSync(appTsxPath, 'utf8');
+  const geoLayerPath = path.join(projectRoot, 'src/components/canvas/GeometryLayer.tsx');
+  if (fs.existsSync(geoLayerPath)) {
+    appCode += '\n' + fs.readFileSync(geoLayerPath, 'utf8');
+  }
 
   // =========================================================================
   // 1. Static AST/Source Shader Verification in App.tsx
@@ -24,11 +28,11 @@ describe('Milestone M3 Verification: WebGL2 1M Performance Optimization & Backfa
     });
 
     it('M3-T2: verifies meshVertexShader is defined and attached to lineSegments', () => {
-      expect(appCode).toContain('const meshVertexShader = vertexShader;');
+      expect(appCode).toMatch(/const meshVertexShader = `[\s\S]*?`;/);
       expect(appCode).toMatch(/<lineSegments[\s\S]*?vertexShader=\{meshVertexShader\}/);
     });
 
-    it('M3-T3: verifies early-out precedes computeCurlNoise and RTC transformations', () => {
+    it('M3-T3: verifies early-out precedes computeCurlNoise and modelViewMatrix transformations', () => {
       const vertexShaderMatch = appCode.match(/const vertexShader = `([\s\S]*?)`;/);
       expect(vertexShaderMatch).toBeTruthy();
       const vsContent = vertexShaderMatch![1];
@@ -36,12 +40,12 @@ describe('Milestone M3 Verification: WebGL2 1M Performance Optimization & Backfa
       const mainIndex = vsContent.indexOf('void main()');
       const earlyOutIndex = vsContent.indexOf('if (dot(vNorm, vDir) > 0.25)');
       const curlCallIndex = vsContent.indexOf('computeCurlNoise(basePos, u_time)');
-      const rtcIndex = vsContent.indexOf('vec3 rtcPos = finalPos - u_cameraCenter;');
+      const mvIndex = vsContent.indexOf('vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);');
 
       expect(mainIndex).toBeGreaterThan(-1);
       expect(earlyOutIndex).toBeGreaterThan(mainIndex);
       expect(curlCallIndex).toBeGreaterThan(earlyOutIndex);
-      expect(rtcIndex).toBeGreaterThan(earlyOutIndex);
+      expect(mvIndex).toBeGreaterThan(earlyOutIndex);
     });
   });
 

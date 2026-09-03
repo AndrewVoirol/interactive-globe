@@ -9,21 +9,27 @@ import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { WebGPUEngine } from './WebGPUEngine';
 import { CursorTracker } from '../utils/raycast';
+import { useCursorTracker } from '../core/CursorContext';
 import { GeodesicOverlayLayer } from '../core/GeodesicOverlayLayer';
 import { VectorOverlayLayer } from '../core/VectorOverlayLayer';
+import { DataLayerOverlay } from '../core/layers/DataLayerOverlay';
+import { DataLayerItem } from '../components/hud/TelemetryHUD';
+
+import { GeodesicOverlayMode } from '../types';
 
 export interface WebGPUCanvasProps {
   unfurlProgress: number;
-  mode: 0 | 1 | 2 | 3 | 4;
-  layerMode: 0 | 1 | 2;
+  mode: number;
+  layerMode?: 0 | 1 | 2;
   theme?: 0 | 1; // 0 = Dark Cyber, 1 = Light Monochrome
   resolution: '100k' | '1M';
   cameraTarget?: THREE.Vector3;
   cameraPosition?: THREE.Vector3;
-  activeOverlay?: 'off' | 'antipodes' | 'conveyor' | 'migration';
+  activeOverlay?: GeodesicOverlayMode;
   showLandmarks?: boolean;
   showTissot?: boolean;
   showVectors?: boolean;
+  dataLayers?: DataLayerItem[];
   onFpsUpdate?: (fps: number) => void;
   onDataLoaded?: (info: {
     pointCount: number;
@@ -32,7 +38,8 @@ export interface WebGPUCanvasProps {
     loadTimeMs: number;
     vramMb: number;
   }) => void;
-  onError?: (error: Error) => void;
+  onError?: (err: Error) => void;
+  onCoordsChange?: (latDeg: number, lonDeg: number) => void;
   cursorPhysicsEnabled?: boolean;
   startTime?: number;
 }
@@ -62,16 +69,20 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   showLandmarks = false,
   showTissot = false,
   showVectors = false,
+  dataLayers,
   onFpsUpdate,
   onDataLoaded,
   onError,
+  onCoordsChange,
   cursorPhysicsEnabled = false,
   startTime,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<WebGPUEngine>(new WebGPUEngine());
-  const cursorTrackerRef = useRef<CursorTracker>(new CursorTracker());
+  const sharedCursorTracker = useCursorTracker();
+  const cursorTrackerRef = useRef<CursorTracker>(sharedCursorTracker);
+  cursorTrackerRef.current = sharedCursorTracker;
   const animFrameRef = useRef<number>(0);
   const cursorPhysicsEnabledRef = useRef(cursorPhysicsEnabled);
   useEffect(() => {
@@ -94,11 +105,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   const lastMousePosRef = useRef({ x: 0, y: 0 });
   const targetCameraPosRef = useRef<THREE.Vector3 | null>(null);
 
-  // FPS Telemetry
+  // FPS & Telemetry
   const frameCountRef = useRef(0);
   const lastFpsTimeRef = useRef(performance.now());
   const startTimeRef = useRef(performance.now());
   const lastFrameTimeRef = useRef(performance.now());
+  const lastTelemetryTimeRef = useRef(0);
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -114,10 +126,20 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     stateRef.current = { unfurlProgress, mode, layerMode, theme };
   }, [unfurlProgress, mode, layerMode, theme]);
 
-  const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError });
+  const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange });
   useEffect(() => {
-    callbacksRef.current = { onFpsUpdate, onDataLoaded, onError };
-  }, [onFpsUpdate, onDataLoaded, onError]);
+    callbacksRef.current = { onFpsUpdate, onDataLoaded, onError, onCoordsChange };
+  }, [onFpsUpdate, onDataLoaded, onError, onCoordsChange]);
+
+  // WebGPU Device Loss Recovery
+  useEffect(() => {
+    const engine = engineRef.current;
+    engine.onDeviceLost((info) => {
+      console.warn('WebGPU device lost, triggering fallback to WebGL2:', info);
+      setLoadError(`WebGPU Device Lost: ${info?.message || 'Device disconnected'}`);
+      callbacksRef.current.onError?.(new Error(`WebGPU Device Lost: ${info?.message || 'Device disconnected'}`));
+    });
+  }, []);
 
   // Update camera target or position when props change
   useEffect(() => {
@@ -126,20 +148,17 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     }
   }, [cameraTarget]);
 
-  // Update Camera Matrix from Spherical Coordinates
+  // Orbital Kinematics updates
   const updateCameraTransform = useCallback(() => {
-    const cam = cameraRef.current;
-    const { radius, theta, phi } = sphericalRef.current;
+    const camera = cameraRef.current;
+    const spherical = sphericalRef.current;
     const target = targetRef.current;
 
-    const sinPhi = Math.sin(phi);
-    const x = target.x + radius * sinPhi * Math.sin(theta);
-    const y = target.y + radius * Math.cos(phi);
-    const z = target.z + radius * sinPhi * Math.cos(theta);
-
-    cam.position.set(x, y, z);
-    cam.lookAt(target);
-    cam.updateMatrixWorld();
+    camera.position.x = target.x + spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
+    camera.position.y = target.y + spherical.radius * Math.cos(spherical.phi);
+    camera.position.z = target.z + spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+    camera.lookAt(target);
+    camera.updateMatrixWorld();
   }, []);
 
   useEffect(() => {
@@ -154,23 +173,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     updateCameraTransform();
   }, [updateCameraTransform]);
 
-  // Attach Window-Level Cursor Tracker
-  useEffect(() => {
-    const tracker = cursorTrackerRef.current;
-    tracker.attach(window);
-    return () => {
-      tracker.detach();
-    };
-  }, []);
-
-  // Pointer & Drag Controls for WebGPU Viewport
+  // Internal Camera Controls (Orbit gestures for WebGPU Native Canvas)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const onPointerDown = (e: PointerEvent) => {
       isDraggingRef.current = true;
-      targetCameraPosRef.current = null;
       dragButtonRef.current = e.button;
       lastMousePosRef.current = { x: e.clientX, y: e.clientY };
     };
@@ -188,14 +197,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           Math.max(sphericalRef.current.phi - dy * 0.005, 0.01),
           Math.PI - 0.01
         );
-      } else if (dragButtonRef.current === 2 || e.shiftKey) {
-        // Pan
-        const cam = cameraRef.current;
+      } else if (dragButtonRef.current === 2) {
+        // Pan translation
         const panSpeed = sphericalRef.current.radius * 0.001;
-        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
-        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
-        targetRef.current.addScaledVector(right, -dx * panSpeed);
-        targetRef.current.addScaledVector(up, dy * panSpeed);
+        targetRef.current.x -= dx * panSpeed;
+        targetRef.current.y += dy * panSpeed;
       }
       updateCameraTransform();
     };
@@ -206,7 +212,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const zoomFactor = 1 + e.deltaY * 0.001;
+      const zoomFactor = e.deltaY > 0 ? 1.05 : 0.95;
       sphericalRef.current.radius = Math.min(Math.max(sphericalRef.current.radius * zoomFactor, 6.0), 50.0);
       updateCameraTransform();
     };
@@ -215,18 +221,18 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
     const container = containerRef.current || canvas;
 
-    container.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    container.addEventListener('wheel', onWheel, { passive: false });
-    container.addEventListener('contextmenu', onContextMenu);
+    container.addEventListener('pointerdown', onPointerDown as EventListener);
+    window.addEventListener('pointermove', onPointerMove as EventListener);
+    window.addEventListener('pointerup', onPointerUp as EventListener);
+    container.addEventListener('wheel', onWheel as EventListener, { passive: false });
+    container.addEventListener('contextmenu', onContextMenu as EventListener);
 
     return () => {
-      container.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      container.removeEventListener('wheel', onWheel);
-      container.removeEventListener('contextmenu', onContextMenu);
+      container.removeEventListener('pointerdown', onPointerDown as EventListener);
+      window.removeEventListener('pointermove', onPointerMove as EventListener);
+      window.removeEventListener('pointerup', onPointerUp as EventListener);
+      container.removeEventListener('wheel', onWheel as EventListener);
+      container.removeEventListener('contextmenu', onContextMenu as EventListener);
     };
   }, [updateCameraTransform]);
 
@@ -443,6 +449,34 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           frameCountRef.current = 0;
           lastFpsTimeRef.current = now;
         }
+
+        // Cartographic Navigation Telemetry
+        if (callbacksRef.current.onCoordsChange && now - lastTelemetryTimeRef.current >= 100) {
+          lastTelemetryTimeRef.current = now;
+          let latDeg = 0;
+          let lonDeg = 0;
+          if (curUnfurl < 0.5) {
+            const norm = camera.position.clone().normalize();
+            const phi = Math.asin(Math.max(-1.0, Math.min(1.0, norm.y)));
+            const lambda = Math.atan2(norm.x, norm.z);
+            latDeg = Math.round(phi * (180 / Math.PI));
+            lonDeg = Math.round(lambda * (180 / Math.PI));
+          } else {
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            if (Math.abs(forward.z) > 1e-4) {
+              const t = -camera.position.z / forward.z;
+              const hitX = camera.position.x + t * forward.x;
+              const hitY = camera.position.y + t * forward.y;
+              lonDeg = Math.round((hitX / 5.0) * (180 / Math.PI));
+              const clampedY = Math.max(-5.0 * 2.5, Math.min(5.0 * 2.5, hitY));
+              const latRad = 2.0 * Math.atan(Math.exp(clampedY / 5.0)) - Math.PI / 2.0;
+              latDeg = Math.round(latRad * (180 / Math.PI));
+            }
+          }
+          lonDeg = ((((lonDeg + 180) % 360) + 360) % 360) - 180;
+          callbacksRef.current.onCoordsChange(latDeg, lonDeg);
+        }
       }
 
       animFrameRef.current = requestAnimationFrame(renderLoop);
@@ -462,8 +496,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         ref={canvasRef}
         className="w-full h-full block cursor-grab active:cursor-grabbing"
       />
-      {/* High-Performance Geodesic, Tissot & Vector Overlay Layer for WebGPU */}
-      {(activeOverlay !== 'off' || showLandmarks || showTissot || showVectors) && (
+      {/* High-Performance Geodesic, Tissot, Vector & Data Layer Overlay for WebGPU */}
+      {(activeOverlay !== 'off' || showLandmarks || showTissot || showVectors || (dataLayers && dataLayers.length > 0)) && (
         <div className="absolute inset-0 pointer-events-none z-10">
           <Canvas
             className="w-full h-full pointer-events-none"
@@ -473,6 +507,25 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             events={() => false as any}
           >
             <OverlayCameraSync sourceCamera={cameraRef.current} />
+            {dataLayers && dataLayers.map((layer) => (
+              <DataLayerOverlay
+                key={layer.id}
+                visible={layer.visible}
+                unfurlProgress={unfurlProgress}
+                mode={mode}
+                theme={theme}
+                category={layer.category}
+                type={layer.type}
+                sourceUrl={layer.url}
+                opacity={layer.opacity ?? 0.85}
+                blendMode={layer.blendMode ?? 0}
+                displacementScale={layer.displacementScale}
+                elevationEncoding={layer.elevationEncoding}
+                sunAzimuth={layer.sunAzimuth}
+                sunAltitude={layer.sunAltitude}
+                hillshadeIntensity={layer.hillshadeIntensity}
+              />
+            ))}
             <GeodesicOverlayLayer
               unfurlProgress={unfurlProgress}
               mode={mode}

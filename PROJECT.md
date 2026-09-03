@@ -113,7 +113,6 @@ ais-interactive-globe-to-map/
 - `u_mode`: `int / u32` ($0=\text{Linear}, 1=\text{Scroll}, 2=\text{Griffith}, 3=\text{Fluid}, 4=\text{Dymaxion}$)
 - `u_layerMode`: `int / u32` ($0=\text{Both}, 1=\text{Points Only}, 2=\text{Wireframe Only}$)
 - `u_time`: `float / f32` (monotonic continuous elapsed time from `performance.now()`)
-- `u_cameraCenter`: `vec3` (Camera target for Camera-Relative RTC precision)
 - `u_cursorRayOrig`: `vec3 / vec4` (Camera ray origin in world space)
 - `u_cursorRayDir`: `vec3 / vec4` (Normalized camera ray direction in world space)
 - `u_cursorHitPos`: `vec3 / vec4` (Unprojected hit coordinate on manifold)

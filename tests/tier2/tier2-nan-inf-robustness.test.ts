@@ -3,12 +3,16 @@ import {
   toSphere,
   toMercator,
   computeCurlNoise,
+} from '../../src/utils/projection';
+import {
   lambOseenVortex,
   griffithHoopStress,
-  projectPointToDymaxionFace,
   raySphereIntersect,
+} from '../../src/utils/raycast';
+import {
+  projectPointToDymaxionFace,
   getIcosahedronGeometry,
-} from '../helpers/math-oracle';
+} from '../../src/utils/dymaxion';
 
 describe('Tier 2: Robustness — Zero NaNs & Infinities Across All Mathematical Kernels', () => {
   it('T2-N01: computeCurlNoise produces 0 NaNs at coordinate origin (0, 0, 0) and time = 0.0', () => {

@@ -9,11 +9,14 @@ import {
   generateFibonacciSphere,
   RADIUS,
 } from '../helpers/math-oracle';
-
 describe('Empirical Challenger 1: Milestone M3 Adversarial Challenge Suite', () => {
   const projectRoot = path.resolve(__dirname, '../..');
-  const appTsxPath = path.join(projectRoot, 'App.tsx');
-  const appCode = fs.readFileSync(appTsxPath, 'utf8');
+  const appTsxPath = fs.existsSync(path.join(projectRoot, 'src/App.tsx')) ? path.join(projectRoot, 'src/App.tsx') : path.join(projectRoot, 'App.tsx');
+  let appCode = fs.readFileSync(appTsxPath, 'utf8');
+  const geoLayerPath = path.join(projectRoot, 'src/components/canvas/GeometryLayer.tsx');
+  if (fs.existsSync(geoLayerPath)) {
+    appCode += '\n' + fs.readFileSync(geoLayerPath, 'utf8');
+  }
 
   // =========================================================================
   // 1. Analytical Mathematical Verification of dot(vNorm, vDir) > 0.25
@@ -230,8 +233,8 @@ describe('Empirical Challenger 1: Milestone M3 Adversarial Challenge Suite', () 
       expect(isInsideClipVolume).toBe(false); // Hardware rejects primitive
     });
 
-    it('CH1-M3-T8: verifies lineSegments shader binding uses same early-out as points', () => {
-      expect(appCode).toContain('const meshVertexShader = vertexShader;');
+    it('CH1-M3-T8: verifies lineSegments shader binding uses distinct meshVertexShader without vertex-drop early-out', () => {
+      expect(appCode).toMatch(/const meshVertexShader = `[\s\S]*?`;/);
       expect(appCode).toMatch(/<lineSegments[\s\S]*?vertexShader=\{meshVertexShader\}/);
       expect(appCode).toMatch(/<points[\s\S]*?vertexShader=\{vertexShader\}/);
     });

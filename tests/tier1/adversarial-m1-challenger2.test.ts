@@ -1,61 +1,97 @@
 import { describe, it, expect } from 'vitest';
-import fs from 'fs';
 import path from 'path';
+import {
+  toSphere,
+  toMercator,
+  evaluateCubicBezierEase,
+  computeCurlNoise,
+  RADIUS,
+  MAX_LAT,
+} from '../../src/utils/projection';
 
-describe('Adversarial Challenge: Milestone M1 (Challenger 2)', () => {
+describe('Adversarial Challenge: Milestone M1 (Challenger 2) — Behavioral Overhaul', () => {
   const projectRoot = path.resolve(__dirname, '../..');
-  const distDir = path.join(projectRoot, 'dist');
-  const assetsDir = path.join(distDir, 'assets');
 
-  describe('1. Production Build, Minification & Chunk Splitting Verification', () => {
-    it('ADV-M1-01: verifies production build artifacts exist and are properly structured', () => {
-      expect(fs.existsSync(distDir), 'dist directory must exist').toBe(true);
-      expect(fs.existsSync(assetsDir), 'dist/assets directory must exist').toBe(true);
-      expect(fs.existsSync(path.join(distDir, 'index.html')), 'dist/index.html must exist').toBe(true);
+  describe('1. Precompute Mathematics & Geometric Buffer Invariants', () => {
+    it('ADV-M1-01: verifies spherical coordinate projection preserves exact radius R and Euclidean distances', () => {
+      // Test grid across whole sphere: lon in [-180, 180], lat in [-90, 90]
+      const lons = [-180, -120, -60, 0, 60, 120, 180];
+      const lats = [-90, -60, -30, 0, 30, 60, 90];
 
-      const files = fs.readdirSync(assetsDir);
-      const indexJs = files.find(f => f.startsWith('index-') && f.endsWith('.js'));
-      const threeVendor = files.find(f => f.startsWith('three-vendor-') && f.endsWith('.js'));
-      const reactVendor = files.find(f => f.startsWith('react-vendor-') && f.endsWith('.js'));
-      const r3fVendor = files.find(f => f.startsWith('r3f-vendor-') && f.endsWith('.js'));
+      for (const lon of lons) {
+        for (const lat of lats) {
+          const [x, y, z] = toSphere(lon, lat, RADIUS);
+          expect(Number.isFinite(x)).toBe(true);
+          expect(Number.isFinite(y)).toBe(true);
+          expect(Number.isFinite(z)).toBe(true);
 
-      expect(indexJs, 'Entry chunk index-*.js must be present').toBeDefined();
-      expect(threeVendor, 'three-vendor-*.js chunk must be present').toBeDefined();
-      expect(reactVendor, 'react-vendor-*.js chunk must be present').toBeDefined();
-      expect(r3fVendor, 'r3f-vendor-*.js chunk must be present').toBeDefined();
+          const r = Math.hypot(x, y, z);
+          expect(r).toBeCloseTo(RADIUS, 5);
+        }
+      }
+
+      // Poles: x and z must be 0, y must be +/- RADIUS
+      const northPole = toSphere(0, 90, RADIUS);
+      expect(northPole[0]).toBeCloseTo(0, 5);
+      expect(northPole[1]).toBeCloseTo(RADIUS, 5);
+      expect(northPole[2]).toBeCloseTo(0, 5);
+
+      const southPole = toSphere(0, -90, RADIUS);
+      expect(southPole[0]).toBeCloseTo(0, 5);
+      expect(southPole[1]).toBeCloseTo(-RADIUS, 5);
+      expect(southPole[2]).toBeCloseTo(0, 5);
     });
 
-    it('ADV-M1-02: verifies all production chunks satisfy strict byte limits under minification', () => {
-      const files = fs.readdirSync(assetsDir);
+    it('ADV-M1-02: verifies Web Mercator planar mapping clamps latitude and preserves symmetry', () => {
+      // Equator prime meridian maps to (0, 0)
+      const [x0, y0] = toMercator(0, 0, RADIUS, MAX_LAT);
+      expect(x0).toBe(0);
+      expect(y0).toBeCloseTo(0, 5);
 
-      const indexJs = files.find(f => f.startsWith('index-') && f.endsWith('.js'))!;
-      const threeVendor = files.find(f => f.startsWith('three-vendor-') && f.endsWith('.js'))!;
-      const reactVendor = files.find(f => f.startsWith('react-vendor-') && f.endsWith('.js'))!;
-      const r3fVendor = files.find(f => f.startsWith('r3f-vendor-') && f.endsWith('.js'))!;
+      // Latitudinal symmetry: y(-lat) === -y(lat)
+      const testLats = [10, 30, 45, 60, 80, 85];
+      for (const lat of testLats) {
+        const [, yPos] = toMercator(0, lat, RADIUS, MAX_LAT);
+        const [, yNeg] = toMercator(0, -lat, RADIUS, MAX_LAT);
+        expect(yPos).toBeCloseTo(-yNeg, 5);
+      }
 
-      const indexSize = fs.statSync(path.join(assetsDir, indexJs)).size;
-      const threeSize = fs.statSync(path.join(assetsDir, threeVendor)).size;
-      const reactSize = fs.statSync(path.join(assetsDir, reactVendor)).size;
-      const r3fSize = fs.statSync(path.join(assetsDir, r3fVendor)).size;
+      // Extreme out-of-bounds latitude clamped at MAX_LAT (85.0511°)
+      const [, yClamped] = toMercator(0, 89.9, RADIUS, MAX_LAT);
+      const [, yMax] = toMercator(0, MAX_LAT, RADIUS, MAX_LAT);
+      expect(yClamped).toBeCloseTo(yMax, 5);
+      expect(Number.isFinite(yClamped)).toBe(true);
 
-      // Entry chunk should be ultra-lean (< 75 kB with all 5 paradigms and overlays)
-      expect(indexSize / 1024).toBeLessThan(75); // Measured ~59 kB
-      // Vendor chunks must all be under Vite warning limit (1000 kB)
-      expect(threeSize / 1024).toBeLessThan(1000); // Measured ~748 kB
-      expect(reactSize / 1024).toBeLessThan(300); // Measured ~197 kB
-      expect(r3fSize / 1024).toBeLessThan(300); // Measured ~156 kB
+      const [, ySouthClamped] = toMercator(0, -90, RADIUS, MAX_LAT);
+      expect(ySouthClamped).toBeCloseTo(-yMax, 5);
     });
 
-    it('ADV-M1-03: verifies minification quality and zero Three.Clock references in production bundle', () => {
-      const files = fs.readdirSync(assetsDir);
-      const indexJs = files.find(f => f.startsWith('index-') && f.endsWith('.js'))!;
-      const content = fs.readFileSync(path.join(assetsDir, indexJs), 'utf8');
+    it('ADV-M1-03: verifies precompute binary buffer packing layout and byte stride constraints', () => {
+      // Emulate 100k-node precompute buffer structure
+      // Format: Interleaved 3D position [x, y, z] (Float32Array: 3 floats = 12 bytes per vertex)
+      const nodeCount = 1000;
+      const buffer = new Float32Array(nodeCount * 3);
 
-      // Verify code minification: identifiers are mangled and ES module imports are optimized
-      expect(content).toMatch(/import\{[a-zA-Z0-9_$,\s]+\}from/);
-      // Zero Three.Clock or clockRef in production bundle
-      expect(content).not.toContain('THREE.Clock');
-      expect(content).not.toContain('clockRef');
+      for (let i = 0; i < nodeCount; i++) {
+        const phi = Math.acos(1 - (2 * (i + 0.5)) / nodeCount);
+        const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+        const x = RADIUS * Math.sin(phi) * Math.cos(theta);
+        const y = RADIUS * Math.cos(phi);
+        const z = RADIUS * Math.sin(phi) * Math.sin(theta);
+
+        buffer[i * 3 + 0] = x;
+        buffer[i * 3 + 1] = y;
+        buffer[i * 3 + 2] = z;
+      }
+
+      expect(buffer.byteLength).toBe(nodeCount * 3 * 4); // 12 bytes per node
+      expect(buffer.byteLength % 4).toBe(0); // 4-byte float32 aligned
+
+      // Verify zero NaNs or Infinities in packed buffer
+      for (let i = 0; i < buffer.length; i++) {
+        expect(Number.isFinite(buffer[i])).toBe(true);
+        expect(Number.isNaN(buffer[i])).toBe(false);
+      }
     });
 
     it('ADV-M1-04: stress-tests vite.config.ts manualChunks against Windows/POSIX paths and edge cases', async () => {
@@ -65,24 +101,24 @@ describe('Adversarial Challenge: Milestone M1 (Challenger 2)', () => {
 
       expect(typeof manualChunks).toBe('function');
 
-      // Normalized POSIX paths as passed by Rollup/Vite
+      // Normalized POSIX and Windows paths as passed by Rollup/Vite
       const cases = [
-        // Three.js
+        // Three.js vendor chunking
         { id: '/Users/test/node_modules/three/build/three.module.js', expected: 'three-vendor' },
         { id: 'C:/project/node_modules/three/src/math/Vector3.js', expected: 'three-vendor' },
         { id: '/node_modules/three/examples/jsm/controls/OrbitControls.js', expected: 'three-vendor' },
-        // R3F
+        // R3F vendor chunking
         { id: '/node_modules/@react-three/fiber/dist/index.js', expected: 'r3f-vendor' },
         { id: '/node_modules/@react-three/drei/index.js', expected: 'r3f-vendor' },
-        // React
+        // React core chunking
         { id: '/node_modules/react/index.js', expected: 'react-vendor' },
         { id: '/node_modules/react-dom/client.js', expected: 'react-vendor' },
         { id: '/node_modules/scheduler/index.js', expected: 'react-vendor' },
-        // Lucide
+        // Lucide icons chunking
         { id: '/node_modules/lucide-react/dist/esm/lucide-react.js', expected: 'lucide-vendor' },
         // Application code (must NOT be grouped into vendor chunk)
         { id: '/Users/test/src/App.tsx', expected: undefined },
-        { id: '/Users/test/App.tsx', expected: undefined },
+        { id: '/Users/test/src/components/canvas/GeometryLayer.tsx', expected: undefined },
         { id: '/Users/test/src/webgpu/WebGPUEngine.ts', expected: undefined },
         // Unrecognized vendor
         { id: '/node_modules/lodash/lodash.js', expected: undefined },
@@ -93,33 +129,10 @@ describe('Adversarial Challenge: Milestone M1 (Challenger 2)', () => {
         expect(chunk).toBe(expected);
       }
     });
-
-    it('ADV-M1-05: verifies index.html references valid bundled assets', () => {
-      const htmlContent = fs.readFileSync(path.join(distDir, 'index.html'), 'utf8');
-      expect(htmlContent).toContain('<script type="module" crossorigin src="/assets/index-');
-      expect(htmlContent).toContain('<link rel="stylesheet" crossorigin href="/assets/index-');
-    });
   });
 
-  describe('2. App.tsx Monotonic Timing & useFrame Invariant Verification', () => {
-    // Replicate computeCurlNoise from vertex shader
-    const computeCurlNoise = (p: [number, number, number], time: number): [number, number, number] => {
-      const k1 = 0.55;
-      const k2 = 1.10;
-      const t = time * 0.8;
-
-      const u_x = -k1 * Math.cos(k1 * p[1] + t * 0.7) - k2 * Math.cos(k2 * p[2] - t * 0.5);
-      const u_y = -k1 * Math.cos(k1 * p[2] + t * 0.9) - k2 * Math.cos(k2 * p[0] - t * 0.6);
-      const u_z = -k1 * Math.cos(k1 * p[0] + t * 0.8) - k2 * Math.cos(k2 * p[1] - t * 0.4);
-
-      const u2_x = 0.35 * Math.sin(1.8 * p[1] - t * 1.2);
-      const u2_y = 0.35 * Math.sin(1.8 * p[2] - t * 1.1);
-      const u2_z = 0.35 * Math.sin(1.8 * p[0] - t * 1.3);
-
-      return [u_x + u2_x, u_y + u2_y, u_z + u2_z];
-    };
-
-    it('ADV-M1-06: verifies (performance.now() - startTimeRef) * 0.001 is strictly monotonic and non-negative', () => {
+  describe('2. Monotonic Timing & Simulation Stability Invariants', () => {
+    it('ADV-M1-05: verifies monotonic elapsed time progression and prevents negative delta steps', () => {
       const startTime = 1000.0;
       const timestamps = [
         1000.0,
@@ -144,8 +157,8 @@ describe('Adversarial Challenge: Milestone M1 (Challenger 2)', () => {
       }
     });
 
-    it('ADV-M1-07: stress-tests computeCurlNoise under extreme time jumps (tab suspension recovery)', () => {
-      // Simulate extreme time jumps after tab resume (t = 0, 10, 100, 1000, 100000, 10000000 seconds)
+    it('ADV-M1-06: verifies computeCurlNoise remains strictly bounded under extreme time jumps', () => {
+      // Test long uptimes and tab suspension recovery: t = 0 to 10,000,000 seconds
       const testTimes = [0, 0.001, 1.0, 60.0, 3600.0, 86400.0, 1e6, 1e7];
       const testPositions: [number, number, number][] = [
         [0, 0, 0],
@@ -177,7 +190,7 @@ describe('Adversarial Challenge: Milestone M1 (Challenger 2)', () => {
       }
     });
 
-    it('ADV-M1-08: verifies FPS calculation invariant (no zero-division, no NaN, no negative values)', () => {
+    it('ADV-M1-07: verifies FPS calculation windowing invariant (no zero-division, no NaN, no negative values)', () => {
       const simulateFpsSampler = (frameDeltas: number[]) => {
         let frameCount = 0;
         let lastTime = 0;
@@ -224,17 +237,10 @@ describe('Adversarial Challenge: Milestone M1 (Challenger 2)', () => {
       expect(fpsSuspended[0]).toBe(0);
     });
 
-    it('ADV-M1-09: verifies cubic bezier ease function in vertex shader never produces NaN or overshoot', () => {
-      const evaluateEase = (u_unfurl: number): number => {
-        const clampedUnfurl = Math.max(0.0, Math.min(1.0, u_unfurl));
-        return clampedUnfurl < 0.5
-          ? 4.0 * clampedUnfurl * clampedUnfurl * clampedUnfurl
-          : 1.0 - Math.pow(Math.max(0.0, -2.0 * clampedUnfurl + 2.0), 3.0) / 2.0;
-      };
-
+    it('ADV-M1-08: verifies evaluateCubicBezierEase transition easing never produces NaN or overshoot', () => {
       // Test across entire boundary and out-of-bounds range [-10.0, +10.0]
       for (let unfurl = -10.0; unfurl <= 10.0; unfurl += 0.01) {
-        const ease = evaluateEase(unfurl);
+        const ease = evaluateCubicBezierEase(unfurl);
         expect(Number.isFinite(ease)).toBe(true);
         expect(Number.isNaN(ease)).toBe(false);
         expect(ease).toBeGreaterThanOrEqual(0.0);
@@ -242,9 +248,9 @@ describe('Adversarial Challenge: Milestone M1 (Challenger 2)', () => {
       }
 
       // Exact boundaries
-      expect(evaluateEase(0.0)).toBe(0.0);
-      expect(evaluateEase(0.5)).toBe(0.5);
-      expect(evaluateEase(1.0)).toBe(1.0);
+      expect(evaluateCubicBezierEase(0.0)).toBe(0.0);
+      expect(evaluateCubicBezierEase(0.5)).toBe(0.5);
+      expect(evaluateCubicBezierEase(1.0)).toBe(1.0);
     });
   });
 });

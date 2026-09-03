@@ -7,6 +7,9 @@
 struct Particle {
     position: vec4<f32>,     // xyz: Position, w: pointType (1.0 = Land, 0.0 = Ocean)
     velocity: vec4<f32>,     // xyz: Velocity, w: metric (vStrain / vVorticity)
+};
+
+struct StaticParticle {
     rest_sphere: vec4<f32>,  // xyz: S² Coordinate, w: Rest Radius (5.0)
     rest_map: vec4<f32>,     // xy: 2D Mercator Target, zw: 2D Dymaxion Target
 };
@@ -16,22 +19,17 @@ struct SimUniforms {
     u_mode: u32,             // 0=Linear, 1=Scroll, 2=Griffith, 3=Fluid, 4=Dymaxion
     u_layerMode: u32,        // 0=Both, 1=Points Only, 2=Wireframe Only
     u_time: f32,             // Elapsed Time (s)
-    u_dt: f32,               // Timestep Delta (s)
     u_cursorActive: f32,     // 1.0 = Active Hover, 0.0 = Inactive
     u_numParticles: u32,     // Node Count (e.g. 1,000,000)
-    u_pad1: f32,
-    u_cursorRayOrig: vec4<f32>, // xyz: Camera Ray Origin
-    u_cursorRayDir: vec4<f32>,  // xyz: Camera Ray Direction
-    u_cursorHitPos: vec4<f32>,  // xyz: Unprojected Manifold Hit Point
-    u_cursorVel: vec4<f32>,     // xyz: Cursor Velocity, w: Speed
-    u_viewMatrix: mat4x4<f32>,
-    u_projectionMatrix: mat4x4<f32>,
-    u_cameraPos: vec4<f32>,
+    u_theme: u32,            // 0 = Dark Cyber, 1 = Light Monochrome
+    u_cursorHitPos: vec4<f32>,
+    u_cursorVel: vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> sim: SimUniforms;
 @group(0) @binding(1) var<storage, read> particlesIn: array<Particle>;
 @group(0) @binding(2) var<storage, read_write> particlesOut: array<Particle>;
+@group(0) @binding(3) var<storage, read> staticParticles: array<StaticParticle>;
 
 const PI: f32 = 3.14159265358979323846;
 const RADIUS: f32 = 5.0;
@@ -68,8 +66,9 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 
     let pIn = particlesIn[index];
-    let pos3D = pIn.rest_sphere.xyz;
-    let pos2D = vec3<f32>(pIn.rest_map.xy, 0.0);
+    let pStatic = staticParticles[index];
+    let pos3D = pStatic.rest_sphere.xyz;
+    let pos2D = vec3<f32>(pStatic.rest_map.xy, 0.0);
     let pointType = pIn.position.w;
 
     let clampedUnfurl = clamp(sim.u_unfurl, 0.0, 1.0);
@@ -84,16 +83,24 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let t = ease;
         let lambda = atan2(pos3D.x, pos3D.z);
         let phi = asin(clamp(pos3D.y / RADIUS, -1.0, 1.0));
+        let oneMinusT = 1.0 - t;
 
-        if (t < 0.999) {
-            let invOneMinusT = 1.0 / (1.0 - t);
-            let curAngle = (1.0 - t) * lambda;
+        if (oneMinusT > 0.001) {
+            let invOneMinusT = 1.0 / oneMinusT;
+            let curAngle = oneMinusT * lambda;
             let curX = (RADIUS * invOneMinusT) * sin(curAngle);
-            let curZ = (RADIUS * cos(phi) * invOneMinusT) * (cos(curAngle) - 1.0) + (RADIUS * cos(phi) * (1.0 - t));
+            let curZ = (RADIUS * cos(phi) * invOneMinusT) * (cos(curAngle) - 1.0) + (RADIUS * cos(phi) * oneMinusT);
             let curY = mix(pos3D.y, pos2D.y, t);
             finalPos = vec3<f32>(curX, curY, curZ);
         } else {
-            finalPos = pos2D;
+            // Taylor Series Guard for oneMinusT <= 0.001 (prevents division by zero & cancellation)
+            let u = oneMinusT * lambda;
+            let sinTerm = lambda * (1.0 - (u * u) / 6.0);
+            let cosTerm = oneMinusT * (lambda * lambda) * (-0.5 + (u * u) / 24.0);
+            let curX = RADIUS * sinTerm;
+            let curZ = RADIUS * cos(phi) * cosTerm + RADIUS * cos(phi) * oneMinusT;
+            let curY = mix(pos3D.y, pos2D.y, t);
+            finalPos = vec3<f32>(curX, curY, curZ);
         }
         finalVel = vec3<f32>(0.0);
         metric = 0.0;
@@ -175,7 +182,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     else if (sim.u_mode == 4u) {
         let arch = sin(PI * ease) * 0.45;
         let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
-        let dymaxionTarget = vec3<f32>(pIn.rest_map.zw, 0.0);
+        let dymaxionTarget = vec3<f32>(pStatic.rest_map.zw, 0.0);
         finalPos = mix(pos3D, dymaxionTarget, ease) + sphereNorm * arch;
         finalVel = vec3<f32>(0.0);
         metric = 0.0;
@@ -187,12 +194,10 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         metric = 0.0;
     }
 
-    // Write computed state to output storage buffer
+    // Write computed state to output storage buffer (halved VRAM bandwidth write)
     var pOut: Particle;
     pOut.position = vec4<f32>(finalPos, pointType);
     pOut.velocity = vec4<f32>(finalVel, metric);
-    pOut.rest_sphere = pIn.rest_sphere;
-    pOut.rest_map = pIn.rest_map;
 
     particlesOut[index] = pOut;
 }

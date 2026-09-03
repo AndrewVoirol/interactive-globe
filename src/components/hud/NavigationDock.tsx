@@ -28,12 +28,12 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
   if (isZenMode) return null;
 
   return (
-    <div className="absolute bottom-8 inset-x-0 flex flex-col items-center gap-2 z-10 pointer-events-none">
+    <div className="absolute bottom-8 inset-x-0 flex flex-col items-center gap-2 z-10 pointer-events-none font-mono select-none">
       <div
         className={`flex items-center gap-3 px-5 py-2.5 rounded-full backdrop-blur-xl shadow-2xl pointer-events-auto border transition-colors ${
           isLight
-            ? 'bg-white/95 border-zinc-200 text-zinc-800 shadow-zinc-300/50'
-            : 'bg-[#0F121A]/90 border-white/10 text-zinc-200'
+            ? 'bg-white/85 border-[#E2E8F0] text-zinc-800 shadow-zinc-300/50'
+            : 'bg-[#0F121A]/85 border-white/10 text-zinc-200 shadow-black/60'
         }`}
       >
         {/* Play/Pause Toggle */}
@@ -57,7 +57,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         <button
           onClick={onToggleSpeed}
           title="Toggle Auto-Morph Speed"
-          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border transition-colors ${
+          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border transition-colors tabular-nums ${
             isLight
               ? 'border-zinc-300 text-zinc-700 hover:bg-zinc-100'
               : 'border-white/10 text-zinc-400 hover:text-white hover:border-white/20'
@@ -82,7 +82,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         >
           <span>Globe</span>
           <kbd
-            className={`text-[8px] px-1 py-0.2 rounded font-mono font-normal ${
+            className={`text-[8px] px-1 py-0.2 rounded font-normal ${
               alpha < 0.03
                 ? isLight
                   ? 'bg-zinc-800 text-white'
@@ -127,7 +127,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         >
           <span>Map</span>
           <kbd
-            className={`text-[8px] px-1 py-0.2 rounded font-mono font-normal ${
+            className={`text-[8px] px-1 py-0.2 rounded font-normal ${
               alpha > 0.97
                 ? isLight
                   ? 'bg-zinc-800 text-white'
@@ -142,7 +142,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         </button>
 
         <span
-          className={`text-[9px] font-mono pl-2 border-l min-w-[3rem] ${
+          className={`text-[9px] tabular-nums pl-2 border-l min-w-[3.25rem] text-right ${
             isLight ? 'text-zinc-600 border-zinc-200' : 'text-zinc-400 border-white/10'
           }`}
         >
@@ -150,7 +150,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         </span>
       </div>
 
-      <div className="text-[9px] tracking-wide text-zinc-500 pointer-events-none">
+      <div className="text-[9px] tracking-wide text-zinc-500 pointer-events-none font-mono">
         Space: Play/Pause • G: Globe • M: Map • V: Vectors • B: Backend • 1-5: Paradigms • T: Theme • H: Zen
       </div>
     </div>

@@ -268,10 +268,10 @@ describe('Tier 5: Adversarial Hardening & Stress Testing', () => {
       const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
       camera.position.set(0, 0, 15);
 
-      // Verify initialized buffers: exactly 2 ping-pong storage + 1 line index + 1 sim uniform = 4 buffers
+      // Verify initialized buffers: 2 ping-pong storage + 1 static storage + 1 line index + 1 sim uniform = 5 buffers
       const device = (engine as any).device as MockGPUDevice;
       const initialBufferCount = device.buffers.length;
-      expect(initialBufferCount).toBe(4);
+      expect(initialBufferCount).toBe(5);
 
       // Execute 1,000 continuous render frames
       for (let frame = 0; frame < 1000; frame++) {
@@ -321,7 +321,7 @@ describe('Tier 5: Adversarial Hardening & Stress Testing', () => {
 
         expect(engine.initialized).toBe(true);
         const device = (engine as any).device as MockGPUDevice;
-        expect(device.buffers.length).toBe(4);
+        expect(device.buffers.length).toBe(5);
 
         engine.dispose();
         expect(engine.initialized).toBe(false);

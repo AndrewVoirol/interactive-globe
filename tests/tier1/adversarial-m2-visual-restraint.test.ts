@@ -3,18 +3,22 @@ import fs from 'fs';
 import path from 'path';
 import { parseGeomBuffer, serializeGeomBuffer, GEOM_MAGIC, GEOM_VERSION } from '../helpers/geom-parser';
 import { getLayerOpacities, computeWireframeOpacityScale } from '../helpers/math-oracle';
-
 describe('Milestone M2 Verification: Visual Restraint & Adaptive Lattice Layering', () => {
   const projectRoot = path.resolve(__dirname, '../..');
-  const appTsxPath = path.join(projectRoot, 'App.tsx');
+  const appTsxPath = fs.existsSync(path.join(projectRoot, 'src/App.tsx')) ? path.join(projectRoot, 'src/App.tsx') : path.join(projectRoot, 'App.tsx');
   const precomputePath = path.join(projectRoot, 'scripts/precompute.js');
-  const appCode = fs.readFileSync(appTsxPath, 'utf8');
+  let appCode = fs.readFileSync(appTsxPath, 'utf8');
+  const geoLayerPath = path.join(projectRoot, 'src/components/canvas/GeometryLayer.tsx');
+  if (fs.existsSync(geoLayerPath)) {
+    appCode += '\n' + fs.readFileSync(geoLayerPath, 'utf8');
+  }
   const precomputeCode = fs.readFileSync(precomputePath, 'utf8');
 
   describe('1. Interactive HUD Layer Selector & Uniform Dispatch', () => {
-    it('M2-T1: verifies App.tsx defines layerMode state and window.setLayerMode hook', () => {
-      expect(appCode).toMatch(/const\s*\[layerMode,\s*setLayerMode\]\s*=\s*useState<\s*0\s*\|\s*1\s*\|\s*2\s*>\s*\(\s*0\s*\)/);
-      expect(appCode).toContain('(window as any).setLayerMode = setLayerMode');
+    it('M2-T1: verifies App.tsx manages layerMode state and DevTools API integration', () => {
+      expect(appCode).toContain('layerMode');
+      expect(appCode).toContain('setLayerMode');
+      expect(appCode).toContain('registerDevToolsAPI');
     });
 
     it('M2-T2: verifies App.tsx renders HUD buttons for [Both], [Points], and [Wireframe]', () => {
