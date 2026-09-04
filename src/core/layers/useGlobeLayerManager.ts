@@ -8,7 +8,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { GlobeLayerManager } from './GlobeLayerManager';
 import { DataLayerItem } from '../../components/hud/DataLayersDrawer';
 import { ToastMessage } from '../../components/hud/DataLayerToastNotification';
-import { BlendModeType } from '../data/DataLayerCatalog';
+import { BlendModeType, getPresetById, DataLayerRenderStyle } from '../data/DataLayerCatalog';
 import { BaseGlobeOverlayLayer, VectorOverlayPluginLayer, GeodesicOverlayPluginLayer } from '../_deferred/adapters/GlobeOverlayAdapters';
 
 export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
@@ -18,16 +18,17 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
   const [dataLayers, setDataLayers] = useState<DataLayerItem[]>(
     initialLayers || [
       {
-        id: 'global-dem-crust',
-        name: 'NASA/GEBCO 3D Crust & Bathymetry',
+        id: 'architectural-topo-relief',
+        name: 'Architectural Topographic Relief',
         category: 'topo',
-        type: 'DEM Crust (ETOPO/GEBCO)',
-        details: 'Physical lithosphere: Mariana Trench (-11,000m) to Mount Everest (+8,848m)',
+        type: 'Monochrome Relief & Isolines',
+        details: 'Cartographic Eduard Imhof relief shading, analytical elevation isocontours & bathymetric isobaths matching Theme 0/1',
         visible: true,
         url: '/earth-elevation-dem.webp',
         opacity: 0.95,
         blendMode: 0,
-        displacementScale: 0.12,
+        displacementScale: 0.14,
+        renderStyle: 'architectural',
       },
     ]
   );
@@ -164,6 +165,58 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
     );
   }, []);
 
+  const handleSelectRenderStyle = useCallback(
+    (style: DataLayerRenderStyle) => {
+      const presetId =
+        style === 'architectural'
+          ? 'architectural-topo-relief'
+          : style === 'hybrid'
+          ? 'hybrid-crust-hydrosphere'
+          : 'nasa-blue-marble';
+
+      const preset = getPresetById(presetId);
+      if (!preset) return;
+
+      setDataLayers((prev) => {
+        // Keep non-cartographic auxiliary layers if any, replacing cartographic base layers
+        const filtered = prev.filter(
+          (l) =>
+            l.renderStyle !== 'architectural' &&
+            l.renderStyle !== 'hybrid' &&
+            l.renderStyle !== 'photoreal' &&
+            l.id !== presetId
+        );
+
+        const newLayer: DataLayerItem = {
+          id: preset.id,
+          name: preset.name,
+          category: preset.category,
+          type: preset.type,
+          details: preset.details,
+          visible: true,
+          opacity: preset.defaultOpacity,
+          blendMode: preset.defaultBlendMode,
+          displacementScale: preset.defaultDisplacementScale,
+          elevationEncoding: preset.elevationEncoding,
+          sunAzimuth: 315,
+          sunAltitude: 45,
+          hillshadeIntensity: 0.65,
+          url: preset.url,
+          renderStyle: preset.renderStyle,
+        };
+
+        return [newLayer, ...filtered];
+      });
+
+      addToast({
+        type: 'info',
+        title: `Direction ${style === 'architectural' ? 'A' : style === 'hybrid' ? 'B' : 'C'} Activated`,
+        message: `${preset.name}`,
+      });
+    },
+    [addToast]
+  );
+
   return {
     layerManager: managerRef.current,
     dataLayers,
@@ -178,5 +231,6 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
     handleDisplacementScaleChangeDataLayer,
     handleHillshadeChangeDataLayer,
     handleReorderDataLayer,
+    handleSelectRenderStyle,
   };
 }

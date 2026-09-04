@@ -10,6 +10,8 @@ export interface NavigationDockProps {
   onAlphaChange: (val: number) => void;
   onGlideToAlpha: (target: number) => void;
   theme: 0 | 1;
+  activeDirection?: 'architectural' | 'hybrid' | 'photoreal' | null;
+  onSelectRenderStyle?: (style: 'architectural' | 'hybrid' | 'photoreal') => void;
 }
 
 export const NavigationDock: React.FC<NavigationDockProps> = ({
@@ -22,6 +24,8 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
   onAlphaChange,
   onGlideToAlpha,
   theme,
+  activeDirection,
+  onSelectRenderStyle,
 }) => {
   const isLight = theme === 1;
 
@@ -148,10 +152,69 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         >
           {alpha.toFixed(3)}
         </span>
+
+        {/* Direction Switcher (Directions A / B / C) */}
+        {onSelectRenderStyle && (
+          <div className={`flex items-center gap-1 pl-2 border-l ${isLight ? 'border-zinc-200' : 'border-white/10'}`}>
+            <span className={`text-[9px] uppercase tracking-wider font-semibold mr-1 hidden sm:inline ${
+              isLight ? 'text-zinc-400' : 'text-zinc-500'
+            }`}>
+              Style:
+            </span>
+            <button
+              onClick={() => onSelectRenderStyle('architectural')}
+              title="Direction A: Architectural Topo-Relief (Press 7)"
+              className={`text-[9px] font-bold px-2 py-1 rounded-full transition-all flex items-center gap-1 outline-none focus:outline-none focus-visible:outline-none ${
+                activeDirection === 'architectural'
+                  ? isLight
+                    ? 'bg-zinc-900 text-white shadow-sm font-extrabold'
+                    : 'bg-amber-400/20 text-amber-300 border border-amber-400/40 shadow-sm font-extrabold'
+                  : isLight
+                  ? 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <span>A</span>
+              <span className="opacity-75 font-normal hidden md:inline">Relief</span>
+            </button>
+            <button
+              onClick={() => onSelectRenderStyle('hybrid')}
+              title="Direction B: Hydrosphere Dual-Surface Bathymetry (Press 8)"
+              className={`text-[9px] font-bold px-2 py-1 rounded-full transition-all flex items-center gap-1 outline-none focus:outline-none focus-visible:outline-none ${
+                activeDirection === 'hybrid'
+                  ? isLight
+                    ? 'bg-cyan-600 text-white shadow-sm font-extrabold'
+                    : 'bg-cyan-500/25 text-cyan-300 border border-cyan-400/40 shadow-sm font-extrabold'
+                  : isLight
+                  ? 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <span>B</span>
+              <span className="opacity-75 font-normal hidden md:inline">Depth</span>
+            </button>
+            <button
+              onClick={() => onSelectRenderStyle('photoreal')}
+              title="Direction C: NASA Blue Marble Orbital Photorealism (Press 9)"
+              className={`text-[9px] font-bold px-2 py-1 rounded-full transition-all flex items-center gap-1 outline-none focus:outline-none focus-visible:outline-none ${
+                activeDirection === 'photoreal'
+                  ? isLight
+                    ? 'bg-blue-600 text-white shadow-sm font-extrabold'
+                    : 'bg-blue-500/25 text-blue-300 border border-blue-400/40 shadow-sm font-extrabold'
+                  : isLight
+                  ? 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <span>C</span>
+              <span className="opacity-75 font-normal hidden md:inline">Orbital</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="text-[9px] tracking-wide text-zinc-500 pointer-events-none font-mono">
-        Space: Play/Pause • G: Globe • M: Map • V: Vectors • B: Backend • 1-5: Paradigms • T: Theme • H: Zen
+        Space: Play/Pause • G: Globe • M: Map • D: Style (A/B/C) • V: Vectors • B: Backend • 1-5: Paradigms • T: Theme • H: Zen
       </div>
     </div>
   );

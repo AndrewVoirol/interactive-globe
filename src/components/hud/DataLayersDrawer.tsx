@@ -21,6 +21,7 @@ export interface DataLayerItem {
   sunAltitude?: number;
   hillshadeIntensity?: number;
   url?: string;
+  renderStyle?: 'architectural' | 'hybrid' | 'photoreal';
 }
 
 export interface DataLayersDrawerProps {
@@ -220,8 +221,8 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                       </div>
                     </div>
 
-                    {/* Terrain 3D Relief & Sun Azimuth Controls for Topo/Raster Layers */}
-                    {(layer.category === 'topo' || layer.category === 'satellite' || layer.elevationEncoding) && (
+                    {/* Terrain 3D Relief & Sun Azimuth Controls for Topo/Raster/Ocean Layers */}
+                    {(layer.category === 'topo' || layer.category === 'satellite' || layer.category === 'ocean' || !!layer.renderStyle || !!layer.elevationEncoding) && (
                       <div className="space-y-1.5 pt-1.5 border-t border-white/5 text-[9px]">
                         <div className="flex items-center gap-1.5">
                           <span className="text-emerald-400 font-bold text-[8px] uppercase tracking-wider">3D Relief:</span>
@@ -340,6 +341,8 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                               visible: true,
                               opacity: preset.defaultOpacity,
                               blendMode: preset.defaultBlendMode,
+                              displacementScale: preset.defaultDisplacementScale,
+                              renderStyle: preset.renderStyle,
                               url: preset.url,
                             });
                           }

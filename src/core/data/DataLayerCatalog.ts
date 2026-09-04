@@ -12,6 +12,8 @@ export interface CartographicLegend {
   unit: string;
 }
 
+export type DataLayerRenderStyle = 'architectural' | 'hybrid' | 'photoreal';
+
 export interface DataLayerPreset {
   id: string;
   name: string;
@@ -25,12 +27,70 @@ export interface DataLayerPreset {
   legend: CartographicLegend;
   elevationEncoding?: 'luminance' | 'mapbox' | 'terrarium';
   defaultDisplacementScale?: number;
+  renderStyle?: DataLayerRenderStyle;
 }
 
 export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
   {
+    id: 'architectural-topo-relief',
+    name: 'Architectural Topographic Relief',
+    category: 'topo',
+    type: 'Monochrome Relief & Isolines',
+    details: 'Cartographic Eduard Imhof relief shading, analytical elevation isocontours & bathymetric isobaths matching Theme 0/1',
+    url: '/earth-elevation-dem.webp',
+    defaultOpacity: 0.95,
+    defaultBlendMode: 0,
+    defaultDisplacementScale: 0.14,
+    renderStyle: 'architectural',
+    attribution: 'NASA Earth Observatory / GEBCO / NOAA NCEI',
+    legend: {
+      colorStops: ['#090b10', '#1e2633', '#596b85', '#a0a6b0', '#eae6de'],
+      minLabel: 'Obsidian Abyss',
+      maxLabel: 'Platinum Ridge',
+      unit: 'Architectural',
+    },
+  },
+  {
+    id: 'hybrid-crust-hydrosphere',
+    name: 'Hydrosphere & Bathymetric Depth',
+    category: 'ocean',
+    type: 'Two-Surface Crust & Ocean',
+    details: 'Physical 3D continental elevation, smooth sea-level envelope, and Beer-Lambert volumetric depth absorption',
+    url: '/earth-elevation-dem.webp',
+    defaultOpacity: 0.95,
+    defaultBlendMode: 0,
+    defaultDisplacementScale: 0.12,
+    renderStyle: 'hybrid',
+    attribution: 'GEBCO / NOAA NCEI / NASA',
+    legend: {
+      colorStops: ['#020617', '#0369a1', '#06b6d4', '#15803d', '#f8fafc'],
+      minLabel: '-11,000m Trench',
+      maxLabel: '+8,848m Summit',
+      unit: 'Hydrosphere',
+    },
+  },
+  {
+    id: 'nasa-blue-marble',
+    name: 'NASA Blue Marble & Orbital Relief',
+    category: 'satellite',
+    type: 'WMTS EPSG:3857',
+    details: 'NASA Earth Observatory true-color orbital imagery with DEM analytical micro-hillshading and water sheen',
+    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg',
+    defaultOpacity: 0.90,
+    defaultBlendMode: 0,
+    defaultDisplacementScale: 0.08,
+    renderStyle: 'photoreal',
+    attribution: 'NASA Earth Observatory / EOSDIS GIBS',
+    legend: {
+      colorStops: ['#0b1329', '#1e3a8a', '#15803d', '#ca8a04', '#f8fafc'],
+      minLabel: 'Bathymetry',
+      maxLabel: 'Elevation',
+      unit: 'Orbital',
+    },
+  },
+  {
     id: 'global-dem-crust',
-    name: 'NASA/GEBCO 3D Crust & Bathymetry',
+    name: 'NASA/GEBCO 3D Crust (Legacy)',
     category: 'topo',
     type: 'DEM Crust (ETOPO/GEBCO)',
     details: 'Physical lithosphere: Mariana Trench (-11,000m) to Mount Everest (+8,848m)',
@@ -38,30 +98,13 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     defaultOpacity: 0.95,
     defaultBlendMode: 0,
     defaultDisplacementScale: 0.12,
+    renderStyle: 'hybrid',
     attribution: 'NASA Earth Observatory / GEBCO / NOAA NCEI',
     legend: {
       colorStops: ['#020617', '#0284c7', '#15803d', '#d97706', '#ffffff'],
       minLabel: '-11,000m Trench',
       maxLabel: '+8,848m Peak',
       unit: 'Lithosphere',
-    },
-  },
-  {
-    id: 'nasa-blue-marble',
-    name: 'NASA Blue Marble & Bathymetry',
-    category: 'satellite',
-    type: 'WMTS EPSG:3857',
-    details: 'NASA Earth Observatory true-color orbital imagery & shaded bathymetry',
-    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg',
-    defaultOpacity: 0.90,
-    defaultBlendMode: 0,
-    defaultDisplacementScale: 0.08,
-    attribution: 'NASA Earth Observatory / EOSDIS GIBS',
-    legend: {
-      colorStops: ['#0b1329', '#1e3a8a', '#15803d', '#ca8a04', '#f8fafc'],
-      minLabel: 'Bathymetry',
-      maxLabel: 'Elevation',
-      unit: 'Orbital',
     },
   },
   {

@@ -10,6 +10,7 @@ export interface VectorOverlayLayerProps {
   visible: boolean;
   cameraTarget?: THREE.Vector3;
   cursorPhysicsEnabled?: boolean;
+  displacementScale?: number;
   startTime?: number;
 }
 
@@ -23,6 +24,8 @@ uniform vec3 u_cursorRayDir;
 uniform vec3 u_cursorHitPos;
 uniform vec4 u_cursorVel;
 uniform float u_cursorActive;
+uniform sampler2D u_demTexture;
+uniform float u_displacementScale;
 
 attribute vec2 target2D;
 attribute vec2 dymaxion2D;
@@ -173,6 +176,16 @@ void main() {
         dynamicNormal = normalize(pos3D);
     }
 
+    // Physical DEM coupling: extract elevation so rivers and coastlines ride on elevated topography
+    float ptLambda = atan(pos3D.x, pos3D.z);
+    float ptPhi = asin(clamp(pos3D.y / RADIUS, -1.0, 1.0));
+    vec2 ptDemUv = vec2((ptLambda + PI) / (2.0 * PI), (ptPhi + PI * 0.5) / PI);
+    vec4 ptDem = texture2D(u_demTexture, ptDemUv);
+    float isLand = ptDem.b;
+    float elev = ptDem.r;
+    float ptDisplacement = isLand * elev * u_displacementScale * 1.5;
+    finalPos += dynamicNormal * (ptDisplacement + 0.012);
+
     vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
 
@@ -211,24 +224,24 @@ void main() {
     if (u_theme == 0) {
         // Theme 0: Obsidian & Celestial Platinum
         if (vPointType < 0.75) {
-            // Major River Arteries: Mineral slate-aquamarine
+            // Major River Arteries: Mineral slate-aquamarine with clear contrast
             color = vec3(0.42, 0.65, 0.78);
-            alpha = 0.40;
+            alpha = 0.65;
         } else {
             // Continental Coastlines: Warm celestial ivory hairline
             color = vec3(0.94, 0.92, 0.89);
-            alpha = 0.55;
+            alpha = 0.75;
         }
     } else {
         // Theme 1: Light Monochrome Architectural Print
         if (vPointType < 0.75) {
-            // River: Muted slate
+            // River: Architectural indigo-slate
             color = vec3(0.30, 0.42, 0.55);
-            alpha = 0.35;
+            alpha = 0.60;
         } else {
-            // Coastline: Architectural charcoal ink
+            // Coastline: Crisp architectural charcoal ink
             color = vec3(0.10, 0.12, 0.16);
-            alpha = 0.55;
+            alpha = 0.80;
         }
     }
 
@@ -243,6 +256,7 @@ export const VectorOverlayLayer: React.FC<VectorOverlayLayerProps> = ({
   visible,
   cameraTarget,
   cursorPhysicsEnabled = true,
+  displacementScale = 0.12,
   startTime,
 }) => {
   const lineSegmentsRef = useRef<THREE.LineSegments>(null);
@@ -252,6 +266,17 @@ export const VectorOverlayLayer: React.FC<VectorOverlayLayerProps> = ({
 
   // Shared cursor tracker for fluid vortex and Griffith hoop stress interaction
   const cursorTracker = useCursorTracker();
+
+  // Load elevation texture for terrain conformity
+  const demTexture = useMemo(() => {
+    const loader = new THREE.TextureLoader();
+    const tex = loader.load('/earth-elevation-dem.webp');
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    return tex;
+  }, []);
 
   // Lazy fetch the zero-copy binary buffer only when first enabled
   useEffect(() => {
@@ -315,13 +340,15 @@ export const VectorOverlayLayer: React.FC<VectorOverlayLayerProps> = ({
       u_time: { value: 0 },
       u_mode: { value: mode },
       u_theme: { value: theme },
+      u_demTexture: { value: demTexture },
+      u_displacementScale: { value: displacementScale },
       u_cursorRayOrig: { value: new THREE.Vector3(0, 0, 0) },
       u_cursorRayDir: { value: new THREE.Vector3(0, 0, 1) },
       u_cursorHitPos: { value: new THREE.Vector3(0, 0, 0) },
       u_cursorVel: { value: new THREE.Vector4(0, 0, 0, 0) },
       u_cursorActive: { value: 0.0 },
     }),
-    []
+    [demTexture]
   );
 
   useFrame((state) => {
@@ -332,6 +359,7 @@ export const VectorOverlayLayer: React.FC<VectorOverlayLayerProps> = ({
     mat.uniforms.u_time.value = (performance.now() - effectiveStartTime) * 0.001;
     mat.uniforms.u_mode.value = mode;
     mat.uniforms.u_theme.value = theme;
+    mat.uniforms.u_displacementScale.value = displacementScale;
 
     // Sample passive cursor tracker
     const cursorUniforms = cursorTracker.update(state.camera, unfurlProgress);
