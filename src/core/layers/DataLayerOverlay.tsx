@@ -30,6 +30,10 @@ export interface DataLayerOverlayProps {
   hillshadeIntensity?: number;
   renderStyle?: 'architectural' | 'hybrid' | 'photoreal';
   resolution?: '100k' | '1M';
+  seaLevelOffset?: number;
+  waterClarity?: number;
+  peakExponent?: number;
+  ambientOcclusion?: number;
 }
 
 export const DataLayerOverlay: React.FC<DataLayerOverlayProps> = (props) => {

@@ -14,7 +14,7 @@ export function useEngineState() {
   const [hasWebGPU, setHasWebGPU] = useState<boolean>(false);
   const [alpha, setAlpha] = useState(0); 
   const [mode, setMode] = useState<SimulationMode>(4); // Default to Mode 4 (Fuller Dymaxion)
-  const [layerMode, setLayerMode] = useState<0 | 1 | 2>(0); // 0 = Both, 1 = Points Only, 2 = Wireframe Only
+  const [layerMode, setLayerMode] = useState<0 | 1 | 2>(2); // Default to 2 (Wireframe Only) to prevent point cloud occlusion over cartographic relief
   const [cursorPhysicsEnabled, setCursorPhysicsEnabled] = useState<boolean>(false);
   const [resolution, setResolution] = useState<'100k' | '1M'>('100k');
   const [fps, setFps] = useState(60);
@@ -24,7 +24,7 @@ export function useEngineState() {
   const [activeOverlay, setActiveOverlay] = useState<GeodesicOverlayMode>('off');
   const [showLandmarks, setShowLandmarks] = useState<boolean>(false);
   const [showTissot, setShowTissot] = useState<boolean>(false);
-  const [showVectors, setShowVectors] = useState<boolean>(false);
+  const [showVectors, setShowVectors] = useState<boolean>(true);
 
   // Auto-morph playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);

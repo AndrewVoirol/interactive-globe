@@ -22,6 +22,10 @@ export interface DataLayerItem {
   hillshadeIntensity?: number;
   url?: string;
   renderStyle?: 'architectural' | 'hybrid' | 'photoreal';
+  seaLevelOffset?: number;
+  waterClarity?: number;
+  peakExponent?: number;
+  ambientOcclusion?: number;
 }
 
 export interface DataLayersDrawerProps {
@@ -35,6 +39,10 @@ export interface DataLayersDrawerProps {
   onBlendModeChangeDataLayer?: (id: string, blendMode: BlendModeType) => void;
   onDisplacementScaleChangeDataLayer?: (id: string, scale: number) => void;
   onHillshadeChangeDataLayer?: (id: string, azimuth: number, intensity: number) => void;
+  onSeaLevelOffsetChangeDataLayer?: (id: string, offset: number) => void;
+  onWaterClarityChangeDataLayer?: (id: string, clarity: number) => void;
+  onPeakExponentChangeDataLayer?: (id: string, exponent: number) => void;
+  onAmbientOcclusionChangeDataLayer?: (id: string, ao: number) => void;
   onReorderDataLayer?: (id: string, direction: 'up' | 'down') => void;
 }
 
@@ -49,6 +57,10 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
   onBlendModeChangeDataLayer,
   onDisplacementScaleChangeDataLayer,
   onHillshadeChangeDataLayer,
+  onSeaLevelOffsetChangeDataLayer,
+  onWaterClarityChangeDataLayer,
+  onPeakExponentChangeDataLayer,
+  onAmbientOcclusionChangeDataLayer,
   onReorderDataLayer,
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
@@ -251,6 +263,78 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                           />
                           <span className="w-8 text-right font-bold text-amber-300">{Math.round(layer.sunAzimuth ?? 315)}°</span>
                         </div>
+
+                        {/* Direction A: Valley Crevice Ambient Occlusion & Antialiased Contours */}
+                        {(layer.renderStyle === 'architectural' || layer.id === 'architectural-topo-relief') && (
+                          <div className="pt-1 border-t border-white/5 space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-zinc-400 font-bold text-[8px] uppercase tracking-wider">Crevice AO:</span>
+                              <input
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.05"
+                                value={layer.ambientOcclusion ?? 0.65}
+                                onChange={(e) => onAmbientOcclusionChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
+                                className="w-full accent-zinc-400 cursor-pointer h-1 rounded"
+                              />
+                              <span className="w-8 text-right font-bold text-zinc-300">{Math.round((layer.ambientOcclusion ?? 0.65) * 100)}%</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[8px] text-emerald-400 font-mono">
+                              <span>Contour Filter:</span>
+                              <span className="font-bold">fwidth() Anti-Aliased</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Direction B: Hydrosphere Depth, Sea Level, Clarity & Peak Exaggeration */}
+                        {(layer.renderStyle === 'hybrid' || layer.id === 'hybrid-crust-hydrosphere') && (
+                          <div className="pt-1 border-t border-white/5 space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-cyan-400 font-bold text-[8px] uppercase tracking-wider">Sea Level:</span>
+                              <input
+                                type="range"
+                                min="-150"
+                                max="100"
+                                step="5"
+                                value={layer.seaLevelOffset ?? 0}
+                                onChange={(e) => onSeaLevelOffsetChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
+                                className="w-full accent-cyan-400 cursor-pointer h-1 rounded"
+                              />
+                              <span className="w-8 text-right font-bold text-cyan-300">
+                                {(layer.seaLevelOffset ?? 0) > 0 ? `+${layer.seaLevelOffset}m` : `${layer.seaLevelOffset ?? 0}m`}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sky-400 font-bold text-[8px] uppercase tracking-wider">Clarity:</span>
+                              <input
+                                type="range"
+                                min="0.10"
+                                max="1.00"
+                                step="0.05"
+                                value={layer.waterClarity ?? 0.75}
+                                onChange={(e) => onWaterClarityChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
+                                className="w-full accent-sky-400 cursor-pointer h-1 rounded"
+                              />
+                              <span className="w-8 text-right font-bold text-sky-300">{Math.round((layer.waterClarity ?? 0.75) * 100)}%</span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-amber-400 font-bold text-[8px] uppercase tracking-wider">Peak Sharp:</span>
+                              <input
+                                type="range"
+                                min="1.0"
+                                max="2.0"
+                                step="0.1"
+                                value={layer.peakExponent ?? 1.4}
+                                onChange={(e) => onPeakExponentChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
+                                className="w-full accent-amber-400 cursor-pointer h-1 rounded"
+                              />
+                              <span className="w-8 text-right font-bold text-amber-300">{(layer.peakExponent ?? 1.4).toFixed(1)}x</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 

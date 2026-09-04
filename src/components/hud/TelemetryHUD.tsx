@@ -57,6 +57,10 @@ export interface TelemetryHUDProps {
   onBlendModeChangeDataLayer?: (id: string, blendMode: BlendModeType) => void;
   onDisplacementScaleChangeDataLayer?: (id: string, scale: number) => void;
   onHillshadeChangeDataLayer?: (id: string, azimuth: number, intensity: number) => void;
+  onSeaLevelOffsetChangeDataLayer?: (id: string, offset: number) => void;
+  onWaterClarityChangeDataLayer?: (id: string, clarity: number) => void;
+  onPeakExponentChangeDataLayer?: (id: string, exponent: number) => void;
+  onAmbientOcclusionChangeDataLayer?: (id: string, ao: number) => void;
   onReorderDataLayer?: (id: string, direction: 'up' | 'down') => void;
   onSelectRenderStyle?: (style: DataLayerRenderStyle) => void;
 }
@@ -108,6 +112,10 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onBlendModeChangeDataLayer={props.onBlendModeChangeDataLayer}
         onDisplacementScaleChangeDataLayer={props.onDisplacementScaleChangeDataLayer}
         onHillshadeChangeDataLayer={props.onHillshadeChangeDataLayer}
+        onSeaLevelOffsetChangeDataLayer={props.onSeaLevelOffsetChangeDataLayer}
+        onWaterClarityChangeDataLayer={props.onWaterClarityChangeDataLayer}
+        onPeakExponentChangeDataLayer={props.onPeakExponentChangeDataLayer}
+        onAmbientOcclusionChangeDataLayer={props.onAmbientOcclusionChangeDataLayer}
         onReorderDataLayer={props.onReorderDataLayer}
         onSelectRenderStyle={props.onSelectRenderStyle}
       />

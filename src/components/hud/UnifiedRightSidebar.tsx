@@ -50,6 +50,10 @@ export interface UnifiedRightSidebarProps {
   onBlendModeChangeDataLayer?: (id: string, blendMode: BlendModeType) => void;
   onDisplacementScaleChangeDataLayer?: (id: string, scale: number) => void;
   onHillshadeChangeDataLayer?: (id: string, azimuth: number, intensity: number) => void;
+  onSeaLevelOffsetChangeDataLayer?: (id: string, offset: number) => void;
+  onWaterClarityChangeDataLayer?: (id: string, clarity: number) => void;
+  onPeakExponentChangeDataLayer?: (id: string, exponent: number) => void;
+  onAmbientOcclusionChangeDataLayer?: (id: string, ao: number) => void;
   onReorderDataLayer?: (id: string, direction: 'up' | 'down') => void;
   onSelectRenderStyle?: (style: DataLayerRenderStyle) => void;
 }
@@ -95,6 +99,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onBlendModeChangeDataLayer,
   onDisplacementScaleChangeDataLayer,
   onHillshadeChangeDataLayer,
+  onSeaLevelOffsetChangeDataLayer,
+  onWaterClarityChangeDataLayer,
+  onPeakExponentChangeDataLayer,
+  onAmbientOcclusionChangeDataLayer,
   onReorderDataLayer,
   onSelectRenderStyle,
 }) => {
@@ -391,7 +399,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 <div className="grid grid-cols-3 gap-1.5">
                   {/* Direction A */}
                   <button
-                    onClick={() => onSelectRenderStyle?.('architectural')}
+                    onClick={() => {
+                      onSelectRenderStyle?.('architectural');
+                      setActiveTab('layers');
+                    }}
                     title="Direction A: Architectural Topographic Relief (Monochrome Eduard Imhof hillshading & dual-tier isocontours)"
                     className={`py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center gap-0.5 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
                       activeDirection === 'architectural'
@@ -409,7 +420,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
                   {/* Direction B */}
                   <button
-                    onClick={() => onSelectRenderStyle?.('hybrid')}
+                    onClick={() => {
+                      onSelectRenderStyle?.('hybrid');
+                      setActiveTab('layers');
+                    }}
                     title="Direction B: Hydrosphere & Bathymetric Depth (Two-Surface Model: smooth sea level + Beer-Lambert depth)"
                     className={`py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center gap-0.5 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
                       activeDirection === 'hybrid'
@@ -425,7 +439,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
                   {/* Direction C */}
                   <button
-                    onClick={() => onSelectRenderStyle?.('photoreal')}
+                    onClick={() => {
+                      onSelectRenderStyle?.('photoreal');
+                      setActiveTab('layers');
+                    }}
                     title="Direction C: NASA Blue Marble (True-color orbital photography + 3D DEM relief)"
                     className={`py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center gap-0.5 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
                       activeDirection === 'photoreal'
@@ -970,6 +987,35 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     </button>
                   </div>
 
+                  {/* Surface Clarity: Point Lattice Suppression Pill */}
+                  <div className={`flex items-center justify-between p-1.5 rounded-lg border text-[9px] ${
+                    isLight ? 'bg-zinc-100/80 border-zinc-200 text-zinc-700' : 'bg-white/[0.03] border-white/10 text-zinc-300'
+                  }`}>
+                    <span className="font-semibold text-zinc-400 uppercase tracking-wider text-[8px]">Base Lattice:</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => onLayerModeChange?.(2)}
+                        className={`px-2 py-0.5 rounded text-[8px] font-bold transition-all ${
+                          layerMode === 2
+                            ? 'bg-emerald-500 text-black font-extrabold shadow-sm'
+                            : 'text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        Clean Terrain
+                      </button>
+                      <button
+                        onClick={() => onLayerModeChange?.(0)}
+                        className={`px-2 py-0.5 rounded text-[8px] font-bold transition-all ${
+                          layerMode === 0
+                            ? 'bg-sky-500 text-black font-extrabold shadow-sm'
+                            : 'text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        + Node Cloud
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Active Layers Stack */}
                   <div className="space-y-2 max-h-80 overflow-y-auto pr-0.5">
                     {dataLayers && dataLayers.length > 0 ? (
@@ -1179,6 +1225,100 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                     {Math.round(layer.sunAzimuth ?? 315)}°
                                   </span>
                                 </div>
+
+                                {/* Direction A: Valley Crevice Ambient Occlusion & Antialiased Contours */}
+                                {(layer.renderStyle === 'architectural' || layer.id === 'architectural-topo-relief') && (
+                                  <div className="pt-1.5 border-t border-white/5 space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-zinc-500 dark:text-zinc-400 font-bold text-[8px] uppercase tracking-wider">
+                                        Crevice AO:
+                                      </span>
+                                      <input
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                        value={layer.ambientOcclusion ?? 0.65}
+                                        onChange={(e) =>
+                                          onAmbientOcclusionChangeDataLayer?.(layer.id, parseFloat(e.target.value))
+                                        }
+                                        className="w-full accent-zinc-400 cursor-pointer h-1 rounded"
+                                      />
+                                      <span className="w-8 text-right font-bold text-zinc-500 dark:text-zinc-300 tabular-nums">
+                                        {Math.round((layer.ambientOcclusion ?? 0.65) * 100)}%
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[8px] text-emerald-500 dark:text-emerald-400 font-mono">
+                                      <span>Contour Filter:</span>
+                                      <span className="font-bold">fwidth() Anti-Aliased</span>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Direction B: Hydrosphere Depth, Sea Level, Clarity & Peak Exaggeration */}
+                                {(layer.renderStyle === 'hybrid' || layer.id === 'hybrid-crust-hydrosphere') && (
+                                  <div className="pt-1.5 border-t border-white/5 space-y-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-cyan-500 dark:text-cyan-400 font-bold text-[8px] uppercase tracking-wider">
+                                        Sea Level:
+                                      </span>
+                                      <input
+                                        type="range"
+                                        min="-150"
+                                        max="100"
+                                        step="5"
+                                        value={layer.seaLevelOffset ?? 0}
+                                        onChange={(e) =>
+                                          onSeaLevelOffsetChangeDataLayer?.(layer.id, parseFloat(e.target.value))
+                                        }
+                                        className="w-full accent-cyan-400 cursor-pointer h-1 rounded"
+                                      />
+                                      <span className="w-8 text-right font-bold text-cyan-500 dark:text-cyan-300 tabular-nums">
+                                        {(layer.seaLevelOffset ?? 0) > 0 ? `+${layer.seaLevelOffset}m` : `${layer.seaLevelOffset ?? 0}m`}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-sky-500 dark:text-sky-400 font-bold text-[8px] uppercase tracking-wider">
+                                        Clarity:
+                                      </span>
+                                      <input
+                                        type="range"
+                                        min="0.10"
+                                        max="1.00"
+                                        step="0.05"
+                                        value={layer.waterClarity ?? 0.75}
+                                        onChange={(e) =>
+                                          onWaterClarityChangeDataLayer?.(layer.id, parseFloat(e.target.value))
+                                        }
+                                        className="w-full accent-sky-400 cursor-pointer h-1 rounded"
+                                      />
+                                      <span className="w-8 text-right font-bold text-sky-500 dark:text-sky-300 tabular-nums">
+                                        {Math.round((layer.waterClarity ?? 0.75) * 100)}%
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-amber-500 dark:text-amber-400 font-bold text-[8px] uppercase tracking-wider">
+                                        Peak Sharp:
+                                      </span>
+                                      <input
+                                        type="range"
+                                        min="1.0"
+                                        max="2.0"
+                                        step="0.1"
+                                        value={layer.peakExponent ?? 1.4}
+                                        onChange={(e) =>
+                                          onPeakExponentChangeDataLayer?.(layer.id, parseFloat(e.target.value))
+                                        }
+                                        className="w-full accent-amber-400 cursor-pointer h-1 rounded"
+                                      />
+                                      <span className="w-8 text-right font-bold text-amber-500 dark:text-amber-300 tabular-nums">
+                                        {(layer.peakExponent ?? 1.4).toFixed(1)}x
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
 
