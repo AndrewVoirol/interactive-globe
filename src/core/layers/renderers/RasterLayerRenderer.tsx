@@ -9,7 +9,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RasterTileDataSource } from '../../data/RasterTileDataSource';
-import { BlendModeType } from '../../data/DataLayerCatalog';
+import { BlendModeType, DataLayerRenderStyle } from '../../data/DataLayerCatalog';
 
 export interface RasterLayerRendererProps {
   visible: boolean;
@@ -25,6 +25,8 @@ export interface RasterLayerRendererProps {
   sunAltitude?: number;
   hillshadeIntensity?: number;
   includeBathymetry?: boolean;
+  renderStyle?: DataLayerRenderStyle;
+  resolution?: '100k' | '1M';
 }
 
 const tileOverlayVertexShader = `
@@ -33,6 +35,7 @@ uniform float u_time;
 uniform int u_mode; // 0 = Linear, 1 = Scroll, 2 = Griffith, 3 = Fluid, 4 = Dymaxion
 uniform float u_displacementScale;
 uniform int u_includeBathymetry;
+uniform int u_renderStyle; // 0 = Architectural, 1 = Hybrid, 2 = Photoreal
 uniform sampler2D u_tileTexture;
 uniform sampler2D u_demTexture;
 
@@ -173,11 +176,19 @@ void main() {
     vec4 dem = texture2D(u_demTexture, demUv);
     float isLand = dem.b;
     float landElev = dem.r; // 0..1 representing 0..8848m
-    float oceanDepth = -(1.0 - dem.g); // -1..0 representing -11000m..0m
-
-    float signedH = (u_includeBathymetry == 1)
-        ? mix(oceanDepth * (11000.0 / 8848.0), landElev, isLand)
-        : (isLand * landElev);
+    float oceanDepth = -(1.0 - dem.g); // -1..0 representing trench to sea level
+    float signedH = 0.0;
+    if (u_renderStyle == 1 || u_renderStyle == 2) {
+        // Hybrid & Photoreal: Continents elevate naturally above sea level (R = 5.0).
+        // Oceans remain on the smooth sea-level sphere, eliminating polygon spires.
+        signedH = isLand * landElev;
+    } else {
+        // Architectural: Continents elevate with crisp relief.
+        // Seafloor has gentle 0.20x indentation so trenches are sculpted without spires.
+        signedH = (u_includeBathymetry == 1)
+            ? mix(oceanDepth * 0.20, landElev, isLand)
+            : (isLand * landElev);
+    }
 
     vIsLand = isLand;
     vElevNormalized = signedH;
@@ -200,8 +211,9 @@ uniform sampler2D u_tileTexture;
 uniform sampler2D u_demTexture;
 uniform float u_opacity;
 uniform int u_blendMode; // 0 = Normal, 1 = Additive, 2 = Multiply, 3 = Screen
-uniform int u_theme;
+uniform int u_theme;     // 0 = Dark Obsidian, 1 = Light Archival
 uniform int u_isDemPreset; // 1 = Render full NASA/GEBCO Hypsometric Topo & Bathymetry
+uniform int u_renderStyle; // 0 = Architectural, 1 = Hybrid, 2 = Photoreal
 uniform float u_displacementScale;
 uniform float u_sunAzimuth;
 uniform float u_sunAltitude;
@@ -216,20 +228,38 @@ varying float vElevNormalized;
 varying float vIsLand;
 varying float vModeAlpha;
 
-// Analytical Surface Normal via DEM finite differences
-vec3 computeDEMNormal(vec2 uv, float dispScale) {
+// Analytical Surface Normal via DEM symmetric finite differences across land and bathymetry
+vec3 computeDEMNormal(vec2 uv, float dispScale, int renderStyle) {
     vec2 ts = vec2(1.0 / 2048.0, 1.0 / 1024.0);
     
-    vec4 demC = texture2D(u_demTexture, uv);
     vec4 demR = texture2D(u_demTexture, uv + vec2(ts.x, 0.0));
+    vec4 demL = texture2D(u_demTexture, uv - vec2(ts.x, 0.0));
     vec4 demU = texture2D(u_demTexture, uv + vec2(0.0, ts.y));
+    vec4 demD = texture2D(u_demTexture, uv - vec2(0.0, ts.y));
 
-    float hC = (demC.a - 0.5) * 2.0;
-    float hR = (demR.a - 0.5) * 2.0;
-    float hU = (demU.a - 0.5) * 2.0;
+    float hR, hL, hU, hD;
+    if (renderStyle == 0) {
+        // Architectural: Land relief + 0.20x bathymetric trenches
+        hR = demR.b > 0.5 ? demR.r : -(1.0 - demR.g) * 0.20;
+        hL = demL.b > 0.5 ? demL.r : -(1.0 - demL.g) * 0.20;
+        hU = demU.b > 0.5 ? demU.r : -(1.0 - demU.g) * 0.20;
+        hD = demD.b > 0.5 ? demD.r : -(1.0 - demD.g) * 0.20;
+    } else if (renderStyle == 1) {
+        // Hybrid: Land relief + submerged bathymetry slopes
+        hR = demR.b > 0.5 ? demR.r : -(1.0 - demR.g) * 0.45;
+        hL = demL.b > 0.5 ? demL.r : -(1.0 - demL.g) * 0.45;
+        hU = demU.b > 0.5 ? demU.r : -(1.0 - demU.g) * 0.45;
+        hD = demD.b > 0.5 ? demD.r : -(1.0 - demD.g) * 0.45;
+    } else {
+        // Photoreal: Land topography
+        hR = demR.b > 0.5 ? demR.r : 0.0;
+        hL = demL.b > 0.5 ? demL.r : 0.0;
+        hU = demU.b > 0.5 ? demU.r : 0.0;
+        hD = demD.b > 0.5 ? demD.r : 0.0;
+    }
 
-    float dHx = (hR - hC) * (dispScale * 60.0 + 1.0);
-    float dHy = (hU - hC) * (dispScale * 60.0 + 1.0);
+    float dHx = (hR - hL) * 0.5 * (dispScale * 65.0 + 1.2);
+    float dHy = (hU - hD) * 0.5 * (dispScale * 65.0 + 1.2);
     return normalize(vec3(-dHx, -dHy, 1.0));
 }
 
@@ -246,17 +276,128 @@ void main() {
 
     vec3 rgb;
 
-    if (u_isDemPreset == 1) {
+    if (u_renderStyle == 0) {
         // ====================================================================
-        // Unified NASA/GEBCO Topography & Bathymetry Hypsometric Pass
+        // Direction A: Architectural Topographic Relief ("Less is More")
+        // Tone-on-tone Eduard Imhof relief shading & analytical isocontours
         // ====================================================================
-        if (isLand > 0.4) {
-            // Continental Land Topography Color Ramp
-            vec3 cCoastal = vec3(0.08, 0.45, 0.22); // Coastal Emerald
-            vec3 cLowland = vec3(0.25, 0.58, 0.18); // Lowland Green
-            vec3 cPlateau = vec3(0.72, 0.55, 0.18); // Plateau Amber
-            vec3 cAlpine  = vec3(0.55, 0.38, 0.24); // Mountain Ochre
-            vec3 cSnow    = vec3(0.96, 0.97, 0.98); // Snow Alpine Peak
+        if (u_theme == 0) {
+            // Theme 0: Obsidian Abyss & Celestial Platinum
+            if (isLand > 0.45) {
+                // Continental Landmass: Obsidian base rising to Platinum peaks
+                vec3 cLowland = vec3(0.12, 0.15, 0.20);
+                vec3 cMidland = vec3(0.32, 0.36, 0.44);
+                vec3 cAlpine  = vec3(0.65, 0.68, 0.74);
+                vec3 cSummit  = vec3(0.92, 0.90, 0.87);
+
+                float h = clamp(landElev, 0.0, 1.0);
+                if (h < 0.30) {
+                    rgb = mix(cLowland, cMidland, h / 0.30);
+                } else if (h < 0.70) {
+                    rgb = mix(cMidland, cAlpine, (h - 0.30) / 0.40);
+                } else {
+                    rgb = mix(cAlpine, cSummit, (h - 0.70) / 0.30);
+                }
+
+                // Analytical Topographic Micro-Contours & Index Contours
+                float topoCycle = landElev * 24.0;
+                float topoDist = abs(fract(topoCycle - 0.5) - 0.5);
+                float topoLine = 1.0 - smoothstep(0.0, 0.08, topoDist);
+
+                float indexCycle = landElev * 4.8;
+                float indexDist = abs(fract(indexCycle - 0.5) - 0.5);
+                float indexLine = 1.0 - smoothstep(0.0, 0.12, indexDist);
+
+                float combinedTopo = topoLine * 0.22 + indexLine * 0.40;
+                rgb = mix(rgb, vec3(0.96, 0.94, 0.90), combinedTopo);
+            } else {
+                // Ocean Bathymetry: Deep Obsidian Abyss & Subsurface Isobaths
+                vec3 cTrench = vec3(0.03, 0.04, 0.06);
+                vec3 cAbyss  = vec3(0.05, 0.07, 0.11);
+                vec3 cShelf  = vec3(0.09, 0.15, 0.22);
+
+                float d = clamp(bathLevel, 0.0, 1.0);
+                if (d < 0.50) {
+                    rgb = mix(cTrench, cAbyss, d / 0.50);
+                } else {
+                    rgb = mix(cAbyss, cShelf, (d - 0.50) / 0.50);
+                }
+
+                // Bathymetric Depth Isobaths & Index Isobaths
+                float bathCycle = bathLevel * 16.0;
+                float bathDist = abs(fract(bathCycle - 0.5) - 0.5);
+                float bathLine = 1.0 - smoothstep(0.0, 0.09, bathDist);
+
+                float bathIndexCycle = bathLevel * 4.0;
+                float bathIndexDist = abs(fract(bathIndexCycle - 0.5) - 0.5);
+                float bathIndexLine = 1.0 - smoothstep(0.0, 0.12, bathIndexDist);
+
+                float combinedBath = bathLine * 0.20 + bathIndexLine * 0.38;
+                rgb = mix(rgb, vec3(0.24, 0.42, 0.60), combinedBath);
+            }
+        } else {
+            // Theme 1: Light Architectural Print on Archival Paper
+            if (isLand > 0.45) {
+                // Swiss Topographic Map: Bone Paper to Deep Graphite Shadows
+                vec3 cLowland = vec3(0.96, 0.97, 0.98);
+                vec3 cMidland = vec3(0.82, 0.85, 0.89);
+                vec3 cAlpine  = vec3(0.55, 0.58, 0.64);
+                vec3 cSummit  = vec3(0.18, 0.20, 0.24);
+
+                float h = clamp(landElev, 0.0, 1.0);
+                if (h < 0.30) {
+                    rgb = mix(cLowland, cMidland, h / 0.30);
+                } else if (h < 0.70) {
+                    rgb = mix(cMidland, cAlpine, (h - 0.30) / 0.40);
+                } else {
+                    rgb = mix(cAlpine, cSummit, (h - 0.70) / 0.30);
+                }
+
+                // Fine Technical Pencil Isocontours & Index Contours
+                float topoCycle = landElev * 24.0;
+                float topoDist = abs(fract(topoCycle - 0.5) - 0.5);
+                float topoLine = 1.0 - smoothstep(0.0, 0.08, topoDist);
+
+                float indexCycle = landElev * 4.8;
+                float indexDist = abs(fract(indexCycle - 0.5) - 0.5);
+                float indexLine = 1.0 - smoothstep(0.0, 0.12, indexDist);
+
+                float combinedTopo = topoLine * 0.18 + indexLine * 0.36;
+                rgb = mix(rgb, vec3(0.10, 0.12, 0.16), combinedTopo);
+            } else {
+                // Pale Archival Water Basin & Subtle Gray Isobaths
+                vec3 cTrench = vec3(0.88, 0.91, 0.94);
+                vec3 cAbyss  = vec3(0.92, 0.94, 0.96);
+                vec3 cShelf  = vec3(0.95, 0.97, 0.98);
+
+                float d = clamp(bathLevel, 0.0, 1.0);
+                rgb = mix(cTrench, cShelf, d);
+
+                float bathCycle = bathLevel * 16.0;
+                float bathDist = abs(fract(bathCycle - 0.5) - 0.5);
+                float bathLine = 1.0 - smoothstep(0.0, 0.09, bathDist);
+
+                float bathIndexCycle = bathLevel * 4.0;
+                float bathIndexDist = abs(fract(bathIndexCycle - 0.5) - 0.5);
+                float bathIndexLine = 1.0 - smoothstep(0.0, 0.12, bathIndexDist);
+
+                float combinedBath = bathLine * 0.18 + bathIndexLine * 0.32;
+                rgb = mix(rgb, vec3(0.60, 0.66, 0.72), combinedBath);
+            }
+        }
+    } else if (u_renderStyle == 1) {
+        // ====================================================================
+        // Direction B: Hydrosphere & Bathymetric Depth (Two-Surface Model)
+        // Volumetric Beer-Lambert depth absorption, translucent continental shelf,
+        // and physical 3D continental elevation.
+        // ====================================================================
+        if (isLand > 0.45) {
+            // Muted, restrained natural hypsometric palette (no neon/cartoon colors)
+            vec3 cCoastal = vec3(0.14, 0.36, 0.24); // Deep Muted Evergreen
+            vec3 cLowland = vec3(0.28, 0.46, 0.24); // Olive Lowland
+            vec3 cPlateau = vec3(0.55, 0.46, 0.28); // Weathered Ochre
+            vec3 cAlpine  = vec3(0.48, 0.42, 0.36); // Slate Mountain
+            vec3 cSnow    = vec3(0.94, 0.95, 0.96); // Alpine Snow
 
             float h = clamp(landElev, 0.0, 1.0);
             if (h < 0.15) {
@@ -269,26 +410,30 @@ void main() {
                 rgb = mix(cAlpine, cSnow, (h - 0.75) / 0.25);
             }
         } else {
-            // Ocean Bathymetry Depth Gradient
-            vec3 cTrench = vec3(0.01, 0.02, 0.09); // Mariana Trench Midnight
-            vec3 cAbyss  = vec3(0.03, 0.14, 0.32); // Abyssal Plain Navy
-            vec3 cBasin  = vec3(0.05, 0.28, 0.52); // Mid-Ocean Basin Blue
-            vec3 cShelf  = vec3(0.08, 0.58, 0.78); // Continental Shelf Cyan
-            vec3 cCoast  = vec3(0.25, 0.82, 0.95); // Coastal Shallow Turquoise
+            // Volumetric Beer-Lambert depth attenuation in liquid ocean basin
+            float waterDepth = clamp(1.0 - bathLevel, 0.0, 1.0);
+            float absorption = 1.0 - exp(-waterDepth * 3.4);
 
-            float d = clamp(bathLevel, 0.0, 1.0);
-            if (d < 0.25) {
-                rgb = mix(cTrench, cAbyss, d / 0.25);
-            } else if (d < 0.60) {
-                rgb = mix(cAbyss, cBasin, (d - 0.25) / 0.35);
-            } else if (d < 0.88) {
-                rgb = mix(cBasin, cShelf, (d - 0.60) / 0.28);
+            vec3 cShallowShelf = vec3(0.06, 0.52, 0.64); // Translucent Cyan Reef/Shelf
+            vec3 cMidBasin     = vec3(0.03, 0.22, 0.44); // Oceanic Blue
+            vec3 cAbyssalTrench = (u_theme == 1) ? vec3(0.12, 0.18, 0.28) : vec3(0.01, 0.03, 0.10); // Deep Abyssal Abyss
+
+            if (absorption < 0.40) {
+                rgb = mix(cShallowShelf, cMidBasin, absorption / 0.40);
             } else {
-                rgb = mix(cShelf, cCoast, (d - 0.88) / 0.12);
+                rgb = mix(cMidBasin, cAbyssalTrench, (absorption - 0.40) / 0.60);
             }
+
+            // Physical Schlick Fresnel water surface reflectance
+            float cosTheta = max(0.0, vFacing);
+            float fresnel = 0.02 + 0.98 * pow(1.0 - cosTheta, 5.0);
+            rgb = mix(rgb, (u_theme == 1) ? vec3(0.85, 0.90, 0.96) : vec3(0.15, 0.25, 0.38), fresnel * 0.45);
         }
     } else {
-        // Standard Optical Satellite / Topo Map Texture Drape Pass
+        // ====================================================================
+        // Direction C: Photoreal Orbital Satellite & Shaded Bathymetry
+        // Satellite imagery drape with analytical normal-mapped hillshading
+        // ====================================================================
         vec4 texColor = texture2D(u_tileTexture, vUv);
         rgb = texColor.rgb;
     }
@@ -303,14 +448,19 @@ void main() {
     ));
 
     // Analytical Dynamic Hillshading via DEM Surface Normals
-    vec3 demNormal = computeDEMNormal(vDemUv, u_displacementScale);
-    float NdotL = max(0.12, dot(demNormal, sunDir));
-    float hillshadeFactor = mix(1.0, NdotL * 1.35, u_hillshadeIntensity);
-    rgb *= hillshadeFactor;
+    vec3 demNormal = computeDEMNormal(vDemUv, u_displacementScale, u_renderStyle);
+    float NdotL = max(0.08, dot(demNormal, sunDir));
+    float hillshadeFactor = mix(1.0, NdotL * 1.45, u_hillshadeIntensity);
+    
+    // Apply hillshading to land; in Architectural mode, apply to both land and seabed
+    if (u_renderStyle == 0 || isLand > 0.45) {
+        rgb *= hillshadeFactor;
+    }
 
-    // Specular Water Sheen for Oceanic Surfaces
-    if (isLand < 0.5) {
-        float waterSpec = pow(max(0.0, dot(reflect(-sunDir, demNormal), vec3(0.0, 0.0, 1.0))), 16.0) * 0.35;
+    // Specular Water Sheen for Oceanic Surfaces (Direction B & C)
+    if (isLand < 0.5 && (u_renderStyle == 1 || u_renderStyle == 2)) {
+        vec3 halfVec = normalize(sunDir + vec3(0.0, 0.0, 1.0));
+        float waterSpec = pow(max(0.0, dot(demNormal, halfVec)), 24.0) * 0.40;
         rgb += vec3(waterSpec);
     }
 
@@ -332,16 +482,17 @@ void main() {
 `;
 
 function buildMercatorGridGeometry(
-  widthSegments: number = 128,
-  heightSegments: number = 64,
+  widthSegments: number = 256,
+  heightSegments: number = 128,
   radius: number = 4.985,
   mapRadius: number = 5.0
 ): THREE.BufferGeometry {
   const PI = Math.PI;
 
   const numCols = widthSegments + 1;
-  const numRows = heightSegments + 1;
-  const totalVertices = numCols * numRows;
+  const innerRows = heightSegments + 1;
+  const totalRows = innerRows + 2; // +1 south cap row, +1 north cap row
+  const totalVertices = numCols * totalRows;
 
   const positions = new Float32Array(totalVertices * 3);
   const target2D = new Float32Array(totalVertices * 2);
@@ -349,48 +500,75 @@ function buildMercatorGridGeometry(
   const demUvs = new Float32Array(totalVertices * 2);
 
   let vIdx = 0;
+
+  // Row 0: South Pole Cap (lat = -90°, seals Antarctic hole)
+  for (let i = 0; i <= widthSegments; i++) {
+    const u = i / widthSegments;
+    const lambda = -PI + u * 2.0 * PI;
+    positions[vIdx * 3 + 0] = 0.0;
+    positions[vIdx * 3 + 1] = -radius;
+    positions[vIdx * 3 + 2] = 0.0;
+    target2D[vIdx * 2 + 0] = mapRadius * lambda;
+    target2D[vIdx * 2 + 1] = -mapRadius * PI;
+    uvs[vIdx * 2 + 0] = u;
+    uvs[vIdx * 2 + 1] = 0.0;
+    demUvs[vIdx * 2 + 0] = u;
+    demUvs[vIdx * 2 + 1] = 0.0;
+    vIdx++;
+  }
+
+  // Rows 1 to innerRows: Mercator body (lat = -85.05° to +85.05°)
   for (let j = 0; j <= heightSegments; j++) {
-    const v = j / heightSegments; // 0.0 at South (-85.05 deg), 1.0 at North (+85.05 deg)
+    const v = j / heightSegments;
     const mercY = PI * (2.0 * v - 1.0);
     const phi = 2.0 * Math.atan(Math.exp(mercY)) - PI / 2.0;
     const cosPhi = Math.cos(phi);
     const sinPhi = Math.sin(phi);
 
     const targetY = mapRadius * mercY;
-    const demV = (phi + PI / 2.0) / PI; // Equirectangular latitude coordinate [0, 1]
+    const demV = (phi + PI / 2.0) / PI;
 
     for (let i = 0; i <= widthSegments; i++) {
-      const u = i / widthSegments; // 0.0 at -180 deg, 1.0 at +180 deg
+      const u = i / widthSegments;
       const lambda = -PI + u * 2.0 * PI;
       const sinLam = Math.sin(lambda);
       const cosLam = Math.cos(lambda);
 
-      const x3D = radius * cosPhi * sinLam;
-      const y3D = radius * sinPhi;
-      const z3D = radius * cosPhi * cosLam;
+      positions[vIdx * 3 + 0] = radius * cosPhi * sinLam;
+      positions[vIdx * 3 + 1] = radius * sinPhi;
+      positions[vIdx * 3 + 2] = radius * cosPhi * cosLam;
 
-      const targetX = mapRadius * lambda;
-      const demU = u; // Equirectangular longitude coordinate [0, 1]
-
-      positions[vIdx * 3 + 0] = x3D;
-      positions[vIdx * 3 + 1] = y3D;
-      positions[vIdx * 3 + 2] = z3D;
-
-      target2D[vIdx * 2 + 0] = targetX;
+      target2D[vIdx * 2 + 0] = mapRadius * lambda;
       target2D[vIdx * 2 + 1] = targetY;
 
       uvs[vIdx * 2 + 0] = u;
       uvs[vIdx * 2 + 1] = v;
 
-      demUvs[vIdx * 2 + 0] = demU;
+      demUvs[vIdx * 2 + 0] = u;
       demUvs[vIdx * 2 + 1] = demV;
 
       vIdx++;
     }
   }
 
+  // Row totalRows - 1: North Pole Cap (lat = +90°, seals Arctic hole)
+  for (let i = 0; i <= widthSegments; i++) {
+    const u = i / widthSegments;
+    const lambda = -PI + u * 2.0 * PI;
+    positions[vIdx * 3 + 0] = 0.0;
+    positions[vIdx * 3 + 1] = radius;
+    positions[vIdx * 3 + 2] = 0.0;
+    target2D[vIdx * 2 + 0] = mapRadius * lambda;
+    target2D[vIdx * 2 + 1] = mapRadius * PI;
+    uvs[vIdx * 2 + 0] = u;
+    uvs[vIdx * 2 + 1] = 1.0;
+    demUvs[vIdx * 2 + 0] = u;
+    demUvs[vIdx * 2 + 1] = 1.0;
+    vIdx++;
+  }
+
   const indices: number[] = [];
-  for (let j = 0; j < heightSegments; j++) {
+  for (let j = 0; j < totalRows - 1; j++) {
     for (let i = 0; i < widthSegments; i++) {
       const a = j * numCols + i;
       const b = j * numCols + (i + 1);
@@ -426,10 +604,26 @@ export const RasterLayerRenderer: React.FC<RasterLayerRendererProps> = ({
   sunAltitude = 45.0,
   hillshadeIntensity = 0.70,
   includeBathymetry = true,
+  renderStyle,
+  resolution = '100k',
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
+
+  // Map renderStyle string to shader integer uniform: 0 = Architectural, 1 = Hybrid, 2 = Photoreal
+  const computedRenderStyle = useMemo(() => {
+    if (renderStyle === 'architectural') return 0;
+    if (renderStyle === 'hybrid') return 1;
+    if (renderStyle === 'photoreal') return 2;
+    if (sourceUrl && (sourceUrl.includes('BlueMarble') || sourceUrl.includes('ArcGIS') || sourceUrl.includes('World_Imagery'))) {
+      return 2;
+    }
+    if (sourceUrl && sourceUrl.includes('hybrid')) {
+      return 1;
+    }
+    return 0; // Default to Architectural
+  }, [renderStyle, sourceUrl]);
 
   // Load global high-precision NASA/GEBCO DEM elevation texture
   const demTexture = useMemo(() => {
@@ -442,7 +636,7 @@ export const RasterLayerRenderer: React.FC<RasterLayerRendererProps> = ({
     return tex;
   }, []);
 
-  const isDemPreset = !sourceUrl || sourceUrl.includes('earth-elevation-dem') || sourceUrl.includes('global-dem');
+  const isDemPreset = !sourceUrl || sourceUrl.includes('earth-elevation-dem') || computedRenderStyle === 0 || computedRenderStyle === 1;
 
   const dataSource = useMemo(() => {
     return new RasterTileDataSource('data-layer-raster', sourceUrl);
@@ -490,6 +684,7 @@ export const RasterLayerRenderer: React.FC<RasterLayerRendererProps> = ({
       u_time: { value: 0 },
       u_mode: { value: mode },
       u_theme: { value: theme },
+      u_renderStyle: { value: computedRenderStyle },
       u_opacity: { value: opacity },
       u_blendMode: { value: blendMode },
       u_isDemPreset: { value: isDemPreset ? 1 : 0 },
@@ -509,10 +704,11 @@ export const RasterLayerRenderer: React.FC<RasterLayerRendererProps> = ({
     if (texture && materialRef.current) {
       materialRef.current.uniforms.u_tileTexture.value = texture;
       materialRef.current.uniforms.u_demTexture.value = demTexture;
+      materialRef.current.uniforms.u_renderStyle.value = computedRenderStyle;
       materialRef.current.uniforms.u_isDemPreset.value = isDemPreset ? 1 : 0;
       materialRef.current.needsUpdate = true;
     }
-  }, [texture, demTexture, isDemPreset]);
+  }, [texture, demTexture, isDemPreset, computedRenderStyle]);
 
   useFrame((state) => {
     if (materialRef.current) {
@@ -520,6 +716,7 @@ export const RasterLayerRenderer: React.FC<RasterLayerRendererProps> = ({
       materialRef.current.uniforms.u_time.value = state.clock.elapsedTime;
       materialRef.current.uniforms.u_mode.value = mode;
       materialRef.current.uniforms.u_theme.value = theme;
+      materialRef.current.uniforms.u_renderStyle.value = computedRenderStyle;
       materialRef.current.uniforms.u_opacity.value = opacity;
       materialRef.current.uniforms.u_blendMode.value = blendMode;
       materialRef.current.uniforms.u_isDemPreset.value = isDemPreset ? 1 : 0;
@@ -532,8 +729,10 @@ export const RasterLayerRenderer: React.FC<RasterLayerRendererProps> = ({
   });
 
   const geometry = useMemo(() => {
-    return buildMercatorGridGeometry(256, 128, 4.985, 5.0);
-  }, []);
+    const widthSegs = resolution === '1M' ? 384 : 256;
+    const heightSegs = resolution === '1M' ? 192 : 128;
+    return buildMercatorGridGeometry(widthSegs, heightSegs, 4.985, 5.0);
+  }, [resolution]);
 
   if (!visible || !texture || !geometry) return null;
 

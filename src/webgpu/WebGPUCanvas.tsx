@@ -191,11 +191,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       lastMousePosRef.current = { x: e.clientX, y: e.clientY };
 
       if (dragButtonRef.current === 0) {
-        // Orbit rotation
+        // Orbit rotation: unrestricted 360-degree spherical orbit across all morph stages
         sphericalRef.current.theta -= dx * 0.005;
         sphericalRef.current.phi = Math.min(
-          Math.max(sphericalRef.current.phi - dy * 0.005, 0.01),
-          Math.PI - 0.01
+          Math.max(sphericalRef.current.phi - dy * 0.005, 0.001),
+          Math.PI - 0.001
         );
       } else if (dragButtonRef.current === 2) {
         // Pan translation
@@ -524,6 +524,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                 sunAzimuth={layer.sunAzimuth}
                 sunAltitude={layer.sunAltitude}
                 hillshadeIntensity={layer.hillshadeIntensity}
+                renderStyle={layer.renderStyle}
+                resolution={resolution}
               />
             ))}
             <GeodesicOverlayLayer
@@ -542,6 +544,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
               visible={showVectors}
               cameraTarget={cameraTarget}
               cursorPhysicsEnabled={cursorPhysicsEnabled}
+              displacementScale={dataLayers?.find((l) => l.visible)?.displacementScale ?? 0.12}
               startTime={startTime !== undefined ? startTime : startTimeRef.current}
             />
           </Canvas>

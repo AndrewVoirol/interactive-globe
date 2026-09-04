@@ -28,6 +28,8 @@ export interface DataLayerOverlayProps {
   sunAzimuth?: number;
   sunAltitude?: number;
   hillshadeIntensity?: number;
+  renderStyle?: 'architectural' | 'hybrid' | 'photoreal';
+  resolution?: '100k' | '1M';
 }
 
 export const DataLayerOverlay: React.FC<DataLayerOverlayProps> = (props) => {

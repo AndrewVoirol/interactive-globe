@@ -57,15 +57,30 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
         <button
           onClick={() => onBackendChange(backend === 'webgpu' ? 'webgl2' : 'webgpu')}
           disabled={!hasWebGPU && backend === 'webgl2'}
-          className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1 ${
+          title={
+            !hasWebGPU
+              ? 'WebGPU not available on this hardware'
+              : backend === 'webgpu'
+              ? 'Active Engine: WebGPU WGSL Compute'
+              : 'Active Engine: WebGL2 Fallback'
+          }
+          className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1.5 ${
             backend === 'webgpu'
-              ? 'bg-purple-600/30 text-purple-200 border-purple-500/50'
+              ? 'bg-purple-600/30 text-purple-200 border-purple-500/50 hover:bg-purple-600/40'
               : isLight
               ? 'bg-zinc-100 border-zinc-300 text-zinc-800 hover:bg-zinc-200'
               : 'bg-white/5 border-white/10 text-zinc-300 hover:text-white hover:border-white/20'
           }`}
         >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              backend === 'webgpu' ? 'bg-purple-400 animate-pulse' : 'bg-emerald-400'
+            }`}
+          ></span>
           <span>{backend === 'webgpu' ? 'WebGPU' : 'WebGL2'}</span>
+          <span className="text-[8px] opacity-60 font-normal">
+            {backend === 'webgpu' ? '⇄ WebGL2' : '⇄ WebGPU'}
+          </span>
         </button>
 
         {/* Grid Resolution Switch */}

@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo } from '../../types';
-import { DATA_LAYER_CATALOG, BlendModeType, getPresetById } from '../../core/data/DataLayerCatalog';
+import { DATA_LAYER_CATALOG, BlendModeType, getPresetById, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
 import { DataLayerItem } from './DataLayersDrawer';
 
 export interface UnifiedRightSidebarProps {
@@ -51,6 +51,7 @@ export interface UnifiedRightSidebarProps {
   onDisplacementScaleChangeDataLayer?: (id: string, scale: number) => void;
   onHillshadeChangeDataLayer?: (id: string, azimuth: number, intensity: number) => void;
   onReorderDataLayer?: (id: string, direction: 'up' | 'down') => void;
+  onSelectRenderStyle?: (style: DataLayerRenderStyle) => void;
 }
 
 export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
@@ -95,6 +96,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onDisplacementScaleChangeDataLayer,
   onHillshadeChangeDataLayer,
   onReorderDataLayer,
+  onSelectRenderStyle,
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'topology' | 'layers'>('topology');
@@ -102,6 +104,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   const catalogSheetRef = useRef<HTMLDivElement>(null);
 
   const isLight = theme === 1;
+
+  // Active Cartographic Direction (A: Architectural, B: Hybrid, C: Photoreal)
+  const activeDirection: DataLayerRenderStyle =
+    dataLayers.find((l) => l.visible && l.renderStyle)?.renderStyle ?? 'architectural';
 
   // Auto-close catalog if user presses Escape
   useEffect(() => {
@@ -176,10 +182,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 !hasWebGPU
                   ? 'WebGPU not available on this hardware'
                   : backend === 'webgpu'
-                  ? 'WebGPU Compute Pipeline Active'
-                  : 'WebGL2 Fallback Pipeline Active'
+                  ? 'Active Engine: WebGPU WGSL Compute'
+                  : 'Active Engine: WebGL2 Fallback'
               }
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1 ${
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1.5 ${
                 backend === 'webgpu'
                   ? 'bg-purple-600 text-white border-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.4)] ring-1 ring-purple-400/50'
                   : isLight
@@ -189,10 +195,18 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  backend === 'webgpu' ? 'bg-white animate-pulse' : 'bg-zinc-400'
+                  backend === 'webgpu' ? 'bg-white animate-pulse' : 'bg-emerald-400'
                 }`}
               ></span>
+              <span className="opacity-70 font-normal text-[9px]">Engine:</span>
               <span>{backend === 'webgpu' ? 'WebGPU' : 'WebGL2'}</span>
+              <span
+                className={`text-[8px] px-1 py-0.5 rounded font-normal transition-opacity ${
+                  backend === 'webgpu' ? 'bg-white/20 text-purple-100' : 'bg-black/10 text-zinc-400'
+                }`}
+              >
+                {backend === 'webgpu' ? '⇄ WebGL2' : '⇄ WebGPU'}
+              </span>
             </button>
 
             {/* Grid Resolution Switch (100K vs 1M) */}
@@ -346,6 +360,87 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
           {/* --------------------------------------------------------------------- */}
           {isSidebarOpen && (
             <div className="mt-2.5 space-y-3">
+              {/* Cartographic Rendering Direction Switcher (A / B / C) - Always Visible */}
+              <div
+                className={`p-2.5 rounded-xl border space-y-2 transition-all ${
+                  isLight
+                    ? 'bg-zinc-50 border-zinc-200 shadow-sm'
+                    : 'bg-white/[0.03] border-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between text-[9px] font-extrabold uppercase tracking-wider">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)] animate-pulse"></span>
+                    <span className={isLight ? 'text-zinc-700' : 'text-zinc-300'}>Cartographic Style</span>
+                  </span>
+                  <span
+                    className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                      isLight
+                        ? 'bg-zinc-200 text-zinc-800 border-zinc-300'
+                        : 'bg-white/10 text-sky-300 border-white/15'
+                    }`}
+                  >
+                    {activeDirection === 'architectural'
+                      ? 'Direction A (Relief)'
+                      : activeDirection === 'hybrid'
+                      ? 'Direction B (Depth)'
+                      : 'Direction C (Orbital)'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5">
+                  {/* Direction A */}
+                  <button
+                    onClick={() => onSelectRenderStyle?.('architectural')}
+                    title="Direction A: Architectural Topographic Relief (Monochrome Eduard Imhof hillshading & dual-tier isocontours)"
+                    className={`py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center gap-0.5 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
+                      activeDirection === 'architectural'
+                        ? isLight
+                          ? 'bg-zinc-900 text-white border-zinc-900 shadow-md ring-1 ring-zinc-900 font-black'
+                          : 'bg-white text-zinc-950 border-white shadow-[0_0_12px_rgba(255,255,255,0.4)] ring-1 ring-white/60 font-black'
+                        : isLight
+                        ? 'bg-white border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:border-zinc-300 hover:bg-zinc-100'
+                        : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-white hover:border-white/25 hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black tracking-tight">A: Relief</span>
+                    <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Architectural</span>
+                  </button>
+
+                  {/* Direction B */}
+                  <button
+                    onClick={() => onSelectRenderStyle?.('hybrid')}
+                    title="Direction B: Hydrosphere & Bathymetric Depth (Two-Surface Model: smooth sea level + Beer-Lambert depth)"
+                    className={`py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center gap-0.5 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
+                      activeDirection === 'hybrid'
+                        ? 'bg-cyan-500 text-black border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.6)] ring-1 ring-cyan-300 font-black'
+                        : isLight
+                        ? 'bg-white border-zinc-200 text-zinc-600 hover:text-cyan-700 hover:border-cyan-300 hover:bg-cyan-50'
+                        : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-cyan-300 hover:border-cyan-500/40 hover:bg-cyan-500/5'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black tracking-tight">B: Depth</span>
+                    <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Hydrosphere</span>
+                  </button>
+
+                  {/* Direction C */}
+                  <button
+                    onClick={() => onSelectRenderStyle?.('photoreal')}
+                    title="Direction C: NASA Blue Marble (True-color orbital photography + 3D DEM relief)"
+                    className={`py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center gap-0.5 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
+                      activeDirection === 'photoreal'
+                        ? 'bg-sky-500 text-black border-sky-400 shadow-[0_0_12px_rgba(14,165,233,0.6)] ring-1 ring-sky-300 font-black'
+                        : isLight
+                        ? 'bg-white border-zinc-200 text-zinc-600 hover:text-sky-700 hover:border-sky-300 hover:bg-sky-50'
+                        : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-sky-300 hover:border-sky-500/40 hover:bg-sky-500/5'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black tracking-tight">C: Orbital</span>
+                    <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Photoreal</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Tab Navigation: Topology vs Data Layers */}
               <div
                 className={`grid grid-cols-2 p-0.5 rounded-xl border gap-1 ${
@@ -908,6 +1003,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   }`}
                                 ></span>
                                 <span className="truncate">{layer.name}</span>
+                                {layer.renderStyle && (
+                                  <span className="text-[7px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded border bg-sky-500/15 text-sky-500 dark:text-sky-300 border-sky-500/30 flex-shrink-0">
+                                    {layer.renderStyle}
+                                  </span>
+                                )}
                                 <span className="text-[8px] font-mono opacity-60 flex-shrink-0">
                                   Z:{dataLayers.length - idx}
                                 </span>
@@ -1029,9 +1129,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               </div>
                             </div>
 
-                            {/* Terrain 3D Relief & Sun Azimuth (for Topo / Elevation) */}
+                            {/* Terrain 3D Relief & Sun Azimuth (for Topo / Satellite / Ocean) */}
                             {(layer.category === 'topo' ||
                               layer.category === 'satellite' ||
+                              layer.category === 'ocean' ||
+                              !!layer.renderStyle ||
                               layer.elevationEncoding) && (
                               <div className="space-y-1.5 pt-1.5 border-t border-white/5 text-[9px]">
                                 <div className="flex items-center gap-1.5">
@@ -1227,6 +1329,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             sunAltitude: 45,
                             hillshadeIntensity: 0.65,
                             url: preset.url,
+                            renderStyle: preset.renderStyle,
                           });
                         }
                       }}

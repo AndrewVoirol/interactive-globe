@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -135,7 +135,15 @@ export default function App() {
     handleDisplacementScaleChangeDataLayer,
     handleHillshadeChangeDataLayer,
     handleReorderDataLayer,
+    handleSelectRenderStyle,
   } = useGlobeLayerManager();
+
+  const activeDirection = useMemo<'architectural' | 'hybrid' | 'photoreal' | null>(() => {
+    const active = dataLayers.find(
+      (l) => l.visible && (l.renderStyle === 'architectural' || l.renderStyle === 'hybrid' || l.renderStyle === 'photoreal')
+    );
+    return (active?.renderStyle as 'architectural' | 'hybrid' | 'photoreal') ?? null;
+  }, [dataLayers]);
 
   // Mode-Specific Audio Synthesis Triggering
   useEffect(() => {
@@ -208,6 +216,17 @@ export default function App() {
         if (hasWebGPU) {
           setBackend((b) => (b === 'webgpu' ? 'webgl2' : 'webgpu'));
         }
+      } else if (e.key === 'd' || e.key === 'D') {
+        const order: Array<'architectural' | 'hybrid' | 'photoreal'> = ['architectural', 'hybrid', 'photoreal'];
+        const currentIdx = activeDirection ? order.indexOf(activeDirection) : -1;
+        const nextStyle = order[(currentIdx + 1) % order.length];
+        handleSelectRenderStyle(nextStyle);
+      } else if (e.key === '7') {
+        handleSelectRenderStyle('architectural');
+      } else if (e.key === '8') {
+        handleSelectRenderStyle('hybrid');
+      } else if (e.key === '9') {
+        handleSelectRenderStyle('photoreal');
       } else if (e.key === '1') setMode(0);
       else if (e.key === '2') setMode(1);
       else if (e.key === '3') setMode(2);
@@ -216,7 +235,18 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [glideToAlpha, hasWebGPU, setBackend, setIsPlaying, setIsZenMode, setMode, setShowVectors, setTheme]);
+  }, [
+    activeDirection,
+    glideToAlpha,
+    handleSelectRenderStyle,
+    hasWebGPU,
+    setBackend,
+    setIsPlaying,
+    setIsZenMode,
+    setMode,
+    setShowVectors,
+    setTheme,
+  ]);
 
   const handleFpsUpdate = useCallback((val: number) => {
     setFps(val);
@@ -315,6 +345,8 @@ export default function App() {
                     sunAzimuth={layer.sunAzimuth}
                     sunAltitude={layer.sunAltitude}
                     hillshadeIntensity={layer.hillshadeIntensity}
+                    renderStyle={layer.renderStyle}
+                    resolution={resolution}
                   />
                 ))}
                 <GeodesicOverlayLayer
@@ -333,6 +365,7 @@ export default function App() {
                   visible={showVectors}
                   cameraTarget={cameraTarget}
                   cursorPhysicsEnabled={cursorPhysicsEnabled}
+                  displacementScale={dataLayers.find((l) => l.visible)?.displacementScale ?? 0.12}
                   startTime={appStartTimeRef.current}
                 />
                 <KinematicCameraController
@@ -344,11 +377,16 @@ export default function App() {
               </React.Suspense>
               <OrbitControls 
                 ref={controlsRef} 
+                makeDefault 
                 enablePan={true} 
                 enableZoom={true} 
                 enableRotate={true} 
                 autoRotate={alpha < 0.01} 
                 autoRotateSpeed={0.5} 
+                minDistance={5}
+                maxDistance={50}
+                maxPolarAngle={Math.PI}
+                minPolarAngle={0}
                 onEnd={() => {
                   if (controlsRef.current) {
                     setCameraTarget(controlsRef.current.target.clone());
@@ -410,6 +448,7 @@ export default function App() {
           onDisplacementScaleChangeDataLayer={handleDisplacementScaleChangeDataLayer}
           onHillshadeChangeDataLayer={handleHillshadeChangeDataLayer}
           onReorderDataLayer={handleReorderDataLayer}
+          onSelectRenderStyle={handleSelectRenderStyle}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}
@@ -426,6 +465,8 @@ export default function App() {
           }}
           onGlideToAlpha={glideToAlpha}
           theme={theme}
+          activeDirection={activeDirection}
+          onSelectRenderStyle={handleSelectRenderStyle}
         />
 
         {/* Zen Mode Minimal Restore Pill */}

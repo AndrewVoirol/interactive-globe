@@ -10,7 +10,7 @@ import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo } from '../../types
 import { UnifiedRightSidebar } from './UnifiedRightSidebar';
 import { DataLayerToastNotification, ToastMessage } from './DataLayerToastNotification';
 import { DataLayerItem } from './DataLayersDrawer';
-import { BlendModeType } from '../../core/data/DataLayerCatalog';
+import { BlendModeType, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
 
 export type { DataLayerItem, ToastMessage, LoadedDataInfo };
 
@@ -58,6 +58,7 @@ export interface TelemetryHUDProps {
   onDisplacementScaleChangeDataLayer?: (id: string, scale: number) => void;
   onHillshadeChangeDataLayer?: (id: string, azimuth: number, intensity: number) => void;
   onReorderDataLayer?: (id: string, direction: 'up' | 'down') => void;
+  onSelectRenderStyle?: (style: DataLayerRenderStyle) => void;
 }
 
 export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
@@ -108,6 +109,7 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onDisplacementScaleChangeDataLayer={props.onDisplacementScaleChangeDataLayer}
         onHillshadeChangeDataLayer={props.onHillshadeChangeDataLayer}
         onReorderDataLayer={props.onReorderDataLayer}
+        onSelectRenderStyle={props.onSelectRenderStyle}
       />
 
       {/* Bottom-Left Non-Intrusive Glassmorphic Toast Notification Stack */}
