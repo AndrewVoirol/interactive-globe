@@ -27,6 +27,10 @@ export interface RasterLayerRendererProps {
   includeBathymetry?: boolean;
   renderStyle?: DataLayerRenderStyle;
   resolution?: '100k' | '1M';
+  seaLevelOffset?: number;
+  waterClarity?: number;
+  peakExponent?: number;
+  ambientOcclusion?: number;
 }
 
 const tileOverlayVertexShader = `
@@ -36,6 +40,8 @@ uniform int u_mode; // 0 = Linear, 1 = Scroll, 2 = Griffith, 3 = Fluid, 4 = Dyma
 uniform float u_displacementScale;
 uniform int u_includeBathymetry;
 uniform int u_renderStyle; // 0 = Architectural, 1 = Hybrid, 2 = Photoreal
+uniform float u_peakExponent;
+uniform float u_seaLevelOffset;
 uniform sampler2D u_tileTexture;
 uniform sampler2D u_demTexture;
 
@@ -182,6 +188,24 @@ void main() {
         // Hybrid & Photoreal: Continents elevate naturally above sea level (R = 5.0).
         // Oceans remain on the smooth sea-level sphere, eliminating polygon spires.
         signedH = isLand * landElev;
+        if (u_renderStyle == 1 && u_peakExponent > 1.01) {
+            signedH = isLand * pow(clamp(landElev, 0.0, 1.0), u_peakExponent);
+        }
+        if (u_renderStyle == 1) {
+            float rawLandMeters = landElev * 8848.0;
+            float rawOceanMeters = -(1.0 - dem.g) * 11000.0;
+            float currentElevMeters = (isLand > 0.45) ? rawLandMeters : rawOceanMeters;
+            float dryElevMeters = max(0.0, currentElevMeters - u_seaLevelOffset);
+            float dryElevNorm = clamp(dryElevMeters / 8848.0, 0.0, 1.0);
+            if (u_peakExponent > 1.01) {
+                // Peak exponent sharpens alpine crests without flattening lowlands or continental shelves
+                float peakFactor = pow(dryElevNorm, u_peakExponent);
+                float tPeak = smoothstep(0.04, 0.30, dryElevNorm);
+                signedH = mix(dryElevNorm, peakFactor, tPeak);
+            } else {
+                signedH = dryElevNorm;
+            }
+        }
     } else {
         // Architectural: Continents elevate with crisp relief.
         // Seafloor has gentle 0.20x indentation so trenches are sculpted without spires.
@@ -219,6 +243,10 @@ uniform float u_sunAzimuth;
 uniform float u_sunAltitude;
 uniform float u_hillshadeIntensity;
 uniform vec2 u_texelSize;
+uniform float u_seaLevelOffset;
+uniform float u_waterClarity;
+uniform float u_ambientOcclusion;
+uniform float u_time;
 
 varying vec2 vUv;
 varying vec2 vDemUv;
@@ -274,6 +302,19 @@ void main() {
     float landElev = dem.r;
     float bathLevel = dem.g;
 
+    // Multi-tap bicubic/bilinear smoothing for DEM contour, AO, and analog sea-level evaluation
+    vec2 ts = u_texelSize * 1.5;
+    vec4 demN_R = texture2D(u_demTexture, vDemUv + vec2(ts.x, 0.0));
+    vec4 demN_L = texture2D(u_demTexture, vDemUv - vec2(ts.x, 0.0));
+    vec4 demN_U = texture2D(u_demTexture, vDemUv + vec2(0.0, ts.y));
+    vec4 demN_D = texture2D(u_demTexture, vDemUv - vec2(0.0, ts.y));
+    float smoothLandElev = (dem.r * 2.0 + demN_R.r + demN_L.r + demN_U.r + demN_D.r) * (1.0 / 6.0);
+    float smoothBathLevel = (dem.g * 2.0 + demN_R.g + demN_L.g + demN_U.g + demN_D.g) * (1.0 / 6.0);
+
+    float currentElevMeters = (isLand > 0.45) 
+        ? (smoothLandElev * 8848.0) 
+        : (-(1.0 - smoothBathLevel) * 11000.0);
+
     vec3 rgb;
 
     if (u_renderStyle == 0) {
@@ -281,6 +322,22 @@ void main() {
         // Direction A: Architectural Topographic Relief ("Less is More")
         // Tone-on-tone Eduard Imhof relief shading & analytical isocontours
         // ====================================================================
+        float gradX = abs(demN_R.r - demN_L.r);
+        float gradY = abs(demN_U.r - demN_D.r);
+        float localSlope = max(gradX, gradY);
+        float contourGate = smoothstep(0.0008, 0.0035, localSlope);
+
+        float bathGradX = abs(demN_R.g - demN_L.g);
+        float bathGradY = abs(demN_U.g - demN_D.g);
+        float bathSlope = max(bathGradX, bathGradY);
+        float bathGate = smoothstep(0.0010, 0.0040, bathSlope);
+
+        // Local Laplacian curvature for analytical valley crevice ambient occlusion
+        float hNeighborAvg = (demN_R.r + demN_L.r + demN_U.r + demN_D.r) * 0.25;
+        float creviceDepth = clamp((hNeighborAvg - landElev) * 55.0, 0.0, 1.0);
+        float creviceAO = creviceDepth * u_ambientOcclusion * 0.65;
+        creviceAO *= contourGate;
+
         if (u_theme == 0) {
             // Theme 0: Obsidian Abyss & Celestial Platinum
             if (isLand > 0.45) {
@@ -290,7 +347,7 @@ void main() {
                 vec3 cAlpine  = vec3(0.65, 0.68, 0.74);
                 vec3 cSummit  = vec3(0.92, 0.90, 0.87);
 
-                float h = clamp(landElev, 0.0, 1.0);
+                float h = clamp(smoothLandElev, 0.0, 1.0);
                 if (h < 0.30) {
                     rgb = mix(cLowland, cMidland, h / 0.30);
                 } else if (h < 0.70) {
@@ -299,40 +356,48 @@ void main() {
                     rgb = mix(cAlpine, cSummit, (h - 0.70) / 0.30);
                 }
 
-                // Analytical Topographic Micro-Contours & Index Contours
+                // Analytical Topographic Micro-Contours & Index Contours with fwidth() Anti-Aliasing
                 float topoCycle = landElev * 24.0;
                 float topoDist = abs(fract(topoCycle - 0.5) - 0.5);
-                float topoLine = 1.0 - smoothstep(0.0, 0.08, topoDist);
+                float topoFw = max(fwidth(topoCycle), 0.001);
+                float topoLine = 1.0 - smoothstep(0.0, max(topoFw * 1.5, 0.035), topoDist);
 
                 float indexCycle = landElev * 4.8;
                 float indexDist = abs(fract(indexCycle - 0.5) - 0.5);
-                float indexLine = 1.0 - smoothstep(0.0, 0.12, indexDist);
+                float indexFw = max(fwidth(indexCycle), 0.001);
+                float indexLine = 1.0 - smoothstep(0.0, max(indexFw * 2.0, 0.05), indexDist);
 
                 float combinedTopo = topoLine * 0.22 + indexLine * 0.40;
+                combinedTopo *= contourGate;
                 rgb = mix(rgb, vec3(0.96, 0.94, 0.90), combinedTopo);
+
+                // Apply Crevice Ambient Occlusion
+                rgb *= (1.0 - creviceAO);
             } else {
                 // Ocean Bathymetry: Deep Obsidian Abyss & Subsurface Isobaths
                 vec3 cTrench = vec3(0.03, 0.04, 0.06);
                 vec3 cAbyss  = vec3(0.05, 0.07, 0.11);
                 vec3 cShelf  = vec3(0.09, 0.15, 0.22);
 
-                float d = clamp(bathLevel, 0.0, 1.0);
+                float d = clamp(smoothBathLevel, 0.0, 1.0);
                 if (d < 0.50) {
                     rgb = mix(cTrench, cAbyss, d / 0.50);
                 } else {
                     rgb = mix(cAbyss, cShelf, (d - 0.50) / 0.50);
                 }
 
-                // Bathymetric Depth Isobaths & Index Isobaths
-                float bathCycle = bathLevel * 16.0;
+                // Bathymetric Depth Isobaths & Index Isobaths with fwidth() Anti-Aliasing
+                float bathCycle = smoothBathLevel * 16.0;
                 float bathDist = abs(fract(bathCycle - 0.5) - 0.5);
-                float bathLine = 1.0 - smoothstep(0.0, 0.09, bathDist);
+                float bathFw = max(fwidth(bathCycle), 0.001);
+                float bathLine = 1.0 - smoothstep(0.0, max(bathFw * 1.5, 0.04), bathDist);
 
-                float bathIndexCycle = bathLevel * 4.0;
+                float bathIndexCycle = smoothBathLevel * 4.0;
                 float bathIndexDist = abs(fract(bathIndexCycle - 0.5) - 0.5);
-                float bathIndexLine = 1.0 - smoothstep(0.0, 0.12, bathIndexDist);
+                float bathIndexFw = max(fwidth(bathIndexCycle), 0.001);
+                float bathIndexLine = 1.0 - smoothstep(0.0, max(bathIndexFw * 2.0, 0.05), bathIndexDist);
 
-                float combinedBath = bathLine * 0.20 + bathIndexLine * 0.38;
+                float combinedBath = (bathLine * 0.20 + bathIndexLine * 0.38) * bathGate;
                 rgb = mix(rgb, vec3(0.24, 0.42, 0.60), combinedBath);
             }
         } else {
@@ -344,7 +409,7 @@ void main() {
                 vec3 cAlpine  = vec3(0.55, 0.58, 0.64);
                 vec3 cSummit  = vec3(0.18, 0.20, 0.24);
 
-                float h = clamp(landElev, 0.0, 1.0);
+                float h = clamp(smoothLandElev, 0.0, 1.0);
                 if (h < 0.30) {
                     rgb = mix(cLowland, cMidland, h / 0.30);
                 } else if (h < 0.70) {
@@ -353,70 +418,100 @@ void main() {
                     rgb = mix(cAlpine, cSummit, (h - 0.70) / 0.30);
                 }
 
-                // Fine Technical Pencil Isocontours & Index Contours
-                float topoCycle = landElev * 24.0;
+                // Fine Technical Pencil Isocontours with fwidth() Anti-Aliasing
+                float topoCycle = smoothLandElev * 24.0;
                 float topoDist = abs(fract(topoCycle - 0.5) - 0.5);
-                float topoLine = 1.0 - smoothstep(0.0, 0.08, topoDist);
+                float topoFw = max(fwidth(topoCycle), 0.001);
+                float topoLine = 1.0 - smoothstep(0.0, max(topoFw * 1.5, 0.035), topoDist);
 
-                float indexCycle = landElev * 4.8;
+                float indexCycle = smoothLandElev * 4.8;
                 float indexDist = abs(fract(indexCycle - 0.5) - 0.5);
-                float indexLine = 1.0 - smoothstep(0.0, 0.12, indexDist);
+                float indexFw = max(fwidth(indexCycle), 0.001);
+                float indexLine = 1.0 - smoothstep(0.0, max(indexFw * 2.0, 0.05), indexDist);
 
-                float combinedTopo = topoLine * 0.18 + indexLine * 0.36;
+                float combinedTopo = (topoLine * 0.18 + indexLine * 0.36) * contourGate;
                 rgb = mix(rgb, vec3(0.10, 0.12, 0.16), combinedTopo);
+
+                // Apply Crevice Ambient Occlusion for Light Theme
+                rgb = mix(rgb, vec3(0.08, 0.10, 0.14), creviceAO * 0.55);
             } else {
                 // Pale Archival Water Basin & Subtle Gray Isobaths
                 vec3 cTrench = vec3(0.88, 0.91, 0.94);
                 vec3 cAbyss  = vec3(0.92, 0.94, 0.96);
                 vec3 cShelf  = vec3(0.95, 0.97, 0.98);
 
-                float d = clamp(bathLevel, 0.0, 1.0);
+                float d = clamp(smoothBathLevel, 0.0, 1.0);
                 rgb = mix(cTrench, cShelf, d);
 
-                float bathCycle = bathLevel * 16.0;
+                float bathCycle = smoothBathLevel * 16.0;
                 float bathDist = abs(fract(bathCycle - 0.5) - 0.5);
-                float bathLine = 1.0 - smoothstep(0.0, 0.09, bathDist);
+                float bathFw = max(fwidth(bathCycle), 0.001);
+                float bathLine = 1.0 - smoothstep(0.0, max(bathFw * 1.5, 0.04), bathDist);
 
-                float bathIndexCycle = bathLevel * 4.0;
+                float bathIndexCycle = smoothBathLevel * 4.0;
                 float bathIndexDist = abs(fract(bathIndexCycle - 0.5) - 0.5);
-                float bathIndexLine = 1.0 - smoothstep(0.0, 0.12, bathIndexDist);
+                float bathIndexFw = max(fwidth(bathIndexCycle), 0.001);
+                float bathIndexLine = 1.0 - smoothstep(0.0, max(bathIndexFw * 2.0, 0.05), bathIndexDist);
 
-                float combinedBath = bathLine * 0.18 + bathIndexLine * 0.32;
+                float combinedBath = (bathLine * 0.18 + bathIndexLine * 0.32) * bathGate;
                 rgb = mix(rgb, vec3(0.60, 0.66, 0.72), combinedBath);
             }
         }
     } else if (u_renderStyle == 1) {
         // ====================================================================
         // Direction B: Hydrosphere & Bathymetric Depth (Two-Surface Model)
-        // Volumetric Beer-Lambert depth absorption, translucent continental shelf,
+        // Volumetric Beer-Lambert depth absorption, dynamic sea level offset,
         // and physical 3D continental elevation.
         // ====================================================================
-        if (isLand > 0.45) {
-            // Muted, restrained natural hypsometric palette (no neon/cartoon colors)
+        float isSubmerged = currentElevMeters < u_seaLevelOffset ? 1.0 : 0.0;
+
+        if (isSubmerged < 0.5) {
+            // Muted, restrained natural hypsometric palette (elevated dry land)
             vec3 cCoastal = vec3(0.14, 0.36, 0.24); // Deep Muted Evergreen
             vec3 cLowland = vec3(0.28, 0.46, 0.24); // Olive Lowland
             vec3 cPlateau = vec3(0.55, 0.46, 0.28); // Weathered Ochre
             vec3 cAlpine  = vec3(0.48, 0.42, 0.36); // Slate Mountain
             vec3 cSnow    = vec3(0.94, 0.95, 0.96); // Alpine Snow
 
-            float h = clamp(landElev, 0.0, 1.0);
-            if (h < 0.15) {
-                rgb = mix(cCoastal, cLowland, h / 0.15);
-            } else if (h < 0.45) {
-                rgb = mix(cLowland, cPlateau, (h - 0.15) / 0.30);
-            } else if (h < 0.75) {
-                rgb = mix(cPlateau, cAlpine, (h - 0.45) / 0.30);
+            if (currentElevMeters < 0.0 && u_seaLevelOffset < 0.0) {
+                // Option 1: Dual-Tone Sediment Transition for exposed continental shelves
+                // (Beringia, Doggerland/North Sea, Florida-Bahamas platform, Sunda shelf)
+                float exposedDryHeight = currentElevMeters - u_seaLevelOffset; // 0 to -u_seaLevelOffset
+                float shelfProgress = clamp(exposedDryHeight / max(1.0, -u_seaLevelOffset), 0.0, 1.0);
+                vec3 cMarineSediment = vec3(0.72, 0.68, 0.58); // Pale marine sediment / coastal silt
+                vec3 cCoastalGrass = cCoastal; // Deep muted evergreen coastal flora
+                
+                if (shelfProgress < 0.50) {
+                    rgb = mix(cMarineSediment, cCoastalGrass, shelfProgress / 0.50);
+                } else {
+                    rgb = mix(cCoastalGrass, cLowland, (shelfProgress - 0.50) / 0.50);
+                }
             } else {
-                rgb = mix(cAlpine, cSnow, (h - 0.75) / 0.25);
+                // Height relative to current sea level for permanent dry land
+                float dryElevNormalized = clamp((currentElevMeters - u_seaLevelOffset) / 8848.0, 0.0, 1.0);
+                float h = dryElevNormalized;
+                if (h < 0.15) {
+                    rgb = mix(cCoastal, cLowland, h / 0.15);
+                } else if (h < 0.45) {
+                    rgb = mix(cLowland, cPlateau, (h - 0.15) / 0.30);
+                } else if (h < 0.75) {
+                    rgb = mix(cPlateau, cAlpine, (h - 0.45) / 0.30);
+                } else {
+                    rgb = mix(cAlpine, cSnow, (h - 0.75) / 0.25);
+                }
             }
         } else {
             // Volumetric Beer-Lambert depth attenuation in liquid ocean basin
-            float waterDepth = clamp(1.0 - bathLevel, 0.0, 1.0);
-            float absorption = 1.0 - exp(-waterDepth * 3.4);
+            float waterDepthMeters = max(0.0, u_seaLevelOffset - currentElevMeters);
+            float normWaterDepth = clamp(waterDepthMeters / 4500.0, 0.0, 1.0);
+            
+            // Optical Clarity scales the extinction coefficient
+            float extinctionCoeff = mix(4.8, 1.8, clamp(u_waterClarity, 0.1, 1.0));
+            float absorption = 1.0 - exp(-normWaterDepth * extinctionCoeff);
 
-            vec3 cShallowShelf = vec3(0.06, 0.52, 0.64); // Translucent Cyan Reef/Shelf
+            vec3 cShallowShelf = vec3(0.06, 0.54, 0.66); // Translucent Cyan Reef/Shelf
             vec3 cMidBasin     = vec3(0.03, 0.22, 0.44); // Oceanic Blue
-            vec3 cAbyssalTrench = (u_theme == 1) ? vec3(0.12, 0.18, 0.28) : vec3(0.01, 0.03, 0.10); // Deep Abyssal Abyss
+            vec3 cAbyssalTrench = (u_theme == 1) ? vec3(0.12, 0.18, 0.28) : vec3(0.01, 0.03, 0.10);
 
             if (absorption < 0.40) {
                 rgb = mix(cShallowShelf, cMidBasin, absorption / 0.40);
@@ -424,15 +519,25 @@ void main() {
                 rgb = mix(cMidBasin, cAbyssalTrench, (absorption - 0.40) / 0.60);
             }
 
-            // Physical Schlick Fresnel water surface reflectance
-            float cosTheta = max(0.0, vFacing);
-            float fresnel = 0.02 + 0.98 * pow(1.0 - cosTheta, 5.0);
-            rgb = mix(rgb, (u_theme == 1) ? vec3(0.85, 0.90, 0.96) : vec3(0.15, 0.25, 0.38), fresnel * 0.45);
+            // Dual-frequency Trochoidal wave animation for omnidirectional aquatic dynamics
+            vec2 waveUv1 = vDemUv * 360.0 + vec2(u_time * 0.035, u_time * 0.018);
+            vec2 waveUv2 = vDemUv * 720.0 + vec2(-u_time * 0.022, u_time * 0.041);
+            float wave1 = sin(waveUv1.x * 1.4 + waveUv1.y * 0.8);
+            float wave2 = cos(waveUv2.x * 0.9 - waveUv2.y * 1.5);
+            float waveRipple = (wave1 * 0.65 + wave2 * 0.35) * 0.045;
+
+            // Subsurface caustic & swell shimmer (pronounced in shallow shelves, lagoons, and waterways)
+            float swellShimmer = waveRipple * (1.0 - absorption * 0.75) * 0.40;
+            rgb += vec3(swellShimmer * 0.08, swellShimmer * 0.14, swellShimmer * 0.18);
+
+            // Dynamic Schlick Fresnel water surface reflectance with perturbed wave normal
+            float dynamicCosTheta = max(0.0, vFacing + waveRipple * 0.50);
+            float fresnel = 0.02 + 0.98 * pow(1.0 - dynamicCosTheta, 5.0);
+            rgb = mix(rgb, (u_theme == 1) ? vec3(0.85, 0.90, 0.96) : vec3(0.18, 0.30, 0.45), fresnel * 0.50);
         }
     } else {
         // ====================================================================
         // Direction C: Photoreal Orbital Satellite & Shaded Bathymetry
-        // Satellite imagery drape with analytical normal-mapped hillshading
         // ====================================================================
         vec4 texColor = texture2D(u_tileTexture, vUv);
         rgb = texColor.rgb;
@@ -452,15 +557,23 @@ void main() {
     float NdotL = max(0.08, dot(demNormal, sunDir));
     float hillshadeFactor = mix(1.0, NdotL * 1.45, u_hillshadeIntensity);
     
-    // Apply hillshading to land; in Architectural mode, apply to both land and seabed
-    if (u_renderStyle == 0 || isLand > 0.45) {
-        rgb *= hillshadeFactor;
+    // Apply hillshading to land surfaces
+    float isSubmergedLand = (u_renderStyle == 1) ? (currentElevMeters < u_seaLevelOffset ? 1.0 : 0.0) : 0.0;
+    if (u_renderStyle == 0 || (u_renderStyle == 1 && isSubmergedLand < 0.5) || (u_renderStyle == 2 && isLand > 0.45)) {
+        rgb *= (u_renderStyle == 2) ? mix(1.0, hillshadeFactor, 0.40) : hillshadeFactor;
     }
 
-    // Specular Water Sheen for Oceanic Surfaces (Direction B & C)
-    if (isLand < 0.5 && (u_renderStyle == 1 || u_renderStyle == 2)) {
+    // Specular Water Sheen & Sun Glint for Oceanic Surfaces (Direction B & C)
+    float isWater = (u_renderStyle == 1) 
+        ? (currentElevMeters < u_seaLevelOffset ? 1.0 : 0.0) 
+        : (isLand < 0.5 ? 1.0 : 0.0);
+    if (isWater > 0.5 && (u_renderStyle == 1 || u_renderStyle == 2)) {
+        vec2 waveUv = vDemUv * 360.0 + vec2(u_time * 0.035, u_time * 0.018);
+        float waveRipple = (sin(waveUv.x * 1.4 + waveUv.y * 0.8)) * 0.045;
+        vec3 waveNormal = normalize(demNormal + vec3(waveRipple, waveRipple, 0.0));
+
         vec3 halfVec = normalize(sunDir + vec3(0.0, 0.0, 1.0));
-        float waterSpec = pow(max(0.0, dot(demNormal, halfVec)), 24.0) * 0.40;
+        float waterSpec = pow(max(0.0, dot(waveNormal, halfVec)), 28.0) * 0.55;
         rgb += vec3(waterSpec);
     }
 
@@ -606,6 +719,10 @@ export const RasterLayerRenderer: React.FC<RasterLayerRendererProps> = ({
   includeBathymetry = true,
   renderStyle,
   resolution = '100k',
+  seaLevelOffset = 0,
+  waterClarity = 0.75,
+  peakExponent = 1.4,
+  ambientOcclusion = 0.65,
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
@@ -694,6 +811,10 @@ export const RasterLayerRenderer: React.FC<RasterLayerRendererProps> = ({
       u_sunAltitude: { value: sunAltitude },
       u_hillshadeIntensity: { value: hillshadeIntensity },
       u_texelSize: { value: new THREE.Vector2(1.0 / 2048.0, 1.0 / 1024.0) },
+      u_seaLevelOffset: { value: seaLevelOffset },
+      u_waterClarity: { value: waterClarity },
+      u_peakExponent: { value: peakExponent },
+      u_ambientOcclusion: { value: ambientOcclusion },
       u_tileTexture: { value: demTexture },
       u_demTexture: { value: demTexture },
     }),
@@ -725,6 +846,10 @@ export const RasterLayerRenderer: React.FC<RasterLayerRendererProps> = ({
       materialRef.current.uniforms.u_sunAzimuth.value = sunAzimuth;
       materialRef.current.uniforms.u_sunAltitude.value = sunAltitude;
       materialRef.current.uniforms.u_hillshadeIntensity.value = hillshadeIntensity;
+      materialRef.current.uniforms.u_seaLevelOffset.value = seaLevelOffset;
+      materialRef.current.uniforms.u_waterClarity.value = waterClarity;
+      materialRef.current.uniforms.u_peakExponent.value = peakExponent;
+      materialRef.current.uniforms.u_ambientOcclusion.value = ambientOcclusion;
     }
   });
 

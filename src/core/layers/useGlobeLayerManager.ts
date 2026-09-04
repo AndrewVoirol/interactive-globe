@@ -29,6 +29,10 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
         blendMode: 0,
         displacementScale: 0.14,
         renderStyle: 'architectural',
+        ambientOcclusion: 0.65,
+        seaLevelOffset: 0,
+        waterClarity: 0.75,
+        peakExponent: 1.4,
       },
     ]
   );
@@ -165,6 +169,30 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
     );
   }, []);
 
+  const handleSeaLevelOffsetChangeDataLayer = useCallback((id: string, seaLevelOffset: number) => {
+    setDataLayers((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, seaLevelOffset } : l))
+    );
+  }, []);
+
+  const handleWaterClarityChangeDataLayer = useCallback((id: string, waterClarity: number) => {
+    setDataLayers((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, waterClarity } : l))
+    );
+  }, []);
+
+  const handlePeakExponentChangeDataLayer = useCallback((id: string, peakExponent: number) => {
+    setDataLayers((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, peakExponent } : l))
+    );
+  }, []);
+
+  const handleAmbientOcclusionChangeDataLayer = useCallback((id: string, ambientOcclusion: number) => {
+    setDataLayers((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, ambientOcclusion } : l))
+    );
+  }, []);
+
   const handleSelectRenderStyle = useCallback(
     (style: DataLayerRenderStyle) => {
       const presetId =
@@ -201,6 +229,10 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
           sunAzimuth: 315,
           sunAltitude: 45,
           hillshadeIntensity: 0.65,
+          seaLevelOffset: preset.seaLevelOffset ?? 0,
+          waterClarity: preset.waterClarity ?? 0.75,
+          peakExponent: preset.peakExponent ?? (style === 'hybrid' ? 1.4 : 1.0),
+          ambientOcclusion: preset.ambientOcclusion ?? 0.65,
           url: preset.url,
           renderStyle: preset.renderStyle,
         };
@@ -230,6 +262,10 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
     handleBlendModeChangeDataLayer,
     handleDisplacementScaleChangeDataLayer,
     handleHillshadeChangeDataLayer,
+    handleSeaLevelOffsetChangeDataLayer,
+    handleWaterClarityChangeDataLayer,
+    handlePeakExponentChangeDataLayer,
+    handleAmbientOcclusionChangeDataLayer,
     handleReorderDataLayer,
     handleSelectRenderStyle,
   };

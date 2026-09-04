@@ -526,6 +526,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                 hillshadeIntensity={layer.hillshadeIntensity}
                 renderStyle={layer.renderStyle}
                 resolution={resolution}
+                seaLevelOffset={layer.seaLevelOffset}
+                waterClarity={layer.waterClarity}
+                peakExponent={layer.peakExponent}
+                ambientOcclusion={layer.ambientOcclusion}
               />
             ))}
             <GeodesicOverlayLayer

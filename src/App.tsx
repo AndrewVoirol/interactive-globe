@@ -134,9 +134,24 @@ export default function App() {
     handleBlendModeChangeDataLayer,
     handleDisplacementScaleChangeDataLayer,
     handleHillshadeChangeDataLayer,
+    handleSeaLevelOffsetChangeDataLayer,
+    handleWaterClarityChangeDataLayer,
+    handlePeakExponentChangeDataLayer,
+    handleAmbientOcclusionChangeDataLayer,
     handleReorderDataLayer,
     handleSelectRenderStyle,
   } = useGlobeLayerManager();
+
+  const handleSelectRenderStyleWithVectorAuto = useCallback(
+    (style: 'architectural' | 'hybrid' | 'photoreal') => {
+      handleSelectRenderStyle(style);
+      setLayerMode(2); // Clean Terrain (Wireframe Only) eliminates point particle stippling over relief
+      if (style === 'architectural') {
+        setShowVectors(true);
+      }
+    },
+    [handleSelectRenderStyle, setLayerMode, setShowVectors]
+  );
 
   const activeDirection = useMemo<'architectural' | 'hybrid' | 'photoreal' | null>(() => {
     const active = dataLayers.find(
@@ -220,13 +235,13 @@ export default function App() {
         const order: Array<'architectural' | 'hybrid' | 'photoreal'> = ['architectural', 'hybrid', 'photoreal'];
         const currentIdx = activeDirection ? order.indexOf(activeDirection) : -1;
         const nextStyle = order[(currentIdx + 1) % order.length];
-        handleSelectRenderStyle(nextStyle);
+        handleSelectRenderStyleWithVectorAuto(nextStyle);
       } else if (e.key === '7') {
-        handleSelectRenderStyle('architectural');
+        handleSelectRenderStyleWithVectorAuto('architectural');
       } else if (e.key === '8') {
-        handleSelectRenderStyle('hybrid');
+        handleSelectRenderStyleWithVectorAuto('hybrid');
       } else if (e.key === '9') {
-        handleSelectRenderStyle('photoreal');
+        handleSelectRenderStyleWithVectorAuto('photoreal');
       } else if (e.key === '1') setMode(0);
       else if (e.key === '2') setMode(1);
       else if (e.key === '3') setMode(2);
@@ -238,7 +253,7 @@ export default function App() {
   }, [
     activeDirection,
     glideToAlpha,
-    handleSelectRenderStyle,
+    handleSelectRenderStyleWithVectorAuto,
     hasWebGPU,
     setBackend,
     setIsPlaying,
@@ -347,6 +362,10 @@ export default function App() {
                     hillshadeIntensity={layer.hillshadeIntensity}
                     renderStyle={layer.renderStyle}
                     resolution={resolution}
+                    seaLevelOffset={layer.seaLevelOffset}
+                    waterClarity={layer.waterClarity}
+                    peakExponent={layer.peakExponent}
+                    ambientOcclusion={layer.ambientOcclusion}
                   />
                 ))}
                 <GeodesicOverlayLayer
@@ -447,8 +466,12 @@ export default function App() {
           onBlendModeChangeDataLayer={handleBlendModeChangeDataLayer}
           onDisplacementScaleChangeDataLayer={handleDisplacementScaleChangeDataLayer}
           onHillshadeChangeDataLayer={handleHillshadeChangeDataLayer}
+          onSeaLevelOffsetChangeDataLayer={handleSeaLevelOffsetChangeDataLayer}
+          onWaterClarityChangeDataLayer={handleWaterClarityChangeDataLayer}
+          onPeakExponentChangeDataLayer={handlePeakExponentChangeDataLayer}
+          onAmbientOcclusionChangeDataLayer={handleAmbientOcclusionChangeDataLayer}
           onReorderDataLayer={handleReorderDataLayer}
-          onSelectRenderStyle={handleSelectRenderStyle}
+          onSelectRenderStyle={handleSelectRenderStyleWithVectorAuto}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}
@@ -466,7 +489,7 @@ export default function App() {
           onGlideToAlpha={glideToAlpha}
           theme={theme}
           activeDirection={activeDirection}
-          onSelectRenderStyle={handleSelectRenderStyle}
+          onSelectRenderStyle={handleSelectRenderStyleWithVectorAuto}
         />
 
         {/* Zen Mode Minimal Restore Pill */}

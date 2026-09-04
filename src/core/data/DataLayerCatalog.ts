@@ -28,6 +28,11 @@ export interface DataLayerPreset {
   elevationEncoding?: 'luminance' | 'mapbox' | 'terrarium';
   defaultDisplacementScale?: number;
   renderStyle?: DataLayerRenderStyle;
+  seaLevelOffset?: number; // Meters (-150 to +100m) for two-surface hydrosphere
+  waterClarity?: number; // 0.1 (turbid) to 1.0 (crystal tropical lagoon)
+  peakExponent?: number; // 1.0 to 2.0 power curve for alpine peak sharpness
+  ambientOcclusion?: number; // 0.0 to 1.0 valley crevice AO
+  autoEnableVectors?: boolean;
 }
 
 export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
@@ -42,6 +47,8 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     defaultBlendMode: 0,
     defaultDisplacementScale: 0.14,
     renderStyle: 'architectural',
+    ambientOcclusion: 0.65,
+    autoEnableVectors: true,
     attribution: 'NASA Earth Observatory / GEBCO / NOAA NCEI',
     legend: {
       colorStops: ['#090b10', '#1e2633', '#596b85', '#a0a6b0', '#eae6de'],
@@ -61,6 +68,9 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     defaultBlendMode: 0,
     defaultDisplacementScale: 0.12,
     renderStyle: 'hybrid',
+    seaLevelOffset: 0,
+    waterClarity: 0.75,
+    peakExponent: 1.4,
     attribution: 'GEBCO / NOAA NCEI / NASA',
     legend: {
       colorStops: ['#020617', '#0369a1', '#06b6d4', '#15803d', '#f8fafc'],
