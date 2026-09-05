@@ -3,9 +3,9 @@ import { isWebGPUSupported } from '../webgpu/support';
 import { ThemeManager, ThemePalette } from '../core/themes';
 import { ProceduralAudioEngine } from '../core/audio';
 
-import { LoadedDataInfo, SimulationMode, GeodesicOverlayMode } from '../types';
+import { LoadedDataInfo, SimulationMode, GeodesicOverlayMode, ResolutionTier } from '../types';
 
-export type { SimulationMode, GeodesicOverlayMode, LoadedDataInfo };
+export type { SimulationMode, GeodesicOverlayMode, LoadedDataInfo, ResolutionTier };
 
 export function useEngineState() {
   const [backend, setBackend] = useState<'webgl2' | 'webgpu'>('webgl2');
@@ -16,7 +16,7 @@ export function useEngineState() {
   const [mode, setMode] = useState<SimulationMode>(4); // Default to Mode 4 (Fuller Dymaxion)
   const [layerMode, setLayerMode] = useState<0 | 1 | 2>(2); // Default to 2 (Wireframe Only) to prevent point cloud occlusion over cartographic relief
   const [cursorPhysicsEnabled, setCursorPhysicsEnabled] = useState<boolean>(false);
-  const [resolution, setResolution] = useState<'100k' | '1M'>('100k');
+  const [resolution, setResolution] = useState<ResolutionTier>('1M');
   const [fps, setFps] = useState(60);
   const [isHudOpen, setIsHudOpen] = useState(true);
 
@@ -64,6 +64,9 @@ export function useEngineState() {
   useEffect(() => {
     isWebGPUSupported().then((supported) => {
       setHasWebGPU(supported);
+      if (supported) {
+        setBackend('webgpu');
+      }
     });
   }, []);
 

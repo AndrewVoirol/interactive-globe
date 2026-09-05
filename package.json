@@ -8,7 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "precompute": "node scripts/precompute.js",
+    "precompute:etopo": "uv run --with numpy --with pillow python scripts/precompute-etopo2022.py",
+    "precompute:contours": "uv run --with numpy --with pillow python scripts/precompute-contours.py",
     "precompute:vectors": "tsx scripts/precompute-vectors.ts",
+    "precompute:vectors-10m": "tsx scripts/precompute-vectors-10m.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

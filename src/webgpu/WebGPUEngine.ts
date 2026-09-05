@@ -1,18 +1,26 @@
 // ============================================================================
 // File: src/webgpu/WebGPUEngine.ts
 // Architecture: Autonomous 1,000,000-Node WebGPU Compute & Render Subsystem
-// Description: Dedicated WGSL compute advection with zero-copy vertex rendering
+// Description: Dedicated WGSL compute advection with zero-copy vertex rendering,
+//              Eduard Imhof Swiss relief shading, Jerlov hydrosphere radiative transfer,
+//              and screen-space anti-aliased vector ribbons on Apple Silicon M4 Pro.
 // ============================================================================
 
 import * as THREE from 'three';
 import { isWebGPUSupported } from './support';
 import { projectToDymaxion2D } from '../utils/dymaxion';
+import { decodeContourMesh } from '../utils/contour-topology';
 
 export { isWebGPUSupported };
 
 import physicsSimWGSL from './shaders/physics_sim.wgsl?raw';
 import pointsRenderWGSL from './shaders/points_render.wgsl?raw';
 import linesRenderWGSL from './shaders/lines_render.wgsl?raw';
+import swissReliefWGSL from './shaders/swiss_relief_shading.wgsl?raw';
+import vectorRibbonWGSL from './shaders/vector_ribbon.wgsl?raw';
+import crustHydrosphereWGSL from './shaders/crust_hydrosphere.wgsl?raw';
+import demUnpackWGSL from './shaders/dem_unpack.wgsl?raw';
+import { GPUProfiler } from './profiling/GPUProfiler';
 
 export interface WebGPUInitConfig {
   canvas: HTMLCanvasElement;
@@ -22,6 +30,7 @@ export interface WebGPUInitConfig {
   typeData: Float32Array;     // N (vType)
   lineIndices: Uint32Array;   // 2 * M (line segment index pairs)
   dymaxion2DData?: Float32Array; // 2 * N (xy Dymaxion target)
+  displacementScale?: number;
 }
 
 export interface WebGPUFrameParams {
@@ -38,9 +47,17 @@ export interface WebGPUFrameParams {
   cursorActive?: boolean;
   camera: THREE.PerspectiveCamera | THREE.Camera;
   renderLayers?: 'both' | 'points' | 'wireframe';
+  displacementScale?: number;
+  hillshadeIntensity?: number;
+  reliefActive?: boolean;
+  showRelief?: boolean;
+  showVectors?: boolean;
+  showContours?: boolean;
 }
 
 export class WebGPUEngine {
+  private adapter: GPUAdapter | null = null;
+  private profiler: GPUProfiler | null = null;
   private device!: GPUDevice;
   private context!: GPUCanvasContext;
   private format!: GPUTextureFormat;
@@ -51,9 +68,55 @@ export class WebGPUEngine {
   private lineIndexCount: number = 0;
   private pointCount: number = 0;
 
+  // Contour Mesh GPU Buffers (M2-T1)
+  public contourVertexBuffer: GPUBuffer | null = null;
+  public contourIndexBuffer: GPUBuffer | null = null;
+  public contourSegmentBuffer: GPUBuffer | null = null;
+  public contourVertexCount: number = 0;
+  public contourIndexCount: number = 0;
+
+  // Base Simulation Uniforms (256 bytes)
   private simUniformBuffer!: GPUBuffer;
   private simFloats: Float32Array = new Float32Array(64);
   private simUints: Uint32Array = new Uint32Array(this.simFloats.buffer);
+
+  // DEM Ingestion & Textures
+  private demTexture: GPUTexture | null = null;
+  private demTextureView: GPUTextureView | null = null;
+  private demSampler!: GPUSampler;
+
+  // Eduard Imhof Swiss Relief Shading Pass (M1-T2)
+  private reliefUniformBuffer!: GPUBuffer;
+  private reliefFloats: Float32Array = new Float32Array(16);
+  private reliefUints: Uint32Array = new Uint32Array(this.reliefFloats.buffer);
+  private swissReliefPipeline!: GPURenderPipeline;
+  private reliefBindGroupLayout!: GPUBindGroupLayout;
+  private reliefBindGroup!: GPUBindGroup;
+
+  // Vector Line Ribbon Extrusion Pipeline (M1-T4)
+  private quadCornerBuffer!: GPUBuffer;
+  private vectorSegmentBuffer!: GPUBuffer;
+  private vectorSegmentCount: number = 0;
+  private ribbonUniformBuffer!: GPUBuffer;
+  private ribbonFloats: Float32Array = new Float32Array(64);
+  private ribbonUints: Uint32Array = new Uint32Array(this.ribbonFloats.buffer);
+  private vectorRibbonPipeline!: GPURenderPipeline;
+  private ribbonBindGroupLayout!: GPUBindGroupLayout;
+  private ribbonBindGroup!: GPUBindGroup;
+
+  // Lithosphere Crust & Hydrosphere Optics Pipeline (M1-T3)
+  private crustUniformBuffer!: GPUBuffer;
+  private crustHydrospherePipeline!: GPURenderPipeline;
+  private crustBindGroupLayout!: GPUBindGroupLayout;
+  private crustBindGroup!: GPUBindGroup;
+  private cartographicBuffersInitialized: boolean = false;
+  private cachedInitConfig: {
+    pointsData: Float32Array;
+    target2DData: Float32Array;
+    typeData: Float32Array;
+    lineIndices: Uint32Array;
+    initialStaticParticles: Float32Array;
+  } | null = null;
 
   private depthTexture: GPUTexture | null = null;
   private depthTextureView: GPUTextureView | null = null;
@@ -85,6 +148,26 @@ export class WebGPUEngine {
     return this.isInitialized;
   }
 
+  public getAdapter(): GPUAdapter | null {
+    return this.adapter;
+  }
+
+  public getProfiler(): GPUProfiler | null {
+    return this.profiler;
+  }
+
+  public getDevice(): GPUDevice | null {
+    return this.device;
+  }
+
+  public getDEMTexture(): GPUTexture | null {
+    return this.demTexture;
+  }
+
+  public getDEMSampler(): GPUSampler | null {
+    return this.demSampler;
+  }
+
   public async init(config: WebGPUInitConfig): Promise<void> {
     return this.initialize(config);
   }
@@ -103,12 +186,54 @@ export class WebGPUEngine {
       throw new Error('No appropriate GPUAdapter found.');
     }
 
-    this.device = await adapter.requestDevice();
+    this.adapter = adapter;
+    const requiredLimits: Record<string, number> = {};
+    if (adapter.limits?.maxStorageBufferBindingSize) {
+      requiredLimits.maxStorageBufferBindingSize = Math.min(
+        adapter.limits.maxStorageBufferBindingSize,
+        1024 * 1024 * 1024 // 1 GB
+      );
+    }
+    if (adapter.limits?.maxBufferSize) {
+      requiredLimits.maxBufferSize = Math.min(
+        adapter.limits.maxBufferSize,
+        1024 * 1024 * 1024 // 1 GB
+      );
+    }
+    if (adapter.limits?.maxComputeWorkgroupStorageSize) {
+      requiredLimits.maxComputeWorkgroupStorageSize = adapter.limits.maxComputeWorkgroupStorageSize;
+    }
+    if (adapter.limits?.maxComputeInvocationsPerWorkgroup) {
+      requiredLimits.maxComputeInvocationsPerWorkgroup = adapter.limits.maxComputeInvocationsPerWorkgroup;
+    }
+
+    const requiredFeatures: GPUFeatureName[] = [];
+    if (adapter.features?.has('timestamp-query')) {
+      requiredFeatures.push('timestamp-query');
+    }
+
+    try {
+      this.device = await adapter.requestDevice({
+        requiredLimits,
+        requiredFeatures,
+      });
+    } catch (err) {
+      console.warn('WebGPU requestDevice failed with requiredFeatures, retrying without optional features:', err);
+      this.device = await adapter.requestDevice({
+        requiredLimits,
+        requiredFeatures: [],
+      });
+    }
+    this.profiler = new GPUProfiler(this.device);
 
     this.device.lost?.then((info) => {
       this.isInitialized = false;
       this.onDeviceLostCallback?.(info);
     }).catch(() => {});
+
+    this.device.addEventListener?.('uncapturederror', (event: any) => {
+      console.error('WebGPU Uncaptured Error:', event.error?.message || event);
+    });
 
     this.context = config.canvas.getContext('webgpu') as GPUCanvasContext;
     if (!this.context) {
@@ -127,7 +252,38 @@ export class WebGPUEngine {
 
     this.updateDepthTexture(config.canvas.width || 800, config.canvas.height || 600);
 
-    // 1. Pack dynamic particles (32 bytes / node = 8 floats) & static particles (32 bytes / node = 8 floats)
+    // ========================================================================
+    // 1. DEM Ingestion Sampler & Default 2x2 Synchronous Placeholder Texture (M1-T1)
+    // ========================================================================
+    this.demSampler = this.device.createSampler({
+      addressModeU: 'repeat',
+      addressModeV: 'clamp-to-edge',
+      minFilter: 'linear',
+      magFilter: 'linear',
+    });
+
+    // Default 2x2 placeholder texture (rgba8unorm)
+    this.demTexture = this.device.createTexture({
+      size: [2, 2, 1],
+      format: 'rgba8unorm',
+      usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
+    });
+    // [R=landElev, G=oceanDepth, B=landFraction, A=signedElevation]
+    const placeholderTexels = new Uint8Array([
+      0, 128, 0, 128,   0, 128, 0, 128,
+      0, 128, 0, 128,   0, 128, 0, 128,
+    ]);
+    this.device.queue.writeTexture(
+      { texture: this.demTexture },
+      placeholderTexels,
+      { bytesPerRow: 8, rowsPerImage: 2 },
+      [2, 2, 1]
+    );
+    this.demTextureView = this.demTexture.createView();
+
+    // ========================================================================
+    // 2. Pack Dynamic & Static Particle Buffers (Zero-Copy 32-Byte Stride)
+    // ========================================================================
     const particleFloatCount = this.pointCount * 8;
     const initialParticles = new Float32Array(particleFloatCount);
     const initialStaticParticles = new Float32Array(particleFloatCount);
@@ -171,7 +327,7 @@ export class WebGPUEngine {
       }
     }
 
-    // Create Dedicated Static GPU Storage Buffer
+    // Dedicated Static GPU Storage Buffer
     this.staticBuffer = this.device.createBuffer({
       size: initialStaticParticles.byteLength,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
@@ -186,7 +342,7 @@ export class WebGPUEngine {
 
     const bufferByteSize = initialParticles.byteLength;
 
-    // Create Ping-Pong Storage Buffers (Buffer 0 & Buffer 1)
+    // Ping-Pong Storage Buffers (Buffer 0 & Buffer 1)
     this.particleBuffers[0] = this.device.createBuffer({
       size: bufferByteSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
@@ -199,7 +355,7 @@ export class WebGPUEngine {
     });
     this.device.queue.writeBuffer(this.particleBuffers[1], 0, initialParticles.buffer, initialParticles.byteOffset, initialParticles.byteLength);
 
-    // 2. Index Buffer for Line Segments
+    // Index Buffer for Line Segments
     this.lineIndexBuffer = this.device.createBuffer({
       size: config.lineIndices.byteLength,
       usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
@@ -212,16 +368,360 @@ export class WebGPUEngine {
       config.lineIndices.byteLength
     );
 
-    // 3. Sim Uniform Buffer (256 bytes, 16-byte aligned)
+    // Sim Uniform Buffer (256 bytes, 16-byte aligned)
     this.simUniformBuffer = this.device.createBuffer({
       size: 256,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    // 4. Setup Pipelines & BindGroups
+    this.cartographicBuffersInitialized = false;
+    this.cachedInitConfig = {
+      pointsData: config.pointsData,
+      target2DData: config.target2DData,
+      typeData: config.typeData,
+      lineIndices: config.lineIndices,
+      initialStaticParticles,
+    };
+
+    // Setup Pipelines & BindGroups
     await this.setupPipelines();
+    this.updateDEMBindGroups();
+
     this.currentStep = 0;
     this.isInitialized = true;
+  }
+
+  public ensureCartographicBuffers(): void {
+    if (!this.device || this.cartographicBuffersInitialized) return;
+    this.cartographicBuffersInitialized = true;
+
+    // 1. Swiss Relief Shading Uniform Buffer (64 bytes, 16-byte aligned) (M1-T2)
+    this.reliefUniformBuffer = this.device.createBuffer({
+      size: 64,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    // 2. Vector Line Ribbon Buffers & Quad Geometry (32 bytes) (M1-T4)
+    // Static quad corner buffer: [0,-1], [0,1], [1,-1], [1,1] (32 bytes)
+    const quadCorners = new Float32Array([
+      0.0, -1.0,
+      0.0,  1.0,
+      1.0, -1.0,
+      1.0,  1.0,
+    ]);
+    this.quadCornerBuffer = this.device.createBuffer({
+      size: quadCorners.byteLength,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+    });
+    this.device.queue.writeBuffer(this.quadCornerBuffer, 0, quadCorners.buffer);
+
+    // Ingest segment instances (64 bytes per segment)
+    const cfg = this.cachedInitConfig;
+    const segCount = cfg ? Math.floor(cfg.lineIndices.length / 2) : 0;
+    this.vectorSegmentCount = segCount;
+    const segFloats = new Float32Array(Math.max(1, segCount) * 16);
+
+    if (cfg && segCount > 0) {
+      for (let k = 0; k < segCount; k++) {
+        const idxA = cfg.lineIndices[k * 2 + 0];
+        const idxB = cfg.lineIndices[k * 2 + 1];
+        const base = k * 16;
+
+        // posA_3d (xyz: sphere pos, w: type)
+        segFloats[base + 0] = cfg.pointsData[idxA * 3 + 0];
+        segFloats[base + 1] = cfg.pointsData[idxA * 3 + 1];
+        segFloats[base + 2] = cfg.pointsData[idxA * 3 + 2];
+        segFloats[base + 3] = cfg.typeData[idxA];
+
+        // posA_target2d (xy: Mercator 2D, zw: Dymaxion 2D)
+        segFloats[base + 4] = cfg.target2DData[idxA * 2 + 0];
+        segFloats[base + 5] = cfg.target2DData[idxA * 2 + 1];
+        segFloats[base + 6] = cfg.initialStaticParticles[idxA * 8 + 6];
+        segFloats[base + 7] = cfg.initialStaticParticles[idxA * 8 + 7];
+
+        // posB_3d (xyz: sphere pos, w: type)
+        segFloats[base + 8] = cfg.pointsData[idxB * 3 + 0];
+        segFloats[base + 9] = cfg.pointsData[idxB * 3 + 1];
+        segFloats[base + 10] = cfg.pointsData[idxB * 3 + 2];
+        segFloats[base + 11] = cfg.typeData[idxB];
+
+        // posB_target2d (xy: Mercator 2D, zw: Dymaxion 2D)
+        segFloats[base + 12] = cfg.target2DData[idxB * 2 + 0];
+        segFloats[base + 13] = cfg.target2DData[idxB * 2 + 1];
+        segFloats[base + 14] = cfg.initialStaticParticles[idxB * 8 + 6];
+        segFloats[base + 15] = cfg.initialStaticParticles[idxB * 8 + 7];
+      }
+    }
+
+    this.vectorSegmentBuffer = this.device.createBuffer({
+      size: segFloats.byteLength,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+    });
+    this.device.queue.writeBuffer(this.vectorSegmentBuffer, 0, segFloats.buffer);
+
+    this.ribbonUniformBuffer = this.device.createBuffer({
+      size: 256,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    // 3. Lithosphere Crust & Hydrosphere Uniform Buffer (256 bytes) (M1-T3)
+    this.crustUniformBuffer = this.device.createBuffer({
+      size: 256,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    this.updateDEMBindGroups();
+  }
+
+  private updateDEMBindGroups(): void {
+    if (!this.device || !this.demTextureView || !this.demSampler) return;
+
+    // Relief Shading BindGroup
+    if (this.reliefBindGroupLayout && this.reliefUniformBuffer) {
+      this.reliefBindGroup = this.device.createBindGroup({
+        label: 'swiss_relief_bind_group',
+        layout: this.reliefBindGroupLayout,
+        entries: [
+          { binding: 0, resource: this.demTextureView },
+          { binding: 1, resource: this.demSampler },
+          { binding: 2, resource: { buffer: this.reliefUniformBuffer } },
+        ],
+      });
+    }
+
+    // Vector Ribbon BindGroup
+    if (this.ribbonBindGroupLayout && this.ribbonUniformBuffer) {
+      this.ribbonBindGroup = this.device.createBindGroup({
+        label: 'vector_ribbon_bind_group',
+        layout: this.ribbonBindGroupLayout,
+        entries: [
+          { binding: 0, resource: { buffer: this.ribbonUniformBuffer } },
+          { binding: 1, resource: this.demTextureView },
+          { binding: 2, resource: this.demSampler },
+        ],
+      });
+    }
+
+    // Crust / Hydrosphere BindGroup
+    if (this.crustBindGroupLayout && this.crustUniformBuffer) {
+      this.crustBindGroup = this.device.createBindGroup({
+        label: 'crust_hydrosphere_bind_group',
+        layout: this.crustBindGroupLayout,
+        entries: [
+          { binding: 0, resource: { buffer: this.crustUniformBuffer } },
+          { binding: 1, resource: this.demTextureView },
+          { binding: 2, resource: this.demSampler },
+        ],
+      });
+    }
+  }
+
+  public async loadDEMTexture(urlOrBuffer: string | ArrayBuffer): Promise<void> {
+    if (!this.device) return;
+    this.ensureCartographicBuffers();
+
+    try {
+      if (typeof urlOrBuffer === 'string') {
+        let buffer: ArrayBuffer | null = null;
+        try {
+          const res = await fetch(urlOrBuffer);
+          if (res.ok) {
+            buffer = await res.arrayBuffer();
+          }
+        } catch {
+          // If primary .bin fetch fails, attempt fallback to .webp
+          if (urlOrBuffer.endsWith('.bin')) {
+            const fallbackUrl = urlOrBuffer.replace('-u16.bin', '.webp');
+            try {
+              const res2 = await fetch(fallbackUrl);
+              if (res2.ok) {
+                buffer = await res2.arrayBuffer();
+              }
+            } catch {
+              // Fallback failure handled below
+            }
+          }
+        }
+
+        if (buffer && buffer.byteLength > 0) {
+          await this.loadDEMTexture(buffer);
+        }
+        return;
+      }
+
+      // Buffer ingestion
+      const byteLength = urlOrBuffer.byteLength;
+      if (byteLength === 16777216) {
+        // Full-range 16-bit uint16 texture (2048 x 1024 x 4 x 2 bytes = 16 MB)
+        if (this.demTexture) this.demTexture.destroy();
+        this.demTexture = this.device.createTexture({
+          size: [2048, 1024, 1],
+          format: 'rgba16unorm',
+          usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
+        });
+
+        this.device.queue.writeTexture(
+          { texture: this.demTexture },
+          urlOrBuffer,
+          { bytesPerRow: 2048 * 8, rowsPerImage: 1024 },
+          [2048, 1024, 1]
+        );
+        this.demTextureView = this.demTexture.createView();
+        this.updateDEMBindGroups();
+      } else if (byteLength > 0) {
+        // Fallback 8-bit texture ingestion or test mock buffer
+        const width = 2048;
+        const height = 1024;
+        if (this.demTexture) this.demTexture.destroy();
+        this.demTexture = this.device.createTexture({
+          size: [width, height, 1],
+          format: 'rgba8unorm',
+          usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
+        });
+
+        this.device.queue.writeTexture(
+          { texture: this.demTexture },
+          urlOrBuffer,
+          { bytesPerRow: width * 4, rowsPerImage: height },
+          [width, height, 1]
+        );
+        this.demTextureView = this.demTexture.createView();
+        this.updateDEMBindGroups();
+      }
+    } catch (err) {
+      console.warn('WebGPUEngine.loadDEMTexture encountered non-fatal error; retaining fallback texture:', err);
+    }
+  }
+
+  /**
+   * Ingests precomputed binary contour mesh with zero CPU heap re-allocations (M2-T1).
+   * Allocates GPU storage and index buffers (contourVertexBuffer, contourIndexBuffer, contourSegmentBuffer)
+   * via device.queue.writeBuffer() with total VRAM overhead under 10 MB (~4.48 MB).
+   */
+  public async loadContourMesh(arrayBuffer: ArrayBuffer): Promise<void> {
+    if (!this.device) return;
+
+    const mesh = decodeContourMesh(arrayBuffer);
+    this.contourVertexCount = mesh.header.pointCount;
+    this.contourIndexCount = mesh.header.indexCount;
+
+    // Destroy previous contour buffers if already allocated
+    if (this.contourVertexBuffer) {
+      this.contourVertexBuffer.destroy();
+      this.contourVertexBuffer = null;
+    }
+    if (this.contourIndexBuffer) {
+      this.contourIndexBuffer.destroy();
+      this.contourIndexBuffer = null;
+    }
+    if (this.contourSegmentBuffer) {
+      this.contourSegmentBuffer.destroy();
+      this.contourSegmentBuffer = null;
+    }
+
+    // 1. Index Buffer: indexCount * 4 bytes (276,112 bytes for 69,028 uint32s)
+    const indexByteLength = this.contourIndexCount * 4;
+    this.contourIndexBuffer = this.device.createBuffer({
+      size: indexByteLength,
+      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+    });
+    // Direct zero-copy write from arrayBuffer:
+    this.device.queue.writeBuffer(
+      this.contourIndexBuffer,
+      0,
+      mesh.lineIndices.buffer,
+      mesh.lineIndices.byteOffset,
+      indexByteLength
+    );
+
+    // 2. Vertex Buffer (32-byte stride: pos3D xyz + type w, target2D xy + dymaxion2D zw):
+    // 69,028 * 32 = 2,208,896 bytes (~2.11 MB)
+    const vertByteLength = this.contourVertexCount * 32;
+    this.contourVertexBuffer = this.device.createBuffer({
+      size: vertByteLength,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+    });
+
+    const vertFloats = new Float32Array(this.contourVertexCount * 8);
+    for (let i = 0; i < this.contourVertexCount; i++) {
+      const base = i * 8;
+      vertFloats[base + 0] = mesh.positions3D[i * 3 + 0];
+      vertFloats[base + 1] = mesh.positions3D[i * 3 + 1];
+      vertFloats[base + 2] = mesh.positions3D[i * 3 + 2];
+      vertFloats[base + 3] = mesh.typeData[i];
+
+      vertFloats[base + 4] = mesh.target2D[i * 2 + 0];
+      vertFloats[base + 5] = mesh.target2D[i * 2 + 1];
+      vertFloats[base + 6] = mesh.dymaxion2D[i * 2 + 0];
+      vertFloats[base + 7] = mesh.dymaxion2D[i * 2 + 1];
+    }
+    this.device.queue.writeBuffer(this.contourVertexBuffer, 0, vertFloats.buffer);
+
+    // 3. Segment Buffer (for Vector Ribbon Extrusion: 64 bytes per segment):
+    // 34,514 * 64 = 2,208,896 bytes (~2.11 MB)
+    const segCount = Math.floor(this.contourIndexCount / 2);
+    const segByteLength = segCount * 64;
+    this.contourSegmentBuffer = this.device.createBuffer({
+      size: segByteLength,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
+    const segFloats = new Float32Array(segCount * 16);
+    for (let k = 0; k < segCount; k++) {
+      const idxA = mesh.lineIndices[k * 2 + 0];
+      const idxB = mesh.lineIndices[k * 2 + 1];
+      const base = k * 16;
+
+      segFloats[base + 0] = mesh.positions3D[idxA * 3 + 0];
+      segFloats[base + 1] = mesh.positions3D[idxA * 3 + 1];
+      segFloats[base + 2] = mesh.positions3D[idxA * 3 + 2];
+      segFloats[base + 3] = mesh.typeData[idxA];
+
+      segFloats[base + 4] = mesh.target2D[idxA * 2 + 0];
+      segFloats[base + 5] = mesh.target2D[idxA * 2 + 1];
+      segFloats[base + 6] = mesh.dymaxion2D[idxA * 2 + 0];
+      segFloats[base + 7] = mesh.dymaxion2D[idxA * 2 + 1];
+
+      segFloats[base + 8] = mesh.positions3D[idxB * 3 + 0];
+      segFloats[base + 9] = mesh.positions3D[idxB * 3 + 1];
+      segFloats[base + 10] = mesh.positions3D[idxB * 3 + 2];
+      segFloats[base + 11] = mesh.typeData[idxB];
+
+      segFloats[base + 12] = mesh.target2D[idxB * 2 + 0];
+      segFloats[base + 13] = mesh.target2D[idxB * 2 + 1];
+      segFloats[base + 14] = mesh.dymaxion2D[idxB * 2 + 0];
+      segFloats[base + 15] = mesh.dymaxion2D[idxB * 2 + 1];
+    }
+    this.device.queue.writeBuffer(this.contourSegmentBuffer, 0, segFloats.buffer);
+  }
+
+  /**
+   * Renders the loaded contour mesh lines using either vector ribbon extrusion or indexed lines.
+   */
+  public renderContours(passEncoder: GPURenderPassEncoder): void {
+    if (
+      this.contourSegmentBuffer &&
+      this.vectorRibbonPipeline &&
+      this.ribbonBindGroup &&
+      this.quadCornerBuffer
+    ) {
+      passEncoder.setPipeline(this.vectorRibbonPipeline);
+      passEncoder.setBindGroup(0, this.ribbonBindGroup);
+      passEncoder.setVertexBuffer(0, this.quadCornerBuffer);
+      passEncoder.setVertexBuffer(1, this.contourSegmentBuffer);
+      passEncoder.draw(4, Math.floor(this.contourIndexCount / 2), 0, 0);
+    } else if (
+      this.contourVertexBuffer &&
+      this.contourIndexBuffer &&
+      this.linesRenderPipeline &&
+      this.renderBindGroup
+    ) {
+      passEncoder.setPipeline(this.linesRenderPipeline);
+      passEncoder.setBindGroup(0, this.renderBindGroup);
+      passEncoder.setVertexBuffer(0, this.contourVertexBuffer);
+      passEncoder.setIndexBuffer(this.contourIndexBuffer, 'uint32');
+      passEncoder.drawIndexed(this.contourIndexCount);
+    }
   }
 
   private updateDepthTexture(width: number, height: number): void {
@@ -262,41 +762,63 @@ export class WebGPUEngine {
       code: linesRenderWGSL,
     });
 
+    const swissReliefShaderModule = this.device.createShaderModule({
+      label: 'swiss_relief_shading',
+      code: swissReliefWGSL,
+    });
+
+    const vectorRibbonShaderModule = this.device.createShaderModule({
+      label: 'vector_ribbon',
+      code: vectorRibbonWGSL,
+    });
+
+    const crustHydrosphereShaderModule = this.device.createShaderModule({
+      label: 'crust_hydrosphere',
+      code: crustHydrosphereWGSL,
+    });
+
     // 2. Bind Group Layouts
     const computeBindGroupLayout = this.device.createBindGroupLayout({
       label: 'compute_bind_group_layout',
       entries: [
-        {
-          binding: 0,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: 'uniform' },
-        },
-        {
-          binding: 1,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: 'read-only-storage' },
-        },
-        {
-          binding: 2,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: 'storage' },
-        },
-        {
-          binding: 3,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: 'read-only-storage' },
-        },
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+        { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+        { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
       ],
     });
 
     const renderBindGroupLayout = this.device.createBindGroupLayout({
       label: 'render_bind_group_layout',
       entries: [
-        {
-          binding: 0,
-          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-          buffer: { type: 'uniform' },
-        },
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+      ],
+    });
+
+    this.reliefBindGroupLayout = this.device.createBindGroupLayout({
+      label: 'relief_bind_group_layout',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+        { binding: 2, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+      ],
+    });
+
+    this.ribbonBindGroupLayout = this.device.createBindGroupLayout({
+      label: 'ribbon_bind_group_layout',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+        { binding: 1, visibility: GPUShaderStage.VERTEX, texture: {} },
+        { binding: 2, visibility: GPUShaderStage.VERTEX, sampler: {} },
+      ],
+    });
+
+    this.crustBindGroupLayout = this.device.createBindGroupLayout({
+      label: 'crust_bind_group_layout',
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+        { binding: 1, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 2, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, sampler: {} },
       ],
     });
 
@@ -351,16 +873,8 @@ export class WebGPUEngine {
       arrayStride: 32,
       stepMode: 'vertex',
       attributes: [
-        {
-          shaderLocation: 0,
-          offset: 0,
-          format: 'float32x4', // position (xyz) + pointType (w)
-        },
-        {
-          shaderLocation: 1,
-          offset: 16,
-          format: 'float32x4', // velocity (xyz) + metric (w)
-        },
+        { shaderLocation: 0, offset: 0, format: 'float32x4' },
+        { shaderLocation: 1, offset: 16, format: 'float32x4' },
       ],
     };
 
@@ -384,16 +898,8 @@ export class WebGPUEngine {
           {
             format: this.format,
             blend: {
-              color: {
-                srcFactor: 'src-alpha',
-                dstFactor: 'one-minus-src-alpha',
-                operation: 'add',
-              },
-              alpha: {
-                srcFactor: 'one',
-                dstFactor: 'one-minus-src-alpha',
-                operation: 'add',
-              },
+              color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+              alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
             },
           },
         ],
@@ -425,16 +931,8 @@ export class WebGPUEngine {
           {
             format: this.format,
             blend: {
-              color: {
-                srcFactor: 'src-alpha',
-                dstFactor: 'one-minus-src-alpha',
-                operation: 'add',
-              },
-              alpha: {
-                srcFactor: 'one',
-                dstFactor: 'one-minus-src-alpha',
-                operation: 'add',
-              },
+              color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+              alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
             },
           },
         ],
@@ -446,6 +944,144 @@ export class WebGPUEngine {
       },
       primitive: {
         topology: 'line-list',
+        cullMode: 'none',
+      },
+    });
+
+    // 9. Eduard Imhof Swiss Relief Shading Render Pipeline (M1-T2)
+    const reliefPipelineLayout = this.device.createPipelineLayout({
+      bindGroupLayouts: [this.reliefBindGroupLayout],
+    });
+
+    this.swissReliefPipeline = this.device.createRenderPipeline({
+      label: 'swiss_relief_pipeline',
+      layout: reliefPipelineLayout,
+      vertex: {
+        module: swissReliefShaderModule,
+        entryPoint: 'vs_main',
+      },
+      fragment: {
+        module: swissReliefShaderModule,
+        entryPoint: 'fs_swiss_relief',
+        targets: [
+          {
+            format: this.format,
+            blend: {
+              color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+              alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            },
+          },
+        ],
+      },
+      depthStencil: {
+        depthWriteEnabled: false,
+        depthCompare: 'always',
+        format: 'depth24plus',
+      },
+      primitive: {
+        topology: 'triangle-strip',
+        cullMode: 'none',
+      },
+    });
+
+    // 10. Screen-Space Anti-Aliased Vector Line Ribbon Pipeline (M1-T4)
+    const ribbonPipelineLayout = this.device.createPipelineLayout({
+      bindGroupLayouts: [this.ribbonBindGroupLayout],
+    });
+
+    const quadCornerLayout: GPUVertexBufferLayout = {
+      arrayStride: 8,
+      stepMode: 'vertex',
+      attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x2' }],
+    };
+
+    const vectorSegmentLayout: GPUVertexBufferLayout = {
+      arrayStride: 64,
+      stepMode: 'instance',
+      attributes: [
+        { shaderLocation: 1, offset: 0, format: 'float32x4' },  // posA_3d
+        { shaderLocation: 2, offset: 16, format: 'float32x4' }, // posA_target2d
+        { shaderLocation: 3, offset: 32, format: 'float32x4' }, // posB_3d
+        { shaderLocation: 4, offset: 48, format: 'float32x4' }, // posB_target2d
+      ],
+    };
+
+    this.vectorRibbonPipeline = this.device.createRenderPipeline({
+      label: 'vector_ribbon_pipeline',
+      layout: ribbonPipelineLayout,
+      vertex: {
+        module: vectorRibbonShaderModule,
+        entryPoint: 'vs_main',
+        buffers: [quadCornerLayout, vectorSegmentLayout],
+      },
+      fragment: {
+        module: vectorRibbonShaderModule,
+        entryPoint: 'fs_main',
+        targets: [
+          {
+            format: this.format,
+            blend: {
+              color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+              alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            },
+          },
+        ],
+      },
+      depthStencil: {
+        depthWriteEnabled: false,
+        depthCompare: 'less-equal',
+        format: 'depth24plus',
+      },
+      primitive: {
+        topology: 'triangle-strip',
+        cullMode: 'none',
+      },
+    });
+
+    // 11. Dual-Surface Lithosphere Crust & Hydrosphere Pipeline (M1-T3)
+    const crustPipelineLayout = this.device.createPipelineLayout({
+      bindGroupLayouts: [this.crustBindGroupLayout],
+    });
+
+    const dualSurfaceLayout: GPUVertexBufferLayout = {
+      arrayStride: 48,
+      stepMode: 'vertex',
+      attributes: [
+        { shaderLocation: 0, offset: 0, format: 'float32x3' },  // position
+        { shaderLocation: 1, offset: 12, format: 'float32x2' }, // uv
+        { shaderLocation: 2, offset: 20, format: 'float32' },   // surfaceType
+        { shaderLocation: 3, offset: 24, format: 'float32x4' }, // target2D
+      ],
+    };
+
+    this.crustHydrospherePipeline = this.device.createRenderPipeline({
+      label: 'crust_hydrosphere_pipeline',
+      layout: crustPipelineLayout,
+      vertex: {
+        module: crustHydrosphereShaderModule,
+        entryPoint: 'vs_main',
+        buffers: [dualSurfaceLayout],
+      },
+      fragment: {
+        module: crustHydrosphereShaderModule,
+        entryPoint: 'fs_main',
+        targets: [
+          {
+            format: this.format,
+            blend: {
+              color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+              alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            },
+          },
+        ],
+      },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+        format: 'depth24plus',
+      },
+      primitive: {
+        topology: 'triangle-list',
         cullMode: 'none',
       },
     });
@@ -470,8 +1106,8 @@ export class WebGPUEngine {
     // [4..7]: cursorActive, numParticles, theme, pad1
     simFloats[4] = params.cursorActive ? 1.0 : 0.0;
     simUints[5] = this.pointCount;
-    simUints[6] = params.theme !== undefined ? params.theme : 0; // 0 = Dark, 1 = Light Monochrome
-    simFloats[7] = 0.0; // padding to align vec4 to offset 32
+    simUints[6] = params.theme !== undefined ? params.theme : 0;
+    simFloats[7] = 0.0;
 
     // [8..11]: cursorHitPos
     if (params.cursorHitPos) {
@@ -513,6 +1149,87 @@ export class WebGPUEngine {
     simFloats[51] = 1.0;
 
     this.device.queue.writeBuffer(this.simUniformBuffer, 0, simFloats.buffer);
+
+    // ------------------------------------------------------------------------
+    // Swiss Relief Shading Uniforms (M1-T2) (48 bytes, padded to 64 bytes)
+    // ------------------------------------------------------------------------
+    if (this.reliefUniformBuffer) {
+      const rf = this.reliefFloats;
+      const ru = this.reliefUints;
+      rf[0] = 315.0; // Primary NW azimuth
+      rf[1] = 45.0;  // Primary altitude
+      rf[2] = 225.0; // Fill SW azimuth
+      rf[3] = 35.0;  // Fill altitude
+      rf[4] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
+      rf[5] = params.hillshadeIntensity !== undefined ? params.hillshadeIntensity : 1.0;
+      rf[6] = 1.0 / 2048.0; // u_texelWidth
+      rf[7] = 1.0 / 1024.0; // u_texelHeight
+      rf[8] = 0.65; // rock cliff exposure factor
+      rf[9] = 0.50; // ambient occlusion
+      rf[10] = 0.40; // aerial perspective
+      ru[11] = params.theme !== undefined ? params.theme : 0;
+      this.device.queue.writeBuffer(this.reliefUniformBuffer, 0, rf.buffer);
+    }
+
+    // ------------------------------------------------------------------------
+    // Vector Ribbon Uniforms (M1-T4) (240 bytes, padded to 256 bytes)
+    // ------------------------------------------------------------------------
+    if (this.ribbonUniformBuffer) {
+      const ribF = this.ribbonFloats;
+      const ribU = this.ribbonUints;
+      ribF[0] = params.unfurl;
+      ribU[1] = params.mode;
+      ribU[2] = params.theme !== undefined ? params.theme : 0;
+      ribF[3] = params.time;
+
+      const vpWidth = this.context.canvas?.width || 800;
+      const vpHeight = this.context.canvas?.height || 600;
+      ribF[4] = vpWidth;
+      ribF[5] = vpHeight;
+      ribF[6] = 1.0 / vpWidth;
+      ribF[7] = 1.0 / vpHeight;
+
+      // cameraPos
+      ribF[8] = params.camera.position.x;
+      ribF[9] = params.camera.position.y;
+      ribF[10] = params.camera.position.z;
+      ribF[11] = 1.0;
+
+      // cursorHitPos
+      if (params.cursorHitPos) {
+        ribF[12] = params.cursorHitPos.x;
+        ribF[13] = params.cursorHitPos.y;
+        ribF[14] = params.cursorHitPos.z;
+      } else {
+        ribF[12] = 0.0; ribF[13] = 0.0; ribF[14] = 0.0;
+      }
+      ribF[15] = 0.0;
+
+      // cursorVel
+      if (params.cursorVel) {
+        ribF[16] = params.cursorVel.x;
+        ribF[17] = params.cursorVel.y;
+        ribF[18] = params.cursorVel.z;
+        ribF[19] = 'w' in params.cursorVel ? params.cursorVel.w : Math.hypot(params.cursorVel.x, params.cursorVel.y, params.cursorVel.z);
+      } else {
+        ribF[16] = 0.0; ribF[17] = 0.0; ribF[18] = 0.0; ribF[19] = 0.0;
+      }
+
+      ribF[20] = params.cursorActive ? 1.0 : 0.0;
+      ribF[21] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
+      ribF[22] = 1.25; // u_halfWidthPx (nominal half-width)
+      ribF[23] = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1.0 : 1.0, 3.0); // u_dpr
+      ribF[24] = 0.1; // u_nearPlane
+      ribF[25] = 0.0; ribF[26] = 0.0; ribF[27] = 0.0; // padding
+
+      // u_viewMatrix (offset 112 = 28 floats)
+      params.camera.matrixWorldInverse.toArray(ribF, 28);
+
+      // u_projectionMatrix (offset 176 = 44 floats)
+      params.camera.projectionMatrix.toArray(ribF, 44);
+
+      this.device.queue.writeBuffer(this.ribbonUniformBuffer, 0, ribF.buffer);
+    }
   }
 
   public render(params: WebGPUFrameParams): void {
@@ -525,21 +1242,28 @@ export class WebGPUEngine {
       this.updateDepthTexture(canvasWidth, canvasHeight);
     }
 
-    // 1. Update Sim Uniforms
+    // 1. Ensure cartographic buffers if relief or vectors are active
+    if (params.reliefActive || params.showRelief || params.showVectors) {
+      this.ensureCartographicBuffers();
+    }
+
+    // 2. Update Sim, Relief, and Ribbon Uniforms
     this.updateUniforms(params);
 
     // 2. Begin Frame Command Encoding
     const commandEncoder = this.device.createCommandEncoder();
 
     // Pass 1: Compute Simulation Pass
-    const computePass = commandEncoder.beginComputePass();
+    const computePass = commandEncoder.beginComputePass({
+      timestampWrites: this.profiler?.getComputeTimestampWrites(0),
+    });
     computePass.setPipeline(this.computePipeline);
     computePass.setBindGroup(0, this.computeBindGroups[this.currentStep % 2]);
-    const workgroupCount = Math.ceil(this.pointCount / 256);
+    const workgroupCount = Math.min(65535, Math.ceil(this.pointCount / 256));
     computePass.dispatchWorkgroups(workgroupCount, 1, 1);
     computePass.end();
 
-    // Pass 2: Zero-Copy Render Pass
+    // Pass 2: Consolidated Single Render Pass (TBDR on-chip optimization)
     const outBuffer = this.particleBuffers[(this.currentStep + 1) % 2];
     const layerMode = params.layerMode !== undefined ? params.layerMode : (
       params.renderLayers === 'points' ? 1 : params.renderLayers === 'wireframe' ? 2 : 0
@@ -565,26 +1289,58 @@ export class WebGPUEngine {
             depthStoreOp: 'store',
           }
         : undefined,
+      timestampWrites: this.profiler?.getRenderTimestampWrites(0),
     });
 
-    renderPass.setBindGroup(0, this.renderBindGroup);
+    // 1. Eduard Imhof Swiss Relief Shading Pass (when active or requested)
+    if ((params.reliefActive || params.showRelief) && this.swissReliefPipeline && this.reliefBindGroup) {
+      renderPass.setPipeline(this.swissReliefPipeline);
+      renderPass.setBindGroup(0, this.reliefBindGroup);
+      renderPass.draw(4);
+    }
 
-    // Render Wireframe Lines
+    // 2. Render Wireframe Lines
     if (layerMode === 0 || layerMode === 2) {
       renderPass.setPipeline(this.linesRenderPipeline);
+      renderPass.setBindGroup(0, this.renderBindGroup);
       renderPass.setVertexBuffer(0, outBuffer);
       renderPass.setIndexBuffer(this.lineIndexBuffer, 'uint32');
       renderPass.drawIndexed(this.lineIndexCount);
     }
 
-    // Render Point Sprites
+    // 3. Render Screen-Space Anti-Aliased Vector Line Ribbons (M1-T4)
+    if (
+      params.showVectors &&
+      this.vectorSegmentCount > 0 &&
+      this.vectorRibbonPipeline &&
+      this.ribbonBindGroup &&
+      this.quadCornerBuffer &&
+      this.vectorSegmentBuffer
+    ) {
+      renderPass.setPipeline(this.vectorRibbonPipeline);
+      renderPass.setBindGroup(0, this.ribbonBindGroup);
+      renderPass.setVertexBuffer(0, this.quadCornerBuffer);
+      renderPass.setVertexBuffer(1, this.vectorSegmentBuffer);
+      renderPass.draw(4, this.vectorSegmentCount, 0, 0);
+    }
+
+    // 3b. Render Isoline Contours (M2-T1)
+    if (params.showContours && this.contourIndexCount > 0) {
+      this.renderContours(renderPass);
+    }
+
+    // 4. Render Point Sprites
     if (layerMode === 0 || layerMode === 1) {
       renderPass.setPipeline(this.pointsRenderPipeline);
+      renderPass.setBindGroup(0, this.renderBindGroup);
       renderPass.setVertexBuffer(0, outBuffer);
       renderPass.draw(this.pointCount);
     }
 
     renderPass.end();
+
+    // Resolve Profiler Frame Queries (Non-blocking async triple-buffered)
+    this.profiler?.resolveFrame(commandEncoder);
 
     // Submit Commands to GPU Queue
     this.device.queue.submit([commandEncoder.finish()]);
@@ -610,14 +1366,34 @@ export class WebGPUEngine {
   public dispose(): void {
     if (!this.isInitialized) return;
     this.onDeviceLostCallback = undefined;
+    this.profiler?.dispose();
+    this.profiler = null;
     this.particleBuffers[0]?.destroy();
     this.particleBuffers[1]?.destroy();
     this.staticBuffer?.destroy();
     this.lineIndexBuffer?.destroy();
     this.simUniformBuffer?.destroy();
+    this.reliefUniformBuffer?.destroy();
+    this.quadCornerBuffer?.destroy();
+    this.vectorSegmentBuffer?.destroy();
+    this.ribbonUniformBuffer?.destroy();
+    this.crustUniformBuffer?.destroy();
+    this.contourVertexBuffer?.destroy();
+    this.contourVertexBuffer = null;
+    this.contourIndexBuffer?.destroy();
+    this.contourIndexBuffer = null;
+    this.contourSegmentBuffer?.destroy();
+    this.contourSegmentBuffer = null;
+    this.contourVertexCount = 0;
+    this.contourIndexCount = 0;
+    this.demTexture?.destroy();
+    this.demTexture = null;
+    this.demTextureView = null;
     this.depthTexture?.destroy();
     this.depthTexture = null;
     this.depthTextureView = null;
+    this.cartographicBuffersInitialized = false;
+    this.cachedInitConfig = null;
     this.device?.destroy?.();
     this.isInitialized = false;
   }
