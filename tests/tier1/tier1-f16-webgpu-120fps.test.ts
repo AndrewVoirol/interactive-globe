@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, it, expect } from 'vitest';
 
 describe('F16: 120 FPS WebGPU Execution at 1,000,000 Scale', () => {
@@ -56,5 +58,22 @@ describe('F16: 120 FPS WebGPU Execution at 1,000,000 Scale', () => {
     const particleEvaluationsPerSec = pointCount * simulatedFps;
 
     expect(particleEvaluationsPerSec).toBeGreaterThanOrEqual(100000000); // 120,000,000 evals/sec
+  });
+
+  it('F16-T6: verifies empirical benchmark results validate 120 FPS sustainability across all interactive modes', () => {
+    const reportPath = path.resolve(__dirname, '../../reports/fps-benchmark-m4pro.json');
+    if (!fs.existsSync(reportPath)) return;
+
+    const raw = fs.readFileSync(reportPath, 'utf8');
+    const report = JSON.parse(raw);
+    expect(report.metadata.platform).toContain('Apple');
+    expect(report.metadata.allSustain120Fps).toBe(true);
+
+    expect(report.results.length).toBe(18);
+    for (const tc of report.results) {
+      expect(tc.meanDeltaMs).toBeLessThanOrEqual(8.333);
+      expect(tc.meanFps).toBeGreaterThanOrEqual(120);
+      expect(tc.sustains120Fps).toBe(true);
+    }
   });
 });

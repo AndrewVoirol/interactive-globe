@@ -70,30 +70,52 @@ export function useEngineState() {
     });
   }, []);
 
-  // Auto-morph loop
+  // Auto-morph loop: decoupled continuous accumulator + throttled UI state sync
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying) {
+      if (typeof window !== 'undefined') {
+        (window as any).__INDICATRIX_ANIM_ALPHA__ = undefined;
+      }
+      return;
+    }
     let animId: number;
     let lastT = performance.now();
+    let lastUiSync = performance.now();
+    let curAlpha = alpha;
+
     const tick = (now: number) => {
       const dt = (now - lastT) * 0.001;
       lastT = now;
-      setAlpha((prev) => {
-        const step = dt * 0.20 * playbackSpeed * playDirection;
-        let next = prev + step;
-        if (next >= 1.0) {
-          next = 1.0;
-          setPlayDirection(-1);
-        } else if (next <= 0.0) {
-          next = 0.0;
-          setPlayDirection(1);
-        }
-        return next;
-      });
+      const step = dt * 0.20 * playbackSpeed * playDirection;
+      curAlpha += step;
+      if (curAlpha >= 1.0) {
+        curAlpha = 1.0;
+        setPlayDirection(-1);
+      } else if (curAlpha <= 0.0) {
+        curAlpha = 0.0;
+        setPlayDirection(1);
+      }
+
+      if (typeof window !== 'undefined') {
+        (window as any).__INDICATRIX_ANIM_ALPHA__ = curAlpha;
+      }
+
+      // Throttled UI state sync at 20 Hz (every 50ms) to eliminate 120 Hz React Virtual DOM diff storms
+      if (now - lastUiSync >= 50) {
+        setAlpha(curAlpha);
+        lastUiSync = now;
+      }
+
       animId = requestAnimationFrame(tick);
     };
     animId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animId);
+    return () => {
+      cancelAnimationFrame(animId);
+      if (typeof window !== 'undefined') {
+        (window as any).__INDICATRIX_ANIM_ALPHA__ = undefined;
+      }
+      setAlpha(curAlpha);
+    };
   }, [isPlaying, playDirection, playbackSpeed]);
 
   return {
