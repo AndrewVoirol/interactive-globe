@@ -121,10 +121,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     mode,
     layerMode,
     theme,
+    showVectors,
+    dataLayers,
   });
   useEffect(() => {
-    stateRef.current = { unfurlProgress, mode, layerMode, theme };
-  }, [unfurlProgress, mode, layerMode, theme]);
+    stateRef.current = { unfurlProgress, mode, layerMode, theme, showVectors, dataLayers };
+  }, [unfurlProgress, mode, layerMode, theme, showVectors, dataLayers]);
 
   const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange });
   useEffect(() => {
@@ -281,6 +283,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           lineIndices,
         });
 
+        // Asynchronously ingest ETOPO 2022 16-bit DEM texture (M1-T1)
+        engine.loadDEMTexture('/earth-etopo2022-dem-u16.bin').catch(() => {});
+
         if (!isMounted) return;
         setIsLoading(false);
 
@@ -324,6 +329,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             typeData,
             lineIndices,
           });
+
+          // Asynchronously ingest ETOPO 2022 16-bit DEM texture (M1-T1)
+          engine.loadDEMTexture('/earth-etopo2022-dem-u16.bin').catch(() => {});
 
           if (!isMounted) return;
           setIsLoading(false);
@@ -391,7 +399,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       const engine = engineRef.current;
       const camera = cameraRef.current;
       const tracker = cursorTrackerRef.current;
-      const { unfurlProgress: curUnfurl, mode: curMode, layerMode: curLayer, theme: curTheme } = stateRef.current;
+      const {
+        unfurlProgress: curUnfurl,
+        mode: curMode,
+        layerMode: curLayer,
+        theme: curTheme,
+        showVectors: curShowVectors,
+        dataLayers: curDataLayers,
+      } = stateRef.current;
 
       if (engine.initialized) {
         const appStartTime = startTime !== undefined ? startTime : startTimeRef.current;
@@ -426,6 +441,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         // Analytical Manifold Cursor Raycast via CursorTracker
         const cursorUniforms = tracker.update(camera, curUnfurl);
 
+        const activeDataLayer = curDataLayers?.find((l) => l.visible);
+        const displacementScale = activeDataLayer?.displacementScale ?? 0.08;
+        const hillshadeIntensity = activeDataLayer?.hillshadeIntensity ?? 1.0;
+        const reliefActive = activeDataLayer ? activeDataLayer.type === 'raster' || activeDataLayer.category === 'topography' : false;
+
         engine.render({
           unfurl: curUnfurl,
           mode: curMode,
@@ -439,6 +459,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           cursorVel: cursorUniforms.u_cursorVel,
           cursorActive: cursorPhysicsEnabledRef.current ? (cursorUniforms.u_cursorActive > 0.001) : false,
           camera,
+          displacementScale,
+          hillshadeIntensity,
+          reliefActive,
+          showVectors: curShowVectors,
         });
 
         // Frame Telemetry Calculation
