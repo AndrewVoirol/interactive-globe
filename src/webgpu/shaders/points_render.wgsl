@@ -42,13 +42,15 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let pointType = in.position.w;
     let metric = in.velocity.w;
 
-    let worldPos = vec4<f32>(pos, 1.0);
+    var dynamicNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos), length(pos) > 0.001);
+    dynamicNormal = normalize(mix(dynamicNormal, vec3<f32>(0.0, 0.0, 1.0), sim.u_unfurl));
+
+    // Slight radial offset above terrain to eliminate depth-fighting against 3D crust mesh
+    let offsetPos = pos + dynamicNormal * (0.005 * (1.0 - sim.u_unfurl * 0.5));
+    let worldPos = vec4<f32>(offsetPos, 1.0);
     let viewPos = sim.u_viewMatrix * worldPos;
     out.clipPos = sim.u_projectionMatrix * viewPos;
 
-    // Backface Normal Facing Angle
-    var dynamicNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos), length(pos) > 0.001);
-    dynamicNormal = normalize(mix(dynamicNormal, vec3<f32>(0.0, 0.0, 1.0), sim.u_unfurl));
     let viewDir = normalize(sim.u_cameraPos.xyz - pos);
     out.vFacing = dot(dynamicNormal, viewDir);
     out.vPointType = pointType;
@@ -67,7 +69,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Theme Palette: 0 = Obsidian & Celestial Platinum, 1 = Light Monochrome
     var geographicColor = vec3<f32>(0.49, 0.827, 0.988);
     var structuralColor = vec3<f32>(0.05, 0.12, 0.22);
-    var baseAlpha = mix(0.03, 0.98, in.vPointType);
+    var baseAlpha = select(mix(0.03, 0.35, in.vPointType), mix(0.05, 0.95, in.vPointType), sim.u_layerMode == 1u);
 
     if (sim.u_theme == 0u) {
         // Theme 0: Obsidian & Celestial Platinum
@@ -77,7 +79,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         // Light Monochrome: Architectural Charcoal Land on Misty Silver Ocean
         geographicColor = vec3<f32>(0.08, 0.09, 0.11);
         structuralColor = vec3<f32>(0.82, 0.85, 0.89);
-        baseAlpha = mix(0.12, 0.95, in.vPointType);
+        baseAlpha = select(mix(0.08, 0.35, in.vPointType), mix(0.12, 0.95, in.vPointType), sim.u_layerMode == 1u);
     }
 
     let baseColor = mix(structuralColor, geographicColor, in.vPointType);

@@ -1,0 +1,92 @@
+{
+  "fpsMeasurement": {
+    "avgFps": 60,
+    "duration": "1.99",
+    "frames": 120
+  },
+  "engineMetrics": {
+    "hudFps": 0,
+    "pointCount": 1000000,
+    "lineIndexCount": 5990682,
+    "contourVertexCount": 69028,
+    "contourIndexCount": 69028,
+    "hasDEM": true,
+    "kernelReports": [
+      {
+        "passName": "Particle Compute",
+        "gpuTimeNs": "419369",
+        "gpuTimeUs": 419.369,
+        "gpuTimeMs": 0.41936900000000005
+      },
+      {
+        "passName": "Swiss Relief Shading",
+        "gpuTimeNs": "9750434",
+        "gpuTimeUs": 9750.434,
+        "gpuTimeMs": 9.750433999999998
+      },
+      {
+        "passName": "Delaunay Wireframe Lines",
+        "gpuTimeNs": "0",
+        "gpuTimeUs": 0,
+        "gpuTimeMs": 0
+      },
+      {
+        "passName": "Vector Line Ribbons",
+        "gpuTimeNs": "0",
+        "gpuTimeUs": 0,
+        "gpuTimeMs": 0
+      },
+      {
+        "passName": "Isoline Contours",
+        "gpuTimeNs": "0",
+        "gpuTimeUs": 0,
+        "gpuTimeMs": 0
+      },
+      {
+        "passName": "Point Sprites",
+        "gpuTimeNs": "0",
+        "gpuTimeUs": 0,
+        "gpuTimeMs": 0
+      },
+      {
+        "passName": "Reserved 1",
+        "gpuTimeNs": "0",
+        "gpuTimeUs": 0,
+        "gpuTimeMs": 0
+      },
+      {
+        "passName": "Reserved 2",
+        "gpuTimeNs": "0",
+        "gpuTimeUs": 0,
+        "gpuTimeMs": 0
+      }
+    ],
+    "latestReport": {
+      "timestamp": 30710.5,
+      "computeMs": 0.419369,
+      "renderMs": 9.750434,
+      "reliefMs": 9.750434,
+      "linesMs": 0,
+      "ribbonsMs": 0,
+      "contoursMs": 0,
+      "pointsMs": 0,
+      "totalGpuMs": 10.169803
+    },
+    "mem": {
+      "usedJSHeapSizeMB": "100.51",
+      "totalJSHeapSizeMB": "118.17",
+      "jsHeapSizeLimitMB": "4192.00"
+    },
+    "adapterInfo": {
+      "vendor": "apple",
+      "architecture": "metal-3",
+      "limits": {
+        "maxBufferSizeMB": "4096",
+        "maxStorageBufferBindingSizeMB": "4096",
+        "maxComputeWorkgroupStorageSize": 32768,
+        "maxComputeInvocationsPerWorkgroup": 1024
+      }
+    }
+  },
+  "timestamp": "2026-09-05T19:53:03.867Z"
+}

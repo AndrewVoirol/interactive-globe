@@ -355,26 +355,26 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var nominalAlpha: f32;
 
     if (sim.u_theme == 0u) {
-        // Theme 0: Obsidian & Celestial Platinum
+        // Theme 0: Dark Palette Cartographic Hairlines
         if (in.pointType < 0.75) {
-            // Major Hydrological Arteries: Mineral slate-aquamarine
-            strokeColor = vec3<f32>(0.42, 0.65, 0.78);
-            nominalAlpha = 0.65;
+            // Major Hydrological Arteries: Mineral slate-blue
+            strokeColor = vec3<f32>(0.28, 0.42, 0.54);
+            nominalAlpha = 0.30;
         } else {
-            // Continental Coastlines: Celestial Ivory hairline
-            strokeColor = vec3<f32>(0.94, 0.92, 0.89);
-            nominalAlpha = 0.75;
+            // Continental Coastlines: Soft parchment ivory hairline
+            strokeColor = vec3<f32>(0.88, 0.86, 0.82);
+            nominalAlpha = 0.35;
         }
     } else {
         // Theme 1: Light Monochrome Architectural Print
         if (in.pointType < 0.75) {
             // Hydrology: Architectural indigo-slate
-            strokeColor = vec3<f32>(0.30, 0.42, 0.55);
-            nominalAlpha = 0.60;
+            strokeColor = vec3<f32>(0.25, 0.38, 0.50);
+            nominalAlpha = 0.35;
         } else {
             // Coastlines: Crisp architectural charcoal ink
-            strokeColor = vec3<f32>(0.10, 0.12, 0.16);
-            nominalAlpha = 0.80;
+            strokeColor = vec3<f32>(0.15, 0.18, 0.22);
+            nominalAlpha = 0.45;
         }
     }
 

@@ -163,9 +163,9 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
     );
   }, []);
 
-  const handleHillshadeChangeDataLayer = useCallback((id: string, sunAzimuth: number, hillshadeIntensity: number) => {
+  const handleHillshadeChangeDataLayer = useCallback((id: string, sunAzimuth: number, hillshadeIntensity: number, sunAltitude?: number) => {
     setDataLayers((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, sunAzimuth, hillshadeIntensity } : l))
+      prev.map((l) => (l.id === id ? { ...l, sunAzimuth, hillshadeIntensity, ...(sunAltitude !== undefined ? { sunAltitude } : {}) } : l))
     );
   }, []);
 

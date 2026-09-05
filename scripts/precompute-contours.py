@@ -255,6 +255,117 @@ def to_mercator_xy(lon: float, lat: float, r: float = RADIUS) -> Tuple[float, fl
     y = r * math.log(math.tan(math.pi / 4.0 + phi / 2.0))
     return (x, y)
 
+# Canonical icosahedron geometry for Buckminster Fuller 20-facet Dymaxion unfolding
+RAW_VERTICES = [
+    [-1.0, PHI, 0.0], [1.0, PHI, 0.0], [-1.0, -PHI, 0.0], [1.0, -PHI, 0.0],
+    [0.0, -1.0, PHI], [0.0, 1.0, PHI], [0.0, -1.0, -PHI], [0.0, 1.0, -PHI],
+    [PHI, 0.0, -1.0], [PHI, 0.0, 1.0], [-PHI, 0.0, -1.0], [-PHI, 0.0, 1.0],
+]
+
+ICOSAHEDRON_FACES = [
+    [0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11],
+    [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+    [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9],
+    [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1],
+]
+
+def norm3(v):
+    l = math.hypot(v[0], v[1], v[2])
+    return [v[0] / l, v[1] / l, v[2] / l]
+
+UNIT_VERTICES = [norm3(v) for v in RAW_VERTICES]
+
+UNIT_CENTROIDS = []
+for f in ICOSAHEDRON_FACES:
+    v0, v1, v2 = UNIT_VERTICES[f[0]], UNIT_VERTICES[f[1]], UNIT_VERTICES[f[2]]
+    cx = (v0[0] + v1[0] + v2[0]) / 3.0
+    cy = (v0[1] + v1[1] + v2[1]) / 3.0
+    cz = (v0[2] + v1[2] + v2[2]) / 3.0
+    UNIT_CENTROIDS.append(norm3([cx, cy, cz]))
+
+DYMAXION_FACE_LAYOUT_2D = [
+    [0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [3.0, 0.0], [4.0, 0.0],
+    [0.5, 0.8660254], [1.5, 0.8660254], [2.5, 0.8660254], [3.5, 0.8660254], [4.5, 0.8660254],
+    [-0.5, -0.8660254], [0.5, -0.8660254], [1.5, -0.8660254], [2.5, -0.8660254], [3.5, -0.8660254],
+    [-1.0, 0.0], [5.0, 0.0], [1.0, 1.7320508], [2.0, -1.7320508], [3.0, 1.7320508],
+]
+
+DYMAXION_FACE_INVERTED = [
+    False, True, False, True, False,
+    True, False, True, False, True,
+    False, True, False, True, False,
+    True, False, False, True, False,
+]
+
+SQRT3_DIV_3 = math.sqrt(3.0) / 3.0
+SQRT3_DIV_6 = math.sqrt(3.0) / 6.0
+
+DYMAXION_FACE_VERTICES_2D = []
+for i, center in enumerate(DYMAXION_FACE_LAYOUT_2D):
+    cx, cy = center
+    inverted = DYMAXION_FACE_INVERTED[i]
+    if not inverted:
+        u0 = [cx, cy + SQRT3_DIV_3]
+        u1 = [cx - 0.5, cy - SQRT3_DIV_6]
+        u2 = [cx + 0.5, cy - SQRT3_DIV_6]
+    else:
+        u0 = [cx, cy - SQRT3_DIV_3]
+        u1 = [cx + 0.5, cy + SQRT3_DIV_6]
+        u2 = [cx - 0.5, cy + SQRT3_DIV_6]
+    DYMAXION_FACE_VERTICES_2D.append([u0, u1, u2])
+
+def project_point_to_dymaxion_face(p):
+    l = math.hypot(p[0], p[1], p[2])
+    safe_l = 1.0 if l < 1e-7 else l
+    unit_p = [p[0] / safe_l, p[1] / safe_l, p[2] / safe_l]
+
+    max_dot = -float('inf')
+    best_face = 0
+    for i, c in enumerate(UNIT_CENTROIDS):
+        dot = unit_p[0] * c[0] + unit_p[1] * c[1] + unit_p[2] * c[2]
+        if dot > max_dot:
+            max_dot = dot
+            best_face = i
+    denom = max_dot if max_dot > 0 else 1.0
+    gnomonic_pos = [unit_p[0] / denom, unit_p[1] / denom, unit_p[2] / denom]
+    return best_face, max_dot, gnomonic_pos
+
+def compute_barycentric(p, v0, v1, v2):
+    e0x, e0y, e0z = v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]
+    e1x, e1y, e1z = v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]
+    e2x, e2y, e2z = p[0] - v0[0], p[1] - v0[1], p[2] - v0[2]
+
+    d00 = e0x * e0x + e0y * e0y + e0z * e0z
+    d01 = e0x * e1x + e0y * e1y + e0z * e1z
+    d11 = e1x * e1x + e1y * e1y + e1z * e1z
+    d20 = e2x * e0x + e2y * e0y + e2z * e0z
+    d21 = e2x * e1x + e2y * e1y + e2z * e1z
+
+    denom = d00 * d11 - d01 * d01
+    if abs(denom) < 1e-10:
+        return 1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0
+
+    v = (d11 * d20 - d01 * d21) / denom
+    w = (d00 * d21 - d01 * d20) / denom
+    u = 1.0 - v - w
+    return max(0.0, u), max(0.0, v), max(0.0, w)
+
+def project_to_dymaxion_2d(p, scale=3.2, offset_x=-2.0, offset_y=0.0):
+    face_index, max_dot, gnomonic_pos = project_point_to_dymaxion_face(p)
+    face = ICOSAHEDRON_FACES[face_index]
+    v0 = UNIT_VERTICES[face[0]]
+    v1 = UNIT_VERTICES[face[1]]
+    v2 = UNIT_VERTICES[face[2]]
+
+    b0, b1, b2 = compute_barycentric(gnomonic_pos, v0, v1, v2)
+    b_sum = b0 + b1 + b2 or 1.0
+    nb0, nb1, nb2 = b0 / b_sum, b1 / b_sum, b2 / b_sum
+
+    u0, u1, u2 = DYMAXION_FACE_VERTICES_2D[face_index]
+    net_x = (nb0 * u0[0] + nb1 * u1[0] + nb2 * u2[0] + offset_x) * scale
+    net_y = (nb0 * u0[1] + nb1 * u1[1] + nb2 * u2[1] + offset_y) * scale
+    return net_x, net_y
+
 # ------------------------------------------------------------------------------
 # SECTION 4: MAIN PRECOMPUTATION & SERIALIZATION
 # ------------------------------------------------------------------------------
@@ -264,7 +375,43 @@ def main():
     print("Precomputing Topographic & Bathymetric Contour Mesh (geo-contour-mesh.bin)")
     print("================================================================================")
 
-    # 1. Load elevation grid
+    out_file = "public/geo-contour-mesh.bin"
+    from_scratch = "--from-scratch" in sys.argv
+
+    if os.path.exists(out_file) and not from_scratch:
+        print(f"\n[1/2] Updating existing {out_file} with real Dymaxion 2D projection...")
+        with open(out_file, "rb") as f:
+            buf = bytearray(f.read())
+        magic, version, point_count, index_count = struct.unpack_from("<IIII", buf, 0)
+        if magic == 0x47454F4D:
+            HEADER_SIZE = 32
+            pos_bytes = point_count * 3 * 4
+            tar_bytes = point_count * 2 * 4
+            dym_bytes = point_count * 2 * 4
+            typ_bytes = point_count * 1 * 4
+            idx_bytes = index_count * 4
+
+            pos_offset = HEADER_SIZE
+            tar_offset = pos_offset + pos_bytes
+            dym_offset = tar_offset + tar_bytes
+
+            positions3D = struct.unpack_from(f"<{point_count * 3}f", buf, pos_offset)
+            dymaxion2D = []
+            for i in range(point_count):
+                x = positions3D[i * 3 + 0]
+                y = positions3D[i * 3 + 1]
+                z = positions3D[i * 3 + 2]
+                udym, vdym = project_to_dymaxion_2d([x, y, z])
+                dymaxion2D.extend([udym, vdym])
+
+            struct.pack_into(f"<{len(dymaxion2D)}f", buf, dym_offset, *dymaxion2D)
+            with open(out_file, "wb") as f:
+                f.write(buf)
+            print(f"  ✓ Updated {point_count:,} vertices with real Dymaxion projection in {out_file}")
+            print("================================================================================")
+            return
+
+    # 1. Load elevation grid (prioritizing NOAA ETOPO 2022 DEM)
     dem_path = "public/earth-etopo2022-dem.webp"
     if not os.path.exists(dem_path):
         dem_path = "public/earth-elevation-dem.webp"
@@ -326,8 +473,11 @@ def main():
 
             x1, y1, z1 = to_sphere_xyz(lon1, lat1)
             u1, v1 = to_mercator_xy(lon1, lat1)
+            udym1, vdym1 = project_to_dymaxion_2d([x1, y1, z1])
+
             x2, y2, z2 = to_sphere_xyz(lon2, lat2)
             u2, v2 = to_mercator_xy(lon2, lat2)
+            udym2, vdym2 = project_to_dymaxion_2d([x2, y2, z2])
 
             if abs(u1 - u2) > 15.0:
                 continue
@@ -336,12 +486,12 @@ def main():
 
             positions3D.extend([x1, y1, z1])
             target2D.extend([u1, v1])
-            dymaxion2D.extend([u1 * 0.5, v1 * 0.5])  # Projected Dymaxion coordinate approximation
+            dymaxion2D.extend([udym1, vdym1])
             typeData.append(norm_h)
 
             positions3D.extend([x2, y2, z2])
             target2D.extend([u2, v2])
-            dymaxion2D.extend([u2 * 0.5, v2 * 0.5])
+            dymaxion2D.extend([udym2, vdym2])
             typeData.append(norm_h)
 
             lineIndices.extend([idx_start, idx_start + 1])

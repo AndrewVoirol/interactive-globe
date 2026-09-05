@@ -49,7 +49,7 @@ export interface UnifiedRightSidebarProps {
   onOpacityChangeDataLayer?: (id: string, opacity: number) => void;
   onBlendModeChangeDataLayer?: (id: string, blendMode: BlendModeType) => void;
   onDisplacementScaleChangeDataLayer?: (id: string, scale: number) => void;
-  onHillshadeChangeDataLayer?: (id: string, azimuth: number, intensity: number) => void;
+  onHillshadeChangeDataLayer?: (id: string, azimuth: number, intensity: number, altitude?: number) => void;
   onSeaLevelOffsetChangeDataLayer?: (id: string, offset: number) => void;
   onWaterClarityChangeDataLayer?: (id: string, clarity: number) => void;
   onPeakExponentChangeDataLayer?: (id: string, exponent: number) => void;
@@ -107,7 +107,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onSelectRenderStyle,
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'topology' | 'layers'>('topology');
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const catalogSheetRef = useRef<HTMLDivElement>(null);
 
@@ -116,6 +115,14 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   // Active Cartographic Direction (A: Architectural, B: Hybrid, C: Photoreal)
   const activeDirection: DataLayerRenderStyle =
     dataLayers.find((l) => l.visible && l.renderStyle)?.renderStyle ?? 'architectural';
+
+  // Primary active dataset layer for direct scene controls
+  const primaryLayer =
+    dataLayers.find(
+      (l) => l.visible && (l.renderStyle || l.category === 'topo' || l.category === 'ocean' || l.category === 'topography')
+    ) || dataLayers[0];
+  const primaryLayerId =
+    primaryLayer?.id || (activeDirection === 'hybrid' ? 'hybrid-crust-hydrosphere' : 'architectural-topo-relief');
 
   // Auto-close catalog if user presses Escape
   useEffect(() => {
@@ -137,7 +144,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       {/* ========================================================================= */}
       <div className="fixed top-4 right-4 z-20 pointer-events-auto max-w-sm w-96 font-mono select-none transition-all duration-300 ease-out">
         <div
-          className={`rounded-2xl border backdrop-blur-xl shadow-2xl p-3.5 text-xs transition-all duration-300 ${
+          className={`rounded-2xl border backdrop-blur-xl shadow-2xl p-3.5 text-xs max-h-[calc(100vh-2rem)] flex flex-col transition-all duration-300 ${
             isLight
               ? 'bg-white/95 border-zinc-300/90 text-zinc-800 shadow-zinc-300/60'
               : 'bg-[#0F121A]/95 border-white/15 text-zinc-200 shadow-black/80'
@@ -367,7 +374,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
           {/* Main Body (Expandable)                                                */}
           {/* --------------------------------------------------------------------- */}
           {isSidebarOpen && (
-            <div className="mt-2.5 space-y-3">
+            <div className="mt-2.5 space-y-3 overflow-y-auto pr-1 flex-1">
               {/* Cartographic Rendering Direction Switcher (A / B / C) - Always Visible */}
               <div
                 className={`p-2.5 rounded-xl border space-y-2 transition-all ${
@@ -401,7 +408,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   <button
                     onClick={() => {
                       onSelectRenderStyle?.('architectural');
-                      setActiveTab('layers');
                     }}
                     title="Direction A: Architectural Topographic Relief (Monochrome Eduard Imhof hillshading & dual-tier isocontours)"
                     className={`py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center gap-0.5 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
@@ -422,7 +428,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   <button
                     onClick={() => {
                       onSelectRenderStyle?.('hybrid');
-                      setActiveTab('layers');
                     }}
                     title="Direction B: Hydrosphere & Bathymetric Depth (Two-Surface Model: smooth sea level + Beer-Lambert depth)"
                     className={`py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center gap-0.5 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
@@ -441,7 +446,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   <button
                     onClick={() => {
                       onSelectRenderStyle?.('photoreal');
-                      setActiveTab('layers');
                     }}
                     title="Direction C: NASA Blue Marble (True-color orbital photography + 3D DEM relief)"
                     className={`py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center gap-0.5 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
@@ -458,81 +462,176 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 </div>
               </div>
 
-              {/* Tab Navigation: Topology vs Data Layers */}
+              {/* Dedicated Direct Scene Controls (Always Exposed & Wired to WebGPU Uniforms) */}
               <div
-                className={`grid grid-cols-2 p-0.5 rounded-xl border gap-1 ${
-                  isLight ? 'bg-zinc-100 border-zinc-200' : 'bg-black/40 border-white/10'
+                className={`p-2.5 rounded-xl border space-y-2 transition-all ${
+                  isLight
+                    ? 'bg-zinc-50 border-zinc-200 shadow-sm'
+                    : 'bg-white/[0.03] border-white/10'
                 }`}
               >
-                <button
-                  onClick={() => setActiveTab('topology')}
-                  className={`py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
-                    activeTab === 'topology'
-                      ? isLight
-                        ? 'bg-zinc-900 text-white shadow-md'
-                        : 'bg-white text-zinc-950 shadow-md ring-1 ring-white/50'
-                      : isLight
-                      ? 'text-zinc-500 hover:text-zinc-900'
-                      : 'text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      activeTab === 'topology'
-                        ? isLight
-                          ? 'bg-emerald-400'
-                          : 'bg-emerald-600'
-                        : 'bg-transparent'
-                    }`}
-                  ></span>
-                  <span>Topology</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('layers')}
-                  className={`py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
-                    activeTab === 'layers'
-                      ? isLight
-                        ? 'bg-sky-600 text-white shadow-md'
-                        : 'bg-sky-500 text-black font-black shadow-md ring-1 ring-sky-300'
-                      : isLight
-                      ? 'text-zinc-500 hover:text-zinc-900'
-                      : 'text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      activeTab === 'layers'
-                        ? isLight
-                          ? 'bg-white'
-                          : 'bg-black'
-                        : 'bg-transparent'
-                    }`}
-                  ></span>
-                  <span>Layers</span>
-                  <span
-                    className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono ${
-                      activeTab === 'layers'
-                        ? isLight
-                          ? 'bg-sky-800 text-white'
-                          : 'bg-black/30 text-black'
-                        : isLight
-                        ? 'bg-zinc-200 text-zinc-700'
-                        : 'bg-white/10 text-zinc-400'
-                    }`}
-                  >
-                    {dataLayers.length}
+                <div className="flex items-center justify-between text-[9px] font-extrabold uppercase tracking-wider">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse"></span>
+                    <span className={isLight ? 'text-zinc-700' : 'text-zinc-300'}>Scene Controls</span>
                   </span>
-                </button>
+                  <span className="text-[8px] font-mono text-emerald-500 dark:text-emerald-400 font-bold">
+                    Direct WebGPU Uniforms
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 text-[9px]">
+                  {/* 3D Relief */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-20 text-emerald-500 dark:text-emerald-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
+                      3D Relief:
+                    </span>
+                    <input
+                      type="range"
+                      min="0.00"
+                      max="0.25"
+                      step="0.01"
+                      value={primaryLayer?.displacementScale ?? 0.08}
+                      onChange={(e) => onDisplacementScaleChangeDataLayer?.(primaryLayerId, parseFloat(e.target.value))}
+                      className="w-full accent-emerald-400 cursor-pointer h-1 rounded"
+                    />
+                    <span className="w-10 text-right font-bold text-emerald-500 dark:text-emerald-300 tabular-nums flex-shrink-0">
+                      {(primaryLayer?.displacementScale ?? 0.08).toFixed(2)}x
+                    </span>
+                  </div>
+
+                  {/* Peak Exponent (Peak Sharpness) */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-20 text-teal-500 dark:text-teal-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
+                      Peak Sharp:
+                    </span>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="3.0"
+                      step="0.1"
+                      value={primaryLayer?.peakExponent ?? 1.4}
+                      onChange={(e) => onPeakExponentChangeDataLayer?.(primaryLayerId, parseFloat(e.target.value))}
+                      className="w-full accent-teal-400 cursor-pointer h-1 rounded"
+                    />
+                    <span className="w-10 text-right font-bold text-teal-500 dark:text-teal-300 tabular-nums flex-shrink-0">
+                      {(primaryLayer?.peakExponent ?? 1.4).toFixed(1)}x
+                    </span>
+                  </div>
+
+                  {/* Sun Azimuth */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-20 text-amber-500 dark:text-amber-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
+                      Sun Azimuth:
+                    </span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="360"
+                      step="5"
+                      value={primaryLayer?.sunAzimuth ?? 315}
+                      onChange={(e) =>
+                        onHillshadeChangeDataLayer?.(
+                          primaryLayerId,
+                          parseFloat(e.target.value),
+                          primaryLayer?.hillshadeIntensity ?? 0.65,
+                          primaryLayer?.sunAltitude ?? 45
+                        )
+                      }
+                      className="w-full accent-amber-400 cursor-pointer h-1 rounded"
+                    />
+                    <span className="w-10 text-right font-bold text-amber-500 dark:text-amber-300 tabular-nums flex-shrink-0">
+                      {Math.round(primaryLayer?.sunAzimuth ?? 315)}°
+                    </span>
+                  </div>
+
+                  {/* Sun Altitude */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-20 text-amber-500 dark:text-amber-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
+                      Sun Alt:
+                    </span>
+                    <input
+                      type="range"
+                      min="10"
+                      max="85"
+                      step="5"
+                      value={primaryLayer?.sunAltitude ?? 45}
+                      onChange={(e) =>
+                        onHillshadeChangeDataLayer?.(
+                          primaryLayerId,
+                          primaryLayer?.sunAzimuth ?? 315,
+                          primaryLayer?.hillshadeIntensity ?? 0.65,
+                          parseFloat(e.target.value)
+                        )
+                      }
+                      className="w-full accent-amber-400 cursor-pointer h-1 rounded"
+                    />
+                    <span className="w-10 text-right font-bold text-amber-500 dark:text-amber-300 tabular-nums flex-shrink-0">
+                      {Math.round(primaryLayer?.sunAltitude ?? 45)}°
+                    </span>
+                  </div>
+
+                  {/* Sea Level */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-20 text-cyan-500 dark:text-cyan-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
+                      Sea Level:
+                    </span>
+                    <input
+                      type="range"
+                      min="-150"
+                      max="100"
+                      step="5"
+                      value={primaryLayer?.seaLevelOffset ?? 0}
+                      onChange={(e) => onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, parseFloat(e.target.value))}
+                      className="w-full accent-cyan-400 cursor-pointer h-1 rounded"
+                    />
+                    <span className="w-10 text-right font-bold text-cyan-500 dark:text-cyan-300 tabular-nums flex-shrink-0">
+                      {(primaryLayer?.seaLevelOffset ?? 0) > 0 ? `+${primaryLayer?.seaLevelOffset}m` : `${primaryLayer?.seaLevelOffset ?? 0}m`}
+                    </span>
+                  </div>
+
+                  {/* Water Clarity */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-20 text-sky-500 dark:text-sky-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
+                      Clarity:
+                    </span>
+                    <input
+                      type="range"
+                      min="0.10"
+                      max="1.00"
+                      step="0.05"
+                      value={primaryLayer?.waterClarity ?? 0.75}
+                      onChange={(e) => onWaterClarityChangeDataLayer?.(primaryLayerId, parseFloat(e.target.value))}
+                      className="w-full accent-sky-400 cursor-pointer h-1 rounded"
+                    />
+                    <span className="w-10 text-right font-bold text-sky-500 dark:text-sky-300 tabular-nums flex-shrink-0">
+                      {Math.round((primaryLayer?.waterClarity ?? 0.75) * 100)}%
+                    </span>
+                  </div>
+
+                  {/* Crevice AO */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-20 text-zinc-500 dark:text-zinc-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
+                      Crevice AO:
+                    </span>
+                    <input
+                      type="range"
+                      min="0.0"
+                      max="1.0"
+                      step="0.05"
+                      value={primaryLayer?.ambientOcclusion ?? 0.65}
+                      onChange={(e) => onAmbientOcclusionChangeDataLayer?.(primaryLayerId, parseFloat(e.target.value))}
+                      className="w-full accent-zinc-400 cursor-pointer h-1 rounded"
+                    />
+                    <span className="w-10 text-right font-bold text-zinc-500 dark:text-zinc-300 tabular-nums flex-shrink-0">
+                      {Math.round((primaryLayer?.ambientOcclusion ?? 0.65) * 100)}%
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {/* =============================================================== */}
-              {/* TAB 1: TOPOLOGY CONTROLS                                        */}
-              {/* =============================================================== */}
-              {activeTab === 'topology' && (
-                <div className="space-y-3">
-                  {/* Morph Paradigms (Modes 0–4) */}
-                  <div className="space-y-1.5">
+              {/* Morph Paradigms (Modes 0–4) */}
+              <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className={`text-[10px] uppercase font-bold tracking-wider ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
                         Morph Paradigm (1–5)
@@ -933,35 +1032,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     </div>
                   )}
 
-                  {/* Telemetry Footer */}
-                  <div
-                    className={`pt-2 border-t text-[9px] grid grid-cols-2 gap-2 tabular-nums ${
-                      isLight ? 'border-zinc-200 text-zinc-600' : 'border-white/10 text-zinc-400'
-                    }`}
-                  >
-                    <div>
-                      <span className="block text-[8px] uppercase font-bold tracking-wider opacity-60">
-                        Center Coordinate
-                      </span>
-                      <span className="font-bold text-zinc-800 dark:text-zinc-200">
-                        {latStr} {lonStr}
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="block text-[8px] uppercase font-bold tracking-wider opacity-60">
-                        Nominal Scale
-                      </span>
-                      <span className="font-bold text-zinc-800 dark:text-zinc-200">{mapScaleStr}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* =============================================================== */}
-              {/* TAB 2: DATA LAYERS CONTROLS                                     */}
-              {/* =============================================================== */}
-              {activeTab === 'layers' && (
-                <div className="space-y-3">
+              {/* Active Datasets & Catalog Controls */}
+              <div
+                className={`space-y-3 pt-2 border-t ${
+                  isLight ? 'border-zinc-200' : 'border-white/10'
+                }`}
+              >
                   {/* Data Layers Header Action */}
                   <div className="flex items-center justify-between">
                     <span className={`text-[10px] uppercase font-bold tracking-wider ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
@@ -1352,8 +1428,29 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     )}
                   </div>
                 </div>
-              )}
-            </div>
+
+                {/* Telemetry Footer */}
+                <div
+                  className={`pt-2 border-t text-[9px] grid grid-cols-2 gap-2 tabular-nums ${
+                    isLight ? 'border-zinc-200 text-zinc-600' : 'border-white/10 text-zinc-400'
+                  }`}
+                >
+                  <div>
+                    <span className="block text-[8px] uppercase font-bold tracking-wider opacity-60">
+                      Center Coordinate
+                    </span>
+                    <span className="font-bold text-zinc-800 dark:text-zinc-200">
+                      {latStr} {lonStr}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="block text-[8px] uppercase font-bold tracking-wider opacity-60">
+                      Nominal Scale
+                    </span>
+                    <span className="font-bold text-zinc-800 dark:text-zinc-200">{mapScaleStr}</span>
+                  </div>
+                </div>
+              </div>
           )}
         </div>
       </div>

@@ -56,7 +56,7 @@ export interface TelemetryHUDProps {
   onOpacityChangeDataLayer?: (id: string, opacity: number) => void;
   onBlendModeChangeDataLayer?: (id: string, blendMode: BlendModeType) => void;
   onDisplacementScaleChangeDataLayer?: (id: string, scale: number) => void;
-  onHillshadeChangeDataLayer?: (id: string, azimuth: number, intensity: number) => void;
+  onHillshadeChangeDataLayer?: (id: string, azimuth: number, intensity: number, altitude?: number) => void;
   onSeaLevelOffsetChangeDataLayer?: (id: string, offset: number) => void;
   onWaterClarityChangeDataLayer?: (id: string, clarity: number) => void;
   onPeakExponentChangeDataLayer?: (id: string, exponent: number) => void;

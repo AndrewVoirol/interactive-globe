@@ -13,8 +13,8 @@ export function useEngineState() {
   const [themePalette, setThemePalette] = useState<ThemePalette>(ThemeManager.getInstance().getPalette());
   const [hasWebGPU, setHasWebGPU] = useState<boolean>(false);
   const [alpha, setAlpha] = useState(0); 
-  const [mode, setMode] = useState<SimulationMode>(4); // Default to Mode 4 (Fuller Dymaxion)
-  const [layerMode, setLayerMode] = useState<0 | 1 | 2>(2); // Default to 2 (Wireframe Only) to prevent point cloud occlusion over cartographic relief
+  const [mode, setMode] = useState<SimulationMode>(0); // Default to Mode 0 (Linear Mix)
+  const [layerMode, setLayerMode] = useState<0 | 1 | 2>(0); // Default to 0 (Both: Points + Hairlines)
   const [cursorPhysicsEnabled, setCursorPhysicsEnabled] = useState<boolean>(false);
   const [resolution, setResolution] = useState<ResolutionTier>('1M');
   const [fps, setFps] = useState(60);

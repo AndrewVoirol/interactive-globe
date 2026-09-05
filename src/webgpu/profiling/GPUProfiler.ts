@@ -128,6 +128,9 @@ export class GPUProfiler {
 
     const currentSlot = this.ringIndex % this.ringSize;
     const destBuffer = this.ringBuffers[currentSlot];
+    if (this.ringSlotStates[currentSlot] === 'MAPPED' || this.ringSlotStates[currentSlot] === 'PENDING_MAP') {
+      return;
+    }
 
     // 1. Resolve all 16 queries into resolveBuffer
     encoder.resolveQuerySet(this.querySet, 0, PROFILER_QUERY_CAPACITY, this.resolveBuffer, 0);

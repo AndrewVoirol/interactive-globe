@@ -170,6 +170,27 @@ export class ManifoldPinchController {
     return depth * Math.exp(-(distanceR * distanceR) / (2.0 * this.sigmaPinch * this.sigmaPinch));
   }
 
+  /**
+   * Computes perturbed 3D surface position under Gaussian normal displacement:
+   * p_perturbed = p_hit - normal * z_pinch * exp(-r^2 / (2 * sigma^2))
+   */
+  public getDisplacedHitPosition(): [number, number, number] {
+    const len = Math.hypot(this.hitPos[0], this.hitPos[1], this.hitPos[2]);
+    if (len < 1e-4) return [...this.hitPos];
+    const nx = this.hitPos[0] / len;
+    const ny = this.hitPos[1] / len;
+    const nz = this.hitPos[2] / len;
+    const z =
+      this.fsmState === 'RELEASE_REBOUND'
+        ? this.computeDampedOscillation(this.initialPinchDepth, this.reboundTimeSeconds)
+        : (this.fsmState === 'PINCH_ENGAGED' ? this.pinchDepth : 0);
+    return [
+      this.hitPos[0] - nx * z * 0.35,
+      this.hitPos[1] - ny * z * 0.35,
+      this.hitPos[2] - nz * z * 0.35,
+    ];
+  }
+
   private transitionTo(newState: PinchFSMState): void {
     if (this.fsmState !== newState) {
       this.fsmState = newState;

@@ -55,8 +55,35 @@ The Continuous Volumetric Matrix is a scientific-grade 1,000,000-node globe-to-m
 | F20 | Jerlov Hydrosphere Radiative Transfer & Dual-Surface Morphing | Spectral downwelling attenuation $K_d(\lambda)$ across Types I–III, Kubelka-Munk shallow bathymetry, and zero z-fighting dual surface | P2-M1 | Frontier 3 |
 | F21 | Screen-Space Anti-Aliased Vector Line Ribbon Pipeline | Instanced screen-space quad extrusion with 4D homogeneous near-plane guard ($w_c \le 0$) and subpixel feathering across 1×–3× Retina | P2-M1 | Frontier 1 |
 | F22 | Spherical Contour Ingestion & Simon l'Huilier Topological Severance | Stream binary contour meshes (`geo-contour-mesh.bin`), compute spherical excess area on $S^2$, and sever polylines across antimeridian and 14 Dymaxion boundaries | P2-M2 | Frontier 2 |
-| F23 | Apple Silicon SIMD32 Workgroup 256 Zero-Copy 16M Dispatch | Configure 1D dispatch grid `ceil(N/256)` (62,500 <= 65,535 for 16M) with zero-copy `STORAGE | VERTEX` buffer aliasing | P2-M3 | Frontier 5 |
+| F23 | Apple Silicon SIMD32 Workgroup 256 Zero-Copy 16M Dispatch | Configure 1D dispatch grid `ceil(N/256)` (62,500 <= 65,535 for 16M) with zero-copy `STORAGE | VERTEX` buffer aliasing (Arithmetic benchmark — no 16M dataset exists) | P2-M3 | Frontier 5 |
 | F24 | Asynchronous Triple-Buffered 16-Query GPUProfiler | Sub-microsecond GPU kernel pass profiling via 16-query ring buffer with non-blocking async mapping and graceful fallback | P2-M3 | Frontier 5 |
+
+## Scaffolding & Scaling Status (DESIGN_ETHOS.md §11 Compliance)
+
+### 1. Active Production Pipelines
+- **WebGPU Compute**: `src/webgpu/shaders/physics_sim.wgsl` (`@compute @workgroup_size(256)`)
+- **Dual-Surface Crust & Hydrosphere**: `src/webgpu/shaders/crust_hydrosphere.wgsl` (consolidated Imhof Swiss relief + Jerlov spectral optics)
+- **Vector Ribbons**: `src/webgpu/shaders/vector_ribbon.wgsl` (instanced screen-space quads with 4D near-plane guard)
+- **Wireframe & Contours**: Zero-copy compute-to-vertex buffer rendering (`lines_render.wgsl`, `renderContours`)
+- **Point Lattice**: `points_render.wgsl` with sub-pixel attenuation and OKLCH color spaces
+
+### 2. Wired Scaffolding Components
+- **DataLayerOverlay Dynamic Routing**: `src/core/layers/DataLayerOverlay.tsx` routes by category:
+  - `'topo' | 'ocean' | 'thermal' | 'night' | 'satellite'` → `RasterLayerRenderer`
+  - `'vectors'` → `VectorBoundaryRenderer`
+  - `'point'` → `VectorContourRenderer`
+  - `'field'` → `VectorFieldRenderer`
+- **WhimsicalEffectsManager Lifecycle**: `src/core/WhimsicalEffectsManager.ts` instantiated in `WebGPUCanvas.tsx`, modulates `pointScaleMultiplier` to trigger Fibonacci Moiré ring scaling when view vector aligns with polar axis (< 0.5°).
+- **ManifoldPinchController DOM Bindings**: `src/core/ManifoldPinchController.ts` bound to canvas pointer events, executing damped harmonic oscillator ($k=45, \gamma=6.5, \omega_d=28$) and passing `u_cursorActive` and `u_cursorHitPos` perturbations into WebGPU uniforms.
+
+### 3. Inert Architectural Scaffolding (Preserved for Future Extensions)
+- **Authoritative Framework Stubs**: `src/core/standards/`, `src/core/physics/`, `src/core/camera/` (~5,000 LOC authored reference architectures preserved per §11; not deleted).
+- **Audio Synthesizer**: `src/core/audio/ProceduralAudioEngine.ts` (authored and unit-tested; visual output takes precedence per §2 Principle 14).
+
+### 4. 16M Node Scaling Reality & Ground Truth
+- **Arithmetic Benchmark Only**: Theoretical workgroup dispatch calculation $\lceil N / 256 \rceil = 62,500 \le 65,535$ mathematically proves M4 Pro GPU dispatch limits and memory budgets ($\le 1.54\text{ GB VRAM}$) for 16,000,000 nodes without CPU readback.
+- **No 16M Dataset Exists**: The maximum precomputed physical binary dataset generated and distributed in the repository is `public/geo-mesh-1m.bin` (1,000,000 nodes, 47.96 MB). There is no 16M physical dataset (`geo-mesh-16m.bin`). All multi-million node benchmarks are synthetic arithmetic stress tests.
+
 
 ## Code Layout
 ```

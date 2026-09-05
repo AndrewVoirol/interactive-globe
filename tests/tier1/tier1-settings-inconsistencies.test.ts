@@ -61,8 +61,8 @@ describe('Verification of Cartographic Pipeline Inconsistency Fixes', () => {
       expect(managerCode).toContain('peakExponent: 1.4');
     });
 
-    it('FIX-06: verifies useEngineState defaults layerMode to 2 (Wireframe Only) and showVectors to true', () => {
-      expect(engineStateCode).toContain('const [layerMode, setLayerMode] = useState<0 | 1 | 2>(2);');
+    it('FIX-06: verifies useEngineState defaults layerMode to 0 (Both: Points + Hairlines) and showVectors to true', () => {
+      expect(engineStateCode).toContain('const [layerMode, setLayerMode] = useState<0 | 1 | 2>(0);');
       expect(engineStateCode).toContain('const [showVectors, setShowVectors] = useState<boolean>(true);');
     });
 
@@ -70,8 +70,7 @@ describe('Verification of Cartographic Pipeline Inconsistency Fixes', () => {
       expect(appCode).toContain('setLayerMode(2);');
     });
 
-    it('FIX-08: verifies UnifiedRightSidebar automatically switches to layers tab on style select and includes Base Lattice toggle', () => {
-      expect(sidebarCode).toContain("setActiveTab('layers')");
+    it('FIX-08: verifies UnifiedRightSidebar provides Base Lattice toggle and expanded sidebar controls', () => {
       expect(sidebarCode).toContain('Base Lattice:');
       expect(sidebarCode).toContain('Clean Terrain');
       expect(sidebarCode).toContain('+ Node Cloud');
