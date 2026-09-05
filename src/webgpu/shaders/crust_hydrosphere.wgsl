@@ -648,56 +648,52 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let creviceAO = 1.0 - kValley * (0.85 * sim.u_ambientOcclusion);
     diffuseTotal = diffuseTotal * creviceAO;
 
-    // Slope-Dependent Rock Cliff Exposure (theta > 35 degrees)
-    let cosSlope = clamp(dot(perturbedN, n0), 0.0, 1.0);
-    let rockWeight = (1.0 - smoothstep(0.66913, 0.81915, cosSlope)) * 0.75;
+    var finalLand = vec3<f32>(0.0);
+    if (isLand > 0.40) {
+        // Slope-Dependent Rock Cliff Exposure (theta > 35 degrees)
+        let cosSlope = clamp(dot(perturbedN, n0), 0.0, 1.0);
+        let rockWeight = (1.0 - smoothstep(0.66913, 0.81915, cosSlope)) * 0.75;
 
-    // Procedural Rock Strata and Joints Hachuring with isotropic metric latitude scaling
-    let cosLat = max(0.1, cos((input.uv.y - 0.5) * PI));
-    let metricUv = vec2<f32>(input.uv.x * cosLat, input.uv.y) * 800.0;
-    let gradDir = normalize(vec2<f32>(dHx, dHy) + vec2<f32>(1e-6, 1e-6));
-    let strikeDir = vec2<f32>(-gradDir.y, gradDir.x);
-    let uFall   = dot(metricUv, gradDir);
-    let uStrike = dot(metricUv, strikeDir);
-    let strata1 = sin(uStrike * 0.85);
-    let strata2 = sin(uStrike * 2.10 + 0.8);
-    let strataTotal = strata1 * 0.6 + strata2 * 0.4;
-    let joint1 = sin(uFall * 1.40 + strataTotal * 1.2);
-    let hachurePattern = clamp(0.80 + 0.20 * (joint1 * 0.65 + strataTotal * 0.35), 0.0, 1.0);
+        // Procedural Rock Strata and Joints Hachuring with isotropic metric latitude scaling
+        let cosLat = max(0.1, cos((input.uv.y - 0.5) * PI));
+        let metricUv = vec2<f32>(input.uv.x * cosLat, input.uv.y) * 800.0;
+        let gradDir = normalize(vec2<f32>(dHx, dHy) + vec2<f32>(1e-6, 1e-6));
+        let strikeDir = vec2<f32>(-gradDir.y, gradDir.x);
+        let uFall   = dot(metricUv, gradDir);
+        let uStrike = dot(metricUv, strikeDir);
+        let strata1 = sin(uStrike * 0.85);
+        let strata2 = sin(uStrike * 2.10 + 0.8);
+        let strataTotal = strata1 * 0.6 + strata2 * 0.4;
+        let joint1 = sin(uFall * 1.40 + strataTotal * 1.2);
+        let hachurePattern = clamp(0.80 + 0.20 * (joint1 * 0.65 + strataTotal * 0.35), 0.0, 1.0);
 
-    let isDark = sim.u_theme == 0u;
-    let cRockDark = select(vec3<f32>(0.26, 0.24, 0.22), vec3<f32>(0.12, 0.10, 0.09), isDark);
-    let cRockLit  = select(vec3<f32>(0.65, 0.58, 0.50), vec3<f32>(0.48, 0.38, 0.32), isDark);
-    let cRockShaded = mix(cRockDark, cRockLit, hachurePattern * diffuseTotal);
+        let cRockDark = select(vec3<f32>(0.26, 0.24, 0.22), vec3<f32>(0.12, 0.10, 0.09), isDark);
+        let cRockLit  = select(vec3<f32>(0.65, 0.58, 0.50), vec3<f32>(0.48, 0.38, 0.32), isDark);
+        let cRockShaded = mix(cRockDark, cRockLit, hachurePattern * diffuseTotal);
 
-    // Natural Illumination Split: Warm Sun Direct + Cool Cerulean Sky Fill
-    let cSunLight = vec3<f32>(1.08, 1.02, 0.94);
-    let cSkyAmbient = select(vec3<f32>(0.28, 0.32, 0.38), vec3<f32>(0.14, 0.18, 0.24), isDark);
-    let sunDirect = max(0.0, NdotL1);
-    let skyIndirect = 0.40 + 0.60 * max(0.0, perturbedN.y * 0.5 + 0.5);
+        // Eduard Imhof Swiss Hypsometric Tinting with Power-Curve Distribution
+        // pow(landElev, 0.38) distributes 0..1500m across the first 50% of the color ramp
+        let tElev = pow(clamp(landElev, 0.0, 1.0), 0.38);
+        let cLowland = select(vec3<f32>(0.92, 0.94, 0.88), vec3<f32>(0.14, 0.24, 0.16), isDark); // Lush moss / parchment lowlands
+        let cPlateau = select(vec3<f32>(0.86, 0.82, 0.70), vec3<f32>(0.36, 0.30, 0.18), isDark); // Warm golden ochre (plains & plateaus)
+        let cFlank   = select(vec3<f32>(0.74, 0.66, 0.56), vec3<f32>(0.48, 0.36, 0.26), isDark); // Terracotta sandstone (mountain flanks)
+        let cAlpine  = select(vec3<f32>(0.58, 0.52, 0.48), vec3<f32>(0.64, 0.54, 0.48), isDark); // Jagged alpine rock
+        let cSummit  = select(vec3<f32>(0.95, 0.96, 0.98), vec3<f32>(0.96, 0.94, 0.92), isDark); // Radiant ivory snow peaks
 
-    // Eduard Imhof Swiss Hypsometric Tinting with Power-Curve Distribution
-    // pow(landElev, 0.38) distributes 0..1500m across the first 50% of the color ramp
-    let tElev = pow(clamp(landElev, 0.0, 1.0), 0.38);
-    let cLowland = select(vec3<f32>(0.92, 0.94, 0.88), vec3<f32>(0.14, 0.24, 0.16), isDark); // Lush moss / parchment lowlands
-    let cPlateau = select(vec3<f32>(0.86, 0.82, 0.70), vec3<f32>(0.36, 0.30, 0.18), isDark); // Warm golden ochre (plains & plateaus)
-    let cFlank   = select(vec3<f32>(0.74, 0.66, 0.56), vec3<f32>(0.48, 0.36, 0.26), isDark); // Terracotta sandstone (mountain flanks)
-    let cAlpine  = select(vec3<f32>(0.58, 0.52, 0.48), vec3<f32>(0.64, 0.54, 0.48), isDark); // Jagged alpine rock
-    let cSummit  = select(vec3<f32>(0.95, 0.96, 0.98), vec3<f32>(0.96, 0.94, 0.92), isDark); // Radiant ivory snow peaks
+        let t0 = smoothstep(0.00, 0.28, tElev);
+        let t1 = smoothstep(0.28, 0.55, tElev);
+        let t2 = smoothstep(0.55, 0.80, tElev);
+        let t3 = smoothstep(0.80, 0.96, tElev);
+        let cRamp = mix(mix(mix(mix(cLowland, cPlateau, t0), cFlank, t1), cAlpine, t2), cSummit, t3);
 
-    let t0 = smoothstep(0.00, 0.28, tElev);
-    let t1 = smoothstep(0.28, 0.55, tElev);
-    let t2 = smoothstep(0.55, 0.80, tElev);
-    let t3 = smoothstep(0.80, 0.96, tElev);
-    let cRamp = mix(mix(mix(mix(cLowland, cPlateau, t0), cFlank, t1), cAlpine, t2), cSummit, t3);
-
-    // Aerial Perspective & Illumination Combine
-    let cWarmSun = vec3<f32>(1.04, 0.98, 0.88);
-    let cCoolHaze = vec3<f32>(0.84, 0.90, 1.06);
-    let skyHaze = mix(cCoolHaze, cWarmSun, clamp(NdotL1 * 1.5, 0.0, 1.0));
-    let landIllum = (cSunLight * (sunDirect * 0.85 + ridgeEnhance) + cSkyAmbient * (skyIndirect * creviceAO)) * skyHaze;
-    let tintedLand = cRamp * landIllum;
-    let finalLand = mix(tintedLand, cRockShaded, rockWeight);
+        // Aerial Perspective & Illumination Combine
+        let cWarmSun = vec3<f32>(1.04, 0.98, 0.88);
+        let cCoolHaze = vec3<f32>(0.84, 0.90, 1.06);
+        let skyHaze = mix(cCoolHaze, cWarmSun, clamp(NdotL1 * 1.5, 0.0, 1.0));
+        let landIllum = (cSunLight * (sunDirect * 0.85 + ridgeEnhance) + cSkyAmbient * (skyIndirect * creviceAO)) * skyHaze;
+        let tintedLand = cRamp * landIllum;
+        finalLand = mix(tintedLand, cRockShaded, rockWeight);
+    }
 
     var finalCrust: vec3<f32>;
 

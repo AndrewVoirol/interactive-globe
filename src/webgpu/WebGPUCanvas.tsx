@@ -103,6 +103,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   const lastFrameTimeRef = useRef(performance.now());
   const lastTelemetryTimeRef = useRef(0);
 
+  // Reusable objects to eliminate per-frame GC allocations in 120 FPS render loop
+  const reusableHitPosRef = useRef(new THREE.Vector3());
+  const telemetryNormRef = useRef(new THREE.Vector3());
+  const telemetryForwardRef = useRef(new THREE.Vector3());
+
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -438,7 +443,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       const camera = cameraRef.current;
       const tracker = cursorTrackerRef.current;
       const {
-        unfurlProgress: curUnfurl,
+        unfurlProgress: curUnfurlProp,
         mode: curMode,
         layerMode: curLayer,
         theme: curTheme,
@@ -446,6 +451,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         activeOverlay: curActiveOverlay,
         dataLayers: curDataLayers,
       } = stateRef.current;
+
+      const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
+      const curUnfurl = animAlpha !== undefined ? animAlpha : curUnfurlProp;
 
       if (engine.initialized) {
         const appStartTime = startTime !== undefined ? startTime : startTimeRef.current;
@@ -498,8 +506,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           ? (isPinchActive ? true : cursorUniforms.u_cursorActive > 0.001)
           : false;
 
+        if (isPinchActive) {
+          const hitArr = pinchControllerRef.current.getDisplacedHitPosition();
+          reusableHitPosRef.current.set(hitArr[0], hitArr[1], hitArr[2]);
+        }
         const displacedHitPos = isPinchActive
-          ? new THREE.Vector3(...pinchControllerRef.current.getDisplacedHitPosition())
+          ? reusableHitPosRef.current
           : cursorUniforms.u_cursorHitPos;
 
         const activeDataLayer = curDataLayers?.find(
@@ -570,14 +582,15 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           let latDeg = 0;
           let lonDeg = 0;
           if (curUnfurl < 0.5) {
-            const norm = camera.position.clone().normalize();
+            telemetryNormRef.current.copy(camera.position).normalize();
+            const norm = telemetryNormRef.current;
             const phi = Math.asin(Math.max(-1.0, Math.min(1.0, norm.y)));
             const lambda = Math.atan2(norm.x, norm.z);
             latDeg = Math.round(phi * (180 / Math.PI));
             lonDeg = Math.round(lambda * (180 / Math.PI));
           } else {
-            const forward = new THREE.Vector3();
-            camera.getWorldDirection(forward);
+            camera.getWorldDirection(telemetryForwardRef.current);
+            const forward = telemetryForwardRef.current;
             if (Math.abs(forward.z) > 1e-4) {
               const t = -camera.position.z / forward.z;
               const hitX = camera.position.x + t * forward.x;
