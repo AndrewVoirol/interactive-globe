@@ -272,24 +272,29 @@ async function main() {
   for (const tc of cartographicCases) {
     process.stdout.write(`  Running ${tc.id.padEnd(6)}: ${tc.label.padEnd(42)} ... `);
     await client.evaluate((cfg) => {
-      // Set parameters in UI
-      const slider = Array.from(document.querySelectorAll('input[type="range"]')).pop();
+      if (window.__INDICATRIX_ENGINE__) {
+        window.__INDICATRIX_ENGINE__.setAlpha(cfg.alpha);
+        window.__INDICATRIX_ENGINE__.setMode(cfg.mode);
+        window.__INDICATRIX_ENGINE__.setTheme(cfg.theme);
+      }
+
+      // Sync slider UI
+      const slider = document.querySelector('input[type="range"]');
       if (slider) {
-        slider.value = cfg.alpha;
-        slider.dispatchEvent(new Event('input', { bubbles: true }));
-        slider.dispatchEvent(new Event('change', { bubbles: true }));
+        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+        if (nativeSetter) {
+          nativeSetter.call(slider, cfg.alpha);
+          slider.dispatchEvent(new Event('input', { bubbles: true }));
+          slider.dispatchEvent(new Event('change', { bubbles: true }));
+        }
       }
-      // Click mode
-      const modeButtons = Array.from(document.querySelectorAll('button')).filter((b) => /^(Linear|Scroll|Griffith|Fluid|Dymaxion)/.test(b.textContent.trim()));
-      if (modeButtons[cfg.mode]) {
-        modeButtons[cfg.mode].click();
-      }
+
       // Click style
       if (cfg.style === 'architectural') {
-        const btnA = Array.from(document.querySelectorAll('button')).find((b) => b.textContent.includes('ARelief') || b.textContent.includes('A: Relief'));
+        const btnA = Array.from(document.querySelectorAll('button')).find((b) => b.title && b.title.includes('Direction A'));
         if (btnA) btnA.click();
       } else if (cfg.style === 'hybrid') {
-        const btnB = Array.from(document.querySelectorAll('button')).find((b) => b.textContent.includes('BDepth') || b.textContent.includes('B: Depth'));
+        const btnB = Array.from(document.querySelectorAll('button')).find((b) => b.title && b.title.includes('Direction B'));
         if (btnB) btnB.click();
       }
     }, tc);
@@ -341,7 +346,7 @@ async function main() {
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
 
-      canvas.dispatchEvent(new MouseEvent('mousedown', { clientX: cx, clientY: cy, buttons: 1 }));
+      canvas.dispatchEvent(new PointerEvent('pointerdown', { clientX: cx, clientY: cy, button: 0, bubbles: true }));
 
       return new Promise((resolve) => {
         const times = [];
@@ -353,12 +358,12 @@ async function main() {
           const angle = step * 0.05;
           const mx = cx + Math.cos(angle) * 150;
           const my = cy + Math.sin(angle) * 75;
-          window.dispatchEvent(new MouseEvent('mousemove', { clientX: mx, clientY: my, buttons: 1 }));
+          window.dispatchEvent(new PointerEvent('pointermove', { clientX: mx, clientY: my, button: 0, bubbles: true }));
 
           if (times.length <= 180) {
             requestAnimationFrame(tick);
           } else {
-            window.dispatchEvent(new MouseEvent('mouseup', { clientX: mx, clientY: my, buttons: 0 }));
+            window.dispatchEvent(new PointerEvent('pointerup', { clientX: mx, clientY: my, button: 0, bubbles: true }));
             const deltas = [];
             for (let i = 1; i < times.length; i++) {
               deltas.push(times[i] - times[i - 1]);
