@@ -137,6 +137,7 @@ export class MockGPUDevice {
   buffers: MockGPUBuffer[] = [];
   textures: MockGPUTexture[] = [];
   samplers: MockGPUSampler[] = [];
+  features = new Set(['timestamp-query', 'texture-formats-tier1', 'texture-formats-tier2', 'float32-filterable']);
   lost = new Promise<GPUDeviceLostInfo>(() => {});
 
   createBuffer(descriptor: { size: number; usage: number }): MockGPUBuffer {

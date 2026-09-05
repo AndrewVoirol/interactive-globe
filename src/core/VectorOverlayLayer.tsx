@@ -29,6 +29,8 @@ uniform float u_displacementScale;
 
 attribute vec2 target2D;
 attribute vec2 dymaxion2D;
+attribute vec2 adjacentDymaxion2D;
+attribute float seamCut;
 attribute float vType;
 
 varying float vPointType;
@@ -124,7 +126,10 @@ void main() {
             float strainProgress = t / tRupture;
             localStrain = seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress;
             vec3 outwardTension = normalize(pos3D) * (localStrain * 0.30);
-            finalPos = pos3D + outwardTension;
+            // Antimeridian lateral rift separation: opposing azimuthal pull along seam before rupture
+            float riftSign = lambda >= 0.0 ? 1.0 : -1.0;
+            vec3 riftOpening = vec3(riftSign * seamFactor * strainProgress * 0.45 * max(0.2, cos(phi * 0.85)), 0.0, 0.0);
+            finalPos = pos3D + outwardTension + riftOpening;
             dynamicNormal = normalize(finalPos);
         } else {
             float postRuptureT = smoothstep(tRupture, 1.0, t);
@@ -133,8 +138,13 @@ void main() {
             float flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay;
             vec3 flutterOffset = vec3(0.0, 0.0, flutterAmp);
 
+            // Tensile hoop stress crack visibly pulls apart along antimeridian seam before flattening
+            float crackSign = lambda >= 0.0 ? 1.0 : -1.0;
+            float crackOpen = seamFactor * (1.0 - postRuptureT) * smoothstep(tRupture, 0.55, t);
+            vec3 crackPull = vec3(crackSign * crackOpen * 1.5, 0.0, -crackOpen * 0.5);
+
             vec3 peeledPos = mix(pos3D, pos2D, postRuptureT);
-            finalPos = peeledPos + flutterOffset;
+            finalPos = peeledPos + flutterOffset + crackPull;
             dynamicNormal = mix(normalize(pos3D), vec3(0.0, 0.0, 1.0), postRuptureT);
         }
     } else if (u_mode == 3) {
@@ -158,13 +168,23 @@ void main() {
         float wavePhase1 = dot(basePos, vec3(0.35, 0.62, 0.42)) * 1.35 - u_time * 1.25;
         float wavePhase2 = dot(basePos, vec3(-0.45, 0.30, 0.65)) * 1.75 - u_time * 0.90;
         float silkWave = (sin(wavePhase1) * 0.65 + cos(wavePhase2) * 0.35) * liquefaction * 0.65;
-        vec3 silkDrapeOffset = surfaceNormal * silkWave;
+        vec3 silkDrapeOffset = surfaceNormal * (silkWave * 1.85);
 
-        vec3 advectionOffset = naturalVelocity * (liquefaction * 1.55) + silkDrapeOffset + (vortexVelocity + wakeAdvection) * (u_cursorActive * 0.25);
+        vec3 advectionOffset = naturalVelocity * (liquefaction * 2.50) + silkDrapeOffset + (vortexVelocity + wakeAdvection) * (u_cursorActive * 0.50);
 
         finalPos = basePos + advectionOffset + surfaceNormal * 0.015;
         dynamicNormal = mix(normalize(unElevatedSphere + silkDrapeOffset * 0.5), vec3(0.0, 0.0, 1.0), t);
     } else if (u_mode == 4) {
+        // Cut seam detection: collapse degenerate segments across cut boundaries in Dymaxion 2D space
+        // If distance between adjacent segment points in Dymaxion space is large (e.g. length(dymaxion2D - adjacentDymaxion2D) > 2.0 or length(dymaxion2D - target2D) across face boundaries),
+        // collapse gl_Position to degenerate clip coordinates (0, 0, -2, 1) when morphing to 2D (ease > 0.01) so lines do not stretch across the screen
+        if (ease > 0.01) {
+            float dymSegmentDist = length(dymaxion2D - adjacentDymaxion2D);
+            if (seamCut > 0.5 || dymSegmentDist > 2.0) {
+                gl_Position = vec4(0.0, 0.0, -2.0, 1.0);
+                return;
+            }
+        }
         float t = ease;
         vec3 dymaxionPos2D = vec3(dymaxion2D.x, dymaxion2D.y, 0.015);
         float arch = sin(PI * clampedUnfurl) * 0.45;
@@ -179,7 +199,7 @@ void main() {
     // Physical DEM coupling: extract elevation so rivers and coastlines ride on elevated topography
     float ptLambda = atan(pos3D.x, pos3D.z);
     float ptPhi = asin(clamp(pos3D.y / RADIUS, -1.0, 1.0));
-    vec2 ptDemUv = vec2((ptLambda + PI) / (2.0 * PI), (ptPhi + PI * 0.5) / PI);
+    vec2 ptDemUv = vec2((ptLambda + PI) / (2.0 * PI), 1.0 - (ptPhi + PI * 0.5) / PI);
     vec4 ptDem = texture2D(u_demTexture, ptDemUv);
     float isLand = ptDem.b;
     float elev = ptDem.r;
@@ -316,10 +336,29 @@ export const VectorOverlayLayer: React.FC<VectorOverlayLayerProps> = ({
 
         const indices = new Uint32Array(arrayBuffer, offset, indexCount);
 
+        const adjacentDymaxion = new Float32Array(vertexCount * 2);
+        const seamCut = new Float32Array(vertexCount);
+        for (let i = 0; i < indexCount; i += 2) {
+          const a = indices[i];
+          const b = indices[i + 1];
+          adjacentDymaxion[a * 2 + 0] = dymaxion2D[b * 2 + 0];
+          adjacentDymaxion[a * 2 + 1] = dymaxion2D[b * 2 + 1];
+          adjacentDymaxion[b * 2 + 0] = dymaxion2D[a * 2 + 0];
+          adjacentDymaxion[b * 2 + 1] = dymaxion2D[a * 2 + 1];
+
+          const dx = dymaxion2D[a * 2 + 0] - dymaxion2D[b * 2 + 0];
+          const dy = dymaxion2D[a * 2 + 1] - dymaxion2D[b * 2 + 1];
+          const isCut = (dx * dx + dy * dy > 4.0) ? 1.0 : 0.0;
+          seamCut[a] = isCut;
+          seamCut[b] = isCut;
+        }
+
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geo.setAttribute('target2D', new THREE.BufferAttribute(target2D, 2));
         geo.setAttribute('dymaxion2D', new THREE.BufferAttribute(dymaxion2D, 2));
+        geo.setAttribute('adjacentDymaxion2D', new THREE.BufferAttribute(adjacentDymaxion, 2));
+        geo.setAttribute('seamCut', new THREE.BufferAttribute(seamCut, 1));
         geo.setAttribute('vType', new THREE.BufferAttribute(vType, 1));
         geo.setIndex(new THREE.BufferAttribute(indices, 1));
 

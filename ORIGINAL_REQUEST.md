@@ -469,3 +469,95 @@ Synthesize all Phase 2 empirical findings into a publication-grade validation-re
 - [ ] npx tsc --noEmit passes with 0 errors.
 - [ ] npm run build succeeds with 0 errors.
 </USER_REQUEST>
+
+## 2026-09-05T19:02:07Z
+
+<USER_REQUEST>
+# Teamwork Project: Indicatrix Engine Final Assembly & Visual Polish
+
+/boost Complete the final wiring, visual tuning, and quality verification of the Indicatrix Engine. The research dossier (302KB, 4,857 lines) defines the exact mathematics. The research is the specification. The pixels are the deliverable. The gap between them is the work.
+
+Working directory: /Users/andrewvoirol/Antigravity/Projects/ais-interactive-globe-to-map
+Integrity mode: development (no restrictions on internal techniques, but intentional testing with a strict zero-regression invariant on the 925 Vitest suite and no endless test loops)
+Authoritative Reference: DESIGN_ETHOS.md, research-dossier.md, research-frontier5-m4pro-extreme-scaling.md
+Specialized Skills: webgpu-interactive-simulation (~/.gemini/config/skills/webgpu-interactive-simulation/SKILL.md), chrome-devtools
+
+## Multi-Agent Role Architecture
+
+1. Architect / Lead Orchestrator: Decomposes work, guards atomic git commits, arbitrates PRs, and holds the final veto based on DESIGN_ETHOS.md.
+2. Scaffolding & Integration Engineer: Owns TypeScript, React wrappers, DataLayerOverlay.tsx, WhimsicalEffectsManager.ts, and ManifoldPinchController.ts. Enforces that vitest run stays at 925/925 with zero regressions.
+3. WGSL Shader & Physics Specialist: Owns crust_hydrosphere.wgsl and physics_sim.wgsl. Implements exact math from the research dossier (Jerlov extinction depth gradient, Kubelka-Munk carbonate reef glow, solenoidal silk drape advection) guided by webgpu-interactive-simulation.
+4. Empirical Verifier / Independent Judge: Operates independently with browser automation tools. Captures the baseline "Before" images first, benchmarks FPS, audits visual fidelity, and compiles the final side-by-side Before/After deliverable artifact.
+
+## Contract Gates & Execution Protocol
+
+### Gate 0: Mandatory Baseline Anchor (Before State)
+Rule: No shader or render code may be modified until Gate 0 is archived and verified.
+1. The Verifier boots the dev server (npm run dev) and launches Chromium with Apple Silicon Metal WebGPU flags per webgpu-interactive-simulation:
+   --use-angle=metal --enable-unsafe-webgpu --ignore-gpu-blocklist
+2. Capture and archive 1920×1080 @2x baseline screenshots to screenshots/before/:
+   - before-mathematical-purity-dark.png: alpha = 0.0, base state, no data layers
+   - before-hydrosphere-caribbean.png: Caribbean sea zoomed in, recording current water optics
+   - before-fluid-morph-alpha05.png: alpha = 0.5, fluid advection mode
+   - before-dymaxion-unfold.png: alpha = 1.0, Dymaxion planar net
+3. Record initial FPS, memory footprint, and confirm npx vitest run passes 925/925 tests.
+
+### The Core Work: Parallel Convergence Under Continuous Invariants
+- Invariants:
+  - npx vitest run must pass (925/925) at every step.
+  - npx tsc --noEmit and npm run build must succeed without errors.
+  - No blind file deletions (grep -r audit required).
+  - Precompute scripts and binary assets (public/*.bin) remain untouched.
+
+- Scaffolding & Integration Track:
+  - DataLayerOverlay Dynamic Routing: In DataLayerOverlay.tsx, dispatch on props.category:
+    - 'topo' | 'ocean' | 'thermal' | 'night' | 'satellite' -> RasterLayerRenderer
+    - 'vectors' -> VectorBoundaryRenderer
+    - 'point' -> VectorContourRenderer
+    - 'field' -> VectorFieldRenderer
+  - WhimsicalEffectsManager Lifecycle: Instantiate and update WhimsicalEffectsManager.ts in the render loop. Wire pointScaleMultiplier into GPU uniforms to trigger Moiré rings during polar axis alignment (< 0.5°).
+  - ManifoldPinchController DOM Bindings: Connect ManifoldPinchController.ts into the canvas interaction loop. Keep cursor physics OFF by default (or require holding Shift key) to maintain strict separation between camera orbit and manifold pinch. When engaged, run the damped harmonic oscillator (k=45, gamma=6.5, omega_d=28) and feed surface perturbation into the shader uniforms (u_cursorActive, u_cursorHitPos). Audio synthesis remains deferred.
+
+- WGSL Shader & Optics Track:
+  - Hydrosphere Optical Fidelity: In crust_hydrosphere.wgsl, verify and tune:
+    - Jerlov spectral radiative transfer: Type I crystal sapphire blue in deep trenches vs Type III emerald green in coastal shallows.
+    - Kubelka-Munk carbonate reef reflectance (ALBEDO_CARBONATE_REEF = vec3(0.48, 0.54, 0.44)) producing warm glow over shallow reefs.
+    - Gerstner 4-octave caustics dancing on the water surface.
+    - Sea level slider smoothly raising/lowering the water sphere with zero z-fighting against the lithosphere.
+  - Fluid Morph Silk Billowing: In physics_sim.wgsl, verify and tune:
+    - Solenoidal curl noise (div u = 0) with irrational SO(3) rotation.
+    - Silk drape wave dynamics (silkDrapeOffset = surfaceNormal * silkWave) producing the organic, graceful, weightless billow of silk floating in water at alpha = 0.5. Ensure it does not look like random noise or rigid displacement.
+  - Performance Profiling: Audit WebGPU render passes, uniform writes, and rAF cycles for M4 Pro framerate bottlenecks towards the 120 FPS target without compromising visual quality.
+
+### Gate 1: Empirical Deliverable & Circuit Breaker
+The primary circuit breaker: "Does the visual output honor the research that informed it?"
+1. Matching "After" Capture: Capture 1920×1080 @2x screenshots at identical camera coordinates and parameters to screenshots/:
+   - after-mathematical-purity-dark.png
+   - after-hydrosphere-caribbean.png
+   - after-fluid-morph-alpha05.png
+   - after-dymaxion-unfold.png
+2. Before vs After Deliverable Report: Generate docs/visual-deliverable-comparison.md embedding side-by-side Before/After imagery, detailing:
+   - Concrete parameter deltas (Jerlov absorption/scattering, reef albedo, silk drape amplitude).
+   - Observable visual changes (color gradient depth, ripple definition, motion organic fluidity).
+   - Measured frame rates (baseline vs final on M4 Pro).
+3. Documentation Honesty: Update PROJECT.md to reflect that 16M node scaling is an arithmetic benchmark (no 16M dataset exists), and document active vs inert scaffolding.
+4. Architect Sign-off: Architect audits all visual deliverables against DESIGN_ETHOS.md and confirms zero-regression test status before completing the mission.
+
+## Acceptance Criteria
+
+### Automated & Integrity Verification
+- [ ] npx vitest run passes with 0 regressions (925/925 tests passing).
+- [ ] npx tsc --noEmit and npm run build succeed with zero errors.
+- [ ] No blind file deletions; all changes made via targeted edits.
+- [ ] Precompute scripts and binary assets (public/*.bin) remain intact without regeneration.
+
+### Empirical Deliverables
+- [ ] Baseline "Before" screenshots captured and committed in screenshots/before/ prior to shader edits.
+- [ ] DataLayerOverlay.tsx dynamically routes all layer categories to their specialized renderers.
+- [ ] Polar view vector alignment (< 0.5°) triggers visible Fibonacci Moiré ring scaling.
+- [ ] Shift-drag or HUD-activated pointer interaction triggers Gaussian depression during hold and damped harmonic rebound upon release.
+- [ ] Ocean shallows visibly glow with carbonate sand reflectance; deep ocean transitions to sapphire/navy.
+- [ ] Fluid morph at alpha = 0.5 billows like silk floating in water with solenoidal flow.
+- [ ] Matching "After" screenshots and comprehensive side-by-side comparison report delivered in docs/visual-deliverable-comparison.md.
+</USER_REQUEST>
+

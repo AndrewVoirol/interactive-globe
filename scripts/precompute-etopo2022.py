@@ -19,6 +19,9 @@ import sys
 import numpy as np
 from PIL import Image
 
+from typing import Optional
+import urllib.request
+
 Z_MIN_GLOBAL = -10924.0
 Z_MAX_GLOBAL = 8848.0
 Z_SPAN = Z_MAX_GLOBAL - Z_MIN_GLOBAL  # 19772.0
@@ -26,6 +29,54 @@ Z_MAX_LAND = 8848.0
 D_MAX_OCEAN = 11000.0
 
 OPENDAP_URL = "https://www.ngdc.noaa.gov/thredds/dodsC/global/ETOPO2022/60s/60s_surface_elev_netcdf/ETOPO_2022_v1_60s_N90W180_surface.nc.dods"
+
+def stream_noaa_opendap(target_cols=2048, target_rows=1024, stride=10) -> Optional[np.ndarray]:
+    """
+    Streams global NOAA ETOPO 2022 60s DEM directly from NOAA THREDDS OPeNDAP DODS endpoint.
+    Decodes big-endian IEEE 754 float32 XDR payload, inverts row order so row 0 corresponds to +90° (North),
+    and resamples to the target grid dimensions (target_cols x target_rows).
+    """
+    dods_query = f"{OPENDAP_URL}?z.z[0:{stride}:10799][0:{stride}:21599]"
+    print(f"[ETOPO-PACK] Streaming NOAA ETOPO 2022 via OPeNDAP DODS: {dods_query}...")
+
+    src_rows = (10800 + stride - 1) // stride  # 1080 for stride=10
+    src_cols = (21600 + stride - 1) // stride  # 2160 for stride=10
+    expected_floats = src_rows * src_cols
+    expected_bytes = expected_floats * 4
+
+    try:
+        req = urllib.request.Request(
+            dods_query,
+            headers={"User-Agent": "Indicatrix-WebGPU/2.0 (NOAA ETOPO Ingestion)"}
+        )
+        with urllib.request.urlopen(req, timeout=45) as resp:
+            content = resp.read()
+
+        delim = b"Data:\n"
+        idx = content.find(delim)
+        if idx == -1:
+            raise ValueError("DODS delimiter 'Data:\\n' not found in response stream")
+
+        raw_floats = content[idx + len(delim) + 8:]
+        if len(raw_floats) < expected_bytes:
+            raise ValueError(f"Incomplete DODS stream: received {len(raw_floats)} bytes, expected {expected_bytes}")
+
+        arr = np.frombuffer(raw_floats[:expected_bytes], dtype='>f4').reshape((src_rows, src_cols)).astype(np.float32)
+
+        # NOAA ETOPO 60s latitude is south-to-north (-90° to +90°).
+        # Invert row axis so row 0 is +90° (North) and row -1 is -90° (South).
+        arr_north_up = arr[::-1, :]
+
+        # Resample to target texture dimensions (target_cols x target_rows)
+        img = Image.fromarray(arr_north_up)
+        img_resized = img.resize((target_cols, target_rows), resample=Image.Resampling.BILINEAR)
+        z_grid = np.array(img_resized, dtype=np.float32)
+
+        print(f"[ETOPO-PACK] Successfully ingested NOAA ETOPO 2022 grid ({target_cols}x{target_rows}, elev [{z_grid.min():.1f}m to {z_grid.max():.1f}m])")
+        return z_grid
+    except Exception as e:
+        print(f"[ETOPO-PACK] OPeNDAP DODS streaming failed ({e}), falling back to local source...")
+        return None
 
 def pack_dem_arrays(z_grid: np.ndarray, output_prefix: str = "public/earth-etopo2022-dem"):
     """
@@ -114,6 +165,7 @@ def load_from_existing_or_generate(cols=2048, rows=1024) -> np.ndarray:
     return z.astype(np.float32)
 
 def main():
+    z = None
     if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
         input_path = sys.argv[1]
         print(f"[ETOPO-PACK] Reading NetCDF from {input_path}...")
@@ -124,9 +176,14 @@ def main():
             fill_val = getattr(ds.variables['z'], '_FillValue', -99999.0)
             z = np.where(z_raw == fill_val, 0.0, z_raw).astype(np.float32)
         except Exception as e:
-            print(f"[ETOPO-PACK] NetCDF loading failed ({e}), falling back to baseline...")
-            z = load_from_existing_or_generate()
-    else:
+            print(f"[ETOPO-PACK] NetCDF loading failed ({e}), falling back to OPeNDAP...")
+
+    # Stream directly from NOAA THREDDS OPeNDAP DODS endpoint
+    if z is None:
+        z = stream_noaa_opendap(target_cols=2048, target_rows=1024, stride=10)
+
+    # Fallback to local baseline or synthetic geoid harmonics if offline
+    if z is None:
         z = load_from_existing_or_generate()
 
     pack_dem_arrays(z, output_prefix="public/earth-etopo2022-dem")

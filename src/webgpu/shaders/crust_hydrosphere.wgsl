@@ -20,6 +20,14 @@ struct SimUniforms {
     u_roughness: f32,
     u_viewMatrix: mat4x4<f32>,
     u_projectionMatrix: mat4x4<f32>,
+    u_sunAzimuth: f32,
+    u_sunAltitude: f32,
+    u_ambientOcclusion: f32,
+    u_waterClarity: f32,
+    u_peakExponent: f32,
+    u_layerOpacity: f32,
+    u_renderStyle: u32,       // 0 = Architectural / Relief, 1 = Hybrid / Depth, 2 = Orbital
+    u_padding: f32,
 };
 
 @group(0) @binding(0) var<uniform> sim: SimUniforms;
@@ -45,6 +53,17 @@ struct VertexOutput {
 
 const PI: f32 = 3.14159265358979323846;
 const RADIUS: f32 = 5.0;
+
+fn computeSunLightDir(azimuthDeg: f32, altitudeDeg: f32) -> vec3<f32> {
+    let radAz = radians(azimuthDeg);
+    let radAlt = radians(altitudeDeg);
+    let cosAlt = cos(radAlt);
+    return normalize(vec3<f32>(
+        sin(radAz) * cosAlt,
+        cos(radAz) * cosAlt,
+        sin(radAlt)
+    ));
+}
 
 // ----------------------------------------------------------------------------
 // Hydrosphere Optics & Jerlov Radiative Transfer (Frontier 3)
@@ -117,6 +136,55 @@ fn evaluateKubelkaMunkReflectance(
     let a   = JERLOV_A[typeIdx];
     let bb  = JERLOV_BB[typeIdx];
     let Rinf = JERLOV_R_INF[typeIdx];
+    let gamma = 2.0 * sqrt(a * (a + 2.0 * bb));
+    let pathFactor = 0.5 * ((1.0 / mu_s) + (1.0 / mu_v));
+    let expTerm = exp(-2.0 * gamma * (depthMeters * pathFactor));
+    let crossTerm = Rinf * bottomAlbedo;
+    let diffTerm  = bottomAlbedo - Rinf;
+    let numerator   = Rinf * (vec3<f32>(1.0) - crossTerm) + diffTerm * expTerm;
+    let denominator = (vec3<f32>(1.0) - crossTerm) + Rinf * (diffTerm * expTerm);
+    return clamp(numerator / max(denominator, vec3<f32>(0.001)), vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
+struct JerlovProperties {
+    Kd: vec3<f32>,
+    a: vec3<f32>,
+    bb: vec3<f32>,
+    Rinf: vec3<f32>,
+};
+
+fn getJerlovProperties(clarity: f32, depthMeters: f32) -> JerlovProperties {
+    // Clarity slider: 1.0 = Type I (Crystal Open Ocean), 0.0 = Type III (Turbid Coastal)
+    // Coastal shallows naturally have higher CDOM/gelbstoff concentrations (Type III, index 4),
+    // while open deep ocean trends towards Type I (index 0), modulated by user clarity slider.
+    let coastalFactor = (1.0 - smoothstep(10.0, 85.0, depthMeters)) * 0.70;
+    let effectiveClarity = clamp(clarity * (1.0 - coastalFactor), 0.0, 1.0);
+
+    // Continuous mapping to Jerlov index space [0.0 .. 4.0]:
+    // 0.0 = Type I, 1.0 = Type IA, 2.0 = Type IB, 3.0 = Type II, 4.0 = Type III
+    let typeParam = (1.0 - effectiveClarity) * 4.0;
+    let idx0 = u32(clamp(floor(typeParam), 0.0, 4.0));
+    let idx1 = min(idx0 + 1u, 4u);
+    let frac = typeParam - floor(typeParam);
+
+    var props: JerlovProperties;
+    props.Kd = mix(JERLOV_KD[idx0], JERLOV_KD[idx1], frac);
+    props.a = mix(JERLOV_A[idx0], JERLOV_A[idx1], frac);
+    props.bb = mix(JERLOV_BB[idx0], JERLOV_BB[idx1], frac);
+    props.Rinf = mix(JERLOV_R_INF[idx0], JERLOV_R_INF[idx1], frac);
+    return props;
+}
+
+fn evaluateKubelkaMunkReflectanceProps(
+    depthMeters: f32,
+    props: JerlovProperties,
+    bottomAlbedo: vec3<f32>,
+    mu_s: f32,
+    mu_v: f32
+) -> vec3<f32> {
+    let a   = props.a;
+    let bb  = props.bb;
+    let Rinf = props.Rinf;
     let gamma = 2.0 * sqrt(a * (a + 2.0 * bb));
     let pathFactor = 0.5 * ((1.0 / mu_s) + (1.0 / mu_v));
     let expTerm = exp(-2.0 * gamma * (depthMeters * pathFactor));
@@ -217,11 +285,20 @@ fn computeHydrosphereShading(
     let mu_s = cosines.x;
     let mu_v = cosines.y;
 
-    let albedoMix = smoothstep(0.0, 60.0, safeDepth);
-    let bedAlbedo = mix(ALBEDO_CARBONATE_REEF, ALBEDO_ABYSSAL_BASALT, albedoMix);
+    // Jerlov radiative transfer optical properties:
+    // Seamlessly transitions from coastal Type III emerald green to deep Type I crystal sapphire blue
+    let props = getJerlovProperties(sim.u_waterClarity, safeDepth);
 
-    let R_subsurface = evaluateKubelkaMunkReflectance(safeDepth, uniforms.u_waterType, bedAlbedo, mu_s, mu_v);
+    // Benthic Substrate Albedo:
+    // Shallow lagoons and coral atolls (0m - 50m) exhibit warm aragonite carbonate reef albedo
+    // ALBEDO_CARBONATE_REEF = vec3(0.48, 0.54, 0.44), transitioning to abyssal basalt in deep basins
+    let reefWeight = 1.0 - smoothstep(1.0, 50.0, safeDepth);
+    let bedAlbedo = mix(ALBEDO_ABYSSAL_BASALT, ALBEDO_CARBONATE_REEF, reefWeight);
 
+    // Kubelka-Munk two-flux bottom reflectance evaluated with physical optical thickness
+    let R_subsurface = evaluateKubelkaMunkReflectanceProps(safeDepth, props, bedAlbedo, mu_s, mu_v);
+
+    // Gerstner micro-ripple caustics focused onto shallow bathymetry
     let causticFactor = evaluateCausticIntensity(
         safeDepth,
         ripples.analyticalDivergence,
@@ -232,6 +309,25 @@ fn computeHydrosphereShading(
     let NdotL = max(0.05, dot(baseNormal, sunDir));
     let seabedRadiance = R_subsurface * (NdotL * causticFactor);
 
+    // Pelagic Radiance & Bathymetric Gradient from Jerlov Radiative Transfer
+    let isDark = sim.u_theme == 0u;
+    let cSunLight = vec3<f32>(1.08, 1.02, 0.94);
+    let cSkyAmbient = select(vec3<f32>(0.28, 0.34, 0.44), vec3<f32>(0.14, 0.18, 0.24), isDark);
+    let sunIllum = cSunLight * (NdotL * 0.85 + 0.15) + cSkyAmbient * 0.80;
+
+    // Jerlov volume radiance: Type I crystal sapphire blue vs Type III emerald green
+    let pelagicRadiance = (props.Rinf * 48.0) * sunIllum;
+
+    // Deep abyssal trenches (> 2000m to 10,924m): total extinction deepens into midnight indigo
+    let normDepth = clamp(safeDepth / 10924.0, 0.0, 1.0);
+    let trenchFactor = smoothstep(0.12, 0.85, normDepth);
+    let cTrench = select(vec3<f32>(0.02, 0.06, 0.18), vec3<f32>(0.005, 0.015, 0.05), isDark);
+    let deepOceanColor = mix(pelagicRadiance, cTrench, trenchFactor);
+
+    // Continuous physical blend from shallow Kubelka-Munk seabed glow to deep Jerlov volume radiance
+    let depthBlend = smoothstep(6.0, 65.0, safeDepth);
+    let waterColor = mix(seabedRadiance * 1.35, deepOceanColor, depthBlend);
+
     let NdotV = max(0.0, dot(perturbedNormal, viewDir));
     const F0_WATER: f32 = 0.0204;
     let fresnel = F0_WATER + (1.0 - F0_WATER) * pow(1.0 - NdotV, uniforms.u_fresnelPower);
@@ -241,10 +337,16 @@ fn computeHydrosphereShading(
     let specPower = mix(128.0, 16.0, uniforms.u_roughness);
     let sunSpecular = pow(NdotH, specPower) * ((specPower + 8.0) / (8.0 * 3.14159265));
 
-    let skyReflection = vec3<f32>(0.65, 0.78, 0.92) * fresnel;
-    let finalColor = seabedRadiance * (1.0 - fresnel) + skyReflection + vec3<f32>(sunSpecular * fresnel);
-    let transmission = evaluateSpectralTransmission(safeDepth, uniforms.u_waterType, mu_s, mu_v);
-    let waterOpacity = clamp(1.0 - transmission.y + fresnel * 0.4, 0.15, 0.98);
+    // Dampen sky glare on the unfurled flat map so the ocean stays deep, clear, and visible
+    let mapFresnelAtten = mix(1.0, 0.20, sim.u_unfurl);
+    let skyReflection = select(vec3<f32>(0.75, 0.85, 0.95), vec3<f32>(0.20, 0.38, 0.55), isDark) * (fresnel * mapFresnelAtten);
+    let specAtten = mix(1.0, 0.35, sim.u_unfurl);
+    let finalColor = waterColor * (1.0 - fresnel * 0.4) + skyReflection + vec3<f32>(sunSpecular * fresnel * specAtten);
+
+    // Dynamic optical transparency: shallow shelves are translucent to seabed below, deep abyss is dense
+    let clarityScale = 0.0012 / max(0.15, sim.u_waterClarity);
+    let depthOpacity = 1.0 - exp(-safeDepth * clarityScale);
+    let waterOpacity = clamp((0.40 + depthOpacity * 0.54 + fresnel * 0.25) * sim.u_layerOpacity, 0.35, 0.96);
 
     let finalOutput = vec4<f32>(finalColor, waterOpacity);
     return select(vec4<f32>(0.0, 0.0, 0.0, 0.0), finalOutput, isWater);
@@ -375,8 +477,9 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
         out.normal = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
     } else {
         // Mode 0: Linear Manifold Mix
+        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
         out.pos = mix(pos3D, pos2D, ease);
-        out.normal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
+        out.normal = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
     }
 
     return out;
@@ -419,15 +522,26 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     let depth = max(0.0, waterLevel - elevMeters);
     output.waterDepth = depth;
 
+    // Polar displacement attenuation near singularities (prevent spiky mesh artifacts in Canada/Greenland/Siberia)
+    let poleDist = abs(input.uv.y - 0.5) * 2.0;
+    let poleAtten = 1.0 - smoothstep(0.85, 0.98, poleDist);
+
     // Synchronous Dual-Surface Morphing Theorem (Theorem 3.3.2):
     // Zero gaps and zero z-fighting at shoreline (h = 0)
     var normalDisplacement = 0.0;
+    let dispScale = sim.u_displacementScale * 2.8;
     if (input.surfaceType > 0.5) {
-        // Liquid Hydrosphere shell: floats at sea level (displacement is 0 when seaLevel is 0)
-        normalDisplacement = max(0.0, waterLevel) * 0.0001;
+        // Liquid Hydrosphere shell: floats at dynamic sea level
+        normalDisplacement = (waterLevel / 8848.0) * dispScale * poleAtten;
     } else {
-        // Lithosphere Crust: displaced by actual topography/bathymetry
-        normalDisplacement = (elevMeters / 8848.0) * 0.08 * sim.u_displacementScale;
+        // Lithosphere Crust: displaced by actual topography/bathymetry with peak sharpening
+        if (elevMeters >= 0.0) {
+            let normH = elevMeters / 8848.0;
+            normalDisplacement = pow(normH, max(0.5, sim.u_peakExponent)) * dispScale * poleAtten;
+        } else {
+            let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
+            normalDisplacement = -pow(normD, 0.85) * (dispScale * 0.65) * poleAtten;
+        }
     }
 
     let worldP = basePos + baseNormal * normalDisplacement;
@@ -447,17 +561,29 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     // Liquid Hydrosphere Surface Pass via Jerlov Radiative Transfer & Caustics
     if (input.surfaceType > 0.5) {
+        // In pure Relief / Architectural mode (u_renderStyle == 0),
+        // hide the liquid hydrosphere surface so bathymetric ocean floor relief is visible
+        if (sim.u_renderStyle == 0u) {
+            discard;
+        }
+
+        let depthMeters = max(0.0, sim.u_seaLevel - input.elevation);
+        if (depthMeters <= 0.001) {
+            discard;
+        }
+
         var hydroUniforms: HydrosphereUniforms;
-        hydroUniforms.u_waterType = 0u; // Type I
+        let clarityIdx = clamp(u32(floor((1.0 - clamp(sim.u_waterClarity, 0.0, 1.0)) * 4.0 + 0.5)), 0u, 4u);
+        hydroUniforms.u_waterType = clarityIdx;
         hydroUniforms.u_time = sim.u_time;
         hydroUniforms.u_seaLevelOffset = sim.u_seaLevel;
         hydroUniforms.u_causticIntensity = 1.0;
-        hydroUniforms.u_sunAzimuth = 315.0;
-        hydroUniforms.u_sunAltitude = 45.0;
+        hydroUniforms.u_sunAzimuth = sim.u_sunAzimuth;
+        hydroUniforms.u_sunAltitude = sim.u_sunAltitude;
         hydroUniforms.u_roughness = sim.u_roughness;
-        hydroUniforms.u_fresnelPower = 5.0;
+        hydroUniforms.u_fresnelPower = 4.0;
 
-        let sunPrimary = normalize(vec3<f32>(-0.7071, 0.5, 0.7071));
+        let sunPrimary = computeSunLightDir(sim.u_sunAzimuth, sim.u_sunAltitude);
         return computeHydrosphereShading(
             input.worldPos,
             N,
@@ -470,35 +596,158 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     // Lithosphere Crust Pass with Eduard Imhof Swiss Relief Shading
-    let sunPrimary = normalize(vec3<f32>(-0.7071, 0.5, 0.7071));
-    let sunFill    = normalize(vec3<f32>(-0.7071, 0.3, -0.7071));
+    let n0 = normalize(input.normal);
+    let upVec = select(vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), abs(n0.y) > 0.95);
+    let tangentX = normalize(cross(upVec, n0));
+    let tangentY = cross(n0, tangentX);
 
-    let NdotL1 = max(0.0, dot(N, sunPrimary));
-    let NdotL2 = max(0.0, dot(N, sunFill));
+    // Sample 5-tap cross for central difference normal and discrete Laplacian (explicit LOD for branchless safety)
+    let ts = vec2<f32>(1.0 / 2048.0, 1.0 / 1024.0);
+    let demC = textureSampleLevel(u_demTexture, u_demSampler, input.uv, 0.0);
+    let demR = textureSampleLevel(u_demTexture, u_demSampler, input.uv + vec2<f32>(ts.x, 0.0), 0.0);
+    let demL = textureSampleLevel(u_demTexture, u_demSampler, input.uv - vec2<f32>(ts.x, 0.0), 0.0);
+    let demU = textureSampleLevel(u_demTexture, u_demSampler, input.uv + vec2<f32>(0.0, ts.y), 0.0);
+    let demD = textureSampleLevel(u_demTexture, u_demSampler, input.uv - vec2<f32>(0.0, ts.y), 0.0);
 
-    let diffuseTotal = clamp(0.08 + 0.72 * NdotL1 + 0.20 * NdotL2, 0.05, 1.40);
+    let isLand = demC.b;
+    let landElev = demC.r;
+    let oceanDepth = demC.g;
 
-    let curLen = length(input.worldPos);
-    let radialNormal = select(vec3<f32>(0.0, 0.0, 1.0), input.worldPos / curLen, curLen > 0.001);
-    let cosSlope = clamp(dot(N, radialNormal), 0.0, 1.0);
-    let rockWeight = (1.0 - smoothstep(0.66913, 0.81915, cosSlope)) * 0.65;
+    let hC = select(-oceanDepth * 0.25, landElev, isLand > 0.45);
+    let hR = select(-demR.g * 0.25, demR.r, demR.b > 0.45);
+    let hL = select(-demL.g * 0.25, demL.r, demL.b > 0.45);
+    let hU = select(-demU.g * 0.25, demU.r, demU.b > 0.45);
+    let hD = select(-demD.g * 0.25, demD.r, demD.b > 0.45);
+
+    // Controlled displacement scale: eliminates harsh 120x normal blowout while retaining crisp relief
+    let dispScale = sim.u_displacementScale * 16.0 + 1.0;
+    let dHx = (hR - hL) * 0.5 * dispScale;
+    let dHy = (hD - hU) * 0.5 * dispScale;
+
+    // Perturbed surface normal in 3D world space
+    let perturbedN = normalize(n0 - tangentX * dHx - tangentY * dHy);
+
+    // Discrete Laplacian Curvature
+    let laplacian = (hR + hL + hU + hD) - 4.0 * hC;
+    let kRidge  = clamp(-laplacian * 45.0, 0.0, 1.0);
+    let kValley = clamp(laplacian * 45.0, 0.0, 1.0);
+
+    // Multidirectional Oblique Solar Illumination controlled dynamically by u_sunAzimuth & u_sunAltitude
+    let L1_view = computeSunLightDir(sim.u_sunAzimuth, sim.u_sunAltitude);
+    let L2_view = computeSunLightDir(sim.u_sunAzimuth - 90.0, sim.u_sunAltitude * 0.65);
+
+    let N_view = normalize((sim.u_viewMatrix * vec4<f32>(perturbedN, 0.0)).xyz);
+    let NdotL1 = max(0.0, dot(N_view, L1_view));
+    let NdotL2 = max(0.0, dot(N_view, L2_view));
+
+    var diffuseTotal = 0.08 + 0.72 * NdotL1 + 0.20 * NdotL2;
+
+    // Ridge Crest Contrast Enhancement & Valley Crevice AO (modulated by u_ambientOcclusion)
+    let ridgeEnhance = (NdotL1 - 0.5) * kRidge * 0.45;
+    diffuseTotal = clamp(diffuseTotal + ridgeEnhance, 0.04, 1.40);
+    let creviceAO = 1.0 - kValley * (0.85 * sim.u_ambientOcclusion);
+    diffuseTotal = diffuseTotal * creviceAO;
+
+    // Slope-Dependent Rock Cliff Exposure (theta > 35 degrees)
+    let cosSlope = clamp(dot(perturbedN, n0), 0.0, 1.0);
+    let rockWeight = (1.0 - smoothstep(0.66913, 0.81915, cosSlope)) * 0.75;
+
+    // Procedural Rock Strata and Joints Hachuring with isotropic metric latitude scaling
+    let cosLat = max(0.1, cos((input.uv.y - 0.5) * PI));
+    let metricUv = vec2<f32>(input.uv.x * cosLat, input.uv.y) * 800.0;
+    let gradDir = normalize(vec2<f32>(dHx, dHy) + vec2<f32>(1e-6, 1e-6));
+    let strikeDir = vec2<f32>(-gradDir.y, gradDir.x);
+    let uFall   = dot(metricUv, gradDir);
+    let uStrike = dot(metricUv, strikeDir);
+    let strata1 = sin(uStrike * 0.85);
+    let strata2 = sin(uStrike * 2.10 + 0.8);
+    let strataTotal = strata1 * 0.6 + strata2 * 0.4;
+    let joint1 = sin(uFall * 1.40 + strataTotal * 1.2);
+    let hachurePattern = clamp(0.80 + 0.20 * (joint1 * 0.65 + strataTotal * 0.35), 0.0, 1.0);
 
     let isDark = sim.u_theme == 0u;
-    let cRockDark = select(vec3<f32>(0.22, 0.23, 0.25), vec3<f32>(0.08, 0.09, 0.11), isDark);
-    let cRockLit  = select(vec3<f32>(0.60, 0.58, 0.54), vec3<f32>(0.35, 0.36, 0.38), isDark);
-    let cRockShaded = mix(cRockDark, cRockLit, diffuseTotal);
+    let cRockDark = select(vec3<f32>(0.26, 0.24, 0.22), vec3<f32>(0.12, 0.10, 0.09), isDark);
+    let cRockLit  = select(vec3<f32>(0.65, 0.58, 0.50), vec3<f32>(0.48, 0.38, 0.32), isDark);
+    let cRockShaded = mix(cRockDark, cRockLit, hachurePattern * diffuseTotal);
 
-    let tElev = clamp(input.elevation / 8848.0, 0.0, 1.0);
-    let cLowland = select(vec3<f32>(0.95, 0.96, 0.94), vec3<f32>(0.11, 0.14, 0.18), isDark);
-    let cMidland = select(vec3<f32>(0.82, 0.84, 0.86), vec3<f32>(0.28, 0.32, 0.38), isDark);
-    let cAlpine  = select(vec3<f32>(0.52, 0.55, 0.60), vec3<f32>(0.58, 0.62, 0.68), isDark);
-    let cSummit  = select(vec3<f32>(0.16, 0.18, 0.22), vec3<f32>(0.92, 0.90, 0.86), isDark);
+    // Natural Illumination Split: Warm Sun Direct + Cool Cerulean Sky Fill
+    let cSunLight = vec3<f32>(1.08, 1.02, 0.94);
+    let cSkyAmbient = select(vec3<f32>(0.28, 0.32, 0.38), vec3<f32>(0.14, 0.18, 0.24), isDark);
+    let sunDirect = max(0.0, NdotL1);
+    let skyIndirect = 0.40 + 0.60 * max(0.0, perturbedN.y * 0.5 + 0.5);
 
-    let tLow = smoothstep(0.0, 0.35, tElev);
-    let tMid = smoothstep(0.35, 0.70, tElev);
-    let tHigh = smoothstep(0.70, 0.95, tElev);
-    let cRamp = mix(mix(mix(cLowland, cMidland, tLow), cAlpine, tMid), cSummit, tHigh);
+    // Eduard Imhof Swiss Hypsometric Tinting with Power-Curve Distribution
+    // pow(landElev, 0.38) distributes 0..1500m across the first 50% of the color ramp
+    let tElev = pow(clamp(landElev, 0.0, 1.0), 0.38);
+    let cLowland = select(vec3<f32>(0.92, 0.94, 0.88), vec3<f32>(0.14, 0.24, 0.16), isDark); // Lush moss / parchment lowlands
+    let cPlateau = select(vec3<f32>(0.86, 0.82, 0.70), vec3<f32>(0.36, 0.30, 0.18), isDark); // Warm golden ochre (plains & plateaus)
+    let cFlank   = select(vec3<f32>(0.74, 0.66, 0.56), vec3<f32>(0.48, 0.36, 0.26), isDark); // Terracotta sandstone (mountain flanks)
+    let cAlpine  = select(vec3<f32>(0.58, 0.52, 0.48), vec3<f32>(0.64, 0.54, 0.48), isDark); // Jagged alpine rock
+    let cSummit  = select(vec3<f32>(0.95, 0.96, 0.98), vec3<f32>(0.96, 0.94, 0.92), isDark); // Radiant ivory snow peaks
 
-    let finalLand = mix(cRamp * diffuseTotal, cRockShaded, rockWeight);
-    return vec4<f32>(finalLand, 1.0);
+    let t0 = smoothstep(0.00, 0.28, tElev);
+    let t1 = smoothstep(0.28, 0.55, tElev);
+    let t2 = smoothstep(0.55, 0.80, tElev);
+    let t3 = smoothstep(0.80, 0.96, tElev);
+    let cRamp = mix(mix(mix(mix(cLowland, cPlateau, t0), cFlank, t1), cAlpine, t2), cSummit, t3);
+
+    // Aerial Perspective & Illumination Combine
+    let cWarmSun = vec3<f32>(1.04, 0.98, 0.88);
+    let cCoolHaze = vec3<f32>(0.84, 0.90, 1.06);
+    let skyHaze = mix(cCoolHaze, cWarmSun, clamp(NdotL1 * 1.5, 0.0, 1.0));
+    let landIllum = (cSunLight * (sunDirect * 0.85 + ridgeEnhance) + cSkyAmbient * (skyIndirect * creviceAO)) * skyHaze;
+    let tintedLand = cRamp * landIllum;
+    let finalLand = mix(tintedLand, cRockShaded, rockWeight);
+
+    var finalCrust: vec3<f32>;
+
+    if (sim.u_renderStyle == 0u) {
+        // ====================================================================
+        // OPTION A: ARCHITECTURAL TOPOGRAPHIC & BATHYMETRIC RELIEF
+        // The entire planetary crust is an exposed solid physical relief sculpture.
+        // No dark void! Ocean basins are rendered as architectural bathymetry
+        // with mid-ocean ridges, seamounts, and trenches in sculpted mineral slate.
+        // ====================================================================
+        if (isLand > 0.45) {
+            finalCrust = finalLand;
+        } else {
+            let normDepth = clamp(oceanDepth, 0.0, 1.0);
+            let cBathyShelf  = select(vec3<f32>(0.88, 0.90, 0.93), vec3<f32>(0.26, 0.30, 0.36), isDark); // Continental shelf slate
+            let cBathyAbyss  = select(vec3<f32>(0.76, 0.80, 0.86), vec3<f32>(0.15, 0.18, 0.24), isDark); // Abyssal plain basalt
+            let cBathyTrench = select(vec3<f32>(0.62, 0.66, 0.74), vec3<f32>(0.07, 0.09, 0.13), isDark); // Deep trench indigo
+            let cBathyRidge  = select(vec3<f32>(0.96, 0.98, 1.00), vec3<f32>(0.36, 0.42, 0.50), isDark); // Mid-ocean ridge crest
+
+            var cBathy = mix(
+                mix(cBathyShelf, cBathyAbyss, smoothstep(0.005, 0.15, normDepth)),
+                cBathyTrench,
+                smoothstep(0.35, 0.85, normDepth)
+            );
+            // Mid-ocean ridge crest highlight
+            cBathy = mix(cBathy, cBathyRidge, kRidge * 0.45);
+
+            let bathyIllum = cSunLight * (sunDirect * 0.80 + ridgeEnhance * 0.8) + cSkyAmbient * (skyIndirect * creviceAO);
+            finalCrust = mix(cBathy * bathyIllum, cRockShaded, rockWeight * 0.4);
+        }
+    } else {
+        // ====================================================================
+        // OPTION B: HYDROSPHERE & BATHYMETRIC DEPTH
+        // Ocean floor is submerged beneath translucent liquid water.
+        // Deep seabed colors showing through the water column.
+        // ====================================================================
+        let normDepth = clamp(oceanDepth, 0.0, 1.0);
+        let cOceanShelf  = select(vec3<f32>(0.92, 0.95, 0.98), vec3<f32>(0.03, 0.14, 0.24), isDark);
+        let cOceanDeep   = select(vec3<f32>(0.84, 0.88, 0.93), vec3<f32>(0.015, 0.05, 0.11), isDark);
+        let cOceanTrench = select(vec3<f32>(0.75, 0.80, 0.86), vec3<f32>(0.006, 0.015, 0.035), isDark);
+        let reefInfluence = 1.0 - smoothstep(0.001, 0.025, normDepth);
+        let shelfReefBed = mix(cOceanShelf, select(vec3<f32>(0.94, 0.92, 0.86), ALBEDO_CARBONATE_REEF * 0.85, isDark), reefInfluence);
+        let cBathy = mix(
+            mix(shelfReefBed, cOceanDeep, smoothstep(0.005, 0.12, normDepth)),
+            cOceanTrench,
+            smoothstep(0.35, 0.85, normDepth)
+        );
+        let bathyIllum = cSunLight * (sunDirect * 0.75) + cSkyAmbient * (skyIndirect * creviceAO * 0.8);
+        finalCrust = mix(cBathy * bathyIllum, finalLand, smoothstep(0.40, 0.60, isLand));
+    }
+
+    return vec4<f32>(finalCrust, sim.u_layerOpacity);
 }

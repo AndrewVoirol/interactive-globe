@@ -39,6 +39,20 @@ export interface DataLayerOverlayProps {
 export const DataLayerOverlay: React.FC<DataLayerOverlayProps> = (props) => {
   if (!props.visible) return null;
 
-  // Primary Cartographic Raster Overlay Pass
-  return <RasterLayerRenderer {...props} />;
+  // Dynamic dispatch based on data layer category
+  switch (props.category) {
+    case 'vectors':
+      return <VectorBoundaryRenderer {...props} />;
+    case 'point':
+      return <VectorContourRenderer {...props} />;
+    case 'field':
+      return <VectorFieldRenderer {...props} />;
+    case 'topo':
+    case 'ocean':
+    case 'thermal':
+    case 'night':
+    case 'satellite':
+    default:
+      return <RasterLayerRenderer {...props} />;
+  }
 };

@@ -181,7 +181,9 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Mode 4: Fuller Dymaxion Polyhedral Net Unfolding
     else if (sim.u_mode == 4u) {
         let arch = sin(PI * ease) * 0.45;
-        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
+        let posLen = length(pos3D);
+        let safeLen = max(posLen, 0.0001);
+        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), pos3D / safeLen, posLen > 0.001);
         let dymaxionTarget = vec3<f32>(pStatic.rest_map.zw, 0.0);
         finalPos = mix(pos3D, dymaxionTarget, ease) + sphereNorm * arch;
         finalVel = vec3<f32>(0.0);

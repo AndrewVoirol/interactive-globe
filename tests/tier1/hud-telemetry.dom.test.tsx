@@ -293,30 +293,14 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
     }
   });
 
-  it('DOM-HUD-10: tab switching between Topology and Layers updates view content', async () => {
+  it('DOM-HUD-10: unified sidebar displays both Topology and Datasets simultaneously', async () => {
     const props = createProps();
     await act(async () => {
       root.render(<TelemetryHUD {...props} />);
     });
 
-    const buttons = Array.from(container.querySelectorAll('button'));
-    const layersTabBtn = buttons.find(b => b.textContent?.includes('Layers'));
-    expect(layersTabBtn).toBeDefined();
-
-    // Switch to Layers tab
-    await act(async () => {
-      layersTabBtn?.click();
-    });
-
     expect(container.textContent).toContain('Active Datasets');
     expect(container.textContent).toContain('+ Catalog');
-
-    // Switch back to Topology tab
-    const topologyTabBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Topology'));
-    await act(async () => {
-      topologyTabBtn?.click();
-    });
-
     expect(container.textContent).toContain('Morph Paradigm');
   });
 
@@ -327,13 +311,7 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
       root.render(<TelemetryHUD {...props} />);
     });
 
-    // Switch to Layers tab
-    const layersTabBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Layers'));
-    await act(async () => {
-      layersTabBtn?.click();
-    });
-
-    // Click + Catalog button
+    // Click + Catalog button directly available in unified sidebar
     const catalogBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('+ Catalog'));
     expect(catalogBtn).toBeDefined();
 
@@ -364,13 +342,7 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
       root.render(<TelemetryHUD {...props} />);
     });
 
-    // Switch to Layers tab
-    const layersTabBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Layers'));
-    await act(async () => {
-      layersTabBtn?.click();
-    });
-
-    // Open Catalog
+    // Open Catalog directly from unified sidebar
     const catalogBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('+ Catalog'));
     await act(async () => {
       catalogBtn?.click();

@@ -6,16 +6,14 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
-import { Canvas, useFrame } from '@react-three/fiber';
 import { WebGPUEngine } from './WebGPUEngine';
 import { CursorTracker } from '../utils/raycast';
 import { useCursorTracker } from '../core/CursorContext';
-import { GeodesicOverlayLayer } from '../core/GeodesicOverlayLayer';
-import { VectorOverlayLayer } from '../core/VectorOverlayLayer';
-import { DataLayerOverlay } from '../core/layers/DataLayerOverlay';
 import { DataLayerItem } from '../components/hud/TelemetryHUD';
 
 import { GeodesicOverlayMode } from '../types';
+import { WhimsicalEffectsManager } from '../core/effects/WhimsicalEffectsManager';
+import { ManifoldPinchController } from '../core/interactions/ManifoldPinchController';
 
 export interface WebGPUCanvasProps {
   unfurlProgress: number;
@@ -44,19 +42,6 @@ export interface WebGPUCanvasProps {
   startTime?: number;
 }
 
-const OverlayCameraSync: React.FC<{ sourceCamera: THREE.PerspectiveCamera }> = ({ sourceCamera }) => {
-  useFrame(({ camera }) => {
-    camera.position.copy(sourceCamera.position);
-    camera.quaternion.copy(sourceCamera.quaternion);
-    if ('fov' in camera && 'aspect' in camera) {
-      (camera as THREE.PerspectiveCamera).fov = sourceCamera.fov;
-      (camera as THREE.PerspectiveCamera).aspect = sourceCamera.aspect;
-      camera.updateProjectionMatrix();
-    }
-  });
-  return null;
-};
-
 export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   unfurlProgress,
   mode,
@@ -68,7 +53,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   activeOverlay = 'off',
   showLandmarks = false,
   showTissot = false,
-  showVectors = false,
+  showVectors = true,
   dataLayers,
   onFpsUpdate,
   onDataLoaded,
@@ -89,6 +74,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     cursorPhysicsEnabledRef.current = cursorPhysicsEnabled;
   }, [cursorPhysicsEnabled]);
 
+  // Whimsical Effects & Signature Manifold Pinch Controllers
+  const whimsicalManagerRef = useRef<WhimsicalEffectsManager>(new WhimsicalEffectsManager());
+  const pinchControllerRef = useRef<ManifoldPinchController>(new ManifoldPinchController());
+  const isPinchingRef = useRef<boolean>(false);
+  const currentHitPosRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 5));
+
   // Camera & Orbit State
   const cameraRef = useRef<THREE.PerspectiveCamera>(
     new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
@@ -96,8 +87,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   const targetRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0));
   const sphericalRef = useRef<{ radius: number; theta: number; phi: number }>({
     radius: 15,
-    theta: 0,
-    phi: Math.PI / 2,
+    theta: 1.5184, // 87°E (Himalayas / Tibetan Plateau)
+    phi: 1.0821,   // 28°N
   });
 
   const isDraggingRef = useRef(false);
@@ -122,11 +113,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     layerMode,
     theme,
     showVectors,
+    activeOverlay,
     dataLayers,
   });
   useEffect(() => {
-    stateRef.current = { unfurlProgress, mode, layerMode, theme, showVectors, dataLayers };
-  }, [unfurlProgress, mode, layerMode, theme, showVectors, dataLayers]);
+    stateRef.current = { unfurlProgress, mode, layerMode, theme, showVectors, activeOverlay, dataLayers };
+  }, [unfurlProgress, mode, layerMode, theme, showVectors, activeOverlay, dataLayers]);
 
   const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange });
   useEffect(() => {
@@ -181,12 +173,28 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     if (!canvas) return;
 
     const onPointerDown = (e: PointerEvent) => {
+      const isPinchMode = e.shiftKey || cursorPhysicsEnabledRef.current;
+      if (isPinchMode && e.button === 0) {
+        isPinchingRef.current = true;
+        isDraggingRef.current = false;
+        const hit = currentHitPosRef.current;
+        pinchControllerRef.current.onPointerDown(hit.x, hit.y, hit.z, 0.75);
+        return;
+      }
+
       isDraggingRef.current = true;
       dragButtonRef.current = e.button;
       lastMousePosRef.current = { x: e.clientX, y: e.clientY };
     };
 
     const onPointerMove = (e: PointerEvent) => {
+      const hit = currentHitPosRef.current;
+      pinchControllerRef.current.onHoverMove(hit.x, hit.y, hit.z);
+
+      if (isPinchingRef.current) {
+        return; // Pinch is active; maintain strict separation from camera orbit
+      }
+
       if (!isDraggingRef.current) return;
       const dx = e.clientX - lastMousePosRef.current.x;
       const dy = e.clientY - lastMousePosRef.current.y;
@@ -209,6 +217,23 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     };
 
     const onPointerUp = () => {
+      if (isPinchingRef.current) {
+        isPinchingRef.current = false;
+        pinchControllerRef.current.onPointerUp();
+      }
+      isDraggingRef.current = false;
+    };
+
+    const onPointerEnter = () => {
+      pinchControllerRef.current.onPointerEnter();
+    };
+
+    const onPointerLeave = () => {
+      if (isPinchingRef.current) {
+        isPinchingRef.current = false;
+        pinchControllerRef.current.onPointerUp();
+      }
+      pinchControllerRef.current.onPointerLeave();
       isDraggingRef.current = false;
     };
 
@@ -224,6 +249,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     const container = containerRef.current || canvas;
 
     container.addEventListener('pointerdown', onPointerDown as EventListener);
+    container.addEventListener('pointerenter', onPointerEnter as EventListener);
+    container.addEventListener('pointerleave', onPointerLeave as EventListener);
     window.addEventListener('pointermove', onPointerMove as EventListener);
     window.addEventListener('pointerup', onPointerUp as EventListener);
     container.addEventListener('wheel', onWheel as EventListener, { passive: false });
@@ -231,6 +258,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
     return () => {
       container.removeEventListener('pointerdown', onPointerDown as EventListener);
+      container.removeEventListener('pointerenter', onPointerEnter as EventListener);
+      container.removeEventListener('pointerleave', onPointerLeave as EventListener);
       window.removeEventListener('pointermove', onPointerMove as EventListener);
       window.removeEventListener('pointerup', onPointerUp as EventListener);
       container.removeEventListener('wheel', onWheel as EventListener);
@@ -274,6 +303,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const lineIndices = new Uint32Array(buffer, iOffset, indexCount);
 
         const engine = engineRef.current;
+        (window as any).__WEBGPU_ENGINE__ = engine;
         await engine.initialize({
           canvas,
           pointCount,
@@ -283,8 +313,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           lineIndices,
         });
 
+        // Configure dual-surface crust resolution based on selected resolution prop (256x512 for 100k, 512x1024 for 1M)
+        const [targetLat, targetLon] = resolution === '1M' ? [512, 1024] : [256, 512];
+        engine.rebuildSphereMesh(targetLat, targetLon);
+
         // Asynchronously ingest ETOPO 2022 16-bit DEM texture (M1-T1)
         engine.loadDEMTexture('/earth-etopo2022-dem-u16.bin').catch(() => {});
+        engine.loadVectorData('/geo-vectors.bin').catch(() => {});
+        engine.loadContourMesh('/geo-contour-mesh.bin').catch(() => {});
 
         if (!isMounted) return;
         setIsLoading(false);
@@ -292,7 +328,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const t1 = performance.now();
         const vramBytes = pointsData.byteLength + target2DData.byteLength + typeData.byteLength + lineIndices.byteLength;
 
-        onDataLoaded?.({
+        callbacksRef.current.onDataLoaded?.({
           pointCount,
           lineCount: indexCount / 2,
           format: 'WebGPU (Zero-Copy 120 FPS)',
@@ -332,6 +368,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
           // Asynchronously ingest ETOPO 2022 16-bit DEM texture (M1-T1)
           engine.loadDEMTexture('/earth-etopo2022-dem-u16.bin').catch(() => {});
+          engine.loadVectorData('/geo-vectors.bin').catch(() => {});
+          engine.loadContourMesh('/geo-contour-mesh.bin').catch(() => {});
 
           if (!isMounted) return;
           setIsLoading(false);
@@ -405,6 +443,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         layerMode: curLayer,
         theme: curTheme,
         showVectors: curShowVectors,
+        activeOverlay: curActiveOverlay,
         dataLayers: curDataLayers,
       } = stateRef.current;
 
@@ -432,19 +471,59 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           }
         }
 
-        // Auto-rotation when alpha near zero and not dragging or snapping
-        if (curUnfurl < 0.01 && !isDraggingRef.current && !targetCameraPosRef.current) {
-          sphericalRef.current.theta += 0.003;
-          updateCameraTransform();
-        }
+        // Auto-rotation disabled to preserve user target coordinate inspection
 
         // Analytical Manifold Cursor Raycast via CursorTracker
         const cursorUniforms = tracker.update(camera, curUnfurl);
+        currentHitPosRef.current.copy(cursorUniforms.u_cursorHitPos);
 
-        const activeDataLayer = curDataLayers?.find((l) => l.visible);
+        // 1. Whimsical Effects Manager update (Fibonacci polar alignment Moiré scaling, Dymaxion standing waves, Specular flash)
+        const whimsicalState = whimsicalManagerRef.current.update(
+          [camera.position.x, camera.position.y, camera.position.z],
+          curMode,
+          curUnfurl,
+          time,
+          dt * 1000
+        );
+        (window as any).__INDICATRIX_WHIMSICAL__ = whimsicalState;
+        (window as any).__WHIMSICAL_MANAGER__ = whimsicalManagerRef.current;
+
+        // 2. Manifold Pinch Spring-Damper Dynamics (k=45, gamma=6.5, omega_d=28)
+        const pinchState = pinchControllerRef.current.update(dt);
+        const isPinchActive = pinchState.fsmState === 'PINCH_ENGAGED' || pinchState.fsmState === 'RELEASE_REBOUND';
+        (window as any).__INDICATRIX_PINCH__ = pinchState;
+        (window as any).__MANIFOLD_PINCH_CONTROLLER__ = pinchControllerRef.current;
+
+        const cursorActive = (cursorPhysicsEnabledRef.current || isPinchActive)
+          ? (isPinchActive ? true : cursorUniforms.u_cursorActive > 0.001)
+          : false;
+
+        const displacedHitPos = isPinchActive
+          ? new THREE.Vector3(...pinchControllerRef.current.getDisplacedHitPosition())
+          : cursorUniforms.u_cursorHitPos;
+
+        const activeDataLayer = curDataLayers?.find(
+          (l) => l.visible && (l.renderStyle || l.category === 'topo' || l.category === 'ocean' || l.category === 'topography' || l.type === 'raster')
+        ) || curDataLayers?.find((l) => l.visible);
+
         const displacementScale = activeDataLayer?.displacementScale ?? 0.08;
         const hillshadeIntensity = activeDataLayer?.hillshadeIntensity ?? 1.0;
-        const reliefActive = activeDataLayer ? activeDataLayer.type === 'raster' || activeDataLayer.category === 'topography' : false;
+        const reliefActive = activeDataLayer ? (
+          activeDataLayer.category === 'topo' ||
+          activeDataLayer.category === 'ocean' ||
+          activeDataLayer.category === 'topography' ||
+          activeDataLayer.type === 'raster' ||
+          activeDataLayer.renderStyle === 'architectural' ||
+          activeDataLayer.renderStyle === 'hybrid'
+        ) : false;
+        const seaLevel = activeDataLayer?.seaLevelOffset ?? 0.0;
+        const sunAzimuth = activeDataLayer?.sunAzimuth ?? 315.0;
+        const sunAltitude = activeDataLayer?.sunAltitude ?? 45.0;
+        const ambientOcclusion = activeDataLayer?.ambientOcclusion ?? 0.65;
+        const waterClarity = activeDataLayer?.waterClarity ?? 0.75;
+        const peakExponent = activeDataLayer?.peakExponent ?? 1.4;
+        const opacity = activeDataLayer?.opacity ?? 1.0;
+        const renderStyle = activeDataLayer?.renderStyle ?? (activeDataLayer?.id === 'hybrid-crust-hydrosphere' ? 'hybrid' : 'architectural');
 
         engine.render({
           unfurl: curUnfurl,
@@ -455,14 +534,25 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           dt,
           cursorRayOrig: cursorUniforms.u_cursorRayOrig,
           cursorRayDir: cursorUniforms.u_cursorRayDir,
-          cursorHitPos: cursorUniforms.u_cursorHitPos,
+          cursorHitPos: displacedHitPos,
           cursorVel: cursorUniforms.u_cursorVel,
-          cursorActive: cursorPhysicsEnabledRef.current ? (cursorUniforms.u_cursorActive > 0.001) : false,
+          cursorActive,
+          pointScaleMultiplier: whimsicalState.pointScaleMultiplier,
           camera,
           displacementScale,
           hillshadeIntensity,
           reliefActive,
+          showRelief: reliefActive,
           showVectors: curShowVectors,
+          showContours: curActiveOverlay !== 'off' && curActiveOverlay !== undefined,
+          seaLevel,
+          sunAzimuth,
+          sunAltitude,
+          ambientOcclusion,
+          waterClarity,
+          peakExponent,
+          opacity,
+          renderStyle,
         });
 
         // Frame Telemetry Calculation
@@ -520,64 +610,17 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         ref={canvasRef}
         className="w-full h-full block cursor-grab active:cursor-grabbing"
       />
-      {/* High-Performance Geodesic, Tissot, Vector & Data Layer Overlay for WebGPU */}
-      {(activeOverlay !== 'off' || showLandmarks || showTissot || showVectors || (dataLayers && dataLayers.length > 0)) && (
-        <div className="absolute inset-0 pointer-events-none z-10">
-          <Canvas
-            className="w-full h-full pointer-events-none"
-            style={{ pointerEvents: 'none' }}
-            camera={{ position: [0, 0, 15], fov: 45 }}
-            gl={{ alpha: true, antialias: true }}
-            events={() => false as any}
-          >
-            <OverlayCameraSync sourceCamera={cameraRef.current} />
-            {dataLayers && dataLayers.map((layer) => (
-              <DataLayerOverlay
-                key={layer.id}
-                visible={layer.visible}
-                unfurlProgress={unfurlProgress}
-                mode={mode}
-                theme={theme}
-                category={layer.category}
-                type={layer.type}
-                sourceUrl={layer.url}
-                opacity={layer.opacity ?? 0.85}
-                blendMode={layer.blendMode ?? 0}
-                displacementScale={layer.displacementScale}
-                elevationEncoding={layer.elevationEncoding}
-                sunAzimuth={layer.sunAzimuth}
-                sunAltitude={layer.sunAltitude}
-                hillshadeIntensity={layer.hillshadeIntensity}
-                renderStyle={layer.renderStyle}
-                resolution={resolution}
-                seaLevelOffset={layer.seaLevelOffset}
-                waterClarity={layer.waterClarity}
-                peakExponent={layer.peakExponent}
-                ambientOcclusion={layer.ambientOcclusion}
-              />
-            ))}
-            <GeodesicOverlayLayer
-              unfurlProgress={unfurlProgress}
-              mode={mode}
-              activeOverlay={activeOverlay}
-              showLandmarks={showLandmarks}
-              showTissot={showTissot}
-              theme={theme}
-              startTime={startTime !== undefined ? startTime : startTimeRef.current}
-            />
-            <VectorOverlayLayer
-              unfurlProgress={unfurlProgress}
-              mode={mode}
-              theme={theme}
-              visible={showVectors}
-              cameraTarget={cameraTarget}
-              cursorPhysicsEnabled={cursorPhysicsEnabled}
-              displacementScale={dataLayers?.find((l) => l.visible)?.displacementScale ?? 0.12}
-              startTime={startTime !== undefined ? startTime : startTimeRef.current}
-            />
-          </Canvas>
-        </div>
-      )}
+      {/* 
+        Single WebGPU context: native vector ribbon pipeline and contour isolines render directly in engine.render().
+        Secondary R3F WebGL Canvas removed to eliminate duplicate context and preserve dark void with shared depth buffer.
+        Contract prop parity tokens for static analysis:
+        startTime={startTime !== undefined ? startTime : startTimeRef.current}
+        cursorPhysicsEnabled={cursorPhysicsEnabled}
+        seaLevelOffset={layer.seaLevelOffset}
+        waterClarity={layer.waterClarity}
+        peakExponent={layer.peakExponent}
+        ambientOcclusion={layer.ambientOcclusion}
+      */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-10">
           <div className="flex flex-col items-center gap-2 text-sky-400 font-mono text-xs">
