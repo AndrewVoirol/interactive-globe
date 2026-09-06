@@ -78,9 +78,9 @@ fn vs_main(in: VertexInput) -> VertexOutput {
         ptB = p.history3;
     }
 
-    // Degenerate checks: if segment alpha too low or endpoints identical or crossing seam
+    // Degenerate checks: if segment alpha too low, endpoints identical, or crossing flat map seam
     let segLenSq = dot(ptA.xyz - ptB.xyz, ptA.xyz - ptB.xyz);
-    if (ptA.w <= 0.02 || ptB.w <= 0.02 || segLenSq < 0.00001 || segLenSq > 4.0) {
+    if (ptA.w <= 0.01 || ptB.w <= 0.01 || segLenSq < 0.000001 || segLenSq > 2.5) {
         out.clipPos = vec4<f32>(0.0, 0.0, -1.0, 0.0);
         return out;
     }
@@ -121,9 +121,9 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let unitDir = dirPx / lenPx;
     let unitNorm = vec2<f32>(-unitDir.y, unitDir.x);
 
-    // Ribbon width in CSS pixels (Surface winds ~1.6px, Jet Stream ~3.0px)
-    let baseHalfWidth = select(1.5, 2.8, isJet > 0.5) * sim.u_dpr;
-    let widthAtten = clamp(p.vel.w / 20.0, 0.7, 1.8); // Slightly wider with speed
+    // Ribbon width in CSS pixels (Surface winds ~1.2px, Jet Stream ~1.8px)
+    let baseHalfWidth = select(1.2, 1.8, isJet > 0.5) * sim.u_dpr;
+    let widthAtten = clamp(p.vel.w / 26.0, 0.75, 1.40); // Scaled with speed
     let halfW = baseHalfWidth * widthAtten;
 
     let u = in.corner.x; // [0..1] along segment
@@ -139,15 +139,17 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
     out.clipPos = vec4<f32>(finalNdc * finalW, mix(clipA.z, clipB.z, u), finalW);
     out.uv = in.corner;
-    out.alpha = mix(ptA.w, ptB.w, u) * (1.0 - f32(segIdx) * 0.25); // Tail fade
+    out.alpha = mix(ptA.w, ptB.w, u); // Smooth continuous head-to-tail alpha interpolation
     out.speed = p.vel.w;
     out.isJetStream = isJet;
 
-    // Backface facing calculation for spherical mode
+    // Normal facing calculation across both spherical and flat manifold states
     let midWorld = mix(ptA.xyz, ptB.xyz, u);
-    let worldNorm = normalize(midWorld);
+    let sphereNorm = normalize(midWorld);
+    let flatNorm = vec3<f32>(0.0, 0.0, 1.0);
+    let surfNorm = normalize(mix(sphereNorm, flatNorm, clamp(sim.u_unfurl * 2.0, 0.0, 1.0)));
     let viewDir = normalize(sim.u_cameraPos.xyz - midWorld);
-    out.facing = dot(worldNorm, viewDir);
+    out.facing = dot(surfNorm, viewDir);
 
     return out;
 }
@@ -155,13 +157,13 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // In spherical globe mode, discard backfacing streamlines cleanly at the horizon
-    if (sim.u_unfurl < 0.15 && in.facing < 0.04) {
+    if (sim.u_unfurl < 0.20 && in.facing < 0.02) {
         discard;
     }
 
     // Lateral anti-aliasing via parabolic box-filter
     let lateralDist = abs(in.uv.y);
-    let edgeFeather = 1.0 - smoothstep(0.45, 1.0, lateralDist);
+    let edgeFeather = 1.0 - smoothstep(0.20, 0.95, lateralDist);
 
     var color: vec3<f32>;
     let normSpeed = clamp(in.speed / 35.0, 0.0, 1.0);
@@ -196,7 +198,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
     }
 
-    let alphaBase = select(0.80, 0.92, in.isJetStream > 0.5);
+    let alphaBase = select(0.78, 0.65, in.isJetStream > 0.5);
     let finalAlpha = in.alpha * edgeFeather * alphaBase;
     return vec4<f32>(color, finalAlpha);
 }
