@@ -293,6 +293,40 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
       unit: 'SGP4 Orbital Ribbons',
     },
   },
+  {
+    id: 'noaa-gfs-jetstream',
+    name: 'NOAA GFS 250 hPa Jet Stream',
+    category: 'field',
+    type: 'field',
+    details: 'Upper-troposphere high-altitude jet stream core (250 hPa, ~10,500m)',
+    url: '/data/gfs-jetstream-latest.bin',
+    defaultOpacity: 0.95,
+    defaultBlendMode: 1,
+    attribution: 'NOAA NCEP GFS (250 hPa)',
+    legend: {
+      colorStops: ['#818cf8', '#c084fc', '#f43f5e', '#fbbf24'],
+      minLabel: '15 m/s Stream',
+      maxLabel: '65 m/s Jet Core',
+      unit: '250 hPa Isotachs',
+    },
+  },
+  {
+    id: 'origami-crane-companion',
+    name: 'Autonomous Origami Soaring Crane',
+    category: 'vectors',
+    type: 'companion',
+    details: 'Low-poly folded paper crane hunting ridge lift over 3D mountain relief and thermals',
+    url: '',
+    defaultOpacity: 1.0,
+    defaultBlendMode: 0,
+    attribution: 'Indicatrix Autonomous Flight Dynamics',
+    legend: {
+      colorStops: ['#f8fafc', '#e2e8f0', '#94a3b8', '#38bdf8'],
+      minLabel: 'Glide 10:1',
+      maxLabel: 'Ridge Lift +5 m/s',
+      unit: 'Variometer Telemetry',
+    },
+  },
 ];
 
 export function getPresetById(id: string): DataLayerPreset | undefined {

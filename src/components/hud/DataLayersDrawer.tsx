@@ -3,7 +3,7 @@
 // Modular Floating Widget C: Bottom-Right Sliding Data Layers Drawer & Sheet
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DATA_LAYER_CATALOG, DataLayerPreset, BlendModeType, getPresetById } from '../../core/data/DataLayerCatalog';
 
 export interface DataLayerItem {
@@ -73,7 +73,42 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
   const starlinkLayer = dataLayers.find((l) => l.id === 'starlink-iss-orbits');
   const isStarlinkActive = starlinkLayer ? starlinkLayer.visible : false;
 
-  const handleTogglePlanetaryLayer = (id: 'noaa-gfs-wind' | 'starlink-iss-orbits') => {
+  const jetstreamLayer = dataLayers.find((l) => l.id === 'noaa-gfs-jetstream');
+  const isJetstreamActive = jetstreamLayer ? jetstreamLayer.visible : false;
+
+  const craneLayer = dataLayers.find((l) => l.id === 'origami-crane-companion');
+  const isCraneActive = craneLayer ? craneLayer.visible : false;
+
+  const [craneTelemetry, setCraneTelemetry] = useState<{
+    alt: number;
+    speed: number;
+    variometer: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isCraneActive) {
+      setCraneTelemetry(null);
+      return;
+    }
+    const interval = setInterval(() => {
+      const engine = (window as any).__WEBGPU_ENGINE__;
+      if (engine && typeof engine.getCraneState === 'function') {
+        const s = engine.getCraneState();
+        if (s) {
+          setCraneTelemetry({
+            alt: Math.round(s.altitude),
+            speed: Math.round(s.airspeed * 3.6),
+            variometer: Number(s.variometer.toFixed(1)),
+          });
+        }
+      }
+    }, 250);
+    return () => clearInterval(interval);
+  }, [isCraneActive]);
+
+  const handleTogglePlanetaryLayer = (
+    id: 'noaa-gfs-wind' | 'starlink-iss-orbits' | 'noaa-gfs-jetstream' | 'origami-crane-companion'
+  ) => {
     const existing = dataLayers.find((l) => l.id === id);
     if (existing) {
       onToggleDataLayer?.(id);
@@ -123,19 +158,23 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                   ? 'border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100'
                   : 'border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25'
               }`}
+              title="Add New Layer from Catalog"
             >
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
               </svg>
               <span>+ Catalog</span>
             </button>
+
             <button
               onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-              className={`text-[10px] px-2 py-1 rounded-lg border transition-all ${
-                isLight ? 'border-zinc-300 text-zinc-600' : 'border-white/10 text-zinc-400 hover:text-white'
+              className={`p-1.5 rounded-lg border transition-colors ${
+                isLight ? 'bg-zinc-100 border-zinc-300 hover:bg-zinc-200 text-zinc-700' : 'bg-white/5 border-white/10 hover:bg-white/10 text-zinc-300'
               }`}
             >
-              {isDrawerOpen ? 'Collapse' : 'Expand'}
+              <svg className={`w-3.5 h-3.5 transform transition-transform ${isDrawerOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+              </svg>
             </button>
           </div>
         </div>
@@ -190,6 +229,66 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                 </span>
               </div>
               <span className="text-[8px] text-zinc-400 truncate">CelesTrak (110 Sats)</span>
+            </button>
+
+            {/* NOAA GFS 250 hPa Jet Stream Toggle */}
+            <button
+              onClick={() => handleTogglePlanetaryLayer('noaa-gfs-jetstream')}
+              className={`p-2 rounded-xl border transition-all text-left flex flex-col justify-between gap-1 ${
+                isJetstreamActive
+                  ? 'border-indigo-500/60 bg-indigo-500/20 text-indigo-200 shadow-[0_0_10px_rgba(99,102,241,0.25)]'
+                  : isLight
+                  ? 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100'
+                  : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="font-bold text-[10px] truncate">Jet Stream</span>
+                <span className="flex items-center gap-1 text-[7px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                  250 hPa
+                </span>
+              </div>
+              <span className="text-[8px] text-zinc-400 truncate">High-Altitude Core</span>
+            </button>
+
+            {/* Origami Paper Crane Companion Toggle */}
+            <button
+              onClick={() => handleTogglePlanetaryLayer('origami-crane-companion')}
+              className={`p-2 rounded-xl border transition-all text-left flex flex-col justify-between gap-1 ${
+                isCraneActive
+                  ? 'border-amber-500/60 bg-amber-500/20 text-amber-200 shadow-[0_0_10px_rgba(245,158,11,0.25)]'
+                  : isLight
+                  ? 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100'
+                  : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="font-bold text-[10px] truncate">Origami Crane</span>
+                <span className="flex items-center gap-1 text-[7px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  {isCraneActive && craneTelemetry
+                    ? `${craneTelemetry.variometer >= 0 ? '+' : ''}${craneTelemetry.variometer} m/s`
+                    : 'Soaring'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between w-full text-[8px] text-zinc-400">
+                <span className="truncate">
+                  {isCraneActive && craneTelemetry
+                    ? `${craneTelemetry.alt.toLocaleString()}m • ${craneTelemetry.speed} km/h`
+                    : 'Ridge Lift Wave'}
+                </span>
+                {isCraneActive && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      (window as any).__FOCUS_CRANE__?.();
+                    }}
+                    className="text-[7.5px] px-1 py-0.2 rounded bg-amber-400/20 hover:bg-amber-400/40 text-amber-200 border border-amber-400/40 font-bold tracking-wider"
+                    title="Focus Camera on Crane"
+                  >
+                    FOCUS
+                  </span>
+                )}
+              </div>
             </button>
           </div>
         </div>

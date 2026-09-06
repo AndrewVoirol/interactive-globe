@@ -30,6 +30,8 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
   private physicsVectors: Float32Array | null = null;
   private rawGridBuffer: ArrayBuffer | null = null;
   private u16Grid: Uint16Array | null = null;
+  private jetGridBuffer: ArrayBuffer | null = null;
+  private jetU16Grid: Uint16Array | null = null;
 
   public readonly lonPoints = 360;
   public readonly latPoints = 181;
@@ -79,6 +81,43 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
   }
 
   /**
+   * Loads the 250 hPa Jet Stream velocity grid.
+   */
+  public async loadJetStreamGrid(urlOrBuffer?: string | ArrayBuffer): Promise<void> {
+    if (urlOrBuffer instanceof ArrayBuffer) {
+      this.jetGridBuffer = urlOrBuffer;
+      this.jetU16Grid = new Uint16Array(this.jetGridBuffer);
+      return;
+    }
+
+    const defaultUrl = typeof urlOrBuffer === 'string' ? urlOrBuffer : '/data/gfs-jetstream-latest.bin';
+
+    if (typeof fetch !== 'undefined') {
+      try {
+        const response = await fetch(defaultUrl);
+        if (response.ok) {
+          this.jetGridBuffer = await response.arrayBuffer();
+          this.jetU16Grid = new Uint16Array(this.jetGridBuffer);
+          return;
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    if (typeof process !== 'undefined' && process.versions?.node) {
+      const buf = await loadNodeAssetBuffer(defaultUrl);
+      if (buf) {
+        this.jetGridBuffer = buf;
+        this.jetU16Grid = new Uint16Array(this.jetGridBuffer);
+        return;
+      }
+    }
+
+    this.initJetStreamFallback();
+  }
+
+  /**
    * Initializes high-fidelity physical circulation model if binary file is unavailable.
    */
   private initProceduralFallback(): void {
@@ -113,13 +152,62 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
   }
 
   /**
-   * Sample bilinear wind velocity [u, v] (in m/s) at geographic coordinates (lonDeg, latDeg).
+   * Initializes 250 hPa Jet Stream procedural model if binary file is unavailable.
    */
-  public sampleVelocity(lonDeg: number, latDeg: number): [number, number] {
-    if (!this.u16Grid) {
-      this.initProceduralFallback();
+  private initJetStreamFallback(): void {
+    const totalElements = this.lonPoints * this.latPoints * 2;
+    this.jetGridBuffer = new ArrayBuffer(totalElements * 2);
+    this.jetU16Grid = new Uint16Array(this.jetGridBuffer);
+
+    for (let latIdx = 0; latIdx < this.latPoints; latIdx++) {
+      const latDeg = 90 - latIdx;
+      const absLat = Math.abs(latDeg);
+      for (let lonIdx = 0; lonIdx < this.lonPoints; lonIdx++) {
+        const idx = (latIdx * this.lonPoints + lonIdx) * 2;
+        const lonRad = (lonIdx * Math.PI) / 180.0;
+        let uMps = 0;
+        let vMps = 0;
+
+        if (absLat >= 35 && absLat <= 70) {
+          const core = Math.cos(((absLat - 52) / 18) * (Math.PI * 0.5));
+          uMps = 42.0 * Math.max(0, core) + 8.0 * Math.sin(lonRad * 3.0);
+          vMps = 12.0 * Math.cos(lonRad * 3.0) * core;
+        } else if (absLat >= 20 && absLat < 35) {
+          const core = Math.cos(((absLat - 28) / 8) * (Math.PI * 0.5));
+          uMps = 32.0 * Math.max(0, core);
+          vMps = 4.0 * Math.sin(lonRad * 4.0);
+        } else {
+          uMps = -10.0 * Math.cos((absLat / 20) * (Math.PI * 0.5));
+          vMps = 1.0;
+        }
+
+        this.jetU16Grid[idx] = encodeFloat16(uMps);
+        this.jetU16Grid[idx + 1] = encodeFloat16(vMps);
+      }
     }
-    const grid = this.u16Grid!;
+  }
+
+  /**
+   * Sample bilinear wind velocity [u, v] (in m/s) at geographic coordinates (lonDeg, latDeg).
+   * Supports 'surface' and 'jetstream' strata.
+   */
+  public sampleVelocity(
+    lonDeg: number,
+    latDeg: number,
+    stratum: 'surface' | 'jetstream' = 'surface'
+  ): [number, number] {
+    let grid: Uint16Array;
+    if (stratum === 'jetstream') {
+      if (!this.jetU16Grid) {
+        this.initJetStreamFallback();
+      }
+      grid = this.jetU16Grid!;
+    } else {
+      if (!this.u16Grid) {
+        this.initProceduralFallback();
+      }
+      grid = this.u16Grid!;
+    }
 
     // Normalized coordinates
     const lonWrapped = ((lonDeg % 360) + 360) % 360;
@@ -162,6 +250,21 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
     const v = topV * (1.0 - fy) + botV * fy;
 
     return [u, v];
+  }
+
+  /**
+   * Computes terrain-induced orographic slope vertical velocity (w = u * dz/dx + v * dz/dy).
+   * Updraft occurs when wind impinges upward on a positive slope.
+   */
+  public computeOrographicLift(
+    lonDeg: number,
+    latDeg: number,
+    slopeGradientEast: number,
+    slopeGradientNorth: number
+  ): number {
+    const [u, v] = this.sampleVelocity(lonDeg, latDeg, 'surface');
+    // Vertical velocity in m/s produced by wind deflected by topographic slope
+    return u * slopeGradientEast + v * slopeGradientNorth;
   }
 
   public async fetch(bounds: BoundingBox3D, zoom: number): Promise<SpatialDataChunk<VectorFieldMetadata>> {
