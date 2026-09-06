@@ -31,6 +31,8 @@ struct VertexOutput {
     @location(0) vPointType: f32,
     @location(1) vFacing: f32,
     @location(2) vElevation: f32,
+    @location(3) worldPos: vec3<f32>,
+    @location(4) spherePos: vec3<f32>,
 };
 
 @vertex
@@ -49,6 +51,8 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     out.vFacing = dot(dynamicNormal, viewDir);
     out.vPointType = pointType;
     out.vElevation = pointType * 19772.0 - 10924.0; // Map [0, 1] to [-10924m .. +8848m]
+    out.worldPos = pos;
+    out.spherePos = in.velocity.xyz;
 
     return out;
 }
@@ -57,6 +61,14 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if (sim.u_layerMode == 1u) {
         discard;
+    }
+    // Dymaxion cross-facet wireframe stretch discard
+    if (sim.u_mode == 4u && sim.u_unfurl > 0.02) {
+        let dWorld = length(dpdx(in.worldPos)) + length(dpdy(in.worldPos));
+        let dSphere = length(dpdx(in.spherePos)) + length(dpdy(in.spherePos)) + 1e-7;
+        if (dWorld / dSphere > 8.0 * (1.0 + sim.u_unfurl)) {
+            discard;
+        }
     }
     let densityFactor = sqrt(100000.0 / max(f32(sim.u_numParticles), 1.0));
     let backfaceDimming = mix(0.18, 1.0, smoothstep(-0.4, 0.2, in.vFacing));

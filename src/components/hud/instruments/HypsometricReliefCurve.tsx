@@ -131,25 +131,33 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
         </svg>
 
         {/* Labels */}
-        <div className="absolute top-1 left-1.5 text-[7px] font-mono text-emerald-400/80 pointer-events-none">
+        <div className={`absolute top-1 left-1.5 text-[7px] font-mono pointer-events-none ${
+          isLight ? 'text-emerald-800 font-bold' : 'text-emerald-400/80'
+        }`}>
           PEAK AMPLITUDE (0.25x)
         </div>
-        <div className="absolute bottom-1 left-1.5 text-[7px] font-mono text-zinc-500 pointer-events-none">
+        <div className={`absolute bottom-1 left-1.5 text-[7px] font-mono pointer-events-none ${
+          isLight ? 'text-zinc-600 font-semibold' : 'text-zinc-500'
+        }`}>
           SEA LEVEL BASELINE (0m)
         </div>
-        <div className="absolute bottom-1 right-1.5 text-[7px] font-mono text-teal-400/80 pointer-events-none">
+        <div className={`absolute bottom-1 right-1.5 text-[7px] font-mono pointer-events-none ${
+          isLight ? 'text-teal-800 font-bold' : 'text-teal-400/80'
+        }`}>
           ARÊTE SHARPNESS ◄►
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-[7px] text-zinc-500 font-mono mt-1 px-1">
+      <div className={`flex items-center justify-between text-[7px] font-mono mt-1 px-1 ${
+        isLight ? 'text-zinc-600' : 'text-zinc-500'
+      }`}>
         <span>DRAG SUMMIT VERTICALLY / HORIZONTALLY</span>
         <button
           onClick={() => {
             onDisplacementChange(0.14);
             onPeakExponentChange(1.4);
           }}
-          className="text-emerald-500 hover:text-emerald-400 font-bold"
+          className={isLight ? 'text-emerald-700 hover:text-emerald-800 font-bold' : 'text-emerald-500 hover:text-emerald-400 font-bold'}
         >
           [DEFAULT 0.14x / 1.4x]
         </button>

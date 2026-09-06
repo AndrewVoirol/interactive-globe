@@ -211,7 +211,13 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         )}
       </div>
 
-      <div className="text-[9px] tracking-wide text-zinc-500 pointer-events-none font-mono">
+      <div
+        className={`text-[9px] tracking-wide font-mono px-3 py-1 rounded-full backdrop-blur-md transition-colors z-20 pointer-events-none ${
+          isLight
+            ? 'text-zinc-900 bg-white/95 border border-zinc-300 shadow-md font-semibold'
+            : 'text-zinc-200 bg-black/60 border border-white/15 shadow-md font-medium'
+        }`}
+      >
         Space: Play/Pause • G: Globe • M: Map • D: Style (A/B/C) • V: Vectors • B: Backend • 1-5: Paradigms • T: Theme • H: Zen
       </div>
     </div>

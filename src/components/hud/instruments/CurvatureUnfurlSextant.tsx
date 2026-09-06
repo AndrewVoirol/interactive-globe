@@ -171,18 +171,24 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         </svg>
 
         {/* Milestone Tick Labels */}
-        <div className="absolute top-1 left-2 text-[6px] font-mono font-bold text-purple-400 pointer-events-none">
+        <div className={`absolute top-1 left-2 text-[8px] font-mono font-bold pointer-events-none ${
+          isLight ? 'text-purple-700' : 'text-purple-400'
+        }`}>
           K &gt; 0
         </div>
-        <div className="absolute top-1 right-2 text-[6px] font-mono font-bold text-purple-400 pointer-events-none">
+        <div className={`absolute top-1 right-2 text-[8px] font-mono font-bold pointer-events-none ${
+          isLight ? 'text-purple-700' : 'text-purple-400'
+        }`}>
           K = 0
         </div>
       </div>
 
       {/* Stage Telemetry Tag */}
-      <div className="text-[7px] font-mono tracking-wider uppercase text-zinc-400 mt-0.5 max-w-[240px] truncate text-center">
-        <span className="text-purple-400 font-bold">{currentMilestone.label}</span>
-        <span className="opacity-60"> • {currentMilestone.desc}</span>
+      <div className={`text-[9px] font-mono tracking-wider uppercase mt-0.5 max-w-[340px] text-center ${
+        isLight ? 'text-zinc-700' : 'text-zinc-400'
+      }`}>
+        <span className={isLight ? 'text-purple-700 font-bold' : 'text-purple-400 font-bold'}>{currentMilestone.label}</span>
+        <span className={isLight ? 'text-zinc-600' : 'opacity-70'}> • {currentMilestone.desc}</span>
       </div>
     </div>
   );

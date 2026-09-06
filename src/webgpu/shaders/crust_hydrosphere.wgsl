@@ -49,6 +49,7 @@ struct VertexOutput {
     @location(3) elevation: f32,
     @location(4) waterDepth: f32,
     @location(5) surfaceType: f32,
+    @location(6) dymaxion2D: vec2<f32>,
 };
 
 const PI: f32 = 3.14159265358979323846;
@@ -389,7 +390,7 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
 
     let curR = max(length(pos3D), 0.001);
     let lambda = atan2(pos3D.x, pos3D.z);
-    let phi = asin(clamp(pos3D.y / curR, -1.0, 1.0));
+    let phi = asin(clamp(pos3D.y / curR, -0.9998, 0.9998));
 
     if (sim.u_mode == 1u) {
         // Mode 1: Cylindrical Scroll Unfurling
@@ -501,16 +502,9 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     let elevMeters = decodeElevation(demSample);
     output.elevation = elevMeters;
 
-    // Resolve 2D targets (use attributes or analytical fallback)
-    var t2D = input.target2D.xy;
-    var d2D = input.target2D.zw;
-    if (dot(t2D, t2D) < 1e-4) {
-        let r = max(length(input.position), 0.001);
-        let lambda = atan2(input.position.x, input.position.z);
-        let phi = asin(clamp(input.position.y / r, -0.996, 0.996));
-        t2D = vec2<f32>(lambda * RADIUS, log(tan(PI * 0.25 + phi * 0.5)) * RADIUS);
-        d2D = t2D;
-    }
+    // Resolve 2D targets from vertex buffer attributes
+    let t2D = input.target2D.xy;
+    let d2D = input.target2D.zw;
 
     // Dynamic manifold base position across 5 paradigms
     let deformed = evaluateManifold(input.position, t2D, d2D);
@@ -548,6 +542,8 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     output.worldPos = worldP;
     output.normal = baseNormal;
 
+    output.dymaxion2D = d2D;
+
     let viewPos = sim.u_viewMatrix * vec4<f32>(worldP, 1.0);
     output.clipPos = sim.u_projectionMatrix * viewPos;
 
@@ -556,6 +552,28 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    // Unconditional derivative evaluation for WGSL uniform control flow conformance
+    let du_dx = dpdx(input.uv.x);
+    let du_dy = dpdy(input.uv.x);
+    let dv_dx = dpdx(input.uv.y);
+    let dv_dy = dpdy(input.uv.y);
+    let dym_dx = dpdx(input.dymaxion2D);
+    let dym_dy = dpdy(input.dymaxion2D);
+
+    // Dymaxion cross-facet polygon tearing discard guard via analytical 2D Jacobian
+    if (sim.u_mode == 4u && sim.u_unfurl > 0.02) {
+        let det = du_dx * dv_dy - du_dy * dv_dx;
+        if (abs(det) > 1e-12) {
+            let invDet = 1.0 / det;
+            let d_du = (dym_dx * dv_dy - dym_dy * dv_dx) * invDet;
+            let d_dv = (-dym_dx * du_dy + dym_dy * du_dx) * invDet;
+
+            if (length(d_du) > 35.0 || length(d_dv) > 35.0) {
+                discard;
+            }
+        }
+    }
+
     let V = normalize(sim.u_cameraPos.xyz - input.worldPos);
     let N = normalize(input.normal);
 
@@ -728,6 +746,35 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             let bathyIllum = cSunLight * (sunDirect * 0.80 + ridgeEnhance * 0.8) + cSkyAmbient * (skyIndirect * creviceAO);
             finalCrust = mix(cBathy * bathyIllum, cRockShaded, rockWeight * 0.4);
         }
+    } else if (sim.u_renderStyle == 2u) {
+        // ====================================================================
+        // OPTION C: NASA BLUE MARBLE ORBITAL PHOTOREALISM
+        // True-color orbital photography: deep sapphire oceans, biome-rich vegetated
+        // continents, desert ochres, polar snow, with subtle solar illumination.
+        // ====================================================================
+        let cOrbitalDeep = vec3<f32>(0.02, 0.08, 0.22);
+        let cOrbitalShelf = vec3<f32>(0.05, 0.20, 0.38);
+        let cOrbitalCoast = vec3<f32>(0.10, 0.35, 0.45);
+        let normDepth = clamp(oceanDepth, 0.0, 1.0);
+        let cOcean = mix(cOrbitalCoast, mix(cOrbitalShelf, cOrbitalDeep, smoothstep(0.02, 0.25, normDepth)), smoothstep(0.002, 0.05, normDepth));
+
+        let absLat = abs(input.uv.y - 0.5) * 2.0;
+        let cRainforest = vec3<f32>(0.12, 0.26, 0.10);
+        let cSavanna = vec3<f32>(0.35, 0.38, 0.18);
+        let cDesert = vec3<f32>(0.55, 0.48, 0.32);
+        let cTundra = vec3<f32>(0.32, 0.34, 0.26);
+        let cIce = vec3<f32>(0.92, 0.95, 0.98);
+
+        var cBiome = mix(cRainforest, cSavanna, smoothstep(0.1, 0.35, absLat));
+        cBiome = mix(cBiome, cDesert, smoothstep(0.25, 0.45, absLat) * (1.0 - smoothstep(0.45, 0.65, absLat)));
+        cBiome = mix(cBiome, cTundra, smoothstep(0.55, 0.75, absLat));
+        cBiome = mix(cBiome, cIce, smoothstep(0.72, 0.90, absLat));
+        cBiome = mix(cBiome, cIce, smoothstep(0.65, 0.95, tElev));
+
+        let orbitalIllum = cSunLight * (sunDirect * 0.90 + ridgeEnhance * 0.4) + cSkyAmbient * (skyIndirect * 0.6);
+        let landLit = cBiome * orbitalIllum;
+        let oceanLit = cOcean * (sunDirect * 0.85 + 0.15);
+        finalCrust = mix(oceanLit, landLit, smoothstep(0.32, 0.68, isLand));
     } else {
         // ====================================================================
         // OPTION B: HYDROSPHERE & BATHYMETRIC DEPTH
@@ -746,7 +793,14 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             smoothstep(0.35, 0.85, normDepth)
         );
         let bathyIllum = cSunLight * (sunDirect * 0.75) + cSkyAmbient * (skyIndirect * creviceAO * 0.8);
-        finalCrust = mix(cBathy * bathyIllum, finalLand, smoothstep(0.40, 0.60, isLand));
+        finalCrust = mix(cBathy * bathyIllum, finalLand, smoothstep(0.32, 0.68, isLand));
+    }
+
+    // Atmospheric limb darkening in light mode to define globe silhouette against white canvas
+    if (sim.u_theme == 1u && sim.u_unfurl < 0.6) {
+        let NdotV = clamp(dot(n0, V), 0.0, 1.0);
+        let limbFactor = pow(1.0 - NdotV, 3.0);
+        finalCrust = finalCrust * (1.0 - limbFactor * 0.35 * (1.0 - sim.u_unfurl));
     }
 
     return vec4<f32>(finalCrust, sim.u_layerOpacity);

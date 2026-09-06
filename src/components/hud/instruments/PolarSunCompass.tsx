@@ -94,11 +94,11 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
           Sun Compass
         </span>
         <div className="flex items-center gap-1 font-mono text-[8px]">
-          <span className="text-zinc-400">Sun Azimuth:</span>
-          <span className="font-bold text-amber-500 dark:text-amber-300 tabular-nums">{Math.round(azimuth)}°</span>
-          <span className="text-zinc-500">•</span>
-          <span className="text-zinc-400">Sun Alt:</span>
-          <span className="font-bold text-amber-500 dark:text-amber-300 tabular-nums">{Math.round(altitude)}°</span>
+          <span className={isLight ? 'text-zinc-600' : 'text-zinc-400'}>Sun Azimuth:</span>
+          <span className={`font-bold tabular-nums ${isLight ? 'text-amber-800' : 'text-amber-400'}`}>{Math.round(azimuth)}°</span>
+          <span className={isLight ? 'text-zinc-400' : 'text-zinc-500'}>•</span>
+          <span className={isLight ? 'text-zinc-600' : 'text-zinc-400'}>Sun Alt:</span>
+          <span className={`font-bold tabular-nums ${isLight ? 'text-amber-800' : 'text-amber-400'}`}>{Math.round(altitude)}°</span>
         </div>
       </div>
 
