@@ -107,6 +107,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
     }
 
-    let finalAlpha = alpha * densityFactor * backfaceDimming;
+    let camDist = length(sim.u_cameraPos.xyz);
+    let distAtten = select(1.0, 1.0 - smoothstep(18.0, 45.0, camDist) * 0.70, sim.u_layerMode == 0u);
+
+    let finalAlpha = alpha * densityFactor * backfaceDimming * distAtten;
     return vec4<f32>(wireColor, clamp(finalAlpha, 0.01, 1.0));
 }

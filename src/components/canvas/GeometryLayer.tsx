@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { SimulationMode, LoadedDataInfo } from '../../types';
+import { SimulationMode, LoadedDataInfo, ResolutionTier } from '../../types';
 import { useCursorTracker } from '../../core/CursorContext';
 
 export const RADIUS = 5.0;
@@ -603,7 +603,7 @@ export interface GeometryLayerProps {
   mode: SimulationMode;
   layerMode: 0 | 1 | 2;
   theme: 0 | 1; // 0 = Dark Cyber, 1 = Light Monochrome
-  resolution: '100k' | '1M';
+  resolution: ResolutionTier;
   cameraTarget: THREE.Vector3;
   cursorPhysicsEnabled: boolean;
   onFpsUpdate: (fps: number) => void;

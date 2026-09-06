@@ -191,13 +191,30 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
         out.normal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
     }
 
-    // Topographic Elevation Coupling from ETOPO 2022 DEM
-    let demUv = vec2<f32>((lambda + PI) / (2.0 * PI), (phi + PI * 0.5) / PI);
+    // Topographic Elevation Coupling from ETOPO 2022 DEM (Synchronized with crust_hydrosphere.wgsl)
+    // Note: v = 0.0 is North Pole (+PI/2), v = 1.0 is South Pole (-PI/2)
+    let demUv = vec2<f32>((lambda + PI) / (2.0 * PI), 0.5 - phi / PI);
     let demSample = textureSampleLevel(u_demTexture, u_demSampler, demUv, 0.0);
-    let isLand = demSample.b;
-    let elevation = demSample.r;
-    let displacement = isLand * elevation * sim.u_displacementScale * 1.5;
-    out.pos += out.normal * (displacement + 0.012);
+
+    let poleDist = abs(demUv.y - 0.5) * 2.0;
+    let poleAtten = 1.0 - smoothstep(0.85, 0.98, poleDist);
+
+    // Exact geoid elevation decoding matching crust_hydrosphere.wgsl
+    let elevMeters = demSample.a * 19772.0 - 10924.0;
+    var normalDisplacement: f32 = 0.0;
+    let dispScale = sim.u_displacementScale * 2.8;
+
+    if (elevMeters >= 0.0) {
+        let normH = elevMeters / 8848.0;
+        normalDisplacement = pow(normH, max(0.5, 1.4)) * dispScale * poleAtten;
+    } else {
+        let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
+        normalDisplacement = -pow(normD, 0.85) * (dispScale * 0.65) * poleAtten;
+    }
+
+    // Normal Standoff: +0.025 units above terrain to guarantee zero clipping or submergence
+    let standoff = 0.025 * (1.0 - clamp(sim.u_unfurl, 0.0, 1.0) * 0.4);
+    out.pos += out.normal * (normalDisplacement + standoff);
 
     return out;
 }
@@ -357,24 +374,24 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if (sim.u_theme == 0u) {
         // Theme 0: Dark Palette Cartographic Hairlines
         if (in.pointType < 0.75) {
-            // Major Hydrological Arteries: Mineral slate-blue
-            strokeColor = vec3<f32>(0.28, 0.42, 0.54);
-            nominalAlpha = 0.30;
+            // Major Hydrological Arteries: Mineral cyan/slate-blue
+            strokeColor = vec3<f32>(0.38, 0.58, 0.78);
+            nominalAlpha = 0.65;
         } else {
-            // Continental Coastlines: Soft parchment ivory hairline
-            strokeColor = vec3<f32>(0.88, 0.86, 0.82);
-            nominalAlpha = 0.35;
+            // Continental Coastlines: High-contrast soft parchment ivory
+            strokeColor = vec3<f32>(0.94, 0.92, 0.88);
+            nominalAlpha = 0.80;
         }
     } else {
         // Theme 1: Light Monochrome Architectural Print
         if (in.pointType < 0.75) {
             // Hydrology: Architectural indigo-slate
-            strokeColor = vec3<f32>(0.25, 0.38, 0.50);
-            nominalAlpha = 0.35;
+            strokeColor = vec3<f32>(0.20, 0.35, 0.50);
+            nominalAlpha = 0.65;
         } else {
             // Coastlines: Crisp architectural charcoal ink
-            strokeColor = vec3<f32>(0.15, 0.18, 0.22);
-            nominalAlpha = 0.45;
+            strokeColor = vec3<f32>(0.10, 0.12, 0.15);
+            nominalAlpha = 0.85;
         }
     }
 

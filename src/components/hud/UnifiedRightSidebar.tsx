@@ -5,7 +5,7 @@
 // ============================================================================
 
 import React, { useState, useEffect, useRef } from 'react';
-import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo } from '../../types';
+import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo, ResolutionTier } from '../../types';
 import { DATA_LAYER_CATALOG, BlendModeType, getPresetById, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
 import { DataLayerItem } from './DataLayersDrawer';
 import { Sun, Moon } from 'lucide-react';
@@ -21,8 +21,8 @@ export interface UnifiedRightSidebarProps {
   backend: 'webgl2' | 'webgpu';
   onBackendChange: (b: 'webgl2' | 'webgpu') => void;
   hasWebGPU: boolean;
-  resolution: '100k' | '1M';
-  onResolutionChange: (r: '100k' | '1M') => void;
+  resolution: ResolutionTier;
+  onResolutionChange: (r: ResolutionTier) => void;
   layerMode: 0 | 1 | 2;
   onLayerModeChange: (l: 0 | 1 | 2) => void;
   mode: SimulationMode;
@@ -231,40 +231,34 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               <span className="text-[9px] opacity-60 font-normal">⇄</span>
             </button>
 
-            {/* Grid Resolution Switch (100K vs 1M) */}
+            {/* Grid Resolution Switch (100K - 16M Tiers) */}
             <div
-              className={`flex items-center rounded-lg p-0.5 border shrink-0 ${
+              className={`flex items-center rounded-lg p-0.5 border shrink-0 gap-0.5 ${
                 isLight ? 'bg-zinc-100 border-zinc-300' : 'bg-black/40 border-white/10'
               }`}
             >
-              <button
-                onClick={() => onResolutionChange('100k')}
-                title="100,000 Fibonacci Nodes (High Performance)"
-                className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all ${
-                  resolution === '100k'
-                    ? isLight
-                      ? 'bg-zinc-900 text-white shadow-sm ring-1 ring-zinc-900'
-                      : 'bg-white text-zinc-950 font-extrabold shadow-sm'
-                    : isLight
-                    ? 'text-zinc-500 hover:text-zinc-900'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                100K
-              </button>
-              <button
-                onClick={() => onResolutionChange('1M')}
-                title="1,000,000 Volumetric Grid Nodes (Extreme Resolution)"
-                className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all ${
-                  resolution === '1M'
-                    ? 'bg-purple-600 text-white font-extrabold shadow-[0_0_8px_rgba(168,85,247,0.5)] ring-1 ring-purple-400'
-                    : isLight
-                    ? 'text-zinc-500 hover:text-zinc-900'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                1M
-              </button>
+              {(['100k', '1M', '3M', '4M', '8M', '16M'] as ResolutionTier[]).map((tier) => (
+                <button
+                  key={tier}
+                  onClick={() => onResolutionChange(tier)}
+                  title={`${tier.toUpperCase()} Volumetric Nodes`}
+                  className={`px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold transition-all ${
+                    resolution === tier
+                      ? tier === '16M'
+                        ? 'bg-amber-500 text-black font-extrabold shadow-sm'
+                        : tier === '1M' || tier === '4M'
+                        ? 'bg-purple-600 text-white font-extrabold shadow-[0_0_8px_rgba(168,85,247,0.5)]'
+                        : isLight
+                        ? 'bg-zinc-900 text-white shadow-sm ring-1 ring-zinc-900'
+                        : 'bg-white text-zinc-950 font-extrabold shadow-sm'
+                      : isLight
+                      ? 'text-zinc-500 hover:text-zinc-900'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  {tier.toUpperCase()}
+                </button>
+              ))}
             </div>
 
             {/* Audio Synthesizer Mute/Unmute */}
@@ -463,6 +457,67 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     <span className="text-[10px] font-black tracking-tight">C: Orbital</span>
                     <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Photoreal</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Volumetric Node Scaling Card (100K - 16M Tiers) */}
+              <div
+                className={`p-2.5 rounded-xl border space-y-2 transition-all ${
+                  isLight
+                    ? 'bg-zinc-50 border-zinc-200 shadow-sm'
+                    : 'bg-white/[0.03] border-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between text-[9px] font-extrabold uppercase tracking-wider">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.8)] animate-pulse"></span>
+                    <span className={isLight ? 'text-zinc-700' : 'text-zinc-300'}>Volumetric Scale</span>
+                  </span>
+                  <span
+                    className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                      resolution === '16M'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        : isLight
+                        ? 'bg-zinc-200 text-zinc-800 border-zinc-300'
+                        : 'bg-white/10 text-purple-300 border-white/15'
+                    }`}
+                  >
+                    {resolution === '100k'
+                      ? '262K Verts · ~12MB'
+                      : resolution === '1M'
+                      ? '1.05M Verts · ~118MB'
+                      : resolution === '3M'
+                      ? '2.98M Verts · ~340MB'
+                      : resolution === '4M'
+                      ? '4.19M Verts · ~475MB'
+                      : resolution === '8M'
+                      ? '8.38M Verts · ~950MB'
+                      : '16.7M Verts · ~1.5GB'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-6 gap-1">
+                  {(['100k', '1M', '3M', '4M', '8M', '16M'] as ResolutionTier[]).map((tier) => (
+                    <button
+                      key={tier}
+                      onClick={() => onResolutionChange(tier)}
+                      className={`py-1.5 px-0.5 rounded-lg text-center flex flex-col items-center justify-center border transition-all ${
+                        resolution === tier
+                          ? tier === '16M'
+                            ? 'bg-amber-500 text-black border-amber-400 font-extrabold shadow-sm'
+                            : tier === '1M' || tier === '4M'
+                            ? 'bg-purple-600 text-white border-purple-400 font-extrabold shadow-[0_0_8px_rgba(168,85,247,0.5)]'
+                            : isLight
+                            ? 'bg-zinc-900 text-white border-zinc-900 font-black'
+                            : 'bg-white text-zinc-950 border-white font-black'
+                          : isLight
+                          ? 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-100'
+                          : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <span className="text-[9px] font-black">{tier.toUpperCase()}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 

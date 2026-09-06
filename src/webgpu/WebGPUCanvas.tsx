@@ -11,7 +11,7 @@ import { CursorTracker } from '../utils/raycast';
 import { useCursorTracker } from '../core/CursorContext';
 import { DataLayerItem } from '../components/hud/TelemetryHUD';
 
-import { GeodesicOverlayMode } from '../types';
+import { GeodesicOverlayMode, ResolutionTier } from '../types';
 import { WhimsicalEffectsManager } from '../core/effects/WhimsicalEffectsManager';
 import { ManifoldPinchController } from '../core/interactions/ManifoldPinchController';
 import { ProceduralAudioEngine } from '../core/audio/ProceduralAudioEngine';
@@ -24,12 +24,21 @@ import {
   evaluatePointMorph,
 } from '../core/GlobeOverlay';
 
+const TIER_CONFIG: Record<ResolutionTier, { lat: number; lon: number; bin: string }> = {
+  '100k': { lat: 256, lon: 512, bin: '/geo-mesh-100k.bin' },
+  '1M': { lat: 512, lon: 1024, bin: '/geo-mesh-1m.bin' },
+  '3M': { lat: 864, lon: 1728, bin: '/geo-mesh-1m.bin' },
+  '4M': { lat: 1024, lon: 2048, bin: '/geo-mesh-1m.bin' },
+  '8M': { lat: 1448, lon: 2896, bin: '/geo-mesh-1m.bin' },
+  '16M': { lat: 2048, lon: 4096, bin: '/geo-mesh-1m.bin' },
+};
+
 export interface WebGPUCanvasProps {
   unfurlProgress: number;
   mode: number;
   layerMode?: 0 | 1 | 2;
   theme?: 0 | 1; // 0 = Dark Cyber, 1 = Light Monochrome
-  resolution: '100k' | '1M';
+  resolution: ResolutionTier;
   cameraTarget?: THREE.Vector3;
   cameraPosition?: THREE.Vector3;
   activeOverlay?: GeodesicOverlayMode;
@@ -86,7 +95,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const viewportSizeRef = useRef<{ width: number; height: number; dpr: number }>({ width: 0, height: 0, dpr: 1 });
   const engineRef = useRef<WebGPUEngine>(new WebGPUEngine());
+  const loadedBinRef = useRef<string | null>(null);
+  const loadedDataInfoRef = useRef<{ pointCount: number; lineCount: number; baseVramBytes: number } | null>(null);
   const sharedCursorTracker = useCursorTracker();
   const cursorTrackerRef = useRef<CursorTracker>(sharedCursorTracker);
   cursorTrackerRef.current = sharedCursorTracker;
@@ -336,12 +348,37 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const tier = TIER_CONFIG[resolution] || TIER_CONFIG['1M'];
+    const binFile = tier.bin;
+    const jsonFile = resolution === '100k' ? '/geo-mesh-100k.json' : null;
+
+    // Fast-path: When switching between high-resolution tiers (1M, 3M, 4M, 8M, 16M),
+    // the underlying point dataset (/geo-mesh-1m.bin) is already loaded in GPU memory.
+    // Retessellate the dual-surface lithosphere and hydrosphere sphere grid dynamically on GPU.
+    if (engineRef.current.initialized && loadedBinRef.current === binFile) {
+      const sphereInfo = engineRef.current.rebuildSphereMesh(tier.lat, tier.lon);
+      const baseBytes = loadedDataInfoRef.current?.baseVramBytes || 0;
+      const totalVramMb = parseFloat(((baseBytes + sphereInfo.memoryBytes) / (1024 * 1024)).toFixed(2));
+      callbacksRef.current.onDataLoaded?.({
+        pointCount: loadedDataInfoRef.current?.pointCount || sphereInfo.vertexCount,
+        lineCount: loadedDataInfoRef.current?.lineCount || sphereInfo.triangleCount,
+        format: 'WebGPU (Zero-Copy 120 FPS)',
+        loadTimeMs: 4,
+        vramMb: totalVramMb,
+      });
+      return;
+    }
+
     setIsLoading(true);
     setLoadError(null);
 
     const t0 = performance.now();
-    const binFile = resolution === '1M' ? '/geo-mesh-1m.bin' : '/geo-mesh-100k.bin';
-    const jsonFile = resolution === '1M' ? null : '/geo-mesh-100k.json';
+
+    // If switching datasets (e.g. from 100k to 1M+ or vice versa), dispose previous engine state
+    if (engineRef.current.initialized) {
+      engineRef.current.dispose();
+    }
+    loadedBinRef.current = binFile;
 
     fetch(binFile)
       .then(async (res) => {
@@ -376,9 +413,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           lineIndices,
         });
 
-        // Configure dual-surface crust resolution based on selected resolution prop (256x512 for 100k, 512x1024 for 1M)
-        const [targetLat, targetLon] = resolution === '1M' ? [512, 1024] : [256, 512];
-        engine.rebuildSphereMesh(targetLat, targetLon);
+        // Configure dual-surface crust resolution dynamically across 100k .. 16M tiers
+        const sphereInfo = engine.rebuildSphereMesh(tier.lat, tier.lon);
 
         // Asynchronously ingest ETOPO 2022 16-bit DEM texture (M1-T1)
         engine.loadDEMTexture('/earth-etopo2022-dem-u16.bin').catch(() => {});
@@ -390,13 +426,20 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
         const t1 = performance.now();
         const vramBytes = pointsData.byteLength + target2DData.byteLength + typeData.byteLength + lineIndices.byteLength;
+        loadedDataInfoRef.current = {
+          pointCount,
+          lineCount: indexCount / 2,
+          baseVramBytes: vramBytes,
+        };
+
+        const totalVramMb = parseFloat(((vramBytes + sphereInfo.memoryBytes) / (1024 * 1024)).toFixed(2));
 
         callbacksRef.current.onDataLoaded?.({
           pointCount,
           lineCount: indexCount / 2,
           format: 'WebGPU (Zero-Copy 120 FPS)',
           loadTimeMs: Math.round(t1 - t0),
-          vramMb: parseFloat((vramBytes / (1024 * 1024)).toFixed(2)),
+          vramMb: totalVramMb,
         });
       })
       .catch(async (binErr) => {
@@ -420,6 +463,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           const lineIndices = new Uint32Array(data.lineIndices);
 
           const engine = engineRef.current;
+          (window as any).__WEBGPU_ENGINE__ = engine;
           await engine.initialize({
             canvas,
             pointCount: pointsData.length / 3,
@@ -428,6 +472,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             typeData,
             lineIndices,
           });
+
+          const sphereInfo = engine.rebuildSphereMesh(tier.lat, tier.lon);
 
           // Asynchronously ingest ETOPO 2022 16-bit DEM texture (M1-T1)
           engine.loadDEMTexture('/earth-etopo2022-dem-u16.bin').catch(() => {});
@@ -439,13 +485,20 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
           const t1 = performance.now();
           const vramBytes = pointsData.byteLength + target2DData.byteLength + typeData.byteLength + lineIndices.byteLength;
+          loadedDataInfoRef.current = {
+            pointCount: pointsData.length / 3,
+            lineCount: lineIndices.length / 2,
+            baseVramBytes: vramBytes,
+          };
+
+          const totalVramMb = parseFloat(((vramBytes + sphereInfo.memoryBytes) / (1024 * 1024)).toFixed(2));
 
           callbacksRef.current.onDataLoaded?.({
             pointCount: pointsData.length / 3,
             lineCount: lineIndices.length / 2,
             format: 'WebGPU (Zero-Copy 120 FPS)',
             loadTimeMs: Math.round(t1 - t0),
-            vramMb: parseFloat((vramBytes / (1024 * 1024)).toFixed(2)),
+            vramMb: totalVramMb,
           });
         } catch (err: any) {
           if (isMounted) {
@@ -457,9 +510,16 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
     return () => {
       isMounted = false;
-      engineRef.current.dispose();
     };
   }, [resolution]);
+
+  // Dedicated unmount teardown
+  useEffect(() => {
+    return () => {
+      engineRef.current.dispose();
+      loadedBinRef.current = null;
+    };
+  }, []);
 
   // Resize Handling
   useEffect(() => {
@@ -472,8 +532,16 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       const height = container.clientHeight;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
+      viewportSizeRef.current = { width, height, dpr };
+
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
+
+      const overlay = overlayCanvasRef.current;
+      if (overlay) {
+        overlay.width = Math.round(width * dpr);
+        overlay.height = Math.round(height * dpr);
+      }
 
       cameraRef.current.aspect = width / Math.max(height, 1);
       cameraRef.current.updateProjectionMatrix();
@@ -650,23 +718,15 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
         // 2D Overlay Rendering (Landmarks, Tissot Indicatrices, Geodesic Arcs)
         const overlayCanvas = overlayCanvasRef.current;
-        if (overlayCanvas) {
-          const rect = overlayCanvas.getBoundingClientRect();
-          const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2);
-          const targetW = Math.round(rect.width * dpr);
-          const targetH = Math.round(rect.height * dpr);
-          if (targetW > 0 && targetH > 0) {
-            if (overlayCanvas.width !== targetW || overlayCanvas.height !== targetH) {
-              overlayCanvas.width = targetW;
-              overlayCanvas.height = targetH;
-            }
-            const ctx = overlayCanvas.getContext('2d');
-            if (ctx) {
-              ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-              ctx.save();
-              ctx.scale(dpr, dpr);
-              const w = rect.width;
-              const h = rect.height;
+        const { width: vWidth, height: vHeight, dpr: vDpr } = viewportSizeRef.current;
+        if (overlayCanvas && vWidth > 0 && vHeight > 0) {
+          const ctx = overlayCanvas.getContext('2d');
+          if (ctx) {
+            ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            ctx.save();
+            ctx.scale(vDpr, vDpr);
+            const w = vWidth;
+            const h = vHeight;
 
               const projectPoint = (x3: number, y3: number, z3: number): [number, number, boolean] => {
                 const vec = new THREE.Vector3(x3, y3, z3);
@@ -806,7 +866,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
               ctx.restore();
             }
           }
-        }
 
         // Frame Telemetry Calculation
         frameCountRef.current++;

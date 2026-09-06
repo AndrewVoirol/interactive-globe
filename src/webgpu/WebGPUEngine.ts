@@ -297,6 +297,8 @@ export class WebGPUEngine {
       addressModeV: 'clamp-to-edge',
       minFilter: 'linear',
       magFilter: 'linear',
+      mipmapFilter: 'linear',
+      maxAnisotropy: 4,
     });
 
     // Default 2x2 placeholder texture (rgba8unorm)
@@ -757,12 +759,13 @@ export class WebGPUEngine {
         return;
       }
 
-      // Buffer ingestion
+      // Buffer ingestion with full mipmap pyramid generation
       if (!this.device || !this.isInitialized) return;
       const byteLength = urlOrBuffer.byteLength;
       const oldTexture = this.demTexture;
       if (byteLength === 16777216) {
         // Full-range 16-bit uint16 texture (2048 x 1024 x 4 x 2 bytes = 16 MB)
+        const u16 = new Uint16Array(urlOrBuffer);
         let loaded = false;
         if (typeof (this.device as any).pushErrorScope === 'function') {
           // Real browser environment: verify if rgba16unorm can be sampled with linear filtering
@@ -787,17 +790,22 @@ export class WebGPUEngine {
             testTex.destroy();
             const validationErr = await this.device.popErrorScope();
             if (!validationErr) {
+              const mips16 = this.generateMipsRGBA16(u16, 2048, 1024);
               const newTexture = this.device.createTexture({
                 size: [2048, 1024, 1],
+                mipLevelCount: mips16.length,
                 format: 'rgba16unorm',
                 usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
               });
-              this.device.queue.writeTexture(
-                { texture: newTexture },
-                urlOrBuffer,
-                { bytesPerRow: 2048 * 8, rowsPerImage: 1024 },
-                [2048, 1024, 1]
-              );
+              for (let level = 0; level < mips16.length; level++) {
+                const m = mips16[level];
+                this.device.queue.writeTexture(
+                  { texture: newTexture, mipLevel: level },
+                  m.data,
+                  { bytesPerRow: m.width * 8, rowsPerImage: m.height },
+                  [m.width, m.height, 1]
+                );
+              }
               this.demTexture = newTexture;
               this.demTextureView = this.demTexture.createView();
               if (oldTexture) oldTexture.destroy();
@@ -810,17 +818,22 @@ export class WebGPUEngine {
         } else {
           // Mock test environment (Vitest)
           try {
+            const mips16 = this.generateMipsRGBA16(u16, 2048, 1024);
             const newTexture = this.device.createTexture({
               size: [2048, 1024, 1],
+              mipLevelCount: mips16.length,
               format: 'rgba16unorm',
               usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
             });
-            this.device.queue.writeTexture(
-              { texture: newTexture },
-              urlOrBuffer,
-              { bytesPerRow: 2048 * 8, rowsPerImage: 1024 },
-              [2048, 1024, 1]
-            );
+            for (let level = 0; level < mips16.length; level++) {
+              const m = mips16[level];
+              this.device.queue.writeTexture(
+                { texture: newTexture, mipLevel: level },
+                m.data,
+                { bytesPerRow: m.width * 8, rowsPerImage: m.height },
+                [m.width, m.height, 1]
+              );
+            }
             this.demTexture = newTexture;
             this.demTextureView = this.demTexture.createView();
             if (oldTexture) oldTexture.destroy();
@@ -831,22 +844,26 @@ export class WebGPUEngine {
 
         if (!loaded) {
           // Graceful downsample 16-bit uint16 to 8-bit rgba8unorm if tier1 is unavailable
-          const u16 = new Uint16Array(urlOrBuffer);
           const u8 = new Uint8Array(2048 * 1024 * 4);
           for (let i = 0; i < u16.length; i++) {
             u8[i] = u16[i] >> 8;
           }
+          const mips8 = this.generateMipsRGBA8(u8, 2048, 1024);
           const newTexture = this.device.createTexture({
             size: [2048, 1024, 1],
+            mipLevelCount: mips8.length,
             format: 'rgba8unorm',
             usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
           });
-          this.device.queue.writeTexture(
-            { texture: newTexture },
-            u8,
-            { bytesPerRow: 2048 * 4, rowsPerImage: 1024 },
-            [2048, 1024, 1]
-          );
+          for (let level = 0; level < mips8.length; level++) {
+            const m = mips8[level];
+            this.device.queue.writeTexture(
+              { texture: newTexture, mipLevel: level },
+              m.data,
+              { bytesPerRow: m.width * 4, rowsPerImage: m.height },
+              [m.width, m.height, 1]
+            );
+          }
           this.demTexture = newTexture;
           this.demTextureView = this.demTexture.createView();
           if (oldTexture) oldTexture.destroy();
@@ -856,18 +873,24 @@ export class WebGPUEngine {
         // Fallback 8-bit texture ingestion or test mock buffer
         const width = 2048;
         const height = 1024;
+        const u8 = new Uint8Array(urlOrBuffer);
+        const mips8 = this.generateMipsRGBA8(u8.length >= width * height * 4 ? u8 : new Uint8Array(width * height * 4), width, height);
         const newTexture = this.device.createTexture({
           size: [width, height, 1],
+          mipLevelCount: mips8.length,
           format: 'rgba8unorm',
           usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
         });
 
-        this.device.queue.writeTexture(
-          { texture: newTexture },
-          urlOrBuffer,
-          { bytesPerRow: width * 4, rowsPerImage: height },
-          [width, height, 1]
-        );
+        for (let level = 0; level < mips8.length; level++) {
+          const m = mips8[level];
+          this.device.queue.writeTexture(
+            { texture: newTexture, mipLevel: level },
+            m.data,
+            { bytesPerRow: m.width * 4, rowsPerImage: m.height },
+            [m.width, m.height, 1]
+          );
+        }
         this.demTexture = newTexture;
         this.demTextureView = this.demTexture.createView();
         if (oldTexture) oldTexture.destroy();
@@ -876,6 +899,94 @@ export class WebGPUEngine {
     } catch (err) {
       console.warn('WebGPUEngine.loadDEMTexture encountered non-fatal error; retaining fallback texture:', err);
     }
+  }
+
+  private generateMipsRGBA8(
+    src: Uint8Array,
+    baseWidth: number,
+    baseHeight: number
+  ): Array<{ data: Uint8Array; width: number; height: number }> {
+    const mips: Array<{ data: Uint8Array; width: number; height: number }> = [
+      { data: src, width: baseWidth, height: baseHeight },
+    ];
+    let curW = baseWidth;
+    let curH = baseHeight;
+    let curData = src;
+
+    while (curW > 1 || curH > 1) {
+      const nextW = Math.max(1, curW >> 1);
+      const nextH = Math.max(1, curH >> 1);
+      const nextData = new Uint8Array(nextW * nextH * 4);
+
+      for (let y = 0; y < nextH; y++) {
+        const srcY0 = y * 2;
+        const srcY1 = Math.min(srcY0 + 1, curH - 1);
+        for (let x = 0; x < nextW; x++) {
+          const srcX0 = x * 2;
+          const srcX1 = Math.min(srcX0 + 1, curW - 1);
+
+          const i00 = (srcY0 * curW + srcX0) * 4;
+          const i10 = (srcY0 * curW + srcX1) * 4;
+          const i01 = (srcY1 * curW + srcX0) * 4;
+          const i11 = (srcY1 * curW + srcX1) * 4;
+
+          const dstIdx = (y * nextW + x) * 4;
+          nextData[dstIdx] = (curData[i00] + curData[i10] + curData[i01] + curData[i11]) >> 2;
+          nextData[dstIdx + 1] = (curData[i00 + 1] + curData[i10 + 1] + curData[i01 + 1] + curData[i11 + 1]) >> 2;
+          nextData[dstIdx + 2] = (curData[i00 + 2] + curData[i10 + 2] + curData[i01 + 2] + curData[i11 + 2]) >> 2;
+          nextData[dstIdx + 3] = (curData[i00 + 3] + curData[i10 + 3] + curData[i01 + 3] + curData[i11 + 3]) >> 2;
+        }
+      }
+      mips.push({ data: nextData, width: nextW, height: nextH });
+      curW = nextW;
+      curH = nextH;
+      curData = nextData;
+    }
+    return mips;
+  }
+
+  private generateMipsRGBA16(
+    src: Uint16Array,
+    baseWidth: number,
+    baseHeight: number
+  ): Array<{ data: Uint16Array; width: number; height: number }> {
+    const mips: Array<{ data: Uint16Array; width: number; height: number }> = [
+      { data: src, width: baseWidth, height: baseHeight },
+    ];
+    let curW = baseWidth;
+    let curH = baseHeight;
+    let curData = src;
+
+    while (curW > 1 || curH > 1) {
+      const nextW = Math.max(1, curW >> 1);
+      const nextH = Math.max(1, curH >> 1);
+      const nextData = new Uint16Array(nextW * nextH * 4);
+
+      for (let y = 0; y < nextH; y++) {
+        const srcY0 = y * 2;
+        const srcY1 = Math.min(srcY0 + 1, curH - 1);
+        for (let x = 0; x < nextW; x++) {
+          const srcX0 = x * 2;
+          const srcX1 = Math.min(srcX0 + 1, curW - 1);
+
+          const i00 = (srcY0 * curW + srcX0) * 4;
+          const i10 = (srcY0 * curW + srcX1) * 4;
+          const i01 = (srcY1 * curW + srcX0) * 4;
+          const i11 = (srcY1 * curW + srcX1) * 4;
+
+          const dstIdx = (y * nextW + x) * 4;
+          nextData[dstIdx] = (curData[i00] + curData[i10] + curData[i01] + curData[i11]) >> 2;
+          nextData[dstIdx + 1] = (curData[i00 + 1] + curData[i10 + 1] + curData[i01 + 1] + curData[i11 + 1]) >> 2;
+          nextData[dstIdx + 2] = (curData[i00 + 2] + curData[i10 + 2] + curData[i01 + 2] + curData[i11 + 2]) >> 2;
+          nextData[dstIdx + 3] = (curData[i00 + 3] + curData[i10 + 3] + curData[i01 + 3] + curData[i11 + 3]) >> 2;
+        }
+      }
+      mips.push({ data: nextData, width: nextW, height: nextH });
+      curW = nextW;
+      curH = nextH;
+      curData = nextData;
+    }
+    return mips;
   }
 
   public async loadVectorData(urlOrBuffer: string | ArrayBuffer): Promise<void> {
@@ -1602,7 +1713,7 @@ export class WebGPUEngine {
 
       ribF[20] = params.cursorActive ? 1.0 : 0.0;
       ribF[21] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
-      ribF[22] = 0.35; // u_halfWidthPx (nominal hairline half-width)
+      ribF[22] = 0.85; // u_halfWidthPx (nominal hairline half-width)
       ribF[23] = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1.0 : 1.0, 3.0); // u_dpr
       ribF[24] = 0.1; // u_nearPlane
       ribF[25] = 0.0; ribF[26] = 0.0; ribF[27] = 0.0; // padding
@@ -1845,14 +1956,24 @@ export class WebGPUEngine {
     this.profiler = null;
     this.particleBuffers[0]?.destroy();
     this.particleBuffers[1]?.destroy();
+    this.particleBuffers = [null!, null!];
     this.staticBuffer?.destroy();
+    this.staticBuffer = null!;
     this.lineIndexBuffer?.destroy();
+    this.lineIndexBuffer = null!;
     this.simUniformBuffer?.destroy();
+    this.simUniformBuffer = null!;
     this.reliefUniformBuffer?.destroy();
+    this.reliefUniformBuffer = null!;
     this.quadCornerBuffer?.destroy();
+    this.quadCornerBuffer = null!;
     this.vectorSegmentBuffer?.destroy();
+    this.vectorSegmentBuffer = null!;
+    this.vectorSegmentCount = 0;
     this.ribbonUniformBuffer?.destroy();
+    this.ribbonUniformBuffer = null!;
     this.crustUniformBuffer?.destroy();
+    this.crustUniformBuffer = null!;
     this.crustVertexBuffer?.destroy();
     this.crustVertexBuffer = null;
     this.crustIndexBuffer?.destroy();
@@ -1872,6 +1993,11 @@ export class WebGPUEngine {
     this.depthTexture?.destroy();
     this.depthTexture = null;
     this.depthTextureView = null;
+    this.reliefBindGroup = null!;
+    this.ribbonBindGroup = null!;
+    this.crustBindGroup = null!;
+    this.renderBindGroup = null!;
+    this.computeBindGroup = null!;
     this.cartographicBuffersInitialized = false;
     this.cachedInitConfig = null;
     this.device?.destroy?.();

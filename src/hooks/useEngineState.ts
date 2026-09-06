@@ -8,7 +8,9 @@ import { LoadedDataInfo, SimulationMode, GeodesicOverlayMode, ResolutionTier } f
 export type { SimulationMode, GeodesicOverlayMode, LoadedDataInfo, ResolutionTier };
 
 export function useEngineState() {
-  const [backend, setBackend] = useState<'webgl2' | 'webgpu'>('webgl2');
+  const [backend, setBackend] = useState<'webgl2' | 'webgpu'>(
+    typeof navigator !== 'undefined' && 'gpu' in navigator ? 'webgpu' : 'webgl2'
+  );
   const [theme, setThemeState] = useState<0 | 1>(ThemeManager.getInstance().getMode()); // 0 = Dark Cyber, 1 = Light Monochrome
   const [themePalette, setThemePalette] = useState<ThemePalette>(ThemeManager.getInstance().getPalette());
   const [hasWebGPU, setHasWebGPU] = useState<boolean>(false);
