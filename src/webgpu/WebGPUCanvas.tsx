@@ -231,6 +231,24 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     if (hasWind) {
       engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
     }
+    const hasJetStream = !!dataLayers?.find(
+      (l) => (l.id === 'noaa-gfs-jetstream' || l.id === 'gfs-jetstream') && l.visible
+    );
+    if (hasJetStream) {
+      engine.loadJetStreamTexture('/data/gfs-jetstream-latest.bin').catch(() => {});
+    }
+    const hasCrane = !!dataLayers?.find(
+      (l) => (l.id === 'origami-crane-companion' || l.id === 'origami-crane') && l.visible
+    );
+    if (hasCrane && !engine.isCraneActive) {
+      const cam = cameraRef.current;
+      const norm = new Vector3().copy(cam.position).normalize();
+      const phi = Math.asin(Math.max(-1.0, Math.min(1.0, norm.y)));
+      const lambda = Math.atan2(norm.x, norm.z);
+      const latDeg = phi * (180 / Math.PI);
+      const lonDeg = ((((lambda * (180 / Math.PI) + 180) % 360) + 360) % 360) - 180;
+      engine.releaseOrigamiCrane(lonDeg, latDeg);
+    }
     const hasPhotoreal = !!dataLayers?.find(
       (l) => (l.renderStyle === 'photoreal' || l.id === 'photoreal-satellite-layer') && l.visible
     );
@@ -238,6 +256,27 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
     }
   }, [dataLayers]);
+
+  const focusCrane = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    const state = engine.getCraneState();
+    if (!state) return;
+    const phi = ((90 - state.lat) * Math.PI) / 180;
+    const theta = (state.lon * Math.PI) / 180;
+    const radius = 11.5;
+    const camX = radius * Math.sin(phi) * Math.sin(theta);
+    const camY = radius * Math.cos(phi);
+    const camZ = radius * Math.sin(phi) * Math.cos(theta);
+    targetCameraPosRef.current = new Vector3(camX, camY, camZ);
+  }, []);
+
+  useEffect(() => {
+    (window as any).__FOCUS_CRANE__ = focusCrane;
+    return () => {
+      delete (window as any).__FOCUS_CRANE__;
+    };
+  }, [focusCrane]);
 
   // WebGPU Device Loss Recovery
   useEffect(() => {
@@ -388,11 +427,20 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
     const onContextMenu = (e: MouseEvent) => e.preventDefault();
 
+    const onDblClick = () => {
+      const hit = currentHitPosRef.current;
+      const len = Math.hypot(hit.x, hit.y, hit.z) || 1.0;
+      const latDeg = Math.asin(Math.max(-1, Math.min(1, hit.y / len))) * (180.0 / Math.PI);
+      const lonDeg = Math.atan2(hit.x, hit.z) * (180.0 / Math.PI);
+      engineRef.current.releaseOrigamiCrane(lonDeg, latDeg);
+    };
+
     const container = containerRef.current || canvas;
 
     container.addEventListener('pointerdown', onPointerDown as EventListener);
     container.addEventListener('pointerenter', onPointerEnter as EventListener);
     container.addEventListener('pointerleave', onPointerLeave as EventListener);
+    container.addEventListener('dblclick', onDblClick as EventListener);
     window.addEventListener('pointermove', onPointerMove as EventListener);
     window.addEventListener('pointerup', onPointerUp as EventListener);
     container.addEventListener('wheel', onWheel as EventListener, { passive: false });
@@ -402,6 +450,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       container.removeEventListener('pointerdown', onPointerDown as EventListener);
       container.removeEventListener('pointerenter', onPointerEnter as EventListener);
       container.removeEventListener('pointerleave', onPointerLeave as EventListener);
+      container.removeEventListener('dblclick', onDblClick as EventListener);
       window.removeEventListener('pointermove', onPointerMove as EventListener);
       window.removeEventListener('pointerup', onPointerUp as EventListener);
       container.removeEventListener('wheel', onWheel as EventListener);
@@ -793,6 +842,15 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const showContours = !!curDataLayers?.find(
           (l) => l.id === 'usgs-elevation-contours' && l.visible
         );
+        const hasSurfaceWind = !!curDataLayers?.find(
+          (l) => (l.id === 'noaa-gfs-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
+        );
+        const hasJetStream = !!curDataLayers?.find(
+          (l) => (l.id === 'noaa-gfs-jetstream' || l.id === 'gfs-jetstream') && l.visible
+        );
+        const hasCrane = !!curDataLayers?.find(
+          (l) => (l.id === 'origami-crane-companion' || l.id === 'origami-crane') && l.visible
+        );
 
         engine.render({
           unfurl: curUnfurl,
@@ -816,6 +874,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           showContours,
           showSatellites: !!curDataLayers?.find((l) => (l.id === 'starlink-iss-orbits' || l.id === 'spacex-satellite-constellation') && l.visible),
           showStarlink: !!curDataLayers?.find((l) => (l.id === 'starlink-iss-orbits' || l.id === 'spacex-satellite-constellation') && l.visible),
+          showWind: hasSurfaceWind || hasJetStream,
+          showSurfaceWinds: hasSurfaceWind,
+          showJetStream: hasJetStream,
+          showCrane: hasCrane,
           vortexStrength: curVortexStrength,
           fractureIntensity: curFractureIntensity,
           seaLevel,

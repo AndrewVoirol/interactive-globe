@@ -20,10 +20,14 @@ import swissReliefWGSL from './shaders/swiss_relief_shading.wgsl?raw';
 import vectorRibbonWGSL from './shaders/vector_ribbon.wgsl?raw';
 import crustHydrosphereWGSL from './shaders/crust_hydrosphere.wgsl?raw';
 import demUnpackWGSL from './shaders/dem_unpack.wgsl?raw';
+import windParticlesWGSL from './shaders/wind_particles.wgsl?raw';
+import windRibbonRenderWGSL from './shaders/wind_ribbon_render.wgsl?raw';
+import origamiCraneWGSL from './shaders/origami_crane.wgsl?raw';
 import { GPUProfiler } from './profiling/GPUProfiler';
 import { encodeFloat16 } from '../core/math/float16';
 import { parseTLE, propagateOrbitalPosition } from '../core/math/sgp4';
 import { loadNodeAssetBuffer, loadNodeAssetText } from '../utils/nodeAssetLoader';
+import { OrigamiCraneFlightSolver, CraneState } from '../core/physics/OrigamiCraneFlightSolver';
 
 export interface WebGPUInitConfig {
   canvas: HTMLCanvasElement;
@@ -63,6 +67,10 @@ export interface WebGPUFrameParams {
   showContours?: boolean;
   showSatellites?: boolean;
   showStarlink?: boolean;
+  showWind?: boolean;
+  showSurfaceWinds?: boolean;
+  showJetStream?: boolean;
+  showCrane?: boolean;
   seaLevel?: number;
   sunAzimuth?: number;
   sunAltitude?: number;
@@ -170,6 +178,29 @@ export class WebGPUEngine {
   // CelesTrak Starlink & ISS Satellite Orbit Ribbons (F35)
   public satelliteSegmentBuffer: GPUBuffer | null = null;
   public satelliteSegmentCount: number = 0;
+
+  // Atmospheric Wind Streamlines & Multi-Stratum Pipelines
+  public readonly windParticleCount: number = 65536;
+  public showSurfaceWinds: boolean = true;
+  public showJetStream: boolean = true;
+  public windSpeedMultiplier: number = 1.0;
+  private jetStreamTexture: GPUTexture | null = null;
+  private jetStreamTextureView: GPUTextureView | null = null;
+  public windParticleBuffers: [GPUBuffer, GPUBuffer] | null = null;
+  private windUniformBuffer: GPUBuffer | null = null;
+  private windComputePipeline: GPUComputePipeline | null = null;
+  private windComputeBindGroups: [GPUBindGroup, GPUBindGroup] | null = null;
+  private windRibbonPipeline: GPURenderPipeline | null = null;
+  private windRibbonBindGroups: [GPUBindGroup, GPUBindGroup] | null = null;
+  private windStep: number = 0;
+
+  // Autonomous Origami Paper Crane Soaring Engine
+  public readonly craneSolver: OrigamiCraneFlightSolver = new OrigamiCraneFlightSolver();
+  public isCraneActive: boolean = false;
+  private craneUniformBuffer: GPUBuffer | null = null;
+  private craneBindGroup: GPUBindGroup | null = null;
+  private cranePipeline: GPURenderPipeline | null = null;
+  private craneUniformFloats: Float32Array = new Float32Array(60);
 
   private computeBindGroups: [GPUBindGroup, GPUBindGroup] = [null!, null!];
   private renderBindGroup!: GPUBindGroup;
@@ -854,6 +885,354 @@ export class WebGPUEngine {
     this.rebuildSphereMesh(defLat, defLon);
 
     this.updateDEMBindGroups();
+  }
+
+  public ensureWindBuffers(): void {
+    if (!this.device || this.windBuffersInitialized) return;
+    this.windBuffersInitialized = true;
+
+    // Ensure quadCornerBuffer is available for wind ribbons
+    if (!this.quadCornerBuffer) {
+      const quadCorners = new Float32Array([
+        0.0, -1.0,
+        0.0,  1.0,
+        1.0, -1.0,
+        1.0,  1.0,
+      ]);
+      try {
+        this.quadCornerBuffer = this.device.createBuffer({
+          size: quadCorners.byteLength,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        });
+        this.device.queue.writeBuffer(this.quadCornerBuffer, 0, quadCorners.buffer);
+      } catch {}
+    }
+
+    // Ensure ribbonUniformBuffer is available for wind ribbons
+    if (!this.ribbonUniformBuffer) {
+      try {
+        this.ribbonUniformBuffer = this.device.createBuffer({
+          label: 'vector_ribbon_uniform_buffer',
+          size: 240,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+      } catch {}
+    }
+
+    // 1. Jet Stream Texture (rg16float)
+    if (!this.jetStreamTexture) {
+      const windW = 360;
+      const windH = 181;
+      const rowBytesRaw = windW * 4;
+      const rowBytesPadded = Math.ceil(rowBytesRaw / 256) * 256;
+      const paddedJetData = new Uint8Array(rowBytesPadded * windH);
+
+      for (let y = 0; y < windH; y++) {
+        const latDeg = 90.0 - y;
+        const absLat = Math.abs(latDeg);
+        const rowOffset = y * rowBytesPadded;
+        const rowU16 = new Uint16Array(paddedJetData.buffer, paddedJetData.byteOffset + rowOffset, windW * 2);
+
+        for (let x = 0; x < windW; x++) {
+          let uMps = 0;
+          let vMps = 0;
+          const lonRad = (x * Math.PI) / 180.0;
+
+          if (absLat >= 35 && absLat <= 70) {
+            const core = Math.cos(((absLat - 52) / 18) * (Math.PI * 0.5));
+            uMps = 42.0 * Math.max(0, core) + 8.0 * Math.sin(lonRad * 3.0);
+            vMps = 12.0 * Math.cos(lonRad * 3.0) * core;
+          } else if (absLat >= 20 && absLat < 35) {
+            const core = Math.cos(((absLat - 28) / 8) * (Math.PI * 0.5));
+            uMps = 32.0 * Math.max(0, core);
+            vMps = 4.0 * Math.sin(lonRad * 4.0);
+          } else {
+            uMps = -10.0 * Math.cos((absLat / 20) * (Math.PI * 0.5));
+            vMps = 1.0;
+          }
+
+          rowU16[x * 2 + 0] = encodeFloat16(uMps);
+          rowU16[x * 2 + 1] = encodeFloat16(vMps);
+        }
+      }
+
+      try {
+        this.jetStreamTexture = this.device.createTexture({
+          label: 'jetstream_velocity_texture',
+          size: [windW, windH, 1],
+          format: 'rg16float',
+          usage:
+            typeof GPUTextureUsage !== 'undefined'
+              ? GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+              : 4 | 8,
+        });
+        this.jetStreamTextureView = this.jetStreamTexture.createView();
+        this.device.queue.writeTexture(
+          { texture: this.jetStreamTexture },
+          paddedJetData,
+          { bytesPerRow: rowBytesPadded, rowsPerImage: windH },
+          [windW, windH, 1]
+        );
+      } catch {}
+    }
+
+    // 2. Wind Particle Buffers (65,536 particles * 96 bytes)
+    const windBufferSize = this.windParticleCount * 96;
+    const initialWindData = new Float32Array(this.windParticleCount * 24);
+
+    for (let i = 0; i < this.windParticleCount; i++) {
+      const isJet = i >= this.windParticleCount / 2;
+      const lon = (Math.random() * 2.0 - 1.0) * Math.PI;
+      const lat = isJet
+        ? (Math.random() > 0.5 ? 1 : -1) * (Math.PI * (0.22 + Math.random() * 0.20))
+        : (Math.random() * 2.0 - 1.0) * (Math.PI * 0.46);
+      const alt = isJet ? 0.22 : 0.04;
+      const age = Math.random();
+
+      const idx = i * 24;
+      initialWindData[idx + 0] = lon;
+      initialWindData[idx + 1] = lat;
+      initialWindData[idx + 2] = alt;
+      initialWindData[idx + 3] = age;
+
+      const r = 5.0 + alt;
+      const x = r * Math.cos(lat) * Math.sin(lon);
+      const y = r * Math.sin(lat);
+      const z = r * Math.cos(lat) * Math.cos(lon);
+
+      initialWindData[idx + 8] = x; initialWindData[idx + 9] = y; initialWindData[idx + 10] = z; initialWindData[idx + 11] = 1.0;
+      initialWindData[idx + 12] = x; initialWindData[idx + 13] = y; initialWindData[idx + 14] = z; initialWindData[idx + 15] = 0.75;
+      initialWindData[idx + 16] = x; initialWindData[idx + 17] = y; initialWindData[idx + 18] = z; initialWindData[idx + 19] = 0.50;
+      initialWindData[idx + 20] = x; initialWindData[idx + 21] = y; initialWindData[idx + 22] = z; initialWindData[idx + 23] = 0.25;
+    }
+
+    try {
+      this.windParticleBuffers = [
+        this.device.createBuffer({
+          label: 'wind_particles_A',
+          size: windBufferSize,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        }),
+        this.device.createBuffer({
+          label: 'wind_particles_B',
+          size: windBufferSize,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        }),
+      ];
+      this.device.queue.writeBuffer(this.windParticleBuffers[0], 0, initialWindData.buffer);
+      this.device.queue.writeBuffer(this.windParticleBuffers[1], 0, initialWindData.buffer);
+
+      this.windUniformBuffer = this.device.createBuffer({
+        label: 'wind_uniform_buffer',
+        size: 32,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      });
+
+      this.craneUniformBuffer = this.device.createBuffer({
+        label: 'crane_uniform_buffer',
+        size: 240,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      });
+
+      this.updateWindBindGroups();
+    } catch {}
+  }
+
+  private updateWindBindGroups(): void {
+    if (!this.device || !this.windParticleBuffers || !this.windUniformBuffer || !this.windTextureView || !this.jetStreamTextureView) return;
+
+    try {
+      const windComputeShaderModule = this.device.createShaderModule({
+        label: 'wind_particles_compute',
+        code: windParticlesWGSL,
+      });
+
+      const windComputeBindGroupLayout = this.device.createBindGroupLayout({
+        label: 'wind_compute_bind_group_layout',
+        entries: [
+          { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+          { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+          { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+          { binding: 3, visibility: GPUShaderStage.COMPUTE, sampler: {} },
+          { binding: 4, visibility: GPUShaderStage.COMPUTE, texture: {} },
+          { binding: 5, visibility: GPUShaderStage.COMPUTE, texture: {} },
+        ],
+      });
+
+      const windComputePipelineLayout = this.device.createPipelineLayout({
+        bindGroupLayouts: [windComputeBindGroupLayout],
+      });
+
+      this.windComputePipeline = this.device.createComputePipeline({
+        label: 'wind_compute_pipeline',
+        layout: windComputePipelineLayout,
+        compute: {
+          module: windComputeShaderModule,
+          entryPoint: 'cs_advect_wind',
+        },
+      });
+
+      this.windComputeBindGroups = [
+        this.device.createBindGroup({
+          label: 'wind_compute_bg_0_to_1',
+          layout: windComputeBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.windUniformBuffer } },
+            { binding: 1, resource: { buffer: this.windParticleBuffers[0] } },
+            { binding: 2, resource: { buffer: this.windParticleBuffers[1] } },
+            { binding: 3, resource: this.windSampler! },
+            { binding: 4, resource: this.windTextureView! },
+            { binding: 5, resource: this.jetStreamTextureView! },
+          ],
+        }),
+        this.device.createBindGroup({
+          label: 'wind_compute_bg_1_to_0',
+          layout: windComputeBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.windUniformBuffer } },
+            { binding: 1, resource: { buffer: this.windParticleBuffers[1] } },
+            { binding: 2, resource: { buffer: this.windParticleBuffers[0] } },
+            { binding: 3, resource: this.windSampler! },
+            { binding: 4, resource: this.windTextureView! },
+            { binding: 5, resource: this.jetStreamTextureView! },
+          ],
+        }),
+      ];
+
+      // Wind Ribbon Render Pipeline
+      const windRibbonShaderModule = this.device.createShaderModule({
+        label: 'wind_ribbon_render',
+        code: windRibbonRenderWGSL,
+      });
+
+      const windRibbonBindGroupLayout = this.device.createBindGroupLayout({
+        label: 'wind_ribbon_bind_group_layout',
+        entries: [
+          { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+          { binding: 1, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
+        ],
+      });
+
+      const windRibbonPipelineLayout = this.device.createPipelineLayout({
+        bindGroupLayouts: [windRibbonBindGroupLayout],
+      });
+
+      const windQuadCornerLayout: GPUVertexBufferLayout = {
+        arrayStride: 8,
+        stepMode: 'vertex',
+        attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x2' }],
+      };
+
+      this.windRibbonPipeline = this.device.createRenderPipeline({
+        label: 'wind_ribbon_pipeline',
+        layout: windRibbonPipelineLayout,
+        vertex: {
+          module: windRibbonShaderModule,
+          entryPoint: 'vs_main',
+          buffers: [windQuadCornerLayout],
+        },
+        fragment: {
+          module: windRibbonShaderModule,
+          entryPoint: 'fs_main',
+          targets: [
+            {
+              format: this.format,
+              blend: {
+                color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+              },
+            },
+          ],
+        },
+        depthStencil: {
+          depthWriteEnabled: false,
+          depthCompare: 'always',
+          format: 'depth24plus',
+        },
+        primitive: {
+          topology: 'triangle-strip',
+          cullMode: 'none',
+        },
+      });
+
+      this.windRibbonBindGroups = [
+        this.device.createBindGroup({
+          label: 'wind_ribbon_bg_0',
+          layout: windRibbonBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.ribbonUniformBuffer } },
+            { binding: 1, resource: { buffer: this.windParticleBuffers[0] } },
+          ],
+        }),
+        this.device.createBindGroup({
+          label: 'wind_ribbon_bg_1',
+          layout: windRibbonBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.ribbonUniformBuffer } },
+            { binding: 1, resource: { buffer: this.windParticleBuffers[1] } },
+          ],
+        }),
+      ];
+
+      // Origami Crane Render Pipeline
+      if (this.craneUniformBuffer) {
+        const craneShaderModule = this.device.createShaderModule({
+          label: 'origami_crane_shader',
+          code: origamiCraneWGSL,
+        });
+
+        const craneBindGroupLayout = this.device.createBindGroupLayout({
+          label: 'crane_bind_group_layout',
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+          ],
+        });
+
+        const cranePipelineLayout = this.device.createPipelineLayout({
+          bindGroupLayouts: [craneBindGroupLayout],
+        });
+
+        this.cranePipeline = this.device.createRenderPipeline({
+          label: 'origami_crane_pipeline',
+          layout: cranePipelineLayout,
+          vertex: {
+            module: craneShaderModule,
+            entryPoint: 'vs_main',
+            buffers: [],
+          },
+          fragment: {
+            module: craneShaderModule,
+            entryPoint: 'fs_main',
+            targets: [
+              {
+                format: this.format,
+                blend: {
+                  color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                  alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                },
+              },
+            ],
+          },
+          depthStencil: {
+            depthWriteEnabled: true,
+            depthCompare: 'always',
+            format: 'depth24plus',
+          },
+          primitive: {
+            topology: 'triangle-list',
+            cullMode: 'none',
+          },
+        });
+
+        this.craneBindGroup = this.device.createBindGroup({
+          label: 'crane_bind_group',
+          layout: craneBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.craneUniformBuffer } },
+          ],
+        });
+      }
+    } catch {}
   }
 
   private updateDEMBindGroups(): void {
@@ -1765,6 +2144,7 @@ export class WebGPUEngine {
         { bytesPerRow: rowBytesPadded, rowsPerImage: windH },
         [windW, windH, 1]
       );
+      this.updateWindBindGroups();
     } catch {
       // Mock environment guard
     }
@@ -1907,6 +2287,143 @@ export class WebGPUEngine {
 
   public getSatelliteSegmentCount(): number {
     return this.satelliteSegmentCount;
+  }
+
+  public getJetStreamTexture(): GPUTexture | null {
+    return this.jetStreamTexture;
+  }
+
+  public async loadJetStreamTexture(
+    urlOrBuffer: string | ArrayBuffer = '/data/gfs-jetstream-latest.bin'
+  ): Promise<void> {
+    if (!this.device || !this.isInitialized) return;
+
+    let buffer: ArrayBuffer | null = null;
+    if (urlOrBuffer instanceof ArrayBuffer) {
+      buffer = urlOrBuffer;
+    } else if (typeof fetch !== 'undefined') {
+      try {
+        const res = await fetch(urlOrBuffer);
+        if (res.ok) buffer = await res.arrayBuffer();
+      } catch {
+        // Fallback
+      }
+    }
+
+    if (!buffer && typeof process !== 'undefined' && process.versions?.node) {
+      buffer = await loadNodeAssetBuffer(
+        typeof urlOrBuffer === 'string' ? urlOrBuffer : 'public/data/gfs-jetstream-latest.bin'
+      );
+    }
+
+    if (!buffer) return;
+
+    const windW = 360;
+    const windH = 181;
+    const rowBytesRaw = windW * 4;
+    const rowBytesPadded = Math.ceil(rowBytesRaw / 256) * 256;
+    const padded = new Uint8Array(rowBytesPadded * windH);
+
+    const srcU8 = new Uint8Array(buffer);
+    for (let y = 0; y < windH; y++) {
+      const srcOffset = y * rowBytesRaw;
+      const dstOffset = y * rowBytesPadded;
+      padded.set(srcU8.subarray(srcOffset, srcOffset + rowBytesRaw), dstOffset);
+    }
+
+    if (!this.jetStreamTexture) {
+      this.jetStreamTexture = this.device.createTexture({
+        label: 'jetstream_velocity_texture',
+        size: [windW, windH, 1],
+        format: 'rg16float',
+        usage:
+          typeof GPUTextureUsage !== 'undefined'
+            ? GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+            : 4 | 8,
+      });
+      this.jetStreamTextureView = this.jetStreamTexture.createView();
+    }
+
+    try {
+      this.device.queue.writeTexture(
+        { texture: this.jetStreamTexture },
+        padded,
+        { bytesPerRow: rowBytesPadded, rowsPerImage: windH },
+        [windW, windH, 1]
+      );
+      this.updateWindBindGroups();
+    } catch {
+      // Mock guard
+    }
+  }
+
+  public renderWindRibbons(passEncoder: GPURenderPassEncoder): void {
+    if (
+      !this.windRibbonPipeline ||
+      !this.windRibbonBindGroups ||
+      !this.quadCornerBuffer
+    )
+      return;
+
+    const activeBg = this.windRibbonBindGroups[(this.windStep + 1) % 2];
+    if (!activeBg) return;
+
+    passEncoder.setPipeline(this.windRibbonPipeline);
+    passEncoder.setBindGroup(0, activeBg);
+    passEncoder.setVertexBuffer(0, this.quadCornerBuffer);
+    passEncoder.draw(4, this.windParticleCount * 3, 0, 0);
+  }
+
+  public renderOrigamiCrane(
+    passEncoder: GPURenderPassEncoder,
+    _params: WebGPUFrameParams
+  ): void {
+    if (!this.cranePipeline || !this.craneBindGroup || !this.craneUniformBuffer)
+      return;
+
+    // Single 84-vertex draw call: vertices 0..41 render the ground shadow; 42..83 render the origami crane geometry
+    passEncoder.setPipeline(this.cranePipeline);
+    passEncoder.setBindGroup(0, this.craneBindGroup);
+    passEncoder.draw(84, 1, 0, 0);
+  }
+
+  public releaseOrigamiCrane(
+    lon?: number,
+    lat?: number,
+    altMeters?: number
+  ): void {
+    this.ensureWindBuffers();
+    this.isCraneActive = true;
+    if (lon !== undefined && lat !== undefined) {
+      this.craneSolver.reset(lon, lat, altMeters ?? 2500);
+    } else {
+      this.craneSolver.reset(-68.5, -32.5, 2500); // Default: Andes Cordillera wave
+    }
+  }
+
+  public getCraneState(): CraneState {
+    return this.craneSolver.getState();
+  }
+
+  public toggleSurfaceWinds(show?: boolean): boolean {
+    this.showSurfaceWinds =
+      show !== undefined ? show : !this.showSurfaceWinds;
+    if (this.showSurfaceWinds) {
+      this.ensureWindBuffers();
+    }
+    return this.showSurfaceWinds;
+  }
+
+  public toggleJetStream(show?: boolean): boolean {
+    this.showJetStream = show !== undefined ? show : !this.showJetStream;
+    if (this.showJetStream) {
+      this.ensureWindBuffers();
+    }
+    return this.showJetStream;
+  }
+
+  public setWindSpeedMultiplier(multiplier: number): void {
+    this.windSpeedMultiplier = Math.max(0.1, Math.min(10.0, multiplier));
   }
 
   private updateDepthTexture(width: number, height: number): void {
@@ -2278,6 +2795,210 @@ export class WebGPUEngine {
         cullMode: 'none',
       },
     });
+
+    // 12. Atmospheric Wind Compute & Ribbon Pipelines
+    try {
+      if (this.windParticleBuffers && this.windUniformBuffer && this.windTextureView && this.jetStreamTextureView) {
+        const windComputeShaderModule = this.device.createShaderModule({
+          label: 'wind_particles_compute',
+          code: windParticlesWGSL,
+        });
+
+        const windComputeBindGroupLayout = this.device.createBindGroupLayout({
+          label: 'wind_compute_bind_group_layout',
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+            { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+            { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+            { binding: 3, visibility: GPUShaderStage.COMPUTE, sampler: {} },
+            { binding: 4, visibility: GPUShaderStage.COMPUTE, texture: {} },
+            { binding: 5, visibility: GPUShaderStage.COMPUTE, texture: {} },
+          ],
+        });
+
+        const windComputePipelineLayout = this.device.createPipelineLayout({
+          bindGroupLayouts: [windComputeBindGroupLayout],
+        });
+
+        this.windComputePipeline = this.device.createComputePipeline({
+          label: 'wind_compute_pipeline',
+          layout: windComputePipelineLayout,
+          compute: {
+            module: windComputeShaderModule,
+            entryPoint: 'cs_advect_wind',
+          },
+        });
+
+        this.windComputeBindGroups = [
+          this.device.createBindGroup({
+            label: 'wind_compute_bg_0_to_1',
+            layout: windComputeBindGroupLayout,
+            entries: [
+              { binding: 0, resource: { buffer: this.windUniformBuffer } },
+              { binding: 1, resource: { buffer: this.windParticleBuffers[0] } },
+              { binding: 2, resource: { buffer: this.windParticleBuffers[1] } },
+              { binding: 3, resource: this.windSampler! },
+              { binding: 4, resource: this.windTextureView! },
+              { binding: 5, resource: this.jetStreamTextureView! },
+            ],
+          }),
+          this.device.createBindGroup({
+            label: 'wind_compute_bg_1_to_0',
+            layout: windComputeBindGroupLayout,
+            entries: [
+              { binding: 0, resource: { buffer: this.windUniformBuffer } },
+              { binding: 1, resource: { buffer: this.windParticleBuffers[1] } },
+              { binding: 2, resource: { buffer: this.windParticleBuffers[0] } },
+              { binding: 3, resource: this.windSampler! },
+              { binding: 4, resource: this.windTextureView! },
+              { binding: 5, resource: this.jetStreamTextureView! },
+            ],
+          }),
+        ];
+
+        // Wind Ribbon Render Pipeline
+        const windRibbonShaderModule = this.device.createShaderModule({
+          label: 'wind_ribbon_render',
+          code: windRibbonRenderWGSL,
+        });
+
+        const windRibbonBindGroupLayout = this.device.createBindGroupLayout({
+          label: 'wind_ribbon_bind_group_layout',
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+            { binding: 1, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
+          ],
+        });
+
+        const windRibbonPipelineLayout = this.device.createPipelineLayout({
+          bindGroupLayouts: [windRibbonBindGroupLayout],
+        });
+
+        const windQuadCornerLayout: GPUVertexBufferLayout = {
+          arrayStride: 8,
+          stepMode: 'vertex',
+          attributes: [
+            { shaderLocation: 0, offset: 0, format: 'float32x2' },
+          ],
+        };
+
+        this.windRibbonPipeline = this.device.createRenderPipeline({
+          label: 'wind_ribbon_pipeline',
+          layout: windRibbonPipelineLayout,
+          vertex: {
+            module: windRibbonShaderModule,
+            entryPoint: 'vs_main',
+            buffers: [windQuadCornerLayout],
+          },
+          fragment: {
+            module: windRibbonShaderModule,
+            entryPoint: 'fs_main',
+            targets: [
+              {
+                format: this.format,
+                blend: {
+                  color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                  alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                },
+              },
+            ],
+          },
+          depthStencil: {
+            depthWriteEnabled: false,
+            depthCompare: 'always',
+            format: 'depth24plus',
+          },
+          primitive: {
+            topology: 'triangle-strip',
+            cullMode: 'none',
+          },
+        });
+
+        this.windRibbonBindGroups = [
+          this.device.createBindGroup({
+            label: 'wind_ribbon_bg_0',
+            layout: windRibbonBindGroupLayout,
+            entries: [
+              { binding: 0, resource: { buffer: this.ribbonUniformBuffer } },
+              { binding: 1, resource: { buffer: this.windParticleBuffers[0] } },
+            ],
+          }),
+          this.device.createBindGroup({
+            label: 'wind_ribbon_bg_1',
+            layout: windRibbonBindGroupLayout,
+            entries: [
+              { binding: 0, resource: { buffer: this.ribbonUniformBuffer } },
+              { binding: 1, resource: { buffer: this.windParticleBuffers[1] } },
+            ],
+          }),
+        ];
+      }
+    } catch {
+      // Mock environment guard
+    }
+
+    // 13. Autonomous Origami Paper Crane Pipeline
+    try {
+      if (this.craneUniformBuffer) {
+        const craneShaderModule = this.device.createShaderModule({
+          label: 'origami_crane_shader',
+          code: origamiCraneWGSL,
+        });
+
+        const craneBindGroupLayout = this.device.createBindGroupLayout({
+          label: 'crane_bind_group_layout',
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+          ],
+        });
+
+        const cranePipelineLayout = this.device.createPipelineLayout({
+          bindGroupLayouts: [craneBindGroupLayout],
+        });
+
+        this.cranePipeline = this.device.createRenderPipeline({
+          label: 'origami_crane_pipeline',
+          layout: cranePipelineLayout,
+          vertex: {
+            module: craneShaderModule,
+            entryPoint: 'vs_main',
+            buffers: [],
+          },
+          fragment: {
+            module: craneShaderModule,
+            entryPoint: 'fs_main',
+            targets: [
+              {
+                format: this.format,
+                blend: {
+                  color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                  alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                },
+              },
+            ],
+          },
+          depthStencil: {
+            depthWriteEnabled: true,
+            depthCompare: 'always',
+            format: 'depth24plus',
+          },
+          primitive: {
+            topology: 'triangle-list',
+            cullMode: 'none',
+          },
+        });
+
+        this.craneBindGroup = this.device.createBindGroup({
+          label: 'crane_bind_group',
+          layout: craneBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.craneUniformBuffer } },
+          ],
+        });
+      }
+    } catch {
+      // Mock environment guard
+    }
   }
 
   public updateUniforms(params: WebGPUFrameParams): void {
@@ -2500,6 +3221,94 @@ export class WebGPUEngine {
 
       this.device.queue.writeBuffer(this.crustUniformBuffer, 0, cf.buffer);
     }
+
+    // ------------------------------------------------------------------------
+    // Wind Simulation Uniforms (32 bytes)
+    // ------------------------------------------------------------------------
+    if (this.windUniformBuffer) {
+      const showSurf = params.showSurfaceWinds !== undefined ? (params.showSurfaceWinds ? 1.0 : 0.0) : (this.showSurfaceWinds ? 1.0 : 0.0);
+      const showJet = params.showJetStream !== undefined ? (params.showJetStream ? 1.0 : 0.0) : (this.showJetStream ? 1.0 : 0.0);
+      const windU = new Float32Array(8);
+      const windU32 = new Uint32Array(windU.buffer);
+      windU[0] = params.unfurl;
+      windU32[1] = params.mode;
+      windU[2] = params.time;
+      windU[3] = params.dt;
+      windU32[4] = this.windParticleCount;
+      windU[5] = this.windSpeedMultiplier;
+      windU[6] = showSurf;
+      windU[7] = showJet;
+      this.device.queue.writeBuffer(this.windUniformBuffer, 0, windU.buffer);
+    }
+
+    // ------------------------------------------------------------------------
+    // Autonomous Origami Paper Crane Uniforms (240 bytes)
+    // ------------------------------------------------------------------------
+    if ((this.isCraneActive || params.showCrane) && this.craneUniformBuffer) {
+      this.craneSolver.step({
+        dt: params.dt,
+        unfurl: params.unfurl,
+        mode: params.mode as any,
+      });
+
+      const cart = this.craneSolver.computeCartographicState(params.unfurl, params.mode as any);
+      const state = this.craneSolver.getState();
+      const cf = this.craneUniformFloats;
+
+      // [0..3]: worldPos (xyz) + wingFlex (w)
+      cf[0] = cart.worldPos[0];
+      cf[1] = cart.worldPos[1];
+      cf[2] = cart.worldPos[2];
+      cf[3] = state.wingFlex;
+
+      // [4..7]: forward (xyz) + airspeed (w)
+      cf[4] = cart.forwardVec[0];
+      cf[5] = cart.forwardVec[1];
+      cf[6] = cart.forwardVec[2];
+      cf[7] = state.airspeed;
+
+      // [8..11]: up (xyz) + variometer (w)
+      cf[8] = cart.upVec[0];
+      cf[9] = cart.upVec[1];
+      cf[10] = cart.upVec[2];
+      cf[11] = state.variometer;
+
+      // [12..15]: right (xyz) + roll (w)
+      cf[12] = cart.rightVec[0];
+      cf[13] = cart.rightVec[1];
+      cf[14] = cart.rightVec[2];
+      cf[15] = state.roll;
+
+      // [16..19]: shadowPos (xyz on terrain/sphere) + altitude (w)
+      const normLen = Math.hypot(cart.worldPos[0], cart.worldPos[1], cart.worldPos[2]) || 1.0;
+      const shadowR = 5.004;
+      cf[16] = (cart.worldPos[0] / normLen) * shadowR;
+      cf[17] = (cart.worldPos[1] / normLen) * shadowR;
+      cf[18] = (cart.worldPos[2] / normLen) * shadowR;
+      cf[19] = state.altitude;
+
+      // [20..35]: viewMatrix
+      params.camera.updateMatrixWorld?.();
+      params.camera.matrixWorldInverse.toArray(cf, 20);
+
+      // [36..51]: projectionMatrix
+      params.camera.projectionMatrix.toArray(cf, 36);
+
+      // [52..55]: cameraPos
+      cf[52] = params.camera.position.x;
+      cf[53] = params.camera.position.y;
+      cf[54] = params.camera.position.z;
+      cf[55] = 1.0;
+
+      // [56..59]: theme, isShadowPass, unfurl, pad1
+      const cu = new Uint32Array(cf.buffer, cf.byteOffset, 60);
+      cu[56] = params.theme !== undefined ? params.theme : 0;
+      cu[57] = 0;
+      cf[58] = params.unfurl;
+      cf[59] = 0.0;
+
+      this.device.queue.writeBuffer(this.craneUniformBuffer, 0, cf.buffer);
+    }
   }
 
   public render(params: WebGPUFrameParams): void {
@@ -2517,7 +3326,18 @@ export class WebGPUEngine {
       this.ensureCartographicBuffers();
     }
 
-    // 2. Update Sim, Relief, and Ribbon Uniforms
+    // 1b. Ensure wind and origami crane buffers lazily on-demand
+    if (
+      params.showWind ||
+      params.showSurfaceWinds ||
+      params.showJetStream ||
+      params.showCrane ||
+      this.isCraneActive
+    ) {
+      this.ensureWindBuffers();
+    }
+
+    // 2. Update Sim, Relief, Ribbon, Wind, and Crane Uniforms
     this.updateUniforms(params);
 
     // 2. Begin Frame Command Encoding
@@ -2531,6 +3351,21 @@ export class WebGPUEngine {
     computePass.setBindGroup(0, this.computeBindGroups[this.currentStep % 2]);
     const workgroupCount = Math.min(65535, Math.ceil(this.pointCount / 256));
     computePass.dispatchWorkgroups(workgroupCount, 1, 1);
+
+    // Pass 1b: Atmospheric Wind Particle Advection Compute Dispatch
+    const showSurf = params.showSurfaceWinds !== undefined ? params.showSurfaceWinds : this.showSurfaceWinds;
+    const showJet = params.showJetStream !== undefined ? params.showJetStream : this.showJetStream;
+    if (
+      this.windComputePipeline &&
+      this.windComputeBindGroups &&
+      params.showWind !== false &&
+      (showSurf || showJet)
+    ) {
+      computePass.setPipeline(this.windComputePipeline);
+      computePass.setBindGroup(0, this.windComputeBindGroups[this.windStep % 2]);
+      const windWgCount = Math.min(65535, Math.ceil(this.windParticleCount / 256));
+      computePass.dispatchWorkgroups(windWgCount, 1, 1);
+    }
     computePass.end();
 
     // Pass 2: Consolidated Single Render Pass (TBDR on-chip optimization)
@@ -2625,6 +3460,27 @@ export class WebGPUEngine {
       this.renderSatelliteOrbits(renderPass);
     }
 
+    // 3d. Render Atmospheric Wind Streamline Ribbons
+    if (
+      params.showWind !== false &&
+      (showSurf || showJet) &&
+      this.windRibbonPipeline &&
+      this.windRibbonBindGroups &&
+      this.quadCornerBuffer
+    ) {
+      this.renderWindRibbons(renderPass);
+    }
+
+    // 3e. Render Autonomous Origami Paper Crane & Ground Shadow
+    if (
+      (this.isCraneActive || params.showCrane) &&
+      this.cranePipeline &&
+      this.craneBindGroup &&
+      this.craneUniformBuffer
+    ) {
+      this.renderOrigamiCrane(renderPass, params);
+    }
+
     // 4. Render Point Sprites
     if (layerMode === 0 || layerMode === 1) {
       renderPass.setPipeline(this.pointsRenderPipeline);
@@ -2643,6 +3499,7 @@ export class WebGPUEngine {
 
     // Swap Ping-Pong Step
     this.currentStep++;
+    this.windStep++;
   }
 
   public resize(width: number, height: number): void {
@@ -2721,6 +3578,24 @@ export class WebGPUEngine {
     this.windTexture = null;
     this.windTextureView = null;
     this.windSampler = null;
+    this.jetStreamTexture?.destroy();
+    this.jetStreamTexture = null;
+    this.jetStreamTextureView = null;
+    if (this.windParticleBuffers) {
+      this.windParticleBuffers[0]?.destroy();
+      this.windParticleBuffers[1]?.destroy();
+      this.windParticleBuffers = null;
+    }
+    this.windUniformBuffer?.destroy();
+    this.windUniformBuffer = null;
+    this.craneUniformBuffer?.destroy();
+    this.craneUniformBuffer = null;
+    this.windComputePipeline = null;
+    this.windComputeBindGroups = null;
+    this.windRibbonPipeline = null;
+    this.windRibbonBindGroups = null;
+    this.cranePipeline = null;
+    this.craneBindGroup = null;
     this.device?.destroy?.();
     this.isInitialized = false;
   }

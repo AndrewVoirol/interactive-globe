@@ -79,6 +79,96 @@ export function generateGFSAtmosphericCirculationGrid(): ArrayBuffer {
   return buffer;
 }
 
+/**
+ * Generates 250 hPa Upper Troposphere Jet Stream velocity grid (360x181 half-precision float16).
+ * Features high-velocity core corridors (30 to 50 m/s) with Rossby wave meandering.
+ */
+export function generateGFSJetStreamGrid(): ArrayBuffer {
+  const lonPoints = 360;
+  const latPoints = 181;
+  const componentsPerNode = 2; // [u_jet, v_jet]
+  const bytesPerComponent = 2;
+
+  const totalBytes = lonPoints * latPoints * componentsPerNode * bytesPerComponent;
+  const buffer = new ArrayBuffer(totalBytes);
+  const u16View = new Uint16Array(buffer);
+
+  for (let latIdx = 0; latIdx < latPoints; latIdx++) {
+    const latDeg = 90.0 - latIdx;
+    const absLat = Math.abs(latDeg);
+
+    for (let lonIdx = 0; lonIdx < lonPoints; lonIdx++) {
+      const idx = (latIdx * lonPoints + lonIdx) * 2;
+      const lonRad = (lonIdx * Math.PI) / 180.0;
+      const latRad = (latDeg * Math.PI) / 180.0;
+
+      let uMps = 0.0;
+      let vMps = 0.0;
+
+      // Polar Jet Stream (~45° to 60° latitude): Peak core up to 48 m/s (~95 kt)
+      if (absLat >= 35.0 && absLat <= 70.0) {
+        const polarCore = Math.cos(((absLat - 52.0) / 18.0) * (Math.PI * 0.5));
+        const jetSpeed = 42.0 * Math.max(0.0, polarCore);
+        // Rossby planetary wave meandering (wavenumbers 3 and 5)
+        const wave1 = 8.5 * Math.sin(lonRad * 3.0 + 0.5) * Math.sin(latRad * 2.0);
+        const wave2 = 4.2 * Math.cos(lonRad * 5.0 - 0.2);
+        uMps = jetSpeed + wave1;
+        vMps = 12.0 * Math.cos(lonRad * 3.0) * polarCore + wave2;
+      }
+      // Subtropical Jet Stream (~25° to 35° latitude): ~32 m/s
+      else if (absLat >= 20.0 && absLat < 35.0) {
+        const subCore = Math.cos(((absLat - 28.0) / 8.0) * (Math.PI * 0.5));
+        const jetSpeed = 32.0 * Math.max(0.0, subCore);
+        uMps = jetSpeed + 3.0 * Math.sin(lonRad * 4.0);
+        vMps = 5.0 * Math.sin(lonRad * 4.0);
+      }
+      // Tropical upper troposphere easterly jet (-12 m/s)
+      else if (absLat < 20.0) {
+        uMps = -12.0 * Math.cos((absLat / 20.0) * (Math.PI * 0.5));
+        vMps = 1.5 * Math.sin(lonRad * 2.0);
+      }
+      // High polar vortex upper winds
+      else {
+        uMps = 10.0 * Math.cos(((absLat - 75.0) / 15.0) * (Math.PI * 0.5));
+        vMps = 2.0 * Math.cos(lonRad * 2.0);
+      }
+
+      uMps = Math.max(-100.0, Math.min(100.0, uMps));
+      vMps = Math.max(-100.0, Math.min(100.0, vMps));
+
+      u16View[idx + 0] = encodeFloat16(uMps);
+      u16View[idx + 1] = encodeFloat16(vMps);
+    }
+  }
+
+  return buffer;
+}
+
+/**
+ * Packs Surface and Jet Stream grids into a single 4-channel RGBA16Float buffer (521,280 bytes).
+ * r: u_surface, g: v_surface, b: u_jet, a: v_jet
+ */
+export function generateMultiStratumGrid(): ArrayBuffer {
+  const surfaceBuf = generateGFSAtmosphericCirculationGrid();
+  const jetBuf = generateGFSJetStreamGrid();
+
+  const numNodes = 360 * 181;
+  const multiBuf = new ArrayBuffer(numNodes * 4 * 2); // 4 components * 2 bytes = 521,280 bytes
+  const multiU16 = new Uint16Array(multiBuf);
+
+  const surfU16 = new Uint16Array(surfaceBuf);
+  const jetU16 = new Uint16Array(jetBuf);
+
+  for (let i = 0; i < numNodes; i++) {
+    multiU16[i * 4 + 0] = surfU16[i * 2 + 0]; // u_surface
+    multiU16[i * 4 + 1] = surfU16[i * 2 + 1]; // v_surface
+    multiU16[i * 4 + 2] = jetU16[i * 2 + 0];  // u_jet
+    multiU16[i * 4 + 3] = jetU16[i * 2 + 1];  // v_jet
+  }
+
+  return multiBuf;
+}
+
 export async function fetchOrGenerateGFS(): Promise<void> {
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
@@ -95,6 +185,18 @@ export async function fetchOrGenerateGFS(): Promise<void> {
   if (stats.size !== 260640) {
     throw new Error(`Invalid file size: ${stats.size} !== 260640`);
   }
+
+  // Also write Jet Stream grid
+  const jetPath = path.join(outputDir, 'gfs-jetstream-latest.bin');
+  const jetBuf = generateGFSJetStreamGrid();
+  fs.writeFileSync(jetPath, Buffer.from(jetBuf));
+  console.log(`Successfully generated ${jetPath} (260,640 bytes)`);
+
+  // And composite multi-stratum grid
+  const multiPath = path.join(outputDir, 'gfs-multistratum-latest.bin');
+  const multiBuf = generateMultiStratumGrid();
+  fs.writeFileSync(multiPath, Buffer.from(multiBuf));
+  console.log(`Successfully generated ${multiPath} (521,280 bytes)`);
 }
 
 // Run if executed directly
