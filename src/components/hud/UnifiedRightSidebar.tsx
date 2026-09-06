@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo } from '../../types';
 import { DATA_LAYER_CATALOG, BlendModeType, getPresetById, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
 import { DataLayerItem } from './DataLayersDrawer';
+import { Sun, Moon } from 'lucide-react';
 import { PolarSunCompass } from './instruments/PolarSunCompass';
 import { HypsometricReliefCurve } from './instruments/HypsometricReliefCurve';
 import { BathymetricTideGauge } from './instruments/BathymetricTideGauge';
@@ -167,20 +168,20 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
           {/* Row 1: Engine Controls & System Status Bar                            */}
           {/* --------------------------------------------------------------------- */}
           <div
-            className={`flex items-center justify-between pb-2.5 border-b gap-1.5 ${
+            className={`flex items-center justify-between pb-2.5 border-b gap-1 ${
               isLight ? 'border-zinc-200' : 'border-white/10'
             }`}
           >
-            {/* Live FPS Badge */}
+            {/* Live FPS Badge (Fixed width, cohesive gap, no layout shift) */}
             <div
-              className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border font-bold text-[10px] tabular-nums transition-all ${
+              className={`flex items-center justify-center gap-1.5 w-16 shrink-0 px-1.5 py-1 rounded-lg border font-bold text-[10px] tabular-nums transition-colors ${
                 isLight
                   ? 'bg-zinc-100/90 border-zinc-200 text-zinc-900'
                   : 'bg-black/30 border-white/10 text-zinc-200'
               }`}
             >
               <span
-                className={`w-2 h-2 rounded-full ${
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                   fps >= 100
                     ? 'bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.8)] animate-pulse'
                     : fps >= 55
@@ -189,17 +190,17 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 }`}
               ></span>
               <span
-                className={
+                className={`w-5 text-right tabular-nums ${
                   fps >= 100
                     ? 'text-purple-400 font-extrabold'
                     : fps >= 55
-                    ? 'text-emerald-500 dark:text-emerald-400 font-extrabold'
+                    ? 'text-emerald-500 font-extrabold'
                     : 'text-amber-500 font-extrabold'
-                }
+                }`}
               >
                 {fps}
               </span>
-              <span className="text-[9px] font-normal opacity-60">FPS</span>
+              <span className="text-[8px] font-normal opacity-60">FPS</span>
             </div>
 
             {/* Backend Toggle (WebGL2 vs WebGPU) */}
@@ -213,7 +214,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   ? 'Active Engine: WebGPU WGSL Compute'
                   : 'Active Engine: WebGL2 Fallback'
               }
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1.5 ${
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1.5 shrink-0 ${
                 backend === 'webgpu'
                   ? 'bg-purple-600 text-white border-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.4)] ring-1 ring-purple-400/50'
                   : isLight
@@ -222,24 +223,17 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               }`}
             >
               <span
-                className={`w-1.5 h-1.5 rounded-full ${
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                   backend === 'webgpu' ? 'bg-white animate-pulse' : 'bg-emerald-400'
                 }`}
               ></span>
-              <span className="opacity-70 font-normal text-[9px]">Engine:</span>
               <span>{backend === 'webgpu' ? 'WebGPU' : 'WebGL2'}</span>
-              <span
-                className={`text-[8px] px-1 py-0.5 rounded font-normal transition-opacity ${
-                  backend === 'webgpu' ? 'bg-white/20 text-purple-100' : 'bg-black/10 text-zinc-400'
-                }`}
-              >
-                {backend === 'webgpu' ? '⇄ WebGL2' : '⇄ WebGPU'}
-              </span>
+              <span className="text-[9px] opacity-60 font-normal">⇄</span>
             </button>
 
             {/* Grid Resolution Switch (100K vs 1M) */}
             <div
-              className={`flex items-center rounded-lg p-0.5 border ${
+              className={`flex items-center rounded-lg p-0.5 border shrink-0 ${
                 isLight ? 'bg-zinc-100 border-zinc-300' : 'bg-black/40 border-white/10'
               }`}
             >
@@ -282,7 +276,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     ? 'Web Audio Synthesizer: Muted (Click to Unmute)'
                     : 'Web Audio Synthesizer: Active (Click to Mute)'
                 }
-                className={`p-1.5 rounded-lg border transition-all flex items-center ${
+                className={`p-1.5 rounded-lg border transition-all flex items-center shrink-0 ${
                   !isAudioMuted
                     ? isLight
                       ? 'border-emerald-500 bg-emerald-100 text-emerald-900 ring-1 ring-emerald-500 shadow-sm'
@@ -308,21 +302,18 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
             {/* Theme Toggle (Light / Dark) */}
             <button
               onClick={onThemeToggle}
+              aria-label={isLight ? 'Switch to Dark Theme' : 'Switch to Light Theme'}
               title={isLight ? 'Switch to Dark Cyber Palette (Press T)' : 'Switch to Light Monochrome Palette (Press T)'}
-              className={`p-1.5 rounded-lg border transition-all flex items-center ${
+              className={`p-1.5 rounded-lg border transition-all flex items-center justify-center shrink-0 ${
                 isLight
-                  ? 'border-amber-400 bg-amber-50 text-amber-900 shadow-sm ring-1 ring-amber-400/40'
-                  : 'border-sky-500/40 bg-sky-500/15 text-sky-300 hover:text-white hover:border-sky-400'
+                  ? 'border-zinc-300 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 hover:border-zinc-400 shadow-sm'
+                  : 'border-white/10 bg-white/5 text-zinc-400 hover:text-amber-300 hover:bg-white/10 hover:border-white/25'
               }`}
             >
               {isLight ? (
-                <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 2.78a1 1 0 011.415 0l.707.707a1 1 0 01-1.414 1.415l-.707-.707a1 1 0 010-1.415zM17 9a1 1 0 100 2h1a1 1 0 100-2h-1zm-2.78 6.22a1 1 0 010 1.415l-.707.707a1 1 0 01-1.415-1.414l.707-.707a1 1 0 011.414 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.56 14.78a1 1 0 01-1.415 0l-.707-.707a1 1 0 011.414-1.414l.707.707a1 1 0 010 1.414zM4 11a1 1 0 100-2H3a1 1 0 100 2h1zm2.78-6.22a1 1 0 011.415 0l.707.707a1 1 0 01-1.414 1.415l-.707-.707a1 1 0 010-1.415z" />
-                </svg>
+                <Moon className="w-3.5 h-3.5" />
               ) : (
-                <svg className="w-3.5 h-3.5 text-sky-300" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                </svg>
+                <Sun className="w-3.5 h-3.5" />
               )}
             </button>
           </div>
