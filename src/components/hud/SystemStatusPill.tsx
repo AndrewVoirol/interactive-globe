@@ -17,7 +17,18 @@ export interface SystemStatusPillProps {
   onThemeToggle: () => void;
   isAudioMuted?: boolean;
   onAudioMuteToggle?: () => void;
+  particleNodes?: '1.05M' | '4.19M' | number;
+  isHighDensityNodes?: boolean;
 }
+
+export const TERRAIN_VERTICES: Record<ResolutionTier, string> = {
+  '100k': '264K Verts',
+  '1M': '1.05M Verts',
+  '3M': '2.99M Verts',
+  '4M': '4.20M Verts',
+  '8M': '8.40M Verts',
+  '16M': '16.78M Verts',
+};
 
 export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
   fps,
@@ -30,8 +41,24 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
   onThemeToggle,
   isAudioMuted = true,
   onAudioMuteToggle,
+  particleNodes,
+  isHighDensityNodes,
 }) => {
   const isLight = theme === 1;
+
+  const terrainVerts = TERRAIN_VERTICES[resolution] || '1.05M Verts';
+  const computeNodes =
+    particleNodes !== undefined
+      ? typeof particleNodes === 'number'
+        ? particleNodes >= 4000000
+          ? '4.19M Nodes'
+          : '1.05M Nodes'
+        : String(particleNodes).includes('Nodes')
+        ? String(particleNodes)
+        : `${particleNodes} Nodes`
+      : isHighDensityNodes || resolution === '4M' || resolution === '8M' || resolution === '16M'
+      ? '4.19M Nodes'
+      : '1.05M Nodes';
 
   return (
     <div className="fixed top-4 left-4 z-20 pointer-events-auto font-mono select-none transition-all duration-300 ease-out">
@@ -54,35 +81,31 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
           </span>
         </div>
 
-        {/* Backend Switch */}
-        <button
-          onClick={() => onBackendChange(backend === 'webgpu' ? 'webgl2' : 'webgpu')}
-          disabled={!hasWebGPU && backend === 'webgl2'}
-          title={
-            !hasWebGPU
-              ? 'WebGPU not available on this hardware'
-              : backend === 'webgpu'
-              ? 'Active Engine: WebGPU WGSL Compute'
-              : 'Active Engine: WebGL2 Fallback'
-          }
-          className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1.5 ${
-            backend === 'webgpu'
-              ? 'bg-purple-600/30 text-purple-200 border-purple-500/50 hover:bg-purple-600/40'
-              : isLight
-              ? 'bg-zinc-100 border-zinc-300 text-zinc-800 hover:bg-zinc-200'
-              : 'bg-white/5 border-white/10 text-zinc-300 hover:text-white hover:border-white/20'
+        {/* Dedicated WebGPU Instrument Badge (Retiring WebGL2 Switcher) */}
+        <div
+          title="Active Instrument: WebGPU WGSL Compute & Rendering"
+          className="px-2.5 py-1 rounded-lg text-[10px] font-bold border border-purple-500/50 bg-purple-600/30 text-purple-200 flex items-center gap-1.5 shadow-[0_0_8px_rgba(168,85,247,0.3)] select-none shrink-0"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+          <span>WebGPU</span>
+        </div>
+
+        {/* 3D Terrain Vertex Count & Active Particle Compute Nodes Telemetry */}
+        <div
+          className={`flex items-center gap-2 px-2 py-1 rounded-lg border text-[9px] font-mono shrink-0 ${
+            isLight ? 'bg-zinc-100 border-zinc-200 text-zinc-700' : 'bg-black/30 border-white/5 text-zinc-300'
           }`}
         >
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${
-              backend === 'webgpu' ? 'bg-purple-400 animate-pulse' : 'bg-emerald-400'
-            }`}
-          ></span>
-          <span>{backend === 'webgpu' ? 'WebGPU' : 'WebGL2'}</span>
-          <span className="text-[8px] opacity-60 font-normal">
-            {backend === 'webgpu' ? '⇄ WebGL2' : '⇄ WebGPU'}
+          <span className="flex items-center gap-1" title="Dual-surface 3D terrain vertex mesh density">
+            <span className="opacity-60 text-[8px] uppercase">Mesh:</span>
+            <span className="text-purple-400 dark:text-purple-300 font-bold">{terrainVerts}</span>
           </span>
-        </button>
+          <span className="text-white/20 font-light">|</span>
+          <span className="flex items-center gap-1" title="Active WebGPU particle compute nodes">
+            <span className="opacity-60 text-[8px] uppercase">Sim:</span>
+            <span className="text-cyan-400 dark:text-cyan-300 font-bold">{computeNodes}</span>
+          </span>
+        </div>
 
         {/* Grid Resolution Switch */}
         <div className="flex items-center bg-black/20 rounded-lg p-0.5 border border-white/5 gap-0.5">

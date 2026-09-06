@@ -9,7 +9,6 @@ import { GlobeLayerManager } from './GlobeLayerManager';
 import { DataLayerItem } from '../../components/hud/DataLayersDrawer';
 import { ToastMessage } from '../../components/hud/DataLayerToastNotification';
 import { BlendModeType, getPresetById, DataLayerRenderStyle } from '../data/DataLayerCatalog';
-import { BaseGlobeOverlayLayer, VectorOverlayPluginLayer, GeodesicOverlayPluginLayer } from '../_deferred/adapters/GlobeOverlayAdapters';
 
 export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
   const managerRef = useRef<GlobeLayerManager>(new GlobeLayerManager());
@@ -46,14 +45,7 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // Initialize engine default base layers into GlobeLayerManager
-  useEffect(() => {
-    const manager = managerRef.current;
-    manager.addLayer(new BaseGlobeOverlayLayer());
-    manager.addLayer(new VectorOverlayPluginLayer());
-    manager.addLayer(new GeodesicOverlayPluginLayer());
-  }, []);
-
+  // Layers managed dynamically via state
   const handleAddDataLayer = useCallback(
     (layer: DataLayerItem) => {
       setDataLayers((prev) => {

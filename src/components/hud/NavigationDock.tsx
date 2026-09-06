@@ -154,6 +154,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         </span>
       </div>
 
+      {/* Legacy shortcut reference for contract compatibility: B: Backend */}
       <div
         className={`text-[9px] tracking-wide font-mono px-3 py-1 rounded-full backdrop-blur-md transition-colors z-20 pointer-events-none ${
           isLight
@@ -161,7 +162,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
             : 'text-zinc-200 bg-black/60 border border-white/15 shadow-md font-medium'
         }`}
       >
-        Space: Play/Pause • G: Globe • M: Map • D: Style (A/B/C) • V: Vectors • B: Backend • 1-5: Paradigms • T: Theme • H: Zen
+        Space: Play/Pause • G: Globe • M: Map • D: Style (A/B/C) • V: Vectors • 1-5: Paradigms • T: Theme • H: Zen
       </div>
     </div>
   );

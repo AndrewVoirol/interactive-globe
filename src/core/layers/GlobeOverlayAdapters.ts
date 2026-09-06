@@ -1,13 +1,11 @@
 // ============================================================================
-// File: src/core/_deferred/adapters/GlobeOverlayAdapters.ts
-// Architecture: Overlay Adapters implementing IGlobeLayer (DEFERRED)
+// File: src/core/layers/GlobeOverlayAdapters.ts
+// Architecture: Overlay Adapters implementing IGlobeLayer
 // Description: Inert skeleton adapters for GlobeOverlay, VectorOverlay, and GeodesicOverlay.
-// Status: Deferred — Live rendering utilizes dedicated React Three Fiber components directly.
 // ============================================================================
 
-import * as THREE from 'three';
-import { IGlobeLayer, LayerRenderContext, LayerBlendMode } from '../../layers/IGlobeLayer';
-import { SubstrateUniformFrameData } from '../paradigms/IRenderParadigm';
+import { IGlobeLayer, LayerRenderContext, LayerBlendMode } from './IGlobeLayer';
+import { SubstrateUniformFrameData } from '../paradigms';
 
 export class BaseGlobeOverlayLayer implements IGlobeLayer {
   public readonly id = 'base-globe-overlay';
@@ -17,10 +15,10 @@ export class BaseGlobeOverlayLayer implements IGlobeLayer {
   public visible = true;
   public blendMode: LayerBlendMode = 'opaque';
 
-  public async onAdd(context: { device?: GPUDevice; gl?: WebGL2RenderingContext }): Promise<void> {}
+  public async onAdd(_context: { device?: GPUDevice; gl?: WebGL2RenderingContext }): Promise<void> {}
   public async onRemove(): Promise<void> {}
-  public update(frameData: SubstrateUniformFrameData): void {}
-  public render(ctx: LayerRenderContext): void {}
+  public update(_frameData: SubstrateUniformFrameData): void {}
+  public render(_ctx: LayerRenderContext): void {}
   public dispose(): void {}
 }
 
@@ -32,10 +30,10 @@ export class VectorOverlayPluginLayer implements IGlobeLayer {
   public visible = true;
   public blendMode: LayerBlendMode = 'alpha';
 
-  public async onAdd(context: { device?: GPUDevice; gl?: WebGL2RenderingContext }): Promise<void> {}
+  public async onAdd(_context: { device?: GPUDevice; gl?: WebGL2RenderingContext }): Promise<void> {}
   public async onRemove(): Promise<void> {}
-  public update(frameData: SubstrateUniformFrameData): void {}
-  public render(ctx: LayerRenderContext): void {}
+  public update(_frameData: SubstrateUniformFrameData): void {}
+  public render(_ctx: LayerRenderContext): void {}
   public dispose(): void {}
 }
 
@@ -47,9 +45,9 @@ export class GeodesicOverlayPluginLayer implements IGlobeLayer {
   public visible = true;
   public blendMode: LayerBlendMode = 'additive';
 
-  public async onAdd(context: { device?: GPUDevice; gl?: WebGL2RenderingContext }): Promise<void> {}
+  public async onAdd(_context: { device?: GPUDevice; gl?: WebGL2RenderingContext }): Promise<void> {}
   public async onRemove(): Promise<void> {}
-  public update(frameData: SubstrateUniformFrameData): void {}
-  public render(ctx: LayerRenderContext): void {}
+  public update(_frameData: SubstrateUniformFrameData): void {}
+  public render(_ctx: LayerRenderContext): void {}
   public dispose(): void {}
 }

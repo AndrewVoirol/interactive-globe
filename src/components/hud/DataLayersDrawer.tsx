@@ -67,6 +67,34 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const isLight = theme === 1;
 
+  const noaaLayer = dataLayers.find((l) => l.id === 'noaa-gfs-wind');
+  const isNoaaActive = noaaLayer ? noaaLayer.visible : false;
+
+  const starlinkLayer = dataLayers.find((l) => l.id === 'starlink-iss-orbits');
+  const isStarlinkActive = starlinkLayer ? starlinkLayer.visible : false;
+
+  const handleTogglePlanetaryLayer = (id: 'noaa-gfs-wind' | 'starlink-iss-orbits') => {
+    const existing = dataLayers.find((l) => l.id === id);
+    if (existing) {
+      onToggleDataLayer?.(id);
+    } else {
+      const preset = getPresetById(id);
+      if (preset && onAddDataLayer) {
+        onAddDataLayer({
+          id: preset.id,
+          name: preset.name,
+          category: preset.category,
+          type: preset.type,
+          details: preset.details,
+          visible: true,
+          opacity: preset.defaultOpacity,
+          blendMode: preset.defaultBlendMode,
+          url: preset.url,
+        });
+      }
+    }
+  };
+
   if (isZenMode) return null;
 
   return (
@@ -112,6 +140,61 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
           </div>
         </div>
 
+        {/* Planetary Instrumentation (Dedicated Live Synced Toggles) */}
+        <div className="mt-2.5 pt-2 border-t border-white/10 space-y-1.5">
+          <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider text-zinc-400">
+            <span>Planetary Instrumentation</span>
+            <span className="flex items-center gap-1 text-[8px] font-mono text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Live Synced
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1.5">
+            {/* Real NOAA GFS Wind Toggle */}
+            <button
+              onClick={() => handleTogglePlanetaryLayer('noaa-gfs-wind')}
+              className={`p-2 rounded-xl border transition-all text-left flex flex-col justify-between gap-1 ${
+                isNoaaActive
+                  ? 'border-sky-500/60 bg-sky-500/20 text-sky-200 shadow-[0_0_10px_rgba(56,189,248,0.25)]'
+                  : isLight
+                  ? 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100'
+                  : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="font-bold text-[10px] truncate">NOAA Wind</span>
+                <span className="flex items-center gap-1 text-[7px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">
+                  <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
+                  Live Synced
+                </span>
+              </div>
+              <span className="text-[8px] text-zinc-400 truncate">0.25° GFS Grid</span>
+            </button>
+
+            {/* Starlink & ISS Orbits Toggle */}
+            <button
+              onClick={() => handleTogglePlanetaryLayer('starlink-iss-orbits')}
+              className={`p-2 rounded-xl border transition-all text-left flex flex-col justify-between gap-1 ${
+                isStarlinkActive
+                  ? 'border-purple-500/60 bg-purple-500/20 text-purple-200 shadow-[0_0_10px_rgba(168,85,247,0.25)]'
+                  : isLight
+                  ? 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100'
+                  : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="font-bold text-[10px] truncate">Starlink & ISS</span>
+                <span className="flex items-center gap-1 text-[7px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">
+                  <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
+                  Live Synced
+                </span>
+              </div>
+              <span className="text-[8px] text-zinc-400 truncate">SGP4 Ribbons</span>
+            </button>
+          </div>
+        </div>
+
         {/* Drawer Active Stack */}
         {isDrawerOpen && (
           <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pr-0.5">
@@ -136,6 +219,12 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                       <div className="flex items-center gap-1.5 font-bold truncate max-w-[190px]">
                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${layer.visible ? 'bg-sky-400 animate-pulse' : 'bg-zinc-500'}`}></span>
                         <span className="truncate">{layer.name}</span>
+                        {(layer.id === 'noaa-gfs-wind' || layer.id === 'starlink-iss-orbits') && (
+                          <span className="flex items-center gap-1 text-[7px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse shrink-0">
+                            <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
+                            Live Synced
+                          </span>
+                        )}
                         <span className="text-[8px] font-mono opacity-60 flex-shrink-0">Z:{dataLayers.length - idx}</span>
                       </div>
                       {/* Unified Right-Side Control Cluster */}
@@ -402,7 +491,15 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs">{preset.name}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs">{preset.name}</span>
+                        {(preset.id === 'noaa-gfs-wind' || preset.id === 'starlink-iss-orbits') && (
+                          <span className="flex items-center gap-1 text-[7px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse">
+                            <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
+                            Live Synced
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
                         {preset.category}
                       </span>

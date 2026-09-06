@@ -4,7 +4,7 @@
 // Description: Multi-mode flight camera with geodesic centripetal banking & HUD projection
 // ============================================================================
 
-import * as THREE from 'three';
+import { Vector3, Quaternion, IVector3 } from '../math/cameraMath';
 import { RTCCamera, AltitudeRegime } from './RTCCamera';
 
 export type CameraKinematicMode = 
@@ -22,8 +22,8 @@ export interface FlightControlInputs {
 }
 
 export interface Waypoint3D {
-  position: THREE.Vector3;
-  target?: THREE.Vector3;
+  position: Vector3;
+  target?: Vector3;
   fov?: number;
 }
 
@@ -32,12 +32,12 @@ export class TrajectoryCameraController {
   public rtcCamera: RTCCamera = new RTCCamera();
 
   // Kinematic parameters
-  public position: THREE.Vector3 = new THREE.Vector3(0, 0, 15);
-  public orientation: THREE.Quaternion = new THREE.Quaternion();
-  public velocity: THREE.Vector3 = new THREE.Vector3();
-  public target: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
+  public position: Vector3 = new Vector3(0, 0, 15);
+  public orientation: Quaternion = new Quaternion();
+  public velocity: Vector3 = new Vector3();
+  public target: Vector3 = new Vector3(0, 0, 0);
 
-  private angularVelocity: THREE.Vector3 = new THREE.Vector3();
+  private angularVelocity: Vector3 = new Vector3();
   private speed = 0.0;
   private readonly maxSpeed = 2.5; // Globe units / second
   private readonly acceleration = 1.2;
@@ -100,19 +100,16 @@ export class TrajectoryCameraController {
 
     this.angularVelocity.multiplyScalar(this.damping);
 
-    const deltaRotation = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(
-        this.angularVelocity.x * dt,
-        this.angularVelocity.y * dt,
-        this.angularVelocity.z * dt,
-        'YXZ'
-      )
+    const deltaRotation = new Quaternion().setFromEuler(
+      this.angularVelocity.x * dt,
+      this.angularVelocity.y * dt,
+      this.angularVelocity.z * dt
     );
     this.orientation.multiply(deltaRotation);
     this.orientation.normalize();
 
     // 3. Forward translation
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.orientation);
+    const forward = new Vector3(0, 0, -1).applyQuaternion(this.orientation);
     this.velocity.copy(forward).multiplyScalar(this.speed);
     this.position.addScaledVector(this.velocity, dt);
 
@@ -142,9 +139,9 @@ export class TrajectoryCameraController {
     // Centripetal banking calculation along turn
     const turnRadius = 10.0;
     const bankAngle = this.computeGeodesicBanking(turnRadius);
-    this.orientation.setFromAxisAngle(new THREE.Vector3(0, 0, 1), bankAngle);
+    this.orientation.setFromAxisAngle(new Vector3(0, 0, 1), bankAngle);
 
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.orientation);
+    const forward = new Vector3(0, 0, -1).applyQuaternion(this.orientation);
     this.target.copy(this.position).add(forward);
   }
 
@@ -167,7 +164,7 @@ export class TrajectoryCameraController {
       this.target.lerpVectors(wp0.target, wp1.target, fraction);
     }
     if (wp0.fov && wp1.fov) {
-      this.dollyFov = THREE.MathUtils.lerp(wp0.fov, wp1.fov, fraction);
+      this.dollyFov = wp0.fov + (wp1.fov - wp0.fov) * fraction;
     }
   }
 

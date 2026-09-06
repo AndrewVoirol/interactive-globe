@@ -9,7 +9,7 @@
  * 5. Tissot's Indicatrix Dynamic Deformation Rings
  */
 
-import * as THREE from 'three';
+import { Vector3 } from './math/cameraMath';
 import { projectToDymaxion2D } from '../utils/dymaxion';
 
 export const RADIUS = 5.0;
@@ -361,8 +361,8 @@ export function sampleGreatCircleGeodesic(
   to: GeoCoordinate,
   steps = 64
 ): Array<{ lon: number; lat: number }> {
-  const v1 = new THREE.Vector3(...geoToSphere(from.lon, from.lat, 1.0));
-  const v2 = new THREE.Vector3(...geoToSphere(to.lon, to.lat, 1.0));
+  const v1 = new Vector3(...geoToSphere(from.lon, from.lat, 1.0));
+  const v2 = new Vector3(...geoToSphere(to.lon, to.lat, 1.0));
 
   const dot = Math.max(-1.0, Math.min(1.0, v1.dot(v2)));
   const omega = Math.acos(dot);
@@ -372,14 +372,14 @@ export function sampleGreatCircleGeodesic(
 
   for (let i = 0; i <= steps; i++) {
     const u = i / steps;
-    let pt: THREE.Vector3;
+    let pt: Vector3;
     if (sinOmega < 1e-6) {
       // Points are identical or antipodal; linear fallback
-      pt = new THREE.Vector3().lerpVectors(v1, v2, u).normalize();
+      pt = new Vector3().lerpVectors(v1, v2, u).normalize();
     } else {
       const c1 = Math.sin((1 - u) * omega) / sinOmega;
       const c2 = Math.sin(u * omega) / sinOmega;
-      pt = new THREE.Vector3()
+      pt = new Vector3()
         .addScaledVector(v1, c1)
         .addScaledVector(v2, c2)
         .normalize();

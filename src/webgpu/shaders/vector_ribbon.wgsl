@@ -206,7 +206,10 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
 
     if (elevMeters >= 0.0) {
         let normH = elevMeters / 8848.0;
-        normalDisplacement = pow(normH, max(0.5, 1.4)) * dispScale * poleAtten;
+        let camDist = length(sim.u_cameraPos.xyz);
+        let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
+        let dynamicExp = mix(1.0, 1.8, orbitT);
+        normalDisplacement = pow(normH, max(0.5, dynamicExp)) * dispScale * poleAtten;
     } else {
         let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
         normalDisplacement = -pow(normD, 0.85) * (dispScale * 0.65) * poleAtten;

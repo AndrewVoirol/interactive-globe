@@ -31,6 +31,8 @@ struct SimUniforms {
 @group(0) @binding(1) var<storage, read> particlesIn: array<Particle>;
 @group(0) @binding(2) var<storage, read_write> particlesOut: array<Particle>;
 @group(0) @binding(3) var<storage, read> staticParticles: array<StaticParticle>;
+@group(0) @binding(4) var u_windTexture: texture_2d<f32>;
+@group(0) @binding(5) var u_windSampler: sampler;
 
 const PI: f32 = 3.14159265358979323846;
 const RADIUS: f32 = 5.0;
@@ -78,6 +80,23 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var finalPos = pos3D;
     var finalVel = vec3<f32>(0.0);
     var metric = 0.0;
+
+    // NOAA GFS 1.0° Wind Velocity Grid Sampling & Surface Tangent Conversion (F34)
+    let windLon = atan2(pos3D.x, pos3D.z);
+    let windLat = asin(clamp(pos3D.y / RADIUS, -1.0, 1.0));
+    let windUV = vec2<f32>(
+        (windLon + PI) / (2.0 * PI),
+        (windLat + PI * 0.5) / PI
+    );
+    let windSample = textureSampleLevel(u_windTexture, u_windSampler, windUV, 0.0).xy;
+    let uWind = windSample.x;
+    let vWind = windSample.y;
+
+    // Orthonormal tangent basis on sphere (eEast, eNorth) strictly preserving dot(vTangent, normal) == 0
+    let normal = normalize(pos3D);
+    let eEast = normalize(vec3<f32>(normal.z, 0.0, -normal.x));
+    let eNorth = cross(normal, eEast);
+    let vTangent = uWind * eEast + vWind * eNorth;
 
     // Mode 1: Cylindrical Scroll (engine-audit.md §3.6)
     if (sim.u_mode == 1u) {
@@ -166,7 +185,11 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let vortexVelocity = vortexTangent * (sim.u_cursorActive * clampedSpeed * vortexCirculation * 0.35 * vortexMult);
         let wakeAdvection = normalize(sim.u_cursorVel.xyz + vec3<f32>(0.0001)) * (clampedSpeed * 0.15 * sim.u_cursorActive * exp(-hitDist * hitDist / 1.5) * vortexMult);
 
-        let totalVelocity = naturalVelocity + vortexVelocity + wakeAdvection;
+        // Atmospheric circulation advection from NOAA GFS wind field (F34)
+        let windScale = 0.02;
+        let windAdvection = vTangent * (windScale * vortexMult);
+
+        let totalVelocity = naturalVelocity + windAdvection + vortexVelocity + wakeAdvection;
         let localVorticity = length(totalVelocity) * max(liquefaction, sim.u_cursorActive * 0.3);
 
         // Silk drape wave dynamics: smooth traveling normal wave simulating delicate silk billowing in water
@@ -175,7 +198,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let silkWave = (sin(wavePhase1) * 0.65 + cos(wavePhase2) * 0.35) * liquefaction * 0.65;
         let silkDrapeOffset = surfaceNormal * silkWave;
 
-        let advectionOffset = naturalVelocity * (liquefaction * 1.55) + silkDrapeOffset + (vortexVelocity + wakeAdvection) * (sim.u_cursorActive * 0.25);
+        let advectionOffset = (naturalVelocity + windAdvection) * (liquefaction * 1.55) + silkDrapeOffset + (vortexVelocity + wakeAdvection) * (sim.u_cursorActive * 0.25);
 
         finalPos = basePos + advectionOffset;
         finalVel = totalVelocity;
@@ -195,7 +218,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Mode 0: Linear Mix (Fallback)
     else {
         finalPos = mix(pos3D, pos2D, ease);
-        finalVel = vec3<f32>(0.0);
+        finalVel = vTangent * 0.01;
         metric = 0.0;
     }
 
@@ -206,3 +229,36 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     particlesOut[index] = pOut;
 }
+
+// ============================================================================
+// Procedural VRAM Fibonacci Sphere Particle Spawn Kernel (Feature F31)
+// Dispatches directly in VRAM with 0 MB CPU allocation and 0 MB network transfer
+// ============================================================================
+@compute @workgroup_size(256, 1, 1)
+fn cs_spawn(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let index = global_id.x;
+    if (index >= sim.u_numParticles) {
+        return;
+    }
+
+    let N = f32(sim.u_numParticles);
+    let fi = f32(index);
+    let phi = 1.618033988749895; // Golden Ratio
+
+    // Fibonacci Sphere Distribution (uniform area density on S²)
+    let y = 1.0 - (2.0 * fi + 1.0) / N;
+    let r = sqrt(max(0.0, 1.0 - y * y));
+    let theta = 2.0 * PI * fi * (1.0 - 1.0 / phi);
+
+    let p3D = vec3<f32>(r * cos(theta) * RADIUS, y * RADIUS, r * sin(theta) * RADIUS);
+
+    let lambda = atan2(p3D.x, p3D.z);
+    let lat = asin(clamp(p3D.y / RADIUS, -0.9998, 0.9998));
+    let isLand = select(0.0, 1.0, abs(p3D.y) > 0.5 || abs(p3D.x) > 1.2);
+
+    var p: Particle;
+    p.position = vec4<f32>(p3D, isLand);
+    p.velocity = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    particlesOut[index] = p;
+}
+

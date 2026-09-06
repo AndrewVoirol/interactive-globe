@@ -3,8 +3,22 @@
 // Ingestion Driver: GEE / OpenStreetMap / Esri WMTS & XYZ Pyramid Tile Source
 // ============================================================================
 
-import * as THREE from 'three';
 import { IDataSource, DataSourceCategory, BoundingBox3D, SpatialDataChunk } from './IDataSource';
+
+export class CanvasTexture {
+  public image: HTMLCanvasElement;
+  public needsUpdate = false;
+  public colorSpace = 'srgb';
+  public wrapS = 1000;
+  public wrapT = 1001;
+  public minFilter = 1006;
+  public magFilter = 1006;
+  constructor(canvas: HTMLCanvasElement) {
+    this.image = canvas;
+  }
+}
+
+export type Texture = CanvasTexture;
 
 export interface RasterTileMetadata {
   tileSize: number;
@@ -131,7 +145,6 @@ export class RasterTileDataSource implements IDataSource<RasterTileMetadata> {
 
   private tileTemplateUrl: string = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
   private lastChunk: SpatialDataChunk<RasterTileMetadata> | null = null;
-  private textureLoader = new THREE.TextureLoader();
   private static imageCache = new Map<string, HTMLImageElement>();
 
   constructor(id: string = 'gee-raster-tiles', templateUrl?: string) {
@@ -202,7 +215,7 @@ export class RasterTileDataSource implements IDataSource<RasterTileMetadata> {
     urlTemplate?: string,
     zoom: number = 2,
     onProgress?: (loaded: number, total: number) => void
-  ): Promise<THREE.CanvasTexture> {
+  ): Promise<CanvasTexture> {
     const template = urlTemplate || this.tileTemplateUrl;
     const pyramid = this.fetchTilePyramid(zoom, template);
     const tilesPerAxis = Math.pow(2, zoom);
@@ -220,12 +233,7 @@ export class RasterTileDataSource implements IDataSource<RasterTileMetadata> {
       ctx.drawImage(bgCanvas, 0, 0);
     }
 
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
+    const texture = new CanvasTexture(canvas);
 
     let loadedCount = 0;
     const totalCount = pyramid.length;
@@ -270,7 +278,7 @@ export class RasterTileDataSource implements IDataSource<RasterTileMetadata> {
     });
   }
 
-  public loadTileTexture(url?: string): Promise<THREE.Texture> {
+  public loadTileTexture(url?: string): Promise<Texture> {
     return this.loadTilePyramidTexture(url, 2);
   }
 

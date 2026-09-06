@@ -33,6 +33,8 @@ struct SimUniforms {
 @group(0) @binding(0) var<uniform> sim: SimUniforms;
 @group(0) @binding(1) var u_demTexture: texture_2d<f32>;
 @group(0) @binding(2) var u_demSampler: sampler;
+@group(0) @binding(3) var u_orbitalTextures: texture_2d_array<f32>; // Layer 0: Day Blue Marble, Layer 1: Night Lights
+@group(0) @binding(4) var u_orbitalSampler: sampler;
 
 struct VertexInput {
     @location(0) position: vec3<f32>, // Base manifold position
@@ -531,7 +533,10 @@ fn vs_main(input: VertexInput) -> VertexOutput {
         // Lithosphere Crust: displaced by actual topography/bathymetry with peak sharpening
         if (elevMeters >= 0.0) {
             let normH = elevMeters / 8848.0;
-            normalDisplacement = pow(normH, max(0.5, sim.u_peakExponent)) * dispScale * poleAtten;
+            let camDist = length(sim.u_cameraPos.xyz);
+            let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
+            let dynamicExp = mix(1.0, 1.8, orbitT) * (max(0.5, sim.u_peakExponent) / 1.4);
+            normalDisplacement = pow(normH, max(0.5, dynamicExp)) * dispScale * poleAtten;
         } else {
             let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
             normalDisplacement = -pow(normD, 0.85) * (dispScale * 0.65) * poleAtten;
@@ -756,33 +761,28 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         }
     } else if (sim.u_renderStyle == 2u) {
         // ====================================================================
-        // OPTION C: NASA BLUE MARBLE ORBITAL PHOTOREALISM
-        // True-color orbital photography: deep sapphire oceans, biome-rich vegetated
-        // continents, desert ochres, polar snow, with subtle solar illumination.
+        // OPTION C: NASA BLUE MARBLE ORBITAL PHOTOREALISM & CELESTIAL TERMINATOR
+        // True-color orbital photography with dynamic celestial day/night blending,
+        // nocturnal anthropogenic city lights, and golden Rayleigh twilight rim.
         // ====================================================================
-        let cOrbitalDeep = vec3<f32>(0.02, 0.08, 0.22);
-        let cOrbitalShelf = vec3<f32>(0.05, 0.20, 0.38);
-        let cOrbitalCoast = vec3<f32>(0.10, 0.35, 0.45);
-        let normDepth = clamp(oceanDepth, 0.0, 1.0);
-        let cOcean = mix(cOrbitalCoast, mix(cOrbitalShelf, cOrbitalDeep, smoothstep(0.02, 0.25, normDepth)), smoothstep(0.002, 0.05, normDepth));
+        let dayColor = textureSampleLevel(u_orbitalTextures, u_orbitalSampler, input.uv, 0, 0.0).rgb;
+        let nightColor = textureSampleLevel(u_orbitalTextures, u_orbitalSampler, input.uv, 1, 0.0).rgb;
 
-        let absLat = abs(input.uv.y - 0.5) * 2.0;
-        let cRainforest = vec3<f32>(0.12, 0.26, 0.10);
-        let cSavanna = vec3<f32>(0.35, 0.38, 0.18);
-        let cDesert = vec3<f32>(0.55, 0.48, 0.32);
-        let cTundra = vec3<f32>(0.32, 0.34, 0.26);
-        let cIce = vec3<f32>(0.92, 0.95, 0.98);
+        let sunDirWorld = computeSunLightDir(sim.u_sunAzimuth, sim.u_sunAltitude);
+        let cosSun = dot(normalize(input.worldPos), sunDirWorld);
 
-        var cBiome = mix(cRainforest, cSavanna, smoothstep(0.1, 0.35, absLat));
-        cBiome = mix(cBiome, cDesert, smoothstep(0.25, 0.45, absLat) * (1.0 - smoothstep(0.45, 0.65, absLat)));
-        cBiome = mix(cBiome, cTundra, smoothstep(0.55, 0.75, absLat));
-        cBiome = mix(cBiome, cIce, smoothstep(0.72, 0.90, absLat));
-        cBiome = mix(cBiome, cIce, smoothstep(0.65, 0.95, tElev));
+        let dayWeight = smoothstep(-0.08, 0.08, cosSun);
+        let nightWeight = 1.0 - dayWeight;
 
-        let orbitalIllum = cSunLight * (sunDirect * 0.90 + ridgeEnhance * 0.4) + cSkyAmbient * (skyIndirect * 0.6);
-        let landLit = cBiome * orbitalIllum;
-        let oceanLit = cOcean * (sunDirect * 0.85 + 0.15);
-        finalCrust = mix(oceanLit, landLit, smoothstep(0.32, 0.68, isLand));
+        let directIllum = 0.10 + 0.90 * max(0.0, cosSun);
+        let dayLit = dayColor * directIllum;
+
+        let nightLit = nightColor * (nightWeight * 1.8);
+
+        let twilightBand = pow(1.0 - abs(cosSun) / 0.08, 2.0) * select(0.0, 1.0, abs(cosSun) < 0.08);
+        let twilightColor = vec3<f32>(1.0, 0.44, 0.16) * (twilightBand * 0.35);
+
+        finalCrust = dayLit * dayWeight + nightLit + twilightColor;
     } else {
         // ====================================================================
         // OPTION B: HYDROSPHERE & BATHYMETRIC DEPTH

@@ -383,8 +383,8 @@ describe('Adversarial Verification Suite: Challenger 2 — Milestone M7 (All 6 A
       expect(config.build.rollupOptions.output.manualChunks).toBeDefined();
 
       const manualChunks = config.build.rollupOptions.output.manualChunks;
-      expect(manualChunks('node_modules/three/build/three.module.js')).toBe('three-vendor');
-      expect(manualChunks('node_modules/@react-three/fiber/dist/index.js')).toBe('r3f-vendor');
+      expect(manualChunks('node_modules/three/build/three.module.js')).toBeUndefined();
+      expect(manualChunks('node_modules/@react-three/fiber/dist/index.js')).toBeUndefined();
       expect(manualChunks('node_modules/react/index.js')).toBe('react-vendor');
       expect(manualChunks('node_modules/lucide-react/dist/esm/lucide-react.js')).toBe('lucide-vendor');
     });

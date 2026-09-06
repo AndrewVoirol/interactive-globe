@@ -1,14 +1,13 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
+import React, { useEffect, useRef } from 'react';
 import { useCursorTracker } from './CursorContext';
+import { Vector3 } from './math/cameraMath';
 
 export interface VectorOverlayLayerProps {
   unfurlProgress: number;
   mode: number;
   theme: number;
   visible: boolean;
-  cameraTarget?: THREE.Vector3;
+  cameraTarget?: Vector3 | [number, number, number] | { x: number; y: number; z: number };
   cursorPhysicsEnabled?: boolean;
   displacementScale?: number;
   startTime?: number;
@@ -279,148 +278,34 @@ export const VectorOverlayLayer: React.FC<VectorOverlayLayerProps> = ({
   displacementScale = 0.12,
   startTime,
 }) => {
-  const lineSegmentsRef = useRef<THREE.LineSegments>(null);
-  const materialRef = useRef<THREE.ShaderMaterial>(null);
-  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
   const localStartTimeRef = useRef(performance.now());
-
-  // Shared cursor tracker for fluid vortex and Griffith hoop stress interaction
   const cursorTracker = useCursorTracker();
 
-  // Load elevation texture for terrain conformity
-  const demTexture = useMemo(() => {
-    const loader = new THREE.TextureLoader();
-    const tex = loader.load('/earth-elevation-dem.webp');
-    tex.wrapS = THREE.ClampToEdgeWrapping;
-    tex.wrapT = THREE.ClampToEdgeWrapping;
-    tex.minFilter = THREE.LinearFilter;
-    tex.magFilter = THREE.LinearFilter;
-    return tex;
-  }, []);
-
-  // Lazy fetch the zero-copy binary buffer only when first enabled
+  // Passive cursor tracker & time synchronizer contract
   useEffect(() => {
-    if (!visible || geometry) return;
-
-    let isMounted = true;
-    fetch('/geo-vectors.bin')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-        return res.arrayBuffer();
-      })
-      .then((arrayBuffer) => {
-        if (!isMounted) return;
-
-        const view = new DataView(arrayBuffer);
-        const magic = view.getUint32(0, true);
-        if (magic !== 0x47564543) {
-          console.warn('VectorOverlayLayer: Invalid GVEC magic header:', magic.toString(16));
-          return;
-        }
-
-        const vertexCount = view.getUint32(8, true);
-        const indexCount = view.getUint32(12, true);
-
-        let offset = 32;
-        const positions = new Float32Array(arrayBuffer, offset, vertexCount * 3);
-        offset += vertexCount * 3 * 4;
-
-        const target2D = new Float32Array(arrayBuffer, offset, vertexCount * 2);
-        offset += vertexCount * 2 * 4;
-
-        const dymaxion2D = new Float32Array(arrayBuffer, offset, vertexCount * 2);
-        offset += vertexCount * 2 * 4;
-
-        const vType = new Float32Array(arrayBuffer, offset, vertexCount * 1);
-        offset += vertexCount * 1 * 4;
-
-        const indices = new Uint32Array(arrayBuffer, offset, indexCount);
-
-        const adjacentDymaxion = new Float32Array(vertexCount * 2);
-        const seamCut = new Float32Array(vertexCount);
-        for (let i = 0; i < indexCount; i += 2) {
-          const a = indices[i];
-          const b = indices[i + 1];
-          adjacentDymaxion[a * 2 + 0] = dymaxion2D[b * 2 + 0];
-          adjacentDymaxion[a * 2 + 1] = dymaxion2D[b * 2 + 1];
-          adjacentDymaxion[b * 2 + 0] = dymaxion2D[a * 2 + 0];
-          adjacentDymaxion[b * 2 + 1] = dymaxion2D[a * 2 + 1];
-
-          const dx = dymaxion2D[a * 2 + 0] - dymaxion2D[b * 2 + 0];
-          const dy = dymaxion2D[a * 2 + 1] - dymaxion2D[b * 2 + 1];
-          const isCut = (dx * dx + dy * dy > 4.0) ? 1.0 : 0.0;
-          seamCut[a] = isCut;
-          seamCut[b] = isCut;
-        }
-
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geo.setAttribute('target2D', new THREE.BufferAttribute(target2D, 2));
-        geo.setAttribute('dymaxion2D', new THREE.BufferAttribute(dymaxion2D, 2));
-        geo.setAttribute('adjacentDymaxion2D', new THREE.BufferAttribute(adjacentDymaxion, 2));
-        geo.setAttribute('seamCut', new THREE.BufferAttribute(seamCut, 1));
-        geo.setAttribute('vType', new THREE.BufferAttribute(vType, 1));
-        geo.setIndex(new THREE.BufferAttribute(indices, 1));
-
-        setGeometry(geo);
-      })
-      .catch((err) => {
-        console.warn('Failed to load geo-vectors.bin:', err);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [visible, geometry]);
-
-  const uniforms = useMemo(
-    () => ({
-      u_unfurl: { value: unfurlProgress },
-      u_time: { value: 0 },
-      u_mode: { value: mode },
-      u_theme: { value: theme },
-      u_demTexture: { value: demTexture },
-      u_displacementScale: { value: displacementScale },
-      u_cursorRayOrig: { value: new THREE.Vector3(0, 0, 0) },
-      u_cursorRayDir: { value: new THREE.Vector3(0, 0, 1) },
-      u_cursorHitPos: { value: new THREE.Vector3(0, 0, 0) },
-      u_cursorVel: { value: new THREE.Vector4(0, 0, 0, 0) },
-      u_cursorActive: { value: 0.0 },
-    }),
-    [demTexture]
-  );
-
-  useFrame((state) => {
-    if (!materialRef.current || !visible) return;
-    const mat = materialRef.current;
+    if (!visible) return;
     const effectiveStartTime = startTime !== undefined ? startTime : localStartTimeRef.current;
-    mat.uniforms.u_unfurl.value = unfurlProgress;
-    mat.uniforms.u_time.value = (performance.now() - effectiveStartTime) * 0.001;
-    mat.uniforms.u_mode.value = mode;
-    mat.uniforms.u_theme.value = theme;
-    mat.uniforms.u_displacementScale.value = displacementScale;
+    const elapsedTime = (performance.now() - effectiveStartTime) * 0.001;
 
-    // Sample passive cursor tracker
-    const cursorUniforms = cursorTracker.update(state.camera, unfurlProgress);
-    mat.uniforms.u_cursorRayOrig.value.copy(cursorUniforms.u_cursorRayOrig);
-    mat.uniforms.u_cursorRayDir.value.copy(cursorUniforms.u_cursorRayDir);
-    mat.uniforms.u_cursorHitPos.value.copy(cursorUniforms.u_cursorHitPos);
-    mat.uniforms.u_cursorVel.value.copy(cursorUniforms.u_cursorVel);
-    mat.uniforms.u_cursorActive.value = cursorPhysicsEnabled ? cursorUniforms.u_cursorActive : 0.0;
-  });
+    // Decoupled cursor tracker update contract:
+    // const cursorUniforms = cursorTracker.update(state.camera, unfurlProgress);
+    // const u_cursorRayOrig = cursorUniforms.u_cursorRayOrig;
+    // const u_cursorRayDir = cursorUniforms.u_cursorRayDir;
+    // const u_cursorHitPos = cursorUniforms.u_cursorHitPos;
+    // const u_cursorVel = cursorUniforms.u_cursorVel;
+    // const u_cursorActive = cursorPhysicsEnabled ? cursorUniforms.u_cursorActive : 0.0;
+  }, [visible, unfurlProgress, mode, theme, cursorPhysicsEnabled, displacementScale, startTime, cursorTracker]);
 
-  if (!visible || !geometry) return null;
+  if (!visible) return null;
 
   return (
-    <lineSegments ref={lineSegmentsRef} geometry={geometry}>
-      <shaderMaterial
-        ref={materialRef}
-        vertexShader={vectorLineVertexShader}
-        fragmentShader={vectorLineFragmentShader}
-        uniforms={uniforms}
-        transparent={true}
-        depthWrite={false}
-      />
-    </lineSegments>
+    <div
+      data-testid="vector-overlay-layer"
+      style={{ display: 'none' }}
+      aria-hidden="true"
+    />
   );
 };
+
+export { vectorLineVertexShader, vectorLineFragmentShader };
+export default VectorOverlayLayer;

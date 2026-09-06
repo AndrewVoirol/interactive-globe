@@ -69,6 +69,7 @@ export class MockGPUTexture {
   depthOrArrayLayers: number;
   format: string;
   usage: number;
+  mipLevelCount: number;
 
   constructor(public descriptor: any) {
     if (Array.isArray(descriptor.size)) {

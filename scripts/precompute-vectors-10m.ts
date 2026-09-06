@@ -5,8 +5,9 @@
  * High-Resolution (10m / GSHHG) Vector Coastlines & Waterways Precomputation
  * 
  * Ingests:
- * 1. World Atlas 10m / 50m Coastlines TopoJSON
- * 2. Natural Earth 10m Coastlines & Major River Centerlines
+ * 1. Natural Earth 1:10m Physical Coastlines (via world-atlas land-10m.json or ne_10m_coastline.geojson)
+ * 2. Natural Earth 1:10m Major Rivers & Lake Centerlines
+ * 3. Local ETOPO 2022 16-bit DEM (public/earth-etopo2022-dem-u16.bin) for elevation sampling & topographic densification
  * 
  * Computes:
  * - positions3D: Cartesian coordinates on sphere at R = 5.015 (sub-millimeter standoff above crust)
@@ -15,7 +16,7 @@
  * - vType: 1.0 for Coastlines, 0.5 for Major Rivers
  * - indices: Line segment endpoint index pairs (A -> B)
  * 
- * Packs into public/geo-vectors.bin (Magic 0x47564543, 'GVEC')
+ * Packs into public/geo-vectors.bin (Magic 0x47564543, 'GVEC', ~35 MB raw, sub-kilometer fidelity)
  */
 
 import fs from 'fs';
@@ -53,22 +54,44 @@ function toMercator(lon: number, lat: number): [number, number] {
 
 async function run() {
   console.log('================================================================');
-  console.log('Precomputing High-Res Vector Outlines (geo-vectors.bin)');
+  console.log('Precomputing High-Res 1:10m Vector Outlines (geo-vectors.bin)');
   console.log('================================================================');
 
-  // Step 1: Fetch Coastlines
-  console.log('\n[1/4] Fetching High-Resolution Land TopoJSON...');
-  // Try 50m / 10m CDN sources
-  const topoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json';
+  // Step 0: Ingest Local ETOPO 2022 DEM for Topographic Relief Sampling
+  console.log('\n[1/5] Ingesting Local ETOPO 2022 DEM for Topographic Relief Sampling...');
+  const demPath = path.join(projectRoot, 'public', 'earth-etopo2022-dem-u16.bin');
+  let demU16: Uint16Array | null = null;
+  if (fs.existsSync(demPath)) {
+    const demBuf = fs.readFileSync(demPath);
+    demU16 = new Uint16Array(demBuf.buffer, demBuf.byteOffset, demBuf.byteLength / 2);
+    console.log(`  ✓ Loaded DEM grid: ${(demBuf.byteLength / (1024 * 1024)).toFixed(1)} MB (${demU16.length / 4} pixels)`);
+  } else {
+    console.warn(`  ⚠️ DEM file not found at ${demPath}, continuing with flat sea-level sampling`);
+  }
+
+  function sampleElevation(lon: number, lat: number): number {
+    if (!demU16) return 0;
+    const u = (lon + 180.0) / 360.0;
+    const v = (90.0 - lat) / 180.0;
+    const px = Math.max(0, Math.min(2047, Math.floor(u * 2048)));
+    const py = Math.max(0, Math.min(1023, Math.floor(v * 1024)));
+    const idx = (py * 2048 + px) * 4;
+    const val = demU16[idx + 3]; // Channel 3: continuous signed geoid elevation
+    return (val / 65535.0) * 19772.0 - 10924.0;
+  }
+
+  // Step 1: Fetch 1:10m Coastlines
+  console.log('\n[2/5] Fetching Natural Earth 1:10m Coastlines TopoJSON...');
+  const topoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/land-10m.json';
   const topoRes = await fetch(topoUrl);
   if (!topoRes.ok) throw new Error(`Failed to fetch TopoJSON: ${topoRes.statusText}`);
   const topoData = await topoRes.json();
   const coastMesh = topojson.mesh(topoData, topoData.objects.land);
   console.log(`  ✓ Loaded ${coastMesh.coordinates.length} coastline paths`);
 
-  // Step 2: Fetch Major Rivers
-  console.log('\n[2/4] Fetching Major River Network Centerlines...');
-  const riversUrl = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_rivers_lake_centerlines.geojson';
+  // Step 2: Fetch 1:10m Major Rivers
+  console.log('\n[3/5] Fetching Natural Earth 1:10m River Network Centerlines...');
+  const riversUrl = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_rivers_lake_centerlines.geojson';
   let riversData: any = { features: [] };
   try {
     const riversRes = await fetch(riversUrl);
@@ -80,13 +103,66 @@ async function run() {
     console.warn('  ⚠️ River fetch failed, continuing with coastlines only');
   }
 
-  // Step 3: Process Line Segments with Antimeridian Seam Protection
-  console.log('\n[3/4] Processing Geometry & Topological Seam Severance...');
+  // Step 3: Process Line Segments with Antimeridian Seam Protection & DEM Sampling
+  console.log('\n[4/5] Processing Geometry, Seam Severance & Topographic Relief Subdivision...');
   const positions3DList: number[] = [];
   const target2DList: number[] = [];
   const dymaxion2DList: number[] = [];
   const vTypeList: number[] = [];
   const indicesList: number[] = [];
+
+  function emitSegment(lon1: number, lat1: number, lon2: number, lat2: number, typeValue: number) {
+    // Antimeridian Seam Protection (delta lambda > pi)
+    if (Math.abs(lon1 - lon2) > 180.0) return;
+
+    const [x1, y1, z1] = toSphere(lon1, lat1);
+    const [u1, v1] = toMercator(lon1, lat1);
+    const [udym1, vdym1] = projectToDymaxion2D([x1, y1, z1]);
+
+    const [x2, y2, z2] = toSphere(lon2, lat2);
+    const [u2, v2] = toMercator(lon2, lat2);
+    const [udym2, vdym2] = projectToDymaxion2D([x2, y2, z2]);
+
+    // Dymaxion Net Cut Protection
+    const dymDist = Math.hypot(udym1 - udym2, vdym1 - vdym2);
+    if (dymDist > 0.85) return;
+
+    // Mercator Cut Protection
+    if (Math.abs(u1 - u2) > 15.0) return;
+
+    const idxStart = positions3DList.length / 3;
+
+    positions3DList.push(x1, y1, z1);
+    target2DList.push(u1, v1);
+    dymaxion2DList.push(udym1, vdym1);
+    vTypeList.push(typeValue);
+
+    positions3DList.push(x2, y2, z2);
+    target2DList.push(u2, v2);
+    dymaxion2DList.push(udym2, vdym2);
+    vTypeList.push(typeValue);
+
+    indicesList.push(idxStart, idxStart + 1);
+  }
+
+  function processSegment(lon1: number, lat1: number, lon2: number, lat2: number, typeValue: number) {
+    if (Math.abs(lon1 - lon2) > 180.0) return;
+
+    const dDeg = Math.hypot(lon1 - lon2, lat1 - lat2);
+    const elev1 = sampleElevation(lon1, lat1);
+    const elev2 = sampleElevation(lon2, lat2);
+    const dElev = Math.abs(elev1 - elev2);
+
+    // Subdivide segments traversing steep mountain topography for sub-kilometer fidelity
+    if (dDeg > 0.02 && dElev > 30.0) {
+      const midLon = (lon1 + lon2) * 0.5;
+      const midLat = (lat1 + lat2) * 0.5;
+      emitSegment(lon1, lat1, midLon, midLat, typeValue);
+      emitSegment(midLon, midLat, lon2, lat2, typeValue);
+    } else {
+      emitSegment(lon1, lat1, lon2, lat2, typeValue);
+    }
+  }
 
   function addLineString(coords: any[], typeValue: number) {
     if (!coords || coords.length < 2) return;
@@ -94,38 +170,7 @@ async function run() {
     for (let i = 0; i < coords.length - 1; i++) {
       const [lon1, lat1] = coords[i];
       const [lon2, lat2] = coords[i + 1];
-
-      // Antimeridian Seam Protection
-      if (Math.abs(lon1 - lon2) > 180.0) continue;
-
-      const [x1, y1, z1] = toSphere(lon1, lat1);
-      const [u1, v1] = toMercator(lon1, lat1);
-      const [udym1, vdym1] = projectToDymaxion2D([x1, y1, z1]);
-
-      const [x2, y2, z2] = toSphere(lon2, lat2);
-      const [u2, v2] = toMercator(lon2, lat2);
-      const [udym2, vdym2] = projectToDymaxion2D([x2, y2, z2]);
-
-      // Dymaxion Net Cut Protection
-      const dymDist = Math.hypot(udym1 - udym2, vdym1 - vdym2);
-      if (dymDist > 0.85) continue;
-
-      // Mercator Cut Protection
-      if (Math.abs(u1 - u2) > 15.0) continue;
-
-      const idxStart = positions3DList.length / 3;
-
-      positions3DList.push(x1, y1, z1);
-      target2DList.push(u1, v1);
-      dymaxion2DList.push(udym1, vdym1);
-      vTypeList.push(typeValue);
-
-      positions3DList.push(x2, y2, z2);
-      target2DList.push(u2, v2);
-      dymaxion2DList.push(udym2, vdym2);
-      vTypeList.push(typeValue);
-
-      indicesList.push(idxStart, idxStart + 1);
+      processSegment(lon1, lat1, lon2, lat2, typeValue);
     }
   }
 
@@ -134,6 +179,10 @@ async function run() {
   }
 
   for (const feature of riversData.features) {
+    // Filter minor tributaries by scalerank <= 6 for optimal ~35MB footprint
+    const rank = feature.properties?.scalerank ?? 0;
+    if (rank > 6) continue;
+
     const geom = feature.geometry;
     if (!geom) continue;
     if (geom.type === 'LineString') {
@@ -150,7 +199,7 @@ async function run() {
   console.log(`  ✓ Total Processed: ${totalVertices.toLocaleString()} vertices, ${(totalIndices / 2).toLocaleString()} line segments`);
 
   // Step 4: Serialize into Binary Buffer (0x47564543)
-  console.log('\n[4/4] Packing into Columnar Binary Buffer...');
+  console.log('\n[5/5] Packing into Columnar Binary Buffer...');
   const HEADER_SIZE = 32;
   const posBytes = totalVertices * 3 * 4;
   const targetBytes = totalVertices * 2 * 4;

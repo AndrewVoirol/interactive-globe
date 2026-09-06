@@ -561,3 +561,76 @@ The primary circuit breaker: "Does the visual output honor the research that inf
 - [ ] Matching "After" screenshots and comprehensive side-by-side comparison report delivered in docs/visual-deliverable-comparison.md.
 </USER_REQUEST>
 
+
+## 2026-09-06T17:20:58Z
+
+Modernize the Indicatrix 3D cartography engine into a pure, standalone WebGPU instrument: upgrade vector geometry to 10m high-precision linework, implement Orbital Mode (C) with NASA satellite draping and solar terminator blending, ingest real NOAA GFS wind velocity grids and CelesTrak satellite orbits into WGSL compute, wire intuitive frontend HUD and UI/UX controls to drive all new features, ensure all 5 unfurl modes operate flawlessly, and completely retire Three.js / WebGL2 dependencies.
+
+Working directory: /Users/andrewvoirol/Antigravity/Projects/ais-interactive-globe-to-map
+Integrity mode: development
+
+## Requirements
+
+### R1. High-Precision Vector Geometry & Topographic Relief Detail
+- Upgrade vector precomputation in `scripts/precompute-vectors-10m.ts` to ingest Natural Earth 1:10m physical coastlines and river centerlines, maintaining antimeridian segment severance and DEM terrain elevation sampling to emit `public/geo-vectors.bin` (~35 MB raw, sub-kilometer fidelity).
+- In `WebGPUEngine.ts` (`loadDEMTexture`), replace arithmetic box-filtering with conservative max-pooling downsampling (0.4 * mean + 0.6 * max) to prevent summit flattening from orbit.
+- Dynamically scale `u_peakExponent` from 1.0 (close-up) to 1.8 (orbital `camDist > 25.0`) in `crust_hydrosphere.wgsl` to retain sharp topographic silhouette contrast from space.
+
+### R2. WebGPU Feature Parity & All 5 Unfurl Modes Flawless Operation
+- In `crust_hydrosphere.wgsl`, bind 4096x2048 equirectangular (EPSG:4326) NASA Blue Marble and VIIRS Night Lights textures via `@group(0) @binding(3)` and `@binding(4)` sampler. Ingest using `device.queue.copyExternalImageToTexture()`.
+- Implement dynamic solar terminator blending using `computeSunLightDir` so daylight photography transitions into illuminated night cities on the dark side of the globe.
+- Ensure all 5 projection and unfurl modes morph flawlessly without vertex explosions or texture seam tearing:
+  - Mode 0: Linear Spherical-to-Planar Morph
+  - Mode 1: Archimedean Scroll Unroll
+  - Mode 2: Griffith Fracture Mechanics
+  - Mode 3: Viscoelastic Fluid Continuum Morph
+  - Mode 4: Fuller Dymaxion Polyhedral Unfurl
+- Decouple dynamic particle compute from terrain mesh tessellation: support terrain mesh scaling up to 16.78M vertices while bounding interactive particle physics simulation in `physics_sim.wgsl` to 4.19M/1.05M to sustain high frame rates. Procedurally spawn 4.19M particles in a one-time boot compute pass directly in VRAM (0 MB network download).
+
+### R3. Standalone WebGPU Architecture & WebGL2 Retirement
+- Decouple `useCameraKinematics.ts` and `CameraTelemetryUpdater` from `three` math classes (`THREE.Vector3`, `THREE.Matrix4`), replacing with pure ES6 linear algebra / Float32Array spherical trig functions.
+- Wire camera drag, pan, and zoom interactions directly to `<WebGPUCanvas>` via the native `KinematicCameraController.tsx`, ensuring smooth inertial damping matching Drei OrbitControls.
+- Delete legacy Three.js renderers (`src/core/layers/renderers/*.tsx`, `src/components/canvas/GeometryLayer.tsx`, `src/core/_deferred/`) and strip the backend switcher in `App.tsx`.
+- Uninstall `three`, `@types/three`, `@react-three/fiber`, and `@react-three/drei`. Add a clean SVG/HTML fallback for browsers lacking WebGPU support.
+
+### R4. Live Planetary Instrumentation & Automation
+- Ingest real NOAA GFS 0.25°/1.0° surface wind velocity grids (u, v half-float binary `public/data/gfs-wind-latest.bin`, ~260 KB) into `physics_sim.wgsl` as a 2D float texture, replacing `Math.random()` with hardware bilinear velocity sampling to drive real atmospheric advection.
+- Ingest CelesTrak active Starlink & ISS TLE orbital elements (`public/data/tle-starlink.json`, ~400 KB) into an instanced WebGPU line ribbon pipeline using SGP4 propagation.
+- Set up local scheduled tasks using Antigravity's `schedule` tool to verify periodic refresh of wind and satellite data.
+
+### R5. Complete Frontend HUD & UI/UX Integration
+- Wire prominent UI controls across `NavigationDock.tsx`, `TopologyControlDock.tsx`, `UnifiedRightSidebar.tsx`, and `DataLayersDrawer.tsx`:
+  - Orbital Mode C Control: Direct selector or primary preset button that activates NASA Blue Marble & Night Lights draping with live sun azimuth/altitude sliders.
+  - Planetary Layer Toggles: Dedicated toggles in `DataLayersDrawer` for Real NOAA Wind Field and Starlink Satellite Orbits with "Live Synced" badge indicators.
+  - Unfurl Mode Controls: Clean UI selector in `TopologyControlDock` allowing direct switching between all 5 unfurl modes (Linear, Scroll, Griffith, Fluid, Dymaxion) with live transition progress sliders.
+  - Resolution & Node Count Telemetry: Ensure `SystemStatusPill.tsx` displays accurate live readouts of both the 3D terrain vertex count (up to 16.7M) and active particle compute nodes (1M/4M).
+
+---
+
+## Acceptance Criteria
+
+### Build & Bundle Verification
+- [ ] `npm run build` succeeds with zero TypeScript errors and zero warnings.
+- [ ] Production build verification confirms `three-vendor` and `r3f-vendor` chunks are completely eliminated.
+- [ ] Total production JavaScript bundle shrinks by >= 2.0 MB.
+
+### Hardware Benchmark Harness Verification
+- [ ] `node scripts/benchmark-fps-matrix.mjs` executes and verifies:
+  - 1M node globe sustains >= 100 FPS on M4 Pro.
+  - 4M node globe sustains >= 80 FPS on M4 Pro.
+  - 16.7M terrain mesh sustains >= 60 FPS on M4 Pro.
+
+### UI/UX & Frontend Interactivity Verification
+- [ ] Toggling Orbital Mode C in the HUD mounts the NASA Blue Marble texture and sun terminator without UI lockup or dropped frames.
+- [ ] Enabling NOAA Wind in the Data Layers drawer activates physical atmospheric particle advection.
+- [ ] Enabling Starlink Orbits in the Data Layers drawer renders real-time orbital paths.
+- [ ] Cycling through all 5 unfurl modes via `TopologyControlDock` updates the manifold state smoothly across sliders 0.0 -> 1.0.
+- [ ] `SystemStatusPill` correctly reflects live FPS, active resolution tier, and VRAM memory telemetry.
+
+### In-Browser DevTools Live Verification (Real Runtime)
+- [ ] Application loads on local dev server (`http://localhost:3000` / `5173`) and connects to WebGPU context with zero WebGL2 contexts created.
+- [ ] Browser DevTools console confirms 0 uncaught exceptions or WebGPU validation errors during a 60-second interactive session.
+- [ ] 10m high-resolution vectors display crisp sub-kilometer coastal indentations in Norway, the Mediterranean, and Puget Sound without geometric faceting.
+- [ ] All 5 unfurl modes (Linear, Scroll, Griffith, Fluid, Dymaxion) cycle through slider states 0.0 -> 1.0 without seam tearing, inverted normals, or vertex explosion.
+- [ ] Orbital Mode (C) displays NASA Blue Marble with day/night solar terminator transition.
+- [ ] Particles in `physics_sim.wgsl` stream along physical atmospheric circulation corridors (Trade Winds, Jet Stream).
