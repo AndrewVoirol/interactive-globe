@@ -23,6 +23,7 @@ import demUnpackWGSL from './shaders/dem_unpack.wgsl?raw';
 import { GPUProfiler } from './profiling/GPUProfiler';
 import { encodeFloat16 } from '../core/math/float16';
 import { parseTLE, propagateOrbitalPosition } from '../core/math/sgp4';
+import { loadNodeAssetBuffer, loadNodeAssetText } from '../utils/nodeAssetLoader';
 
 export interface WebGPUInitConfig {
   canvas: HTMLCanvasElement;
@@ -139,6 +140,7 @@ export class WebGPUEngine {
   private orbitalTexture: GPUTexture | null = null;
   private orbitalTextureView: GPUTextureView | null = null;
   private orbitalSampler: GPUSampler | null = null;
+  private orbitalTexturesLoaded: boolean = false;
 
   // Decoupled 4.19M VRAM Particle Spawn (Feature F31)
   private spawnPipeline: GPUComputePipeline | null = null;
@@ -222,6 +224,10 @@ export class WebGPUEngine {
 
   public getCrustIndexCount(): number {
     return this.crustIndexCount;
+  }
+
+  public isOrbitalTexturesLoaded(): boolean {
+    return this.orbitalTexturesLoaded;
   }
 
   public async init(config: WebGPUInitConfig): Promise<void> {
@@ -378,74 +384,28 @@ export class WebGPUEngine {
     for (let y = 0; y < orbH; y++) {
       const lat = 90.0 - (y / orbH) * 180.0;
       const absLat = Math.abs(lat);
+      const iceT = Math.max(0.0, Math.min(1.0, (absLat - 70.0) / 16.0));
       for (let x = 0; x < orbW; x++) {
-        const lon = (x / orbW) * 360.0 - 180.0;
         const idx = (y * orbW + x) * 4;
 
-        let isLand = false;
-        let isDesert = false;
-        let isIce = absLat > 68.0;
-        let cityLight = 0.0;
+        // Smooth base: deep oceanic navy blending cleanly into polar ice
+        const oceanR = 12;
+        const oceanG = 34;
+        const oceanB = 72;
+        const iceR = 228;
+        const iceG = 238;
+        const iceB = 250;
 
-        if (lat < -60.0) {
-          isLand = true;
-          isIce = true;
-        } else if (lat > 15.0 && lat < 72.0 && lon > -168.0 && lon < -52.0) {
-          isLand = true;
-          if (lon > -120.0 && lon < -100.0 && lat > 24.0 && lat < 40.0) isDesert = true;
-          if (lat > 28.0 && lat < 45.0 && lon > -85.0 && lon < -70.0) cityLight = 0.95;
-          else if (lat > 32.0 && lat < 48.0 && lon > -124.0 && lon < -115.0) cityLight = 0.85;
-          else cityLight = 0.25;
-        } else if (lat > -56.0 && lat < 13.0 && lon > -82.0 && lon < -34.0) {
-          isLand = true;
-          if (lat > -35.0 && lat < -20.0 && lon > -50.0 && lon < -40.0) cityLight = 0.75;
-          else cityLight = 0.15;
-        } else if (lat > -35.0 && lat < 72.0 && lon > -20.0 && lon < 145.0) {
-          isLand = true;
-          if (lat > 15.0 && lat < 32.0 && lon > -15.0 && lon < 55.0) isDesert = true;
-          if (lat > 38.0 && lat < 58.0 && lon > -5.0 && lon < 30.0) cityLight = 0.92;
-          else if (lat > 10.0 && lat < 32.0 && lon > 70.0 && lon < 88.0) cityLight = 0.88;
-          else if (lat > 22.0 && lat < 42.0 && lon > 105.0 && lon < 142.0) cityLight = 0.96;
-          else if (!isDesert) cityLight = 0.20;
-        } else if (lat > -44.0 && lat < -10.0 && lon > 112.0 && lon < 154.0) {
-          isLand = true;
-          if (lon > 118.0 && lon < 140.0) isDesert = true;
-          if (lat < -25.0 && lon > 140.0) cityLight = 0.65;
-        }
+        dayTexels[idx + 0] = Math.round(oceanR + (iceR - oceanR) * iceT);
+        dayTexels[idx + 1] = Math.round(oceanG + (iceG - oceanG) * iceT);
+        dayTexels[idx + 2] = Math.round(oceanB + (iceB - oceanB) * iceT);
+        dayTexels[idx + 3] = 255;
 
-        if (!isLand) {
-          dayTexels[idx + 0] = 10;
-          dayTexels[idx + 1] = 40;
-          dayTexels[idx + 2] = 95;
-          dayTexels[idx + 3] = 255;
-        } else if (isIce) {
-          dayTexels[idx + 0] = 235;
-          dayTexels[idx + 1] = 242;
-          dayTexels[idx + 2] = 252;
-          dayTexels[idx + 3] = 255;
-        } else if (isDesert) {
-          dayTexels[idx + 0] = 195;
-          dayTexels[idx + 1] = 160;
-          dayTexels[idx + 2] = 105;
-          dayTexels[idx + 3] = 255;
-        } else {
-          dayTexels[idx + 0] = 38;
-          dayTexels[idx + 1] = 98;
-          dayTexels[idx + 2] = 34;
-          dayTexels[idx + 3] = 255;
-        }
-
-        if (cityLight > 0.0) {
-          nightTexels[idx + 0] = Math.round(255 * cityLight);
-          nightTexels[idx + 1] = Math.round(210 * cityLight);
-          nightTexels[idx + 2] = Math.round(120 * cityLight);
-          nightTexels[idx + 3] = 255;
-        } else {
-          nightTexels[idx + 0] = 0;
-          nightTexels[idx + 1] = 0;
-          nightTexels[idx + 2] = 0;
-          nightTexels[idx + 3] = 255;
-        }
+        // Clean darkness for procedural night layer (no hard yellow bounding boxes)
+        nightTexels[idx + 0] = 0;
+        nightTexels[idx + 1] = 0;
+        nightTexels[idx + 2] = 0;
+        nightTexels[idx + 3] = 255;
       }
     }
 
@@ -1026,6 +986,7 @@ export class WebGPUEngine {
       });
 
       this.updateDEMBindGroups();
+      this.orbitalTexturesLoaded = true;
     } catch (err) {
       console.warn('[WebGPUEngine] loadOrbitalTextures warning:', err);
     }
@@ -1767,24 +1728,7 @@ export class WebGPUEngine {
     }
 
     if (!buffer && typeof process !== 'undefined' && process.versions?.node) {
-      try {
-        const fs = await import(/* @vite-ignore */ 'fs');
-        const path = await import(/* @vite-ignore */ 'path');
-        const candidatePaths = [
-          path.resolve(process.cwd(), typeof urlOrBuffer === 'string' ? urlOrBuffer.replace(/^\//, '') : 'public/data/gfs-wind-latest.bin'),
-          path.resolve(process.cwd(), 'public/data/gfs-wind-latest.bin'),
-          path.resolve(__dirname, '../../public/data/gfs-wind-latest.bin'),
-        ];
-        for (const p of candidatePaths) {
-          if (fs.existsSync(p)) {
-            const fileBuf = fs.readFileSync(p);
-            buffer = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
-            break;
-          }
-        }
-      } catch {
-        // Fallback
-      }
+      buffer = await loadNodeAssetBuffer(typeof urlOrBuffer === 'string' ? urlOrBuffer : 'public/data/gfs-wind-latest.bin');
     }
 
     if (!buffer) return;
@@ -1849,22 +1793,13 @@ export class WebGPUEngine {
     }
 
     if (!records && typeof process !== 'undefined' && process.versions?.node) {
-      try {
-        const fs = await import(/* @vite-ignore */ 'fs');
-        const path = await import(/* @vite-ignore */ 'path');
-        const candidatePaths = [
-          path.resolve(process.cwd(), typeof urlOrData === 'string' ? urlOrData.replace(/^\//, '') : 'public/data/tle-starlink.json'),
-          path.resolve(process.cwd(), 'public/data/tle-starlink.json'),
-          path.resolve(__dirname, '../../public/data/tle-starlink.json'),
-        ];
-        for (const p of candidatePaths) {
-          if (fs.existsSync(p)) {
-            records = JSON.parse(fs.readFileSync(p, 'utf8'));
-            break;
-          }
+      const text = await loadNodeAssetText(typeof urlOrData === 'string' ? urlOrData : 'public/data/tle-starlink.json');
+      if (text) {
+        try {
+          records = JSON.parse(text);
+        } catch {
+          // Fallback
         }
-      } catch {
-        // Fallback
       }
     }
 

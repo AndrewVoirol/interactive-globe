@@ -60,11 +60,11 @@ describe('Adversarial Challenger M3: Solar Terminator & Planetary Optics Pipelin
 
     const directIllum = 0.10 + 0.90 * Math.max(0.0, cosSun);
     const dayLit = dayColor.map(c => c * directIllum);
-    const nightLit = nightColor.map(c => c * (nightWeight * 1.8));
+    const nightLit = nightColor.map(c => c * (nightWeight * 1.25));
 
     const inTwilight = Math.abs(cosSun) < 0.08;
     const twilightBand = inTwilight ? Math.pow(1.0 - Math.abs(cosSun) / 0.08, 2.0) : 0.0;
-    const twilightColor = [1.0 * twilightBand * 0.35, 0.44 * twilightBand * 0.35, 0.16 * twilightBand * 0.35];
+    const twilightColor = [1.0 * twilightBand * 0.12, 0.60 * twilightBand * 0.12, 0.28 * twilightBand * 0.12];
 
     const finalCrust = [
       dayLit[0] * dayWeight + nightLit[0] + twilightColor[0],
@@ -213,10 +213,10 @@ describe('Adversarial Challenger M3: Solar Terminator & Planetary Optics Pipelin
       expect(res.directIllum).toBeCloseTo(0.10, 6); // Ambient floor
       expect(res.twilightBand).toBe(0.0);
 
-      // finalCrust = nightColor * (1.0 * 1.8)
-      expect(res.finalCrust[0]).toBeCloseTo(nightColor[0] * 1.8, 5);
-      expect(res.finalCrust[1]).toBeCloseTo(nightColor[1] * 1.8, 5);
-      expect(res.finalCrust[2]).toBeCloseTo(nightColor[2] * 1.8, 5);
+      // finalCrust = nightColor * (1.0 * 1.25)
+      expect(res.finalCrust[0]).toBeCloseTo(nightColor[0] * 1.25, 5);
+      expect(res.finalCrust[1]).toBeCloseTo(nightColor[1] * 1.25, 5);
+      expect(res.finalCrust[2]).toBeCloseTo(nightColor[2] * 1.25, 5);
     });
 
     it('M3-ADV-07: verifies exact horizon crossing (cosSun = 0.0) yields peak twilight scattering and 50/50 day-night balance', () => {
@@ -228,10 +228,10 @@ describe('Adversarial Challenger M3: Solar Terminator & Planetary Optics Pipelin
       expect(res.nightWeight).toBeCloseTo(0.5, 6);
       expect(res.twilightBand).toBeCloseTo(1.0, 6); // Global peak
 
-      // Twilight color: vec3(1.0, 0.44, 0.16) * (1.0 * 0.35)
-      const expectedTwR = 1.0 * 0.35;
-      const expectedTwG = 0.44 * 0.35;
-      const expectedTwB = 0.16 * 0.35;
+      // Twilight color: vec3(1.0, 0.60, 0.28) * (1.0 * 0.12)
+      const expectedTwR = 1.0 * 0.12;
+      const expectedTwG = 0.60 * 0.12;
+      const expectedTwB = 0.28 * 0.12;
 
       // Verify twilight is strictly symmetric around cosSun = 0.0
       const testDeltas = [0.01, 0.02, 0.04, 0.06, 0.079];

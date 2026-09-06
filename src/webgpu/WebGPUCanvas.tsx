@@ -231,6 +231,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     if (hasWind) {
       engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
     }
+    const hasPhotoreal = !!dataLayers?.find(
+      (l) => (l.renderStyle === 'photoreal' || l.id === 'photoreal-satellite-layer') && l.visible
+    );
+    if (hasPhotoreal && !engine.isOrbitalTexturesLoaded()) {
+      engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
+    }
   }, [dataLayers]);
 
   // WebGPU Device Loss Recovery
@@ -483,6 +489,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         engine.loadContourMesh('/geo-contour-mesh.bin').catch(() => {});
         engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
         engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+        engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
 
         if (!isMounted) return;
         setIsLoading(false);
@@ -544,6 +551,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           engine.loadContourMesh('/geo-contour-mesh.bin').catch(() => {});
           engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
           engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+          engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
 
           if (!isMounted) return;
           setIsLoading(false);

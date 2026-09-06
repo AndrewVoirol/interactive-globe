@@ -7,6 +7,7 @@
 
 import { IDataSource, DataSourceCategory, BoundingBox3D, SpatialDataChunk } from './IDataSource';
 import { decodeFloat16, encodeFloat16 } from '../math/float16';
+import { loadNodeAssetBuffer } from '../../utils/nodeAssetLoader';
 
 export interface VectorFieldMetadata {
   parameter: 'wind_u_v' | 'ocean_current' | 'magnetic_field';
@@ -65,25 +66,11 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
 
     // 2. Node / test environment filesystem access
     if (typeof process !== 'undefined' && process.versions?.node) {
-      try {
-        const fs = await import(/* @vite-ignore */ 'fs');
-        const path = await import(/* @vite-ignore */ 'path');
-        const candidates = [
-          path.resolve(process.cwd(), 'public/data/gfs-wind-latest.bin'),
-          path.resolve(__dirname, '../../../public/data/gfs-wind-latest.bin'),
-          path.resolve(defaultUrl),
-        ];
-
-        for (const p of candidates) {
-          if (fs.existsSync(p)) {
-            const fileBuf = fs.readFileSync(p);
-            this.rawGridBuffer = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
-            this.u16Grid = new Uint16Array(this.rawGridBuffer);
-            return;
-          }
-        }
-      } catch {
-        // Fall through to fallback
+      const buf = await loadNodeAssetBuffer(defaultUrl);
+      if (buf) {
+        this.rawGridBuffer = buf;
+        this.u16Grid = new Uint16Array(this.rawGridBuffer);
+        return;
       }
     }
 
