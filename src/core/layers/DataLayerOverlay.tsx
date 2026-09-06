@@ -47,6 +47,8 @@ export const DataLayerOverlay: React.FC<DataLayerOverlayProps> = (props) => {
       return <VectorContourRenderer {...props} />;
     case 'field':
       return <VectorFieldRenderer {...props} />;
+    case 'trajectory':
+      return <SatelliteTrajectoryRenderer {...props} />;
     case 'topo':
     case 'ocean':
     case 'thermal':

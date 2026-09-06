@@ -14,6 +14,15 @@ import { DataLayerItem } from '../components/hud/TelemetryHUD';
 import { GeodesicOverlayMode } from '../types';
 import { WhimsicalEffectsManager } from '../core/effects/WhimsicalEffectsManager';
 import { ManifoldPinchController } from '../core/interactions/ManifoldPinchController';
+import { ProceduralAudioEngine } from '../core/audio/ProceduralAudioEngine';
+import {
+  GEODESIC_ARCS,
+  LANDMARK_ANCHORS,
+  sampleGreatCircleGeodesic,
+  generateTissotCircles,
+  evaluateTissotDistortion,
+  evaluatePointMorph,
+} from '../core/GlobeOverlay';
 
 export interface WebGPUCanvasProps {
   unfurlProgress: number;
@@ -40,6 +49,10 @@ export interface WebGPUCanvasProps {
   onCoordsChange?: (latDeg: number, lonDeg: number) => void;
   cursorPhysicsEnabled?: boolean;
   startTime?: number;
+  vortexStrength?: number;
+  fractureIntensity?: number;
+  audioEngine?: ProceduralAudioEngine;
+  onGpuProfilerReport?: (report: any) => void;
 }
 
 export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
@@ -61,9 +74,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   onCoordsChange,
   cursorPhysicsEnabled = false,
   startTime,
+  vortexStrength = 1.0,
+  fractureIntensity = 1.0,
+  audioEngine,
+  onGpuProfilerReport,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<WebGPUEngine>(new WebGPUEngine());
   const sharedCursorTracker = useCursorTracker();
   const cursorTrackerRef = useRef<CursorTracker>(sharedCursorTracker);
@@ -76,9 +94,28 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
   // Whimsical Effects & Signature Manifold Pinch Controllers
   const whimsicalManagerRef = useRef<WhimsicalEffectsManager>(new WhimsicalEffectsManager());
-  const pinchControllerRef = useRef<ManifoldPinchController>(new ManifoldPinchController());
+  const pinchControllerRef = useRef<ManifoldPinchController>(new ManifoldPinchController(audioEngine));
   const isPinchingRef = useRef<boolean>(false);
   const currentHitPosRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 5));
+
+  useEffect(() => {
+    if (audioEngine) {
+      pinchControllerRef.current.setAudioEngine(audioEngine);
+    }
+  }, [audioEngine]);
+
+  // Pre-sampled cartographic overlay data
+  const sampledArcSegmentsRef = useRef<Array<{ category: string; color: string; segments: { lon: number; lat: number }[] }>>([]);
+  const tissotCirclesRef = useRef<ReturnType<typeof generateTissotCircles>>([]);
+
+  useEffect(() => {
+    sampledArcSegmentsRef.current = GEODESIC_ARCS.map(arc => ({
+      category: arc.category,
+      color: arc.color,
+      segments: sampleGreatCircleGeodesic(arc.from, arc.to, 44),
+    }));
+    tissotCirclesRef.current = generateTissotCircles(30, 45, 4.8, 24);
+  }, []);
 
   // Camera & Orbit State
   const cameraRef = useRef<THREE.PerspectiveCamera>(
@@ -102,6 +139,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   const startTimeRef = useRef(performance.now());
   const lastFrameTimeRef = useRef(performance.now());
   const lastTelemetryTimeRef = useRef(0);
+  const lastProfilerTimeRef = useRef(0);
 
   // Reusable objects to eliminate per-frame GC allocations in 120 FPS render loop
   const reusableHitPosRef = useRef(new THREE.Vector3());
@@ -119,16 +157,32 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     theme,
     showVectors,
     activeOverlay,
+    showLandmarks,
+    showTissot,
     dataLayers,
+    vortexStrength,
+    fractureIntensity,
   });
   useEffect(() => {
-    stateRef.current = { unfurlProgress, mode, layerMode, theme, showVectors, activeOverlay, dataLayers };
-  }, [unfurlProgress, mode, layerMode, theme, showVectors, activeOverlay, dataLayers]);
+    stateRef.current = {
+      unfurlProgress,
+      mode,
+      layerMode,
+      theme,
+      showVectors,
+      activeOverlay,
+      showLandmarks,
+      showTissot,
+      dataLayers,
+      vortexStrength,
+      fractureIntensity,
+    };
+  }, [unfurlProgress, mode, layerMode, theme, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity]);
 
-  const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange });
+  const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport });
   useEffect(() => {
-    callbacksRef.current = { onFpsUpdate, onDataLoaded, onError, onCoordsChange };
-  }, [onFpsUpdate, onDataLoaded, onError, onCoordsChange]);
+    callbacksRef.current = { onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport };
+  }, [onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport]);
 
   // WebGPU Device Loss Recovery
   useEffect(() => {
@@ -449,7 +503,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         theme: curTheme,
         showVectors: curShowVectors,
         activeOverlay: curActiveOverlay,
+        showLandmarks: curShowLandmarks,
+        showTissot: curShowTissot,
         dataLayers: curDataLayers,
+        vortexStrength: curVortexStrength,
+        fractureIntensity: curFractureIntensity,
       } = stateRef.current;
 
       const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
@@ -539,6 +597,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const opacity = activeDataLayer?.opacity ?? 1.0;
         const renderStyle = activeDataLayer?.renderStyle ?? (activeDataLayer?.id === 'hybrid-crust-hydrosphere' ? 'hybrid' : 'architectural');
 
+        const showContours = !!curDataLayers?.find(
+          (l) => l.id === 'usgs-elevation-contours' && l.visible
+        );
+
         engine.render({
           unfurl: curUnfurl,
           mode: curMode,
@@ -558,7 +620,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           reliefActive,
           showRelief: reliefActive,
           showVectors: curShowVectors,
-          showContours: curActiveOverlay !== 'off' && curActiveOverlay !== undefined,
+          showContours,
+          vortexStrength: curVortexStrength,
+          fractureIntensity: curFractureIntensity,
           seaLevel,
           sunAzimuth,
           sunAltitude,
@@ -568,6 +632,155 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           opacity,
           renderStyle,
         });
+
+        // Periodic GPU Profiler sampling (every 250ms)
+        if (now - lastProfilerTimeRef.current >= 250) {
+          lastProfilerTimeRef.current = now;
+          const profilerReport = engine.getProfiler()?.getLatestReport();
+          if (profilerReport && callbacksRef.current.onGpuProfilerReport) {
+            callbacksRef.current.onGpuProfilerReport(profilerReport);
+          }
+        }
+
+        // 2D Overlay Rendering (Landmarks, Tissot Indicatrices, Geodesic Arcs)
+        const overlayCanvas = overlayCanvasRef.current;
+        if (overlayCanvas) {
+          const rect = overlayCanvas.getBoundingClientRect();
+          const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2);
+          const targetW = Math.round(rect.width * dpr);
+          const targetH = Math.round(rect.height * dpr);
+          if (targetW > 0 && targetH > 0) {
+            if (overlayCanvas.width !== targetW || overlayCanvas.height !== targetH) {
+              overlayCanvas.width = targetW;
+              overlayCanvas.height = targetH;
+            }
+            const ctx = overlayCanvas.getContext('2d');
+            if (ctx) {
+              ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+              ctx.save();
+              ctx.scale(dpr, dpr);
+              const w = rect.width;
+              const h = rect.height;
+
+              const projectPoint = (x3: number, y3: number, z3: number): [number, number, boolean] => {
+                const vec = new THREE.Vector3(x3, y3, z3);
+                vec.project(camera);
+                const isFront = vec.z < 1.0 && vec.z > -1.0;
+                return [(vec.x * 0.5 + 0.5) * w, (-vec.y * 0.5 + 0.5) * h, isFront];
+              };
+
+              // 1. Geodesic Arcs & Animated Current Flow Beads
+              if (curActiveOverlay && curActiveOverlay !== 'off') {
+                const activeArcs = sampledArcSegmentsRef.current.filter(a => a.category === curActiveOverlay);
+                activeArcs.forEach(arc => {
+                  ctx.beginPath();
+                  let hasStarted = false;
+                  for (let i = 0; i < arc.segments.length; i++) {
+                    const pt = arc.segments[i];
+                    const pos3D = evaluatePointMorph(pt.lon, pt.lat, curUnfurl, curMode, time, 0.08);
+                    const [sx, sy, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
+                    if (!isFront) {
+                      hasStarted = false;
+                      continue;
+                    }
+                    if (!hasStarted) {
+                      ctx.moveTo(sx, sy);
+                      hasStarted = true;
+                    } else {
+                      ctx.lineTo(sx, sy);
+                    }
+                  }
+                  ctx.strokeStyle = arc.color || (curTheme === 1 ? '#0284C7' : '#38BDF8');
+                  ctx.lineWidth = 1.5;
+                  ctx.stroke();
+
+                  // Pulse beads along arc
+                  const segLen = arc.segments.length;
+                  for (let b = 0; b < 3; b++) {
+                    const speed = curActiveOverlay === 'conveyor' ? 0.08 : 0.16;
+                    const tBead = (time * speed + b * 0.33) % 1.0;
+                    const idxFloat = tBead * (segLen - 1);
+                    const i0 = Math.floor(idxFloat);
+                    const i1 = Math.min(segLen - 1, i0 + 1);
+                    const f = idxFloat - i0;
+                    const lon = (1 - f) * arc.segments[i0].lon + f * arc.segments[i1].lon;
+                    const lat = (1 - f) * arc.segments[i0].lat + f * arc.segments[i1].lat;
+                    const beadPos = evaluatePointMorph(lon, lat, curUnfurl, curMode, time, 0.12);
+                    const [bx, by, bFront] = projectPoint(beadPos[0], beadPos[1], beadPos[2]);
+                    if (bFront) {
+                      ctx.fillStyle = '#FFFFFF';
+                      ctx.beginPath();
+                      ctx.arc(bx, by, 2.5, 0, Math.PI * 2);
+                      ctx.fill();
+                    }
+                  }
+                });
+              }
+
+              // 2. Tissot Indicatrices
+              if (curShowTissot) {
+                tissotCirclesRef.current.forEach(c => {
+                  const { colorRGB } = evaluateTissotDistortion(c.baseAreaRatio, curMode, curUnfurl);
+                  ctx.strokeStyle = `rgb(${Math.round(colorRGB[0] * 255)}, ${Math.round(colorRGB[1] * 255)}, ${Math.round(colorRGB[2] * 255)})`;
+                  ctx.lineWidth = 1.0;
+                  ctx.beginPath();
+                  let started = false;
+                  for (let i = 0; i < c.perimeter.length; i++) {
+                    const pt = c.perimeter[i];
+                    const pos3D = evaluatePointMorph(pt.lon, pt.lat, curUnfurl, curMode, time, 0.04);
+                    const [sx, sy, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
+                    if (!isFront) {
+                      started = false;
+                      continue;
+                    }
+                    if (!started) {
+                      ctx.moveTo(sx, sy);
+                      started = true;
+                    } else {
+                      ctx.lineTo(sx, sy);
+                    }
+                  }
+                  ctx.stroke();
+                });
+              }
+
+              // 3. Landmark Anchors
+              if (curShowLandmarks) {
+                LANDMARK_ANCHORS.forEach(lm => {
+                  const pos3D = evaluatePointMorph(lm.lon, lm.lat, curUnfurl, curMode, time, 0.12);
+                  const [lx, ly, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
+                  if (isFront && lx >= -50 && lx <= w + 50 && ly >= -50 && ly <= h + 50) {
+                    ctx.fillStyle = curTheme === 1 ? '#0F172A' : '#38BDF8';
+                    ctx.beginPath();
+                    ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.font = '10px monospace';
+                    const label = lm.label || '';
+                    const metrics = ctx.measureText(label);
+                    const pw = metrics.width + 10;
+                    const ph = 16;
+                    const px = lx + 8;
+                    const py = ly - 8;
+
+                    ctx.fillStyle = curTheme === 1 ? 'rgba(255, 255, 255, 0.85)' : 'rgba(15, 23, 42, 0.85)';
+                    ctx.strokeStyle = curTheme === 1 ? 'rgba(15, 23, 42, 0.3)' : 'rgba(56, 189, 248, 0.5)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.roundRect(px, py, pw, ph, 4);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.fillStyle = curTheme === 1 ? '#0F172A' : '#E2E8F0';
+                    ctx.fillText(label, px + 5, py + 12);
+                  }
+                });
+              }
+
+              ctx.restore();
+            }
+          }
+        }
 
         // Frame Telemetry Calculation
         frameCountRef.current++;
@@ -624,6 +837,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       <canvas
         ref={canvasRef}
         className="w-full h-full block cursor-grab active:cursor-grabbing"
+      />
+      <canvas
+        ref={overlayCanvasRef}
+        className="absolute inset-0 pointer-events-none w-full h-full"
       />
       {/* 
         Single WebGPU context: native vector ribbon pipeline and contour isolines render directly in engine.render().

@@ -1,0 +1,189 @@
+// ============================================================================
+// File: src/components/hud/instruments/CurvatureUnfurlSextant.tsx
+// Gaussian Curvature Unfurl Sextant
+// Interactive 180° topological curvature arc measuring surface flattening (K > 0 to K = 0)
+// ============================================================================
+
+import React, { useRef, useCallback } from 'react';
+import { SimulationMode } from '../../../types';
+
+export interface CurvatureUnfurlSextantProps {
+  alpha: number; // 0.000 (Sphere) to 1.000 (Map)
+  onAlphaChange: (val: number) => void;
+  onGlideToAlpha?: (target: number) => void;
+  mode?: SimulationMode;
+  isLight?: boolean;
+}
+
+interface MilestoneStage {
+  t: number;
+  label: string;
+  desc: string;
+}
+
+const MILESTONES_BY_MODE: Record<number, MilestoneStage[]> = {
+  0: [
+    { t: 0.0, label: 'SPHERE (K > 0)', desc: 'Closed Riemannian sphere' },
+    { t: 0.3, label: 'LINEAR DILATION', desc: 'Spheroidal metric interpolation' },
+    { t: 0.7, label: 'PLANAR TRANSITION', desc: 'Coordinate transformation' },
+    { t: 1.0, label: 'PLANAR MAP (K = 0)', desc: 'Equirectangular planar projection' },
+  ],
+  1: [
+    { t: 0.0, label: 'SPHERE (K > 0)', desc: 'Closed spherical cylinder' },
+    { t: 0.3, label: 'SEAM DECOUPLING', desc: 'Antimeridian longitudinal cut' },
+    { t: 0.7, label: 'CYLINDER UNROLL', desc: 'Circumferential unrolling' },
+    { t: 1.0, label: 'PLANAR MAP (K = 0)', desc: 'Unrolled Mercator cylinder' },
+  ],
+  2: [
+    { t: 0.0, label: 'SPHERE (K > 0)', desc: 'Hoop stress accumulating along seam' },
+    { t: 0.3, label: 'ANTIMERIDIAN RUPTURE', desc: 'Griffith LEFM crack opens at equator' },
+    { t: 0.7, label: 'FLAP PEELING', desc: 'Elastic stress dissipation' },
+    { t: 1.0, label: 'PLANAR MAP (K = 0)', desc: 'Unrolled planar fracture manifold' },
+  ],
+  3: [
+    { t: 0.0, label: 'SPHERE (K > 0)', desc: 'Viscous quiescence' },
+    { t: 0.3, label: 'LIQUEFACTION', desc: 'Hydrodynamic viscosity collapse' },
+    { t: 0.7, label: 'VORTEX ADVECTION', desc: 'Turbulent Lamb-Oseen flow' },
+    { t: 1.0, label: 'PLANAR MAP (K = 0)', desc: 'Conformal planar equilibrium' },
+  ],
+  4: [
+    { t: 0.0, label: 'ICOSA CODES', desc: '20 spherical equilateral faces' },
+    { t: 0.4, label: 'HINGE ROTATION', desc: 'Facet decoupling along edges' },
+    { t: 0.8, label: 'NET DEPLOYMENT', desc: 'Planar triangular deployment' },
+    { t: 1.0, label: 'DYMAXION (K = 0)', desc: 'Fuller zero-distortion net' },
+  ],
+};
+
+export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
+  alpha,
+  onAlphaChange,
+  onGlideToAlpha,
+  mode = 0,
+  isLight = false,
+}) => {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+
+  const updateFromPointer = useCallback(
+    (clientX: number) => {
+      if (!boxRef.current) return;
+      const rect = boxRef.current.getBoundingClientRect();
+      let normX = (clientX - rect.left) / rect.width;
+      normX = Math.max(0.0, Math.min(1.0, normX));
+
+      // Magnetic snap detents at 0.0, 0.3, 0.7, 1.0
+      if (normX < 0.03) normX = 0.0;
+      else if (Math.abs(normX - 0.3) < 0.02) normX = 0.3;
+      else if (Math.abs(normX - 0.7) < 0.02) normX = 0.7;
+      else if (normX > 0.97) normX = 1.0;
+
+      onAlphaChange(parseFloat(normX.toFixed(3)));
+    },
+    [onAlphaChange]
+  );
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    isDraggingRef.current = true;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    updateFromPointer(e.clientX);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingRef.current) return;
+    updateFromPointer(e.clientX);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    isDraggingRef.current = false;
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // Ignore
+    }
+  };
+
+  // SVG dimensions: 240 x 36
+  // Arc path: starts curved at y=6, flattens to bottom line y=26 as alpha goes 0 -> 1
+  const peakY = 6 + alpha * 20;
+  const pathD = `M 15 26 Q 120 ${peakY} 225 26`;
+
+  // Quadratic Bezier interpolation for reticle thumb at t = alpha
+  const t = Math.max(0, Math.min(1, alpha));
+  const thumbX = 15 + t * 210;
+  const thumbY = (1 - t) * (1 - t) * 26 + 2 * (1 - t) * t * peakY + t * t * 26;
+
+  // Active milestone description
+  const milestones = MILESTONES_BY_MODE[mode] || MILESTONES_BY_MODE[0];
+  let currentMilestone = milestones[0];
+  if (alpha >= 0.85) currentMilestone = milestones[3];
+  else if (alpha >= 0.5) currentMilestone = milestones[2];
+  else if (alpha >= 0.15) currentMilestone = milestones[1];
+
+  return (
+    <div className="flex flex-col items-center">
+      {/* Interactive Sextant Arc Scrubber */}
+      <div
+        ref={boxRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onDoubleClick={() => onGlideToAlpha?.(alpha < 0.5 ? 1.0 : 0.0)}
+        title="Drag vernier reticle along curvature arc (Double-click to toggle Globe/Map)"
+        className={`relative w-48 sm:w-64 h-9 rounded-lg border flex items-center justify-center cursor-pointer select-none touch-none ${
+          isLight
+            ? 'bg-zinc-100/90 border-zinc-300 shadow-inner'
+            : 'bg-black/50 border-white/15 shadow-inner'
+        }`}
+      >
+        <svg className="w-full h-full pointer-events-none" viewBox="0 0 240 36">
+          {/* Subtle radial reference rays */}
+          <line x1="120" y1="34" x2="15" y2="10" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="68" y2="6" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="120" y2="4" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="172" y2="6" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="225" y2="10" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 2" />
+
+          {/* Magnetic tick markers */}
+          <circle cx="15" cy="26" r="2" fill={alpha < 0.15 ? '#C084FC' : 'rgba(255,255,255,0.25)'} />
+          <circle cx="78" cy="17" r="2" fill={alpha >= 0.15 && alpha < 0.5 ? '#C084FC' : 'rgba(255,255,255,0.25)'} />
+          <circle cx="162" cy="17" r="2" fill={alpha >= 0.5 && alpha < 0.85 ? '#C084FC' : 'rgba(255,255,255,0.25)'} />
+          <circle cx="225" cy="26" r="2" fill={alpha >= 0.85 ? '#C084FC' : 'rgba(255,255,255,0.25)'} />
+
+          {/* Curvature Unfurling Arc */}
+          <path
+            d={pathD}
+            fill="none"
+            stroke={isLight ? '#7C3AED' : '#C084FC'}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          />
+
+          {/* Reticle Thumb */}
+          <circle
+            cx={thumbX}
+            cy={thumbY}
+            r="4.5"
+            fill="#FFFFFF"
+            stroke={isLight ? '#6D28D9' : '#9333EA'}
+            strokeWidth="2"
+            className="shadow-sm"
+          />
+        </svg>
+
+        {/* Milestone Tick Labels */}
+        <div className="absolute top-1 left-2 text-[6px] font-mono font-bold text-purple-400 pointer-events-none">
+          K &gt; 0
+        </div>
+        <div className="absolute top-1 right-2 text-[6px] font-mono font-bold text-purple-400 pointer-events-none">
+          K = 0
+        </div>
+      </div>
+
+      {/* Stage Telemetry Tag */}
+      <div className="text-[7px] font-mono tracking-wider uppercase text-zinc-400 mt-0.5 max-w-[240px] truncate text-center">
+        <span className="text-purple-400 font-bold">{currentMilestone.label}</span>
+        <span className="opacity-60"> • {currentMilestone.desc}</span>
+      </div>
+    </div>
+  );
+};

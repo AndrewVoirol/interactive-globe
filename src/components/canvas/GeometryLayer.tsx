@@ -19,6 +19,8 @@ uniform vec4 u_cursorVel;
 uniform float u_cursorActive;
 uniform sampler2D u_demTexture;
 uniform float u_displacementScale;
+uniform float u_vortexStrength;
+uniform float u_fractureIntensity;
 attribute vec2 target2D;
 attribute vec2 dymaxion2D;
 attribute float vType; // 1.0 = Geographic, 0.0 = Structural
@@ -115,6 +117,7 @@ void main() {
             dynamicNormal = vec3(0.0, 0.0, 1.0);
         }
     } else if (u_mode == 2) {
+        float fracMult = max(0.01, u_fractureIntensity);
         float t = ease;
         float lambda = atan(pos3D.x, pos3D.z);
         float phi = asin(clamp(pos3D.y / RADIUS, -1.0, 1.0));
@@ -125,11 +128,11 @@ void main() {
         
         float hitDist = length(pos3D - u_cursorHitPos);
         float cursorInfluence = u_cursorActive * exp(-hitDist * hitDist / (2.0 * 0.64));
-        float hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cos(phi) * cos(phi));
+        float hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cos(phi) * cos(phi)) * fracMult;
         
         if (t < tRupture) {
             float strainProgress = t / tRupture;
-            localStrain = seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress;
+            localStrain = (seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress) * fracMult;
             vec3 outwardTension = normalize(pos3D) * (localStrain * 0.30);
             finalPos = pos3D + outwardTension;
             dynamicNormal = normalize(finalPos);
@@ -141,7 +144,7 @@ void main() {
             
             float flutterWave = sin(distToSeam * 16.0 - t * 24.0);
             float flutterDecay = exp(-4.2 * (t - tRupture));
-            float flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay;
+            float flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay * fracMult;
             vec3 flutterOffset = vec3(0.0, 0.0, flutterAmp);
 
             vec3 peeledPos = mix(pos3D, pos2D, postRuptureT);
@@ -151,6 +154,7 @@ void main() {
             dynamicNormal = mix(normalize(pos3D), vec3(0.0, 0.0, 1.0), postRuptureT);
         }
     } else if (u_mode == 3) {
+        float vortexMult = max(0.01, u_vortexStrength);
         float t = ease;
         float rawSin = sin(PI * clampedUnfurl);
         float liquefaction = pow(max(0.0, rawSin), 1.15);
@@ -163,10 +167,10 @@ void main() {
         vec3 surfaceNormal = length(basePos) > 0.001 ? normalize(basePos) : vec3(0.0, 0.0, 1.0);
         vec3 vortexTangent = normalize(cross(surfaceNormal, basePos - u_cursorHitPos + vec3(0.001)));
         float clampedSpeed = clamp(u_cursorVel.w, 0.0, 1.5);
-        vec3 vortexVelocity = vortexTangent * (u_cursorActive * clampedSpeed * vortexCirculation * 0.35);
-        vec3 wakeAdvection = normalize(u_cursorVel.xyz + vec3(0.0001)) * (clampedSpeed * 0.15 * u_cursorActive * exp(-hitDist * hitDist / 1.5));
+        vec3 vortexVelocity = vortexTangent * (u_cursorActive * clampedSpeed * vortexCirculation * 0.35 * vortexMult);
+        vec3 wakeAdvection = normalize(u_cursorVel.xyz + vec3(0.0001)) * (clampedSpeed * 0.15 * u_cursorActive * exp(-hitDist * hitDist / 1.5) * vortexMult);
 
-        vec3 totalVelocity = naturalVelocity + vortexVelocity + wakeAdvection;
+        vec3 totalVelocity = (naturalVelocity + vortexVelocity + wakeAdvection) * vortexMult;
         localVorticity = length(totalVelocity) * max(liquefaction, u_cursorActive * 0.3);
 
         float wavePhase1 = dot(basePos, vec3(0.35, 0.62, 0.42)) * 1.35 - u_time * 1.25;
@@ -174,7 +178,7 @@ void main() {
         float silkWave = (sin(wavePhase1) * 0.65 + cos(wavePhase2) * 0.35) * liquefaction * 0.65;
         vec3 silkDrapeOffset = surfaceNormal * silkWave;
 
-        vec3 advectionOffset = naturalVelocity * (liquefaction * 1.55) + silkDrapeOffset + (vortexVelocity + wakeAdvection) * (u_cursorActive * 0.25);
+        vec3 advectionOffset = (naturalVelocity * (liquefaction * 1.55) + silkDrapeOffset + (vortexVelocity + wakeAdvection) * (u_cursorActive * 0.25)) * vortexMult;
 
         finalPos = basePos + advectionOffset;
         dynamicNormal = mix(normalize(pos3D + silkDrapeOffset * 0.5), vec3(0.0, 0.0, 1.0), t);
@@ -325,6 +329,8 @@ uniform vec4 u_cursorVel;
 uniform float u_cursorActive;
 uniform sampler2D u_demTexture;
 uniform float u_displacementScale;
+uniform float u_vortexStrength;
+uniform float u_fractureIntensity;
 attribute vec2 target2D;
 attribute vec2 dymaxion2D;
 attribute float vType; // 1.0 = Geographic, 0.0 = Structural
@@ -408,6 +414,7 @@ void main() {
             dynamicNormal = vec3(0.0, 0.0, 1.0);
         }
     } else if (u_mode == 2) {
+        float fracMult = max(0.01, u_fractureIntensity);
         float t = ease;
         float lambda = atan(pos3D.x, pos3D.z);
         float phi = asin(clamp(pos3D.y / RADIUS, -1.0, 1.0));
@@ -418,11 +425,11 @@ void main() {
         
         float hitDist = length(pos3D - u_cursorHitPos);
         float cursorInfluence = u_cursorActive * exp(-hitDist * hitDist / (2.0 * 0.64));
-        float hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cos(phi) * cos(phi));
+        float hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cos(phi) * cos(phi)) * fracMult;
         
         if (t < tRupture) {
             float strainProgress = t / tRupture;
-            localStrain = seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress;
+            localStrain = (seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress) * fracMult;
             vec3 outwardTension = normalize(pos3D) * (localStrain * 0.30);
             finalPos = pos3D + outwardTension;
             dynamicNormal = normalize(finalPos);
@@ -434,7 +441,7 @@ void main() {
             
             float flutterWave = sin(distToSeam * 16.0 - t * 24.0);
             float flutterDecay = exp(-4.2 * (t - tRupture));
-            float flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay;
+            float flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay * fracMult;
             vec3 flutterOffset = vec3(0.0, 0.0, flutterAmp);
 
             vec3 peeledPos = mix(pos3D, pos2D, postRuptureT);
@@ -444,6 +451,7 @@ void main() {
             dynamicNormal = mix(normalize(pos3D), vec3(0.0, 0.0, 1.0), postRuptureT);
         }
     } else if (u_mode == 3) {
+        float vortexMult = max(0.01, u_vortexStrength);
         float t = ease;
         float rawSin = sin(PI * clampedUnfurl);
         float liquefaction = pow(max(0.0, rawSin), 1.15);
@@ -456,10 +464,10 @@ void main() {
         vec3 surfaceNormal = length(basePos) > 0.001 ? normalize(basePos) : vec3(0.0, 0.0, 1.0);
         vec3 vortexTangent = normalize(cross(surfaceNormal, basePos - u_cursorHitPos + vec3(0.001)));
         float clampedSpeed = clamp(u_cursorVel.w, 0.0, 1.5);
-        vec3 vortexVelocity = vortexTangent * (u_cursorActive * clampedSpeed * vortexCirculation * 0.35);
-        vec3 wakeAdvection = normalize(u_cursorVel.xyz + vec3(0.0001)) * (clampedSpeed * 0.15 * u_cursorActive * exp(-hitDist * hitDist / 1.5));
+        vec3 vortexVelocity = vortexTangent * (u_cursorActive * clampedSpeed * vortexCirculation * 0.35 * vortexMult);
+        vec3 wakeAdvection = normalize(u_cursorVel.xyz + vec3(0.0001)) * (clampedSpeed * 0.15 * u_cursorActive * exp(-hitDist * hitDist / 1.5) * vortexMult);
 
-        vec3 totalVelocity = naturalVelocity + vortexVelocity + wakeAdvection;
+        vec3 totalVelocity = (naturalVelocity + vortexVelocity + wakeAdvection) * vortexMult;
         localVorticity = length(totalVelocity) * max(liquefaction, u_cursorActive * 0.3);
 
         float wavePhase1 = dot(basePos, vec3(0.35, 0.62, 0.42)) * 1.35 - u_time * 1.25;
@@ -467,7 +475,7 @@ void main() {
         float silkWave = (sin(wavePhase1) * 0.65 + cos(wavePhase2) * 0.35) * liquefaction * 0.65;
         vec3 silkDrapeOffset = surfaceNormal * silkWave;
 
-        vec3 advectionOffset = naturalVelocity * (liquefaction * 1.55) + silkDrapeOffset + (vortexVelocity + wakeAdvection) * (u_cursorActive * 0.25);
+        vec3 advectionOffset = (naturalVelocity * (liquefaction * 1.55) + silkDrapeOffset + (vortexVelocity + wakeAdvection) * (u_cursorActive * 0.25)) * vortexMult;
 
         finalPos = basePos + advectionOffset;
         dynamicNormal = mix(normalize(pos3D + silkDrapeOffset * 0.5), vec3(0.0, 0.0, 1.0), t);
@@ -602,6 +610,8 @@ export interface GeometryLayerProps {
   onDataLoaded: (info: LoadedDataInfo) => void;
   startTime?: number;
   displacementScale?: number;
+  vortexStrength?: number;
+  fractureIntensity?: number;
 }
 
 export const GeometryLayer: React.FC<GeometryLayerProps> = ({ 
@@ -616,6 +626,8 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
   onDataLoaded,
   startTime,
   displacementScale = 0.12,
+  vortexStrength = 1.0,
+  fractureIntensity = 1.0,
 }) => {
   const meshMaterialRef = useRef<THREE.ShaderMaterial>(null);
   const pointMaterialRef = useRef<THREE.ShaderMaterial>(null);
@@ -772,6 +784,8 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
       meshMaterialRef.current.uniforms.u_cursorVel.value.copy(cursorUniforms.u_cursorVel);
       meshMaterialRef.current.uniforms.u_cursorActive.value = cursorUniforms.u_cursorActive;
       meshMaterialRef.current.uniforms.u_displacementScale.value = displacementScale;
+      meshMaterialRef.current.uniforms.u_vortexStrength.value = vortexStrength;
+      meshMaterialRef.current.uniforms.u_fractureIntensity.value = fractureIntensity;
       meshMaterialRef.current.uniforms.u_demTexture.value = demTexture;
 
       const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1.0 : 1.0, 2.0);
@@ -787,6 +801,8 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
       pointMaterialRef.current.uniforms.u_cursorVel.value.copy(cursorUniforms.u_cursorVel);
       pointMaterialRef.current.uniforms.u_cursorActive.value = cursorUniforms.u_cursorActive;
       pointMaterialRef.current.uniforms.u_displacementScale.value = displacementScale;
+      pointMaterialRef.current.uniforms.u_vortexStrength.value = vortexStrength;
+      pointMaterialRef.current.uniforms.u_fractureIntensity.value = fractureIntensity;
       pointMaterialRef.current.uniforms.u_demTexture.value = demTexture;
     }
 
@@ -803,6 +819,8 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
       frameMaterialRef.current.uniforms.u_cursorVel.value.copy(cursorUniforms.u_cursorVel);
       frameMaterialRef.current.uniforms.u_cursorActive.value = cursorUniforms.u_cursorActive;
       frameMaterialRef.current.uniforms.u_displacementScale.value = displacementScale;
+      frameMaterialRef.current.uniforms.u_vortexStrength.value = vortexStrength;
+      frameMaterialRef.current.uniforms.u_fractureIntensity.value = fractureIntensity;
       frameMaterialRef.current.uniforms.u_demTexture.value = demTexture;
     }
 
@@ -898,6 +916,8 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
             u_cursorVel: { value: new THREE.Vector4(0, 0, 0, 0) },
             u_cursorActive: { value: 0.0 },
             u_displacementScale: { value: displacementScale },
+            u_vortexStrength: { value: vortexStrength },
+            u_fractureIntensity: { value: fractureIntensity },
             u_demTexture: { value: demTexture },
           }} 
         />
@@ -925,6 +945,8 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
               u_cursorVel: { value: new THREE.Vector4(0, 0, 0, 0) },
               u_cursorActive: { value: 0.0 },
               u_displacementScale: { value: displacementScale },
+              u_vortexStrength: { value: vortexStrength },
+              u_fractureIntensity: { value: fractureIntensity },
               u_demTexture: { value: demTexture },
             }} 
           />
@@ -950,6 +972,8 @@ export const GeometryLayer: React.FC<GeometryLayerProps> = ({
             u_cursorVel: { value: new THREE.Vector4(0, 0, 0, 0) },
             u_cursorActive: { value: 0.0 },
             u_displacementScale: { value: displacementScale },
+            u_vortexStrength: { value: vortexStrength },
+            u_fractureIntensity: { value: fractureIntensity },
             u_demTexture: { value: demTexture },
           }} 
         />

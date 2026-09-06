@@ -8,6 +8,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo } from '../../types';
 import { DATA_LAYER_CATALOG, BlendModeType, getPresetById, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
 import { DataLayerItem } from './DataLayersDrawer';
+import { PolarSunCompass } from './instruments/PolarSunCompass';
+import { HypsometricReliefCurve } from './instruments/HypsometricReliefCurve';
+import { BathymetricTideGauge } from './instruments/BathymetricTideGauge';
 
 export interface UnifiedRightSidebarProps {
   isZenMode: boolean;
@@ -56,6 +59,11 @@ export interface UnifiedRightSidebarProps {
   onAmbientOcclusionChangeDataLayer?: (id: string, ao: number) => void;
   onReorderDataLayer?: (id: string, direction: 'up' | 'down') => void;
   onSelectRenderStyle?: (style: DataLayerRenderStyle) => void;
+  fractureIntensity?: number;
+  onFractureIntensityChange?: (v: number) => void;
+  fluidVortexStrength?: number;
+  onFluidVortexStrengthChange?: (v: number) => void;
+  gpuReport?: any;
 }
 
 export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
@@ -105,6 +113,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onAmbientOcclusionChangeDataLayer,
   onReorderDataLayer,
   onSelectRenderStyle,
+  fractureIntensity = 1.0,
+  onFractureIntensityChange,
+  fluidVortexStrength = 1.0,
+  onFluidVortexStrengthChange,
+  gpuReport,
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
@@ -480,137 +493,42 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   </span>
                 </div>
 
-                <div className="space-y-1.5 text-[9px]">
-                  {/* 3D Relief */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-20 text-emerald-500 dark:text-emerald-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
-                      3D Relief:
-                    </span>
-                    <input
-                      type="range"
-                      min="0.00"
-                      max="0.25"
-                      step="0.01"
-                      value={primaryLayer?.displacementScale ?? 0.08}
-                      onChange={(e) => onDisplacementScaleChangeDataLayer?.(primaryLayerId, parseFloat(e.target.value))}
-                      className="w-full accent-emerald-400 cursor-pointer h-1 rounded"
-                    />
-                    <span className="w-10 text-right font-bold text-emerald-500 dark:text-emerald-300 tabular-nums flex-shrink-0">
-                      {(primaryLayer?.displacementScale ?? 0.08).toFixed(2)}x
-                    </span>
-                  </div>
+                <div className="space-y-2 text-[9px]">
+                  {/* Instrument 1: 2D Polar Sun Compass (Sun Azimuth: 0-360°, Sun Alt: 10-85°) */}
+                  <PolarSunCompass
+                    azimuth={primaryLayer?.sunAzimuth ?? 315}
+                    altitude={primaryLayer?.sunAltitude ?? 45}
+                    onChange={(azimuth, altitude) =>
+                      onHillshadeChangeDataLayer?.(
+                        primaryLayerId,
+                        azimuth,
+                        primaryLayer?.hillshadeIntensity ?? 0.65,
+                        altitude
+                      )
+                    }
+                    isLight={isLight}
+                  />
 
-                  {/* Peak Exponent (Peak Sharpness) */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-20 text-teal-500 dark:text-teal-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
-                      Peak Sharp:
-                    </span>
-                    <input
-                      type="range"
-                      min="0.5"
-                      max="3.0"
-                      step="0.1"
-                      value={primaryLayer?.peakExponent ?? 1.4}
-                      onChange={(e) => onPeakExponentChangeDataLayer?.(primaryLayerId, parseFloat(e.target.value))}
-                      className="w-full accent-teal-400 cursor-pointer h-1 rounded"
-                    />
-                    <span className="w-10 text-right font-bold text-teal-500 dark:text-teal-300 tabular-nums flex-shrink-0">
-                      {(primaryLayer?.peakExponent ?? 1.4).toFixed(1)}x
-                    </span>
-                  </div>
+                  {/* Instrument 2: 2D Hypsometric Mountain Elevation Curve (3D Relief & Peak Sharp: 0.5x-3.0x) */}
+                  <HypsometricReliefCurve
+                    displacementScale={primaryLayer?.displacementScale ?? 0.08}
+                    peakExponent={primaryLayer?.peakExponent ?? 1.4}
+                    onDisplacementChange={(scale) => onDisplacementScaleChangeDataLayer?.(primaryLayerId, scale)}
+                    onPeakExponentChange={(exponent) => onPeakExponentChangeDataLayer?.(primaryLayerId, exponent)}
+                    isLight={isLight}
+                  />
 
-                  {/* Sun Azimuth */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-20 text-amber-500 dark:text-amber-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
-                      Sun Azimuth:
-                    </span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="360"
-                      step="5"
-                      value={primaryLayer?.sunAzimuth ?? 315}
-                      onChange={(e) =>
-                        onHillshadeChangeDataLayer?.(
-                          primaryLayerId,
-                          parseFloat(e.target.value),
-                          primaryLayer?.hillshadeIntensity ?? 0.65,
-                          primaryLayer?.sunAltitude ?? 45
-                        )
-                      }
-                      className="w-full accent-amber-400 cursor-pointer h-1 rounded"
-                    />
-                    <span className="w-10 text-right font-bold text-amber-500 dark:text-amber-300 tabular-nums flex-shrink-0">
-                      {Math.round(primaryLayer?.sunAzimuth ?? 315)}°
-                    </span>
-                  </div>
+                  {/* Instrument 3: Hydrostatic Bathymetric Tide Gauge (Sea Level: -150m to +100m, Clarity: 10%-100%) */}
+                  <BathymetricTideGauge
+                    seaLevelOffset={primaryLayer?.seaLevelOffset ?? 0}
+                    waterClarity={primaryLayer?.waterClarity ?? 0.75}
+                    onSeaLevelChange={(offset) => onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, offset)}
+                    onWaterClarityChange={(clarity) => onWaterClarityChangeDataLayer?.(primaryLayerId, clarity)}
+                    isLight={isLight}
+                  />
 
-                  {/* Sun Altitude */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-20 text-amber-500 dark:text-amber-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
-                      Sun Alt:
-                    </span>
-                    <input
-                      type="range"
-                      min="10"
-                      max="85"
-                      step="5"
-                      value={primaryLayer?.sunAltitude ?? 45}
-                      onChange={(e) =>
-                        onHillshadeChangeDataLayer?.(
-                          primaryLayerId,
-                          primaryLayer?.sunAzimuth ?? 315,
-                          primaryLayer?.hillshadeIntensity ?? 0.65,
-                          parseFloat(e.target.value)
-                        )
-                      }
-                      className="w-full accent-amber-400 cursor-pointer h-1 rounded"
-                    />
-                    <span className="w-10 text-right font-bold text-amber-500 dark:text-amber-300 tabular-nums flex-shrink-0">
-                      {Math.round(primaryLayer?.sunAltitude ?? 45)}°
-                    </span>
-                  </div>
-
-                  {/* Sea Level */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-20 text-cyan-500 dark:text-cyan-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
-                      Sea Level:
-                    </span>
-                    <input
-                      type="range"
-                      min="-150"
-                      max="100"
-                      step="5"
-                      value={primaryLayer?.seaLevelOffset ?? 0}
-                      onChange={(e) => onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, parseFloat(e.target.value))}
-                      className="w-full accent-cyan-400 cursor-pointer h-1 rounded"
-                    />
-                    <span className="w-10 text-right font-bold text-cyan-500 dark:text-cyan-300 tabular-nums flex-shrink-0">
-                      {(primaryLayer?.seaLevelOffset ?? 0) > 0 ? `+${primaryLayer?.seaLevelOffset}m` : `${primaryLayer?.seaLevelOffset ?? 0}m`}
-                    </span>
-                  </div>
-
-                  {/* Water Clarity */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-20 text-sky-500 dark:text-sky-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
-                      Clarity:
-                    </span>
-                    <input
-                      type="range"
-                      min="0.10"
-                      max="1.00"
-                      step="0.05"
-                      value={primaryLayer?.waterClarity ?? 0.75}
-                      onChange={(e) => onWaterClarityChangeDataLayer?.(primaryLayerId, parseFloat(e.target.value))}
-                      className="w-full accent-sky-400 cursor-pointer h-1 rounded"
-                    />
-                    <span className="w-10 text-right font-bold text-sky-500 dark:text-sky-300 tabular-nums flex-shrink-0">
-                      {Math.round((primaryLayer?.waterClarity ?? 0.75) * 100)}%
-                    </span>
-                  </div>
-
-                  {/* Crevice AO */}
-                  <div className="flex items-center gap-1.5">
+                  {/* Crevice AO (Ambient Occlusion: 0%-100%) */}
+                  <div className="flex items-center gap-1.5 pt-1 px-1">
                     <span className="w-20 text-zinc-500 dark:text-zinc-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
                       Crevice AO:
                     </span>
@@ -826,6 +744,53 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <span>Cursor Physics</span>
                     </button>
                   </div>
+
+                  {/* Contextual Physical Simulation Parameters (Mode 2 / Mode 3) */}
+                  {mode === 2 && (
+                    <div className={`p-2 rounded-xl border flex flex-col gap-1.5 transition-all ${
+                      isLight ? 'bg-zinc-100/80 border-zinc-200' : 'bg-white/[0.02] border-white/10'
+                    }`}>
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="font-bold flex items-center gap-1.5 text-[#C86D51]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#C86D51] animate-pulse"></span>
+                          Fracture Intensity
+                        </span>
+                        <span className="font-mono font-bold opacity-80">{(fractureIntensity ?? 1.0).toFixed(2)}x</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="2.5"
+                        step="0.05"
+                        value={fractureIntensity ?? 1.0}
+                        onChange={(e) => onFractureIntensityChange?.(parseFloat(e.target.value))}
+                        className="w-full accent-[#C86D51] h-1 bg-zinc-700/50 rounded-lg cursor-pointer"
+                      />
+                    </div>
+                  )}
+
+                  {mode === 3 && (
+                    <div className={`p-2 rounded-xl border flex flex-col gap-1.5 transition-all ${
+                      isLight ? 'bg-zinc-100/80 border-zinc-200' : 'bg-white/[0.02] border-white/10'
+                    }`}>
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="font-bold flex items-center gap-1.5 text-indigo-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                          Vortex Swirl Strength
+                        </span>
+                        <span className="font-mono font-bold opacity-80">{(fluidVortexStrength ?? 1.0).toFixed(2)}x</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.2"
+                        max="3.0"
+                        step="0.05"
+                        value={fluidVortexStrength ?? 1.0}
+                        onChange={(e) => onFluidVortexStrengthChange?.(parseFloat(e.target.value))}
+                        className="w-full accent-indigo-500 h-1 bg-zinc-700/50 rounded-lg cursor-pointer"
+                      />
+                    </div>
+                  )}
 
                   {/* Geodesic Arcs & Overlays */}
                   <div className="space-y-1.5">
@@ -1449,6 +1414,25 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     </span>
                     <span className="font-bold text-zinc-800 dark:text-zinc-200">{mapScaleStr}</span>
                   </div>
+                  {backend === 'webgpu' && gpuReport && (
+                    <div className={`col-span-2 pt-1.5 mt-0.5 border-t flex flex-col gap-1 text-[8px] ${
+                      isLight ? 'border-zinc-200/80 text-zinc-600' : 'border-white/10 text-zinc-400'
+                    }`}>
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="text-sky-400 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
+                          GPU Profiler
+                        </span>
+                        <span className="text-emerald-400 font-mono">Total: {(gpuReport.totalGpuMs ?? 0).toFixed(2)}ms</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1 font-mono opacity-80 text-[7.5px]">
+                        <span>Sim: {(gpuReport.computeMs ?? 0).toFixed(2)}ms</span>
+                        <span>Relief: {(gpuReport.reliefMs ?? 0).toFixed(2)}ms</span>
+                        <span>Lines: {(gpuReport.linesMs ?? 0).toFixed(2)}ms</span>
+                        <span>Contours: {(gpuReport.contoursMs ?? 0).toFixed(2)}ms</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
           )}

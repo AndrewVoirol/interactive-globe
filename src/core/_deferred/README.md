@@ -24,6 +24,11 @@ This directory contains hollow stubs, theoretical exploration prototypes, and du
 - **Contents**: Shared GLSL functions (`computeCurlNoiseGLSL`, `mode1CylindricalScrollGLSL`, `mode2GriffithFractureGLSL`, `mode3FluidAdvectionGLSL`, `mode4FullerDymaxionGLSL`).
 - **Reason for Deferral**: Exact duplicate of `src/core/shaders/ShaderChunkRegistry.ts`. Retaining `ShaderChunkRegistry.ts` as the canonical source of shared GLSL chunks eliminates code duplication and confusion.
 
+### 4. `hud/` (Superseded Fragmented HUD Components)
+- **Archived In**: `src/core/_deferred/hud/`
+- **Original / Mirror Paths**: `src/components/hud/TopologyControlDock.tsx`, `src/components/hud/SystemStatusPill.tsx`, `src/components/hud/DataLayersDrawer.tsx`
+- **Reason for Deferral**: Superseded by `UnifiedRightSidebar.tsx` and `TelemetryHUD.tsx`, which integrate engine status, morph topology, and GIS data layers into a unified responsive HUD dock with a sliding cartographic catalog sheet. The original standalone files are preserved in `src/components/hud/` for vitest test suite backward compatibility and mirrored here for architectural hygiene.
+
 ---
 
 ## Active Production Core Modules (Intact)

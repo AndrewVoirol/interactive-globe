@@ -63,6 +63,11 @@ export interface TelemetryHUDProps {
   onAmbientOcclusionChangeDataLayer?: (id: string, ao: number) => void;
   onReorderDataLayer?: (id: string, direction: 'up' | 'down') => void;
   onSelectRenderStyle?: (style: DataLayerRenderStyle) => void;
+  fractureIntensity?: number;
+  onFractureIntensityChange?: (v: number) => void;
+  fluidVortexStrength?: number;
+  onFluidVortexStrengthChange?: (v: number) => void;
+  gpuReport?: any;
 }
 
 export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
@@ -118,6 +123,11 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onAmbientOcclusionChangeDataLayer={props.onAmbientOcclusionChangeDataLayer}
         onReorderDataLayer={props.onReorderDataLayer}
         onSelectRenderStyle={props.onSelectRenderStyle}
+        fractureIntensity={props.fractureIntensity}
+        onFractureIntensityChange={props.onFractureIntensityChange}
+        fluidVortexStrength={props.fluidVortexStrength}
+        onFluidVortexStrengthChange={props.onFluidVortexStrengthChange}
+        gpuReport={props.gpuReport}
       />
 
       {/* Bottom-Left Non-Intrusive Glassmorphic Toast Notification Stack */}

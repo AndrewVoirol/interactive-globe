@@ -94,6 +94,9 @@ export default function App() {
     isPlaying, setIsPlaying,
     playbackSpeed, setPlaybackSpeed,
     isZenMode, setIsZenMode,
+    fractureIntensity, setFractureIntensity,
+    fluidVortexStrength, setFluidVortexStrength,
+    gpuReport, setGpuReport,
     dataInfo, setDataInfo,
   } = engineState;
 
@@ -143,10 +146,12 @@ export default function App() {
   } = useGlobeLayerManager();
 
   const handleSelectRenderStyleWithVectorAuto = useCallback(
-    (style: 'architectural' | 'hybrid' | 'photoreal') => {
+    (style: DataLayerRenderStyle) => {
       handleSelectRenderStyle(style);
-      setLayerMode(2); // Clean Terrain (Wireframe Only) eliminates point particle stippling over relief
+      setLayerMode(2);
       if (style === 'architectural') {
+        setShowVectors(true);
+      } else if (style === 'hybrid') {
         setShowVectors(true);
       }
     },
@@ -167,7 +172,16 @@ export default function App() {
 
     // Mode 2: Acoustic Rupture at alpha = 0.18
     if (mode === 2 && prevAlpha < 0.18 && alpha >= 0.18) {
-      audioEngineRef.current.triggerRupture(1.0);
+      audioEngineRef.current.triggerRupture(fractureIntensity);
+    }
+
+    // Mode 3: Fluid Flow Synthesizer modulated by morph speed & vortex strength
+    if (mode === 3) {
+      const alphaVelocity = Math.abs(alpha - prevAlpha) * 60;
+      const flowMag = Math.max(isPlaying ? 0.8 : 0.0, alphaVelocity) * fluidVortexStrength;
+      audioEngineRef.current.updateFlowVelocity(flowMag);
+    } else {
+      audioEngineRef.current.updateFlowVelocity(0);
     }
 
     // Mode 4: 20-Facet Dymaxion Chimes on facet boundaries
@@ -179,7 +193,7 @@ export default function App() {
         audioEngineRef.current.triggerChime(currStep);
       }
     }
-  }, [alpha, mode]);
+  }, [alpha, mode, isPlaying, fractureIntensity, fluidVortexStrength]);
 
   useEffect(() => {
     registerDevToolsAPI(engineState);
@@ -320,6 +334,10 @@ export default function App() {
                 dataLayers={dataLayers}
                 cursorPhysicsEnabled={cursorPhysicsEnabled}
                 startTime={appStartTimeRef.current}
+                vortexStrength={fluidVortexStrength}
+                fractureIntensity={fractureIntensity}
+                audioEngine={audioEngineRef.current}
+                onGpuProfilerReport={setGpuReport}
                 onFpsUpdate={handleFpsUpdate}
                 onDataLoaded={handleDataLoaded}
                 onError={handleWebGPUError}
@@ -340,6 +358,8 @@ export default function App() {
                   cursorPhysicsEnabled={cursorPhysicsEnabled}
                   displacementScale={dataLayers.find((l) => l.visible)?.displacementScale ?? 0.12}
                   startTime={appStartTimeRef.current}
+                  vortexStrength={fluidVortexStrength}
+                  fractureIntensity={fractureIntensity}
                   onFpsUpdate={handleFpsUpdate} 
                   onDataLoaded={handleDataLoaded} 
                 />
@@ -472,6 +492,11 @@ export default function App() {
           onAmbientOcclusionChangeDataLayer={handleAmbientOcclusionChangeDataLayer}
           onReorderDataLayer={handleReorderDataLayer}
           onSelectRenderStyle={handleSelectRenderStyleWithVectorAuto}
+          fractureIntensity={fractureIntensity}
+          onFractureIntensityChange={setFractureIntensity}
+          fluidVortexStrength={fluidVortexStrength}
+          onFluidVortexStrengthChange={setFluidVortexStrength}
+          gpuReport={gpuReport}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}
@@ -490,6 +515,7 @@ export default function App() {
           theme={theme}
           activeDirection={activeDirection}
           onSelectRenderStyle={handleSelectRenderStyleWithVectorAuto}
+          mode={mode}
         />
 
         {/* Zen Mode Minimal Restore Pill */}
