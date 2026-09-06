@@ -1,0 +1,232 @@
+{
+  "system": {
+    "device": "Apple MacBook Pro (14-inch, Nov 2024)",
+    "chip": "Apple M4 Pro (Mac16,7)",
+    "cores": "14 CPU (10P + 4E), 20 GPU",
+    "memory": "24 GB Unified Memory",
+    "display": "3456 x 2234 Liquid Retina XDR, 120 Hz ProMotion",
+    "framebuffer": "3454 x 1866 (Retina 2x, ~6.45M pixels/frame)",
+    "api": "WebGPU / Metal 4 (Chrome Canary 135 / Dawn with timestamp-query)",
+    "timestamp": "2026-09-05T20:20:30-04:00"
+  },
+  "summary": {
+    "gpuHardwareBudgetMs": 8.333,
+    "measuredComputePassRangeMs": "0.400 - 0.440 ms (4.8% - 5.3% of budget)",
+    "measuredRenderPassRangeMs": {
+      "pointsOnly": "3.088 ms (37.1% of budget)",
+      "cleanTerrainWireframe": "5.610 ms (67.3% of budget)",
+      "overdrawBothLayers": "6.670 - 7.344 ms (80.0% - 88.1% of budget)"
+    },
+    "keyRootCauseFindings": [
+      "GPU Compute is blazing fast across all 5 morph modes (0.40 ms), with zero mode-dependent compute bottlenecks.",
+      "Drawing 1M Point Sprites concurrently with 1M Triangle Crust Mesh costs 1.6 ms of GPU render time and visually washes out relief shading.",
+      "React re-renders during active slider dragging block the CPU main thread for 15-35 ms, driving frame rate down to 73.4 FPS despite GPU running at only 6.13 ms (73% load)."
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "SC-01",
+      "name": "Baseline Idle (1M Nodes, Mode 0 Linear, Both Layers)",
+      "interaction": "No user input; camera static at default position",
+      "sampleCount": 55,
+      "meanFps": 116.3,
+      "frameInterval": { "meanMs": 8.6, "p50Ms": 8.4, "p95Ms": 10.7, "minMs": 1.0, "maxMs": 20.2 },
+      "gpuHardware": {
+        "avgComputeMs": 0.402,
+        "p95ComputeMs": 0.432,
+        "avgRenderMs": 6.670,
+        "p95RenderMs": 7.580,
+        "avgTotalGpuMs": 7.072,
+        "p95TotalGpuMs": 7.968
+      },
+      "pacing": { "droppedFrames": 28, "dropRatePct": 50.9, "sustains120Fps": false }
+    },
+    {
+      "id": "SC-02",
+      "name": "Active Orbit Drag (1M Nodes, Mode 0, Continuous Drag)",
+      "interaction": "PointerDown + continuous 360-degree spherical camera orbit via PointerMove",
+      "sampleCount": 55,
+      "meanFps": 115.7,
+      "frameInterval": { "meanMs": 8.65, "p50Ms": 8.3, "p95Ms": 23.7, "minMs": 0.8, "maxMs": 24.0 },
+      "gpuHardware": {
+        "avgComputeMs": 0.421,
+        "p95ComputeMs": 0.533,
+        "avgRenderMs": 7.267,
+        "p95RenderMs": 9.164,
+        "avgTotalGpuMs": 7.688,
+        "p95TotalGpuMs": 9.601
+      },
+      "pacing": { "droppedFrames": 24, "dropRatePct": 43.6, "sustains120Fps": false }
+    },
+    {
+      "id": "SC-03",
+      "name": "Continuous Zoom (Wheel In & Out)",
+      "interaction": "Continuous WheelEvent stream zooming camera into terrain, then pulling back to orbital distance",
+      "sampleCount": 55,
+      "meanFps": 115.8,
+      "frameInterval": { "meanMs": 8.64, "p50Ms": 8.3, "p95Ms": 9.2, "minMs": 1.3, "maxMs": 32.1 },
+      "gpuHardware": {
+        "avgComputeMs": 0.429,
+        "p95ComputeMs": 0.672,
+        "avgRenderMs": 6.921,
+        "p95RenderMs": 8.501,
+        "avgTotalGpuMs": 7.351,
+        "p95TotalGpuMs": 8.918
+      },
+      "pacing": { "droppedFrames": 23, "dropRatePct": 41.8, "sustains120Fps": false }
+    },
+    {
+      "id": "SC-04",
+      "name": "Active Morph Unroll (Alpha 0.0 -> 1.0 -> 0.0)",
+      "interaction": "Dynamic interpolation of unfurlProgress between 3D Globe and 2D Planar Map",
+      "sampleCount": 55,
+      "meanFps": 92.5,
+      "frameInterval": { "meanMs": 10.81, "p50Ms": 8.4, "p95Ms": 19.6, "minMs": 2.0, "maxMs": 20.2 },
+      "gpuHardware": {
+        "avgComputeMs": 0.428,
+        "p95ComputeMs": 0.503,
+        "avgRenderMs": 6.782,
+        "p95RenderMs": 7.683,
+        "avgTotalGpuMs": 7.210,
+        "p95TotalGpuMs": 8.082
+      },
+      "pacing": { "droppedFrames": 31, "dropRatePct": 56.4, "sustains120Fps": false }
+    },
+    {
+      "id": "SC-05",
+      "name": "Mode 1 (Scroll Unrolling) + Drag + Morph 0.5",
+      "interaction": "Mode 1 cylindrical scroll physics at half unroll with active camera drag",
+      "sampleCount": 55,
+      "meanFps": 112.5,
+      "frameInterval": { "meanMs": 8.89, "p50Ms": 8.4, "p95Ms": 12.1, "minMs": 0.5, "maxMs": 31.2 },
+      "gpuHardware": {
+        "avgComputeMs": 0.405,
+        "p95ComputeMs": 0.464,
+        "avgRenderMs": 7.344,
+        "p95RenderMs": 9.031,
+        "avgTotalGpuMs": 7.749,
+        "p95TotalGpuMs": 9.431
+      },
+      "pacing": { "droppedFrames": 31, "dropRatePct": 56.4, "sustains120Fps": false }
+    },
+    {
+      "id": "SC-06",
+      "name": "Mode 2 (Griffith Rupture) + Drag + Morph 0.5",
+      "interaction": "Mode 2 elastic fracture mechanics at half rupture with active camera drag",
+      "sampleCount": 55,
+      "meanFps": 113.8,
+      "frameInterval": { "meanMs": 8.78, "p50Ms": 8.4, "p95Ms": 11.2, "minMs": 1.2, "maxMs": 29.8 },
+      "gpuHardware": {
+        "avgComputeMs": 0.426,
+        "p95ComputeMs": 0.580,
+        "avgRenderMs": 7.239,
+        "p95RenderMs": 9.231,
+        "avgTotalGpuMs": 7.665,
+        "p95TotalGpuMs": 9.691
+      },
+      "pacing": { "droppedFrames": 29, "dropRatePct": 52.7, "sustains120Fps": false }
+    },
+    {
+      "id": "SC-07",
+      "name": "Mode 3 (Fluid Silk Billow) + Drag + Morph 0.5",
+      "interaction": "Mode 3 hydrodynamic advection-diffusion at half billow with active camera drag",
+      "sampleCount": 55,
+      "meanFps": 115.9,
+      "frameInterval": { "meanMs": 8.63, "p50Ms": 8.3, "p95Ms": 11.2, "minMs": 0.8, "maxMs": 21.1 },
+      "gpuHardware": {
+        "avgComputeMs": 0.400,
+        "p95ComputeMs": 0.442,
+        "avgRenderMs": 7.010,
+        "p95RenderMs": 9.497,
+        "avgTotalGpuMs": 7.409,
+        "p95TotalGpuMs": 9.918
+      },
+      "pacing": { "droppedFrames": 26, "dropRatePct": 47.3, "sustains120Fps": false }
+    },
+    {
+      "id": "SC-08",
+      "name": "Mode 4 (Fuller Dymaxion) + Drag + Morph 0.5",
+      "interaction": "Mode 4 icosahedral net unfold at half projection with active camera drag",
+      "sampleCount": 55,
+      "meanFps": 110.9,
+      "frameInterval": { "meanMs": 9.02, "p50Ms": 8.4, "p95Ms": 11.5, "minMs": 1.4, "maxMs": 32.4 },
+      "gpuHardware": {
+        "avgComputeMs": 0.432,
+        "p95ComputeMs": 0.831,
+        "avgRenderMs": 6.708,
+        "p95RenderMs": 8.267,
+        "avgTotalGpuMs": 7.140,
+        "p95TotalGpuMs": 8.666
+      },
+      "pacing": { "droppedFrames": 31, "dropRatePct": 56.4, "sustains120Fps": false }
+    },
+    {
+      "id": "SC-09",
+      "name": "Wireframe Only / Clean Terrain (1M Nodes, No Point Sprites)",
+      "interaction": "Layer isolation (layerMode = 2): 1M Crust Mesh + Wireframe, point cloud disabled",
+      "sampleCount": 55,
+      "meanFps": 116.2,
+      "frameInterval": { "meanMs": 8.60, "p50Ms": 8.3, "p95Ms": 21.5, "minMs": 0.8, "maxMs": 22.5 },
+      "gpuHardware": {
+        "avgComputeMs": 0.440,
+        "p95ComputeMs": 0.526,
+        "avgRenderMs": 5.610,
+        "p95RenderMs": 7.122,
+        "avgTotalGpuMs": 6.050,
+        "p95TotalGpuMs": 7.546
+      },
+      "pacing": { "droppedFrames": 25, "dropRatePct": 45.5, "sustains120Fps": false }
+    },
+    {
+      "id": "SC-10",
+      "name": "Points Only (1M Nodes, No Crust Mesh, No Wireframe)",
+      "interaction": "Layer isolation (layerMode = 1): 1M Point Sprites only, crust and wireframe disabled",
+      "sampleCount": 55,
+      "meanFps": 114.5,
+      "frameInterval": { "meanMs": 8.73, "p50Ms": 8.3, "p95Ms": 21.9, "minMs": 0.7, "maxMs": 22.5 },
+      "gpuHardware": {
+        "avgComputeMs": 0.428,
+        "p95ComputeMs": 0.539,
+        "avgRenderMs": 3.088,
+        "p95RenderMs": 3.697,
+        "avgTotalGpuMs": 3.516,
+        "p95TotalGpuMs": 4.080
+      },
+      "pacing": { "droppedFrames": 23, "dropRatePct": 41.8, "sustains120Fps": false }
+    },
+    {
+      "id": "SC-11",
+      "name": "Shader Sliders Manipulation (Sun Azimuth 0-360° + Sea Level)",
+      "interaction": "Continuous dynamic slider updates driving shader uniform buffers in real time",
+      "sampleCount": 55,
+      "meanFps": 73.4,
+      "frameInterval": { "meanMs": 13.63, "p50Ms": 8.4, "p95Ms": 41.4, "minMs": 6.6, "maxMs": 43.8 },
+      "gpuHardware": {
+        "avgComputeMs": 0.413,
+        "p95ComputeMs": 0.461,
+        "avgRenderMs": 5.720,
+        "p95RenderMs": 6.536,
+        "avgTotalGpuMs": 6.133,
+        "p95TotalGpuMs": 6.932
+      },
+      "pacing": { "droppedFrames": 34, "dropRatePct": 61.8, "sustains120Fps": false }
+    },
+    {
+      "id": "SC-12",
+      "name": "Resolution Scaling (100K Nodes, Both Layers, Active Orbit)",
+      "interaction": "Downsampled Fibonacci lattice (100,000 nodes) with active camera drag",
+      "sampleCount": 55,
+      "meanFps": 117.8,
+      "frameInterval": { "meanMs": 8.49, "p50Ms": 8.3, "p95Ms": 22.0, "minMs": 0.3, "maxMs": 22.8 },
+      "gpuHardware": {
+        "avgComputeMs": 0.082,
+        "p95ComputeMs": 0.095,
+        "avgRenderMs": 3.210,
+        "p95RenderMs": 3.840,
+        "avgTotalGpuMs": 3.292,
+        "p95TotalGpuMs": 3.935
+      },
+      "pacing": { "droppedFrames": 27, "dropRatePct": 49.1, "sustains120Fps": false }
+    }
+  ]
+}

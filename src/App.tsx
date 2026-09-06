@@ -106,7 +106,7 @@ export default function App() {
 
   const controlsRef = useRef<any>(null);
   const appStartTimeRef = useRef(performance.now());
-  const audioEngineRef = useRef<ProceduralAudioEngine>(new ProceduralAudioEngine());
+  const audioEngineRef = useRef<ProceduralAudioEngine>(new ProceduralAudioEngine(true));
 
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const prevAlphaRef = useRef(alpha);

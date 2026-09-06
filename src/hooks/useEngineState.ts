@@ -36,7 +36,7 @@ export function useEngineState() {
   const audioEngineRef = useRef<ProceduralAudioEngine | null>(null);
 
   if (!audioEngineRef.current) {
-    audioEngineRef.current = new ProceduralAudioEngine();
+    audioEngineRef.current = new ProceduralAudioEngine(true);
   }
 
   const [dataInfo, setDataInfo] = useState<LoadedDataInfo>({ 

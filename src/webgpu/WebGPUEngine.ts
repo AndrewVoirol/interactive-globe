@@ -1539,16 +1539,16 @@ export class WebGPUEngine {
     if (this.reliefUniformBuffer) {
       const rf = this.reliefFloats;
       const ru = this.reliefUints;
-      rf[0] = 315.0; // Primary NW azimuth
-      rf[1] = 45.0;  // Primary altitude
-      rf[2] = 225.0; // Fill SW azimuth
-      rf[3] = 35.0;  // Fill altitude
+      rf[0] = params.sunAzimuth !== undefined ? params.sunAzimuth : 315.0;
+      rf[1] = params.sunAltitude !== undefined ? params.sunAltitude : 45.0;
+      rf[2] = (params.sunAzimuth !== undefined ? params.sunAzimuth : 315.0) - 90.0;
+      rf[3] = (params.sunAltitude !== undefined ? params.sunAltitude : 45.0) * 0.65;
       rf[4] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
       rf[5] = params.hillshadeIntensity !== undefined ? params.hillshadeIntensity : 1.0;
       rf[6] = 1.0 / 2048.0; // u_texelWidth
       rf[7] = 1.0 / 1024.0; // u_texelHeight
-      rf[8] = 0.65; // rock cliff exposure factor
-      rf[9] = 0.50; // ambient occlusion
+      rf[8] = 0.65; // rock cliff exposure factor (u_rockCliffStrength: 0.0 - 1.0)
+      rf[9] = params.ambientOcclusion !== undefined ? params.ambientOcclusion : 0.50;
       rf[10] = 0.40; // aerial perspective
       ru[11] = params.theme !== undefined ? params.theme : 0;
       this.device.queue.writeBuffer(this.reliefUniformBuffer, 0, rf.buffer);

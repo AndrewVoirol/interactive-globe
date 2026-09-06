@@ -1,0 +1,241 @@
+{
+  "metadata": {
+    "generatedAt": "2026-09-06T00:56:57.394Z",
+    "platform": "Apple Silicon M4 Pro (Mac16,7)",
+    "display": "Liquid Retina XDR (120 Hz ProMotion)",
+    "canvasBuffer": {
+      "width": 3456,
+      "height": 1882,
+      "clientWidth": 1728,
+      "clientHeight": 941,
+      "pixelCount": 6504192
+    },
+    "framesPerScenario": 300
+  },
+  "scenarios": [
+    {
+      "id": "SC-01",
+      "name": "Baseline Idle (1M Nodes, Both Layers)",
+      "baseline": {
+        "fps": 58.2,
+        "p50Ms": 17.1,
+        "p95Ms": 23.8,
+        "trueDropRatePct": 93,
+        "gpuTotalMs": 14.942,
+        "cpuMainMs": 0,
+        "sustains120": false
+      },
+      "optimized": {
+        "fps": 60.9,
+        "p50Ms": 16.4,
+        "p95Ms": 20.9,
+        "trueDropRatePct": 93.3,
+        "gpuTotalMs": 14.124,
+        "cpuMainMs": 0,
+        "sustains120": false
+      },
+      "deltas": {
+        "fpsChange": 2.7,
+        "p50ChangeMs": -0.7,
+        "dropRateChangePct": 0.3,
+        "cpuTimeChangeMs": null
+      }
+    },
+    {
+      "id": "SC-02",
+      "name": "Clean Terrain (1M Nodes, Solid Crust + Wireframe)",
+      "baseline": {
+        "fps": 96.3,
+        "p50Ms": 9,
+        "p95Ms": 15.7,
+        "trueDropRatePct": 23.2,
+        "gpuTotalMs": 8.5,
+        "cpuMainMs": 0,
+        "sustains120": false
+      },
+      "optimized": {
+        "fps": 80.7,
+        "p50Ms": 12.2,
+        "p95Ms": 16.1,
+        "trueDropRatePct": 43.5,
+        "gpuTotalMs": 10.065,
+        "cpuMainMs": 0,
+        "sustains120": false
+      },
+      "deltas": {
+        "fpsChange": -15.6,
+        "p50ChangeMs": 3.2,
+        "dropRateChangePct": 20.3,
+        "cpuTimeChangeMs": null
+      }
+    },
+    {
+      "id": "SC-03",
+      "name": "Points Only (1M Nodes, Points Sprites Only)",
+      "baseline": {
+        "fps": 120,
+        "p50Ms": 8.3,
+        "p95Ms": 9.3,
+        "trueDropRatePct": 0,
+        "gpuTotalMs": 4.322,
+        "cpuMainMs": 0,
+        "sustains120": true
+      },
+      "optimized": {
+        "fps": 116,
+        "p50Ms": 8.4,
+        "p95Ms": 12.2,
+        "trueDropRatePct": 3.2,
+        "gpuTotalMs": 5.911,
+        "cpuMainMs": 0,
+        "sustains120": true
+      },
+      "deltas": {
+        "fpsChange": -4,
+        "p50ChangeMs": 0.1,
+        "dropRateChangePct": 3.2,
+        "cpuTimeChangeMs": null
+      }
+    },
+    {
+      "id": "SC-04",
+      "name": "Active Camera Orbit Drag",
+      "baseline": {
+        "fps": 105.4,
+        "p50Ms": 9.6,
+        "p95Ms": 12,
+        "trueDropRatePct": 4.2,
+        "gpuTotalMs": 8.296,
+        "cpuMainMs": 0,
+        "sustains120": true
+      },
+      "optimized": {
+        "fps": 60.8,
+        "p50Ms": 16.2,
+        "p95Ms": 20.7,
+        "trueDropRatePct": 93.3,
+        "gpuTotalMs": 14.567,
+        "cpuMainMs": 0,
+        "sustains120": false
+      },
+      "deltas": {
+        "fpsChange": -44.6,
+        "p50ChangeMs": 6.6,
+        "dropRateChangePct": 89.1,
+        "cpuTimeChangeMs": null
+      }
+    },
+    {
+      "id": "SC-05",
+      "name": "Continuous Zoom (Wheel In & Out)",
+      "baseline": {
+        "fps": 119.8,
+        "p50Ms": 8.3,
+        "p95Ms": 9.3,
+        "trueDropRatePct": 1.1,
+        "gpuTotalMs": 6.056,
+        "cpuMainMs": 0,
+        "sustains120": true
+      },
+      "optimized": {
+        "fps": 84.8,
+        "p50Ms": 11.3,
+        "p95Ms": 17.8,
+        "trueDropRatePct": 41.8,
+        "gpuTotalMs": 9.327,
+        "cpuMainMs": 0,
+        "sustains120": false
+      },
+      "deltas": {
+        "fpsChange": -35,
+        "p50ChangeMs": 3,
+        "dropRateChangePct": 40.7,
+        "cpuTimeChangeMs": null
+      }
+    },
+    {
+      "id": "SC-06",
+      "name": "Active Morph Unroll (Alpha 0.0 -> 1.0 -> 0.0)",
+      "baseline": {
+        "fps": 119.7,
+        "p50Ms": 8.3,
+        "p95Ms": 9.4,
+        "trueDropRatePct": 0.4,
+        "gpuTotalMs": 7.244,
+        "cpuMainMs": 0,
+        "sustains120": true
+      },
+      "optimized": {
+        "fps": 66.4,
+        "p50Ms": 15,
+        "p95Ms": 19.4,
+        "trueDropRatePct": 83.9,
+        "gpuTotalMs": 12.602,
+        "cpuMainMs": 0,
+        "sustains120": false
+      },
+      "deltas": {
+        "fpsChange": -53.3,
+        "p50ChangeMs": 6.7,
+        "dropRateChangePct": 83.5,
+        "cpuTimeChangeMs": null
+      }
+    },
+    {
+      "id": "SC-07",
+      "name": "Continuous Slider Dragging (Sun Azimuth & Sea Level)",
+      "baseline": {
+        "fps": 116.7,
+        "p50Ms": 8.3,
+        "p95Ms": 11.3,
+        "trueDropRatePct": 2.8,
+        "gpuTotalMs": 5.136,
+        "cpuMainMs": 1.69,
+        "sustains120": true
+      },
+      "optimized": {
+        "fps": 86.1,
+        "p50Ms": 11.5,
+        "p95Ms": 15.5,
+        "trueDropRatePct": 34.4,
+        "gpuTotalMs": 8.927,
+        "cpuMainMs": 0.11,
+        "sustains120": false
+      },
+      "deltas": {
+        "fpsChange": -30.6,
+        "p50ChangeMs": 3.2,
+        "dropRateChangePct": 31.6,
+        "cpuTimeChangeMs": -1.58
+      }
+    },
+    {
+      "id": "SC-08",
+      "name": "Resolution Scaling (100K Nodes Active Orbit)",
+      "baseline": {
+        "fps": 120,
+        "p50Ms": 8.3,
+        "p95Ms": 14.1,
+        "trueDropRatePct": 8.1,
+        "gpuTotalMs": 0,
+        "cpuMainMs": 0,
+        "sustains120": false
+      },
+      "optimized": {
+        "fps": 120,
+        "p50Ms": 8.3,
+        "p95Ms": 11.5,
+        "trueDropRatePct": 0.4,
+        "gpuTotalMs": 0,
+        "cpuMainMs": 0,
+        "sustains120": true
+      },
+      "deltas": {
+        "fpsChange": 0,
+        "p50ChangeMs": 0,
+        "dropRateChangePct": -7.7,
+        "cpuTimeChangeMs": null
+      }
+    }
+  ]
+}
