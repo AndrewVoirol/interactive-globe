@@ -6,6 +6,7 @@
 
 import { IDataSource, DataSourceCategory, BoundingBox3D, SpatialDataChunk } from './IDataSource';
 import { parseTLE, propagateOrbitalState, TLEOrbitalElements } from '../math/sgp4';
+import { loadNodeAssetText } from '../../utils/nodeAssetLoader';
 
 export interface SatelliteMetadata {
   noradId: number;
@@ -107,27 +108,17 @@ export class TLETrajectoryDataSource implements IDataSource<SatelliteMetadata> {
 
     // 2. Node / test environment filesystem access
     if (typeof process !== 'undefined' && process.versions?.node) {
-      try {
-        const fs = await import(/* @vite-ignore */ 'fs');
-        const path = await import(/* @vite-ignore */ 'path');
-        const candidates = [
-          path.resolve(process.cwd(), 'public/data/tle-starlink.json'),
-          path.resolve(__dirname, '../../../public/data/tle-starlink.json'),
-          path.resolve(defaultUrl),
-        ];
-
-        for (const p of candidates) {
-          if (fs.existsSync(p)) {
-            const raw = fs.readFileSync(p, 'utf8');
-            const list = JSON.parse(raw);
-            if (Array.isArray(list) && list.length > 0) {
-              this.setSatellites(list);
-              return;
-            }
+      const text = await loadNodeAssetText(defaultUrl);
+      if (text) {
+        try {
+          const list = JSON.parse(text);
+          if (Array.isArray(list) && list.length > 0) {
+            this.setSatellites(list);
+            return;
           }
+        } catch {
+          // Fall through
         }
-      } catch {
-        // Fall through
       }
     }
   }

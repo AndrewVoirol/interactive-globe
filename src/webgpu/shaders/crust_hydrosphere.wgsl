@@ -776,11 +776,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
         let directIllum = 0.10 + 0.90 * max(0.0, cosSun);
         let dayLit = dayColor * directIllum;
-
-        let nightLit = nightColor * (nightWeight * 1.8);
+        let nightLit = nightColor * (nightWeight * 1.25);
 
         let twilightBand = pow(1.0 - abs(cosSun) / 0.08, 2.0) * select(0.0, 1.0, abs(cosSun) < 0.08);
-        let twilightColor = vec3<f32>(1.0, 0.44, 0.16) * (twilightBand * 0.35);
+        let twilightColor = vec3<f32>(1.0, 0.60, 0.28) * (twilightBand * 0.12);
 
         finalCrust = dayLit * dayWeight + nightLit + twilightColor;
     } else {
