@@ -3,6 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SimulationMode, LoadedDataInfo } from './types';
+import { DataLayerRenderStyle } from './core/data/DataLayerCatalog';
 import { TelemetryHUD } from './components/hud/TelemetryHUD';
 import { NavigationDock } from './components/hud/NavigationDock';
 import { useEngineState } from './hooks/useEngineState';
@@ -428,7 +429,7 @@ export default function App() {
                 enablePan={true} 
                 enableZoom={true} 
                 enableRotate={true} 
-                autoRotate={alpha < 0.01} 
+                autoRotate={false} 
                 autoRotateSpeed={0.5} 
                 minDistance={5}
                 maxDistance={50}
@@ -521,8 +522,6 @@ export default function App() {
           }}
           onGlideToAlpha={glideToAlpha}
           theme={theme}
-          activeDirection={activeDirection}
-          onSelectRenderStyle={handleSelectRenderStyleWithVectorAuto}
           mode={mode}
         />
 

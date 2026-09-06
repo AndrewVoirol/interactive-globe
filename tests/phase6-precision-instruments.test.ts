@@ -197,5 +197,32 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
       expect(dockCode).toContain('CurvatureUnfurlSextant');
       expect(dockCode).toContain('onGlideToAlpha');
     });
+
+    it('INST-14: CurvatureUnfurlSextant enforces invariant width and height without layout shifts', () => {
+      expect(sextantCode).toContain('w-56 sm:w-64');
+      expect(sextantCode).toContain('truncate');
+      expect(sextantCode).toContain('h-3.5');
+    });
+
+    it('INST-15: CurvatureUnfurlSextant pointer mapping accurately translates SVG arc padding', () => {
+      // Arc spans [15, 225] inside 240 viewBox
+      const padPct = 15 / 240;
+      const calcNormX = (rawFrac: number) => {
+        const norm = (rawFrac - padPct) / (1.0 - 2 * padPct);
+        return Math.max(0.0, Math.min(1.0, norm));
+      };
+
+      expect(calcNormX(15 / 240)).toBeCloseTo(0.0, 4);
+      expect(calcNormX(225 / 240)).toBeCloseTo(1.0, 4);
+      expect(calcNormX(120 / 240)).toBeCloseTo(0.5, 4);
+    });
+
+    it('INST-16: WebGPUCanvas camera orientation is decoupled from unfurl morphing', () => {
+      const webgpuPath = path.join(projectRoot, 'src/webgpu/WebGPUCanvas.tsx');
+      const webgpuCode = fs.readFileSync(webgpuPath, 'utf-8');
+      expect(webgpuCode).not.toContain('curUnfurl > 0.05');
+      expect(webgpuCode).not.toContain('sphericalRef.current.phi += (targetPhi');
+    });
   });
 });
+

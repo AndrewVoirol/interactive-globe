@@ -68,14 +68,11 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
     (clientX: number) => {
       if (!boxRef.current) return;
       const rect = boxRef.current.getBoundingClientRect();
-      let normX = (clientX - rect.left) / rect.width;
+      // Arc spans from x = 15 to x = 225 within viewBox of 0 0 240 36
+      const padPct = 15 / 240; // 0.0625 margin on left and right
+      const rawFrac = (clientX - rect.left) / rect.width;
+      let normX = (rawFrac - padPct) / (1.0 - 2 * padPct);
       normX = Math.max(0.0, Math.min(1.0, normX));
-
-      // Magnetic snap detents at 0.0, 0.3, 0.7, 1.0
-      if (normX < 0.03) normX = 0.0;
-      else if (Math.abs(normX - 0.3) < 0.02) normX = 0.3;
-      else if (Math.abs(normX - 0.7) < 0.02) normX = 0.7;
-      else if (normX > 0.97) normX = 1.0;
 
       onAlphaChange(parseFloat(normX.toFixed(3)));
     },
@@ -84,7 +81,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
 
   const handlePointerDown = (e: React.PointerEvent) => {
     isDraggingRef.current = true;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    boxRef.current?.setPointerCapture(e.pointerId);
     updateFromPointer(e.clientX);
   };
 
@@ -96,7 +93,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   const handlePointerUp = (e: React.PointerEvent) => {
     isDraggingRef.current = false;
     try {
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      boxRef.current?.releasePointerCapture(e.pointerId);
     } catch {
       // Ignore
     }
@@ -120,7 +117,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   else if (alpha >= 0.15) currentMilestone = milestones[1];
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center w-56 sm:w-64 select-none">
       {/* Interactive Sextant Arc Scrubber */}
       <div
         ref={boxRef}
@@ -129,7 +126,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         onPointerUp={handlePointerUp}
         onDoubleClick={() => onGlideToAlpha?.(alpha < 0.5 ? 1.0 : 0.0)}
         title="Drag vernier reticle along curvature arc (Double-click to toggle Globe/Map)"
-        className={`relative w-48 sm:w-64 h-9 rounded-lg border flex items-center justify-center cursor-pointer select-none touch-none ${
+        className={`relative w-full h-9 rounded-lg border flex items-center justify-center cursor-pointer select-none touch-none ${
           isLight
             ? 'bg-zinc-100/90 border-zinc-300 shadow-inner'
             : 'bg-black/50 border-white/15 shadow-inner'
@@ -137,17 +134,17 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
       >
         <svg className="w-full h-full pointer-events-none" viewBox="0 0 240 36">
           {/* Subtle radial reference rays */}
-          <line x1="120" y1="34" x2="15" y2="10" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="68" y2="6" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="120" y2="4" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="172" y2="6" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="225" y2="10" stroke="rgba(255,255,255,0.06)" strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="15" y2="10" stroke={isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'} strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="68" y2="6" stroke={isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'} strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="120" y2="4" stroke={isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'} strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="172" y2="6" stroke={isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'} strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="225" y2="10" stroke={isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'} strokeDasharray="2 2" />
 
           {/* Magnetic tick markers */}
-          <circle cx="15" cy="26" r="2" fill={alpha < 0.15 ? '#C084FC' : 'rgba(255,255,255,0.25)'} />
-          <circle cx="78" cy="17" r="2" fill={alpha >= 0.15 && alpha < 0.5 ? '#C084FC' : 'rgba(255,255,255,0.25)'} />
-          <circle cx="162" cy="17" r="2" fill={alpha >= 0.5 && alpha < 0.85 ? '#C084FC' : 'rgba(255,255,255,0.25)'} />
-          <circle cx="225" cy="26" r="2" fill={alpha >= 0.85 ? '#C084FC' : 'rgba(255,255,255,0.25)'} />
+          <circle cx="15" cy="26" r="2" fill={alpha < 0.15 ? (isLight ? '#7C3AED' : '#C084FC') : (isLight ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.25)')} />
+          <circle cx="78" cy="17" r="2" fill={alpha >= 0.15 && alpha < 0.5 ? (isLight ? '#7C3AED' : '#C084FC') : (isLight ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.25)')} />
+          <circle cx="162" cy="17" r="2" fill={alpha >= 0.5 && alpha < 0.85 ? (isLight ? '#7C3AED' : '#C084FC') : (isLight ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.25)')} />
+          <circle cx="225" cy="26" r="2" fill={alpha >= 0.85 ? (isLight ? '#7C3AED' : '#C084FC') : (isLight ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.25)')} />
 
           {/* Curvature Unfurling Arc */}
           <path
@@ -184,7 +181,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
       </div>
 
       {/* Stage Telemetry Tag */}
-      <div className={`text-[9px] font-mono tracking-wider uppercase mt-0.5 max-w-[340px] text-center ${
+      <div className={`text-[9px] font-mono tracking-wider uppercase mt-0.5 w-full h-3.5 leading-tight text-center truncate ${
         isLight ? 'text-zinc-700' : 'text-zinc-400'
       }`}>
         <span className={isLight ? 'text-purple-700 font-bold' : 'text-purple-400 font-bold'}>{currentMilestone.label}</span>

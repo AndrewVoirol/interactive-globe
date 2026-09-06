@@ -27,5 +27,10 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "src/core/_deferred/**",
+    "dist",
+    "node_modules"
+  ]
 }

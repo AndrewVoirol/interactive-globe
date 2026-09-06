@@ -539,27 +539,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             targetCameraPosRef.current = null;
             updateCameraTransform();
           }
-        } else if (!isDraggingRef.current) {
-          // Smooth planar camera orientation alignment when morphing to flat map
-          if (curUnfurl > 0.05) {
-            const targetPhi = Math.PI * 0.5;
-            let deltaTheta = (0.0 - sphericalRef.current.theta) % (2 * Math.PI);
-            if (deltaTheta > Math.PI) deltaTheta -= 2 * Math.PI;
-            if (deltaTheta < -Math.PI) deltaTheta += 2 * Math.PI;
-
-            const alignStrength = Math.min(1.0, (curUnfurl - 0.05) / 0.85) * 0.06;
-            sphericalRef.current.phi += (targetPhi - sphericalRef.current.phi) * alignStrength;
-            sphericalRef.current.theta += deltaTheta * alignStrength;
-            updateCameraTransform();
-          }
-
-          // Center camera target smoothly in Zen Mode or when sidebar is collapsed
-          const desiredTargetX = (isZenMode || !isSidebarOpen) ? 0.0 : -1.2;
-          if (Math.abs(targetRef.current.x - desiredTargetX) > 0.005) {
-            targetRef.current.x += (desiredTargetX - targetRef.current.x) * 0.08;
-            updateCameraTransform();
-          }
         }
+
 
         // Auto-rotation disabled to preserve user target coordinate inspection
 
