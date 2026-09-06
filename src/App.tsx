@@ -336,6 +336,7 @@ export default function App() {
                 startTime={appStartTimeRef.current}
                 vortexStrength={fluidVortexStrength}
                 fractureIntensity={fractureIntensity}
+                isZenMode={isZenMode}
                 audioEngine={audioEngineRef.current}
                 onGpuProfilerReport={setGpuReport}
                 onFpsUpdate={handleFpsUpdate}
@@ -345,7 +346,14 @@ export default function App() {
               />
             </React.Suspense>
           ) : (
-            <Canvas camera={{ position: [0, 0, 15], fov: 45 }}>
+            <Canvas
+              camera={{ position: [0, 0, 15], fov: 45 }}
+              onCreated={({ gl }) => {
+                gl.domElement.addEventListener('webglcontextlost', (e) => {
+                  e.preventDefault();
+                }, false);
+              }}
+            >
               <React.Suspense fallback={null}>
                 <CameraTelemetryUpdater alpha={alpha} onCoordsChange={handleCoordsChange} />
                 <GeometryLayer 

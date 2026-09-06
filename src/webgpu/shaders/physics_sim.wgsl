@@ -83,7 +83,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if (sim.u_mode == 1u) {
         let t = ease;
         let lambda = atan2(pos3D.x, pos3D.z);
-        let phi = asin(clamp(pos3D.y / RADIUS, -1.0, 1.0));
+        let phi = asin(clamp(pos3D.y / RADIUS, -0.9998, 0.9998));
         let oneMinusT = 1.0 - t;
 
         if (oneMinusT > 0.001) {
@@ -110,7 +110,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     else if (sim.u_mode == 2u) {
         let t = ease;
         let lambda = atan2(pos3D.x, pos3D.z);
-        let phi = asin(clamp(pos3D.y / RADIUS, -1.0, 1.0));
+        let phi = asin(clamp(pos3D.y / RADIUS, -0.9998, 0.9998));
         let distToSeam = PI - abs(lambda);
         let seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
 
@@ -189,7 +189,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), pos3D / safeLen, posLen > 0.001);
         let dymaxionTarget = vec3<f32>(pStatic.rest_map.zw, 0.0);
         finalPos = mix(pos3D, dymaxionTarget, ease) + sphereNorm * arch;
-        finalVel = vec3<f32>(0.0);
+        finalVel = pos3D;
         metric = 0.0;
     }
     // Mode 0: Linear Mix (Fallback)

@@ -48,6 +48,8 @@ export interface WebGPUCanvasProps {
   onError?: (err: Error) => void;
   onCoordsChange?: (latDeg: number, lonDeg: number) => void;
   cursorPhysicsEnabled?: boolean;
+  isZenMode?: boolean;
+  isSidebarOpen?: boolean;
   startTime?: number;
   vortexStrength?: number;
   fractureIntensity?: number;
@@ -73,6 +75,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   onError,
   onCoordsChange,
   cursorPhysicsEnabled = false,
+  isZenMode = false,
+  isSidebarOpen = true,
   startTime,
   vortexStrength = 1.0,
   fractureIntensity = 1.0,
@@ -535,6 +539,26 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             targetCameraPosRef.current = null;
             updateCameraTransform();
           }
+        } else if (!isDraggingRef.current) {
+          // Smooth planar camera orientation alignment when morphing to flat map
+          if (curUnfurl > 0.05) {
+            const targetPhi = Math.PI * 0.5;
+            let deltaTheta = (0.0 - sphericalRef.current.theta) % (2 * Math.PI);
+            if (deltaTheta > Math.PI) deltaTheta -= 2 * Math.PI;
+            if (deltaTheta < -Math.PI) deltaTheta += 2 * Math.PI;
+
+            const alignStrength = Math.min(1.0, (curUnfurl - 0.05) / 0.85) * 0.06;
+            sphericalRef.current.phi += (targetPhi - sphericalRef.current.phi) * alignStrength;
+            sphericalRef.current.theta += deltaTheta * alignStrength;
+            updateCameraTransform();
+          }
+
+          // Center camera target smoothly in Zen Mode or when sidebar is collapsed
+          const desiredTargetX = (isZenMode || !isSidebarOpen) ? 0.0 : -1.2;
+          if (Math.abs(targetRef.current.x - desiredTargetX) > 0.005) {
+            targetRef.current.x += (desiredTargetX - targetRef.current.x) * 0.08;
+            updateCameraTransform();
+          }
         }
 
         // Auto-rotation disabled to preserve user target coordinate inspection
@@ -586,7 +610,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           activeDataLayer.category === 'topography' ||
           activeDataLayer.type === 'raster' ||
           activeDataLayer.renderStyle === 'architectural' ||
-          activeDataLayer.renderStyle === 'hybrid'
+          activeDataLayer.renderStyle === 'hybrid' ||
+          activeDataLayer.renderStyle === 'photoreal'
         ) : false;
         const seaLevel = liveOverrides?.seaLevelOffset ?? activeDataLayer?.seaLevelOffset ?? 0.0;
         const sunAzimuth = liveOverrides?.sunAzimuth ?? activeDataLayer?.sunAzimuth ?? 315.0;
@@ -664,8 +689,20 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
               const projectPoint = (x3: number, y3: number, z3: number): [number, number, boolean] => {
                 const vec = new THREE.Vector3(x3, y3, z3);
+                let isFront = true;
+                // Strict horizon backface culling in spherical/globe regime
+                if (curUnfurl < 0.35) {
+                  const norm = vec.clone().normalize();
+                  const vDir = new THREE.Vector3().subVectors(camera.position, vec).normalize();
+                  const facing = norm.dot(vDir);
+                  if (facing < 0.05) {
+                    isFront = false;
+                  }
+                }
                 vec.project(camera);
-                const isFront = vec.z < 1.0 && vec.z > -1.0;
+                if (vec.z >= 1.0 || vec.z <= -1.0) {
+                  isFront = false;
+                }
                 return [(vec.x * 0.5 + 0.5) * w, (-vec.y * 0.5 + 0.5) * h, isFront];
               };
 
@@ -690,9 +727,17 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                       ctx.lineTo(sx, sy);
                     }
                   }
-                  ctx.strokeStyle = arc.color || (curTheme === 1 ? '#0284C7' : '#38BDF8');
-                  ctx.lineWidth = 1.5;
+                  if (curActiveOverlay === 'antipodes') {
+                    ctx.setLineDash([4, 4]);
+                    ctx.strokeStyle = arc.color || (curTheme === 1 ? 'rgba(225, 29, 72, 0.65)' : 'rgba(251, 113, 133, 0.65)');
+                    ctx.lineWidth = 1.5;
+                  } else {
+                    ctx.setLineDash([]);
+                    ctx.strokeStyle = arc.color || (curTheme === 1 ? '#0284C7' : '#38BDF8');
+                    ctx.lineWidth = 1.5;
+                  }
                   ctx.stroke();
+                  ctx.setLineDash([]);
 
                   // Pulse beads along arc
                   const segLen = arc.segments.length;

@@ -130,20 +130,26 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         </div>
 
         {/* Reference Geological Markers */}
-        <div className="absolute left-1.5 top-1 text-[7px] font-mono text-zinc-400 pointer-events-none">
+        <div className={`absolute left-1.5 top-1 text-[7px] font-mono pointer-events-none ${
+          isLight ? 'text-zinc-600 font-semibold' : 'text-zinc-400'
+        }`}>
           +100m (Flood)
         </div>
-        <div className="absolute left-1.5 top-[40%] text-[7px] font-mono text-cyan-400 font-bold pointer-events-none">
+        <div className={`absolute left-1.5 top-[40%] text-[7px] font-mono font-bold pointer-events-none ${
+          isLight ? 'text-cyan-800' : 'text-cyan-400'
+        }`}>
           0m (Present)
         </div>
-        <div className="absolute left-1.5 bottom-1 text-[7px] font-mono text-zinc-500 pointer-events-none">
+        <div className={`absolute left-1.5 bottom-1 text-[7px] font-mono pointer-events-none ${
+          isLight ? 'text-zinc-600 font-semibold' : 'text-zinc-500'
+        }`}>
           -150m (Ice Age LGM)
         </div>
       </div>
 
       {/* Optical Water Clarity Absorption Slider */}
       <div className="flex items-center justify-between text-[8px] text-zinc-400 mt-1.5 px-0.5">
-        <span className="font-bold flex items-center gap-1 text-sky-400">
+        <span className={`font-bold flex items-center gap-1 ${isLight ? 'text-sky-800' : 'text-sky-400'}`}>
           Beer-Lambert Clarity:
         </span>
         <div className="flex items-center gap-2">

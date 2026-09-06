@@ -387,7 +387,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
           {/* Main Body (Expandable)                                                */}
           {/* --------------------------------------------------------------------- */}
           {isSidebarOpen && (
-            <div className="mt-2.5 space-y-3 overflow-y-auto pr-1 flex-1">
+            <div className="mt-2.5 space-y-3 overflow-y-auto pr-1 flex-1 min-h-0">
               {/* Cartographic Rendering Direction Switcher (A / B / C) - Always Visible */}
               <div
                 className={`p-2.5 rounded-xl border space-y-2 transition-all ${
@@ -1080,24 +1080,30 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             }`}
                           >
                             {/* Layer Item Header */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5 font-bold truncate max-w-[190px]">
-                                <span
-                                  className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                                    layer.visible
-                                      ? 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)] animate-pulse'
-                                      : 'bg-zinc-500'
-                                  }`}
-                                ></span>
-                                <span className="truncate">{layer.name}</span>
-                                {layer.renderStyle && (
-                                  <span className="text-[7px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded border bg-sky-500/15 text-sky-500 dark:text-sky-300 border-sky-500/30 flex-shrink-0">
-                                    {layer.renderStyle}
+                            <div className="flex items-center justify-between gap-1.5">
+                              <div className="flex flex-col gap-1 flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 font-bold">
+                                  <span
+                                    className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                                      layer.visible
+                                        ? 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)] animate-pulse'
+                                        : 'bg-zinc-500'
+                                    }`}
+                                  ></span>
+                                  <span className="leading-tight break-words text-[11px]" title={layer.name}>
+                                    {layer.name}
                                   </span>
-                                )}
-                                <span className="text-[8px] font-mono opacity-60 flex-shrink-0">
-                                  Z:{dataLayers.length - idx}
-                                </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 ml-4">
+                                  {layer.renderStyle && (
+                                    <span className="text-[7px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded border bg-sky-500/15 text-sky-500 dark:text-sky-300 border-sky-500/30">
+                                      {layer.renderStyle}
+                                    </span>
+                                  )}
+                                  <span className="text-[8px] font-mono opacity-60">
+                                    Z:{dataLayers.length - idx}
+                                  </span>
+                                </div>
                               </div>
 
                               {/* Layer Action Icons */}
@@ -1483,7 +1489,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
           </div>
 
           {/* Catalog Datasets Scrollable List */}
-          <div className="overflow-y-auto space-y-2.5 pr-1 mt-3 flex-1 max-h-[calc(100vh-8rem)]">
+          <div className="overflow-y-auto space-y-2.5 pr-1 mt-3 flex-1 max-h-[calc(100vh-8rem)] pb-8">
             {DATA_LAYER_CATALOG.map((preset) => {
               const isAlreadyAdded = dataLayers.some((l) => l.id === preset.id);
 
