@@ -17,7 +17,7 @@ export type DataLayerRenderStyle = 'architectural' | 'hybrid' | 'photoreal';
 export interface DataLayerPreset {
   id: string;
   name: string;
-  category: 'satellite' | 'night' | 'topo' | 'ocean' | 'thermal' | 'vectors' | 'point' | 'field';
+  category: 'satellite' | 'night' | 'topo' | 'ocean' | 'thermal' | 'vectors' | 'point' | 'field' | 'trajectory';
   type: string;
   details: string;
   url: string;
@@ -205,6 +205,58 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
       minLabel: '-100m',
       maxLabel: '+4,000m',
       unit: 'Relief',
+    },
+  },
+  {
+    id: 'noaa-grib2-wind',
+    name: 'NOAA Global Wind Vectors',
+    category: 'field',
+    type: 'Dynamic Flow Field',
+    details: 'Real-time atmospheric wind velocity field with continuous physical particle advection & velocity ramp',
+    url: '/data/wind-grib2.json',
+    defaultOpacity: 0.90,
+    defaultBlendMode: 1,
+    attribution: 'NOAA NCEP Global Forecast System (GFS)',
+    legend: {
+      colorStops: ['#02a6d9', '#1ad973', '#f2bf1a', '#f24026'],
+      minLabel: '0 m/s Calm',
+      maxLabel: '20+ m/s Gale',
+      unit: 'Wind Velocity',
+    },
+  },
+  {
+    id: 'usgs-elevation-contours',
+    name: 'USGS Hypsometric Vector Contours',
+    category: 'point',
+    type: '3D Topographic Isolines',
+    details: 'Analytical 3D topographic isolines and bathymetric depth contours with elevation-adaptive hypsometric tinting',
+    url: '/geo-contour-mesh.bin',
+    defaultOpacity: 0.90,
+    defaultBlendMode: 0,
+    defaultDisplacementScale: 0.12,
+    attribution: 'USGS The National Map / GEBCO Topography',
+    legend: {
+      colorStops: ['#0584d9', '#0fc784', '#f2a626', '#fafaff'],
+      minLabel: '-4,000m Trench',
+      maxLabel: '+8,000m Peak',
+      unit: 'Isolines',
+    },
+  },
+  {
+    id: 'spacex-satellite-constellation',
+    name: 'SpaceX Starlink & LEO Constellation',
+    category: 'trajectory',
+    type: 'Satellite TLE Orbits',
+    details: 'Low Earth Orbit satellite coordinates and orbital trajectories propagated from NORAD two-line element sets',
+    url: '/data/tle-starlink.json',
+    defaultOpacity: 0.95,
+    defaultBlendMode: 1,
+    attribution: 'CelesTrak / NORAD Space-Track',
+    legend: {
+      colorStops: ['#34d399', '#38bdf8', '#818cf8', '#f43f5e'],
+      minLabel: 'Perigee 350km',
+      maxLabel: 'Apogee 550km',
+      unit: 'Orbital Alt',
     },
   },
 ];

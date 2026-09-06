@@ -32,6 +32,11 @@ export function useEngineState() {
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [isZenMode, setIsZenMode] = useState<boolean>(false);
 
+  // Live Simulation Parameters & GPU Profiler Telemetry
+  const [fractureIntensity, setFractureIntensity] = useState<number>(1.0);
+  const [fluidVortexStrength, setFluidVortexStrength] = useState<number>(1.0);
+  const [gpuReport, setGpuReport] = useState<any>(null);
+
   // Phase 4 Managers
   const audioEngineRef = useRef<ProceduralAudioEngine | null>(null);
 
@@ -138,6 +143,9 @@ export function useEngineState() {
     playDirection, setPlayDirection,
     playbackSpeed, setPlaybackSpeed,
     isZenMode, setIsZenMode,
+    fractureIntensity, setFractureIntensity,
+    fluidVortexStrength, setFluidVortexStrength,
+    gpuReport, setGpuReport,
     dataInfo, setDataInfo,
     audioEngine: audioEngineRef.current,
   };

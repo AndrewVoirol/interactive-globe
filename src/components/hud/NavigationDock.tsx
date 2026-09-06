@@ -1,4 +1,6 @@
 import React from 'react';
+import { CurvatureUnfurlSextant } from './instruments/CurvatureUnfurlSextant';
+import { SimulationMode } from '../../types';
 
 export interface NavigationDockProps {
   isZenMode: boolean;
@@ -12,6 +14,7 @@ export interface NavigationDockProps {
   theme: 0 | 1;
   activeDirection?: 'architectural' | 'hybrid' | 'photoreal' | null;
   onSelectRenderStyle?: (style: 'architectural' | 'hybrid' | 'photoreal') => void;
+  mode?: SimulationMode;
 }
 
 export const NavigationDock: React.FC<NavigationDockProps> = ({
@@ -26,6 +29,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
   theme,
   activeDirection,
   onSelectRenderStyle,
+  mode = 0,
 }) => {
   const isLight = theme === 1;
 
@@ -34,7 +38,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
   return (
     <div className="absolute bottom-8 inset-x-0 flex flex-col items-center gap-2 z-10 pointer-events-none font-mono select-none">
       <div
-        className={`flex items-center gap-3 px-5 py-2.5 rounded-full backdrop-blur-xl shadow-2xl pointer-events-auto border transition-colors ${
+        className={`flex items-center gap-3 px-5 py-2 rounded-full backdrop-blur-xl shadow-2xl pointer-events-auto border transition-colors ${
           isLight
             ? 'bg-white/85 border-[#E2E8F0] text-zinc-800 shadow-zinc-300/50'
             : 'bg-[#0F121A]/85 border-white/10 text-zinc-200 shadow-black/60'
@@ -100,19 +104,13 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
           </kbd>
         </button>
 
-        {/* Unfurl Scrubbing Slider */}
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.001"
-          value={alpha}
-          onChange={(e) => onAlphaChange(parseFloat(e.target.value))}
-          className={`w-44 sm:w-64 h-1.5 rounded-lg appearance-none cursor-pointer transition-colors ${
-            isLight
-              ? 'bg-zinc-200 accent-zinc-900 hover:bg-zinc-300'
-              : 'bg-white/10 accent-[#EAE6DF] hover:bg-white/20'
-          }`}
+        {/* Gaussian Curvature Unfurl Sextant Arc */}
+        <CurvatureUnfurlSextant
+          alpha={alpha}
+          onAlphaChange={onAlphaChange}
+          onGlideToAlpha={onGlideToAlpha}
+          mode={mode}
+          isLight={isLight}
         />
 
         {/* Quick Snap to Map (M) */}

@@ -22,7 +22,8 @@ struct SimUniforms {
     u_cursorActive: f32,     // 1.0 = Active Hover, 0.0 = Inactive
     u_numParticles: u32,     // Node Count (e.g. 1,000,000)
     u_theme: u32,            // 0 = Dark Cyber, 1 = Light Monochrome
-    u_cursorHitPos: vec4<f32>,
+    u_vortexStrength: f32,   // Fluid swirl & advection strength multiplier
+    u_cursorHitPos: vec4<f32>, // xyz: Hit Pos, w: Fracture intensity multiplier
     u_cursorVel: vec4<f32>,
 };
 
@@ -114,9 +115,10 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
 
         // Passive cursor raycast distance and tensile hoop stress concentration
+        let fracMult = select(1.0, sim.u_cursorHitPos.w, sim.u_cursorHitPos.w > 0.01);
         let hitDist = length(pos3D - sim.u_cursorHitPos.xyz);
         let cursorInfluence = sim.u_cursorActive * exp(-hitDist * hitDist / (2.0 * 0.64));
-        let hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cos(phi) * cos(phi));
+        let hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cos(phi) * cos(phi)) * fracMult;
 
         let tRupture = 0.18;
         if (t < tRupture) {
@@ -134,7 +136,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
             let flutterWave = sin(distToSeam * 16.0 - t * 24.0);
             let flutterDecay = exp(-4.2 * (t - tRupture));
-            let flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay;
+            let flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay * fracMult;
             let flutterOffset = vec3<f32>(0.0, 0.0, flutterAmp);
 
             let peeledPos = mix(pos3D, pos2D, postRuptureT);
@@ -147,10 +149,11 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Mode 3: Fluid Flow + Lamb-Oseen Trailing Vortex Wake (Continuous Hermite Formulation)
     else if (sim.u_mode == 3u) {
         let t = ease;
+        let vortexMult = select(1.0, sim.u_vortexStrength, sim.u_vortexStrength > 0.01);
         let rawSin = sin(PI * clampedUnfurl);
         let liquefaction = pow(max(0.0, rawSin), 1.15);
         let basePos = mix(pos3D, pos2D, t);
-        let naturalVelocity = computeCurlNoise(basePos, sim.u_time);
+        let naturalVelocity = computeCurlNoise(basePos, sim.u_time) * vortexMult;
 
         // Cursor Lamb-Oseen Vortex Wake Injection (anti-strobe)
         let hitDist = length(basePos - sim.u_cursorHitPos.xyz);
@@ -160,8 +163,8 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let relHit = basePos - sim.u_cursorHitPos.xyz + vec3<f32>(0.001, 0.001, 0.001);
         let vortexTangent = normalize(cross(surfaceNormal, relHit));
         let clampedSpeed = clamp(sim.u_cursorVel.w, 0.0, 1.5);
-        let vortexVelocity = vortexTangent * (sim.u_cursorActive * clampedSpeed * vortexCirculation * 0.35);
-        let wakeAdvection = normalize(sim.u_cursorVel.xyz + vec3<f32>(0.0001)) * (clampedSpeed * 0.15 * sim.u_cursorActive * exp(-hitDist * hitDist / 1.5));
+        let vortexVelocity = vortexTangent * (sim.u_cursorActive * clampedSpeed * vortexCirculation * 0.35 * vortexMult);
+        let wakeAdvection = normalize(sim.u_cursorVel.xyz + vec3<f32>(0.0001)) * (clampedSpeed * 0.15 * sim.u_cursorActive * exp(-hitDist * hitDist / 1.5) * vortexMult);
 
         let totalVelocity = naturalVelocity + vortexVelocity + wakeAdvection;
         let localVorticity = length(totalVelocity) * max(liquefaction, sim.u_cursorActive * 0.3);

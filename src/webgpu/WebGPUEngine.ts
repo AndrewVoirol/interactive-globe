@@ -62,6 +62,8 @@ export interface WebGPUFrameParams {
   opacity?: number;
   renderStyle?: 'architectural' | 'hybrid' | 'photoreal' | string;
   pointScaleMultiplier?: number;
+  vortexStrength?: number;
+  fractureIntensity?: number;
 }
 
 export class WebGPUEngine {
@@ -1486,13 +1488,13 @@ export class WebGPUEngine {
     simUints[2] = layerMode;
     simFloats[3] = params.time;
 
-    // [4..7]: cursorActive, numParticles, theme, pad1
+    // [4..7]: cursorActive, numParticles, theme, vortexStrength
     simFloats[4] = params.cursorActive ? 1.0 : 0.0;
     simUints[5] = this.pointCount;
     simUints[6] = params.theme !== undefined ? params.theme : 0;
-    simFloats[7] = 0.0;
+    simFloats[7] = params.vortexStrength ?? 1.0;
 
-    // [8..11]: cursorHitPos
+    // [8..11]: cursorHitPos (xyz) + fractureIntensity (w)
     if (params.cursorHitPos) {
       simFloats[8] = params.cursorHitPos.x;
       simFloats[9] = params.cursorHitPos.y;
@@ -1502,7 +1504,7 @@ export class WebGPUEngine {
       simFloats[9] = 0.0;
       simFloats[10] = 0.0;
     }
-    simFloats[11] = 0.0;
+    simFloats[11] = params.fractureIntensity ?? 1.0;
 
     // [12..15]: cursorVel (xyz) + speed (w)
     if (params.cursorVel) {

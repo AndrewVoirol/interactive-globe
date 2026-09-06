@@ -18,3 +18,27 @@ export interface DymaxionProjectionResult {
   gnomonicPos: [number, number, number];
   dymaxion2D: [number, number];
 }
+
+export type BlendModeType = 0 | 1 | 2 | 3; // 0 = Normal, 1 = Additive, 2 = Multiply, 3 = Screen
+
+export interface DataLayerItem {
+  id: string;
+  name: string;
+  category?: string;
+  type: string;
+  details: string;
+  visible: boolean;
+  opacity?: number;
+  blendMode?: BlendModeType;
+  displacementScale?: number;
+  elevationEncoding?: 'luminance' | 'mapbox' | 'terrarium';
+  sunAzimuth?: number;
+  sunAltitude?: number;
+  hillshadeIntensity?: number;
+  url?: string;
+  renderStyle?: 'architectural' | 'hybrid' | 'photoreal';
+  seaLevelOffset?: number;
+  waterClarity?: number;
+  peakExponent?: number;
+  ambientOcclusion?: number;
+}
