@@ -103,13 +103,13 @@ describe('Adversarial Challenge: Milestone M1 (Challenger 2) — Behavioral Over
 
       // Normalized POSIX and Windows paths as passed by Rollup/Vite
       const cases = [
-        // Three.js vendor chunking
-        { id: '/Users/test/node_modules/three/build/three.module.js', expected: 'three-vendor' },
-        { id: 'C:/project/node_modules/three/src/math/Vector3.js', expected: 'three-vendor' },
-        { id: '/node_modules/three/examples/jsm/controls/OrbitControls.js', expected: 'three-vendor' },
-        // R3F vendor chunking
-        { id: '/node_modules/@react-three/fiber/dist/index.js', expected: 'r3f-vendor' },
-        { id: '/node_modules/@react-three/drei/index.js', expected: 'r3f-vendor' },
+        // Three.js and R3F vendor chunking retired (pure WebGPU architecture)
+        { id: '/Users/test/node_modules/three/build/three.module.js', expected: undefined },
+        { id: 'C:/project/node_modules/three/src/math/Vector3.js', expected: undefined },
+        { id: '/node_modules/three/examples/jsm/controls/OrbitControls.js', expected: undefined },
+        // R3F vendor chunking retired
+        { id: '/node_modules/@react-three/fiber/dist/index.js', expected: undefined },
+        { id: '/node_modules/@react-three/drei/index.js', expected: undefined },
         // React core chunking
         { id: '/node_modules/react/index.js', expected: 'react-vendor' },
         { id: '/node_modules/react-dom/client.js', expected: 'react-vendor' },

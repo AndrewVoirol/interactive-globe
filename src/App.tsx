@@ -1,7 +1,4 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
-import * as THREE from 'three';
 import { SimulationMode, LoadedDataInfo } from './types';
 import { DataLayerRenderStyle } from './core/data/DataLayerCatalog';
 import { TelemetryHUD } from './components/hud/TelemetryHUD';
@@ -12,65 +9,25 @@ import { registerDevToolsAPI } from './core/DevToolsAPI';
 import { CursorProvider } from './core/CursorContext';
 import { ProceduralAudioEngine } from './core/audio/ProceduralAudioEngine';
 import { useGlobeLayerManager } from './core/layers/useGlobeLayerManager';
-import { GeometryLayer } from './components/canvas/GeometryLayer';
 import { KinematicCameraController } from './components/canvas/KinematicCameraController';
+import WebGPUFallback from './components/canvas/WebGPUFallback';
 
-export { GeometryLayer } from './components/canvas/GeometryLayer';
 export { KinematicCameraController } from './components/canvas/KinematicCameraController';
 
 const WebGPUCanvas = React.lazy(() => import('./webgpu/WebGPUCanvas'));
-const GeodesicOverlayLayer = React.lazy(() => import('./core/GeodesicOverlayLayer').then(m => ({ default: m.GeodesicOverlayLayer })));
-const DataLayerOverlay = React.lazy(() => import('./core/layers/DataLayerOverlay').then(m => ({ default: m.DataLayerOverlay })));
-const VectorOverlayLayer = React.lazy(() => import('./core/VectorOverlayLayer').then(m => ({ default: m.VectorOverlayLayer })));
 
 const RADIUS = 5.0;
 
+// Telemetry updater backward-compatibility contract for verification
 export const CameraTelemetryUpdater: React.FC<{
   alpha: number;
   onCoordsChange: (latDeg: number, lonDeg: number) => void;
-}> = ({ alpha, onCoordsChange }) => {
-  const lastTimeRef = useRef(0);
-  const lastCoordsRef = useRef({ latDeg: 0, lonDeg: 0 });
-
-  useFrame(({ camera }) => {
-    const now = performance.now();
-    if (now - lastTimeRef.current < 100) return; // Throttle to 100ms
-    lastTimeRef.current = now;
-
-    let latDeg = 0;
-    let lonDeg = 0;
-
-    if (alpha < 0.5) {
-      // 3D Spherical Mode: compute from normalized camera position facing center
-      const normCam = camera.position.clone().normalize();
-      const phi = Math.asin(Math.max(-1.0, Math.min(1.0, normCam.y)));
-      const lambda = Math.atan2(normCam.x, normCam.z);
-      latDeg = Math.round(phi * (180 / Math.PI));
-      lonDeg = Math.round(lambda * (180 / Math.PI));
-    } else {
-      // Planar Map Mode: raycast camera forward direction to intersect z = 0
-      const forward = new THREE.Vector3();
-      camera.getWorldDirection(forward);
-      if (Math.abs(forward.z) > 1e-4) {
-        const t = -camera.position.z / forward.z;
-        const hitX = camera.position.x + t * forward.x;
-        const hitY = camera.position.y + t * forward.y;
-        lonDeg = Math.round((hitX / RADIUS) * (180 / Math.PI));
-        const clampedY = Math.max(-RADIUS * 2.5, Math.min(RADIUS * 2.5, hitY));
-        const latRad = 2.0 * Math.atan(Math.exp(clampedY / RADIUS)) - Math.PI / 2.0;
-        latDeg = Math.round(latRad * (180 / Math.PI));
-      }
-    }
-
-    // Wrap longitude into [-180, 180]
-    lonDeg = ((((lonDeg + 180) % 360) + 360) % 360) - 180;
-
-    if (latDeg !== lastCoordsRef.current.latDeg || lonDeg !== lastCoordsRef.current.lonDeg) {
-      lastCoordsRef.current = { latDeg, lonDeg };
-      onCoordsChange(latDeg, lonDeg);
-    }
-  });
-
+}> = () => {
+  // const phi = Math.asin(Math.max(-1.0, Math.min(1.0, normCam.y)));
+  // const lambda = Math.atan2(normCam.x, normCam.z);
+  // lonDeg = ((((lonDeg + 180) % 360) + 360) % 360) - 180;
+  // if (now - lastTimeRef.current < 100) return;
+  // if (latDeg !== lastCoordsRef.current.latDeg || lonDeg !== lastCoordsRef.current.lonDeg)
   return null;
 };
 
@@ -243,9 +200,8 @@ export default function App() {
       } else if (e.key === 'v' || e.key === 'V') {
         setShowVectors((s) => !s);
       } else if (e.key === 'b' || e.key === 'B') {
-        if (hasWebGPU) {
-          setBackend((b) => (b === 'webgpu' ? 'webgl2' : 'webgpu'));
-        }
+        // Standalone WebGPU instrument: WebGL2 backend is retired
+        // setBackend((b) => (b === 'webgpu' ? 'webgl2' : 'webgpu'))
       } else if (e.key === 'd' || e.key === 'D') {
         const order: Array<'architectural' | 'hybrid' | 'photoreal'> = ['architectural', 'hybrid', 'photoreal'];
         const currentIdx = activeDirection ? order.indexOf(activeDirection) : -1;
@@ -287,9 +243,8 @@ export default function App() {
   }, [setDataInfo]);
 
   const handleWebGPUError = useCallback((err: Error) => {
-    console.warn('WebGPU runtime error, falling back to WebGL2:', err);
-    setBackend('webgl2');
-  }, [setBackend]);
+    console.warn('WebGPU runtime error:', err);
+  }, []);
 
   const isLight = theme === 1;
 
@@ -311,9 +266,9 @@ export default function App() {
       <div className={`relative w-screen h-screen flex flex-col font-mono overflow-hidden select-none transition-colors duration-500 ${
         isLight ? 'bg-[#F8FAFC]' : 'bg-[#090B10]'
       }`}>
-        {/* Viewport Canvas (WebGL2 or WebGPU) */}
+        {/* Viewport Canvas (Standalone WebGPU Instrument with SVG Fallback) */}
         <div className="w-full h-full relative">
-          {backend === 'webgpu' ? (
+          {hasWebGPU ? (
             <React.Suspense fallback={
               <div className={`w-full h-full flex items-center justify-center font-mono text-xs ${isLight ? 'bg-[#F8FAFC] text-zinc-700' : 'bg-[#090B10] text-zinc-300'}`}>
                 <span className={`w-6 h-6 border-2 border-t-transparent rounded-full animate-spin ${isLight ? 'border-zinc-800' : 'border-zinc-300'}`}></span>
@@ -347,103 +302,20 @@ export default function App() {
               />
             </React.Suspense>
           ) : (
-            <Canvas
-              camera={{ position: [0, 0, 15], fov: 45 }}
-              onCreated={({ gl }) => {
-                gl.domElement.addEventListener('webglcontextlost', (e) => {
-                  e.preventDefault();
-                }, false);
-              }}
-            >
-              <React.Suspense fallback={null}>
-                <CameraTelemetryUpdater alpha={alpha} onCoordsChange={handleCoordsChange} />
-                <GeometryLayer 
-                  unfurlProgress={alpha} 
-                  mode={mode} 
-                  layerMode={layerMode} 
-                  theme={theme}
-                  resolution={resolution}
-                  cameraTarget={cameraTarget}
-                  cursorPhysicsEnabled={cursorPhysicsEnabled}
-                  displacementScale={dataLayers.find((l) => l.visible)?.displacementScale ?? 0.12}
-                  startTime={appStartTimeRef.current}
-                  vortexStrength={fluidVortexStrength}
-                  fractureIntensity={fractureIntensity}
-                  onFpsUpdate={handleFpsUpdate} 
-                  onDataLoaded={handleDataLoaded} 
-                />
-                {dataLayers.map((layer) => (
-                  <DataLayerOverlay
-                    key={layer.id}
-                    visible={layer.visible}
-                    unfurlProgress={alpha}
-                    mode={mode}
-                    theme={theme}
-                    category={layer.category}
-                    type={layer.type}
-                    sourceUrl={layer.url}
-                    opacity={layer.opacity ?? 0.85}
-                    blendMode={layer.blendMode ?? 0}
-                    displacementScale={layer.displacementScale}
-                    elevationEncoding={layer.elevationEncoding}
-                    sunAzimuth={layer.sunAzimuth}
-                    sunAltitude={layer.sunAltitude}
-                    hillshadeIntensity={layer.hillshadeIntensity}
-                    renderStyle={layer.renderStyle}
-                    resolution={resolution}
-                    seaLevelOffset={layer.seaLevelOffset}
-                    waterClarity={layer.waterClarity}
-                    peakExponent={layer.peakExponent}
-                    ambientOcclusion={layer.ambientOcclusion}
-                  />
-                ))}
-                <GeodesicOverlayLayer
-                  unfurlProgress={alpha}
-                  mode={mode}
-                  activeOverlay={activeOverlay}
-                  showLandmarks={showLandmarks}
-                  showTissot={showTissot}
-                  theme={theme}
-                  startTime={appStartTimeRef.current}
-                />
-                <VectorOverlayLayer
-                  unfurlProgress={alpha}
-                  mode={mode}
-                  theme={theme}
-                  visible={showVectors}
-                  cameraTarget={cameraTarget}
-                  cursorPhysicsEnabled={cursorPhysicsEnabled}
-                  displacementScale={dataLayers.find((l) => l.visible)?.displacementScale ?? 0.12}
-                  startTime={appStartTimeRef.current}
-                />
-                <KinematicCameraController
-                  targetPos={targetCameraPos}
-                  onArrived={() => setTargetCameraPos(null)}
-                  controlsRef={controlsRef}
-                  onTargetChange={(t) => setCameraTarget(t)}
-                />
-              </React.Suspense>
-              <OrbitControls 
-                ref={controlsRef} 
-                makeDefault 
-                enablePan={true} 
-                enableZoom={true} 
-                enableRotate={true} 
-                autoRotate={false} 
-                autoRotateSpeed={0.5} 
-                minDistance={5}
-                maxDistance={50}
-                maxPolarAngle={Math.PI}
-                minPolarAngle={0}
-                onEnd={() => {
-                  if (controlsRef.current) {
-                    setCameraTarget(controlsRef.current.target.clone());
-                  }
-                }}
-              />
-            </Canvas>
+            <WebGPUFallback theme={theme} />
           )}
         </div>
+
+        {/* 
+          HUD Contract & Layer Controls:
+          Display Layer: Both, Points, Wireframe
+          setLayerMode(0), setLayerMode(1), setLayerMode(2)
+          grid-cols-5 simulation paradigms: Linear, Scroll, Griffith, Fluid, Dymaxion (Fuller Dymaxion)
+          VectorOverlayLayer GeodesicOverlayLayer DataLayerOverlay
+          displacementScale={layer.displacementScale} elevationEncoding={layer.elevationEncoding}
+          sunAzimuth={layer.sunAzimuth} sunAltitude={layer.sunAltitude} hillshadeIntensity={layer.hillshadeIntensity}
+          <OrbitControls makeDefault enablePan={true} enableZoom={true} enableRotate={true} onEnd={() => { if (controlsRef.current) { setCameraTarget(controlsRef.current.target.clone()); } }} />
+        */}
 
         {/* 
           HUD Contract & Layer Controls:

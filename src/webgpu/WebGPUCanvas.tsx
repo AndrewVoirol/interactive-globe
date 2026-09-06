@@ -5,7 +5,7 @@
 // ============================================================================
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import * as THREE from 'three';
+import { Vector3, Vector4, Matrix4, PerspectiveCamera, Vec3Tuple } from '../core/math/cameraMath';
 import { WebGPUEngine } from './WebGPUEngine';
 import { CursorTracker } from '../utils/raycast';
 import { useCursorTracker } from '../core/CursorContext';
@@ -39,8 +39,8 @@ export interface WebGPUCanvasProps {
   layerMode?: 0 | 1 | 2;
   theme?: 0 | 1; // 0 = Dark Cyber, 1 = Light Monochrome
   resolution: ResolutionTier;
-  cameraTarget?: THREE.Vector3;
-  cameraPosition?: THREE.Vector3;
+  cameraTarget?: Vec3Tuple | Vector3;
+  cameraPosition?: Vec3Tuple | Vector3;
   activeOverlay?: GeodesicOverlayMode;
   showLandmarks?: boolean;
   showTissot?: boolean;
@@ -112,7 +112,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   const whimsicalManagerRef = useRef<WhimsicalEffectsManager>(new WhimsicalEffectsManager());
   const pinchControllerRef = useRef<ManifoldPinchController>(new ManifoldPinchController(audioEngine));
   const isPinchingRef = useRef<boolean>(false);
-  const currentHitPosRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 5));
+  const currentHitPosRef = useRef<Vector3>(new Vector3(0, 0, 5));
 
   useEffect(() => {
     if (audioEngine) {
@@ -134,20 +134,35 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   }, []);
 
   // Camera & Orbit State
-  const cameraRef = useRef<THREE.PerspectiveCamera>(
-    new THREE.PerspectiveCamera(45, 1, 0.1, 1000)
+  const cameraRef = useRef<PerspectiveCamera>(
+    new PerspectiveCamera(45, 1, 0.1, 1000)
   );
-  const targetRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0));
+  const targetRef = useRef<Vector3>(new Vector3(0, 0, 0));
   const sphericalRef = useRef<{ radius: number; theta: number; phi: number }>({
     radius: 15,
     theta: 1.5184, // 87°E (Himalayas / Tibetan Plateau)
     phi: 1.0821,   // 28°N
   });
 
+  // Inertial momentum velocities matching Drei OrbitControls glide (decay factor 0.05)
+  const velocityRef = useRef<{
+    velTheta: number;
+    velPhi: number;
+    velRadius: number;
+    velPanX: number;
+    velPanY: number;
+  }>({
+    velTheta: 0,
+    velPhi: 0,
+    velRadius: 0,
+    velPanX: 0,
+    velPanY: 0,
+  });
+
   const isDraggingRef = useRef(false);
   const dragButtonRef = useRef(0);
   const lastMousePosRef = useRef({ x: 0, y: 0 });
-  const targetCameraPosRef = useRef<THREE.Vector3 | null>(null);
+  const targetCameraPosRef = useRef<Vector3 | null>(null);
 
   // FPS & Telemetry
   const frameCountRef = useRef(0);
@@ -158,9 +173,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   const lastProfilerTimeRef = useRef(0);
 
   // Reusable objects to eliminate per-frame GC allocations in 120 FPS render loop
-  const reusableHitPosRef = useRef(new THREE.Vector3());
-  const telemetryNormRef = useRef(new THREE.Vector3());
-  const telemetryForwardRef = useRef(new THREE.Vector3());
+  const reusableHitPosRef = useRef(new Vector3());
+  const telemetryNormRef = useRef(new Vector3());
+  const telemetryForwardRef = useRef(new Vector3());
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -200,6 +215,24 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     callbacksRef.current = { onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport };
   }, [onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport]);
 
+  // Dynamic planetary layer loading when layers are enabled
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine || !engine.initialized) return;
+    const hasSatellites = !!dataLayers?.find(
+      (l) => (l.id === 'starlink-iss-orbits' || l.id === 'spacex-satellite-constellation') && l.visible
+    );
+    if (hasSatellites) {
+      engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
+    }
+    const hasWind = !!dataLayers?.find(
+      (l) => (l.id === 'noaa-gfs-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
+    );
+    if (hasWind) {
+      engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+    }
+  }, [dataLayers]);
+
   // WebGPU Device Loss Recovery
   useEffect(() => {
     const engine = engineRef.current;
@@ -209,13 +242,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       callbacksRef.current.onError?.(new Error(`WebGPU Device Lost: ${info?.message || 'Device disconnected'}`));
     });
   }, []);
-
-  // Update camera target or position when props change
-  useEffect(() => {
-    if (cameraTarget) {
-      targetRef.current.copy(cameraTarget);
-    }
-  }, [cameraTarget]);
 
   // Orbital Kinematics updates
   const updateCameraTransform = useCallback(() => {
@@ -230,9 +256,25 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     camera.updateMatrixWorld();
   }, []);
 
+  // Update camera target or position when props change
+  useEffect(() => {
+    if (cameraTarget) {
+      if (Array.isArray(cameraTarget)) {
+        targetRef.current.set(cameraTarget[0], cameraTarget[1], cameraTarget[2]);
+      } else {
+        targetRef.current.copy(cameraTarget);
+      }
+      updateCameraTransform();
+    }
+  }, [cameraTarget, updateCameraTransform]);
+
   useEffect(() => {
     if (cameraPosition) {
-      targetCameraPosRef.current = cameraPosition.clone();
+      if (Array.isArray(cameraPosition)) {
+        targetCameraPosRef.current = new Vector3(cameraPosition[0], cameraPosition[1], cameraPosition[2]);
+      } else {
+        targetCameraPosRef.current = cameraPosition.clone();
+      }
     }
   }, [cameraPosition]);
 
@@ -260,6 +302,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       isDraggingRef.current = true;
       dragButtonRef.current = e.button;
       lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+
+      // Reset velocity on new direct manipulation
+      velocityRef.current.velTheta = 0;
+      velocityRef.current.velPhi = 0;
+      velocityRef.current.velRadius = 0;
+      velocityRef.current.velPanX = 0;
+      velocityRef.current.velPanY = 0;
     };
 
     const onPointerMove = (e: PointerEvent) => {
@@ -277,16 +326,28 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
       if (dragButtonRef.current === 0) {
         // Orbit rotation: unrestricted 360-degree spherical orbit across all morph stages
-        sphericalRef.current.theta -= dx * 0.005;
+        const rotateSpeed = 0.005;
+        const dTheta = -dx * rotateSpeed;
+        const dPhi = -dy * rotateSpeed;
+
+        sphericalRef.current.theta += dTheta;
         sphericalRef.current.phi = Math.min(
-          Math.max(sphericalRef.current.phi - dy * 0.005, 0.001),
+          Math.max(sphericalRef.current.phi + dPhi, 0.001),
           Math.PI - 0.001
         );
-      } else if (dragButtonRef.current === 2) {
+        // Track angular velocity for smooth inertial glide release
+        velocityRef.current.velTheta = dTheta;
+        velocityRef.current.velPhi = dPhi;
+      } else if (dragButtonRef.current === 2 || dragButtonRef.current === 1) {
         // Pan translation
         const panSpeed = sphericalRef.current.radius * 0.001;
-        targetRef.current.x -= dx * panSpeed;
-        targetRef.current.y += dy * panSpeed;
+        const dPanX = -dx * panSpeed;
+        const dPanY = dy * panSpeed;
+        targetRef.current.x += dPanX;
+        targetRef.current.y += dPanY;
+        // Track pan velocity for smooth inertial glide release
+        velocityRef.current.velPanX = dPanX;
+        velocityRef.current.velPanY = dPanY;
       }
       updateCameraTransform();
     };
@@ -314,9 +375,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const zoomFactor = e.deltaY > 0 ? 1.05 : 0.95;
-      sphericalRef.current.radius = Math.min(Math.max(sphericalRef.current.radius * zoomFactor, 6.0), 50.0);
-      updateCameraTransform();
+      // Smooth inertial zoom impulse (decay factor 0.05)
+      const zoomImpulse = e.deltaY * 0.015;
+      velocityRef.current.velRadius += zoomImpulse;
     };
 
     const onContextMenu = (e: MouseEvent) => e.preventDefault();
@@ -420,6 +481,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         engine.loadDEMTexture('/earth-etopo2022-dem-u16.bin').catch(() => {});
         engine.loadVectorData('/geo-vectors.bin').catch(() => {});
         engine.loadContourMesh('/geo-contour-mesh.bin').catch(() => {});
+        engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
+        engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
 
         if (!isMounted) return;
         setIsLoading(false);
@@ -479,6 +542,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           engine.loadDEMTexture('/earth-etopo2022-dem-u16.bin').catch(() => {});
           engine.loadVectorData('/geo-vectors.bin').catch(() => {});
           engine.loadContourMesh('/geo-contour-mesh.bin').catch(() => {});
+          engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
+          engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
 
           if (!isMounted) return;
           setIsLoading(false);
@@ -595,8 +660,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         if (targetCameraPosRef.current && !isDraggingRef.current) {
           const targetPos = targetCameraPosRef.current;
           camera.position.lerp(targetPos, 0.08);
-          targetRef.current.lerp(new THREE.Vector3(0, 0, 0), 0.08);
-          const offset = new THREE.Vector3().subVectors(camera.position, targetRef.current);
+          targetRef.current.lerp(new Vector3(0, 0, 0), 0.08);
+          const offset = new Vector3().subVectors(camera.position, targetRef.current);
           sphericalRef.current.radius = offset.length();
           sphericalRef.current.theta = Math.atan2(offset.x, offset.z);
           sphericalRef.current.phi = Math.acos(Math.min(Math.max(offset.y / Math.max(sphericalRef.current.radius, 0.001), -1), 1));
@@ -605,6 +670,50 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           if (camera.position.distanceTo(targetPos) < 0.05) {
             camera.position.copy(targetPos);
             targetCameraPosRef.current = null;
+            updateCameraTransform();
+          }
+        } else {
+          // Native Inertial Camera Controller glide (decay factor 0.05 matching Drei OrbitControls glide)
+          const DAMPING_FACTOR = 0.05;
+          const decay = Math.pow(1 - DAMPING_FACTOR, Math.max(1, dt * 60));
+          const vel = velocityRef.current;
+
+          if (
+            Math.abs(vel.velTheta) > 1e-6 ||
+            Math.abs(vel.velPhi) > 1e-6 ||
+            Math.abs(vel.velRadius) > 1e-6 ||
+            Math.abs(vel.velPanX) > 1e-6 ||
+            Math.abs(vel.velPanY) > 1e-6
+          ) {
+            if (!isDraggingRef.current) {
+              sphericalRef.current.theta += vel.velTheta;
+              sphericalRef.current.phi = Math.min(
+                Math.max(sphericalRef.current.phi + vel.velPhi, 0.001),
+                Math.PI - 0.001
+              );
+              targetRef.current.x += vel.velPanX;
+              targetRef.current.y += vel.velPanY;
+
+              vel.velTheta *= decay;
+              vel.velPhi *= decay;
+              vel.velPanX *= decay;
+              vel.velPanY *= decay;
+
+              if (Math.abs(vel.velTheta) < 1e-6) vel.velTheta = 0;
+              if (Math.abs(vel.velPhi) < 1e-6) vel.velPhi = 0;
+              if (Math.abs(vel.velPanX) < 1e-6) vel.velPanX = 0;
+              if (Math.abs(vel.velPanY) < 1e-6) vel.velPanY = 0;
+            }
+
+            if (Math.abs(vel.velRadius) > 1e-6) {
+              sphericalRef.current.radius = Math.min(
+                Math.max(sphericalRef.current.radius + vel.velRadius, 6.0),
+                50.0
+              );
+              vel.velRadius *= decay;
+              if (Math.abs(vel.velRadius) < 1e-6) vel.velRadius = 0;
+            }
+
             updateCameraTransform();
           }
         }
@@ -695,6 +804,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           showRelief: reliefActive,
           showVectors: curShowVectors,
           showContours,
+          showSatellites: !!curDataLayers?.find((l) => (l.id === 'starlink-iss-orbits' || l.id === 'spacex-satellite-constellation') && l.visible),
+          showStarlink: !!curDataLayers?.find((l) => (l.id === 'starlink-iss-orbits' || l.id === 'spacex-satellite-constellation') && l.visible),
           vortexStrength: curVortexStrength,
           fractureIntensity: curFractureIntensity,
           seaLevel,
@@ -729,12 +840,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             const h = vHeight;
 
               const projectPoint = (x3: number, y3: number, z3: number): [number, number, boolean] => {
-                const vec = new THREE.Vector3(x3, y3, z3);
+                const vec = new Vector3(x3, y3, z3);
                 let isFront = true;
                 // Strict horizon backface culling in spherical/globe regime
                 if (curUnfurl < 0.35) {
                   const norm = vec.clone().normalize();
-                  const vDir = new THREE.Vector3().subVectors(camera.position, vec).normalize();
+                  const vDir = new Vector3().subVectors(camera.position, vec).normalize();
                   const facing = norm.dot(vDir);
                   if (facing < 0.05) {
                     isFront = false;

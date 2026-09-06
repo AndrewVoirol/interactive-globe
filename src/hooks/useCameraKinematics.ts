@@ -1,25 +1,25 @@
 import { useState, useCallback } from 'react';
-import * as THREE from 'three';
+import { Vec3Tuple } from '../core/math/cameraMath';
 
 export function useCameraKinematics() {
-  const [cameraTarget, setCameraTarget] = useState<THREE.Vector3>(new THREE.Vector3(0, 0, 0));
-  const [webgpuCameraPos, setWebgpuCameraPos] = useState<THREE.Vector3 | undefined>(undefined);
-  const [targetCameraPos, setTargetCameraPos] = useState<THREE.Vector3 | null>(null);
+  const [cameraTarget, setCameraTarget] = useState<Vec3Tuple>([0, 0, 0]);
+  const [webgpuCameraPos, setWebgpuCameraPos] = useState<Vec3Tuple | undefined>(undefined);
+  const [targetCameraPos, setTargetCameraPos] = useState<Vec3Tuple | null>(null);
 
   const snapCamera = useCallback((view: 'equator' | 'pole' | 'seam' | 'isometric') => {
-    let pos = new THREE.Vector3(0, 0, 15);
+    let pos: Vec3Tuple = [0, 0, 15];
     if (view === 'equator') {
-      pos = new THREE.Vector3(0, 0, 15);
+      pos = [0, 0, 15];
     } else if (view === 'pole') {
-      pos = new THREE.Vector3(0, 15, 0.001);
+      pos = [0, 15, 0.001];
     } else if (view === 'seam') {
-      pos = new THREE.Vector3(0, 0, -15);
+      pos = [0, 0, -15];
     } else if (view === 'isometric') {
-      pos = new THREE.Vector3(10, 8, 12);
+      pos = [10, 8, 12];
     }
     setTargetCameraPos(pos);
     setWebgpuCameraPos(pos);
-    setCameraTarget(new THREE.Vector3(0, 0, 0));
+    setCameraTarget([0, 0, 0]);
   }, []);
 
   return {

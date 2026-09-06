@@ -4,7 +4,7 @@
 // Description: Multi-pass compositing layer contract and rendering contexts
 // ============================================================================
 
-import * as THREE from 'three';
+import { PerspectiveCamera } from '../math/cameraMath';
 import { SubstrateUniformFrameData } from '../paradigms/IRenderParadigm';
 
 export interface LayerRenderContext {
@@ -14,7 +14,7 @@ export interface LayerRenderContext {
   renderPassDescriptor?: GPURenderPassDescriptor;
   viewportWidth: number;
   viewportHeight: number;
-  camera: THREE.Camera;
+  camera: PerspectiveCamera | any;
   frameData: SubstrateUniformFrameData;
 }
 

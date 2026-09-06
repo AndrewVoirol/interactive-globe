@@ -128,7 +128,7 @@ describe('Vector Overlay & WebGPU Full Physics Parity Verification', () => {
     it('VEC-PAR-13: verifies WebGPUCanvas implements kinematic lerp camera transition matching WebGL2', () => {
       expect(webgpuCanvasCode).toContain('targetCameraPosRef');
       expect(webgpuCanvasCode).toContain('camera.position.lerp(targetPos, 0.08)');
-      expect(webgpuCanvasCode).toContain('targetRef.current.lerp(new THREE.Vector3(0, 0, 0), 0.08)');
+      expect(webgpuCanvasCode).toMatch(/targetRef\.current\.lerp\(new (?:THREE\.)?Vector3\(0,\s*0,\s*0\),\s*0\.08\)/);
     });
 
     it('VEC-PAR-14: verifies App.tsx defines B / b keyboard shortcut for runtime backend toggling', () => {

@@ -13,12 +13,13 @@
     "precompute:contours-ts": "npx tsx scripts/precompute-contours.ts",
     "precompute:vectors": "npx tsx scripts/precompute-vectors.ts",
     "precompute:vectors-10m": "npx tsx scripts/precompute-vectors-10m.ts",
+    "refresh:planetary": "npx tsx scripts/refresh-planetary-data.ts",
+    "refresh:wind": "npx tsx scripts/fetch-or-generate-gfs-wind.ts",
+    "refresh:starlink": "npx tsx scripts/fetch-or-generate-tle-starlink.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@react-three/drei": "^10.7.8",
-    "@react-three/fiber": "^9.7.0",
     "canvas": "^3.2.3",
     "d3": "^7.9.0",
     "d3-geo-voronoi": "^2.1.0",
@@ -26,7 +27,6 @@
     "lucide-react": "^1.39.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "three": "^0.185.1",
     "topojson-client": "^3.1.0"
   },
   "devDependencies": {
@@ -35,7 +35,6 @@
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@types/three": "^0.185.4",
     "@types/topojson-client": "^3.1.5",
     "@types/topojson-specification": "^1.0.5",
     "@vitejs/plugin-react": "^5.0.0",

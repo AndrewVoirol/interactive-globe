@@ -6,40 +6,24 @@ import * as vite from 'vite';
 
 // 1. Direct relative imports from production code
 import DirectApp, { 
-  GeometryLayer as AppGeometryLayer, 
   KinematicCameraController as AppKinematicCameraController,
   CameraTelemetryUpdater 
 } from '../../src/App';
-import DirectGeometryLayer, { 
-  GeometryLayer, 
-  RADIUS, 
-  vertexShader, 
-  pointFragmentShader, 
-  meshVertexShader, 
-  meshFragmentShader 
-} from '../../src/components/canvas/GeometryLayer';
 import DirectKinematicCameraController, { 
   KinematicCameraController 
 } from '../../src/components/canvas/KinematicCameraController';
+import WebGPUFallback from '../../src/components/canvas/WebGPUFallback';
 import * as DirectSrcTypes from '../../src/types';
 import * as DirectRootTypes from '../../types';
 
 // 2. Import using Vite/Vitest '@' alias to verify alias resolution
 import AliasApp, { 
-  GeometryLayer as AliasAppGeometryLayer, 
   KinematicCameraController as AliasAppKinematicCameraController 
 } from '@/App';
-import AliasGeometryLayer, { 
-  GeometryLayer as AliasCanvasGeometryLayer,
-  RADIUS as AliasRADIUS,
-  vertexShader as AliasVertexShader,
-  pointFragmentShader as AliasPointFragmentShader,
-  meshVertexShader as AliasMeshVertexShader,
-  meshFragmentShader as AliasMeshFragmentShader
-} from '@/components/canvas/GeometryLayer';
 import AliasKinematicCameraController, { 
   KinematicCameraController as AliasCanvasCameraController 
 } from '@/components/canvas/KinematicCameraController';
+import AliasWebGPUFallback from '@/components/canvas/WebGPUFallback';
 import * as AliasTypes from '@/types';
 import { useEngineState as AliasUseEngineState } from '@/hooks/useEngineState';
 import { TelemetryHUD as AliasTelemetryHUD } from '@/components/hud/TelemetryHUD';
@@ -53,31 +37,14 @@ describe('Challenger 1 (Round 4 / Milestone 3): Architecture Cleanup Empirical S
   // Requirement 1: Canvas Component Module Exports, Imports & Integrity
   // =========================================================================
   describe('1. Canvas Component Module Exports, Imports & Integrity', () => {
-    it('1.1: GeometryLayer exports both named and default component matching exactly', () => {
-      expect(GeometryLayer).toBeDefined();
-      expect(DirectGeometryLayer).toBeDefined();
-      expect(GeometryLayer).toBe(DirectGeometryLayer);
-      expect(typeof GeometryLayer).toBe('function');
+    it('1.1: WebGPUFallback exports valid fallback component', () => {
+      expect(WebGPUFallback).toBeDefined();
+      expect(typeof WebGPUFallback).toBe('function');
     });
 
-    it('1.2: GeometryLayer exports required constants and shaders with correct uniform contracts', () => {
-      expect(RADIUS).toBe(5.0);
-      expect(typeof vertexShader).toBe('string');
-      expect(typeof pointFragmentShader).toBe('string');
-      expect(typeof meshVertexShader).toBe('string');
-      expect(typeof meshFragmentShader).toBe('string');
-
-      // Point vertex shader must contain performance early-out and uniforms
-      expect(vertexShader).toContain('u_unfurl');
-      expect(vertexShader).toContain('u_mode');
-      expect(vertexShader).toContain('u_layerMode');
-      expect(vertexShader).toContain('dot(vNorm, vDir) > 0.25'); // Backface early-out for points
-
-      // Mesh vertex shader must NOT contain the aggressive backface early-out (prevents screen-spanning line artifacts)
-      expect(meshVertexShader).not.toContain('dot(vNorm, vDir) > 0.25');
-      // Mesh fragment shader applies wireframe density attenuation
-      expect(meshFragmentShader).toContain('u_wireOpacityScale');
-      expect(meshFragmentShader).toContain('densityFactor');
+    it('1.2: GeometryLayer is safely retired in favor of standalone WebGPU architecture', () => {
+      const geoPath = path.join(projectRoot, 'src/components/canvas/GeometryLayer.tsx');
+      expect(fs.existsSync(geoPath)).toBe(false);
     });
 
     it('1.3: KinematicCameraController exports both named and default component matching exactly', () => {
@@ -87,10 +54,7 @@ describe('Challenger 1 (Round 4 / Milestone 3): Architecture Cleanup Empirical S
       expect(typeof KinematicCameraController).toBe('function');
     });
 
-    it('1.4: src/App.tsx re-exports GeometryLayer and KinematicCameraController cleanly', () => {
-      expect(AppGeometryLayer).toBeDefined();
-      expect(AppGeometryLayer).toBe(GeometryLayer);
-
+    it('1.4: src/App.tsx re-exports KinematicCameraController cleanly', () => {
       expect(AppKinematicCameraController).toBeDefined();
       expect(AppKinematicCameraController).toBe(KinematicCameraController);
 
@@ -154,19 +118,11 @@ describe('Challenger 1 (Round 4 / Milestone 3): Architecture Cleanup Empirical S
     it('2.1: "@" alias resolves src/App.tsx identically to relative import in Vitest', () => {
       expect(AliasApp).toBeDefined();
       expect(AliasApp).toBe(DirectApp);
-      expect(AliasAppGeometryLayer).toBe(GeometryLayer);
       expect(AliasAppKinematicCameraController).toBe(KinematicCameraController);
     });
 
     it('2.2: "@" alias resolves extracted canvas components identically to relative imports in Vitest', () => {
-      expect(AliasGeometryLayer).toBe(DirectGeometryLayer);
-      expect(AliasCanvasGeometryLayer).toBe(GeometryLayer);
-      expect(AliasRADIUS).toBe(RADIUS);
-      expect(AliasVertexShader).toBe(vertexShader);
-      expect(AliasPointFragmentShader).toBe(pointFragmentShader);
-      expect(AliasMeshVertexShader).toBe(meshVertexShader);
-      expect(AliasMeshFragmentShader).toBe(meshFragmentShader);
-
+      expect(AliasWebGPUFallback).toBe(WebGPUFallback);
       expect(AliasKinematicCameraController).toBe(DirectKinematicCameraController);
       expect(AliasCanvasCameraController).toBe(KinematicCameraController);
     });
@@ -227,9 +183,9 @@ describe('Challenger 1 (Round 4 / Milestone 3): Architecture Cleanup Empirical S
               load(id: string) {
                 if (id === 'virtual-alias-check') {
                   return `
-                    import { RADIUS, GeometryLayer } from '@/components/canvas/GeometryLayer';
                     import { KinematicCameraController } from '@/components/canvas/KinematicCameraController';
-                    console.log('Tested Radius:', RADIUS, typeof GeometryLayer, typeof KinematicCameraController);
+                    import WebGPUFallback from '@/components/canvas/WebGPUFallback';
+                    console.log('Tested Canvas Components:', typeof KinematicCameraController, typeof WebGPUFallback);
                   `;
                 }
                 return null;
@@ -244,7 +200,7 @@ describe('Challenger 1 (Round 4 / Milestone 3): Architecture Cleanup Empirical S
       expect(output.length).toBeGreaterThan(0);
       const mainChunk = output.find((o: any) => o.isEntry);
       expect(mainChunk).toBeDefined();
-      expect(mainChunk.code).toContain('Tested Radius:');
+      expect(mainChunk.code).toContain('Tested Canvas Components:');
     });
   });
 
@@ -362,10 +318,7 @@ describe('Challenger 1 (Round 4 / Milestone 3): Architecture Cleanup Empirical S
       expect(telemetryHUDContent).toMatch(/import\s*\{[^}]*LoadedDataInfo[^}]*\}\s*from\s*['"]\.\.\/\.\.\/types['"]/);
     });
 
-    it('4.6: GeometryLayer and KinematicCameraController do not import from deleted root App.tsx', () => {
-      const geoContent = fs.readFileSync(path.join(projectRoot, 'src/components/canvas/GeometryLayer.tsx'), 'utf8');
-      expect(geoContent).not.toMatch(/from\s+['"][^'"]*App['"]/);
-
+    it('4.6: KinematicCameraController does not import from deleted root App.tsx', () => {
       const camContent = fs.readFileSync(path.join(projectRoot, 'src/components/canvas/KinematicCameraController.tsx'), 'utf8');
       expect(camContent).not.toMatch(/from\s+['"][^'"]*App['"]/);
     });

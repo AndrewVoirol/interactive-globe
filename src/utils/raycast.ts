@@ -7,7 +7,7 @@
  * - Westergaard / Irwin tensile hoop stress concentration and crack probe amplification (Mode 2 Griffith)
  */
 
-import * as THREE from 'three';
+import { Vector3, Vector4, PerspectiveCamera, IVector3 } from '../core/math/cameraMath';
 
 export const RADIUS = 5.0;
 
@@ -18,10 +18,10 @@ export interface RaycastHitResult {
 }
 
 export interface CursorUniforms {
-  u_cursorRayOrig: THREE.Vector3;
-  u_cursorRayDir: THREE.Vector3;
-  u_cursorHitPos: THREE.Vector3;
-  u_cursorVel: THREE.Vector4; // xyz: 3D velocity vector, w: scalar speed
+  u_cursorRayOrig: Vector3;
+  u_cursorRayDir: Vector3;
+  u_cursorHitPos: Vector3;
+  u_cursorVel: Vector4; // xyz: 3D velocity vector, w: scalar speed
   u_cursorActive: number;     // 1.0 = active hover, 0.0 = idle / decayed
 }
 
@@ -47,8 +47,8 @@ export function screenToNDC(
  * Returns closest front-facing intersection t >= 0
  */
 export function raySphereIntersect(
-  rayOrig: [number, number, number] | THREE.Vector3,
-  rayDir: [number, number, number] | THREE.Vector3,
+  rayOrig: [number, number, number] | Vector3,
+  rayDir: [number, number, number] | Vector3,
   radius = RADIUS
 ): RaycastHitResult {
   const ox = Array.isArray(rayOrig) ? rayOrig[0] : rayOrig.x;
@@ -100,8 +100,8 @@ export function raySphereIntersect(
  * Analytical Ray-Plane Intersection (for 2D Map planar net at Z = planeZ)
  */
 export function rayPlaneIntersect(
-  rayOrig: [number, number, number] | THREE.Vector3,
-  rayDir: [number, number, number] | THREE.Vector3,
+  rayOrig: [number, number, number] | Vector3,
+  rayDir: [number, number, number] | Vector3,
   planeZ = 0.0
 ): RaycastHitResult {
   const ox = Array.isArray(rayOrig) ? rayOrig[0] : rayOrig.x;
@@ -136,16 +136,20 @@ export function rayPlaneIntersect(
 export function unprojectScreenToRay(
   ndcX: number,
   ndcY: number,
-  camera: THREE.Camera
-): { rayOrig: THREE.Vector3; rayDir: THREE.Vector3 } {
-  const rayOrig = new THREE.Vector3();
-  const rayDir = new THREE.Vector3();
+  camera: PerspectiveCamera | any
+): { rayOrig: Vector3; rayDir: Vector3 } {
+  const rayOrig = new Vector3();
+  const rayDir = new Vector3();
 
   // Ray origin is camera world position
-  camera.getWorldPosition(rayOrig);
+  if (typeof camera.getWorldPosition === 'function') {
+    camera.getWorldPosition(rayOrig);
+  } else if (camera.position) {
+    rayOrig.copy(camera.position);
+  }
 
   // Unproject near point in clip space (z = -1) to world space
-  const targetPoint = new THREE.Vector3(ndcX, ndcY, 0.5);
+  const targetPoint = new Vector3(ndcX, ndcY, 0.5);
   targetPoint.unproject(camera);
 
   rayDir.subVectors(targetPoint, rayOrig).normalize();
@@ -160,13 +164,24 @@ export function unprojectScreenToRay(
  * - alpha in (0, 1): Smooth blend between sphere hit and plane hit
  */
 export function computeManifoldHit(
-  rayOrig: THREE.Vector3,
-  rayDir: THREE.Vector3,
+  rayOrig: Vector3 | IVector3 | [number, number, number],
+  rayDir: Vector3 | IVector3 | [number, number, number],
   alpha: number,
   radius = RADIUS
-): { hit: boolean; hitPos: THREE.Vector3; distance: number } {
-  const sphereResult = raySphereIntersect(rayOrig, rayDir, radius);
-  const planeResult = rayPlaneIntersect(rayOrig, rayDir, 0.0);
+): { hit: boolean; hitPos: Vector3; distance: number } {
+  const ro = rayOrig instanceof Vector3 
+    ? rayOrig 
+    : Array.isArray(rayOrig) 
+      ? new Vector3(rayOrig[0], rayOrig[1], rayOrig[2]) 
+      : new Vector3(rayOrig.x, rayOrig.y, rayOrig.z);
+  const rd = rayDir instanceof Vector3 
+    ? rayDir 
+    : Array.isArray(rayDir) 
+      ? new Vector3(rayDir[0], rayDir[1], rayDir[2]) 
+      : new Vector3(rayDir.x, rayDir.y, rayDir.z);
+
+  const sphereResult = raySphereIntersect(ro, rd, radius);
+  const planeResult = rayPlaneIntersect(ro, rd, 0.0);
 
   const clampedAlpha = Math.max(0.0, Math.min(1.0, alpha));
 
@@ -174,13 +189,13 @@ export function computeManifoldHit(
     if (sphereResult.hit && sphereResult.hitPos) {
       return {
         hit: true,
-        hitPos: new THREE.Vector3(...sphereResult.hitPos),
+        hitPos: new Vector3(...sphereResult.hitPos),
         distance: sphereResult.distance,
       };
     }
     // Fallback if ray missed sphere: project along ray at default radius distance
-    const defaultDist = Math.max(5.0, rayOrig.length() - radius);
-    const fallbackHit = rayOrig.clone().addScaledVector(rayDir, defaultDist);
+    const defaultDist = Math.max(5.0, ro.length() - radius);
+    const fallbackHit = ro.clone().addScaledVector(rd, defaultDist);
     return { hit: false, hitPos: fallbackHit, distance: defaultDist };
   }
 
@@ -188,26 +203,26 @@ export function computeManifoldHit(
     if (planeResult.hit && planeResult.hitPos) {
       return {
         hit: true,
-        hitPos: new THREE.Vector3(...planeResult.hitPos),
+        hitPos: new Vector3(...planeResult.hitPos),
         distance: planeResult.distance,
       };
     }
-    const defaultDist = Math.max(5.0, Math.abs(rayOrig.z));
-    const fallbackHit = rayOrig.clone().addScaledVector(rayDir, defaultDist);
+    const defaultDist = Math.max(5.0, Math.abs(ro.z));
+    const fallbackHit = ro.clone().addScaledVector(rd, defaultDist);
     return { hit: false, hitPos: fallbackHit, distance: defaultDist };
   }
 
   // During transition: blend between sphere hit and plane hit
   const sPos = sphereResult.hit && sphereResult.hitPos 
-    ? new THREE.Vector3(...sphereResult.hitPos) 
-    : rayOrig.clone().addScaledVector(rayDir, Math.max(5.0, rayOrig.length() - radius));
+    ? new Vector3(...sphereResult.hitPos) 
+    : ro.clone().addScaledVector(rd, Math.max(5.0, ro.length() - radius));
 
   const pPos = planeResult.hit && planeResult.hitPos 
-    ? new THREE.Vector3(...planeResult.hitPos) 
-    : rayOrig.clone().addScaledVector(rayDir, Math.max(5.0, Math.abs(rayOrig.z)));
+    ? new Vector3(...planeResult.hitPos) 
+    : ro.clone().addScaledVector(rd, Math.max(5.0, Math.abs(ro.z)));
 
-  const blendedPos = new THREE.Vector3().lerpVectors(sPos, pPos, clampedAlpha);
-  const blendedDist = rayOrig.distanceTo(blendedPos);
+  const blendedPos = new Vector3().lerpVectors(sPos, pPos, clampedAlpha);
+  const blendedDist = ro.distanceTo(blendedPos);
 
   return {
     hit: sphereResult.hit || planeResult.hit,
@@ -286,16 +301,16 @@ export class CursorTracker {
   public velY = 0;
   public smoothedSpeed = 0;
 
-  public rayOrig = new THREE.Vector3(0, 0, 15);
-  public rayDir = new THREE.Vector3(0, 0, -1);
-  public hitPos = new THREE.Vector3(0, 0, 5);
-  public worldVel = new THREE.Vector3(0, 0, 0);
+  public rayOrig = new Vector3(0, 0, 15);
+  public rayDir = new Vector3(0, 0, -1);
+  public hitPos = new Vector3(0, 0, 5);
+  public worldVel = new Vector3(0, 0, 0);
 
   public activeIntensity = 0.0;
   public lastMoveTime = 0;
   public isInside = false;
 
-  private prevHitPos = new THREE.Vector3(0, 0, 5);
+  private prevHitPos = new Vector3(0, 0, 5);
   private lastUpdateTime = performance.now();
   private cleanupListeners: (() => void) | null = null;
 
@@ -382,7 +397,7 @@ export class CursorTracker {
   /**
    * Updates raycasting, EMA velocities, and decay for the current frame
    */
-  public update(camera: THREE.Camera, alpha: number): CursorUniforms {
+  public update(camera: PerspectiveCamera | any, alpha: number): CursorUniforms {
     const now = performance.now();
     const dt = Math.max(0.001, (now - this.lastUpdateTime) * 0.001);
     this.lastUpdateTime = now;
@@ -427,7 +442,7 @@ export class CursorTracker {
       u_cursorRayOrig: this.rayOrig,
       u_cursorRayDir: this.rayDir,
       u_cursorHitPos: this.hitPos,
-      u_cursorVel: new THREE.Vector4(this.worldVel.x, this.worldVel.y, this.worldVel.z, worldSpeed),
+      u_cursorVel: new Vector4(this.worldVel.x, this.worldVel.y, this.worldVel.z, worldSpeed),
       u_cursorActive: this.activeIntensity,
     };
   }
@@ -438,7 +453,7 @@ export class CursorTracker {
       u_cursorRayOrig: this.rayOrig,
       u_cursorRayDir: this.rayDir,
       u_cursorHitPos: this.hitPos,
-      u_cursorVel: new THREE.Vector4(this.worldVel.x, this.worldVel.y, this.worldVel.z, worldSpeed),
+      u_cursorVel: new Vector4(this.worldVel.x, this.worldVel.y, this.worldVel.z, worldSpeed),
       u_cursorActive: this.activeIntensity,
     };
   }

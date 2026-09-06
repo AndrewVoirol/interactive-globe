@@ -6,7 +6,7 @@
 //              and screen-space anti-aliased vector ribbons on Apple Silicon M4 Pro.
 // ============================================================================
 
-import * as THREE from 'three';
+import { Vector3, Vector4, PerspectiveCamera } from '../core/math/cameraMath';
 import { isWebGPUSupported } from './support';
 import { projectToDymaxion2D } from '../utils/dymaxion';
 import { decodeContourMesh } from '../utils/contour-topology';
@@ -21,6 +21,8 @@ import vectorRibbonWGSL from './shaders/vector_ribbon.wgsl?raw';
 import crustHydrosphereWGSL from './shaders/crust_hydrosphere.wgsl?raw';
 import demUnpackWGSL from './shaders/dem_unpack.wgsl?raw';
 import { GPUProfiler } from './profiling/GPUProfiler';
+import { encodeFloat16 } from '../core/math/float16';
+import { parseTLE, propagateOrbitalPosition } from '../core/math/sgp4';
 
 export interface WebGPUInitConfig {
   canvas: HTMLCanvasElement;
@@ -40,12 +42,17 @@ export interface WebGPUFrameParams {
   theme?: number;     // 0 = Dark Cyber, 1 = Light Monochrome
   time: number;
   dt: number;
-  cursorRayOrig?: THREE.Vector3;
-  cursorRayDir?: THREE.Vector3;
-  cursorHitPos?: THREE.Vector3;
-  cursorVel?: THREE.Vector3 | THREE.Vector4;
+  cursorRayOrig?: Vector3 | { x: number; y: number; z: number };
+  cursorRayDir?: Vector3 | { x: number; y: number; z: number };
+  cursorHitPos?: Vector3 | { x: number; y: number; z: number };
+  cursorVel?: Vector4 | Vector3 | { x: number; y: number; z: number; w?: number };
   cursorActive?: boolean;
-  camera: THREE.PerspectiveCamera | THREE.Camera;
+  camera: PerspectiveCamera | {
+    position: { x: number; y: number; z: number };
+    matrixWorldInverse: { toArray: (arr: Float32Array | number[], offset?: number) => void };
+    projectionMatrix: { toArray: (arr: Float32Array | number[], offset?: number) => void };
+    updateMatrixWorld?: () => void;
+  };
   renderLayers?: 'both' | 'points' | 'wireframe';
   displacementScale?: number;
   hillshadeIntensity?: number;
@@ -53,6 +60,8 @@ export interface WebGPUFrameParams {
   showRelief?: boolean;
   showVectors?: boolean;
   showContours?: boolean;
+  showSatellites?: boolean;
+  showStarlink?: boolean;
   seaLevel?: number;
   sunAzimuth?: number;
   sunAltitude?: number;
@@ -125,6 +134,15 @@ export class WebGPUEngine {
   private crustHydrospherePipeline!: GPURenderPipeline;
   private crustBindGroupLayout!: GPUBindGroupLayout;
   private crustBindGroup!: GPUBindGroup;
+
+  // NASA Blue Marble & VIIRS Night Lights Draping (Feature F28)
+  private orbitalTexture: GPUTexture | null = null;
+  private orbitalTextureView: GPUTextureView | null = null;
+  private orbitalSampler: GPUSampler | null = null;
+
+  // Decoupled 4.19M VRAM Particle Spawn (Feature F31)
+  private spawnPipeline: GPUComputePipeline | null = null;
+  private spawnBindGroupLayout: GPUBindGroupLayout | null = null;
   private cartographicBuffersInitialized: boolean = false;
   private cachedInitConfig: {
     pointsData: Float32Array;
@@ -138,8 +156,18 @@ export class WebGPUEngine {
   private depthTextureView: GPUTextureView | null = null;
 
   private computePipeline!: GPUComputePipeline;
+  private computeBindGroupLayout!: GPUBindGroupLayout;
   private pointsRenderPipeline!: GPURenderPipeline;
   private linesRenderPipeline!: GPURenderPipeline;
+
+  // NOAA GFS Wind Grid Texture (F34)
+  private windTexture: GPUTexture | null = null;
+  private windTextureView: GPUTextureView | null = null;
+  private windSampler: GPUSampler | null = null;
+
+  // CelesTrak Starlink & ISS Satellite Orbit Ribbons (F35)
+  public satelliteSegmentBuffer: GPUBuffer | null = null;
+  public satelliteSegmentCount: number = 0;
 
   private computeBindGroups: [GPUBindGroup, GPUBindGroup] = [null!, null!];
   private renderBindGroup!: GPUBindGroup;
@@ -319,6 +347,192 @@ export class WebGPUEngine {
       [2, 2, 1]
     );
     this.demTextureView = this.demTexture.createView();
+
+    // ========================================================================
+    // 1b. NASA Blue Marble & VIIRS Night Lights 2-Layer Texture Array (F28)
+    // ========================================================================
+    this.orbitalSampler = this.device.createSampler({
+      label: 'orbital_sampler',
+      addressModeU: 'repeat',
+      addressModeV: 'clamp-to-edge',
+      minFilter: 'linear',
+      magFilter: 'linear',
+    });
+
+    // Default procedural 2-layer texture array (Layer 0: Day Blue Marble, Layer 1: Night Lights)
+    const isTestEnv = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test';
+    const orbW = isTestEnv ? 512 : 1024;
+    const orbH = isTestEnv ? 256 : 512;
+    this.orbitalTexture = this.device.createTexture({
+      label: 'nasa_orbital_texture_array_procedural',
+      size: [orbW, orbH, 2],
+      format: 'rgba8unorm',
+      usage: (typeof GPUTextureUsage !== 'undefined'
+        ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT)
+        : (4 | 8 | 16)),
+    });
+
+    const dayTexels = new Uint8Array(orbW * orbH * 4);
+    const nightTexels = new Uint8Array(orbW * orbH * 4);
+
+    for (let y = 0; y < orbH; y++) {
+      const lat = 90.0 - (y / orbH) * 180.0;
+      const absLat = Math.abs(lat);
+      for (let x = 0; x < orbW; x++) {
+        const lon = (x / orbW) * 360.0 - 180.0;
+        const idx = (y * orbW + x) * 4;
+
+        let isLand = false;
+        let isDesert = false;
+        let isIce = absLat > 68.0;
+        let cityLight = 0.0;
+
+        if (lat < -60.0) {
+          isLand = true;
+          isIce = true;
+        } else if (lat > 15.0 && lat < 72.0 && lon > -168.0 && lon < -52.0) {
+          isLand = true;
+          if (lon > -120.0 && lon < -100.0 && lat > 24.0 && lat < 40.0) isDesert = true;
+          if (lat > 28.0 && lat < 45.0 && lon > -85.0 && lon < -70.0) cityLight = 0.95;
+          else if (lat > 32.0 && lat < 48.0 && lon > -124.0 && lon < -115.0) cityLight = 0.85;
+          else cityLight = 0.25;
+        } else if (lat > -56.0 && lat < 13.0 && lon > -82.0 && lon < -34.0) {
+          isLand = true;
+          if (lat > -35.0 && lat < -20.0 && lon > -50.0 && lon < -40.0) cityLight = 0.75;
+          else cityLight = 0.15;
+        } else if (lat > -35.0 && lat < 72.0 && lon > -20.0 && lon < 145.0) {
+          isLand = true;
+          if (lat > 15.0 && lat < 32.0 && lon > -15.0 && lon < 55.0) isDesert = true;
+          if (lat > 38.0 && lat < 58.0 && lon > -5.0 && lon < 30.0) cityLight = 0.92;
+          else if (lat > 10.0 && lat < 32.0 && lon > 70.0 && lon < 88.0) cityLight = 0.88;
+          else if (lat > 22.0 && lat < 42.0 && lon > 105.0 && lon < 142.0) cityLight = 0.96;
+          else if (!isDesert) cityLight = 0.20;
+        } else if (lat > -44.0 && lat < -10.0 && lon > 112.0 && lon < 154.0) {
+          isLand = true;
+          if (lon > 118.0 && lon < 140.0) isDesert = true;
+          if (lat < -25.0 && lon > 140.0) cityLight = 0.65;
+        }
+
+        if (!isLand) {
+          dayTexels[idx + 0] = 10;
+          dayTexels[idx + 1] = 40;
+          dayTexels[idx + 2] = 95;
+          dayTexels[idx + 3] = 255;
+        } else if (isIce) {
+          dayTexels[idx + 0] = 235;
+          dayTexels[idx + 1] = 242;
+          dayTexels[idx + 2] = 252;
+          dayTexels[idx + 3] = 255;
+        } else if (isDesert) {
+          dayTexels[idx + 0] = 195;
+          dayTexels[idx + 1] = 160;
+          dayTexels[idx + 2] = 105;
+          dayTexels[idx + 3] = 255;
+        } else {
+          dayTexels[idx + 0] = 38;
+          dayTexels[idx + 1] = 98;
+          dayTexels[idx + 2] = 34;
+          dayTexels[idx + 3] = 255;
+        }
+
+        if (cityLight > 0.0) {
+          nightTexels[idx + 0] = Math.round(255 * cityLight);
+          nightTexels[idx + 1] = Math.round(210 * cityLight);
+          nightTexels[idx + 2] = Math.round(120 * cityLight);
+          nightTexels[idx + 3] = 255;
+        } else {
+          nightTexels[idx + 0] = 0;
+          nightTexels[idx + 1] = 0;
+          nightTexels[idx + 2] = 0;
+          nightTexels[idx + 3] = 255;
+        }
+      }
+    }
+
+    this.device.queue.writeTexture(
+      { texture: this.orbitalTexture, origin: [0, 0, 0] },
+      dayTexels,
+      { bytesPerRow: orbW * 4, rowsPerImage: orbH },
+      [orbW, orbH, 1]
+    );
+
+    this.device.queue.writeTexture(
+      { texture: this.orbitalTexture, origin: [0, 0, 1] },
+      nightTexels,
+      { bytesPerRow: orbW * 4, rowsPerImage: orbH },
+      [orbW, orbH, 1]
+    );
+
+    this.orbitalTextureView = this.orbitalTexture.createView({
+      dimension: '2d-array',
+      baseArrayLayer: 0,
+      arrayLayerCount: 2,
+    });
+
+    // ========================================================================
+    // 1c. NOAA GFS Wind Grid Texture (360x181 Half-Precision Float16) (F34)
+    // ========================================================================
+    this.windSampler = this.device.createSampler({
+      label: 'wind_sampler',
+      addressModeU: 'repeat',
+      addressModeV: 'clamp-to-edge',
+      minFilter: 'linear',
+      magFilter: 'linear',
+    });
+
+    const windW = 360;
+    const windH = 181;
+    this.windTexture = this.device.createTexture({
+      label: 'wind_velocity_texture',
+      size: [windW, windH, 1],
+      format: 'rg16float',
+      usage: (typeof GPUTextureUsage !== 'undefined'
+        ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
+        : (4 | 8)),
+    });
+    this.windTextureView = this.windTexture.createView();
+
+    // Populate procedural circulation fallback into windTexture initially
+    const rowBytesRaw = windW * 4; // 360 * 2 components * 2 bytes = 1440 bytes
+    const rowBytesPadded = Math.ceil(rowBytesRaw / 256) * 256; // 1536 bytes
+    const paddedWindData = new Uint8Array(rowBytesPadded * windH);
+
+    for (let y = 0; y < windH; y++) {
+      const latDeg = 90.0 - y;
+      const absLat = Math.abs(latDeg);
+      const rowOffset = y * rowBytesPadded;
+      const rowU16 = new Uint16Array(paddedWindData.buffer, paddedWindData.byteOffset + rowOffset, windW * 2);
+
+      for (let x = 0; x < windW; x++) {
+        let uMps = 0;
+        let vMps = 0;
+
+        if (absLat <= 30.0) {
+          uMps = -8.0 * Math.cos((absLat / 30.0) * (Math.PI * 0.5));
+          vMps = (latDeg > 0 ? -2.5 : 2.5) * Math.sin(x * 0.05);
+        } else if (absLat <= 60.0) {
+          uMps = 22.0 * Math.cos(((absLat - 45.0) / 15.0) * (Math.PI * 0.5));
+          vMps = 5.0 * Math.sin(x * 0.1);
+        } else {
+          uMps = -5.0;
+          vMps = 2.0;
+        }
+
+        rowU16[x * 2 + 0] = encodeFloat16(uMps);
+        rowU16[x * 2 + 1] = encodeFloat16(vMps);
+      }
+    }
+
+    try {
+      this.device.queue.writeTexture(
+        { texture: this.windTexture },
+        paddedWindData,
+        { bytesPerRow: rowBytesPadded, rowsPerImage: windH },
+        [windW, windH, 1]
+      );
+    } catch {
+      // Mock environment guard
+    }
 
     // ========================================================================
     // 2. Pack Dynamic & Static Particle Buffers (Zero-Copy 32-Byte Stride)
@@ -712,7 +926,7 @@ export class WebGPUEngine {
     }
 
     // Crust / Hydrosphere BindGroup
-    if (this.crustBindGroupLayout && this.crustUniformBuffer) {
+    if (this.crustBindGroupLayout && this.crustUniformBuffer && this.orbitalTextureView && this.orbitalSampler) {
       this.crustBindGroup = this.device.createBindGroup({
         label: 'crust_hydrosphere_bind_group',
         layout: this.crustBindGroupLayout,
@@ -720,9 +934,311 @@ export class WebGPUEngine {
           { binding: 0, resource: { buffer: this.crustUniformBuffer } },
           { binding: 1, resource: this.demTextureView },
           { binding: 2, resource: this.demSampler },
+          { binding: 3, resource: this.orbitalTextureView },
+          { binding: 4, resource: this.orbitalSampler },
         ],
       });
     }
+  }
+
+  public async loadOrbitalTextures(
+    dayImage: ImageBitmap | HTMLImageElement | string,
+    nightImage: ImageBitmap | HTMLImageElement | string
+  ): Promise<void> {
+    if (!this.device || !this.isInitialized) return;
+
+    try {
+      let daySource: ImageBitmap | HTMLImageElement;
+      let nightSource: ImageBitmap | HTMLImageElement;
+
+      if (typeof dayImage === 'string') {
+        if (typeof fetch !== 'undefined' && typeof createImageBitmap !== 'undefined') {
+          const res = await fetch(dayImage);
+          const blob = await res.blob();
+          daySource = await createImageBitmap(blob);
+        } else if (typeof Image !== 'undefined') {
+          daySource = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = dayImage as string;
+          });
+        } else {
+          return;
+        }
+      } else {
+        daySource = dayImage;
+      }
+
+      if (typeof nightImage === 'string') {
+        if (typeof fetch !== 'undefined' && typeof createImageBitmap !== 'undefined') {
+          const res = await fetch(nightImage);
+          const blob = await res.blob();
+          nightSource = await createImageBitmap(blob);
+        } else if (typeof Image !== 'undefined') {
+          nightSource = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = nightImage as string;
+          });
+        } else {
+          return;
+        }
+      } else {
+        nightSource = nightImage;
+      }
+
+      const width = (daySource as any).width || 4096;
+      const height = (daySource as any).height || 2048;
+
+      if (this.orbitalTexture) {
+        this.orbitalTexture.destroy();
+      }
+
+      this.orbitalTexture = this.device.createTexture({
+        label: 'nasa_orbital_texture_array_4k',
+        size: [width, height, 2],
+        format: 'rgba8unorm',
+        usage: (typeof GPUTextureUsage !== 'undefined'
+          ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT)
+          : (4 | 8 | 16)),
+      });
+
+      this.device.queue.copyExternalImageToTexture(
+        { source: daySource },
+        { texture: this.orbitalTexture, origin: [0, 0, 0] },
+        [width, height]
+      );
+
+      this.device.queue.copyExternalImageToTexture(
+        { source: nightSource },
+        { texture: this.orbitalTexture, origin: [0, 0, 1] },
+        [width, height]
+      );
+
+      this.orbitalTextureView = this.orbitalTexture.createView({
+        dimension: '2d-array',
+        baseArrayLayer: 0,
+        arrayLayerCount: 2,
+      });
+
+      this.updateDEMBindGroups();
+    } catch (err) {
+      console.warn('[WebGPUEngine] loadOrbitalTextures warning:', err);
+    }
+  }
+
+  /**
+   * Procedural VRAM Boot Compute Pass (Feature F31)
+   * Spawns up to 4.19M particles directly in GPU memory using the Fibonacci sphere spiral algorithm.
+   * Decouples dynamic particle simulation from terrain mesh resolution (up to 16.78M vertices).
+   * Allocates 0 MB on CPU heap and transfers 0 MB across network.
+   */
+  public async spawnParticlesInVRAM(nodeCount: number = 4194304): Promise<void> {
+    if (!this.device || !this.isInitialized) return;
+
+    // Bound node count to 4.19M (16,384 workgroups) to remain strictly within WebGPU 1D dispatch limits (<= 65,535)
+    const count = Math.min(4194304, Math.max(1024, nodeCount));
+    const bufferByteSize = count * 32;
+
+    // Reallocate VRAM storage buffers
+    if (this.particleBuffers[0]) this.particleBuffers[0].destroy();
+    if (this.particleBuffers[1]) this.particleBuffers[1].destroy();
+    if (this.staticBuffer) this.staticBuffer.destroy();
+
+    this.particleBuffers[0] = this.device.createBuffer({
+      label: 'particle_buffer_0_vram',
+      size: bufferByteSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+    this.particleBuffers[1] = this.device.createBuffer({
+      label: 'particle_buffer_1_vram',
+      size: bufferByteSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+    this.staticBuffer = this.device.createBuffer({
+      label: 'static_particle_buffer_vram',
+      size: bufferByteSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+
+    if (!this.spawnPipeline) {
+      const spawnWGSL = `
+        struct Particle {
+            position: vec4<f32>,
+            velocity: vec4<f32>,
+        };
+        struct StaticParticle {
+            rest_sphere: vec4<f32>,
+            rest_map: vec4<f32>,
+        };
+        struct SpawnUniforms {
+            u_numParticles: u32,
+            u_radius: f32,
+            u_pad1: f32,
+            u_pad2: f32,
+        };
+        @group(0) @binding(0) var<uniform> sim: SpawnUniforms;
+        @group(0) @binding(1) var<storage, read_write> particlesOut: array<Particle>;
+        @group(0) @binding(2) var<storage, read_write> staticParticles: array<StaticParticle>;
+        @group(0) @binding(3) var u_demTexture: texture_2d<f32>;
+        @group(0) @binding(4) var u_demSampler: sampler;
+
+        const PI: f32 = 3.14159265358979323846;
+        const PHI: f32 = 1.618033988749895;
+
+        @compute @workgroup_size(256, 1, 1)
+        fn cs_spawn(@builtin(global_invocation_id) global_id: vec3<u32>) {
+            let i = global_id.x;
+            if (i >= sim.u_numParticles) { return; }
+
+            let N = f32(sim.u_numParticles);
+            let fi = f32(i);
+
+            let y = 1.0 - (2.0 * fi + 1.0) / N;
+            let r = sqrt(max(0.0, 1.0 - y * y));
+            let theta = 2.0 * PI * fi * (1.0 - 1.0 / PHI);
+
+            let R = sim.u_radius;
+            let p3D = vec3<f32>(r * cos(theta) * R, y * R, r * sin(theta) * R);
+
+            let lambda = atan2(p3D.x, p3D.z);
+            let lat = asin(clamp(p3D.y / R, -0.9998, 0.9998));
+            let targetX = lambda * R;
+            let clampedLat = clamp(lat, -1.4835, 1.4835);
+            let targetY = log(tan(PI * 0.25 + clampedLat * 0.5)) * R;
+
+            let uv = vec2<f32>(lambda / (2.0 * PI) + 0.5, 0.5 - lat / PI);
+            let demSample = textureSampleLevel(u_demTexture, u_demSampler, uv, 0.0);
+            let isLand = select(0.0, 1.0, demSample.a * 19772.0 - 10924.0 > 0.0);
+
+            var p: Particle;
+            p.position = vec4<f32>(p3D, isLand);
+            p.velocity = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+            particlesOut[i] = p;
+
+            var sp: StaticParticle;
+            sp.rest_sphere = vec4<f32>(p3D, R);
+            sp.rest_map = vec4<f32>(targetX, targetY, targetX, targetY);
+            staticParticles[i] = sp;
+        }
+      `;
+
+      this.spawnBindGroupLayout = this.device.createBindGroupLayout({
+        label: 'spawn_bind_group_layout',
+        entries: [
+          { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+          { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+          { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+          { binding: 3, visibility: GPUShaderStage.COMPUTE, texture: {} },
+          { binding: 4, visibility: GPUShaderStage.COMPUTE, sampler: {} },
+        ],
+      });
+
+      const spawnPipelineLayout = this.device.createPipelineLayout({
+        bindGroupLayouts: [this.spawnBindGroupLayout],
+      });
+
+      const spawnShaderModule = this.device.createShaderModule({
+        label: 'spawn_particles_shader',
+        code: spawnWGSL,
+      });
+
+      this.spawnPipeline = this.device.createComputePipeline({
+        label: 'spawn_particles_pipeline',
+        layout: spawnPipelineLayout,
+        compute: {
+          module: spawnShaderModule,
+          entryPoint: 'cs_spawn',
+        },
+      });
+    }
+
+    const spawnUniformBuf = this.device.createBuffer({
+      size: 16,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    const sUints = new Uint32Array([count, 0, 0, 0]);
+    const sFloats = new Float32Array(sUints.buffer);
+    sFloats[1] = 5.0; // RADIUS
+    this.device.queue.writeBuffer(spawnUniformBuf, 0, sUints.buffer);
+
+    const spawnBindGroup0 = this.device.createBindGroup({
+      label: 'spawn_bind_group_0',
+      layout: this.spawnBindGroupLayout!,
+      entries: [
+        { binding: 0, resource: { buffer: spawnUniformBuf } },
+        { binding: 1, resource: { buffer: this.particleBuffers[0] } },
+        { binding: 2, resource: { buffer: this.staticBuffer } },
+        { binding: 3, resource: this.demTextureView! },
+        { binding: 4, resource: this.demSampler! },
+      ],
+    });
+
+    const spawnBindGroup1 = this.device.createBindGroup({
+      label: 'spawn_bind_group_1',
+      layout: this.spawnBindGroupLayout!,
+      entries: [
+        { binding: 0, resource: { buffer: spawnUniformBuf } },
+        { binding: 1, resource: { buffer: this.particleBuffers[1] } },
+        { binding: 2, resource: { buffer: this.staticBuffer } },
+        { binding: 3, resource: this.demTextureView! },
+        { binding: 4, resource: this.demSampler! },
+      ],
+    });
+
+    const workgroupCount = Math.ceil(count / 256);
+    const commandEncoder = this.device.createCommandEncoder({ label: 'spawn_particles_encoder' });
+    const computePass = commandEncoder.beginComputePass({ label: 'spawn_particles_pass' });
+    computePass.setPipeline(this.spawnPipeline);
+    computePass.setBindGroup(0, spawnBindGroup0);
+    computePass.dispatchWorkgroups(workgroupCount, 1, 1);
+    computePass.setBindGroup(0, spawnBindGroup1);
+    computePass.dispatchWorkgroups(workgroupCount, 1, 1);
+    computePass.end();
+
+    this.device.queue.submit([commandEncoder.finish()]);
+
+    this.pointCount = count;
+
+    if (this.computePipeline && this.simUniformBuffer) {
+      const compLayout = (this.computePipeline?.getBindGroupLayout
+        ? this.computePipeline.getBindGroupLayout(0)
+        : this.computeBindGroupLayout) || this.computeBindGroupLayout;
+
+      this.computeBindGroups[0] = this.device.createBindGroup({
+        label: 'compute_ping_bind_group',
+        layout: compLayout,
+        entries: [
+          { binding: 0, resource: { buffer: this.simUniformBuffer } },
+          { binding: 1, resource: { buffer: this.particleBuffers[0] } },
+          { binding: 2, resource: { buffer: this.particleBuffers[1] } },
+          { binding: 3, resource: { buffer: this.staticBuffer } },
+          { binding: 4, resource: this.windTextureView! },
+          { binding: 5, resource: this.windSampler! },
+        ],
+      });
+
+      this.computeBindGroups[1] = this.device.createBindGroup({
+        label: 'compute_pong_bind_group',
+        layout: compLayout,
+        entries: [
+          { binding: 0, resource: { buffer: this.simUniformBuffer } },
+          { binding: 1, resource: { buffer: this.particleBuffers[1] } },
+          { binding: 2, resource: { buffer: this.particleBuffers[0] } },
+          { binding: 3, resource: { buffer: this.staticBuffer } },
+          { binding: 4, resource: this.windTextureView! },
+          { binding: 5, resource: this.windSampler! },
+        ],
+      });
+    }
+  }
+
+  public async spawnParticlesOnGPU(nodeCount: number = 4194304): Promise<void> {
+    return this.spawnParticlesInVRAM(nodeCount);
   }
 
   public async loadDEMTexture(urlOrBuffer: string | ArrayBuffer): Promise<void> {
@@ -931,10 +1447,15 @@ export class WebGPUEngine {
           const i11 = (srcY1 * curW + srcX1) * 4;
 
           const dstIdx = (y * nextW + x) * 4;
-          nextData[dstIdx] = (curData[i00] + curData[i10] + curData[i01] + curData[i11]) >> 2;
-          nextData[dstIdx + 1] = (curData[i00 + 1] + curData[i10 + 1] + curData[i01 + 1] + curData[i11 + 1]) >> 2;
-          nextData[dstIdx + 2] = (curData[i00 + 2] + curData[i10 + 2] + curData[i01 + 2] + curData[i11 + 2]) >> 2;
-          nextData[dstIdx + 3] = (curData[i00 + 3] + curData[i10 + 3] + curData[i01 + 3] + curData[i11 + 3]) >> 2;
+          for (let c = 0; c < 4; c++) {
+            const p00 = curData[i00 + c];
+            const p10 = curData[i10 + c];
+            const p01 = curData[i01 + c];
+            const p11 = curData[i11 + c];
+            const mean = (p00 + p10 + p01 + p11) * 0.25;
+            const maxVal = Math.max(p00, p10, p01, p11);
+            nextData[dstIdx + c] = Math.min(255, Math.round(0.4 * mean + 0.6 * maxVal));
+          }
         }
       }
       mips.push({ data: nextData, width: nextW, height: nextH });
@@ -975,10 +1496,15 @@ export class WebGPUEngine {
           const i11 = (srcY1 * curW + srcX1) * 4;
 
           const dstIdx = (y * nextW + x) * 4;
-          nextData[dstIdx] = (curData[i00] + curData[i10] + curData[i01] + curData[i11]) >> 2;
-          nextData[dstIdx + 1] = (curData[i00 + 1] + curData[i10 + 1] + curData[i01 + 1] + curData[i11 + 1]) >> 2;
-          nextData[dstIdx + 2] = (curData[i00 + 2] + curData[i10 + 2] + curData[i01 + 2] + curData[i11 + 2]) >> 2;
-          nextData[dstIdx + 3] = (curData[i00 + 3] + curData[i10 + 3] + curData[i01 + 3] + curData[i11 + 3]) >> 2;
+          for (let c = 0; c < 4; c++) {
+            const p00 = curData[i00 + c];
+            const p10 = curData[i10 + c];
+            const p01 = curData[i01 + c];
+            const p11 = curData[i11 + c];
+            const mean = (p00 + p10 + p01 + p11) * 0.25;
+            const maxVal = Math.max(p00, p10, p01, p11);
+            nextData[dstIdx + c] = Math.min(65535, Math.round(0.4 * mean + 0.6 * maxVal));
+          }
         }
       }
       mips.push({ data: nextData, width: nextW, height: nextH });
@@ -1220,6 +1746,234 @@ export class WebGPUEngine {
     }
   }
 
+  /**
+   * Loads the NOAA GFS 1.0° wind velocity grid into a 2D float texture (F34).
+   */
+  public async loadWindTexture(urlOrBuffer: string | ArrayBuffer = '/data/gfs-wind-latest.bin'): Promise<void> {
+    if (!this.device || !this.isInitialized) return;
+
+    let buffer: ArrayBuffer | null = null;
+    if (urlOrBuffer instanceof ArrayBuffer) {
+      buffer = urlOrBuffer;
+    } else if (typeof fetch !== 'undefined') {
+      try {
+        const res = await fetch(urlOrBuffer);
+        if (res.ok) {
+          buffer = await res.arrayBuffer();
+        }
+      } catch {
+        // Fallback below
+      }
+    }
+
+    if (!buffer && typeof process !== 'undefined' && process.versions?.node) {
+      try {
+        const fs = await import(/* @vite-ignore */ 'fs');
+        const path = await import(/* @vite-ignore */ 'path');
+        const candidatePaths = [
+          path.resolve(process.cwd(), typeof urlOrBuffer === 'string' ? urlOrBuffer.replace(/^\//, '') : 'public/data/gfs-wind-latest.bin'),
+          path.resolve(process.cwd(), 'public/data/gfs-wind-latest.bin'),
+          path.resolve(__dirname, '../../public/data/gfs-wind-latest.bin'),
+        ];
+        for (const p of candidatePaths) {
+          if (fs.existsSync(p)) {
+            const fileBuf = fs.readFileSync(p);
+            buffer = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+            break;
+          }
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    if (!buffer) return;
+
+    const windW = 360;
+    const windH = 181;
+    const rowBytesRaw = windW * 4; // 1440
+    const rowBytesPadded = Math.ceil(rowBytesRaw / 256) * 256; // 1536
+    const padded = new Uint8Array(rowBytesPadded * windH);
+
+    const srcU8 = new Uint8Array(buffer);
+    for (let y = 0; y < windH; y++) {
+      const srcOffset = y * rowBytesRaw;
+      const dstOffset = y * rowBytesPadded;
+      padded.set(srcU8.subarray(srcOffset, srcOffset + rowBytesRaw), dstOffset);
+    }
+
+    if (!this.windTexture) {
+      this.windTexture = this.device.createTexture({
+        label: 'wind_velocity_texture',
+        size: [windW, windH, 1],
+        format: 'rg16float',
+        usage: (typeof GPUTextureUsage !== 'undefined'
+          ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
+          : (4 | 8)),
+      });
+      this.windTextureView = this.windTexture.createView();
+    }
+
+    try {
+      this.device.queue.writeTexture(
+        { texture: this.windTexture },
+        padded,
+        { bytesPerRow: rowBytesPadded, rowsPerImage: windH },
+        [windW, windH, 1]
+      );
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  /**
+   * Loads CelesTrak Starlink & ISS TLE records and generates GPU vector line ribbon segments (F35).
+   */
+  public async loadSatelliteTrajectories(
+    urlOrData: string | Array<{ name: string; line1: string; line2: string }> = '/data/tle-starlink.json'
+  ): Promise<void> {
+    if (!this.device || !this.isInitialized) return;
+
+    let records: Array<{ name: string; line1: string; line2: string }> | null = null;
+    if (Array.isArray(urlOrData)) {
+      records = urlOrData;
+    } else if (typeof fetch !== 'undefined') {
+      try {
+        const res = await fetch(urlOrData);
+        if (res.ok) {
+          records = await res.json();
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    if (!records && typeof process !== 'undefined' && process.versions?.node) {
+      try {
+        const fs = await import(/* @vite-ignore */ 'fs');
+        const path = await import(/* @vite-ignore */ 'path');
+        const candidatePaths = [
+          path.resolve(process.cwd(), typeof urlOrData === 'string' ? urlOrData.replace(/^\//, '') : 'public/data/tle-starlink.json'),
+          path.resolve(process.cwd(), 'public/data/tle-starlink.json'),
+          path.resolve(__dirname, '../../public/data/tle-starlink.json'),
+        ];
+        for (const p of candidatePaths) {
+          if (fs.existsSync(p)) {
+            records = JSON.parse(fs.readFileSync(p, 'utf8'));
+            break;
+          }
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    if (!records || records.length === 0) return;
+
+    const pointsPerOrbit = 64;
+    const totalSegments = records.length * pointsPerOrbit;
+    const segFloats = new Float32Array(totalSegments * 16);
+
+    let segIndex = 0;
+    for (const record of records) {
+      const elements = parseTLE(record.line1, record.line2);
+      const periodSec = (2 * Math.PI) / elements.meanMotionRadPerSec;
+
+      for (let i = 0; i < pointsPerOrbit; i++) {
+        const tA = (i / pointsPerOrbit) * periodSec;
+        const tB = (((i + 1) % pointsPerOrbit) / pointsPerOrbit) * periodSec;
+
+        const posA = propagateOrbitalPosition(elements, tA, 6378.137, 5.0);
+        const posB = propagateOrbitalPosition(elements, tB, 6378.137, 5.0);
+
+        const lonA = Math.atan2(posA[0], posA[2]);
+        const latA = Math.asin(Math.max(-0.999, Math.min(0.999, posA[1] / 5.0)));
+        const target2DA = [lonA * (5.0 / Math.PI), latA * (5.0 / (Math.PI * 0.5))];
+
+        const lonB = Math.atan2(posB[0], posB[2]);
+        const latB = Math.asin(Math.max(-0.999, Math.min(0.999, posB[1] / 5.0)));
+        const target2DB = [lonB * (5.0 / Math.PI), latB * (5.0 / (Math.PI * 0.5))];
+
+        // Antimeridian Orbit Ribbon Severance:
+        // When crossing the 180° antimeridian (|lonB - lonA| > Math.PI),
+        // sever the segment to eliminate diagonal screen streaks across the flat map.
+        if (Math.abs(lonB - lonA) > Math.PI) {
+          continue;
+        }
+
+        const base = segIndex * 16;
+        segFloats[base + 0] = posA[0];
+        segFloats[base + 1] = posA[1];
+        segFloats[base + 2] = posA[2];
+        segFloats[base + 3] = 0.8; // Satellite ribbon type
+        segFloats[base + 4] = target2DA[0];
+        segFloats[base + 5] = target2DA[1];
+        segFloats[base + 6] = target2DA[0];
+        segFloats[base + 7] = target2DA[1];
+
+        segFloats[base + 8] = posB[0];
+        segFloats[base + 9] = posB[1];
+        segFloats[base + 10] = posB[2];
+        segFloats[base + 11] = 0.8;
+        segFloats[base + 12] = target2DB[0];
+        segFloats[base + 13] = target2DB[1];
+        segFloats[base + 14] = target2DB[0];
+        segFloats[base + 15] = target2DB[1];
+
+        segIndex++;
+      }
+    }
+
+    if (this.satelliteSegmentBuffer) {
+      this.satelliteSegmentBuffer.destroy();
+      this.satelliteSegmentBuffer = null;
+    }
+
+    this.satelliteSegmentCount = segIndex;
+    const byteLength = this.satelliteSegmentCount * 64;
+    try {
+      this.satelliteSegmentBuffer = this.device.createBuffer({
+        label: 'satellite_orbit_ribbon_buffer',
+        size: byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      this.device.queue.writeBuffer(this.satelliteSegmentBuffer, 0, segFloats.buffer, 0, byteLength);
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  /**
+   * Renders the satellite orbit line ribbons using the screen-space vector ribbon pipeline.
+   */
+  public renderSatelliteOrbits(passEncoder: GPURenderPassEncoder): void {
+    if (
+      this.satelliteSegmentCount > 0 &&
+      this.satelliteSegmentBuffer &&
+      this.vectorRibbonPipeline &&
+      this.ribbonBindGroup &&
+      this.quadCornerBuffer
+    ) {
+      passEncoder.setPipeline(this.vectorRibbonPipeline);
+      passEncoder.setBindGroup(0, this.ribbonBindGroup);
+      passEncoder.setVertexBuffer(0, this.quadCornerBuffer);
+      passEncoder.setVertexBuffer(1, this.satelliteSegmentBuffer);
+      passEncoder.draw(4, this.satelliteSegmentCount, 0, 0);
+    }
+  }
+
+  public getWindTexture(): GPUTexture | null {
+    return this.windTexture;
+  }
+
+  public getWindSampler(): GPUSampler | null {
+    return this.windSampler;
+  }
+
+  public getSatelliteSegmentCount(): number {
+    return this.satelliteSegmentCount;
+  }
+
   private updateDepthTexture(width: number, height: number): void {
     if (this.depthTexture) {
       this.depthTexture.destroy();
@@ -1274,13 +2028,15 @@ export class WebGPUEngine {
     });
 
     // 2. Bind Group Layouts
-    const computeBindGroupLayout = this.device.createBindGroupLayout({
+    this.computeBindGroupLayout = this.device.createBindGroupLayout({
       label: 'compute_bind_group_layout',
       entries: [
         { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
         { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
         { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
         { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+        { binding: 4, visibility: GPUShaderStage.COMPUTE, texture: {} },
+        { binding: 5, visibility: GPUShaderStage.COMPUTE, sampler: {} },
       ],
     });
 
@@ -1315,12 +2071,14 @@ export class WebGPUEngine {
         { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
         { binding: 1, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, texture: {} },
         { binding: 2, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, sampler: {} },
+        { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { viewDimension: '2d-array' } },
+        { binding: 4, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
       ],
     });
 
     // 3. Compute Pipeline
     const computePipelineLayout = this.device.createPipelineLayout({
-      bindGroupLayouts: [computeBindGroupLayout],
+      bindGroupLayouts: [this.computeBindGroupLayout],
     });
 
     this.computePipeline = this.device.createComputePipeline({
@@ -1335,23 +2093,27 @@ export class WebGPUEngine {
     // 4. Compute Ping-Pong Bind Groups
     this.computeBindGroups[0] = this.device.createBindGroup({
       label: 'compute_bind_group_0_to_1',
-      layout: computeBindGroupLayout,
+      layout: this.computeBindGroupLayout,
       entries: [
         { binding: 0, resource: { buffer: this.simUniformBuffer } },
         { binding: 1, resource: { buffer: this.particleBuffers[0] } },
         { binding: 2, resource: { buffer: this.particleBuffers[1] } },
         { binding: 3, resource: { buffer: this.staticBuffer } },
+        { binding: 4, resource: this.windTextureView! },
+        { binding: 5, resource: this.windSampler! },
       ],
     });
 
     this.computeBindGroups[1] = this.device.createBindGroup({
       label: 'compute_bind_group_1_to_0',
-      layout: computeBindGroupLayout,
+      layout: this.computeBindGroupLayout,
       entries: [
         { binding: 0, resource: { buffer: this.simUniformBuffer } },
         { binding: 1, resource: { buffer: this.particleBuffers[1] } },
         { binding: 2, resource: { buffer: this.particleBuffers[0] } },
         { binding: 3, resource: { buffer: this.staticBuffer } },
+        { binding: 4, resource: this.windTextureView! },
+        { binding: 5, resource: this.windSampler! },
       ],
     });
 
@@ -1915,6 +2677,14 @@ export class WebGPUEngine {
       this.renderContours(renderPass);
     }
 
+    // 3c. Render Satellite Orbit Line Ribbons (F35)
+    if (
+      (params.showSatellites || params.showStarlink) &&
+      this.satelliteSegmentCount > 0
+    ) {
+      this.renderSatelliteOrbits(renderPass);
+    }
+
     // 4. Render Point Sprites
     if (layerMode === 0 || layerMode === 1) {
       renderPass.setPipeline(this.pointsRenderPipeline);
@@ -1990,6 +2760,12 @@ export class WebGPUEngine {
     this.demTexture?.destroy();
     this.demTexture = null;
     this.demTextureView = null;
+    this.orbitalTexture?.destroy();
+    this.orbitalTexture = null;
+    this.orbitalTextureView = null;
+    this.orbitalSampler = null;
+    this.spawnPipeline = null;
+    this.spawnBindGroupLayout = null;
     this.depthTexture?.destroy();
     this.depthTexture = null;
     this.depthTextureView = null;
@@ -1997,9 +2773,14 @@ export class WebGPUEngine {
     this.ribbonBindGroup = null!;
     this.crustBindGroup = null!;
     this.renderBindGroup = null!;
-    this.computeBindGroup = null!;
-    this.cartographicBuffersInitialized = false;
-    this.cachedInitConfig = null;
+    this.computeBindGroups = [null!, null!];
+    this.satelliteSegmentBuffer?.destroy();
+    this.satelliteSegmentBuffer = null;
+    this.satelliteSegmentCount = 0;
+    this.windTexture?.destroy();
+    this.windTexture = null;
+    this.windTextureView = null;
+    this.windSampler = null;
     this.device?.destroy?.();
     this.isInitialized = false;
   }

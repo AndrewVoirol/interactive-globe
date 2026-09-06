@@ -259,6 +259,40 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
       unit: 'Orbital Alt',
     },
   },
+  {
+    id: 'noaa-gfs-wind',
+    name: 'Real NOAA GFS Surface Winds (0.25°)',
+    category: 'field',
+    type: 'field',
+    details: 'Global half-float vector grid',
+    url: '/data/gfs-wind-latest.bin',
+    defaultOpacity: 0.90,
+    defaultBlendMode: 1,
+    attribution: 'NOAA NCEP GFS',
+    legend: {
+      colorStops: ['#02a6d9', '#1ad973', '#f2bf1a', '#f24026'],
+      minLabel: '0 m/s Calm',
+      maxLabel: '35 m/s Gale',
+      unit: 'Wind Velocity (0.25° GFS)',
+    },
+  },
+  {
+    id: 'starlink-iss-orbits',
+    name: 'CelesTrak Active Starlink & ISS Orbits',
+    category: 'vectors',
+    type: 'vectors',
+    details: 'SGP4 propagated orbital ribbons',
+    url: '/data/tle-starlink.json',
+    defaultOpacity: 1.0,
+    defaultBlendMode: 1,
+    attribution: 'CelesTrak / NORAD Space-Track',
+    legend: {
+      colorStops: ['#34d399', '#38bdf8', '#818cf8', '#f43f5e'],
+      minLabel: 'Perigee 400km',
+      maxLabel: 'Apogee 560km',
+      unit: 'SGP4 Orbital Ribbons',
+    },
+  },
 ];
 
 export function getPresetById(id: string): DataLayerPreset | undefined {
