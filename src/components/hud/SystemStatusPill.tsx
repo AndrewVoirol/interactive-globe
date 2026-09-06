@@ -4,14 +4,15 @@
 // ============================================================================
 
 import React from 'react';
+import { ResolutionTier } from '../../types';
 
 export interface SystemStatusPillProps {
   fps: number;
   backend: 'webgl2' | 'webgpu';
   onBackendChange: (b: 'webgl2' | 'webgpu') => void;
   hasWebGPU: boolean;
-  resolution: '100k' | '1M';
-  onResolutionChange: (r: '100k' | '1M') => void;
+  resolution: ResolutionTier;
+  onResolutionChange: (r: ResolutionTier) => void;
   theme: 0 | 1;
   onThemeToggle: () => void;
   isAudioMuted?: boolean;
@@ -84,29 +85,26 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
         </button>
 
         {/* Grid Resolution Switch */}
-        <div className="flex items-center bg-black/20 rounded-lg p-0.5 border border-white/5">
-          <button
-            onClick={() => onResolutionChange('100k')}
-            className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all ${
-              resolution === '100k'
-                ? isLight
-                  ? 'bg-zinc-900 text-white'
-                  : 'bg-white/20 text-white'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            100K
-          </button>
-          <button
-            onClick={() => onResolutionChange('1M')}
-            className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all ${
-              resolution === '1M'
-                ? 'bg-purple-600 text-white'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            1M
-          </button>
+        <div className="flex items-center bg-black/20 rounded-lg p-0.5 border border-white/5 gap-0.5">
+          {(['100k', '1M', '3M', '4M', '8M', '16M'] as ResolutionTier[]).map((tier) => (
+            <button
+              key={tier}
+              onClick={() => onResolutionChange(tier)}
+              className={`px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold transition-all ${
+                resolution === tier
+                  ? tier === '16M'
+                    ? 'bg-amber-500 text-black font-extrabold shadow-sm'
+                    : tier === '1M' || tier === '4M'
+                    ? 'bg-purple-600 text-white font-extrabold shadow-sm'
+                    : isLight
+                    ? 'bg-zinc-900 text-white'
+                    : 'bg-white/20 text-white'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              {tier.toUpperCase()}
+            </button>
+          ))}
         </div>
 
         {/* Audio Mute Switch */}

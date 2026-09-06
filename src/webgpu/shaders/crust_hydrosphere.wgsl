@@ -619,13 +619,21 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let tangentX = normalize(cross(upVec, n0));
     let tangentY = cross(n0, tangentX);
 
-    // Sample 5-tap cross for central difference normal and discrete Laplacian (explicit LOD for branchless safety)
-    let ts = vec2<f32>(1.0 / 2048.0, 1.0 / 1024.0);
-    let demC = textureSampleLevel(u_demTexture, u_demSampler, input.uv, 0.0);
-    let demR = textureSampleLevel(u_demTexture, u_demSampler, input.uv + vec2<f32>(ts.x, 0.0), 0.0);
-    let demL = textureSampleLevel(u_demTexture, u_demSampler, input.uv - vec2<f32>(ts.x, 0.0), 0.0);
-    let demU = textureSampleLevel(u_demTexture, u_demSampler, input.uv + vec2<f32>(0.0, ts.y), 0.0);
-    let demD = textureSampleLevel(u_demTexture, u_demSampler, input.uv - vec2<f32>(0.0, ts.y), 0.0);
+    // Sample 5-tap cross with screen-space derivative LOD for optimal texture cache coherence and zero moiré
+    let duv_dx = vec2<f32>(du_dx, dv_dx);
+    let duv_dy = vec2<f32>(du_dy, dv_dy);
+    let texSize = vec2<f32>(2048.0, 1024.0);
+    let deltaMax2 = max(dot(duv_dx * texSize, duv_dx * texSize), dot(duv_dy * texSize, duv_dy * texSize));
+    let mipLOD = clamp(0.5 * log2(max(deltaMax2, 1e-4)), 0.0, 11.0);
+
+    let mipStep = exp2(floor(mipLOD));
+    let ts = vec2<f32>(1.0 / 2048.0, 1.0 / 1024.0) * max(1.0, mipStep);
+
+    let demC = textureSampleLevel(u_demTexture, u_demSampler, input.uv, mipLOD);
+    let demR = textureSampleLevel(u_demTexture, u_demSampler, input.uv + vec2<f32>(ts.x, 0.0), mipLOD);
+    let demL = textureSampleLevel(u_demTexture, u_demSampler, input.uv - vec2<f32>(ts.x, 0.0), mipLOD);
+    let demU = textureSampleLevel(u_demTexture, u_demSampler, input.uv + vec2<f32>(0.0, ts.y), mipLOD);
+    let demD = textureSampleLevel(u_demTexture, u_demSampler, input.uv - vec2<f32>(0.0, ts.y), mipLOD);
 
     let isLand = demC.b;
     let landElev = demC.r;

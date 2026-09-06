@@ -86,6 +86,7 @@ export class MockGPUTexture {
     }
     this.format = descriptor.format || 'rgba8unorm';
     this.usage = descriptor.usage || 0;
+    this.mipLevelCount = descriptor.mipLevelCount || 1;
   }
 
   createView(descriptor?: any): MockGPUTextureView {

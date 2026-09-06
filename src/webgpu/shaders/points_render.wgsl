@@ -128,5 +128,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
     }
 
-    return vec4<f32>(finalColor, alpha * backfaceDimming);
+    let camDist = length(sim.u_cameraPos.xyz);
+    let distAtten = select(1.0, 1.0 - smoothstep(18.0, 45.0, camDist) * 0.70, sim.u_layerMode == 0u);
+
+    return vec4<f32>(finalColor, alpha * backfaceDimming * distAtten);
 }

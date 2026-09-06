@@ -6,13 +6,13 @@
 // ============================================================================
 
 import React from 'react';
-import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo } from '../../types';
+import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo, ResolutionTier } from '../../types';
 import { UnifiedRightSidebar } from './UnifiedRightSidebar';
 import { DataLayerToastNotification, ToastMessage } from './DataLayerToastNotification';
 import { DataLayerItem } from './DataLayersDrawer';
 import { BlendModeType, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
 
-export type { DataLayerItem, ToastMessage, LoadedDataInfo };
+export type { DataLayerItem, ToastMessage, LoadedDataInfo, ResolutionTier };
 
 export interface TelemetryHUDProps {
   isZenMode: boolean;
@@ -22,8 +22,8 @@ export interface TelemetryHUDProps {
   backend: 'webgl2' | 'webgpu';
   onBackendChange: (b: 'webgl2' | 'webgpu') => void;
   hasWebGPU: boolean;
-  resolution: '100k' | '1M';
-  onResolutionChange: (r: '100k' | '1M') => void;
+  resolution: ResolutionTier;
+  onResolutionChange: (r: ResolutionTier) => void;
   layerMode: 0 | 1 | 2;
   onLayerModeChange: (l: 0 | 1 | 2) => void;
   mode: SimulationMode;
