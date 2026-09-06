@@ -154,6 +154,8 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         </span>
         <div className="flex items-center gap-2">
           <input
+            id="tide-gauge-water-clarity"
+            name="waterClarity"
             type="range"
             min="0.10"
             max="1.00"

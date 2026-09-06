@@ -585,8 +585,8 @@ describe('Adversarial Challenger M5: HUD State, Telemetry, and Resolution Switch
       const finalNoaa = finalButtons.find(b => b.textContent?.includes('NOAA Wind'));
       const finalStarlink = finalButtons.find(b => b.textContent?.includes('Starlink & ISS'));
 
-      // Both buttons still cleanly respond and carry Live Synced indicators
-      expect(finalNoaa?.textContent).toContain('Live Synced');
+      // Buttons cleanly respond and carry honest status indicators (Physics Model for NOAA, Live Synced for Starlink)
+      expect(finalNoaa?.textContent).toContain('Physics Model');
       expect(finalStarlink?.textContent).toContain('Live Synced');
     });
 
@@ -618,11 +618,11 @@ describe('Adversarial Challenger M5: HUD State, Telemetry, and Resolution Switch
       expect(activeNoaaBtn?.className).toContain('bg-sky-500/20');
       expect(activeNoaaBtn?.className).toContain('shadow-[0_0_10px_rgba(56,189,248,0.25)]');
 
-      // 3. Active stack shows layer with 'Live Synced'
+      // 3. Active stack shows layer with honest 'Physics Model' badge
       const activeStack = container.querySelector('.max-h-72');
-      expect(activeStack?.textContent).toContain('Live Synced');
+      expect(activeStack?.textContent).toContain('Physics Model');
 
-      // 4. Open Catalog Sheet and verify catalog items have 'Live Synced' badges
+      // 4. Open Catalog Sheet and verify catalog items have honest badges
       const catalogBtn = buttons.find(b => b.textContent?.includes('+ Catalog'));
       expect(catalogBtn).toBeDefined();
 
@@ -635,9 +635,9 @@ describe('Adversarial Challenger M5: HUD State, Telemetry, and Resolution Switch
       expect(catalogText).toContain('Real NOAA GFS Surface Winds (0.25°)');
       expect(catalogText).toContain('CelesTrak Active Starlink & ISS Orbits');
 
-      // Count 'Live Synced' badges in the entire DOM (header, 2 buttons, active stack, and 2 catalog entries)
+      // Count 'Live Synced' badges in the entire DOM (header, Starlink quick button, and Starlink catalog entry)
       const allSyncedElements = Array.from(container.querySelectorAll('span')).filter(s => s.textContent?.includes('Live Synced'));
-      expect(allSyncedElements.length).toBeGreaterThanOrEqual(5);
+      expect(allSyncedElements.length).toBeGreaterThanOrEqual(3);
     });
   });
 
