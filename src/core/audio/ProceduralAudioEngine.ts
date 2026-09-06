@@ -30,10 +30,13 @@ export class ProceduralAudioEngine {
 
   constructor(initialMuted: boolean = false) {
     this.isMuted = initialMuted;
-    this.initAudioContext();
+    if (!this.isMuted) {
+      this.initAudioContext();
+    }
   }
 
   private initAudioContext(): void {
+    if (this.ctx) return;
     if (typeof window !== 'undefined' || typeof globalThis !== 'undefined') {
       const AudioCtxClass =
         (typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) ||
@@ -53,6 +56,9 @@ export class ProceduralAudioEngine {
   }
 
   public ensureContextRunning(): void {
+    if (!this.ctx && !this.isMuted) {
+      this.initAudioContext();
+    }
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
     }
@@ -60,6 +66,9 @@ export class ProceduralAudioEngine {
 
   public setMute(muted: boolean): void {
     this.isMuted = muted;
+    if (!muted && !this.ctx) {
+      this.initAudioContext();
+    }
     if (muted && this.flowGainNode && this.ctx) {
       this.flowGainNode.gain.setValueAtTime(0.0001, this.ctx.currentTime);
     }

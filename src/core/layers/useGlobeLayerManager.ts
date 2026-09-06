@@ -157,41 +157,83 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
     [addToast]
   );
 
-  const handleDisplacementScaleChangeDataLayer = useCallback((id: string, displacementScale: number) => {
+  // RAF-coalesced queue for high-frequency continuous slider updates
+  const pendingUpdatesRef = useRef<Map<string, Partial<DataLayerItem>>>(new Map());
+  const rafIdRef = useRef<number | null>(null);
+
+  const flushUpdates = useCallback(() => {
+    if (pendingUpdatesRef.current.size === 0) return;
+    const updates = new Map(pendingUpdatesRef.current);
+    pendingUpdatesRef.current.clear();
+    rafIdRef.current = null;
+
+    if (typeof window !== 'undefined') {
+      delete (window as any).__INDICATRIX_LIVE_UNIFORMS__;
+    }
+
     setDataLayers((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, displacementScale } : l))
+      prev.map((l) => {
+        const patch = updates.get(l.id);
+        return patch ? { ...l, ...patch } : l;
+      })
     );
   }, []);
+
+  const queueUpdate = useCallback(
+    (id: string, patch: Partial<DataLayerItem>) => {
+      const existing = pendingUpdatesRef.current.get(id) || {};
+      pendingUpdatesRef.current.set(id, { ...existing, ...patch });
+
+      // Immediately publish to fast global uniform bus so WebGPU receives zero-latency updates
+      if (typeof window !== 'undefined') {
+        if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+          (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
+        }
+        Object.assign((window as any).__INDICATRIX_LIVE_UNIFORMS__, patch);
+      }
+
+      if (!rafIdRef.current) {
+        rafIdRef.current = requestAnimationFrame(flushUpdates);
+      }
+    },
+    [flushUpdates]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, []);
+
+  const handleDisplacementScaleChangeDataLayer = useCallback((id: string, displacementScale: number) => {
+    queueUpdate(id, { displacementScale });
+  }, [queueUpdate]);
 
   const handleHillshadeChangeDataLayer = useCallback((id: string, sunAzimuth: number, hillshadeIntensity: number, sunAltitude?: number) => {
-    setDataLayers((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, sunAzimuth, hillshadeIntensity, ...(sunAltitude !== undefined ? { sunAltitude } : {}) } : l))
-    );
-  }, []);
+    queueUpdate(id, {
+      sunAzimuth,
+      hillshadeIntensity,
+      ...(sunAltitude !== undefined ? { sunAltitude } : {}),
+    });
+  }, [queueUpdate]);
 
   const handleSeaLevelOffsetChangeDataLayer = useCallback((id: string, seaLevelOffset: number) => {
-    setDataLayers((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, seaLevelOffset } : l))
-    );
-  }, []);
+    queueUpdate(id, { seaLevelOffset });
+  }, [queueUpdate]);
 
   const handleWaterClarityChangeDataLayer = useCallback((id: string, waterClarity: number) => {
-    setDataLayers((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, waterClarity } : l))
-    );
-  }, []);
+    queueUpdate(id, { waterClarity });
+  }, [queueUpdate]);
 
   const handlePeakExponentChangeDataLayer = useCallback((id: string, peakExponent: number) => {
-    setDataLayers((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, peakExponent } : l))
-    );
-  }, []);
+    queueUpdate(id, { peakExponent });
+  }, [queueUpdate]);
 
   const handleAmbientOcclusionChangeDataLayer = useCallback((id: string, ambientOcclusion: number) => {
-    setDataLayers((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, ambientOcclusion } : l))
-    );
-  }, []);
+    queueUpdate(id, { ambientOcclusion });
+  }, [queueUpdate]);
 
   const handleSelectRenderStyle = useCallback(
     (style: DataLayerRenderStyle) => {

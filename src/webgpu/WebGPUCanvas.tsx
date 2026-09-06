@@ -518,8 +518,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           (l) => l.visible && (l.renderStyle || l.category === 'topo' || l.category === 'ocean' || l.category === 'topography' || l.type === 'raster')
         ) || curDataLayers?.find((l) => l.visible);
 
-        const displacementScale = activeDataLayer?.displacementScale ?? 0.08;
-        const hillshadeIntensity = activeDataLayer?.hillshadeIntensity ?? 1.0;
+        const liveOverrides = typeof window !== 'undefined' ? (window as any).__INDICATRIX_LIVE_UNIFORMS__ : null;
+
+        const displacementScale = liveOverrides?.displacementScale ?? activeDataLayer?.displacementScale ?? 0.08;
+        const hillshadeIntensity = liveOverrides?.hillshadeIntensity ?? activeDataLayer?.hillshadeIntensity ?? 1.0;
         const reliefActive = activeDataLayer ? (
           activeDataLayer.category === 'topo' ||
           activeDataLayer.category === 'ocean' ||
@@ -528,12 +530,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           activeDataLayer.renderStyle === 'architectural' ||
           activeDataLayer.renderStyle === 'hybrid'
         ) : false;
-        const seaLevel = activeDataLayer?.seaLevelOffset ?? 0.0;
-        const sunAzimuth = activeDataLayer?.sunAzimuth ?? 315.0;
-        const sunAltitude = activeDataLayer?.sunAltitude ?? 45.0;
-        const ambientOcclusion = activeDataLayer?.ambientOcclusion ?? 0.65;
-        const waterClarity = activeDataLayer?.waterClarity ?? 0.75;
-        const peakExponent = activeDataLayer?.peakExponent ?? 1.4;
+        const seaLevel = liveOverrides?.seaLevelOffset ?? activeDataLayer?.seaLevelOffset ?? 0.0;
+        const sunAzimuth = liveOverrides?.sunAzimuth ?? activeDataLayer?.sunAzimuth ?? 315.0;
+        const sunAltitude = liveOverrides?.sunAltitude ?? activeDataLayer?.sunAltitude ?? 45.0;
+        const ambientOcclusion = liveOverrides?.ambientOcclusion ?? activeDataLayer?.ambientOcclusion ?? 0.65;
+        const waterClarity = liveOverrides?.waterClarity ?? activeDataLayer?.waterClarity ?? 0.75;
+        const peakExponent = liveOverrides?.peakExponent ?? activeDataLayer?.peakExponent ?? 1.4;
         const opacity = activeDataLayer?.opacity ?? 1.0;
         const renderStyle = activeDataLayer?.renderStyle ?? (activeDataLayer?.id === 'hybrid-crust-hydrosphere' ? 'hybrid' : 'architectural');
 

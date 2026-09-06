@@ -128,6 +128,9 @@ export class GPUProfiler {
 
     const currentSlot = this.ringIndex % this.ringSize;
     const destBuffer = this.ringBuffers[currentSlot];
+    const readSlot = (this.ringIndex + 1) % this.ringSize;
+    this.ringIndex++;
+
     if (this.ringSlotStates[currentSlot] === 'MAPPED' || this.ringSlotStates[currentSlot] === 'PENDING_MAP') {
       return;
     }
@@ -140,20 +143,18 @@ export class GPUProfiler {
     this.ringSlotStates[currentSlot] = 'PENDING_GPU';
 
     // 3. Initiate non-blocking read for slot from 2 frames ago (in 3-slot ring: (currentSlot + 1) % 3)
-    const readSlot = (this.ringIndex + 1) % this.ringSize;
-    const readBuffer = this.ringBuffers[readSlot];
-
-    this.ringIndex++;
-
     if (this.ringIndex < this.ringSize) {
       // Ring warmup
       return;
     }
 
+    const readBuffer = this.ringBuffers[readSlot];
+
     if (this.ringSlotStates[readSlot] === 'PENDING_GPU') {
       this.ringSlotStates[readSlot] = 'PENDING_MAP';
       const mapMode = typeof GPUMapMode !== 'undefined' ? GPUMapMode : { READ: 0x0001, WRITE: 0x0002 };
       readBuffer.mapAsync(mapMode.READ).then(() => {
+        if (this.ringSlotStates[readSlot] !== 'PENDING_MAP') return;
         this.ringSlotStates[readSlot] = 'MAPPED';
         const mappedData = readBuffer.getMappedRange().slice(0);
         readBuffer.unmap();

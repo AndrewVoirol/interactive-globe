@@ -1,0 +1,325 @@
+{
+  "metadata": {
+    "generatedAt": "2026-09-06T00:52:38.215Z",
+    "platform": "Apple Silicon M4 Pro (Mac16,7)",
+    "display": "Liquid Retina XDR (120 Hz ProMotion)",
+    "harness": "Calibrated Hardware Benchmark Harness v2",
+    "framesPerScenario": 300,
+    "discardWarmupFrames": 15,
+    "environment": {
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+      "dpr": 2,
+      "screen": {
+        "width": 1728,
+        "height": 1117,
+        "availWidth": 1728,
+        "availHeight": 1084
+      },
+      "canvas": {
+        "width": 3456,
+        "height": 1882,
+        "clientWidth": 1728,
+        "clientHeight": 941,
+        "pixelCount": 6504192
+      },
+      "webgpuFeatures": [
+        "core-features-and-limits",
+        "rg11b10ufloat-renderable",
+        "texture-formats-tier1",
+        "float32-filterable",
+        "texture-formats-tier2",
+        "timestamp-query"
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "id": "SC-01",
+      "name": "Baseline Idle (1M Nodes, Both Layers)",
+      "sampleCount": 285,
+      "meanFps": 58.2,
+      "frameInterval": {
+        "meanMs": 17.17,
+        "p50Ms": 17.1,
+        "p95Ms": 23.8,
+        "p99Ms": 34.2,
+        "minMs": 0.1,
+        "maxMs": 37.6
+      },
+      "pacingBuckets": {
+        "onTime120HzCount": 20,
+        "onTime120HzPct": 7,
+        "missed1VBlankCount": 232,
+        "severeStutterCount": 33,
+        "trueDropCount": 265,
+        "trueDropRatePct": 93,
+        "sustains120Fps": false
+      },
+      "gpuHardware": {
+        "avgComputeMs": 0.708,
+        "p95ComputeMs": 1.541,
+        "avgRenderMs": 14.233,
+        "p95RenderMs": 17.995,
+        "avgTotalGpuMs": 14.942,
+        "p95TotalGpuMs": 19.475
+      },
+      "cpuMainThread": {
+        "avgCpuMs": 0,
+        "p95CpuMs": 0,
+        "maxCpuMs": 0
+      }
+    },
+    {
+      "id": "SC-02",
+      "name": "Clean Terrain (1M Nodes, Solid Crust + Wireframe)",
+      "sampleCount": 285,
+      "meanFps": 96.3,
+      "frameInterval": {
+        "meanMs": 10.38,
+        "p50Ms": 9,
+        "p95Ms": 15.7,
+        "p99Ms": 16.9,
+        "minMs": 3.2,
+        "maxMs": 23.2
+      },
+      "pacingBuckets": {
+        "onTime120HzCount": 219,
+        "onTime120HzPct": 76.8,
+        "missed1VBlankCount": 65,
+        "severeStutterCount": 1,
+        "trueDropCount": 66,
+        "trueDropRatePct": 23.2,
+        "sustains120Fps": false
+      },
+      "gpuHardware": {
+        "avgComputeMs": 0.527,
+        "p95ComputeMs": 0.891,
+        "avgRenderMs": 7.973,
+        "p95RenderMs": 12.122,
+        "avgTotalGpuMs": 8.5,
+        "p95TotalGpuMs": 12.975
+      },
+      "cpuMainThread": {
+        "avgCpuMs": 0,
+        "p95CpuMs": 0,
+        "maxCpuMs": 0
+      }
+    },
+    {
+      "id": "SC-03",
+      "name": "Points Only (1M Nodes, Points Sprites Only)",
+      "sampleCount": 285,
+      "meanFps": 120,
+      "frameInterval": {
+        "meanMs": 8.33,
+        "p50Ms": 8.3,
+        "p95Ms": 9.3,
+        "p99Ms": 9.5,
+        "minMs": 7.2,
+        "maxMs": 9.8
+      },
+      "pacingBuckets": {
+        "onTime120HzCount": 285,
+        "onTime120HzPct": 100,
+        "missed1VBlankCount": 0,
+        "severeStutterCount": 0,
+        "trueDropCount": 0,
+        "trueDropRatePct": 0,
+        "sustains120Fps": true
+      },
+      "gpuHardware": {
+        "avgComputeMs": 0.51,
+        "p95ComputeMs": 0.908,
+        "avgRenderMs": 3.812,
+        "p95RenderMs": 4.877,
+        "avgTotalGpuMs": 4.322,
+        "p95TotalGpuMs": 5.557
+      },
+      "cpuMainThread": {
+        "avgCpuMs": 0,
+        "p95CpuMs": 0,
+        "maxCpuMs": 0
+      }
+    },
+    {
+      "id": "SC-04",
+      "name": "Active Camera Orbit Drag",
+      "sampleCount": 285,
+      "meanFps": 105.4,
+      "frameInterval": {
+        "meanMs": 9.49,
+        "p50Ms": 9.6,
+        "p95Ms": 12,
+        "p99Ms": 14.2,
+        "minMs": 2.7,
+        "maxMs": 20.2
+      },
+      "pacingBuckets": {
+        "onTime120HzCount": 273,
+        "onTime120HzPct": 95.8,
+        "missed1VBlankCount": 12,
+        "severeStutterCount": 0,
+        "trueDropCount": 12,
+        "trueDropRatePct": 4.2,
+        "sustains120Fps": true
+      },
+      "gpuHardware": {
+        "avgComputeMs": 0.424,
+        "p95ComputeMs": 0.523,
+        "avgRenderMs": 7.873,
+        "p95RenderMs": 9.062,
+        "avgTotalGpuMs": 8.296,
+        "p95TotalGpuMs": 9.538
+      },
+      "cpuMainThread": {
+        "avgCpuMs": 0,
+        "p95CpuMs": 0,
+        "maxCpuMs": 0
+      }
+    },
+    {
+      "id": "SC-05",
+      "name": "Continuous Zoom (Wheel In & Out)",
+      "sampleCount": 285,
+      "meanFps": 119.8,
+      "frameInterval": {
+        "meanMs": 8.34,
+        "p50Ms": 8.3,
+        "p95Ms": 9.3,
+        "p99Ms": 12.6,
+        "minMs": 3.4,
+        "maxMs": 17
+      },
+      "pacingBuckets": {
+        "onTime120HzCount": 282,
+        "onTime120HzPct": 98.9,
+        "missed1VBlankCount": 3,
+        "severeStutterCount": 0,
+        "trueDropCount": 3,
+        "trueDropRatePct": 1.1,
+        "sustains120Fps": true
+      },
+      "gpuHardware": {
+        "avgComputeMs": 0.438,
+        "p95ComputeMs": 0.557,
+        "avgRenderMs": 5.617,
+        "p95RenderMs": 9.31,
+        "avgTotalGpuMs": 6.056,
+        "p95TotalGpuMs": 9.712
+      },
+      "cpuMainThread": {
+        "avgCpuMs": 0,
+        "p95CpuMs": 0,
+        "maxCpuMs": 0
+      }
+    },
+    {
+      "id": "SC-06",
+      "name": "Active Morph Unroll (Alpha 0.0 -> 1.0 -> 0.0)",
+      "sampleCount": 285,
+      "meanFps": 119.7,
+      "frameInterval": {
+        "meanMs": 8.35,
+        "p50Ms": 8.3,
+        "p95Ms": 9.4,
+        "p99Ms": 10.8,
+        "minMs": 1.1,
+        "maxMs": 13
+      },
+      "pacingBuckets": {
+        "onTime120HzCount": 284,
+        "onTime120HzPct": 99.6,
+        "missed1VBlankCount": 1,
+        "severeStutterCount": 0,
+        "trueDropCount": 1,
+        "trueDropRatePct": 0.4,
+        "sustains120Fps": true
+      },
+      "gpuHardware": {
+        "avgComputeMs": 0.424,
+        "p95ComputeMs": 0.601,
+        "avgRenderMs": 6.821,
+        "p95RenderMs": 9.422,
+        "avgTotalGpuMs": 7.244,
+        "p95TotalGpuMs": 9.823
+      },
+      "cpuMainThread": {
+        "avgCpuMs": 0,
+        "p95CpuMs": 0,
+        "maxCpuMs": 0
+      }
+    },
+    {
+      "id": "SC-07",
+      "name": "Continuous Slider Dragging (Sun Azimuth & Sea Level)",
+      "sampleCount": 285,
+      "meanFps": 116.7,
+      "frameInterval": {
+        "meanMs": 8.57,
+        "p50Ms": 8.3,
+        "p95Ms": 11.3,
+        "p99Ms": 20.8,
+        "minMs": 2.4,
+        "maxMs": 24.9
+      },
+      "pacingBuckets": {
+        "onTime120HzCount": 277,
+        "onTime120HzPct": 97.2,
+        "missed1VBlankCount": 5,
+        "severeStutterCount": 3,
+        "trueDropCount": 8,
+        "trueDropRatePct": 2.8,
+        "sustains120Fps": true
+      },
+      "gpuHardware": {
+        "avgComputeMs": 0.453,
+        "p95ComputeMs": 0.576,
+        "avgRenderMs": 4.684,
+        "p95RenderMs": 6.274,
+        "avgTotalGpuMs": 5.136,
+        "p95TotalGpuMs": 6.724
+      },
+      "cpuMainThread": {
+        "avgCpuMs": 1.69,
+        "p95CpuMs": 10.5,
+        "maxCpuMs": 23.5
+      }
+    },
+    {
+      "id": "SC-08",
+      "name": "Resolution Scaling (100K Nodes Active Orbit)",
+      "sampleCount": 285,
+      "meanFps": 120,
+      "frameInterval": {
+        "meanMs": 8.33,
+        "p50Ms": 8.3,
+        "p95Ms": 14.1,
+        "p99Ms": 15.3,
+        "minMs": 1.1,
+        "maxMs": 15.5
+      },
+      "pacingBuckets": {
+        "onTime120HzCount": 262,
+        "onTime120HzPct": 91.9,
+        "missed1VBlankCount": 23,
+        "severeStutterCount": 0,
+        "trueDropCount": 23,
+        "trueDropRatePct": 8.1,
+        "sustains120Fps": false
+      },
+      "gpuHardware": {
+        "avgComputeMs": 0,
+        "p95ComputeMs": 0,
+        "avgRenderMs": 0,
+        "p95RenderMs": 0,
+        "avgTotalGpuMs": 0,
+        "p95TotalGpuMs": 0
+      },
+      "cpuMainThread": {
+        "avgCpuMs": 0,
+        "p95CpuMs": 0,
+        "maxCpuMs": 0
+      }
+    }
+  ]
+}
