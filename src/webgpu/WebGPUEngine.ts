@@ -2576,14 +2576,19 @@ export class WebGPUEngine {
       renderPass.setBindGroup(0, this.crustBindGroup);
       renderPass.setVertexBuffer(0, this.crustVertexBuffer);
       renderPass.setIndexBuffer(this.crustIndexBuffer, 'uint32');
-      const indexCountToDraw = params.renderStyle === 'architectural'
+      const indexCountToDraw = (params.renderStyle === 'architectural' || params.renderStyle === 'photoreal')
         ? Math.floor(this.crustIndexCount / 2)
         : this.crustIndexCount;
       renderPass.drawIndexed(indexCountToDraw);
     }
 
     // 2. Render Wireframe Lines
-    if (layerMode === 0 || layerMode === 2) {
+    // In photoreal orbital mode, suppress default wireframe lines so water bodies do not have a floating wireframe net
+    const showLines = params.renderStyle === 'photoreal'
+      ? layerMode === 2 // Only if explicitly set to wireframe-only
+      : (layerMode === 0 || layerMode === 2);
+
+    if (showLines) {
       renderPass.setPipeline(this.linesRenderPipeline);
       renderPass.setBindGroup(0, this.renderBindGroup);
       renderPass.setVertexBuffer(0, outBuffer);

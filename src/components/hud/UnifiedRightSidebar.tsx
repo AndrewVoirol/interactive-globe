@@ -607,6 +607,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       Crevice AO:
                     </span>
                     <input
+                      id="sidebar-crevice-ao"
+                      name="creviceAO"
                       type="range"
                       min="0.0"
                       max="1.0"
@@ -832,6 +834,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <span className="font-mono font-bold opacity-80">{(fractureIntensity ?? 1.0).toFixed(2)}x</span>
                       </div>
                       <input
+                        id="sidebar-fracture-intensity"
+                        name="fractureIntensity"
                         type="range"
                         min="0.5"
                         max="2.5"
@@ -855,6 +859,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <span className="font-mono font-bold opacity-80">{(fluidVortexStrength ?? 1.0).toFixed(2)}x</span>
                       </div>
                       <input
+                        id="sidebar-vortex-strength"
+                        name="vortexStrength"
                         type="range"
                         min="0.2"
                         max="3.0"
@@ -1157,12 +1163,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       >
                         <div className="flex items-center justify-between w-full">
                           <span className="font-bold text-[9px] truncate">NOAA Wind</span>
-                          <span className="flex items-center gap-1 text-[7px] font-bold px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">
-                            <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
-                            Live
+                          <span className="flex items-center gap-1 text-[7px] font-bold px-1 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                            Physics Model
                           </span>
                         </div>
-                        <span className="text-[7.5px] text-zinc-400 truncate">0.25° Velocity</span>
+                        <span className="text-[7.5px] text-zinc-400 truncate">1.0° Velocity</span>
                       </button>
 
                       {/* Starlink Orbits Toggle */}
@@ -1183,7 +1188,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             Live
                           </span>
                         </div>
-                        <span className="text-[7.5px] text-zinc-400 truncate">SGP4 Ribbons</span>
+                        <span className="text-[7.5px] text-zinc-400 truncate">CelesTrak (110 Sats)</span>
                       </button>
                     </div>
                   </div>
@@ -1226,10 +1231,15 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-1.5 ml-4">
-                                  {(layer.id === 'noaa-gfs-wind' || layer.id === 'starlink-iss-orbits') && (
+                                  {layer.id === 'starlink-iss-orbits' && (
                                     <span className="flex items-center gap-1 text-[7px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse shrink-0">
                                       <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
                                       Live Synced
+                                    </span>
+                                  )}
+                                  {layer.id === 'noaa-gfs-wind' && (
+                                    <span className="flex items-center gap-1 text-[7px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded border bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)] shrink-0">
+                                      Physics Model
                                     </span>
                                   )}
                                   {layer.renderStyle && (
@@ -1325,6 +1335,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               <div className="flex items-center gap-1.5">
                                 <span className="text-zinc-500 font-bold">Opacity:</span>
                                 <input
+                                  id={`sidebar-opacity-${layer.id}`}
+                                  name={`opacity-${layer.id}`}
                                   type="range"
                                   min="0"
                                   max="1"
@@ -1341,6 +1353,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               <div className="flex items-center gap-1">
                                 <span className="text-zinc-500 font-bold">Blend:</span>
                                 <select
+                                  id={`sidebar-blend-${layer.id}`}
+                                  name={`blend-${layer.id}`}
                                   value={layer.blendMode ?? preset?.defaultBlendMode ?? 0}
                                   onChange={(e) =>
                                     onBlendModeChangeDataLayer?.(layer.id, parseInt(e.target.value) as BlendModeType)
@@ -1371,6 +1385,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                     3D Relief:
                                   </span>
                                   <input
+                                    id={`sidebar-relief-${layer.id}`}
+                                    name={`displacementScale-${layer.id}`}
                                     type="range"
                                     min="0"
                                     max="0.50"
@@ -1391,6 +1407,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                     Sun Azimuth:
                                   </span>
                                   <input
+                                    id={`sidebar-azimuth-${layer.id}`}
+                                    name={`sunAzimuth-${layer.id}`}
                                     type="range"
                                     min="0"
                                     max="360"
@@ -1418,6 +1436,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                         Crevice AO:
                                       </span>
                                       <input
+                                        id={`sidebar-layer-ao-${layer.id}`}
+                                        name={`layerAo-${layer.id}`}
                                         type="range"
                                         min="0"
                                         max="1"
@@ -1447,6 +1467,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                         Sea Level:
                                       </span>
                                       <input
+                                        id={`sidebar-layer-sealevel-${layer.id}`}
+                                        name={`layerSeaLevel-${layer.id}`}
                                         type="range"
                                         min="-150"
                                         max="100"
@@ -1467,6 +1489,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                         Clarity:
                                       </span>
                                       <input
+                                        id={`sidebar-layer-clarity-${layer.id}`}
+                                        name={`layerClarity-${layer.id}`}
                                         type="range"
                                         min="0.10"
                                         max="1.00"
@@ -1487,6 +1511,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                         Peak Sharp:
                                       </span>
                                       <input
+                                        id={`sidebar-layer-peaksharp-${layer.id}`}
+                                        name={`layerPeakSharp-${layer.id}`}
                                         type="range"
                                         min="1.0"
                                         max="2.0"
@@ -1649,10 +1675,15 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"></span>
                       )}
                       <span>{preset.name}</span>
-                      {(preset.id === 'noaa-gfs-wind' || preset.id === 'starlink-iss-orbits') && (
+                      {preset.id === 'starlink-iss-orbits' && (
                         <span className="flex items-center gap-1 text-[7px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse shrink-0">
                           <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
                           Live Synced
+                        </span>
+                      )}
+                      {preset.id === 'noaa-gfs-wind' && (
+                        <span className="flex items-center gap-1 text-[7px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded border bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)] shrink-0">
+                          Physics Model
                         </span>
                       )}
                     </span>

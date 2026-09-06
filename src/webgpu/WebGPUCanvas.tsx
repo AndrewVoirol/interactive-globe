@@ -423,14 +423,16 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     // the underlying point dataset (/geo-mesh-1m.bin) is already loaded in GPU memory.
     // Retessellate the dual-surface lithosphere and hydrosphere sphere grid dynamically on GPU.
     if (engineRef.current.initialized && loadedBinRef.current === binFile) {
+      const tStart = performance.now();
       const sphereInfo = engineRef.current.rebuildSphereMesh(tier.lat, tier.lon);
+      const tessellationMs = Math.max(1, Math.round(performance.now() - tStart));
       const baseBytes = loadedDataInfoRef.current?.baseVramBytes || 0;
       const totalVramMb = parseFloat(((baseBytes + sphereInfo.memoryBytes) / (1024 * 1024)).toFixed(2));
       callbacksRef.current.onDataLoaded?.({
         pointCount: loadedDataInfoRef.current?.pointCount || sphereInfo.vertexCount,
         lineCount: loadedDataInfoRef.current?.lineCount || sphereInfo.triangleCount,
-        format: 'WebGPU (Zero-Copy 120 FPS)',
-        loadTimeMs: 4,
+        format: 'WebGPU (Dynamic Grid)',
+        loadTimeMs: tessellationMs,
         vramMb: totalVramMb,
       });
       return;
@@ -507,7 +509,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         callbacksRef.current.onDataLoaded?.({
           pointCount,
           lineCount: indexCount / 2,
-          format: 'WebGPU (Zero-Copy 120 FPS)',
+          format: 'WebGPU (Binary Mesh)',
           loadTimeMs: Math.round(t1 - t0),
           vramMb: totalVramMb,
         });
@@ -569,7 +571,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           callbacksRef.current.onDataLoaded?.({
             pointCount: pointsData.length / 3,
             lineCount: lineIndices.length / 2,
-            format: 'WebGPU (Zero-Copy 120 FPS)',
+            format: 'WebGPU (JSON Mesh)',
             loadTimeMs: Math.round(t1 - t0),
             vramMb: totalVramMb,
           });

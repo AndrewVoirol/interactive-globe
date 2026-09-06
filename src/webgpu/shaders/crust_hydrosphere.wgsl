@@ -584,9 +584,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     // Liquid Hydrosphere Surface Pass via Jerlov Radiative Transfer & Caustics
     if (input.surfaceType > 0.5) {
-        // In pure Relief / Architectural mode (u_renderStyle == 0),
-        // hide the liquid hydrosphere surface so bathymetric ocean floor relief is visible
-        if (sim.u_renderStyle == 0u) {
+        // Liquid Hydrosphere surface is only active in Direction B (Hydrosphere depth, u_renderStyle == 1u).
+        // In pure Relief (0) and Photoreal Orbital (2), discard Surface 1 to reveal the underlying crust/NASA imagery.
+        if (sim.u_renderStyle != 1u) {
             discard;
         }
 

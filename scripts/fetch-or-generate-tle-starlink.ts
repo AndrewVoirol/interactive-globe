@@ -146,38 +146,115 @@ export function generateConstellationTLEs(): TLERecord[] {
   return satellites;
 }
 
-export async function fetchOrGenerateTLE(): Promise<void> {
+/**
+ * Parses raw 3-line TLE format text into TLERecord array.
+ */
+export function parseTLEText(rawText: string, maxRecords = 120): TLERecord[] {
+  const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  const records: TLERecord[] = [];
+
+  for (let i = 0; i + 2 < lines.length && records.length < maxRecords; i += 3) {
+    const name = lines[i];
+    const line1 = lines[i + 1];
+    const line2 = lines[i + 2];
+
+    const isDebris = name.includes('DEB') || name.includes('R/B') || name.includes('COOLING');
+    if (!isDebris && line1.startsWith('1 ') && line2.startsWith('2 ') && line1.length === 69 && line2.length === 69) {
+      const c1 = computeTLEChecksum(line1.substring(0, 68));
+      const c2 = computeTLEChecksum(line2.substring(0, 68));
+      if (parseInt(line1[68], 10) === c1 && parseInt(line2[68], 10) === c2) {
+        records.push({ name, line1, line2 });
+      }
+    }
+  }
+
+  return records;
+}
+
+export async function fetchOrGenerateTLE(): Promise<TLERecord[]> {
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  console.log('Generating CelesTrak Starlink & ISS TLE records...');
-  const tles = generateConstellationTLEs();
+  let satellites: TLERecord[] = [];
+
+  try {
+    console.log('Fetching live CelesTrak active TLE ephemeris...');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    // 1. Fetch space stations (ISS & Tiangong)
+    const stationsRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle', {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Indicatrix-Cartography/1.0' },
+    });
+    let stations: TLERecord[] = [];
+    if (stationsRes.ok) {
+      const text = await stationsRes.text();
+      stations = parseTLEText(text, 10);
+    }
+
+    // 2. Fetch active Starlink constellation
+    const starlinkRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?NAME=STARLINK&FORMAT=tle', {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Indicatrix-Cartography/1.0' },
+    });
+    let starlinks: TLERecord[] = [];
+    if (starlinkRes.ok) {
+      const text = await starlinkRes.text();
+      starlinks = parseTLEText(text, 100);
+    }
+
+    clearTimeout(timeout);
+
+    if (stations.length > 0 || starlinks.length > 0) {
+      satellites = [...stations, ...starlinks];
+      console.log(`Successfully fetched ${satellites.length} real active satellites (${stations.length} stations, ${starlinks.length} Starlink) from CelesTrak.`);
+    }
+  } catch (err: any) {
+    console.warn('CelesTrak live fetch failed or timed out; falling back:', err?.message || err);
+  }
+
+  // If live fetch was empty or failed, try existing file or fall back
+  if (satellites.length === 0) {
+    if (fs.existsSync(outputPath)) {
+      try {
+        const cached = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+        if (Array.isArray(cached) && cached.length > 0) {
+          console.log(`Retaining ${cached.length} previously cached CelesTrak records.`);
+          return cached;
+        }
+      } catch {}
+    }
+    satellites = generateConstellationTLEs();
+  }
 
   // Validate format and checksum parity of all records
-  for (const item of tles) {
+  for (const item of satellites) {
     if (item.line1.length !== 69 || item.line2.length !== 69) {
       throw new Error(`Invalid TLE length for ${item.name}: line1=${item.line1.length}, line2=${item.line2.length}`);
     }
     if (parseInt(item.line1[68], 10) !== computeTLEChecksum(item.line1.substring(0, 68))) {
-      throw new Error(`Invalid line 1 checksum for ${item.name}: expected ${item.line1[68]}, got ${computeTLEChecksum(item.line1.substring(0, 68))}`);
+      throw new Error(`Invalid line 1 checksum for ${item.name}`);
     }
     if (parseInt(item.line2[68], 10) !== computeTLEChecksum(item.line2.substring(0, 68))) {
-      throw new Error(`Invalid line 2 checksum for ${item.name}: expected ${item.line2[68]}, got ${computeTLEChecksum(item.line2.substring(0, 68))}`);
+      throw new Error(`Invalid line 2 checksum for ${item.name}`);
     }
   }
 
-  const jsonContent = JSON.stringify(tles, null, 2);
+  const jsonContent = JSON.stringify(satellites, null, 2);
   fs.writeFileSync(outputPath, jsonContent, 'utf8');
 
-  console.log(`Successfully generated ${outputPath}`);
-  console.log(`Total satellites: ${tles.length} records`);
+  console.log(`Successfully written ${outputPath}`);
+  console.log(`Total satellites: ${satellites.length} records`);
+  return satellites;
 }
 
 // Run if executed directly
 if (process.argv[1] && process.argv[1].endsWith('fetch-or-generate-tle-starlink.ts')) {
   fetchOrGenerateTLE().catch((err) => {
-    console.error('Failed to generate TLE records:', err);
+    console.error('Failed to process TLE records:', err);
     process.exit(1);
   });
 }
+
