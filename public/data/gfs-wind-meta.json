@@ -1,28 +1,29 @@
 {
-  "source": "NOAA NCEP Global Forecast System (GFS) 1.0\u00b0 Operational Grid",
-  "provenance": "Live NOMADS Ingestion",
+  "source": "NOAA NCEP Global Forecast System (GFS) 0.25\u00b0 Operational Grid",
+  "provenance": "Live NOMADS 0.25\u00b0 Ingestion",
   "modelRunDate": "20260906",
   "modelRunCycle": "18Z",
   "forecastHour": "f000 (Analysis / Real-Time Initialization)",
-  "ingestedAtUTC": "2026-09-07T00:53:36.802417+00:00",
+  "ingestedAtUTC": "2026-09-07T01:47:54.996398+00:00",
   "gridDimensions": {
-    "lonPoints": 360,
-    "latPoints": 181
+    "lonPoints": 1440,
+    "latPoints": 721,
+    "resolutionDeg": 0.25
   },
   "surfaceWindStats": {
-    "maxSpeedMps": 31.765836715698242,
-    "meanSpeedMps": 6.201820373535156,
-    "uMin": -23.94405746459961,
-    "uMax": 29.53594207763672,
-    "vMin": -28.2407283782959,
-    "vMax": 24.929271697998047
+    "maxSpeedMps": 35.16860580444336,
+    "meanSpeedMps": 6.220972061157227,
+    "uMin": -33.200801849365234,
+    "uMax": 31.079198837280273,
+    "vMin": -34.615352630615234,
+    "vMax": 32.234649658203125
   },
   "jetStreamStats": {
-    "maxSpeedMps": 91.91759490966797,
-    "meanSpeedMps": 21.080364227294922,
-    "uMin": -37.73468780517578,
-    "uMax": 88.56531524658203,
-    "vMin": -52.89734649658203,
-    "vMax": 62.40265655517578
+    "maxSpeedMps": 91.91979217529297,
+    "meanSpeedMps": 21.147459030151367,
+    "uMin": -38.924224853515625,
+    "uMax": 88.57577514648438,
+    "vMin": -53.56787872314453,
+    "vMax": 64.73212432861328
   }
 }

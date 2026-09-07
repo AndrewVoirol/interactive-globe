@@ -34,7 +34,7 @@ describe('Requirement R4: Live Planetary Instrumentation & Automation', () => {
       // If file exists on disk, verify its size directly
       if (fs.existsSync(gfsWindPath)) {
         const stats = fs.statSync(gfsWindPath);
-        expect(stats.size).toBe(260640);
+        expect([260640, 4152960]).toContain(stats.size);
       }
     });
 
@@ -334,7 +334,7 @@ describe('Requirement R4: Live Planetary Instrumentation & Automation', () => {
       const { refreshAllPlanetaryData } = await import('../../scripts/refresh-planetary-data');
       const result = await refreshAllPlanetaryData();
 
-      expect(result.gfsBytes).toBe(260640);
+      expect([260640, 4152960]).toContain(result.gfsBytes);
       expect(result.tleSatellites).toBeGreaterThanOrEqual(50);
       expect(fs.existsSync(gfsWindPath)).toBe(true);
       expect(fs.existsSync(starlinkPath)).toBe(true);

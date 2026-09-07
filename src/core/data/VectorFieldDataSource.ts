@@ -33,11 +33,21 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
   private jetGridBuffer: ArrayBuffer | null = null;
   private jetU16Grid: Uint16Array | null = null;
 
-  public readonly lonPoints = 360;
-  public readonly latPoints = 181;
+  public lonPoints = 360;
+  public latPoints = 181;
 
   constructor(id: string = 'noaa-nws-gfs-wind') {
     this.id = id;
+  }
+
+  private updateGridDimensions(): void {
+    if (this.rawGridBuffer && this.rawGridBuffer.byteLength === 1440 * 721 * 4) {
+      this.lonPoints = 1440;
+      this.latPoints = 721;
+    } else {
+      this.lonPoints = 360;
+      this.latPoints = 181;
+    }
   }
 
   /**
@@ -52,6 +62,7 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
     if (urlOrBuffer instanceof ArrayBuffer) {
       this.rawGridBuffer = urlOrBuffer;
       this.u16Grid = new Uint16Array(this.rawGridBuffer);
+      this.updateGridDimensions();
       return;
     }
 
@@ -64,6 +75,7 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
         if (response.ok) {
           this.rawGridBuffer = await response.arrayBuffer();
           this.u16Grid = new Uint16Array(this.rawGridBuffer);
+          this.updateGridDimensions();
           return;
         }
       } catch {
@@ -77,6 +89,7 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
       if (buf) {
         this.rawGridBuffer = buf;
         this.u16Grid = new Uint16Array(this.rawGridBuffer);
+        this.updateGridDimensions();
         return;
       }
     }
@@ -219,27 +232,34 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
       grid = this.u16Grid!;
     }
 
+    // Determine grid spacing based on buffer length
+    const totalNodes = grid.length / 2;
+    const is025 = totalNodes === 1440 * 721;
+    const lonPoints = is025 ? 1440 : 360;
+    const latPoints = is025 ? 721 : 181;
+    const stepDeg = is025 ? 0.25 : 1.0;
+
     // Normalized coordinates
     const lonWrapped = ((lonDeg % 360) + 360) % 360;
     const latClamped = Math.max(-90.0, Math.min(90.0, latDeg));
 
     // Continuous indices
-    const xCont = lonWrapped; // 0.0 to 359.999
-    const yCont = 90.0 - latClamped; // 0.0 to 180.0
+    const xCont = lonWrapped / stepDeg;
+    const yCont = (90.0 - latClamped) / stepDeg;
 
-    const x0 = Math.floor(xCont) % this.lonPoints;
-    const x1 = (x0 + 1) % this.lonPoints;
+    const x0 = Math.floor(xCont) % lonPoints;
+    const x1 = (x0 + 1) % lonPoints;
     const fx = xCont - Math.floor(xCont);
 
-    const y0 = Math.min(this.latPoints - 1, Math.floor(yCont));
-    const y1 = Math.min(this.latPoints - 1, y0 + 1);
+    const y0 = Math.min(latPoints - 1, Math.floor(yCont));
+    const y1 = Math.min(latPoints - 1, y0 + 1);
     const fy = yCont - y0;
 
     // Sample 4 corner nodes
-    const idx00 = (y0 * this.lonPoints + x0) * 2;
-    const idx10 = (y0 * this.lonPoints + x1) * 2;
-    const idx01 = (y1 * this.lonPoints + x0) * 2;
-    const idx11 = (y1 * this.lonPoints + x1) * 2;
+    const idx00 = (y0 * lonPoints + x0) * 2;
+    const idx10 = (y0 * lonPoints + x1) * 2;
+    const idx01 = (y1 * lonPoints + x0) * 2;
+    const idx11 = (y1 * lonPoints + x1) * 2;
 
     const u00 = decodeFloat16(grid[idx00]);
     const v00 = decodeFloat16(grid[idx00 + 1]);
@@ -330,12 +350,12 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
       attributes,
       meta: {
         parameter: 'wind_u_v',
-        gridResolutionDeg: 1.0,
+        gridResolutionDeg: this.lonPoints === 1440 ? 0.25 : 1.0,
         uMin,
         uMax,
         vMin,
         vMax,
-        source: 'NOAA NCEP GFS 1.0° Operational Grid',
+        source: this.lonPoints === 1440 ? 'NOAA NCEP GFS 0.25° Operational Grid' : 'NOAA NCEP GFS 1.0° Operational Grid',
       },
     };
 

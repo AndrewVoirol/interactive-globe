@@ -1202,7 +1202,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             Physics Model
                           </span>
                         </div>
-                        <span className="text-[7.5px] text-zinc-400 truncate">1.0° Velocity</span>
+                        <span className="text-[7.5px] text-zinc-400 truncate">0.25° Operational</span>
                       </button>
 
                       {/* Starlink Orbits Toggle */}

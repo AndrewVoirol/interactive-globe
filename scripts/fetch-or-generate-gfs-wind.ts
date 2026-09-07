@@ -190,7 +190,7 @@ export async function fetchOrGenerateGFS(): Promise<void> {
       const jetPath = path.join(outputDir, 'gfs-jetstream-latest.bin');
       const multiPath = path.join(outputDir, 'gfs-multistratum-latest.bin');
 
-      if (surfStats.size === 260640 && fs.existsSync(jetPath) && fs.existsSync(multiPath)) {
+      if ((surfStats.size === 4152960 || surfStats.size === 260640) && fs.existsSync(jetPath) && fs.existsSync(multiPath)) {
         console.log('[OK] Live NOAA GFS planetary wind velocity fields successfully ingested.');
         return;
       }
