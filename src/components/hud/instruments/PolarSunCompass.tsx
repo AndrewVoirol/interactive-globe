@@ -115,16 +115,16 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
 
   return (
     <div className={`p-2 rounded-[3px] border shadow-sm transition-all ${tokens.cardBg}`}>
-      <div className="flex items-center justify-between text-[9px] mb-1.5 font-mono-draft">
+      <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
         <span className={`font-bold flex items-center gap-1.5 ${tokens.accent}`}>
           <span
-            className={`w-1.5 h-1.5 rounded-full bg-[#c5a059] ${
-              isSweetspot ? 'shadow-[0_0_8px_rgba(197,160,89,0.9)] animate-pulse' : ''
+            className={`w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] ${
+              isSweetspot ? 'shadow-sm animate-pulse' : ''
             }`}
           ></span>
           Sun Compass
         </span>
-        <div className="flex items-center gap-1 font-mono text-[8px]">
+        <div className="flex items-center gap-1 font-mono text-nano">
           <span className={tokens.textColor}>Sun Azimuth:</span>
           <span className={`font-bold tabular-nums ${tokens.valColor}`}>{Math.round(azimuth)}°</span>
           <span className="opacity-40">•</span>
@@ -164,10 +164,10 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
           ></div>
 
           {/* Cardinal Directions */}
-          <span className={`absolute top-0.5 text-[7px] font-serif-title font-bold pointer-events-none ${tokens.textColor}`}>N</span>
-          <span className={`absolute right-1 text-[7px] font-serif-title font-bold pointer-events-none ${tokens.textColor}`}>E</span>
-          <span className={`absolute bottom-0.5 text-[7px] font-serif-title font-bold pointer-events-none ${tokens.textColor}`}>S</span>
-          <span className={`absolute left-1 text-[7px] font-serif-title font-bold pointer-events-none ${tokens.textColor}`}>W</span>
+          <span className={`absolute top-0.5 text-nano font-cartouche font-bold pointer-events-none ${tokens.textColor}`}>N</span>
+          <span className={`absolute right-1 text-nano font-cartouche font-bold pointer-events-none ${tokens.textColor}`}>E</span>
+          <span className={`absolute bottom-0.5 text-nano font-cartouche font-bold pointer-events-none ${tokens.textColor}`}>S</span>
+          <span className={`absolute left-1 text-nano font-cartouche font-bold pointer-events-none ${tokens.textColor}`}>W</span>
 
           {/* NW Imhof Sweetspot Notch (315° / 45°) */}
           <div
@@ -185,7 +185,7 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-[7px] font-mono-draft mt-1 px-1 opacity-75">
+      <div className="flex items-center justify-between text-nano font-mono mt-1 px-1 opacity-75">
         <span>IMHOF NW SWEETSPOT (315° / 45°)</span>
         <button
           onClick={() => onChange(315, 45)}

@@ -280,9 +280,12 @@ export default function App() {
 
   return (
     <CursorProvider>
-      <div className={`relative w-screen h-screen flex flex-col font-mono overflow-hidden select-none transition-colors duration-500 ${
-        theme === 2 ? 'paper-cyanotype text-[#E8EDF2]' : (theme === 1 ? 'paper-cream text-[#2B2B2B]' : 'paper-tharp text-[#F0EDE6]')
-      }`}>
+      <div
+        data-theme={theme === 2 ? 'cyanotype' : theme === 1 ? 'cream' : 'tharp'}
+        className={`relative w-screen h-screen flex flex-col font-mono overflow-hidden select-none transition-colors duration-500 ${
+          theme === 2 ? 'paper-cyanotype text-[#E8EDF2]' : (theme === 1 ? 'paper-cream text-[#2B2B2B]' : 'paper-tharp text-[#F0EDE6]')
+        }`}
+      >
         {/* Outer Archival Neatline & Geodetic Corner Marks */}
         <div className={`absolute inset-2 pointer-events-none border border-current/25 z-20 transition-colors duration-500 m-1 ${neatlineTheme.border}`}>
           <div className="absolute inset-1 border border-current/15"></div>

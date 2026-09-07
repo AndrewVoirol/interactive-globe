@@ -84,7 +84,7 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
         {/* Dedicated WebGPU Instrument Badge (Retiring WebGL2 Switcher) */}
         <div
           title="Active Instrument: WebGPU WGSL Compute & Rendering"
-          className="px-2.5 py-1 rounded-lg text-[10px] font-bold border border-purple-500/50 bg-purple-600/30 text-purple-200 flex items-center gap-1.5 shadow-[0_0_8px_rgba(168,85,247,0.3)] select-none shrink-0"
+          className="px-2.5 py-1 rounded-lg text-body font-bold border border-purple-500/50 bg-purple-600/30 text-purple-200 flex items-center gap-1.5 shadow-[0_0_8px_rgba(168,85,247,0.3)] select-none shrink-0"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
           <span>WebGPU</span>
@@ -92,17 +92,17 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
 
         {/* 3D Terrain Vertex Count & Active Particle Compute Nodes Telemetry */}
         <div
-          className={`flex items-center gap-2 px-2 py-1 rounded-lg border text-[9px] font-mono shrink-0 ${
+          className={`flex items-center gap-2 px-2 py-1 rounded-lg border text-micro font-mono shrink-0 ${
             isLight ? 'bg-zinc-100 border-zinc-200 text-zinc-700' : 'bg-black/30 border-white/5 text-zinc-300'
           }`}
         >
           <span className="flex items-center gap-1" title="Dual-surface 3D terrain vertex mesh density">
-            <span className="opacity-60 text-[8px] uppercase">Mesh:</span>
+            <span className="opacity-60 text-nano uppercase">Mesh:</span>
             <span className="text-purple-400 dark:text-purple-300 font-bold">{terrainVerts}</span>
           </span>
           <span className="text-white/20 font-light">|</span>
           <span className="flex items-center gap-1" title="Active WebGPU particle compute nodes">
-            <span className="opacity-60 text-[8px] uppercase">Sim:</span>
+            <span className="opacity-60 text-nano uppercase">Sim:</span>
             <span className="text-cyan-400 dark:text-cyan-300 font-bold">{computeNodes}</span>
           </span>
         </div>
@@ -113,7 +113,7 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
             <button
               key={tier}
               onClick={() => onResolutionChange(tier)}
-              className={`px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold transition-all ${
+              className={`px-1.5 py-0.5 rounded text-nano font-bold transition-all ${
                 resolution === tier
                   ? tier === '16M'
                     ? 'bg-amber-500 text-black font-extrabold shadow-sm'

@@ -109,12 +109,12 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
 
   return (
     <div className={`p-2 rounded-[3px] border shadow-sm transition-all ${tokens.cardBg}`}>
-      <div className="flex items-center justify-between text-[9px] mb-1.5 font-mono-draft">
+      <div className="flex items-center justify-between text-micro mb-1.5 font-mono-draft">
         <span className={`font-bold flex items-center gap-1.5 ${tokens.accent}`}>
-          <span className="w-1.5 h-1.5 rounded-full bg-[#c5a059] animate-pulse"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse"></span>
           Hypsometric Relief
         </span>
-        <div className="flex items-center gap-1 font-mono text-[8px]">
+        <div className="flex items-center gap-1 font-mono text-nano">
           <span className={tokens.textColor}>3D Relief:</span>
           <span className={`font-bold tabular-nums ${tokens.valColor}`}>
             {displacementScale.toFixed(2)}x

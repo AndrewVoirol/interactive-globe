@@ -12,6 +12,8 @@ import { Sun, Moon } from 'lucide-react';
 import { PolarSunCompass } from './instruments/PolarSunCompass';
 import { HypsometricReliefCurve } from './instruments/HypsometricReliefCurve';
 import { BathymetricTideGauge } from './instruments/BathymetricTideGauge';
+import { TactileSwitch } from '../ui/TactileSwitch';
+import { VernierSlider } from '../ui/VernierSlider';
 
 const PIGMENT_SWATCHES: Record<0 | 1 | 2, Array<{ name: string; hex: string; depth: string }>> = {
   0: [
@@ -37,7 +39,7 @@ const PIGMENT_SWATCHES: Record<0 | 1 | 2, Array<{ name: string; hex: string; dep
   ],
 };
 
-// --- Tactile Instrument Components ---
+// --- Tactile Instrument Components (Delegating to Standardized UI Primitives) ---
 
 interface KnurledSlideSwitchProps {
   checked: boolean;
@@ -45,7 +47,7 @@ interface KnurledSlideSwitchProps {
   title: string;
   label: string;
   sublabel?: string;
-  theme: 0 | 1 | 2;
+  theme?: 0 | 1 | 2;
   isLight?: boolean;
 }
 
@@ -55,87 +57,15 @@ const KnurledSlideSwitch: React.FC<KnurledSlideSwitchProps> = ({
   title,
   label,
   sublabel,
-  theme,
-  isLight,
 }) => {
   return (
-    <div
-      onClick={onChange}
+    <TactileSwitch
+      checked={checked}
+      onChange={() => onChange?.()}
       title={title}
-      role="switch"
-      aria-checked={checked}
-      className={`tactile-btn group flex items-center justify-between py-1.5 px-2 rounded-[2px] border cursor-pointer select-none transition-all ${
-        checked
-          ? theme === 1
-            ? 'bg-[#ede3d4] border-[#b8ad98]'
-            : theme === 2
-            ? 'bg-[#152a40] border-[#386087]'
-            : 'bg-[#13222f] border-[#2e536e]'
-          : isLight
-          ? 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'
-          : 'bg-white/[0.02] border-white/10 hover:bg-white/[0.04]'
-      }`}
-    >
-      <div className="flex flex-col min-w-0 pr-2">
-        <span
-          className={`font-bold text-[9px] truncate transition-colors ${
-            checked
-              ? theme === 1
-                ? 'text-[#2b241a]'
-                : theme === 2
-                ? 'text-[#a5d5ff]'
-                : 'text-cyan-300'
-              : isLight
-              ? 'text-zinc-600'
-              : 'text-zinc-400'
-          }`}
-        >
-          {label}
-        </span>
-        {sublabel && (
-          <span className="text-[7px] opacity-60 font-mono truncate">
-            {sublabel}
-          </span>
-        )}
-      </div>
-
-      {/* 3-Ridge Machined Knurled Slide Track & Thumb */}
-      <div
-        className={`knurl-switch w-8 h-4 rounded-[2px] border relative shrink-0 shadow-inner flex items-center px-0.5 ${
-          checked
-            ? theme === 1
-              ? 'bg-[#c8b9a6] border-[#8c4820]'
-              : theme === 2
-              ? 'bg-[#203a57] border-[#4fa3e3]'
-              : 'bg-[#1a3848] border-cyan-400'
-            : isLight
-            ? 'bg-zinc-200 border-zinc-300'
-            : 'bg-black/40 border-white/15'
-        }`}
-      >
-        <div
-          className={`knurl-thumb w-3 h-3 rounded-[1px] border shadow-md flex items-center justify-center ${
-            checked
-              ? 'translate-x-3.5 ' +
-                (theme === 1
-                  ? 'bg-[#8c4820] border-[#5a2c10] text-[#fdfcf9]'
-                  : theme === 2
-                  ? 'bg-[#4fa3e3] border-[#7ec0f2] text-black'
-                  : 'bg-cyan-400 border-cyan-300 text-black')
-              : 'translate-x-0 ' +
-                (isLight
-                  ? 'bg-zinc-100 border-zinc-300 text-zinc-500'
-                  : 'bg-zinc-700 border-zinc-600 text-zinc-400')
-          }`}
-        >
-          <div className="w-1.5 h-1.5 flex flex-col justify-between opacity-70">
-            <span className="knurl-ridge" />
-            <span className="knurl-ridge" />
-            <span className="knurl-ridge" />
-          </div>
-        </div>
-      </div>
-    </div>
+      label={label}
+      sublabel={sublabel}
+    />
   );
 };
 
@@ -149,7 +79,7 @@ interface VernierSliderWithStepperProps {
   step: number;
   readout: string;
   onChange?: (v: number) => void;
-  theme: 0 | 1 | 2;
+  theme?: 0 | 1 | 2;
   isLight?: boolean;
 }
 
@@ -163,99 +93,35 @@ const VernierSliderWithStepper: React.FC<VernierSliderWithStepperProps> = ({
   step,
   readout,
   onChange,
-  theme,
-  isLight,
 }) => {
-  const handleStep = (dir: -1 | 1) => {
-    if (!onChange) return;
-    const next = Math.max(min, Math.min(max, parseFloat((value + dir * step).toFixed(3))));
-    onChange(next);
-  };
-
   return (
-    <div
-      className={`p-2 rounded-[2px] border space-y-1.5 transition-all ${
-        isLight ? 'bg-zinc-50/80 border-zinc-200' : 'bg-white/[0.02] border-white/10'
-      }`}
-    >
-      <div className="flex items-center justify-between text-[9px]">
-        <div className="flex flex-col">
-          <span
-            className={`font-bold uppercase tracking-wider ${
-              isLight ? 'text-zinc-700' : 'text-zinc-300'
-            }`}
-          >
-            {label}
-          </span>
-          {sublabel && <span className="text-[7px] opacity-60 font-mono">{sublabel}</span>}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => handleStep(-1)}
-            title={`Decrease ${label}`}
-            className="tactile-press w-4 h-4 rounded-[1px] border border-current/25 hover:border-current flex items-center justify-center font-bold text-[9px] leading-none select-none"
-          >
-            -
-          </button>
-          <span className="font-mono font-bold tabular-nums text-[10px] min-w-[36px] text-right">
-            {readout}
-          </span>
-          <button
-            type="button"
-            onClick={() => handleStep(1)}
-            title={`Increase ${label}`}
-            className="tactile-press w-4 h-4 rounded-[1px] border border-current/25 hover:border-current flex items-center justify-center font-bold text-[9px] leading-none select-none"
-          >
-            +
-          </button>
-        </div>
-      </div>
-
-      <div className="relative pt-0.5">
-        <input
-          id={id}
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={(e) => onChange?.(parseFloat(e.target.value))}
-          className="w-full slider-archival h-1 cursor-pointer block"
-        />
-        {/* Calibrated Millimeter Ticks */}
-        <div className="vernier-ticks pt-0.5">
-          <span>|</span><span>·</span><span>·</span><span>·</span><span>|</span>
-          <span>·</span><span>·</span><span>·</span><span>|</span><span>·</span>
-          <span>·</span><span>·</span><span>|</span>
-        </div>
-      </div>
-    </div>
+    <VernierSlider
+      id={id}
+      label={label}
+      sublabel={sublabel}
+      value={value}
+      min={min}
+      max={max}
+      step={step}
+      readout={readout}
+      onChange={onChange}
+    />
   );
 };
 
-const OpticalReticlePip: React.FC<{ active: boolean; theme: 0 | 1 | 2 }> = ({ active, theme }) => {
+const OpticalReticlePip: React.FC<{ active: boolean; theme?: 0 | 1 | 2 }> = ({ active }) => {
   return (
     <div
       className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 transition-colors shadow-sm ${
         active
-          ? theme === 1
-            ? 'border-[#8c4820] bg-[#8c4820]/15'
-            : theme === 2
-            ? 'border-[#4fa3e3] bg-[#4fa3e3]/20 shadow-[0_0_8px_rgba(79,163,227,0.4)]'
-            : 'border-cyan-400 bg-cyan-400/20 shadow-[0_0_8px_rgba(0,229,255,0.4)]'
+          ? 'border-[var(--theme-reticle-ring-active)] bg-[var(--theme-reticle-ring-active)]/20 shadow-[0_0_8px_var(--theme-reticle-ring-active)]'
           : 'border-current/30 bg-transparent opacity-50'
       }`}
     >
       <span
-        className={`reticle-pip w-1.5 h-1.5 rounded-full ${
+        className={`reticle-pip w-1.5 h-1.5 rounded-full transition-transform ${
           active
-            ? 'scale-100 opacity-100 ' +
-              (theme === 1
-                ? 'bg-[#8c4820]'
-                : theme === 2
-                ? 'bg-[#4fa3e3]'
-                : 'bg-cyan-300')
+            ? 'scale-100 opacity-100 bg-[var(--theme-reticle-pip-active)]'
             : 'scale-0 opacity-0 bg-transparent'
         }`}
       />
@@ -528,51 +394,30 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
             isSidebarOpen ? 'max-h-[calc(100vh-2rem)]' : 'max-h-[105px] overflow-hidden'
           } ${
             theme === 1
-              ? 'paper-cream border-[#cfc4af] text-[#2b2b2b] shadow-2xl shadow-[#d8cfbc]/40'
+              ? 'paper-cream border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#d8cfbc]/40'
               : theme === 2
-              ? 'paper-cyanotype border-[#263c54] text-[#e8edf2] shadow-2xl shadow-[#071320]/80'
-              : 'paper-tharp border-[#333e4d] text-[#f0ede6] shadow-2xl shadow-[#080d12]/80'
+              ? 'paper-cyanotype border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#071320]/80'
+              : 'paper-tharp border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#080d12]/80'
           }`}
+          style={{
+            fontFamily: 'var(--theme-font-telemetry)',
+          }}
         >
           {/* Subtle Inner Drafting Neatline Rule */}
-          <div
-            className={`pointer-events-none absolute inset-1 rounded-[2px] border ${
-              theme === 1
-                ? 'border-[#cfc4af]/40'
-                : theme === 2
-                ? 'border-[#3b597a]/30'
-                : 'border-white/5'
-            }`}
-          />
+          <div className="pointer-events-none absolute inset-1 rounded-[2px] border border-[var(--theme-neatline-border)] opacity-30" />
 
           {/* --------------------------------------------------------------------- */}
           {/* Row 1: Engine Controls & System Status Bar                            */}
           {/* --------------------------------------------------------------------- */}
-          <div
-            className={`flex items-center justify-between pb-2 border-b gap-1.5 ${
-              theme === 1 ? 'border-[#d8cfbc]' : theme === 2 ? 'border-[#263c54]' : 'border-[#333e4d]'
-            }`}
-          >
+          <div className="flex items-center justify-between pb-2 border-b border-[var(--theme-panel-header-border)] gap-1.5">
             {/* Left Controls: Telemetry Status & Engine Config */}
             <div className="flex items-center gap-1.5 min-w-0">
               {/* Live FPS Badge (Fixed width, cohesive gap, no layout shift) */}
-              <div
-                className={`flex items-center justify-center gap-1.5 w-16 shrink-0 px-1.5 py-1 rounded-[2px] border font-bold text-[10px] tabular-nums transition-colors ${
-                  theme === 1
-                    ? 'bg-[#f2ebd9] border-[#d8cfbc] text-[#2b241a]'
-                    : theme === 2
-                    ? 'bg-[#0f1c2b] border-[#263c54] text-[#e8edf2]'
-                    : 'bg-[#0e1620] border-[#333e4d] text-[#f0ede6]'
-                }`}
-              >
+              <div className="flex items-center justify-center gap-1.5 w-16 shrink-0 px-1.5 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-primary)] font-bold text-nano tabular-nums transition-colors">
                 <span
                   className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                     fps >= 100
-                      ? theme === 2
-                        ? 'bg-[#4f79a3] shadow-[0_0_8px_rgba(79,121,163,0.8)]'
-                        : theme === 1
-                        ? 'bg-[#8c4820] shadow-[0_0_8px_rgba(140,72,32,0.6)]'
-                        : 'bg-[#3b788a] shadow-[0_0_8px_rgba(59,120,138,0.8)]'
+                      ? 'bg-[var(--theme-text-accent)] shadow-[0_0_8px_rgba(197,160,89,0.8)]'
                       : fps >= 55
                       ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
                       : 'bg-amber-400'
@@ -581,11 +426,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 <span
                   className={`w-5 text-right tabular-nums ${
                     fps >= 100
-                      ? theme === 2
-                        ? 'text-[#a5d5ff] font-extrabold'
-                        : theme === 1
-                        ? 'text-[#8c4820] font-extrabold'
-                        : 'text-[#3b788a] font-extrabold'
+                      ? 'text-[var(--theme-text-accent)] font-extrabold'
                       : fps >= 55
                       ? 'text-emerald-500 font-extrabold'
                       : 'text-amber-500 font-extrabold'
@@ -593,7 +434,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 >
                   {fps}
                 </span>
-                <span className="text-[8px] font-normal opacity-60">FPS</span>
+                <span className="text-nano font-normal opacity-60">FPS</span>
               </div>
 
               {/* Backend Toggle (WebGL2 vs WebGPU) */}
@@ -607,46 +448,30 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     ? 'Active Engine: WebGPU WGSL Compute'
                     : 'Active Engine: WebGL2 Fallback'
                 }
-                className={`px-2 py-1 rounded-[2px] text-[10px] font-bold border transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-2 py-1 rounded-[2px] text-micro font-bold border transition-all flex items-center gap-1.5 shrink-0 ${
                   backend === 'webgpu'
-                    ? theme === 2
-                      ? 'bg-[#203a57] text-[#e8edf2] border-[#4f79a3] shadow-sm ring-1 ring-[#4f79a3]/50'
-                      : theme === 1
-                      ? 'bg-[#e6dcce] text-[#2b241a] border-[#b8ad98] shadow-sm ring-1 ring-[#8c4820]/40'
-                      : 'bg-[#1b2b3a] text-[#f0ede6] border-[#3b788a] shadow-sm ring-1 ring-[#3b788a]/50'
-                    : isLight
-                    ? 'bg-zinc-100 border-zinc-300 text-zinc-800 hover:bg-zinc-200 hover:border-zinc-400'
-                    : 'bg-white/5 border-white/10 text-zinc-300 hover:text-white hover:border-white/30'
+                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
+                    : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-control-hover-border)]'
                 }`}
               >
                 <span
                   className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    backend === 'webgpu' ? 'bg-[#c5a059] animate-pulse' : 'bg-emerald-400'
+                    backend === 'webgpu' ? 'bg-[var(--theme-text-accent)] animate-pulse' : 'bg-emerald-400'
                   }`}
                 ></span>
                 <span>{backend === 'webgpu' ? 'WebGPU' : 'WebGL2'}</span>
-                <span className="text-[9px] opacity-60 font-normal">⇄</span>
+                <span className="text-nano opacity-60 font-normal">⇄</span>
               </button>
 
               {/* Grid Resolution Switch */}
-              <div
-                className={`flex items-center rounded-[2px] p-0.5 border shrink-0 gap-0.5 ${
-                  theme === 1 ? 'bg-[#eee5d0] border-[#d8cfbc]' : theme === 2 ? 'bg-[#0d1724] border-[#263c54]' : 'bg-[#0e141c] border-[#333e4d]'
-                }`}
-              >
+              <div className="flex items-center rounded-[2px] p-0.5 border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] shrink-0 gap-0.5">
                 <button
                   onClick={() => onResolutionChange('100k')}
                   title="100,000 Fibonacci Nodes (High Performance)"
-                  className={`px-1.5 py-0.5 rounded-[2px] text-[8px] sm:text-[9px] font-bold transition-all ${
+                  className={`px-1.5 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
                     resolution === '100k'
-                      ? theme === 1
-                        ? 'bg-[#2b241a] text-[#fdfcf9] shadow-sm'
-                        : theme === 2
-                        ? 'bg-[#294d75] text-[#f0f4f8] border border-[#4f79a3]'
-                        : 'bg-[#22384a] text-[#f0ede6] border border-[#3b788a]'
-                      : isLight
-                      ? 'text-zinc-500 hover:text-zinc-900'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                      ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm'
+                      : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)] hover:bg-[var(--theme-control-hover-bg)]'
                   }`}
                 >
                   100K
@@ -654,16 +479,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 <button
                   onClick={() => onResolutionChange('1M')}
                   title="1,000,000 Volumetric Grid Nodes (Standard Resolution)"
-                  className={`px-1.5 py-0.5 rounded-[2px] text-[8px] sm:text-[9px] font-bold transition-all ${
+                  className={`px-1.5 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
                     resolution === '1M'
-                      ? theme === 1
-                        ? 'bg-[#2b241a] text-[#fdfcf9] shadow-sm'
-                        : theme === 2
-                        ? 'bg-[#294d75] text-[#f0f4f8] border border-[#4f79a3]'
-                        : 'bg-[#22384a] text-[#f0ede6] border border-[#3b788a]'
-                      : isLight
-                      ? 'text-zinc-500 hover:text-zinc-900'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                      ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm'
+                      : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)] hover:bg-[var(--theme-control-hover-bg)]'
                   }`}
                 >
                   1M
@@ -672,14 +491,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   <button
                     onClick={() => onResolutionChange(resolution)}
                     title={`${resolution.toUpperCase()} Volumetric Nodes (Active)`}
-                    className={`px-1.5 py-0.5 rounded-[2px] text-[8px] sm:text-[9px] font-bold transition-all ${
+                    className={`px-1.5 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
                       resolution === '16M'
                         ? 'bg-amber-500 text-black font-extrabold shadow-sm'
-                        : theme === 1
-                        ? 'bg-[#2b241a] text-[#fdfcf9] shadow-sm'
-                        : theme === 2
-                        ? 'bg-[#294d75] text-[#f0f4f8] border border-[#4f79a3]'
-                        : 'bg-[#22384a] text-[#f0ede6] border border-[#3b788a]'
+                        : 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm'
                     }`}
                   >
                     {resolution.toUpperCase()}
@@ -701,12 +516,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   }
                   className={`p-1.5 rounded-[2px] border transition-all flex items-center shrink-0 ${
                     !isAudioMuted
-                      ? isLight
-                        ? 'border-emerald-500 bg-emerald-100 text-emerald-900 ring-1 ring-emerald-500 shadow-sm'
-                        : 'border-emerald-400 bg-emerald-500/25 text-emerald-300 ring-1 ring-emerald-400/50 shadow-[0_0_10px_rgba(52,211,153,0.3)]'
-                      : isLight
-                      ? 'border-zinc-300 bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-800'
-                      : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white hover:border-white/25'
+                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40 shadow-sm'
+                      : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
                   }`}
                 >
                   {!isAudioMuted ? (
@@ -733,13 +544,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     ? 'Switch to Light Monochrome Palette (Press T)'
                     : 'Switch to Light Monochrome Palette (Press T)'
                 }
-                className={`px-2 py-1 rounded-[2px] border text-[10px] font-mono tracking-tight transition-all flex items-center gap-1.5 shrink-0 ${
-                  theme === 1
-                    ? 'border-[#c8b9a6] bg-[#f4ede2] text-[#2c221e] hover:bg-[#ede3d4] shadow-sm'
-                    : theme === 2
-                    ? 'border-[#386b99] bg-[#0d223a] text-[#8ec5fc] hover:bg-[#122e4e]'
-                    : 'border-white/10 bg-white/5 text-zinc-300 hover:text-cyan-300 hover:bg-white/10 hover:border-white/25'
-                }`}
+                className="px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-control-hover-border)] text-nano font-mono tracking-tight transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
               >
                 <span
                   className="w-2 h-2 rounded-full shrink-0"
@@ -748,7 +553,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     boxShadow: theme === 0 ? '0 0 6px rgba(0,229,255,0.6)' : theme === 1 ? 'none' : '0 0 6px rgba(79,163,227,0.6)'
                   }}
                 />
-                <span className="font-bold text-[9px] uppercase tracking-wider">
+                <span className="font-bold text-nano uppercase tracking-wider text-[var(--theme-text-primary)]">
                   {theme === 0 ? 'Tharp' : theme === 1 ? 'Cream' : 'Cyanotype'}
                 </span>
               </button>
@@ -758,11 +563,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
           {/* --------------------------------------------------------------------- */}
           {/* Row 2: Title & Primary Window Controls                                */}
           {/* --------------------------------------------------------------------- */}
-          <div
-            className={`flex items-center justify-between py-2 border-b ${
-              isLight ? 'border-zinc-200' : 'border-white/10'
-            }`}
-          >
+          <div className="flex items-center justify-between py-2 border-b border-[var(--theme-panel-header-border)]">
             <div className="flex items-center gap-2">
               <span
                 className={`w-2.5 h-2.5 rounded-full ${
@@ -777,11 +578,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]'
                 } animate-pulse`}
               ></span>
-              <span
-                className={`text-[11px] font-black tracking-wider uppercase ${
-                  isLight ? 'text-zinc-900' : 'text-zinc-100'
-                }`}
-              >
+              <span className="cartouche-title text-title font-black tracking-wider uppercase text-[var(--theme-text-primary)]">
                 INDICATRIX // CONTROLS
               </span>
             </div>
@@ -790,21 +587,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               <button
                 onClick={onZenToggle}
                 title="Zen Presentation Mode (Press H to hide UI)"
-                className={`text-[10px] font-bold px-2 py-1 rounded-[2px] border transition-all ${
-                  isLight
-                    ? 'border-zinc-300 bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-                    : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white hover:border-white/30'
-                }`}
+                className="text-nano font-bold px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] transition-all"
               >
                 Zen (H)
               </button>
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className={`tactile-btn text-[10px] font-bold px-2 py-1 rounded-[2px] border transition-all ${
-                  isLight
-                    ? 'border-zinc-300 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'
-                    : 'border-white/10 text-zinc-400 hover:text-white hover:border-white/30'
-                }`}
+                className="tactile-btn text-nano font-bold px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] transition-all"
                 title={isSidebarOpen ? 'Roll up drafting panel' : 'Unfurl drafting panel'}
               >
                 {isSidebarOpen ? 'Roll Up' : 'Unfurl'}
@@ -816,11 +605,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
           {/* Row 3: Drafting Plate Navigation Strip                                */}
           {/* --------------------------------------------------------------------- */}
           {isSidebarOpen && (
-            <div
-              className={`flex items-center justify-between py-1.5 border-b gap-1 text-[8px] font-mono uppercase tracking-wider overflow-x-auto scrollbar-none ${
-                theme === 1 ? 'border-[#d8cfbc]' : theme === 2 ? 'border-[#263c54]' : 'border-[#333e4d]'
-              }`}
-            >
+            <div className="flex items-center justify-between py-1.5 border-b border-[var(--theme-panel-header-border)] gap-1 text-nano font-mono uppercase tracking-wider overflow-x-auto scrollbar-none">
               {(
                 [
                   { id: 'all', label: 'ALL' },
@@ -838,16 +623,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     onClick={() => setActivePlate(tab.id)}
                     className={`px-1.5 py-1 rounded-[2px] font-bold transition-all border shrink-0 ${
                       isActive
-                        ? theme === 1
-                          ? 'bg-[#2b241a] text-[#fdfcf9] border-[#2b241a] shadow-sm ring-1 ring-[#8c4820]/50'
-                          : theme === 2
-                          ? 'bg-[#203a57] text-[#e8edf2] border-[#4f79a3] shadow-sm ring-1 ring-[#c5a059]/40'
-                          : 'bg-[#1b2b3a] text-[#c5a059] border-[#3b788a] shadow-sm ring-1 ring-[#c5a059]/40'
-                        : theme === 1
-                        ? 'border-transparent text-[#7d715d] hover:bg-[#ece4d2] hover:text-[#2b241a]'
-                        : theme === 2
-                        ? 'border-transparent text-[#8ea4bd] hover:bg-[#15273c] hover:text-[#e8edf2]'
-                        : 'border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
+                        ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
+                        : 'border-transparent text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
                     }`}
                   >
                     {tab.label}
@@ -868,16 +645,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               {(activePlate === 'all' || activePlate === 'survey') && (
                 <div className="space-y-2.5">
                   {/* Archival Physical Medium & Mineral Swatch Ramp */}
-                  <div
-                    className={`p-2.5 rounded-[3px] border space-y-2.5 transition-all ${
-                      theme === 1
-                        ? 'bg-[#f7f0e6] border-[#d8c8b4] shadow-sm'
-                        : theme === 2
-                        ? 'bg-[#0c1a29]/90 border-[#284f73]'
-                        : 'bg-white/[0.03] border-white/10'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[9px] font-extrabold uppercase tracking-wider">
+                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2.5 transition-all shadow-sm">
+                    <div className="flex items-center justify-between text-micro font-extrabold uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
                         <span
                           className="w-2 h-2 rounded-full animate-pulse"
@@ -886,19 +655,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             boxShadow: theme === 0 ? '0 0 8px rgba(0,229,255,0.8)' : theme === 2 ? '0 0 8px rgba(79,163,227,0.8)' : 'none',
                           }}
                         />
-                        <span className={theme === 1 ? 'text-[#3d2f28]' : theme === 2 ? 'text-[#8ec5fc]' : 'text-zinc-300'}>
+                        <span className="text-[var(--theme-text-primary)]">
                           Physical Medium
                         </span>
                       </span>
-                      <span
-                        className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-[2px] border ${
-                          theme === 1
-                            ? 'bg-[#eae0d2] text-[#4a3b32] border-[#c8b9a6]'
-                            : theme === 2
-                            ? 'bg-[#162a42] text-[#9fcbf9] border-[#386b99]'
-                            : 'bg-white/10 text-cyan-300 border-white/15'
-                        }`}
-                      >
+                      <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-accent)]">
                         {theme === 0 ? 'Marie Tharp' : theme === 1 ? '100% Cotton Rag' : 'Ferroprussiate'}
                       </span>
                     </div>
@@ -909,15 +670,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         title="Marie Tharp Physiographic: Oceanic abyss, turquoise shelf, parchment continents"
                         className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
                           theme === 0
-                            ? 'bg-gradient-to-b from-[#0c1b2b] to-[#060e17] text-cyan-300 border-cyan-400/80 shadow-[0_0_12px_rgba(0,229,255,0.3)] ring-1 ring-cyan-400 font-black'
-                            : theme === 1
-                            ? 'bg-[#ede3d4] border-[#c8b9a6] text-zinc-600 hover:text-zinc-900'
-                            : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-cyan-300 hover:border-cyan-500/30'
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] ring-1 ring-[var(--theme-control-active-ring)] font-black shadow-md'
+                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
                         }`}
                       >
                         <OpticalReticlePip active={theme === 0} theme={theme} />
                         <div className="flex flex-col items-center">
-                          <span className="text-[10px] font-black tracking-tight">Tharp</span>
+                          <span className="text-body font-black tracking-tight">Tharp</span>
                           <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Physiographic</span>
                         </div>
                       </button>
@@ -927,15 +686,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         title="Cream Rag Paper: Eduard Imhof Swiss Alpine watercolor relief on 100% cotton rag"
                         className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
                           theme === 1
-                            ? 'bg-[#fcfaf7] text-[#2c221e] border-[#b87452] shadow-md ring-1 ring-[#b87452] font-black'
-                            : theme === 2
-                            ? 'bg-[#102236] border-[#294c6f] text-zinc-400 hover:text-white'
-                            : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-white'
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] ring-1 ring-[var(--theme-control-active-ring)] font-black shadow-md'
+                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
                         }`}
                       >
                         <OpticalReticlePip active={theme === 1} theme={theme} />
                         <div className="flex flex-col items-center">
-                          <span className="text-[10px] font-black tracking-tight">Cream Rag</span>
+                          <span className="text-body font-black tracking-tight">Cream Rag</span>
                           <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Swiss Relief</span>
                         </div>
                       </button>
@@ -945,27 +702,25 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         title="Prussian Cyanotype: Ferroprussiate blueprint & technical drafting linen"
                         className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
                           theme === 2
-                            ? 'bg-gradient-to-b from-[#142e4d] to-[#0b1c30] text-[#a5d5ff] border-[#4fa3e3] shadow-[0_0_12px_rgba(79,163,227,0.4)] ring-1 ring-[#4fa3e3] font-black'
-                            : theme === 1
-                            ? 'bg-[#ede3d4] border-[#c8b9a6] text-zinc-600 hover:text-zinc-900'
-                            : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-[#a5d5ff] hover:border-[#386b99]'
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] ring-1 ring-[var(--theme-control-active-ring)] font-black shadow-md'
+                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
                         }`}
                       >
                         <OpticalReticlePip active={theme === 2} theme={theme} />
                         <div className="flex flex-col items-center">
-                          <span className="text-[10px] font-black tracking-tight">Prussian</span>
+                          <span className="text-body font-black tracking-tight">Prussian</span>
                           <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Cyanotype</span>
                         </div>
                       </button>
                     </div>
 
                     {/* Tactile Watercolor Half-Pan Pigment Strip */}
-                    <div className="pt-1 border-t border-black/10 dark:border-white/10 space-y-1">
-                      <div className="flex items-center justify-between text-[8px] uppercase tracking-wider opacity-75 font-mono">
-                        <span className={theme === 1 ? 'text-[#4a3b32]' : theme === 2 ? 'text-[#8ec5fc]' : 'text-[#c5a059]'}>
+                    <div className="pt-1 border-t border-[var(--theme-card-border)] space-y-1">
+                      <div className="flex items-center justify-between text-nano uppercase tracking-wider opacity-75 font-mono">
+                        <span className="text-[var(--theme-text-accent)]">
                           Hypsometric Pigment Pans
                         </span>
-                        <span className="font-serif-body italic text-[9px] opacity-80">
+                        <span className="font-serif-body italic text-micro opacity-80">
                           Hand-Ground Minerals
                         </span>
                       </div>
@@ -974,23 +729,17 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         {PIGMENT_SWATCHES[theme].map((swatch, idx) => (
                           <div
                             key={idx}
-                            className={`p-1 rounded-[2px] border text-center flex flex-col items-center gap-1 transition-all shadow-sm ${
-                              theme === 1
-                                ? 'bg-[#f4eee1] border-[#d8cfbc]'
-                                : theme === 2
-                                ? 'bg-[#101c2b] border-[#263c54]'
-                                : 'bg-[#0f161f] border-[#333e4d]'
-                            }`}
+                            className="p-1 rounded-[2px] border border-[var(--theme-card-border)] bg-[var(--theme-control-bg)] text-center flex flex-col items-center gap-1 transition-all shadow-sm"
                             title={`${swatch.name} (${swatch.hex}) · ${swatch.depth}`}
                           >
                             <div
                               className="w-full h-3.5 rounded-[1px] border border-black/20 shadow-inner"
                               style={{ backgroundColor: swatch.hex }}
                             />
-                            <div className="text-[7.5px] font-serif-title truncate w-full tracking-tight opacity-90 leading-tight">
+                            <div className="text-[7.5px] font-serif-title truncate w-full tracking-tight opacity-90 leading-tight text-[var(--theme-text-primary)]">
                               {swatch.name}
                             </div>
-                            <div className="text-[6.5px] font-mono opacity-50 uppercase tracking-tighter">
+                            <div className="text-[6.5px] font-mono opacity-60 uppercase tracking-tighter text-[var(--theme-text-secondary)]">
                               {swatch.depth}
                             </div>
                           </div>
@@ -1000,25 +749,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   </div>
 
                   {/* Cartographic Rendering Direction Switcher (A / B / C) */}
-                  <div
-                    className={`p-2.5 rounded-[3px] border space-y-2 transition-all ${
-                      isLight
-                        ? 'bg-zinc-50 border-zinc-200 shadow-sm'
-                        : 'bg-white/[0.03] border-white/10'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[9px] font-extrabold uppercase tracking-wider">
+                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
+                    <div className="flex items-center justify-between text-micro font-extrabold uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)] animate-pulse"></span>
-                        <span className={isLight ? 'text-zinc-700' : 'text-zinc-300'}>Cartographic Style</span>
+                        <span className="w-2 h-2 rounded-full bg-[var(--theme-pulse-indicator)] shadow-sm animate-pulse"></span>
+                        <span className="text-[var(--theme-text-primary)]">Cartographic Style</span>
                       </span>
-                      <span
-                        className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-[2px] border ${
-                          isLight
-                            ? 'bg-zinc-200 text-zinc-800 border-zinc-300'
-                            : 'bg-white/10 text-sky-300 border-white/15'
-                        }`}
-                      >
+                      <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-accent)]">
                         {activeDirection === 'architectural'
                           ? 'Direction A (Relief)'
                           : activeDirection === 'hybrid'
@@ -1036,17 +773,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         title="Direction A: Architectural Topographic Relief (Monochrome Eduard Imhof hillshading & dual-tier isocontours)"
                         className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
                           activeDirection === 'architectural'
-                            ? isLight
-                              ? 'bg-zinc-900 text-white border-zinc-900 shadow-md ring-1 ring-zinc-900 font-black'
-                              : 'bg-white text-zinc-950 border-white shadow-[0_0_12px_rgba(255,255,255,0.4)] ring-1 ring-white/60 font-black'
-                            : isLight
-                            ? 'bg-white border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:border-zinc-300 hover:bg-zinc-100'
-                            : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-white hover:border-white/25 hover:bg-white/5'
+                            ? 'bg-[var(--theme-direction-a-bg)] text-[var(--theme-direction-a-text)] border-[var(--theme-direction-a-border)] ring-1 ring-[var(--theme-direction-a-ring)] font-black shadow-md'
+                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-direction-a-border)]'
                         }`}
                       >
                         <OpticalReticlePip active={activeDirection === 'architectural'} theme={theme} />
                         <div className="flex flex-col items-center">
-                          <span className="text-[10px] font-black tracking-tight">A: Relief</span>
+                          <span className="text-body font-black tracking-tight">A: Relief</span>
                           <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Architectural</span>
                         </div>
                       </button>
@@ -1059,15 +792,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         title="Direction B: Hydrosphere & Bathymetric Depth (Two-Surface Model: smooth sea level + Beer-Lambert depth)"
                         className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
                           activeDirection === 'hybrid'
-                            ? 'bg-cyan-500 text-black border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.6)] ring-1 ring-cyan-300 font-black'
-                            : isLight
-                            ? 'bg-white border-zinc-200 text-zinc-600 hover:text-cyan-700 hover:border-cyan-300 hover:bg-cyan-50'
-                            : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-cyan-300 hover:border-cyan-500/40 hover:bg-cyan-500/5'
+                            ? 'bg-[var(--theme-direction-b-bg)] text-[var(--theme-direction-b-text)] border-[var(--theme-direction-b-border)] ring-1 ring-[var(--theme-direction-b-ring)] font-black shadow-md'
+                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-direction-b-border)]'
                         }`}
                       >
                         <OpticalReticlePip active={activeDirection === 'hybrid'} theme={theme} />
                         <div className="flex flex-col items-center">
-                          <span className="text-[10px] font-black tracking-tight">B: Depth</span>
+                          <span className="text-body font-black tracking-tight">B: Depth</span>
                           <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Hydrosphere</span>
                         </div>
                       </button>
@@ -1080,15 +811,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         title="Direction C: NASA Blue Marble (True-color orbital photography + 3D DEM relief)"
                         className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
                           activeDirection === 'photoreal'
-                            ? 'bg-sky-500 text-black border-sky-400 shadow-[0_0_12px_rgba(14,165,233,0.6)] ring-1 ring-sky-300 font-black'
-                            : isLight
-                            ? 'bg-white border-zinc-200 text-zinc-600 hover:text-sky-700 hover:border-sky-300 hover:bg-sky-50'
-                            : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-sky-300 hover:border-sky-500/40 hover:bg-sky-500/5'
+                            ? 'bg-[var(--theme-direction-c-bg)] text-[var(--theme-direction-c-text)] border-[var(--theme-direction-c-border)] ring-1 ring-[var(--theme-direction-c-ring)] font-black shadow-md'
+                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-direction-c-border)]'
                         }`}
                       >
                         <OpticalReticlePip active={activeDirection === 'photoreal'} theme={theme} />
                         <div className="flex flex-col items-center">
-                          <span className="text-[10px] font-black tracking-tight">C: Orbital</span>
+                          <span className="text-body font-black tracking-tight">C: Orbital</span>
                           <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Photoreal</span>
                         </div>
                       </button>
@@ -1096,37 +825,15 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   </div>
 
                   {/* Volumetric Node Scaling Card (100K - 16M Tiers) */}
-                  <div
-                    className={`p-2.5 rounded-[3px] border space-y-2 transition-all ${
-                      theme === 1
-                        ? 'bg-[#f7f0e6] border-[#d8c8b4]'
-                        : theme === 2
-                        ? 'bg-[#101c2b] border-[#263c54]'
-                        : 'bg-[#121922] border-[#333e4d]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[9px] font-extrabold uppercase tracking-wider">
+                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
+                    <div className="flex items-center justify-between text-micro font-extrabold uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
-                        <span
-                          className={`w-2 h-2 rounded-full ${
-                            theme === 2 ? 'bg-[#4f79a3]' : theme === 1 ? 'bg-[#8c4820]' : 'bg-[#3b788a]'
-                          }`}
-                        ></span>
-                        <span className={theme === 1 ? 'text-[#2b241a]' : theme === 2 ? 'text-[#e8edf2]' : 'text-[#f0ede6]'}>
+                        <span className="w-2 h-2 rounded-full bg-[var(--theme-pulse-indicator)]"></span>
+                        <span className="text-[var(--theme-text-primary)]">
                           Volumetric Scale
                         </span>
                       </span>
-                      <span
-                        className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-[2px] border ${
-                          resolution === '16M'
-                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                            : theme === 1
-                            ? 'bg-[#eae0d2] text-[#4a3b32] border-[#c8b9a6]'
-                            : theme === 2
-                            ? 'bg-[#162a42] text-[#9fcbf9] border-[#386b99]'
-                            : 'bg-[#1b2b3a] text-[#c5a059] border-[#333e4d]'
-                        }`}
-                      >
+                      <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-accent)]">
                         {resolution === '100k'
                           ? '262K Verts · ~12MB'
                           : resolution === '1M'
@@ -1150,19 +857,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             resolution === tier
                               ? tier === '16M'
                                 ? 'bg-amber-500 text-black border-amber-400 font-extrabold shadow-sm'
-                                : theme === 1
-                                ? 'bg-[#2b241a] text-[#fdfcf9] border-[#2b241a] font-extrabold shadow-sm'
-                                : theme === 2
-                                ? 'bg-[#254263] text-[#f5f8fc] border-[#4a729e] font-extrabold shadow-sm ring-1 ring-[#c5a059]/40'
-                                : 'bg-[#22384a] text-[#f0ede6] border-[#3b788a] font-extrabold shadow-sm ring-1 ring-[#c5a059]/40'
-                              : theme === 1
-                              ? 'bg-[#f8f3e8] border-[#d8cfbc] text-[#5a4f3e] hover:bg-[#ede3d4]'
-                              : theme === 2
-                              ? 'bg-[#132336]/60 border-[#263c54] text-[#8ea4bd] hover:text-[#e8edf2] hover:bg-[#18293d]'
-                              : 'bg-[#16202c]/60 border-[#333e4d] text-[#a2998a] hover:text-[#f0ede6] hover:bg-[#1a2533]'
+                                : 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-extrabold shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
+                              : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
                           }`}
                         >
-                          <span className="text-[9px] font-black">{tier.toUpperCase()}</span>
+                          <span className="text-nano font-black">{tier.toUpperCase()}</span>
                         </button>
                       ))}
                     </div>
@@ -1174,19 +873,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               {/* PLATE 2: DEDICATED DIRECT SCENE CONTROLS (WebGPU Uniforms)         */}
               {/* ================================================================= */}
               {(activePlate === 'all' || activePlate === 'scene') && (
-                <div
-                  className={`p-2.5 rounded-[3px] border space-y-2 transition-all ${
-                    isLight
-                      ? 'bg-zinc-50 border-zinc-200 shadow-sm'
-                      : 'bg-white/[0.03] border-white/10'
-                  }`}
-                >
-                  <div className="flex items-center justify-between text-[9px] font-extrabold uppercase tracking-wider">
+                <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
+                  <div className="flex items-center justify-between text-micro font-extrabold uppercase tracking-wider">
                     <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse"></span>
-                      <span className={isLight ? 'text-zinc-700' : 'text-zinc-300'}>Scene Controls</span>
+                      <span className="w-2 h-2 rounded-full bg-[var(--theme-pulse-indicator)] shadow-sm animate-pulse"></span>
+                      <span className="text-[var(--theme-text-primary)]">Scene Controls</span>
                     </span>
-                    <span className="text-[8px] font-mono text-emerald-500 dark:text-emerald-400 font-bold">
+                    <span className="text-nano font-mono text-[var(--theme-text-accent)] font-bold">
                       Direct WebGPU Uniforms
                     </span>
                   </div>
@@ -1256,33 +949,25 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   {/* Morph Paradigms (Modes 0–4) */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className={`text-[10px] uppercase font-bold tracking-wider ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
+                      <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
                         Morph Paradigm (1–5)
                       </span>
-                      <span className="text-[9px] font-mono opacity-50">Active: Mode {mode + 1}</span>
+                      <span className="text-nano font-mono opacity-60 text-[var(--theme-text-muted)]">Active: Mode {mode + 1}</span>
                     </div>
 
                     {/* Compact Rotary Vernier Stepper for Paradigms 0-4 */}
-                    <div
-                      className={`p-1.5 rounded-[2px] border ${
-                        theme === 1
-                          ? 'bg-[#f4eee1] border-[#cfc4af] text-[#2b2b2b]'
-                          : theme === 2
-                          ? 'bg-[#101c2b] border-[#263c54] text-[#e8edf2]'
-                          : 'bg-[#0f161f] border-[#333e4d] text-[#f0ede6]'
-                      }`}
-                    >
+                    <div className="p-1.5 rounded-[2px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] text-[var(--theme-text-primary)] shadow-sm">
                       <div className="flex items-center justify-between">
                         <button
                           onClick={() => onModeChange(((mode + 4) % 5) as SimulationMode)}
                           title="Previous Simulation Paradigm (or press 1-5)"
-                          className="tactile-btn px-2.5 py-1 rounded-[1px] border border-current/25 hover:border-current text-[10px] font-bold"
+                          className="tactile-btn px-2.5 py-1 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[10px] font-bold"
                         >
                           ◀
                         </button>
 
                         <div className="flex flex-col items-center flex-1 px-2 min-w-0">
-                          <div className="flex items-center gap-1.5 font-bold text-[10px] tracking-wider truncate">
+                          <div className="flex items-center gap-1.5 font-bold text-micro tracking-wider truncate">
                             <span
                               className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                                 mode === 0
@@ -1296,7 +981,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]'
                               }`}
                             />
-                            <span className={theme === 1 ? 'text-[#8c4820]' : theme === 2 ? 'text-[#a5d5ff]' : 'text-[#c5a059]'}>
+                            <span className="text-[var(--theme-text-accent)]">
                               {mode === 0 && '1: LINEAR DILATION'}
                               {mode === 1 && '2: CYLINDER UNROLL'}
                               {mode === 2 && '3: GRIFFITH RUPTURE'}
@@ -1304,7 +989,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               {mode === 4 && '5: DYMAXION NET'}
                             </span>
                           </div>
-                          <span className="text-[7px] opacity-60 font-mono truncate">
+                          <span className="text-nano opacity-60 font-mono truncate text-[var(--theme-text-secondary)]">
                             {mode === 0 && 'Spherical-to-Planar Linear Mix · [Key 1]'}
                             {mode === 1 && 'Mercator Longitudinal Seam Unroll · [Key 2]'}
                             {mode === 2 && 'Antimeridian LEFM Fracture · [Key 3]'}
@@ -1316,14 +1001,14 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <button
                           onClick={() => onModeChange(((mode + 1) % 5) as SimulationMode)}
                           title="Next Simulation Paradigm (or press 1-5)"
-                          className="tactile-btn px-2.5 py-1 rounded-[1px] border border-current/25 hover:border-current text-[10px] font-bold"
+                          className="tactile-btn px-2.5 py-1 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[10px] font-bold"
                         >
                           ▶
                         </button>
                       </div>
 
                       {/* Vernier Detent Quick-Index Pips (Linear, Scroll, Fracture, Fluid, Dymaxion) */}
-                      <div className="grid grid-cols-5 gap-1 mt-1.5 pt-1.5 border-t border-current/10">
+                      <div className="grid grid-cols-5 gap-1 mt-1.5 pt-1.5 border-t border-[var(--theme-card-border)]">
                         {([
                           { id: 0, label: 'Linear', title: 'Mode 1: Linear Dilation (Press 1)' },
                           { id: 1, label: 'Scroll', title: 'Mode 2: Cylinder Unroll / Scroll (Press 2)' },
@@ -1337,18 +1022,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               key={m.id}
                               onClick={() => onModeChange(m.id as SimulationMode)}
                               title={m.title}
-                              className={`tactile-btn py-1 rounded-[2px] text-[8px] font-mono uppercase tracking-tight text-center border transition-all ${
+                              className={`tactile-btn py-1 rounded-[2px] text-nano font-mono uppercase tracking-tight text-center border transition-all ${
                                 isSel
-                                  ? theme === 1
-                                    ? 'bg-[#2b241a] text-[#fdfcf9] border-[#2b241a] font-bold shadow-sm'
-                                    : theme === 2
-                                    ? 'bg-[#203a57] text-[#a5d5ff] border-[#4fa3e3] font-bold shadow-sm'
-                                    : 'bg-[#1b2b3a] text-[#c5a059] border-[#3b788a] font-bold shadow-sm'
-                                  : theme === 1
-                                  ? 'border-transparent text-[#7d715d] hover:bg-[#eae0d2] hover:text-[#2b241a]'
-                                  : theme === 2
-                                  ? 'border-transparent text-[#8ea4bd] hover:bg-[#15273c] hover:text-[#e8edf2]'
-                                  : 'border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
+                                  ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-bold shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
+                                  : 'border-transparent text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
                               }`}
                             >
                               {m.label}
@@ -1362,22 +1039,14 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   {/* View Mode & Cursor Dynamics */}
                   <div className="flex items-center justify-between gap-2">
                     {/* Layer Mode (Both, Points, Wire) */}
-                    <div
-                      className={`flex items-center rounded-[2px] p-0.5 border ${
-                        isLight ? 'bg-zinc-100 border-zinc-300' : 'bg-black/40 border-white/10'
-                      }`}
-                    >
+                    <div className="flex items-center rounded-[2px] p-0.5 border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]">
                       <button
                         onClick={() => onLayerModeChange(0)}
                         title="Display both point cloud and wireframe lattice"
-                        className={`px-2.5 py-1 rounded-[2px] text-[9px] font-bold transition-all ${
+                        className={`px-2.5 py-1 rounded-[2px] text-nano font-bold transition-all ${
                           layerMode === 0
-                            ? isLight
-                              ? 'bg-zinc-900 text-white shadow-sm font-extrabold'
-                              : 'bg-white text-zinc-950 shadow-sm font-black'
-                            : isLight
-                            ? 'text-zinc-500 hover:text-zinc-900'
-                            : 'text-zinc-400 hover:text-zinc-200'
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm font-extrabold'
+                            : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)] hover:bg-[var(--theme-control-hover-bg)]'
                         }`}
                       >
                         Both
@@ -1385,14 +1054,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <button
                         onClick={() => onLayerModeChange(1)}
                         title="Points Only: disable wireframe lattice"
-                        className={`px-2.5 py-1 rounded-[2px] text-[9px] font-bold transition-all ${
+                        className={`px-2.5 py-1 rounded-[2px] text-nano font-bold transition-all ${
                           layerMode === 1
-                            ? isLight
-                              ? 'bg-zinc-900 text-white shadow-sm font-extrabold'
-                              : 'bg-white text-zinc-950 shadow-sm font-black'
-                            : isLight
-                            ? 'text-zinc-500 hover:text-zinc-900'
-                            : 'text-zinc-400 hover:text-zinc-200'
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm font-extrabold'
+                            : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)] hover:bg-[var(--theme-control-hover-bg)]'
                         }`}
                       >
                         Points
@@ -1400,14 +1065,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <button
                         onClick={() => onLayerModeChange(2)}
                         title="Wireframe Only: disable point vertices"
-                        className={`px-2.5 py-1 rounded-[2px] text-[9px] font-bold transition-all ${
+                        className={`px-2.5 py-1 rounded-[2px] text-nano font-bold transition-all ${
                           layerMode === 2
-                            ? isLight
-                              ? 'bg-zinc-900 text-white shadow-sm font-extrabold'
-                              : 'bg-white text-zinc-950 shadow-sm font-black'
-                            : isLight
-                            ? 'text-zinc-500 hover:text-zinc-900'
-                            : 'text-zinc-400 hover:text-zinc-200'
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm font-extrabold'
+                            : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)] hover:bg-[var(--theme-control-hover-bg)]'
                         }`}
                       >
                         Wire
@@ -1464,10 +1125,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   {/* Geodesic Arcs & Overlays */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className={`text-[10px] uppercase font-bold tracking-wider ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
+                      <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
                         Geodesic Arcs & Overlays
                       </span>
-                      <span className="text-[9px] font-mono opacity-50">
+                      <span className="text-nano font-mono text-[var(--theme-text-muted)] opacity-80">
                         {activeOverlay === 'off' ? 'Disabled' : activeOverlay}
                       </span>
                     </div>
@@ -1475,14 +1136,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     <div className="grid grid-cols-4 gap-1">
                       <button
                         onClick={() => onOverlayChange('off')}
-                        className={`py-1.5 px-1 rounded-[2px] text-[9px] font-bold transition-all text-center border ${
+                        className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border ${
                           activeOverlay === 'off'
-                            ? isLight
-                              ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm font-extrabold'
-                              : 'bg-white text-zinc-950 border-white shadow-sm font-black'
-                            : isLight
-                            ? 'border-zinc-200 text-zinc-500 hover:text-zinc-900 bg-zinc-50'
-                            : 'border-white/10 text-zinc-400 hover:text-zinc-200 bg-white/[0.02]'
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-extrabold'
+                            : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] bg-[var(--theme-control-bg)]'
                         }`}
                       >
                         Off
@@ -1490,14 +1147,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <button
                         onClick={() => onOverlayChange('antipodes')}
                         title="Antipodal Geodesic Connectors (Red/Rose)"
-                        className={`py-1.5 px-1 rounded-[2px] text-[9px] font-bold transition-all text-center border ${
+                        className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border ${
                           activeOverlay === 'antipodes'
                             ? isLight
                               ? 'bg-rose-600 text-white border-rose-700 shadow-md font-extrabold ring-1 ring-rose-400'
                               : 'bg-rose-500/35 text-rose-200 border-rose-400/80 shadow-[0_0_10px_rgba(244,63,94,0.4)] ring-1 ring-rose-400/60 font-extrabold'
-                            : isLight
-                            ? 'border-zinc-200 text-zinc-600 hover:text-rose-600 bg-zinc-50'
-                            : 'border-white/10 text-zinc-400 hover:text-rose-300 bg-white/[0.02]'
+                            : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-rose-500 hover:border-rose-400/50 bg-[var(--theme-control-bg)]'
                         }`}
                       >
                         Antipodes
@@ -1505,14 +1160,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <button
                         onClick={() => onOverlayChange('conveyor')}
                         title="Global Oceanic Conveyor Belt Thermohaline Circulation (Sky Blue)"
-                        className={`py-1.5 px-1 rounded-[2px] text-[9px] font-bold transition-all text-center border ${
+                        className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border ${
                           activeOverlay === 'conveyor'
                             ? isLight
                               ? 'bg-sky-600 text-white border-sky-700 shadow-md font-extrabold ring-1 ring-sky-400'
                               : 'bg-sky-500/35 text-sky-200 border-sky-400/80 shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/60 font-extrabold'
-                            : isLight
-                            ? 'border-zinc-200 text-zinc-600 hover:text-sky-600 bg-zinc-50'
-                            : 'border-white/10 text-zinc-400 hover:text-sky-300 bg-white/[0.02]'
+                            : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-sky-500 hover:border-sky-400/50 bg-[var(--theme-control-bg)]'
                         }`}
                       >
                         Conveyor
@@ -1520,14 +1173,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <button
                         onClick={() => onOverlayChange('migration')}
                         title="Global Bird & Cetacean Migration Geodesic Arcs (Amber)"
-                        className={`py-1.5 px-1 rounded-[2px] text-[9px] font-bold transition-all text-center border ${
+                        className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border ${
                           activeOverlay === 'migration'
                             ? isLight
                               ? 'bg-amber-600 text-white border-amber-700 shadow-md font-extrabold ring-1 ring-amber-400'
                               : 'bg-amber-500/35 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.4)] ring-1 ring-amber-400/60 font-extrabold'
-                            : isLight
-                            ? 'border-zinc-200 text-zinc-600 hover:text-amber-600 bg-zinc-50'
-                            : 'border-white/10 text-zinc-400 hover:text-amber-300 bg-white/[0.02]'
+                            : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-amber-500 hover:border-amber-400/50 bg-[var(--theme-control-bg)]'
                         }`}
                       >
                         Migration
@@ -1541,22 +1192,18 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     <button
                       onClick={onLandmarksToggle}
                       title="Toggle Major World Geographical Landmarks"
-                      className={`py-1.5 px-1 rounded-[2px] text-[10px] font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                      className={`py-1.5 px-1 rounded-[2px] text-micro font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
                         showLandmarks
-                          ? isLight
-                            ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm font-extrabold ring-1 ring-zinc-700'
-                            : 'bg-white text-zinc-950 border-white shadow-sm font-black'
-                          : isLight
-                          ? 'border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-800'
-                          : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:text-white'
+                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-extrabold'
+                          : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                       }`}
                     >
                       <span
                         className={`w-2 h-2 rounded-full ${
                           showLandmarks
                             ? isLight
-                              ? 'bg-emerald-400 animate-pulse'
-                              : 'bg-emerald-600 animate-pulse'
+                              ? 'bg-emerald-500 animate-pulse'
+                              : 'bg-emerald-400 animate-pulse'
                             : 'bg-zinc-500'
                         }`}
                       ></span>
@@ -1567,21 +1214,19 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     <button
                       onClick={onTissotToggle}
                       title="Toggle Tissot Indicatrix Ellipses (Deformation Tensors)"
-                      className={`py-1.5 px-1 rounded-[2px] text-[10px] font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                      className={`py-1.5 px-1 rounded-[2px] text-micro font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
                         showTissot
                           ? theme === 1
                             ? 'bg-[#8c4820] text-white border-[#703818] shadow-md font-extrabold ring-1 ring-[#c5a059]'
                             : theme === 2
                             ? 'bg-[#294d75] text-[#f0f4f8] border-[#4a729e] shadow-sm ring-1 ring-[#c5a059]/60 font-extrabold'
                             : 'bg-[#22384a] text-[#f0ede6] border-[#3b788a] shadow-sm ring-1 ring-[#c5a059]/60 font-extrabold'
-                          : isLight
-                          ? 'border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-800'
-                          : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:text-white'
+                          : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                       }`}
                     >
                       <span
                         className={`w-2 h-2 rounded-full ${
-                          showTissot ? 'bg-[#c5a059] shadow-[0_0_6px_rgba(197,160,89,0.8)]' : 'bg-zinc-500'
+                          showTissot ? 'bg-[var(--theme-pulse-indicator)] shadow-[0_0_6px_var(--theme-pulse-indicator)]' : 'bg-zinc-500'
                         }`}
                       ></span>
                       <span>Tissot</span>
@@ -1591,14 +1236,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     <button
                       onClick={onVectorsToggle}
                       title="Toggle Vector Coastlines & Rivers (Press V)"
-                      className={`py-1.5 px-1 rounded-[2px] text-[10px] font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                      className={`py-1.5 px-1 rounded-[2px] text-micro font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
                         showVectors
                           ? isLight
                             ? 'bg-amber-600 text-white border-amber-700 shadow-md font-extrabold ring-1 ring-amber-400'
                             : 'bg-amber-500/35 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.4)] ring-1 ring-amber-400/60 font-extrabold'
-                          : isLight
-                          ? 'border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-800'
-                          : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:text-white'
+                          : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                       }`}
                     >
                       <span
@@ -1612,11 +1255,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
                   {/* Archival High-Touch Details (Dedicated Spaces & Overlays) */}
                   <div className="space-y-1 pt-1.5 border-t border-white/5">
-                    <div className="flex items-center justify-between text-[9px] uppercase font-bold tracking-wider">
-                      <span className={theme === 1 ? 'text-[#4a3b32]' : theme === 2 ? 'text-[#8ec5fc]' : 'text-zinc-300'}>
-                        Archival Detail Overlays
-                      </span>
-                      <span className="text-[7px] font-mono opacity-60">Cartographic Taxonomy</span>
+                    <div className="flex items-center justify-between text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
+                      <span>Archival Detail Overlays</span>
+                      <span className="text-nano font-mono opacity-80">Cartographic Taxonomy</span>
                     </div>
                     <div className="space-y-1.5">
                       {/* Bathymetric Soundings */}
@@ -1656,10 +1297,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
                   {/* Camera Target Snaps */}
                   <div className="space-y-1">
-                    <div className={`text-[9px] uppercase font-bold tracking-wider ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
+                    <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
                       Camera Target Snap
                     </div>
-                    <div className="grid grid-cols-4 gap-1 text-[9px] font-bold">
+                    <div className="grid grid-cols-4 gap-1 text-nano font-bold">
                       {(['equator', 'pole', 'seam', 'isometric'] as const).map((snapKey) => {
                         const labels = {
                           equator: 'Equator',
@@ -1671,11 +1312,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           <button
                             key={snapKey}
                             onClick={() => onSnapCamera(snapKey)}
-                            className={`py-1 rounded-[2px] border transition-all ${
-                              isLight
-                                ? 'bg-zinc-100 hover:bg-zinc-200 border-zinc-300 text-zinc-800 hover:border-zinc-400'
-                                : 'bg-white/5 hover:bg-white/15 border-white/10 text-zinc-300 hover:text-white hover:border-white/30'
-                            }`}
+                            className="py-1 rounded-[2px] border transition-all border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] hover:bg-[var(--theme-card-bg)]"
                           >
                             {labels[snapKey]}
                           </button>
@@ -1686,28 +1323,20 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
                   {/* Tissot Distortion Metrics (when Tissot is active) */}
                   {showTissot && (
-                    <div
-                      className={`p-2.5 rounded-[2px] border text-[10px] space-y-1.5 tabular-nums ${
-                        theme === 1
-                          ? 'bg-[#f4ede0] border-[#d8cfbc] text-[#2b241a]'
-                          : theme === 2
-                          ? 'bg-[#132336] border-[#263c54] text-[#d8e3ed]'
-                          : 'bg-[#151e29] border-[#333e4d] text-[#ded7cb]'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center text-[9px] uppercase tracking-wider font-bold">
+                    <div className="p-2.5 rounded-[2px] border text-micro space-y-1.5 tabular-nums bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
+                      <div className="flex justify-between items-center text-nano uppercase tracking-wider font-bold">
                         <span>Distortion Tensor</span>
                         <span className="text-emerald-500 dark:text-emerald-400 font-extrabold">
                           {mode === 4 ? 'Isomeric (s ≈ 1.04x)' : 'Morphing Tensor'}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-[9px]">
+                      <div className="grid grid-cols-2 gap-2 text-nano">
                         <div>
-                          <span className="text-zinc-500 block">Equatorial Area:</span>
+                          <span className="text-[var(--theme-text-muted)] block">Equatorial Area:</span>
                           <span className="font-bold">1.000x</span>
                         </div>
                         <div>
-                          <span className="text-zinc-500 block">Polar Dilation:</span>
+                          <span className="text-[var(--theme-text-muted)] block">Polar Dilation:</span>
                           <span className="font-bold">{mode === 4 ? '1.041x' : '1.000x'}</span>
                         </div>
                       </div>
@@ -1728,37 +1357,28 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   </div>
 
                   {/* Surface Clarity: Point Lattice Suppression Pill */}
-                  <div
-                    className={`flex items-center justify-between p-1.5 rounded-[2px] border text-[9px] ${
-                      theme === 1
-                        ? 'bg-[#f4ede0] border-[#d8cfbc] text-[#2b241a]'
-                        : theme === 2
-                        ? 'bg-[#132336] border-[#263c54] text-[#d8e3ed]'
-                        : isLight
-                        ? 'bg-zinc-100/80 border-zinc-200 text-zinc-700'
-                        : 'bg-white/[0.03] border-white/10 text-zinc-300'
-                    }`}
-                  >
-                    <span className="font-semibold text-zinc-400 uppercase tracking-wider text-[8px]">
+                  {/* Surface Clarity: Point Lattice Suppression Pill */}
+                  <div className="flex items-center justify-between p-1.5 rounded-[2px] border text-micro bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
+                    <span className="font-semibold text-[var(--theme-text-muted)] uppercase tracking-wider text-nano">
                       Base Lattice:
                     </span>
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => onLayerModeChange?.(2)}
-                        className={`px-2 py-0.5 rounded-[2px] text-[8px] font-bold transition-all ${
+                        className={`px-2 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
                           layerMode === 2
                             ? 'bg-emerald-500 text-black font-extrabold shadow-sm'
-                            : 'text-zinc-500 hover:text-zinc-300'
+                            : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)]'
                         }`}
                       >
                         Clean Terrain
                       </button>
                       <button
                         onClick={() => onLayerModeChange?.(0)}
-                        className={`px-2 py-0.5 rounded-[2px] text-[8px] font-bold transition-all ${
+                        className={`px-2 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
                           layerMode === 0
                             ? 'bg-sky-500 text-black font-extrabold shadow-sm'
-                            : 'text-zinc-500 hover:text-zinc-300'
+                            : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)]'
                         }`}
                       >
                         + Node Cloud
@@ -1767,18 +1387,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   </div>
 
                   {/* Planetary Instrumentation: Dedicated Live Synced Toggles */}
-                  <div
-                    className={`p-2 rounded-[3px] border space-y-1.5 ${
-                      theme === 1
-                        ? 'bg-[#f7f2e8] border-[#dfd6c5]'
-                        : theme === 2
-                        ? 'bg-[#15273b] border-[#2b4460]'
-                        : isLight
-                        ? 'bg-zinc-100/70 border-zinc-200'
-                        : 'bg-white/[0.03] border-white/10'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[8px] font-bold uppercase tracking-wider text-zinc-400">
+                  <div className="p-2 rounded-[3px] border space-y-1.5 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)]">
+                    <div className="flex items-center justify-between text-nano font-bold uppercase tracking-wider text-[var(--theme-text-muted)]">
                       <span>Planetary Instrumentation</span>
                       <span className="flex items-center gap-1 text-emerald-400 font-mono animate-pulse">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
@@ -1793,18 +1403,16 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         className={`p-1.5 rounded-[2px] border transition-all text-left flex flex-col justify-between gap-1 ${
                           isNoaaActive
                             ? 'border-sky-500/60 bg-sky-500/20 text-sky-200 shadow-[0_0_8px_rgba(56,189,248,0.25)] ring-1 ring-sky-400/40'
-                            : isLight
-                            ? 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100'
-                            : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/5'
+                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)]'
                         }`}
                       >
                         <div className="flex items-center justify-between w-full">
-                          <span className="font-bold text-[9px] truncate">NOAA Wind</span>
+                          <span className="font-bold text-nano truncate">NOAA Wind</span>
                           <span className="flex items-center gap-1 text-[7px] font-bold px-1 py-0.5 rounded-[2px] bg-sky-500/20 text-sky-300 border border-sky-500/40">
                             Physics Model
                           </span>
                         </div>
-                        <span className="text-[7.5px] text-zinc-400 truncate">0.25° Operational</span>
+                        <span className="text-[7.5px] text-[var(--theme-text-muted)] truncate">0.25° Operational</span>
                       </button>
 
                       {/* Starlink Orbits Toggle */}
@@ -1817,19 +1425,17 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               : theme === 2
                               ? 'border-[#4a729e]/80 bg-[#254263]/40 text-[#e8edf2] shadow-sm'
                               : 'border-purple-500/60 bg-purple-500/20 text-purple-200 shadow-[0_0_8px_rgba(168,85,247,0.25)] ring-1 ring-purple-400/40'
-                            : isLight
-                            ? 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100'
-                            : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/5'
+                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)]'
                         }`}
                       >
                         <div className="flex items-center justify-between w-full">
-                          <span className="font-bold text-[9px] truncate">Starlink Orbits</span>
+                          <span className="font-bold text-nano truncate">Starlink Orbits</span>
                           <span className="flex items-center gap-1 text-[7px] font-bold px-1 py-0.5 rounded-[2px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">
                             <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
                             Live
                           </span>
                         </div>
-                        <span className="text-[7.5px] text-zinc-400 truncate">CelesTrak (110 Sats)</span>
+                        <span className="text-[7.5px] text-[var(--theme-text-muted)] truncate">CelesTrak (110 Sats)</span>
                       </button>
 
                       {/* 250 hPa Jet Stream Toggle */}
@@ -1838,18 +1444,16 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         className={`p-1.5 rounded-[2px] border transition-all text-left flex flex-col justify-between gap-1 ${
                           isJetstreamActive
                             ? 'border-indigo-500/60 bg-indigo-500/20 text-indigo-200 shadow-[0_0_8px_rgba(99,102,241,0.25)] ring-1 ring-indigo-400/40'
-                            : isLight
-                            ? 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100'
-                            : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/5'
+                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)]'
                         }`}
                       >
                         <div className="flex items-center justify-between w-full">
-                          <span className="font-bold text-[9px] truncate">Jet Stream</span>
+                          <span className="font-bold text-nano truncate">Jet Stream</span>
                           <span className="flex items-center gap-1 text-[7px] font-bold px-1 py-0.5 rounded-[2px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
                             250 hPa
                           </span>
                         </div>
-                        <span className="text-[7.5px] text-zinc-400 truncate">High-Alt Core</span>
+                        <span className="text-[7.5px] text-[var(--theme-text-muted)] truncate">High-Alt Core</span>
                       </button>
 
                       {/* Origami Crane Companion Toggle */}
@@ -1858,20 +1462,18 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         className={`p-1.5 rounded-[2px] border transition-all text-left flex flex-col justify-between gap-1 ${
                           isCraneActive
                             ? 'border-amber-500/60 bg-amber-500/20 text-amber-200 shadow-[0_0_8px_rgba(245,158,11,0.25)] ring-1 ring-amber-400/40'
-                            : isLight
-                            ? 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100'
-                            : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/5'
+                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)]'
                         }`}
                       >
                         <div className="flex items-center justify-between w-full">
-                          <span className="font-bold text-[9px] truncate">Origami Crane</span>
+                          <span className="font-bold text-nano truncate">Origami Crane</span>
                           <span className="flex items-center gap-1 text-[7px] font-bold px-1 py-0.5 rounded-[2px] bg-amber-500/20 text-amber-300 border border-amber-500/40">
                             {isCraneActive && craneTelemetry
                               ? `${craneTelemetry.variometer >= 0 ? '+' : ''}${craneTelemetry.variometer} m/s`
                               : 'Soaring'}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between w-full text-[7.5px] text-zinc-400">
+                        <div className="flex items-center justify-between w-full text-[7.5px] text-[var(--theme-text-muted)]">
                           <span className="truncate">
                             {isCraneActive && craneTelemetry
                               ? `${craneTelemetry.alt.toLocaleString()}m • ${craneTelemetry.speed} km/h`
@@ -1909,20 +1511,16 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
                   {/* Data Layers Header Action */}
                   <div className="flex items-center justify-between">
-                    <span className={`text-[10px] uppercase font-bold tracking-wider ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
+                    <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
                       Active Datasets ({dataLayers.length})
                     </span>
 
                     <button
                       onClick={() => setIsCatalogOpen(!isCatalogOpen)}
-                      className={`text-[9px] font-extrabold px-2.5 py-1 rounded-[2px] border transition-all flex items-center gap-1.5 ${
+                      className={`text-nano font-extrabold px-2.5 py-1 rounded-[2px] border transition-all flex items-center gap-1.5 ${
                         isCatalogOpen
-                          ? isLight
-                            ? 'bg-sky-600 text-white border-sky-700 shadow-md ring-1 ring-sky-400'
-                            : 'bg-sky-500 text-black border-sky-300 shadow-[0_0_12px_rgba(56,189,248,0.5)] ring-1 ring-sky-300'
-                          : isLight
-                          ? 'border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100 hover:border-sky-400'
-                          : 'border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/30 hover:border-sky-400'
+                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-md font-extrabold'
+                          : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                       }`}
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1944,22 +1542,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         return (
                           <div
                             key={layer.id}
-                            className={`p-2.5 rounded-[2px] border flex flex-col gap-2 text-[10px] transition-all ${
+                            className={`p-2.5 rounded-[2px] border flex flex-col gap-2 text-micro transition-all ${
                               layer.visible
-                                ? theme === 1
-                                  ? 'bg-[#f7f2e8] border-[#dfd6c5] text-[#2b241a] shadow-sm'
-                                  : theme === 2
-                                  ? 'bg-[#15273b] border-[#2b4460] text-[#d8e3ed]'
-                                  : isLight
-                                  ? 'bg-zinc-50 border-zinc-300 text-zinc-800 shadow-sm'
-                                  : 'bg-white/[0.04] border-white/15 text-zinc-200'
-                                : theme === 1
-                                ? 'bg-[#eae3d5]/50 border-[#d8cfbc] text-[#8c7e6c] opacity-60'
-                                : theme === 2
-                                ? 'bg-[#101c2b]/50 border-[#1f3348] text-[#5e7794] opacity-60'
-                                : isLight
-                                ? 'bg-zinc-100/50 border-zinc-200 text-zinc-400 opacity-60'
-                                : 'bg-white/[0.01] border-white/5 text-zinc-500 opacity-50'
+                                ? 'bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] shadow-sm'
+                                : 'bg-[var(--theme-card-bg)]/50 border-[var(--theme-card-border)]/60 text-[var(--theme-text-muted)] opacity-60'
                             }`}
                           >
                             {/* Layer Item Header */}
@@ -1973,7 +1559,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                         : 'bg-zinc-500'
                                     }`}
                                   ></span>
-                                  <span className="leading-tight break-words text-[11px]" title={layer.name}>
+                                  <span className="leading-tight break-words text-nano font-bold" title={layer.name}>
                                     {layer.name}
                                   </span>
                                 </div>
@@ -1994,7 +1580,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                       {layer.renderStyle}
                                     </span>
                                   )}
-                                  <span className="text-[8px] font-mono opacity-60">
+                                  <span className="text-nano font-mono opacity-60">
                                     Z:{dataLayers.length - idx}
                                   </span>
                                 </div>
@@ -2009,10 +1595,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   title="Move Layer Up in Z-Stack"
                                   className={`p-1 rounded-[2px] border transition-all ${
                                     isFirst
-                                      ? 'opacity-25 cursor-not-allowed border-transparent text-zinc-500'
-                                      : isLight
-                                      ? 'border-zinc-200 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900'
-                                      : 'border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white'
+                                      ? 'opacity-25 cursor-not-allowed border-transparent text-[var(--theme-text-muted)]'
+                                      : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                                   }`}
                                 >
                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2027,10 +1611,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   title="Move Layer Down in Z-Stack"
                                   className={`p-1 rounded-[2px] border transition-all ${
                                     isLast
-                                      ? 'opacity-25 cursor-not-allowed border-transparent text-zinc-500'
-                                      : isLight
-                                      ? 'border-zinc-200 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900'
-                                      : 'border-white/10 text-zinc-400 hover:bg-white/10 hover:text-white'
+                                      ? 'opacity-25 cursor-not-allowed border-transparent text-[var(--theme-text-muted)]'
+                                      : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                                   }`}
                                 >
                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2044,12 +1626,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   title={layer.visible ? 'Hide layer' : 'Show layer'}
                                   className={`p-1 rounded-[2px] border transition-all ${
                                     layer.visible
-                                      ? isLight
-                                        ? 'border-sky-400 bg-sky-100 text-sky-900 ring-1 ring-sky-400 shadow-sm'
-                                        : 'border-sky-400 bg-sky-500/30 text-sky-200 ring-1 ring-sky-400/50 shadow-[0_0_8px_rgba(56,189,248,0.4)]'
-                                      : isLight
-                                      ? 'border-zinc-300 text-zinc-400 hover:text-zinc-700'
-                                      : 'border-white/10 text-zinc-500 hover:text-zinc-300'
+                                      ? 'border-sky-400/80 bg-sky-500/20 text-sky-400 shadow-sm ring-1 ring-sky-400/40'
+                                      : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-secondary)] hover:border-[var(--theme-card-border-hover)]'
                                   }`}
                                 >
                                   {layer.visible ? (
@@ -2078,9 +1656,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             </div>
 
                             {/* Opacity & Blend Controls */}
-                            <div className="grid grid-cols-2 gap-2 text-[9px]">
+                            <div className="grid grid-cols-2 gap-2 text-nano">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-zinc-500 font-bold">Opacity:</span>
+                                <span className="text-[var(--theme-text-muted)] font-bold">Opacity:</span>
                                 <input
                                   id={`sidebar-opacity-${layer.id}`}
                                   name={`opacity-${layer.id}`}
@@ -2098,7 +1676,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               </div>
 
                               <div className="flex items-center gap-1">
-                                <span className="text-zinc-500 font-bold">Blend:</span>
+                                <span className="text-[var(--theme-text-muted)] font-bold">Blend:</span>
                                 <select
                                   id={`sidebar-blend-${layer.id}`}
                                   name={`blend-${layer.id}`}
@@ -2106,15 +1684,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   onChange={(e) =>
                                     onBlendModeChangeDataLayer?.(layer.id, parseInt(e.target.value) as BlendModeType)
                                   }
-                                  className={`w-full py-0.5 px-1 rounded-[2px] text-[9px] font-bold border ${
-                                    theme === 1
-                                      ? 'bg-[#ede3d4] border-[#d8cfbc] text-[#2b241a]'
-                                      : theme === 2
-                                      ? 'bg-[#101c2b] border-[#263c54] text-[#d8e3ed]'
-                                      : isLight
-                                      ? 'bg-white border-zinc-300 text-zinc-800'
-                                      : 'bg-black/50 border-white/20 text-zinc-200'
-                                  }`}
+                                  className="w-full py-0.5 px-1 rounded-[2px] text-nano font-bold border bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-text-primary)]"
                                 >
                                   <option value={0}>Normal</option>
                                   <option value={1}>Additive</option>
@@ -2303,17 +1873,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         );
                       })
                     ) : (
-                      <div
-                        className={`p-4 rounded-[2px] border text-[10px] text-center italic ${
-                          theme === 1
-                            ? 'border-[#dfd6c5] text-[#8c7e6c] bg-[#f7f2e8]'
-                            : theme === 2
-                            ? 'border-[#263c54] text-[#5e7794] bg-[#101c2b]/60'
-                            : isLight
-                            ? 'border-zinc-200 text-zinc-400 bg-zinc-50'
-                            : 'border-white/10 text-zinc-500 bg-white/[0.01]'
-                        }`}
-                      >
+                      <div className="p-4 rounded-[2px] border text-micro text-center italic border-[var(--theme-card-border)] text-[var(--theme-text-muted)] bg-[var(--theme-card-bg)]/40">
                         No active cartographic data layers. Click [+ Catalog] to browse and add datasets.
                       </div>
                     )}
@@ -2322,22 +1882,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               )}
 
               {/* Telemetry Footer */}
-              <div
-                className={`pt-2 border-t text-[9px] grid grid-cols-2 gap-2 tabular-nums ${
-                  theme === 1
-                    ? 'border-[#d8cfbc] text-[#5c5040]'
-                    : theme === 2
-                    ? 'border-[#263c54] text-[#8ea4bd]'
-                    : isLight
-                    ? 'border-zinc-200 text-zinc-600'
-                    : 'border-white/10 text-zinc-400'
-                }`}
-              >
+              <div className="pt-2 border-t border-[var(--theme-card-border)] text-nano grid grid-cols-2 gap-2 tabular-nums text-[var(--theme-text-secondary)]">
                 <div>
                   <span className="block text-[8px] uppercase font-bold tracking-wider opacity-60">
                     Center Coordinate
                   </span>
-                  <span className="font-bold text-zinc-800 dark:text-zinc-200">
+                  <span className="font-bold text-[var(--theme-text-primary)]">
                     {latStr} {lonStr}
                   </span>
                 </div>
@@ -2345,18 +1895,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   <span className="block text-[8px] uppercase font-bold tracking-wider opacity-60">
                     Nominal Scale
                   </span>
-                  <span className="font-bold text-zinc-800 dark:text-zinc-200">{mapScaleStr}</span>
+                  <span className="font-bold text-[var(--theme-text-primary)]">{mapScaleStr}</span>
                 </div>
                 {backend === 'webgpu' && gpuReport && (
-                  <div className={`col-span-2 pt-1.5 mt-0.5 border-t flex flex-col gap-1 text-[8px] ${
-                    theme === 1
-                      ? 'border-[#d8cfbc] text-[#5c5040]'
-                      : theme === 2
-                      ? 'border-[#263c54] text-[#8ea4bd]'
-                      : isLight
-                      ? 'border-zinc-200/80 text-zinc-600'
-                      : 'border-white/10 text-zinc-400'
-                  }`}>
+                  <div className="col-span-2 pt-1.5 mt-0.5 border-t border-[var(--theme-card-border)] flex flex-col gap-1 text-[8px] text-[var(--theme-text-secondary)]">
                     <div className="flex items-center justify-between font-bold">
                       <span className="text-sky-400 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
@@ -2403,25 +1945,15 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       {isCatalogOpen && (
         <div
           ref={catalogSheetRef}
-          className={`fixed top-4 right-[25.5rem] z-30 pointer-events-auto w-96 max-w-[calc(100vw-27rem)] max-h-[calc(100vh-2rem)] flex flex-col font-mono select-none rounded-[3px] border backdrop-blur-2xl shadow-2xl p-4 text-xs transition-all duration-300 ease-out animate-in fade-in slide-in-from-right-4 ${
-            theme === 1
-              ? 'paper-cream border-[#d8cfbc] text-[#2b241a] shadow-[#bfa780]/30'
-              : theme === 2
-              ? 'paper-cyanotype border-[#263c54] text-[#d8e3ed] shadow-black/80'
-              : 'paper-tharp border-[#333e4d] text-[#ded7cb] shadow-black/90'
-          }`}
+          className="fixed top-4 right-[25.5rem] z-30 pointer-events-auto w-96 max-w-[calc(100vw-27rem)] max-h-[calc(100vh-2rem)] flex flex-col font-mono select-none rounded-[3px] border backdrop-blur-2xl shadow-2xl p-4 text-micro transition-all duration-300 ease-out animate-in fade-in slide-in-from-right-4 border-[var(--theme-panel-border)] bg-[var(--theme-panel-bg)] text-[var(--theme-text-primary)]"
         >
           {/* Catalog Sheet Header */}
-          <div
-            className={`flex items-center justify-between pb-3 border-b ${
-              theme === 1 ? 'border-[#d8cfbc]' : theme === 2 ? 'border-[#263c54]' : 'border-[#333e4d]'
-            }`}
-          >
+          <div className="flex items-center justify-between pb-3 border-b border-[var(--theme-panel-border)]">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)] animate-pulse"></span>
               <div>
-                <h3 className="text-xs font-black uppercase tracking-wider">Cartographic Data Catalog</h3>
-                <span className="text-[9px] opacity-60">
+                <h3 className="text-micro font-black uppercase tracking-wider text-[var(--theme-text-primary)]">Cartographic Data Catalog</h3>
+                <span className="text-nano opacity-60 text-[var(--theme-text-muted)]">
                   {DATA_LAYER_CATALOG.length} verified global datasets
                 </span>
               </div>
@@ -2430,13 +1962,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
             <button
               onClick={() => setIsCatalogOpen(false)}
               title="Close Catalog Sheet (Esc)"
-              className={`p-1.5 rounded-[2px] border transition-all ${
-                theme === 1
-                  ? 'border-[#d8cfbc] bg-[#eae3d5] text-[#2b241a] hover:bg-[#ded3c1]'
-                  : theme === 2
-                  ? 'border-[#263c54] bg-[#16273c] text-[#d8e3ed] hover:bg-[#203a57]'
-                  : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10'
-              }`}
+              className="p-1.5 rounded-[2px] border transition-all border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
@@ -2454,20 +1980,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   key={preset.id}
                   className={`p-3 rounded-[2px] border transition-all flex flex-col gap-2 ${
                     isAlreadyAdded
-                      ? theme === 1
-                        ? 'bg-[#eae3d5]/60 border-emerald-600/40 shadow-sm'
-                        : theme === 2
-                        ? 'bg-[#102336]/60 border-emerald-500/30'
-                        : 'bg-emerald-950/15 border-emerald-500/30'
-                      : theme === 1
-                      ? 'bg-[#f7f2e8] border-[#dfd6c5] hover:border-[#b87452] hover:bg-[#faf6ee]'
-                      : theme === 2
-                      ? 'bg-[#132336] border-[#263c54] hover:border-[#4a729e] hover:bg-[#182c42]'
-                      : 'bg-white/[0.03] border-white/10 hover:border-sky-400/50 hover:bg-white/[0.06]'
+                      ? 'bg-[var(--theme-control-bg)] border-emerald-500/30'
+                      : 'bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] hover:border-[var(--theme-card-border-hover)] hover:bg-[var(--theme-card-bg)] text-[var(--theme-text-primary)]'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs flex items-center gap-1.5">
+                    <span className="font-bold text-nano flex items-center gap-1.5">
                       {isAlreadyAdded && (
                         <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"></span>
                       )}
@@ -2499,7 +2017,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     </span>
                   </div>
 
-                  <p className={`text-[10px] leading-relaxed opacity-80`}>
+                  <p className="text-nano leading-relaxed opacity-80 text-[var(--theme-text-muted)]">
                     {preset.details}
                   </p>
 
@@ -2531,14 +2049,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           });
                         }
                       }}
-                      className={`px-3 py-1.5 rounded-[2px] text-[9px] font-bold border transition-all flex items-center gap-1.5 ${
+                      className={`px-3 py-1.5 rounded-[2px] text-nano font-bold border transition-all flex items-center gap-1.5 ${
                         isAlreadyAdded
                           ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/40 cursor-default ring-1 ring-emerald-500/30 font-extrabold'
-                          : theme === 1
-                          ? 'bg-[#2b241a] text-[#fdfcf9] border-[#2b241a] hover:bg-[#403628] shadow-sm font-extrabold'
-                          : theme === 2
-                          ? 'bg-[#25486d] text-[#e8edf2] border-[#4a729e] hover:bg-[#325c89] shadow-sm font-extrabold'
-                          : 'bg-sky-500/25 text-sky-200 border-sky-400/60 hover:bg-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.3)] font-extrabold'
+                          : 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] hover:opacity-90 shadow-sm font-extrabold'
                       }`}
                     >
                       {isAlreadyAdded ? (

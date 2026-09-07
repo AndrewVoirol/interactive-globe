@@ -2,6 +2,231 @@
 @tailwind components;
 @tailwind utilities;
 
+/* -------------------------------------------------------------------------- */
+/* Master Archival Design Tokens & Dynamic Theme Custom Properties            */
+/* -------------------------------------------------------------------------- */
+:root,
+[data-theme="tharp"] {
+  --theme-text-primary: #F0EDE6;
+  --theme-text-secondary: #A2998A;
+  --theme-text-muted: #686257;
+  --theme-text-accent: #C5A059;
+  --theme-text-inverse: #0C1219;
+
+  --theme-panel-bg: rgba(15, 22, 31, 0.90);
+  --theme-panel-border: #333E4D;
+  --theme-panel-header-border: rgba(255, 255, 255, 0.10);
+  --theme-card-bg: rgba(16, 23, 33, 0.70);
+  --theme-card-border: rgba(51, 62, 77, 0.80);
+  --theme-neatline-border: rgba(122, 111, 94, 0.80);
+  --theme-neatline-accent: #C5A059;
+
+  --theme-control-bg: rgba(27, 43, 58, 0.60);
+  --theme-control-border: #333E4D;
+  --theme-control-text: #A2998A;
+  --theme-control-hover-bg: #22384A;
+  --theme-control-hover-text: #F0EDE6;
+  --theme-control-hover-border: #3B788A;
+  --theme-control-active-bg: #22384A;
+  --theme-control-active-border: #3B788A;
+  --theme-control-active-text: #F0EDE6;
+  --theme-control-active-ring: rgba(197, 160, 89, 0.40);
+
+  --theme-switch-track-bg: rgba(10, 17, 26, 0.80);
+  --theme-switch-track-border: rgba(255, 255, 255, 0.15);
+  --theme-switch-track-active-bg: #1A3848;
+  --theme-switch-track-active-border: #3B788A;
+  --theme-switch-thumb-bg: #4A5568;
+  --theme-switch-thumb-border: #2D3748;
+  --theme-switch-thumb-text: #A0AEC0;
+  --theme-switch-thumb-active-bg: #C5A059;
+  --theme-switch-thumb-active-border: #E2C37E;
+  --theme-switch-thumb-active-text: #0C1219;
+  --theme-knurl-ridge: currentColor;
+
+  --theme-slider-track-bg: rgba(140, 150, 165, 0.25);
+  --theme-slider-track-fill: #C5A059;
+  --theme-slider-thumb-bg: #C5A059;
+  --theme-slider-thumb-border: #7C6230;
+  --theme-slider-tick: rgba(240, 237, 230, 0.25);
+  --theme-stepper-btn-bg: rgba(255, 255, 255, 0.05);
+  --theme-stepper-btn-border: rgba(255, 255, 255, 0.15);
+  --theme-stepper-btn-text: #C5A059;
+  --theme-stepper-btn-hover-bg: rgba(255, 255, 255, 0.12);
+
+  --theme-direction-a-bg: #1B2B3A;
+  --theme-direction-a-border: #3B788A;
+  --theme-direction-a-text: #F0EDE6;
+  --theme-direction-a-ring: rgba(59, 120, 138, 0.5);
+
+  --theme-direction-b-bg: #102A38;
+  --theme-direction-b-border: #3B8B9B;
+  --theme-direction-b-text: #8CE2F2;
+  --theme-direction-b-ring: rgba(59, 139, 155, 0.5);
+
+  --theme-direction-c-bg: #122538;
+  --theme-direction-c-border: #3B6B9B;
+  --theme-direction-c-text: #8CB8F2;
+  --theme-direction-c-ring: rgba(59, 107, 155, 0.5);
+
+  --theme-reticle-pip-active: #C5A059;
+  --theme-reticle-ring-active: #3B788A;
+  --theme-pulse-indicator: #C5A059;
+
+  --theme-font-cartouche: 'Cinzel', 'Times New Roman', serif;
+  --theme-font-telemetry: 'IBM Plex Mono', 'Courier New', monospace;
+  --theme-font-body: 'Inter', system-ui, sans-serif;
+  --theme-tracking-cartouche: 0.12em;
+  --theme-transform-cartouche: uppercase;
+}
+
+[data-theme="cream"] {
+  --theme-text-primary: #2B241A;
+  --theme-text-secondary: #7D715D;
+  --theme-text-muted: #7A6E5A;
+  --theme-text-accent: #8C4820;
+  --theme-text-inverse: #FDFCF9;
+
+  --theme-panel-bg: rgba(248, 243, 232, 0.92);
+  --theme-panel-border: #CFC4AF;
+  --theme-panel-header-border: rgba(184, 173, 152, 0.60);
+  --theme-card-bg: rgba(244, 237, 224, 0.85);
+  --theme-card-border: #D8CFBC;
+  --theme-neatline-border: #B8AD98;
+  --theme-neatline-accent: #8C4820;
+
+  --theme-control-bg: rgba(244, 238, 225, 0.70);
+  --theme-control-border: #D8CFBC;
+  --theme-control-text: #5A4F3E;
+  --theme-control-hover-bg: #EDE3D4;
+  --theme-control-hover-text: #2B241A;
+  --theme-control-hover-border: #B8AD98;
+  --theme-control-active-bg: #2B241A;
+  --theme-control-active-border: #2B241A;
+  --theme-control-active-text: #FDFCF9;
+  --theme-control-active-ring: rgba(140, 72, 32, 0.35);
+
+  --theme-switch-track-bg: #E2D7C3;
+  --theme-switch-track-border: #C8B9A6;
+  --theme-switch-track-active-bg: #C8B9A6;
+  --theme-switch-track-active-border: #8C4820;
+  --theme-switch-thumb-bg: #FDFCF9;
+  --theme-switch-thumb-border: #C8B9A6;
+  --theme-switch-thumb-text: #7D715D;
+  --theme-switch-thumb-active-bg: #8C4820;
+  --theme-switch-thumb-active-border: #5A2C10;
+  --theme-switch-thumb-active-text: #FDFCF9;
+  --theme-knurl-ridge: currentColor;
+
+  --theme-slider-track-bg: rgba(184, 173, 152, 0.40);
+  --theme-slider-track-fill: #8C4820;
+  --theme-slider-thumb-bg: #8C4820;
+  --theme-slider-thumb-border: #5A2C10;
+  --theme-slider-tick: rgba(43, 36, 26, 0.25);
+  --theme-stepper-btn-bg: #F4EEE1;
+  --theme-stepper-btn-border: #D8CFBC;
+  --theme-stepper-btn-text: #8C4820;
+  --theme-stepper-btn-hover-bg: #EDE3D4;
+
+  --theme-direction-a-bg: #2B241A;
+  --theme-direction-a-border: #2B241A;
+  --theme-direction-a-text: #FDFCF9;
+  --theme-direction-a-ring: rgba(43, 36, 26, 0.4);
+
+  --theme-direction-b-bg: #77998B;
+  --theme-direction-b-border: #587A6C;
+  --theme-direction-b-text: #FDFCF9;
+  --theme-direction-b-ring: rgba(119, 153, 139, 0.4);
+
+  --theme-direction-c-bg: #9E6D50;
+  --theme-direction-c-border: #7D4F35;
+  --theme-direction-c-text: #FDFCF9;
+  --theme-direction-c-ring: rgba(158, 109, 80, 0.4);
+
+  --theme-reticle-pip-active: #8C4820;
+  --theme-reticle-ring-active: #8C4820;
+  --theme-pulse-indicator: #8C4820;
+
+  --theme-font-cartouche: 'Cinzel', 'Cormorant Garamond', 'Times New Roman', serif;
+  --theme-font-telemetry: 'IBM Plex Mono', 'Courier New', monospace;
+  --theme-font-body: 'Inter', system-ui, sans-serif;
+  --theme-tracking-cartouche: 0.10em;
+  --theme-transform-cartouche: uppercase;
+}
+
+[data-theme="cyanotype"] {
+  --theme-text-primary: #E8EDF2;
+  --theme-text-secondary: #8EA4BD;
+  --theme-text-muted: #6B94BD;
+  --theme-text-accent: #C5A059;
+  --theme-text-inverse: #0C1520;
+
+  --theme-panel-bg: rgba(18, 32, 48, 0.92);
+  --theme-panel-border: #263C54;
+  --theme-panel-header-border: rgba(79, 121, 163, 0.40);
+  --theme-card-bg: rgba(15, 28, 43, 0.85);
+  --theme-card-border: #263C54;
+  --theme-neatline-border: rgba(59, 89, 122, 0.70);
+  --theme-neatline-accent: #C5A059;
+
+  --theme-control-bg: rgba(16, 28, 43, 0.65);
+  --theme-control-border: #263C54;
+  --theme-control-text: #8EA4BD;
+  --theme-control-hover-bg: #152A40;
+  --theme-control-hover-text: #E8EDF2;
+  --theme-control-hover-border: #4F79A3;
+  --theme-control-active-bg: #203A57;
+  --theme-control-active-border: #4F79A3;
+  --theme-control-active-text: #E8EDF2;
+  --theme-control-active-ring: rgba(197, 160, 89, 0.40);
+
+  --theme-switch-track-bg: #0D1724;
+  --theme-switch-track-border: #263C54;
+  --theme-switch-track-active-bg: #203A57;
+  --theme-switch-track-active-border: #4F79A3;
+  --theme-switch-thumb-bg: #1A2F47;
+  --theme-switch-thumb-border: #263C54;
+  --theme-switch-thumb-text: #8EA4BD;
+  --theme-switch-thumb-active-bg: #C5A059;
+  --theme-switch-thumb-active-border: #E2C37E;
+  --theme-switch-thumb-active-text: #0C1520;
+  --theme-knurl-ridge: currentColor;
+
+  --theme-slider-track-bg: rgba(79, 121, 163, 0.30);
+  --theme-slider-track-fill: #4F79A3;
+  --theme-slider-thumb-bg: #C5A059;
+  --theme-slider-thumb-border: #7C6230;
+  --theme-slider-tick: rgba(232, 237, 242, 0.25);
+  --theme-stepper-btn-bg: #101C2B;
+  --theme-stepper-btn-border: #263C54;
+  --theme-stepper-btn-text: #C5A059;
+  --theme-stepper-btn-hover-bg: #162B42;
+
+  --theme-direction-a-bg: #203A57;
+  --theme-direction-a-border: #4F79A3;
+  --theme-direction-a-text: #E8EDF2;
+  --theme-direction-a-ring: rgba(79, 121, 163, 0.5);
+
+  --theme-direction-b-bg: #162B42;
+  --theme-direction-b-border: #386B99;
+  --theme-direction-b-text: #A5D5FF;
+  --theme-direction-b-ring: rgba(56, 107, 153, 0.5);
+
+  --theme-direction-c-bg: #102236;
+  --theme-direction-c-border: #294C6F;
+  --theme-direction-c-text: #8EC5FC;
+  --theme-direction-c-ring: rgba(41, 76, 111, 0.5);
+
+  --theme-reticle-pip-active: #C5A059;
+  --theme-reticle-ring-active: #4F79A3;
+  --theme-pulse-indicator: #4F79A3;
+
+  --theme-font-cartouche: 'Cinzel', 'IBM Plex Mono', monospace;
+  --theme-font-telemetry: 'IBM Plex Mono', 'Courier New', monospace;
+  --theme-font-body: 'Inter', system-ui, sans-serif;
+  --theme-tracking-cartouche: 0.16em;
+  --theme-transform-cartouche: uppercase;
+}
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -24,6 +249,34 @@ html, body, #root {
 .font-serif-body { font-family: 'Cormorant Garamond', Georgia, serif; }
 .font-serif-book { font-family: 'Newsreader', Georgia, serif; }
 .font-mono-draft { font-family: 'IBM Plex Mono', 'Courier New', monospace; }
+
+/* 4-Tier Semantic Typography Scale */
+.text-archival-title { font-size: 11px; line-height: 14px; letter-spacing: 0.05em; font-weight: 600; }
+.text-archival-body  { font-size: 10px; line-height: 13px; letter-spacing: 0.02em; font-weight: 500; }
+.text-archival-micro { font-size: 9px;  line-height: 12px; letter-spacing: 0.03em; font-weight: 400; }
+.text-archival-nano  { font-size: 8px;  line-height: 10px; letter-spacing: 0.04em; font-weight: 500; }
+
+/* Theme-Responsive Cartographic Classes */
+.cartouche-title {
+  font-family: var(--theme-font-cartouche, 'Cinzel', serif);
+  letter-spacing: var(--theme-tracking-cartouche, 0.12em);
+  text-transform: var(--theme-transform-cartouche, uppercase);
+  font-weight: 600;
+}
+
+.cartouche-subtitle {
+  font-family: var(--theme-font-body, 'Inter', sans-serif);
+  letter-spacing: 0.02em;
+}
+[data-theme="cream"] .cartouche-subtitle {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+}
+
+.telemetry-mono {
+  font-family: var(--theme-font-telemetry, 'IBM Plex Mono', monospace);
+  font-feature-settings: 'tnum' on, 'zero' on;
+}
 
 /* Restrained Atmospheric Backgrounds (Macro Space) */
 .paper-cyanotype {
@@ -58,7 +311,7 @@ html, body, #root {
 /* Vintage Vernier Slider Styling */
 input[type=range].slider-archival {
   -webkit-appearance: none;
-  background: rgba(140, 150, 165, 0.25);
+  background: var(--theme-slider-track-bg, rgba(140, 150, 165, 0.25));
   border-radius: 2px;
   height: 3px;
 }
@@ -67,9 +320,18 @@ input[type=range].slider-archival::-webkit-slider-thumb {
   height: 14px;
   width: 9px;
   border-radius: 1px;
-  background: #c5a059; /* Brushed antique brass */
+  background: var(--theme-slider-thumb-bg, #c5a059); /* Brushed antique brass or copper */
   cursor: pointer;
-  border: 1px solid #7c6230;
+  border: 1px solid var(--theme-slider-thumb-border, #7c6230);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+}
+input[type=range].slider-archival::-moz-range-thumb {
+  height: 14px;
+  width: 9px;
+  border-radius: 1px;
+  background: var(--theme-slider-thumb-bg, #c5a059);
+  cursor: pointer;
+  border: 1px solid var(--theme-slider-thumb-border, #7c6230);
   box-shadow: 0 1px 3px rgba(0,0,0,0.35);
 }
 

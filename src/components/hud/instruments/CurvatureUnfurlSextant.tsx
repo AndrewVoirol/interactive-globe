@@ -83,8 +83,8 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
     ? {
         arcStroke: '#8c4820',
         thumbFill: '#fdfcf9',
-        thumbStroke: '#c5a059',
-        activeTick: '#c5a059',
+        thumbStroke: '#8c4820',
+        activeTick: '#8c4820',
         inactiveTick: 'rgba(43, 36, 26, 0.25)',
         rayStroke: 'rgba(43, 36, 26, 0.12)',
         containerBg: 'bg-[#f2ebd9]/90 border-[#d8cfbc]',
@@ -199,16 +199,16 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         </svg>
 
         {/* Milestone Tick Labels */}
-        <div className={`absolute top-1 left-2 text-[8px] font-mono font-bold pointer-events-none ${sextantTokens.labelColor}`}>
+        <div className={`absolute top-1 left-2 text-nano font-mono font-bold pointer-events-none ${sextantTokens.labelColor}`}>
           K &gt; 0
         </div>
-        <div className={`absolute top-1 right-2 text-[8px] font-mono font-bold pointer-events-none ${sextantTokens.labelColor}`}>
+        <div className={`absolute top-1 right-2 text-nano font-mono font-bold pointer-events-none ${sextantTokens.labelColor}`}>
           K = 0
         </div>
       </div>
 
       {/* Stage Telemetry Tag */}
-      <div className="text-[9px] font-mono tracking-wider uppercase mt-0.5 w-full h-3.5 leading-tight text-center truncate">
+      <div className="text-micro font-mono tracking-wider uppercase mt-0.5 w-full h-3.5 leading-tight text-center truncate">
         <span className={`font-bold ${sextantTokens.labelColor}`}>{currentMilestone.label}</span>
         <span className={`opacity-70 ${sextantTokens.subColor}`}> • {currentMilestone.desc}</span>
       </div>
