@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { isWebGPUSupported } from '../webgpu/support';
-import { ThemeManager, ThemePalette } from '../core/themes';
+import { ThemeManager, ThemePalette, ThemeMode, ArchivalMediumId } from '../core/themes';
 import { ProceduralAudioEngine } from '../core/audio';
 
 import { LoadedDataInfo, SimulationMode, GeodesicOverlayMode, ResolutionTier } from '../types';
@@ -11,7 +11,7 @@ export function useEngineState() {
   const [backend, setBackend] = useState<'webgl2' | 'webgpu'>(
     typeof navigator !== 'undefined' && 'gpu' in navigator ? 'webgpu' : 'webgl2'
   );
-  const [theme, setThemeState] = useState<0 | 1>(ThemeManager.getInstance().getMode()); // 0 = Dark Cyber, 1 = Light Monochrome
+  const [theme, setThemeState] = useState<ThemeMode>(ThemeManager.getInstance().getMode()); // 0 = Tharp, 1 = Cream, 2 = Cyanotype
   const [themePalette, setThemePalette] = useState<ThemePalette>(ThemeManager.getInstance().getPalette());
   const [hasWebGPU, setHasWebGPU] = useState<boolean>(false);
   const [alpha, setAlpha] = useState(0); 
@@ -27,6 +27,11 @@ export function useEngineState() {
   const [showLandmarks, setShowLandmarks] = useState<boolean>(false);
   const [showTissot, setShowTissot] = useState<boolean>(false);
   const [showVectors, setShowVectors] = useState<boolean>(true);
+
+  // Archival Cartographic Detail Toggles
+  const [showSoundings, setShowSoundings] = useState<boolean>(true);
+  const [showTriangulation, setShowTriangulation] = useState<boolean>(false);
+  const [showCartouche, setShowCartouche] = useState<boolean>(true);
 
   // Auto-morph playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -63,9 +68,13 @@ export function useEngineState() {
     return unsubscribe;
   }, []);
 
-  const setTheme = (newMode: (0 | 1) | ((prev: 0 | 1) => 0 | 1)) => {
+  const setTheme = (newMode: ThemeMode | ((prev: ThemeMode) => ThemeMode)) => {
     const resolvedMode = typeof newMode === 'function' ? newMode(ThemeManager.getInstance().getMode()) : newMode;
     ThemeManager.getInstance().setMode(resolvedMode);
+  };
+
+  const setMediumId = (id: ArchivalMediumId) => {
+    ThemeManager.getInstance().setMediumId(id);
   };
 
   useEffect(() => {
@@ -128,6 +137,7 @@ export function useEngineState() {
   return {
     backend, setBackend,
     theme, setTheme,
+    setMediumId,
     themePalette,
     hasWebGPU, setHasWebGPU,
     alpha, setAlpha,
@@ -141,6 +151,9 @@ export function useEngineState() {
     showLandmarks, setShowLandmarks,
     showTissot, setShowTissot,
     showVectors, setShowVectors,
+    showSoundings, setShowSoundings,
+    showTriangulation, setShowTriangulation,
+    showCartouche, setShowCartouche,
     isPlaying, setIsPlaying,
     playDirection, setPlayDirection,
     playbackSpeed, setPlaybackSpeed,

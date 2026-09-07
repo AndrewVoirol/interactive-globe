@@ -68,29 +68,32 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
 
     const defaultUrl = typeof urlOrBuffer === 'string' ? urlOrBuffer : '/data/gfs-wind-latest.bin';
 
-    // 1. Browser environment fetch
-    if (typeof fetch !== 'undefined') {
-      try {
-        const response = await fetch(defaultUrl);
-        if (response.ok) {
-          this.rawGridBuffer = await response.arrayBuffer();
-          this.u16Grid = new Uint16Array(this.rawGridBuffer);
-          this.updateGridDimensions();
-          return;
-        }
-      } catch {
-        // Fallback to Node filesystem or procedural model
-      }
-    }
-
-    // 2. Node / test environment filesystem access
-    if (typeof process !== 'undefined' && process.versions?.node) {
+    // 1. Node / test environment filesystem access (prioritized for local paths in Node)
+    if (typeof process !== 'undefined' && process.versions?.node && !defaultUrl.startsWith('http://') && !defaultUrl.startsWith('https://')) {
       const buf = await loadNodeAssetBuffer(defaultUrl);
-      if (buf) {
+      if (buf && buf.byteLength > 0) {
         this.rawGridBuffer = buf;
         this.u16Grid = new Uint16Array(this.rawGridBuffer);
         this.updateGridDimensions();
         return;
+      }
+    }
+
+    // 2. Browser environment fetch
+    if (typeof fetch !== 'undefined') {
+      try {
+        const response = await fetch(defaultUrl);
+        if (response.ok) {
+          const ab = await response.arrayBuffer();
+          if (ab.byteLength > 0) {
+            this.rawGridBuffer = ab;
+            this.u16Grid = new Uint16Array(this.rawGridBuffer);
+            this.updateGridDimensions();
+            return;
+          }
+        }
+      } catch {
+        // Fallback to procedural model
       }
     }
 
@@ -115,25 +118,28 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
 
     const defaultUrl = typeof urlOrBuffer === 'string' ? urlOrBuffer : '/data/gfs-jetstream-latest.bin';
 
+    if (typeof process !== 'undefined' && process.versions?.node && !defaultUrl.startsWith('http://') && !defaultUrl.startsWith('https://')) {
+      const buf = await loadNodeAssetBuffer(defaultUrl);
+      if (buf && buf.byteLength > 0) {
+        this.jetGridBuffer = buf;
+        this.jetU16Grid = new Uint16Array(this.jetGridBuffer);
+        return;
+      }
+    }
+
     if (typeof fetch !== 'undefined') {
       try {
         const response = await fetch(defaultUrl);
         if (response.ok) {
-          this.jetGridBuffer = await response.arrayBuffer();
-          this.jetU16Grid = new Uint16Array(this.jetGridBuffer);
-          return;
+          const ab = await response.arrayBuffer();
+          if (ab.byteLength > 0) {
+            this.jetGridBuffer = ab;
+            this.jetU16Grid = new Uint16Array(this.jetGridBuffer);
+            return;
+          }
         }
       } catch {
         // Fallback
-      }
-    }
-
-    if (typeof process !== 'undefined' && process.versions?.node) {
-      const buf = await loadNodeAssetBuffer(defaultUrl);
-      if (buf) {
-        this.jetGridBuffer = buf;
-        this.jetU16Grid = new Uint16Array(this.jetGridBuffer);
-        return;
       }
     }
 

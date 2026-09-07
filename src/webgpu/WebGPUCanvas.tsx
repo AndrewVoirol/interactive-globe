@@ -24,6 +24,62 @@ import {
   evaluatePointMorph,
 } from '../core/GlobeOverlay';
 
+export interface BathymetricSounding {
+  name: string;
+  depthM: number;
+  depthFm: number;
+  lat: number;
+  lon: number;
+}
+
+export const ARCHIVAL_SOUNDINGS: BathymetricSounding[] = [
+  { name: 'Challenger Deep', depthM: 10994, depthFm: 6012, lat: 11.37, lon: 142.25 },
+  { name: 'Puerto Rico Trench', depthM: 8376, depthFm: 4580, lat: 19.84, lon: -66.50 },
+  { name: 'Java Trench', depthM: 7450, depthFm: 4074, lat: -10.32, lon: 111.45 },
+  { name: 'Molloy Deep', depthM: 5550, depthFm: 3035, lat: 79.14, lon: 2.78 },
+  { name: 'Romanche Trench', depthM: 7761, depthFm: 4243, lat: -0.22, lon: -18.35 },
+  { name: 'Mid-Atlantic Ridge', depthM: 3850, depthFm: 2105, lat: 26.10, lon: -35.20 },
+  { name: 'South Sandwich Trench', depthM: 8266, depthFm: 4520, lat: -55.40, lon: -26.50 },
+  { name: 'Philippine Basin', depthM: 10540, depthFm: 5763, lat: 10.15, lon: 126.70 },
+  { name: 'Aleutian Trench', depthM: 7679, depthFm: 4199, lat: 52.00, lon: -173.00 },
+  { name: 'Sargasso Abyssal Plain', depthM: 5400, depthFm: 2953, lat: 28.00, lon: -60.00 },
+  { name: 'Peru-Chile Trench', depthM: 8065, depthFm: 4410, lat: -23.00, lon: -76.00 },
+  { name: 'Diamantina Deep', depthM: 7079, depthFm: 3870, lat: -35.00, lon: 104.00 },
+];
+
+export interface GeodeticBenchmark {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+}
+
+export const GEODETIC_BENCHMARKS: GeodeticBenchmark[] = [
+  { id: 'GRW', name: 'Greenwich Obs.', lat: 51.48, lon: 0.0 },
+  { id: 'ALX', name: 'Alexandria', lat: 31.20, lon: 29.92 },
+  { id: 'QTO', name: 'Quito Equatorial', lat: -0.18, lon: -78.47 },
+  { id: 'TKO', name: 'Tokyo Meridian', lat: 35.68, lon: 139.77 },
+  { id: 'CPT', name: 'Cape of Good Hope', lat: -33.92, lon: 18.42 },
+  { id: 'REK', name: 'Reykjavik Geodetic', lat: 64.14, lon: -21.94 },
+  { id: 'HNL', name: 'Honolulu Pacific', lat: 21.31, lon: -157.86 },
+  { id: 'SYD', name: 'Sydney Observatory', lat: -33.86, lon: 151.21 },
+  { id: 'VAL', name: 'Valparaíso Survey', lat: -33.05, lon: -71.62 },
+];
+
+export const GEODETIC_EDGES: [string, string][] = [
+  ['GRW', 'ALX'],
+  ['GRW', 'REK'],
+  ['REK', 'QTO'],
+  ['QTO', 'VAL'],
+  ['VAL', 'HNL'],
+  ['HNL', 'TKO'],
+  ['TKO', 'SYD'],
+  ['SYD', 'CPT'],
+  ['CPT', 'ALX'],
+  ['ALX', 'TKO'],
+  ['GRW', 'QTO'],
+];
+
 const TIER_CONFIG: Record<ResolutionTier, { lat: number; lon: number; bin: string }> = {
   '100k': { lat: 256, lon: 512, bin: '/geo-mesh-100k.bin' },
   '1M': { lat: 512, lon: 1024, bin: '/geo-mesh-1m.bin' },
@@ -37,7 +93,10 @@ export interface WebGPUCanvasProps {
   unfurlProgress: number;
   mode: number;
   layerMode?: 0 | 1 | 2;
-  theme?: 0 | 1; // 0 = Dark Cyber, 1 = Light Monochrome
+  theme?: 0 | 1 | 2; // 0 = Marie Tharp, 1 = Cream Rag Paper, 2 = Prussian Cyanotype
+  showSoundings?: boolean;
+  showTriangulation?: boolean;
+  showCartouche?: boolean;
   resolution: ResolutionTier;
   cameraTarget?: Vec3Tuple | Vector3;
   cameraPosition?: Vec3Tuple | Vector3;
@@ -71,6 +130,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   mode,
   layerMode,
   theme = 0,
+  showSoundings = true,
+  showTriangulation = false,
+  showCartouche = true,
   resolution,
   cameraTarget,
   cameraPosition,
@@ -186,6 +248,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     mode,
     layerMode,
     theme,
+    showSoundings,
+    showTriangulation,
+    showCartouche,
     showVectors,
     activeOverlay,
     showLandmarks,
@@ -200,6 +265,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       mode,
       layerMode,
       theme,
+      showSoundings,
+      showTriangulation,
+      showCartouche,
       showVectors,
       activeOverlay,
       showLandmarks,
@@ -208,7 +276,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       vortexStrength,
       fractureIntensity,
     };
-  }, [unfurlProgress, mode, layerMode, theme, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity]);
 
   const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport });
   useEffect(() => {
@@ -697,6 +765,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         mode: curMode,
         layerMode: curLayer,
         theme: curTheme,
+        showSoundings: curShowSoundings,
+        showTriangulation: curShowTriangulation,
+        showCartouche: curShowCartouche,
         showVectors: curShowVectors,
         activeOverlay: curActiveOverlay,
         showLandmarks: curShowLandmarks,
@@ -1046,6 +1117,207 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                 });
               }
 
+              // 4. Bathymetric Spot Soundings
+              if (curShowSoundings) {
+                ARCHIVAL_SOUNDINGS.forEach((s) => {
+                  const pos3D = evaluatePointMorph(s.lon, s.lat, curUnfurl, curMode, time, -0.015);
+                  const [sx, sy, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
+                  if (isFront && sx >= -20 && sx <= w + 20 && sy >= -20 && sy <= h + 20) {
+                    const dotColor = curTheme === 1 ? '#8c3e24' : curTheme === 2 ? '#38bdf8' : '#00e5ff';
+                    const textColor =
+                      curTheme === 1
+                        ? 'rgba(74, 59, 50, 0.85)'
+                        : curTheme === 2
+                        ? 'rgba(165, 213, 255, 0.85)'
+                        : 'rgba(142, 230, 255, 0.85)';
+
+                    // Sounding anchor dot + crosshair
+                    ctx.fillStyle = dotColor;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, 1.8, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Depth label
+                    ctx.font = curTheme === 1 ? 'italic 9px Newsreader, serif' : '9px "IBM Plex Mono", monospace';
+                    ctx.fillStyle = textColor;
+                    const text = `${s.depthFm} fm`;
+                    ctx.fillText(text, sx + 4, sy + 3);
+                  }
+                });
+              }
+
+              // 5. Geodetic Triangulation Sightlines & Benchmarks
+              if (curShowTriangulation) {
+                const bmMap = new Map<string, GeodeticBenchmark>();
+                GEODETIC_BENCHMARKS.forEach((b) => bmMap.set(b.id, b));
+
+                // Draw connecting dashed great-circle sightlines
+                ctx.setLineDash([3, 3]);
+                ctx.lineWidth = 1.0;
+                ctx.strokeStyle =
+                  curTheme === 1
+                    ? 'rgba(168, 80, 50, 0.45)'
+                    : curTheme === 2
+                    ? 'rgba(120, 190, 255, 0.45)'
+                    : 'rgba(0, 229, 255, 0.45)';
+
+                GEODETIC_EDGES.forEach(([idA, idB]) => {
+                  const a = bmMap.get(idA);
+                  const b = bmMap.get(idB);
+                  if (!a || !b) return;
+
+                  ctx.beginPath();
+                  let started = false;
+                  const numSteps = 12;
+                  for (let i = 0; i <= numSteps; i++) {
+                    const t = i / numSteps;
+                    const lon = a.lon + (b.lon - a.lon) * t;
+                    const lat = a.lat + (b.lat - a.lat) * t;
+                    const pos3D = evaluatePointMorph(lon, lat, curUnfurl, curMode, time, 0.05);
+                    const [px, py, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
+                    if (!isFront) {
+                      started = false;
+                      continue;
+                    }
+                    if (!started) {
+                      ctx.moveTo(px, py);
+                      started = true;
+                    } else {
+                      ctx.lineTo(px, py);
+                    }
+                  }
+                  ctx.stroke();
+                });
+                ctx.setLineDash([]);
+
+                // Draw benchmark stations
+                GEODETIC_BENCHMARKS.forEach((bm) => {
+                  const pos3D = evaluatePointMorph(bm.lon, bm.lat, curUnfurl, curMode, time, 0.06);
+                  const [bx, by, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
+                  if (isFront && bx >= -30 && bx <= w + 30 && by >= -30 && by <= h + 30) {
+                    const bmColor = curTheme === 1 ? '#a85032' : curTheme === 2 ? '#78beff' : '#00e5ff';
+                    ctx.strokeStyle = bmColor;
+                    ctx.fillStyle = curTheme === 1 ? '#f6f1e8' : '#0c1a29';
+                    ctx.lineWidth = 1.2;
+
+                    // Diamond benchmark mark
+                    ctx.beginPath();
+                    ctx.moveTo(bx, by - 3.5);
+                    ctx.lineTo(bx + 3.5, by);
+                    ctx.lineTo(bx, by + 3.5);
+                    ctx.lineTo(bx - 3.5, by);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Benchmark ID
+                    ctx.font = '8px "IBM Plex Mono", monospace';
+                    ctx.fillStyle = bmColor;
+                    ctx.fillText(bm.id, bx + 5, by - 3);
+                  }
+                });
+              }
+
+              // 6. Archival Title Cartouche (Dedicated space in bottom-left)
+              if (curShowCartouche) {
+                const cx = 20;
+                const cy = h - 92;
+                const cw = 236;
+                const ch = 72;
+
+                // Background plate
+                ctx.fillStyle =
+                  curTheme === 1
+                    ? 'rgba(248, 244, 236, 0.90)'
+                    : curTheme === 2
+                    ? 'rgba(12, 25, 41, 0.88)'
+                    : 'rgba(9, 15, 24, 0.88)';
+                ctx.fillRect(cx, cy, cw, ch);
+
+                // Outer border
+                ctx.strokeStyle =
+                  curTheme === 1
+                    ? 'rgba(168, 120, 80, 0.8)'
+                    : curTheme === 2
+                    ? 'rgba(79, 163, 227, 0.7)'
+                    : 'rgba(0, 229, 255, 0.6)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(cx, cy, cw, ch);
+
+                // Inner fine hairline border
+                ctx.strokeStyle =
+                  curTheme === 1
+                    ? 'rgba(168, 120, 80, 0.35)'
+                    : curTheme === 2
+                    ? 'rgba(79, 163, 227, 0.3)'
+                    : 'rgba(0, 229, 255, 0.25)';
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(cx + 3, cy + 3, cw - 6, ch - 6);
+
+                // Corner cross ticks
+                const tickLen = 4;
+                ctx.beginPath();
+                // top-left
+                ctx.moveTo(cx + 3, cy + 3 + tickLen);
+                ctx.lineTo(cx + 3 + tickLen, cy + 3);
+                // top-right
+                ctx.moveTo(cx + cw - 3, cy + 3 + tickLen);
+                ctx.lineTo(cx + cw - 3 - tickLen, cy + 3);
+                // bottom-left
+                ctx.moveTo(cx + 3, cy + ch - 3 - tickLen);
+                ctx.lineTo(cx + 3 + tickLen, cy + ch - 3);
+                // bottom-right
+                ctx.moveTo(cx + cw - 3, cy + ch - 3 - tickLen);
+                ctx.lineTo(cx + cw - 3 - tickLen, cy + ch - 3);
+                ctx.stroke();
+
+                // Typography inside Cartouche
+                const titleColor = curTheme === 1 ? '#2c221e' : curTheme === 2 ? '#cbe1f7' : '#e0f2fe';
+                const subColor = curTheme === 1 ? '#735f52' : curTheme === 2 ? '#78a6d4' : '#67e8f9';
+                const metaColor = curTheme === 1 ? '#8a776a' : curTheme === 2 ? '#597fa6' : '#38bdf8';
+
+                ctx.font = 'bold 10px Cinzel, serif';
+                ctx.fillStyle = titleColor;
+                const titleText =
+                  curTheme === 1
+                    ? 'TYPUS ORBIS TERRARUM'
+                    : curTheme === 2
+                    ? 'ORBIS TERRARUM // BLUEPRINT'
+                    : 'PHYSIOGRAPHIC WORLD OCEAN';
+                ctx.fillText(titleText, cx + 12, cy + 20);
+
+                ctx.font = '8px Newsreader, serif';
+                ctx.fillStyle = subColor;
+                const subText =
+                  curTheme === 1
+                    ? 'Eduard Imhof Relief • 100% Cotton Rag'
+                    : curTheme === 2
+                    ? 'Ferroprussiate Survey Draft • Cyanotype'
+                    : 'Marie Tharp & Bruce Heezen Survey (1977)';
+                ctx.fillText(subText, cx + 12, cy + 36);
+
+                // Divider line
+                ctx.strokeStyle =
+                  curTheme === 1
+                    ? 'rgba(168, 120, 80, 0.25)'
+                    : curTheme === 2
+                    ? 'rgba(79, 163, 227, 0.25)'
+                    : 'rgba(0, 229, 255, 0.2)';
+                ctx.beginPath();
+                ctx.moveTo(cx + 12, cy + 44);
+                ctx.lineTo(cx + cw - 12, cy + 44);
+                ctx.stroke();
+
+                // Scale ratio and projection format
+                ctx.font = '8px "IBM Plex Mono", monospace';
+                ctx.fillStyle = metaColor;
+                const ratioText = curUnfurl < 0.05 ? 'SCALE: 1:127,420,000' : `UNFURL: ${(curUnfurl * 100).toFixed(1)}%`;
+                const seriesText = curTheme === 1 ? 'SWISS FED. TOPO' : curTheme === 2 ? 'HYDROGRAPHIC SER.' : 'LAMONT-DOHERTY';
+                ctx.fillText(ratioText, cx + 12, cy + 58);
+                const seriesMetrics = ctx.measureText(seriesText);
+                ctx.fillText(seriesText, cx + cw - 12 - seriesMetrics.width, cy + 58);
+              }
+
               ctx.restore();
             }
           }
@@ -1101,7 +1373,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   }, [updateCameraTransform]);
 
   return (
-    <div ref={containerRef} className={`w-full h-full relative overflow-hidden transition-colors duration-500 ${theme === 1 ? 'bg-[#F8FAFC]' : 'bg-[#090B10]'}`}>
+    <div ref={containerRef} className={`w-full h-full relative overflow-hidden transition-colors duration-500 ${theme === 2 ? 'paper-cyanotype' : (theme === 1 ? 'paper-cream' : 'paper-tharp')}`}>
       <canvas
         ref={canvasRef}
         className="w-full h-full block cursor-grab active:cursor-grabbing"

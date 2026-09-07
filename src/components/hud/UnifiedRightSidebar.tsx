@@ -16,8 +16,15 @@ import { BathymetricTideGauge } from './instruments/BathymetricTideGauge';
 export interface UnifiedRightSidebarProps {
   isZenMode: boolean;
   onZenToggle: () => void;
-  theme: 0 | 1;
+  theme: 0 | 1 | 2;
   onThemeToggle: () => void;
+  onSelectThemeMode?: (mode: 0 | 1 | 2) => void;
+  showSoundings?: boolean;
+  onSoundingsToggle?: () => void;
+  showTriangulation?: boolean;
+  onTriangulationToggle?: () => void;
+  showCartouche?: boolean;
+  onCartoucheToggle?: () => void;
   backend: 'webgl2' | 'webgpu';
   onBackendChange: (b: 'webgl2' | 'webgpu') => void;
   hasWebGPU: boolean;
@@ -72,6 +79,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onZenToggle,
   theme,
   onThemeToggle,
+  onSelectThemeMode,
+  showSoundings = true,
+  onSoundingsToggle,
+  showTriangulation = false,
+  onTriangulationToggle,
+  showCartouche = true,
+  onCartoucheToggle,
   backend,
   onBackendChange,
   hasWebGPU,
@@ -231,87 +245,83 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
           {/* Row 1: Engine Controls & System Status Bar                            */}
           {/* --------------------------------------------------------------------- */}
           <div
-            className={`flex items-center justify-between pb-2.5 border-b gap-1 ${
+            className={`flex items-center justify-between pb-2.5 border-b gap-1.5 ${
               isLight ? 'border-zinc-200' : 'border-white/10'
             }`}
           >
-            {/* Live FPS Badge (Fixed width, cohesive gap, no layout shift) */}
-            <div
-              className={`flex items-center justify-center gap-1.5 w-16 shrink-0 px-1.5 py-1 rounded-lg border font-bold text-[10px] tabular-nums transition-colors ${
-                isLight
-                  ? 'bg-zinc-100/90 border-zinc-200 text-zinc-900'
-                  : 'bg-black/30 border-white/10 text-zinc-200'
-              }`}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                  fps >= 100
-                    ? 'bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.8)] animate-pulse'
-                    : fps >= 55
-                    ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse'
-                    : 'bg-amber-400'
-                }`}
-              ></span>
-              <span
-                className={`w-5 text-right tabular-nums ${
-                  fps >= 100
-                    ? 'text-purple-400 font-extrabold'
-                    : fps >= 55
-                    ? 'text-emerald-500 font-extrabold'
-                    : 'text-amber-500 font-extrabold'
+            {/* Left Controls: Telemetry Status & Engine Config */}
+            <div className="flex items-center gap-1.5 min-w-0">
+              {/* Live FPS Badge (Fixed width, cohesive gap, no layout shift) */}
+              <div
+                className={`flex items-center justify-center gap-1.5 w-16 shrink-0 px-1.5 py-1 rounded-lg border font-bold text-[10px] tabular-nums transition-colors ${
+                  isLight
+                    ? 'bg-zinc-100/90 border-zinc-200 text-zinc-900'
+                    : 'bg-black/30 border-white/10 text-zinc-200'
                 }`}
               >
-                {fps}
-              </span>
-              <span className="text-[8px] font-normal opacity-60">FPS</span>
-            </div>
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    fps >= 100
+                      ? 'bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.8)] animate-pulse'
+                      : fps >= 55
+                      ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse'
+                      : 'bg-amber-400'
+                  }`}
+                ></span>
+                <span
+                  className={`w-5 text-right tabular-nums ${
+                    fps >= 100
+                      ? 'text-purple-400 font-extrabold'
+                      : fps >= 55
+                      ? 'text-emerald-500 font-extrabold'
+                      : 'text-amber-500 font-extrabold'
+                  }`}
+                >
+                  {fps}
+                </span>
+                <span className="text-[8px] font-normal opacity-60">FPS</span>
+              </div>
 
-            {/* Backend Toggle (WebGL2 vs WebGPU) */}
-            <button
-              onClick={() => onBackendChange(backend === 'webgpu' ? 'webgl2' : 'webgpu')}
-              disabled={!hasWebGPU && backend === 'webgl2'}
-              title={
-                !hasWebGPU
-                  ? 'WebGPU not available on this hardware'
-                  : backend === 'webgpu'
-                  ? 'Active Engine: WebGPU WGSL Compute'
-                  : 'Active Engine: WebGL2 Fallback'
-              }
-              className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1.5 shrink-0 ${
-                backend === 'webgpu'
-                  ? 'bg-purple-600 text-white border-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.4)] ring-1 ring-purple-400/50'
-                  : isLight
-                  ? 'bg-zinc-100 border-zinc-300 text-zinc-800 hover:bg-zinc-200 hover:border-zinc-400'
-                  : 'bg-white/5 border-white/10 text-zinc-300 hover:text-white hover:border-white/30'
-              }`}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                  backend === 'webgpu' ? 'bg-white animate-pulse' : 'bg-emerald-400'
+              {/* Backend Toggle (WebGL2 vs WebGPU) */}
+              <button
+                onClick={() => onBackendChange(backend === 'webgpu' ? 'webgl2' : 'webgpu')}
+                disabled={!hasWebGPU && backend === 'webgl2'}
+                title={
+                  !hasWebGPU
+                    ? 'WebGPU not available on this hardware'
+                    : backend === 'webgpu'
+                    ? 'Active Engine: WebGPU WGSL Compute'
+                    : 'Active Engine: WebGL2 Fallback'
+                }
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1.5 shrink-0 ${
+                  backend === 'webgpu'
+                    ? 'bg-purple-600 text-white border-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.4)] ring-1 ring-purple-400/50'
+                    : isLight
+                    ? 'bg-zinc-100 border-zinc-300 text-zinc-800 hover:bg-zinc-200 hover:border-zinc-400'
+                    : 'bg-white/5 border-white/10 text-zinc-300 hover:text-white hover:border-white/30'
                 }`}
-              ></span>
-              <span>{backend === 'webgpu' ? 'WebGPU' : 'WebGL2'}</span>
-              <span className="text-[9px] opacity-60 font-normal">⇄</span>
-            </button>
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    backend === 'webgpu' ? 'bg-white animate-pulse' : 'bg-emerald-400'
+                  }`}
+                ></span>
+                <span>{backend === 'webgpu' ? 'WebGPU' : 'WebGL2'}</span>
+                <span className="text-[9px] opacity-60 font-normal">⇄</span>
+              </button>
 
-            {/* Grid Resolution Switch (100K - 16M Tiers) */}
-            <div
-              className={`flex items-center rounded-lg p-0.5 border shrink-0 gap-0.5 ${
-                isLight ? 'bg-zinc-100 border-zinc-300' : 'bg-black/40 border-white/10'
-              }`}
-            >
-              {(['100k', '1M', '3M', '4M', '8M', '16M'] as ResolutionTier[]).map((tier) => (
+              {/* Grid Resolution Switch */}
+              <div
+                className={`flex items-center rounded-lg p-0.5 border shrink-0 gap-0.5 ${
+                  isLight ? 'bg-zinc-100 border-zinc-300' : 'bg-black/40 border-white/10'
+                }`}
+              >
                 <button
-                  key={tier}
-                  onClick={() => onResolutionChange(tier)}
-                  title={`${tier.toUpperCase()} Volumetric Nodes`}
+                  onClick={() => onResolutionChange('100k')}
+                  title="100,000 Fibonacci Nodes (High Performance)"
                   className={`px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold transition-all ${
-                    resolution === tier
-                      ? tier === '16M'
-                        ? 'bg-amber-500 text-black font-extrabold shadow-sm'
-                        : tier === '1M' || tier === '4M'
-                        ? 'bg-purple-600 text-white font-extrabold shadow-[0_0_8px_rgba(168,85,247,0.5)]'
-                        : isLight
+                    resolution === '100k'
+                      ? isLight
                         ? 'bg-zinc-900 text-white shadow-sm ring-1 ring-zinc-900'
                         : 'bg-white text-zinc-950 font-extrabold shadow-sm'
                       : isLight
@@ -319,60 +329,102 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       : 'text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
-                  {tier.toUpperCase()}
+                  100K
                 </button>
-              ))}
+                <button
+                  onClick={() => onResolutionChange('1M')}
+                  title="1,000,000 Volumetric Grid Nodes (Standard Resolution)"
+                  className={`px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold transition-all ${
+                    resolution === '1M'
+                      ? 'bg-purple-600 text-white font-extrabold shadow-[0_0_8px_rgba(168,85,247,0.5)] ring-1 ring-purple-400'
+                      : isLight
+                      ? 'text-zinc-500 hover:text-zinc-900'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  1M
+                </button>
+                {resolution !== '100k' && resolution !== '1M' && (
+                  <button
+                    onClick={() => onResolutionChange(resolution)}
+                    title={`${resolution.toUpperCase()} Volumetric Nodes (Active)`}
+                    className={`px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold transition-all ${
+                      resolution === '16M'
+                        ? 'bg-amber-500 text-black font-extrabold shadow-sm'
+                        : 'bg-purple-600 text-white font-extrabold shadow-[0_0_8px_rgba(168,85,247,0.5)] ring-1 ring-purple-400'
+                    }`}
+                  >
+                    {resolution.toUpperCase()}
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Audio Synthesizer Mute/Unmute */}
-            {onAudioMuteToggle && (
+            {/* Right Controls: Audio & Theme Toggles */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Audio Synthesizer Mute/Unmute */}
+              {onAudioMuteToggle && (
+                <button
+                  onClick={onAudioMuteToggle}
+                  title={
+                    isAudioMuted
+                      ? 'Web Audio Synthesizer: Muted (Click to Unmute)'
+                      : 'Web Audio Synthesizer: Active (Click to Mute)'
+                  }
+                  className={`p-1.5 rounded-lg border transition-all flex items-center shrink-0 ${
+                    !isAudioMuted
+                      ? isLight
+                        ? 'border-emerald-500 bg-emerald-100 text-emerald-900 ring-1 ring-emerald-500 shadow-sm'
+                        : 'border-emerald-400 bg-emerald-500/25 text-emerald-300 ring-1 ring-emerald-400/50 shadow-[0_0_10px_rgba(52,211,153,0.3)]'
+                      : isLight
+                      ? 'border-zinc-300 bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-800'
+                      : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white hover:border-white/25'
+                  }`}
+                >
+                  {!isAudioMuted ? (
+                    <svg className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.314M11 5L6 9H2v6h4l5 4V5z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                    </svg>
+                  )}
+                </button>
+              )}
+
+              {/* Archival Physical Medium Cycle (Tharp / Cream / Cyanotype) */}
               <button
-                onClick={onAudioMuteToggle}
+                onClick={onThemeToggle}
+                aria-label={theme === 1 ? 'Switch to Dark Theme' : 'Switch to Light Theme'}
                 title={
-                  isAudioMuted
-                    ? 'Web Audio Synthesizer: Muted (Click to Unmute)'
-                    : 'Web Audio Synthesizer: Active (Click to Mute)'
+                  theme === 1
+                    ? 'Switch to Dark Cyber Palette (Press T)'
+                    : theme === 2
+                    ? 'Switch to Light Monochrome Palette (Press T)'
+                    : 'Switch to Light Monochrome Palette (Press T)'
                 }
-                className={`p-1.5 rounded-lg border transition-all flex items-center shrink-0 ${
-                  !isAudioMuted
-                    ? isLight
-                      ? 'border-emerald-500 bg-emerald-100 text-emerald-900 ring-1 ring-emerald-500 shadow-sm'
-                      : 'border-emerald-400 bg-emerald-500/25 text-emerald-300 ring-1 ring-emerald-400/50 shadow-[0_0_10px_rgba(52,211,153,0.3)]'
-                    : isLight
-                    ? 'border-zinc-300 bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-800'
-                    : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white hover:border-white/25'
+                className={`px-2 py-1 rounded-lg border text-[10px] font-mono tracking-tight transition-all flex items-center gap-1.5 shrink-0 ${
+                  theme === 1
+                    ? 'border-[#c8b9a6] bg-[#f4ede2] text-[#2c221e] hover:bg-[#ede3d4] shadow-sm'
+                    : theme === 2
+                    ? 'border-[#386b99] bg-[#0d223a] text-[#8ec5fc] hover:bg-[#122e4e]'
+                    : 'border-white/10 bg-white/5 text-zinc-300 hover:text-cyan-300 hover:bg-white/10 hover:border-white/25'
                 }`}
               >
-                {!isAudioMuted ? (
-                  <svg className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.314M11 5L6 9H2v6h4l5 4V5z" />
-                  </svg>
-                ) : (
-                  <svg className="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                  </svg>
-                )}
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{
+                    backgroundColor: theme === 0 ? '#00e5ff' : theme === 1 ? '#bf6540' : '#4fa3e3',
+                    boxShadow: theme === 0 ? '0 0 6px rgba(0,229,255,0.6)' : theme === 1 ? 'none' : '0 0 6px rgba(79,163,227,0.6)'
+                  }}
+                />
+                <span className="font-bold text-[9px] uppercase tracking-wider">
+                  {theme === 0 ? 'Tharp' : theme === 1 ? 'Cream' : 'Cyanotype'}
+                </span>
               </button>
-            )}
-
-            {/* Theme Toggle (Light / Dark) */}
-            <button
-              onClick={onThemeToggle}
-              aria-label={isLight ? 'Switch to Dark Theme' : 'Switch to Light Theme'}
-              title={isLight ? 'Switch to Dark Cyber Palette (Press T)' : 'Switch to Light Monochrome Palette (Press T)'}
-              className={`p-1.5 rounded-lg border transition-all flex items-center justify-center shrink-0 ${
-                isLight
-                  ? 'border-zinc-300 bg-zinc-100 text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 hover:border-zinc-400 shadow-sm'
-                  : 'border-white/10 bg-white/5 text-zinc-400 hover:text-amber-300 hover:bg-white/10 hover:border-white/25'
-              }`}
-            >
-              {isLight ? (
-                <Moon className="w-3.5 h-3.5" />
-              ) : (
-                <Sun className="w-3.5 h-3.5" />
-              )}
-            </button>
+            </div>
           </div>
 
           {/* --------------------------------------------------------------------- */}
@@ -436,6 +488,117 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
           {/* --------------------------------------------------------------------- */}
           {isSidebarOpen && (
             <div className="mt-2.5 space-y-3 overflow-y-auto pr-1 flex-1 min-h-0">
+              {/* Archival Physical Medium & Mineral Swatch Ramp */}
+              <div
+                className={`p-2.5 rounded-xl border space-y-2.5 transition-all ${
+                  theme === 1
+                    ? 'bg-[#f7f0e6] border-[#d8c8b4] shadow-sm'
+                    : theme === 2
+                    ? 'bg-[#0c1a29]/90 border-[#284f73]'
+                    : 'bg-white/[0.03] border-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between text-[9px] font-extrabold uppercase tracking-wider">
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="w-2 h-2 rounded-full animate-pulse"
+                      style={{
+                        backgroundColor: theme === 0 ? '#00e5ff' : theme === 1 ? '#bf6540' : '#4fa3e3',
+                        boxShadow: theme === 0 ? '0 0 8px rgba(0,229,255,0.8)' : theme === 2 ? '0 0 8px rgba(79,163,227,0.8)' : 'none',
+                      }}
+                    />
+                    <span className={theme === 1 ? 'text-[#3d2f28]' : theme === 2 ? 'text-[#8ec5fc]' : 'text-zinc-300'}>
+                      Physical Medium
+                    </span>
+                  </span>
+                  <span
+                    className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                      theme === 1
+                        ? 'bg-[#eae0d2] text-[#4a3b32] border-[#c8b9a6]'
+                        : theme === 2
+                        ? 'bg-[#162a42] text-[#9fcbf9] border-[#386b99]'
+                        : 'bg-white/10 text-cyan-300 border-white/15'
+                    }`}
+                  >
+                    {theme === 0 ? 'Marie Tharp' : theme === 1 ? '100% Cotton Rag' : 'Ferroprussiate'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    onClick={() => onSelectThemeMode ? onSelectThemeMode(0) : (theme !== 0 && onThemeToggle())}
+                    title="Marie Tharp Physiographic: Oceanic abyss, turquoise shelf, parchment continents"
+                    className={`py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center gap-0.5 border transition-all ${
+                      theme === 0
+                        ? 'bg-gradient-to-b from-[#0c1b2b] to-[#060e17] text-cyan-300 border-cyan-400/80 shadow-[0_0_12px_rgba(0,229,255,0.3)] ring-1 ring-cyan-400 font-black'
+                        : theme === 1
+                        ? 'bg-[#ede3d4] border-[#c8b9a6] text-zinc-600 hover:text-zinc-900'
+                        : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-cyan-300 hover:border-cyan-500/30'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black tracking-tight">Tharp</span>
+                    <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Physiographic</span>
+                  </button>
+
+                  <button
+                    onClick={() => onSelectThemeMode ? onSelectThemeMode(1) : (theme !== 1 && onThemeToggle())}
+                    title="Cream Rag Paper: Eduard Imhof Swiss Alpine watercolor relief on 100% cotton rag"
+                    className={`py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center gap-0.5 border transition-all ${
+                      theme === 1
+                        ? 'bg-[#fcfaf7] text-[#2c221e] border-[#b87452] shadow-md ring-1 ring-[#b87452] font-black'
+                        : theme === 2
+                        ? 'bg-[#102236] border-[#294c6f] text-zinc-400 hover:text-white'
+                        : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black tracking-tight">Cream Rag</span>
+                    <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Swiss Relief</span>
+                  </button>
+
+                  <button
+                    onClick={() => onSelectThemeMode ? onSelectThemeMode(2) : (theme !== 2 && onThemeToggle())}
+                    title="Prussian Cyanotype: Ferroprussiate blueprint & technical drafting linen"
+                    className={`py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center gap-0.5 border transition-all ${
+                      theme === 2
+                        ? 'bg-gradient-to-b from-[#142e4d] to-[#0b1c30] text-[#a5d5ff] border-[#4fa3e3] shadow-[0_0_12px_rgba(79,163,227,0.4)] ring-1 ring-[#4fa3e3] font-black'
+                        : theme === 1
+                        ? 'bg-[#ede3d4] border-[#c8b9a6] text-zinc-600 hover:text-zinc-900'
+                        : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-[#a5d5ff] hover:border-[#386b99]'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black tracking-tight">Prussian</span>
+                    <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Cyanotype</span>
+                  </button>
+                </div>
+
+                {/* Hand-ground watercolor pigment pan swatches */}
+                <div className="pt-0.5">
+                  <div className="flex items-center justify-between text-[8px] uppercase tracking-wider opacity-65 mb-1 font-mono">
+                    <span className={theme === 1 ? 'text-[#4a3b32]' : theme === 2 ? 'text-[#8ec5fc]' : 'text-zinc-400'}>
+                      Mineral Pigment Ramp
+                    </span>
+                    <span className="text-[7px] opacity-70">
+                      {theme === 0 ? 'Abyssal → Shelf' : theme === 1 ? 'Cotton → Sienese' : 'Ferro → Tracing'}
+                    </span>
+                  </div>
+                  <div className="flex h-2.5 rounded overflow-hidden border border-black/20 dark:border-white/15 shadow-inner">
+                    {(theme === 0
+                      ? ['#070c14', '#0d1e33', '#1b627a', '#2d8896', '#cfc5ad']
+                      : theme === 1
+                      ? ['#f6f1e8', '#e3dcce', '#c88665', '#a85032', '#ffffff']
+                      : ['#05101e', '#0c2642', '#1e4a78', '#4587c6', '#94c8ff']
+                    ).map((color, idx) => (
+                      <div
+                        key={idx}
+                        className="flex-1 transition-colors duration-300 hover:opacity-80"
+                        style={{ backgroundColor: color }}
+                        title={`Pigment ${idx + 1}: ${color}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {/* Cartographic Rendering Direction Switcher (A / B / C) - Always Visible */}
               <div
                 className={`p-2.5 rounded-xl border space-y-2 transition-all ${
@@ -1052,6 +1215,83 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       ></span>
                       <span>Vectors (V)</span>
                     </button>
+                  </div>
+
+                  {/* Archival High-Touch Details (Dedicated Spaces & Overlays) */}
+                  <div className="space-y-1 pt-1.5 border-t border-white/5">
+                    <div className="flex items-center justify-between text-[9px] uppercase font-bold tracking-wider">
+                      <span className={theme === 1 ? 'text-[#4a3b32]' : theme === 2 ? 'text-[#8ec5fc]' : 'text-zinc-300'}>
+                        Archival Detail Overlays
+                      </span>
+                      <span className="text-[7px] font-mono opacity-60">Cartographic Taxonomy</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {/* Bathymetric Soundings */}
+                      <button
+                        onClick={onSoundingsToggle}
+                        title="Toggle Bathymetric Spot Soundings (Ocean basin depths & historic fathom soundings)"
+                        className={`py-1.5 px-1 rounded-xl text-[9px] font-bold border transition-all text-center flex items-center justify-center gap-1 ${
+                          showSoundings
+                            ? theme === 1
+                              ? 'bg-[#3b597a] text-white border-[#2c4766] shadow-sm font-extrabold ring-1 ring-[#2c4766]'
+                              : 'bg-cyan-500/25 text-cyan-200 border-cyan-400/80 shadow-[0_0_8px_rgba(6,182,212,0.3)] ring-1 ring-cyan-400/50 font-extrabold'
+                            : isLight
+                            ? 'border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-800'
+                            : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            showSoundings ? 'bg-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.8)]' : 'bg-zinc-500'
+                          }`}
+                        />
+                        <span>Soundings</span>
+                      </button>
+
+                      {/* Triangulation Sightlines */}
+                      <button
+                        onClick={onTriangulationToggle}
+                        title="Toggle Geodetic Triangulation Sightlines & Survey Benchmarks"
+                        className={`py-1.5 px-1 rounded-xl text-[9px] font-bold border transition-all text-center flex items-center justify-center gap-1 ${
+                          showTriangulation
+                            ? theme === 1
+                              ? 'bg-[#a85032] text-white border-[#8c3e24] shadow-sm font-extrabold ring-1 ring-[#8c3e24]'
+                              : 'bg-amber-500/25 text-amber-200 border-amber-400/80 shadow-[0_0_8px_rgba(251,191,36,0.3)] ring-1 ring-amber-400/50 font-extrabold'
+                            : isLight
+                            ? 'border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-800'
+                            : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            showTriangulation ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]' : 'bg-zinc-500'
+                          }`}
+                        />
+                        <span>Triangulation</span>
+                      </button>
+
+                      {/* Title Cartouche */}
+                      <button
+                        onClick={onCartoucheToggle}
+                        title="Toggle Archival Survey Title Cartouche & Scale Ratio"
+                        className={`py-1.5 px-1 rounded-xl text-[9px] font-bold border transition-all text-center flex items-center justify-center gap-1 ${
+                          showCartouche
+                            ? theme === 1
+                              ? 'bg-[#4a3b32] text-white border-[#382b24] shadow-sm font-extrabold ring-1 ring-[#382b24]'
+                              : 'bg-sky-500/25 text-sky-200 border-sky-400/80 shadow-[0_0_8px_rgba(14,165,233,0.3)] ring-1 ring-sky-400/50 font-extrabold'
+                            : isLight
+                            ? 'border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-800'
+                            : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            showCartouche ? 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.8)]' : 'bg-zinc-500'
+                          }`}
+                        />
+                        <span>Cartouche</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Camera Target Snaps */}

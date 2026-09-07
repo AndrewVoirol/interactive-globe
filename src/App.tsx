@@ -15,6 +15,7 @@ import WebGPUFallback from './components/canvas/WebGPUFallback';
 export { KinematicCameraController } from './components/canvas/KinematicCameraController';
 
 const WebGPUCanvas = React.lazy(() => import('./webgpu/WebGPUCanvas'));
+const AirDancerScene = React.lazy(() => import('./components/tubeman/AirDancerScene').then((m) => ({ default: m.AirDancerScene })));
 
 const RADIUS = 5.0;
 
@@ -49,6 +50,10 @@ export default function App() {
     showLandmarks, setShowLandmarks,
     showTissot, setShowTissot,
     showVectors, setShowVectors,
+    showSoundings, setShowSoundings,
+    showTriangulation, setShowTriangulation,
+    showCartouche, setShowCartouche,
+    setMediumId,
     isPlaying, setIsPlaying,
     playbackSpeed, setPlaybackSpeed,
     isZenMode, setIsZenMode,
@@ -70,6 +75,10 @@ export default function App() {
   const audioEngineRef = useRef<ProceduralAudioEngine>(new ProceduralAudioEngine(true));
 
   const [isAudioMuted, setIsAudioMuted] = useState(true);
+  const [isAirDancerMode, setIsAirDancerMode] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.location.search.includes('tubeman') || window.location.hash.includes('tubeman');
+  });
   const prevAlphaRef = useRef(alpha);
 
   const handleAudioMuteToggle = useCallback(() => {
@@ -196,9 +205,11 @@ export default function App() {
       } else if (e.key === 'h' || e.key === 'H') {
         setIsZenMode((z) => !z);
       } else if (e.key === 't' || e.key === 'T') {
-        setTheme((t) => (t === 0 ? 1 : 0));
+        setTheme((t) => (((t + 1) % 3) as any));
       } else if (e.key === 'v' || e.key === 'V') {
         setShowVectors((s) => !s);
+      } else if (e.key === 'w' || e.key === 'W') {
+        setIsAirDancerMode((prev) => !prev);
       } else if (e.key === 'b' || e.key === 'B') {
         // Standalone WebGPU instrument: WebGL2 backend is retired
         // setBackend((b) => (b === 'webgpu' ? 'webgl2' : 'webgpu'))
@@ -264,14 +275,14 @@ export default function App() {
   return (
     <CursorProvider>
       <div className={`relative w-screen h-screen flex flex-col font-mono overflow-hidden select-none transition-colors duration-500 ${
-        isLight ? 'bg-[#F8FAFC]' : 'bg-[#090B10]'
+        theme === 2 ? 'paper-cyanotype text-[#E8EDF2]' : (theme === 1 ? 'paper-cream text-[#2B2B2B]' : 'paper-tharp text-[#F0EDE6]')
       }`}>
         {/* Viewport Canvas (Standalone WebGPU Instrument with SVG Fallback) */}
         <div className="w-full h-full relative">
           {hasWebGPU ? (
             <React.Suspense fallback={
-              <div className={`w-full h-full flex items-center justify-center font-mono text-xs ${isLight ? 'bg-[#F8FAFC] text-zinc-700' : 'bg-[#090B10] text-zinc-300'}`}>
-                <span className={`w-6 h-6 border-2 border-t-transparent rounded-full animate-spin ${isLight ? 'border-zinc-800' : 'border-zinc-300'}`}></span>
+              <div className={`w-full h-full flex items-center justify-center font-mono text-xs ${theme === 1 ? 'bg-[#F8FAFC] text-zinc-700' : (theme === 2 ? 'bg-[#101C2B] text-zinc-300' : 'bg-[#090B10] text-zinc-300')}`}>
+                <span className={`w-6 h-6 border-2 border-t-transparent rounded-full animate-spin ${theme === 1 ? 'border-zinc-800' : 'border-zinc-300'}`}></span>
                 <span className="ml-2">Initializing WebGPU WGSL Pipeline...</span>
               </div>
             }>
@@ -280,6 +291,9 @@ export default function App() {
                 mode={mode}
                 layerMode={layerMode}
                 theme={theme}
+                showSoundings={showSoundings}
+                showTriangulation={showTriangulation}
+                showCartouche={showCartouche}
                 resolution={resolution}
                 cameraTarget={cameraTarget}
                 cameraPosition={webgpuCameraPos}
@@ -328,7 +342,14 @@ export default function App() {
           isZenMode={isZenMode}
           onZenToggle={() => setIsZenMode(true)}
           theme={theme}
-          onThemeToggle={() => setTheme((t) => (t === 0 ? 1 : 0))}
+          onThemeToggle={() => setTheme((t) => (((t + 1) % 3) as any))}
+          onSelectThemeMode={(m) => setTheme(m)}
+          showSoundings={showSoundings}
+          onSoundingsToggle={() => setShowSoundings((s) => !s)}
+          showTriangulation={showTriangulation}
+          onTriangulationToggle={() => setShowTriangulation((s) => !s)}
+          showCartouche={showCartouche}
+          onCartoucheToggle={() => setShowCartouche((s) => !s)}
           backend={backend}
           onBackendChange={setBackend}
           hasWebGPU={hasWebGPU}
@@ -409,6 +430,37 @@ export default function App() {
           >
             Exit Zen Mode (H)
           </button>
+        )}
+
+        {/* Floating Air Dancer Fun Launcher Button (Easter Egg) */}
+        {!isZenMode && !isAirDancerMode && (
+          <button
+            onClick={() => setIsAirDancerMode(true)}
+            title="🎈 (W)"
+            aria-label="Wacky Wavy Inflatable Tube Man Easter Egg"
+            className="absolute top-4 left-4 z-30 text-2xl transition-transform hover:scale-125 active:scale-95 cursor-pointer pointer-events-auto select-none p-1 focus:outline-none"
+          >
+            <span className="inline-block animate-bounce">🎈</span>
+          </button>
+        )}
+
+        {/* Wacky Wavy Inflatable Tube Man ("Air Dancer") Dealership Experience */}
+        {isAirDancerMode && (
+          <React.Suspense fallback={
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black text-white font-mono text-sm">
+              <span className="animate-spin mr-2">🎈</span> Inflating Tube Man...
+            </div>
+          }>
+            <AirDancerScene onClose={() => {
+              setIsAirDancerMode(false);
+              if (typeof window !== 'undefined' && (window.location.search.includes('tubeman') || window.location.hash.includes('tubeman'))) {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('tubeman');
+                url.hash = '';
+                window.history.replaceState({}, '', url.toString());
+              }
+            }} />
+          </React.Suspense>
         )}
       </div>
     </CursorProvider>

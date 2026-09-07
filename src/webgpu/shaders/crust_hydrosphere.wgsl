@@ -313,9 +313,19 @@ fn computeHydrosphereShading(
     let seabedRadiance = R_subsurface * (NdotL * causticFactor);
 
     // Pelagic Radiance & Bathymetric Gradient from Jerlov Radiative Transfer
-    let isDark = sim.u_theme == 0u;
+    var cSkyAmbient: vec3<f32>;
+    var cTrench: vec3<f32>;
+    if (sim.u_theme == 2u) {
+        cSkyAmbient = vec3<f32>(0.12, 0.22, 0.34);
+        cTrench     = vec3<f32>(0.03, 0.05, 0.09); // Deep exposed prussiate #0E1824
+    } else if (sim.u_theme == 1u) {
+        cSkyAmbient = vec3<f32>(0.28, 0.34, 0.44);
+        cTrench     = vec3<f32>(0.10, 0.16, 0.22); // Marine Indigo #263B52
+    } else {
+        cSkyAmbient = vec3<f32>(0.14, 0.18, 0.24);
+        cTrench     = vec3<f32>(0.005, 0.015, 0.05); // Abyssal Trench #0F171F
+    }
     let cSunLight = vec3<f32>(1.08, 1.02, 0.94);
-    let cSkyAmbient = select(vec3<f32>(0.28, 0.34, 0.44), vec3<f32>(0.14, 0.18, 0.24), isDark);
     let sunIllum = cSunLight * (NdotL * 0.85 + 0.15) + cSkyAmbient * 0.80;
 
     // Jerlov volume radiance: Type I crystal sapphire blue vs Type III emerald green
@@ -324,7 +334,6 @@ fn computeHydrosphereShading(
     // Deep abyssal trenches (> 2000m to 10,924m): total extinction deepens into midnight indigo
     let normDepth = clamp(safeDepth / 10924.0, 0.0, 1.0);
     let trenchFactor = smoothstep(0.12, 0.85, normDepth);
-    let cTrench = select(vec3<f32>(0.02, 0.06, 0.18), vec3<f32>(0.005, 0.015, 0.05), isDark);
     let deepOceanColor = mix(pelagicRadiance, cTrench, trenchFactor);
 
     // Continuous physical blend from shallow Kubelka-Munk seabed glow to deep Jerlov volume radiance
@@ -696,25 +705,57 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let joint1 = sin(uFall * 1.40 + strataTotal * 1.2);
     let hachurePattern = clamp(0.80 + 0.20 * (joint1 * 0.65 + strataTotal * 0.35), 0.0, 1.0);
 
-    let isDark = sim.u_theme == 0u;
-    let cRockDark = select(vec3<f32>(0.26, 0.24, 0.22), vec3<f32>(0.12, 0.10, 0.09), isDark);
-    let cRockLit  = select(vec3<f32>(0.65, 0.58, 0.50), vec3<f32>(0.48, 0.38, 0.32), isDark);
+    var cRockDark: vec3<f32>;
+    var cRockLit: vec3<f32>;
+    var cSkyAmbient: vec3<f32>;
+    var cLowland: vec3<f32>;
+    var cPlateau: vec3<f32>;
+    var cFlank: vec3<f32>;
+    var cAlpine: vec3<f32>;
+    var cSummit: vec3<f32>;
+
+    if (sim.u_theme == 2u) {
+        // Prussian Cyanotype (Ferroprussiate Monochromatic Wash)
+        cRockDark   = vec3<f32>(0.08, 0.14, 0.22);
+        cRockLit    = vec3<f32>(0.32, 0.45, 0.58);
+        cSkyAmbient = vec3<f32>(0.14, 0.22, 0.32);
+        cLowland    = vec3<f32>(0.20, 0.32, 0.46); // Washed Cerulean #4F79A3
+        cPlateau    = vec3<f32>(0.28, 0.42, 0.58);
+        cFlank      = vec3<f32>(0.42, 0.58, 0.74);
+        cAlpine     = vec3<f32>(0.62, 0.75, 0.88);
+        cSummit     = vec3<f32>(0.92, 0.94, 0.96); // Chalk Ruling Pen #E8EDF2
+    } else if (sim.u_theme == 1u) {
+        // Cream Rag Paper (Eduard Imhof Swiss Alpine Relief)
+        cRockDark   = vec3<f32>(0.22, 0.19, 0.16);
+        cRockLit    = vec3<f32>(0.55, 0.48, 0.40);
+        cSkyAmbient = vec3<f32>(0.28, 0.32, 0.38);
+        cLowland    = vec3<f32>(0.81, 0.71, 0.53); // Dune Ochre #CFB588
+        cPlateau    = vec3<f32>(0.74, 0.60, 0.44);
+        cFlank      = vec3<f32>(0.62, 0.43, 0.31); // Umber Foothill #9E6D50
+        cAlpine     = vec3<f32>(0.48, 0.42, 0.38);
+        cSummit     = vec3<f32>(0.98, 0.97, 0.95); // Glacial White #FDFCFA
+    } else {
+        // Marie Tharp Physiographic (Dark Abyssal Trench to Parchment Land)
+        cRockDark   = vec3<f32>(0.12, 0.10, 0.09);
+        cRockLit    = vec3<f32>(0.48, 0.38, 0.32);
+        cSkyAmbient = vec3<f32>(0.14, 0.18, 0.24);
+        cLowland    = vec3<f32>(0.80, 0.71, 0.57); // Parchment Land #CBB692
+        cPlateau    = vec3<f32>(0.72, 0.64, 0.52);
+        cFlank      = vec3<f32>(0.60, 0.52, 0.42);
+        cAlpine     = vec3<f32>(0.50, 0.45, 0.40);
+        cSummit     = vec3<f32>(0.96, 0.93, 0.88); // Alpine Ridge #F4EDE1
+    }
+
     let cRockShaded = mix(cRockDark, cRockLit, hachurePattern * diffuseTotal);
 
     // Natural Illumination Split: Warm Sun Direct + Cool Cerulean Sky Fill
     let cSunLight = vec3<f32>(1.08, 1.02, 0.94);
-    let cSkyAmbient = select(vec3<f32>(0.28, 0.32, 0.38), vec3<f32>(0.14, 0.18, 0.24), isDark);
     let sunDirect = max(0.0, NdotL1);
     let skyIndirect = 0.40 + 0.60 * max(0.0, perturbedN.y * 0.5 + 0.5);
 
     // Eduard Imhof Swiss Hypsometric Tinting with Power-Curve Distribution
     // pow(landElev, 0.38) distributes 0..1500m across the first 50% of the color ramp
     let tElev = pow(clamp(landElev, 0.0, 1.0), 0.38);
-    let cLowland = select(vec3<f32>(0.92, 0.94, 0.88), vec3<f32>(0.14, 0.24, 0.16), isDark); // Lush moss / parchment lowlands
-    let cPlateau = select(vec3<f32>(0.86, 0.82, 0.70), vec3<f32>(0.36, 0.30, 0.18), isDark); // Warm golden ochre (plains & plateaus)
-    let cFlank   = select(vec3<f32>(0.74, 0.66, 0.56), vec3<f32>(0.48, 0.36, 0.26), isDark); // Terracotta sandstone (mountain flanks)
-    let cAlpine  = select(vec3<f32>(0.58, 0.52, 0.48), vec3<f32>(0.64, 0.54, 0.48), isDark); // Jagged alpine rock
-    let cSummit  = select(vec3<f32>(0.95, 0.96, 0.98), vec3<f32>(0.96, 0.94, 0.92), isDark); // Radiant ivory snow peaks
 
     let t0 = smoothstep(0.00, 0.28, tElev);
     let t1 = smoothstep(0.28, 0.55, tElev);

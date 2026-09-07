@@ -6,7 +6,8 @@
  * Conforms strictly to design-language.md Section 1.2.
  */
 
-export type ThemeMode = 0 | 1; // 0 = Dark Cyber (Obsidian), 1 = Light Monochrome
+export type ThemeMode = 0 | 1 | 2; // 0 = Marie Tharp (Dark Abyssal), 1 = Cream Rag Paper (Archival Light), 2 = Prussian Cyanotype (Blueprint)
+export type ArchivalMediumId = 'tharp' | 'cream' | 'cyanotype';
 
 export interface ElementThemeSpec {
   hex: string;
@@ -17,6 +18,7 @@ export interface ElementThemeSpec {
 export interface ThemePalette {
   name: string;
   mode: ThemeMode;
+  mediumId: ArchivalMediumId;
   viewportBackground: ElementThemeSpec;
   hudSurface: ElementThemeSpec;
   hudBorder: ElementThemeSpec;
@@ -27,8 +29,9 @@ export interface ThemePalette {
 }
 
 export const DARK_CYBER_THEME: ThemePalette = {
-  name: 'Dark Cyber (Obsidian & Celestial Platinum)',
+  name: 'Marie Tharp Physiographic (Dark Cyber / Abyssal Obsidian)',
   mode: 0,
+  mediumId: 'tharp',
   viewportBackground: {
     hex: '#090B10',
     rgb: [9 / 255, 11 / 255, 16 / 255],
@@ -66,9 +69,12 @@ export const DARK_CYBER_THEME: ThemePalette = {
   },
 };
 
+export const MARIE_THARP_THEME = DARK_CYBER_THEME;
+
 export const LIGHT_MONOCHROME_THEME: ThemePalette = {
-  name: 'Light Monochrome (Architectural Graphite & Archival Paper)',
+  name: 'Cream Rag Paper (Light Monochrome / Archival Parchment)',
   mode: 1,
+  mediumId: 'cream',
   viewportBackground: {
     hex: '#F8FAFC',
     rgb: [248 / 255, 250 / 255, 252 / 255],
@@ -106,6 +112,49 @@ export const LIGHT_MONOCHROME_THEME: ThemePalette = {
   },
 };
 
+export const CREAM_RAG_THEME = LIGHT_MONOCHROME_THEME;
+
+export const PRUSSIAN_CYANOTYPE_THEME: ThemePalette = {
+  name: 'Prussian Cyanotype (Ferroprussiate Blueprint & Drafting Linen)',
+  mode: 2,
+  mediumId: 'cyanotype',
+  viewportBackground: {
+    hex: '#101C2B',
+    rgb: [16 / 255, 28 / 255, 43 / 255],
+    alpha: 1.0,
+  },
+  hudSurface: {
+    hex: '#122030',
+    rgb: [18 / 255, 32 / 255, 48 / 255],
+    alpha: 0.90,
+  },
+  hudBorder: {
+    hex: '#3B597A',
+    rgb: [59 / 255, 89 / 255, 122 / 255],
+    alpha: 0.65,
+  },
+  geographicCoastlines: {
+    hex: '#FFFFFF',
+    rgb: [1.0, 1.0, 1.0],
+    alpha: 0.98,
+  },
+  structuralOceanNodes: {
+    hex: '#294D75',
+    rgb: [41 / 255, 77 / 255, 117 / 255],
+    alpha: 0.15,
+  },
+  geographicWireframe: {
+    hex: '#8EA4BD',
+    rgb: [142 / 255, 164 / 255, 189 / 255],
+    alpha: 0.40,
+  },
+  structuralWireframe: {
+    hex: '#31567D',
+    rgb: [49 / 255, 86 / 255, 125 / 255],
+    alpha: 0.05,
+  },
+};
+
 export type ThemeChangeListener = (theme: ThemePalette) => void;
 
 export class ThemeManager {
@@ -128,8 +177,16 @@ export class ThemeManager {
     return this.currentMode;
   }
 
+  public getMediumId(): ArchivalMediumId {
+    if (this.currentMode === 2) return 'cyanotype';
+    if (this.currentMode === 1) return 'cream';
+    return 'tharp';
+  }
+
   public getPalette(): ThemePalette {
-    return this.currentMode === 1 ? LIGHT_MONOCHROME_THEME : DARK_CYBER_THEME;
+    if (this.currentMode === 2) return PRUSSIAN_CYANOTYPE_THEME;
+    if (this.currentMode === 1) return LIGHT_MONOCHROME_THEME;
+    return DARK_CYBER_THEME;
   }
 
   public setMode(mode: ThemeMode): void {
@@ -139,8 +196,17 @@ export class ThemeManager {
     }
   }
 
+  public setMediumId(id: ArchivalMediumId): void {
+    const modeMap: Record<ArchivalMediumId, ThemeMode> = {
+      tharp: 0,
+      cream: 1,
+      cyanotype: 2,
+    };
+    this.setMode(modeMap[id]);
+  }
+
   public toggleTheme(): ThemeMode {
-    const nextMode: ThemeMode = this.currentMode === 0 ? 1 : 0;
+    const nextMode: ThemeMode = ((this.currentMode + 1) % 3) as ThemeMode;
     this.setMode(nextMode);
     return nextMode;
   }

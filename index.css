@@ -18,3 +18,57 @@ html, body, #root {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Cartographic Archival Font Utilities */
+.font-serif-title { font-family: 'Cinzel', 'Times New Roman', serif; }
+.font-serif-body { font-family: 'Cormorant Garamond', Georgia, serif; }
+.font-serif-book { font-family: 'Newsreader', Georgia, serif; }
+.font-mono-draft { font-family: 'IBM Plex Mono', 'Courier New', monospace; }
+
+/* Restrained Atmospheric Backgrounds (Macro Space) */
+.paper-cyanotype {
+  background-color: #101c2b;
+  background-image: 
+    /* Ultra-subtle 20px tracing cloth fiber tooth (0.025 opacity) */
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    /* Soft organic ferroprussiate chemical wash pool */
+    radial-gradient(ellipse at 50% 30%, #15273c 0%, #0c1520 100%);
+  background-size: 20px 20px, 20px 20px, 100% 100%;
+}
+
+.paper-cream {
+  background-color: #f4eee1;
+  background-image: 
+    /* Gentle cotton rag fiber tooth */
+    radial-gradient(#d6cbb6 0.75px, transparent 0.75px),
+    linear-gradient(to bottom, #f8f3e8, #ece4d2);
+  background-size: 18px 18px, 100% 100%;
+}
+
+.paper-tharp {
+  background-color: #0f161f;
+  background-image: 
+    /* Calm deep abyssal ground */
+    radial-gradient(rgba(200, 180, 140, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, #0c1219, #131c26);
+  background-size: 18px 18px, 100% 100%;
+}
+
+/* Vintage Vernier Slider Styling */
+input[type=range].slider-archival {
+  -webkit-appearance: none;
+  background: rgba(140, 150, 165, 0.25);
+  border-radius: 2px;
+  height: 3px;
+}
+input[type=range].slider-archival::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 14px;
+  width: 9px;
+  border-radius: 1px;
+  background: #c5a059; /* Brushed antique brass */
+  cursor: pointer;
+  border: 1px solid #7c6230;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+}

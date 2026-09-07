@@ -17,8 +17,15 @@ export type { DataLayerItem, ToastMessage, LoadedDataInfo, ResolutionTier };
 export interface TelemetryHUDProps {
   isZenMode: boolean;
   onZenToggle: () => void;
-  theme: 0 | 1;
+  theme: 0 | 1 | 2;
   onThemeToggle: () => void;
+  onSelectThemeMode?: (mode: 0 | 1 | 2) => void;
+  showSoundings?: boolean;
+  onSoundingsToggle?: () => void;
+  showTriangulation?: boolean;
+  onTriangulationToggle?: () => void;
+  showCartouche?: boolean;
+  onCartoucheToggle?: () => void;
   backend: 'webgl2' | 'webgpu';
   onBackendChange: (b: 'webgl2' | 'webgpu') => void;
   hasWebGPU: boolean;
@@ -81,6 +88,13 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onZenToggle={props.onZenToggle}
         theme={props.theme}
         onThemeToggle={props.onThemeToggle}
+        onSelectThemeMode={props.onSelectThemeMode}
+        showSoundings={props.showSoundings}
+        onSoundingsToggle={props.onSoundingsToggle}
+        showTriangulation={props.showTriangulation}
+        onTriangulationToggle={props.onTriangulationToggle}
+        showCartouche={props.showCartouche}
+        onCartoucheToggle={props.onCartoucheToggle}
         backend={props.backend}
         onBackendChange={props.onBackendChange}
         hasWebGPU={props.hasWebGPU}

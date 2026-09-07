@@ -135,12 +135,19 @@ fn fs_swiss_relief(in: VertexOutput) -> @location(0) vec4<f32> {
     let tElev = clamp(landElev, 0.0, 1.0);
     
     // Cartographic Color Palettes (OKLCH-derived linear RGB)
-    // Dark Obsidian Theme (u_theme == 0u) vs Light Archival Parchment (u_theme == 1u)
+    // Branchless GPU selection across 3 archival physical mediums:
+    // 0u = Marie Tharp (Abyssal Dark), 1u = Cream Rag Paper (Imhof Alpine), 2u = Prussian Cyanotype (Blueprint)
     let isDark = params.u_theme == 0u;
-    let cLowland = select(vec3<f32>(0.95, 0.96, 0.94), vec3<f32>(0.11, 0.14, 0.18), isDark);
-    let cMidland = select(vec3<f32>(0.82, 0.84, 0.86), vec3<f32>(0.28, 0.32, 0.38), isDark);
-    let cAlpine  = select(vec3<f32>(0.52, 0.55, 0.60), vec3<f32>(0.58, 0.62, 0.68), isDark);
-    let cSummit  = select(vec3<f32>(0.16, 0.18, 0.22), vec3<f32>(0.92, 0.90, 0.86), isDark);
+    let isCyan = params.u_theme == 2u;
+
+    let cLowland   = select(select(vec3<f32>(0.81, 0.71, 0.53), vec3<f32>(0.80, 0.71, 0.57), isDark), vec3<f32>(0.20, 0.32, 0.46), isCyan);
+    let cMidland   = select(select(vec3<f32>(0.62, 0.43, 0.31), vec3<f32>(0.65, 0.58, 0.48), isDark), vec3<f32>(0.34, 0.48, 0.64), isCyan);
+    let cAlpine    = select(select(vec3<f32>(0.44, 0.40, 0.36), vec3<f32>(0.50, 0.45, 0.40), isDark), vec3<f32>(0.56, 0.68, 0.82), isCyan);
+    let cSummit    = select(select(vec3<f32>(0.98, 0.97, 0.95), vec3<f32>(0.96, 0.93, 0.88), isDark), vec3<f32>(0.92, 0.94, 0.96), isCyan);
+    let cRockDark  = select(select(vec3<f32>(0.22, 0.19, 0.16), vec3<f32>(0.12, 0.10, 0.09), isDark), vec3<f32>(0.08, 0.14, 0.22), isCyan);
+    let cRockLit   = select(select(vec3<f32>(0.55, 0.48, 0.40), vec3<f32>(0.48, 0.38, 0.32), isDark), vec3<f32>(0.32, 0.45, 0.58), isCyan);
+    let cOceanDeep = select(select(vec3<f32>(0.15, 0.23, 0.32), vec3<f32>(0.06, 0.09, 0.12), isDark), vec3<f32>(0.05, 0.09, 0.14), isCyan);
+    let cOceanShelf= select(select(vec3<f32>(0.47, 0.60, 0.55), vec3<f32>(0.23, 0.47, 0.54), isDark), vec3<f32>(0.16, 0.30, 0.46), isCyan);
     
     // Branchless altitude color ramp via linear smoothstep blends
     let tLow = smoothstep(0.0, 0.35, tElev);
@@ -186,8 +193,6 @@ fn fs_swiss_relief(in: VertexOutput) -> @location(0) vec4<f32> {
     let rockNoise = hash2D(floor(uv * 3200.0));
     let finalHachure = hachurePattern * (0.80 + 0.20 * rockNoise);
     
-    let cRockDark = select(vec3<f32>(0.22, 0.23, 0.25), vec3<f32>(0.08, 0.09, 0.11), isDark);
-    let cRockLit  = select(vec3<f32>(0.60, 0.58, 0.54), vec3<f32>(0.35, 0.36, 0.38), isDark);
     let cRockShaded = mix(cRockDark, cRockLit, finalHachure * diffuseTotal);
     
     // Composite rock cliffs onto terrain
@@ -196,8 +201,6 @@ fn fs_swiss_relief(in: VertexOutput) -> @location(0) vec4<f32> {
     // ========================================================================
     // Ocean Basin Shading (Smooth Bathymetric Isobaths & Depth Absorption)
     // ========================================================================
-    let cOceanDeep = select(vec3<f32>(0.86, 0.90, 0.94), vec3<f32>(0.02, 0.03, 0.06), isDark);
-    let cOceanShelf = select(vec3<f32>(0.94, 0.96, 0.98), vec3<f32>(0.06, 0.16, 0.26), isDark);
     let cOcean = mix(cOceanShelf, cOceanDeep, clamp(oceanDepth, 0.0, 1.0));
     
     // Final Composite between land and ocean via anti-aliased shoreline mask

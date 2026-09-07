@@ -11,7 +11,7 @@ export interface NavigationDockProps {
   alpha: number;
   onAlphaChange: (val: number) => void;
   onGlideToAlpha: (target: number) => void;
-  theme: 0 | 1;
+  theme: 0 | 1 | 2;
   activeDirection?: 'architectural' | 'hybrid' | 'photoreal' | null;
   onSelectRenderStyle?: (style: 'architectural' | 'hybrid' | 'photoreal') => void;
   mode?: SimulationMode;
@@ -39,8 +39,10 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
     <div className="absolute bottom-8 inset-x-0 flex flex-col items-center gap-2 z-10 pointer-events-none font-mono select-none">
       <div
         className={`flex items-center gap-3 px-5 py-2 rounded-full backdrop-blur-xl shadow-2xl pointer-events-auto border transition-colors ${
-          isLight
-            ? 'bg-white/85 border-[#E2E8F0] text-zinc-800 shadow-zinc-300/50'
+          theme === 1
+            ? 'bg-[#fcfaf7]/90 border-[#d6c7b2] text-[#2c221e] shadow-[#d6c7b2]/40'
+            : theme === 2
+            ? 'bg-[#0f1d2d]/90 border-[#386b99]/70 text-[#cbe1f7] shadow-[#071320]/80'
             : 'bg-[#0F121A]/85 border-white/10 text-zinc-200 shadow-black/60'
         }`}
       >
