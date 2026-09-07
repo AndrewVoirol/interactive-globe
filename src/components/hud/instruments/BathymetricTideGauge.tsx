@@ -12,6 +12,7 @@ export interface BathymetricTideGaugeProps {
   onSeaLevelChange: (offset: number) => void;
   onWaterClarityChange: (clarity: number) => void;
   isLight?: boolean;
+  theme?: 0 | 1 | 2;
 }
 
 export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
@@ -20,6 +21,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
   onSeaLevelChange,
   onWaterClarityChange,
   isLight = false,
+  theme = isLight ? 1 : 0,
 }) => {
   const boxRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
@@ -62,28 +64,59 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
     }
   };
 
-  // Convert seaLevelOffset (-150 to +100) to height percentage (0% to 100%)
   const waterPct = Math.max(0, Math.min(100, ((seaLevelOffset + 150) / 250) * 100));
 
+  const tokens = theme === 2
+    ? {
+        cardBg: 'bg-[#101c2b]/95 border-[#263c54] text-[#e8edf2]',
+        boxBg: 'bg-[#0d1724] border-[#3b597a]/60',
+        waterBorder: 'border-[#4f79a3]',
+        waterGrad: 'from-[#4f79a3]/30 to-[#0e1824]/90',
+        caliperLine: 'bg-[#c5a059]',
+        caliperBadge: 'bg-[#0e1824] border-[#c5a059] text-[#c5a059]',
+        textColor: 'text-[#8ea4bd]',
+        accent: 'text-[#c5a059]',
+        valColor: 'text-[#e8edf2]',
+      }
+    : theme === 1
+    ? {
+        cardBg: 'bg-[#f8f3e8]/95 border-[#d8cfbc] text-[#2b241a]',
+        boxBg: 'bg-[#f4ede0] border-[#b8ad98]/60',
+        waterBorder: 'border-[#77998b]',
+        waterGrad: 'from-[#77998b]/35 to-[#263b52]/80',
+        caliperLine: 'bg-[#8c4820]',
+        caliperBadge: 'bg-[#fdfcf9] border-[#8c4820] text-[#8c4820]',
+        textColor: 'text-[#7d715d]',
+        accent: 'text-[#8c4820]',
+        valColor: 'text-[#2b241a]',
+      }
+    : {
+        cardBg: 'bg-[#0f161f]/95 border-[#333e4d] text-[#f0ede6]',
+        boxBg: 'bg-[#0c1219] border-[#3a4d61]/60',
+        waterBorder: 'border-[#00e5ff]',
+        waterGrad: 'from-[#00e5ff]/25 to-[#0b141f]/90',
+        caliperLine: 'bg-[#00e5ff]',
+        caliperBadge: 'bg-[#0a111a] border-[#00e5ff] text-[#00e5ff]',
+        textColor: 'text-[#a2998a]',
+        accent: 'text-[#c5a059]',
+        valColor: 'text-[#f0ede6]',
+      };
+
   return (
-    <div
-      className={`p-2 rounded-xl border transition-all ${
-        isLight ? 'bg-zinc-50 border-zinc-200 shadow-sm' : 'bg-white/[0.02] border-white/10'
-      }`}
-    >
-      <div className="flex items-center justify-between text-[9px] mb-1.5">
-        <span className="font-bold flex items-center gap-1.5 text-cyan-500 dark:text-cyan-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+    <div className={`p-2 rounded-[3px] border shadow-sm transition-all ${tokens.cardBg}`}>
+      <div className="flex items-center justify-between text-[9px] mb-1.5 font-mono-draft">
+        <span className={`font-bold flex items-center gap-1.5 ${tokens.accent}`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-[#c5a059] animate-pulse"></span>
           Bathymetric Tide Gauge
         </span>
         <div className="flex items-center gap-1 font-mono text-[8px]">
-          <span className="text-zinc-400">Sea Level:</span>
-          <span className="font-bold text-cyan-500 dark:text-cyan-300 tabular-nums">
+          <span className={tokens.textColor}>Sea Level:</span>
+          <span className={`font-bold tabular-nums ${tokens.valColor}`}>
             {seaLevelOffset > 0 ? `+${seaLevelOffset}m` : `${seaLevelOffset}m`}
           </span>
-          <span className="text-zinc-500">•</span>
-          <span className="text-zinc-400">Clarity:</span>
-          <span className="font-bold text-sky-500 dark:text-sky-300 tabular-nums">
+          <span className="opacity-40">•</span>
+          <span className={tokens.textColor}>Clarity:</span>
+          <span className={`font-bold tabular-nums ${tokens.valColor}`}>
             {Math.round(waterClarity * 100)}%
           </span>
         </div>
@@ -97,59 +130,51 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         onPointerUp={handlePointerUp}
         onDoubleClick={() => onSeaLevelChange(0)}
         title="Drag waterline caliper vertically to raise/lower sea level (Double-click to reset to 0m)"
-        className={`relative w-full h-20 rounded border overflow-hidden cursor-ns-resize select-none touch-none ${
-          isLight ? 'bg-zinc-100/90 border-zinc-300' : 'bg-zinc-950/80 border-white/15'
-        }`}
+        className={`relative w-full h-20 rounded-[2px] border overflow-hidden cursor-ns-resize select-none touch-none shadow-inner ${tokens.boxBg}`}
       >
         {/* Continental Shelf Silhouette in background */}
-        <div className="absolute inset-0 flex items-end opacity-20 pointer-events-none">
+        <div className="absolute inset-0 flex items-end opacity-15 pointer-events-none">
           <svg className="w-full h-full" viewBox="0 0 300 100" preserveAspectRatio="none">
-            <polygon points="0,100 0,35 60,40 120,60 180,90 300,95 300,100" fill="#64748B" />
+            <polygon points="0,100 0,35 60,40 120,60 180,90 300,95 300,100" fill="currentColor" />
           </svg>
         </div>
 
         {/* Dynamic Water Volume */}
         <div
-          className="absolute bottom-0 left-0 right-0 bg-cyan-500/30 border-t-2 border-cyan-400 pointer-events-none transition-none"
+          className={`absolute bottom-0 left-0 right-0 border-t-2 pointer-events-none transition-none ${tokens.waterBorder}`}
           style={{ height: `${waterPct}%` }}
         >
           <div
-            className="w-full h-full bg-gradient-to-b from-cyan-400/25 to-blue-950/90"
-            style={{ opacity: 0.2 + waterClarity * 0.6 }}
+            className={`w-full h-full bg-gradient-to-b ${tokens.waterGrad}`}
+            style={{ opacity: 0.3 + waterClarity * 0.7 }}
           ></div>
         </div>
 
         {/* Sea Level Caliper Reticle Line */}
         <div
-          className="absolute left-0 right-0 h-0.5 bg-cyan-300 pointer-events-none shadow-[0_0_8px_rgba(6,182,212,0.9)]"
+          className={`absolute left-0 right-0 h-0.5 pointer-events-none ${tokens.caliperLine} shadow-[0_1px_4px_rgba(0,0,0,0.4)]`}
           style={{ bottom: `${waterPct}%` }}
         >
-          <div className="absolute right-1.5 -top-2.5 px-1 py-0.2 rounded bg-cyan-950/90 border border-cyan-400/80 text-cyan-200 text-[7px] font-mono font-bold">
+          <div className={`absolute right-1.5 -top-2.5 px-1 py-0.2 rounded-[2px] border font-mono-draft font-bold text-[7px] ${tokens.caliperBadge}`}>
             ◄ CALIPER ►
           </div>
         </div>
 
         {/* Reference Geological Markers */}
-        <div className={`absolute left-1.5 top-1 text-[7px] font-mono pointer-events-none ${
-          isLight ? 'text-zinc-600 font-semibold' : 'text-zinc-400'
-        }`}>
+        <div className={`absolute left-1.5 top-1 text-[7px] font-mono-draft pointer-events-none opacity-80 ${tokens.textColor}`}>
           +100m (Flood)
         </div>
-        <div className={`absolute left-1.5 top-[40%] text-[7px] font-mono font-bold pointer-events-none ${
-          isLight ? 'text-cyan-800' : 'text-cyan-400'
-        }`}>
-          0m (Present)
+        <div className={`absolute left-1.5 top-[40%] text-[7px] font-mono-draft font-bold pointer-events-none ${tokens.accent}`}>
+          0m (Datum MLLW)
         </div>
-        <div className={`absolute left-1.5 bottom-1 text-[7px] font-mono pointer-events-none ${
-          isLight ? 'text-zinc-600 font-semibold' : 'text-zinc-500'
-        }`}>
+        <div className={`absolute left-1.5 bottom-1 text-[7px] font-mono-draft pointer-events-none opacity-80 ${tokens.textColor}`}>
           -150m (Ice Age LGM)
         </div>
       </div>
 
-      {/* Optical Water Clarity Absorption Slider */}
-      <div className="flex items-center justify-between text-[8px] text-zinc-400 mt-1.5 px-0.5">
-        <span className={`font-bold flex items-center gap-1 ${isLight ? 'text-sky-800' : 'text-sky-400'}`}>
+      {/* Optical Water Clarity Absorption Slider with .slider-archival */}
+      <div className="flex items-center justify-between text-[8px] font-mono-draft mt-1.5 px-0.5">
+        <span className={`font-bold flex items-center gap-1 ${tokens.accent}`}>
           Beer-Lambert Clarity:
         </span>
         <div className="flex items-center gap-2">
@@ -162,9 +187,9 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
             step="0.05"
             value={waterClarity}
             onChange={(e) => onWaterClarityChange(parseFloat(e.target.value))}
-            className="w-24 accent-cyan-400 cursor-pointer h-1 rounded"
+            className="w-24 slider-archival cursor-pointer"
           />
-          <span className="w-8 text-right font-mono font-bold text-sky-400">
+          <span className={`w-8 text-right font-mono font-bold tabular-nums ${tokens.valColor}`}>
             {Math.round(waterClarity * 100)}%
           </span>
         </div>

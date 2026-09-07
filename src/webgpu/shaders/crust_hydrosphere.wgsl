@@ -786,10 +786,30 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             finalCrust = finalLand;
         } else {
             let normDepth = clamp(oceanDepth, 0.0, 1.0);
-            let cBathyShelf  = select(vec3<f32>(0.88, 0.90, 0.93), vec3<f32>(0.26, 0.30, 0.36), isDark); // Continental shelf slate
-            let cBathyAbyss  = select(vec3<f32>(0.76, 0.80, 0.86), vec3<f32>(0.15, 0.18, 0.24), isDark); // Abyssal plain basalt
-            let cBathyTrench = select(vec3<f32>(0.62, 0.66, 0.74), vec3<f32>(0.07, 0.09, 0.13), isDark); // Deep trench indigo
-            let cBathyRidge  = select(vec3<f32>(0.96, 0.98, 1.00), vec3<f32>(0.36, 0.42, 0.50), isDark); // Mid-ocean ridge crest
+            var cBathyShelf: vec3<f32>;
+            var cBathyAbyss: vec3<f32>;
+            var cBathyTrench: vec3<f32>;
+            var cBathyRidge: vec3<f32>;
+
+            if (sim.u_theme == 2u) {
+                // Prussian Cyanotype: Architectural drafting wash in cerulean & ferroprussiate indigo
+                cBathyShelf  = vec3<f32>(0.16, 0.30, 0.46); // Drafting cobalt #294D75
+                cBathyAbyss  = vec3<f32>(0.08, 0.17, 0.26); // Prussian indigo #162B42
+                cBathyTrench = vec3<f32>(0.05, 0.09, 0.14); // Deep exposed prussiate #0E1824
+                cBathyRidge  = vec3<f32>(0.85, 0.90, 0.96); // Chalk ruling pen crest
+            } else if (sim.u_theme == 1u) {
+                // Cream Cotton Rag: Eduard Imhof soft celadon continental shelf & marine indigo
+                cBathyShelf  = vec3<f32>(0.52, 0.65, 0.58); // Shelf celadon #77998B
+                cBathyAbyss  = vec3<f32>(0.24, 0.35, 0.46); // Soft marine indigo #263B52
+                cBathyTrench = vec3<f32>(0.14, 0.20, 0.26); // Trench umber
+                cBathyRidge  = vec3<f32>(0.88, 0.84, 0.78); // Warm bleached parchment
+            } else {
+                // Marie Tharp: High-contrast turquoise continental shelf & abyssal basalt
+                cBathyShelf  = vec3<f32>(0.14, 0.47, 0.54); // Coastal turquoise #23778A
+                cBathyAbyss  = vec3<f32>(0.05, 0.08, 0.12); // Abyssal plain basalt #0F171F
+                cBathyTrench = vec3<f32>(0.02, 0.03, 0.06); // Deep trench abyss
+                cBathyRidge  = vec3<f32>(0.85, 0.80, 0.72); // Mid-Atlantic rift ridge parchment
+            }
 
             var cBathy = mix(
                 mix(cBathyShelf, cBathyAbyss, smoothstep(0.005, 0.15, normDepth)),
@@ -832,9 +852,24 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // Deep seabed colors showing through the water column.
         // ====================================================================
         let normDepth = clamp(oceanDepth, 0.0, 1.0);
-        let cOceanShelf  = select(vec3<f32>(0.92, 0.95, 0.98), vec3<f32>(0.03, 0.14, 0.24), isDark);
-        let cOceanDeep   = select(vec3<f32>(0.84, 0.88, 0.93), vec3<f32>(0.015, 0.05, 0.11), isDark);
-        let cOceanTrench = select(vec3<f32>(0.75, 0.80, 0.86), vec3<f32>(0.006, 0.015, 0.035), isDark);
+        var cOceanShelf: vec3<f32>;
+        var cOceanDeep: vec3<f32>;
+        var cOceanTrench: vec3<f32>;
+
+        if (sim.u_theme == 2u) {
+            cOceanShelf  = vec3<f32>(0.20, 0.36, 0.54);
+            cOceanDeep   = vec3<f32>(0.08, 0.16, 0.26);
+            cOceanTrench = vec3<f32>(0.04, 0.08, 0.14);
+        } else if (sim.u_theme == 1u) {
+            cOceanShelf  = vec3<f32>(0.56, 0.68, 0.62);
+            cOceanDeep   = vec3<f32>(0.26, 0.38, 0.48);
+            cOceanTrench = vec3<f32>(0.15, 0.22, 0.30);
+        } else {
+            cOceanShelf  = vec3<f32>(0.03, 0.14, 0.24);
+            cOceanDeep   = vec3<f32>(0.015, 0.05, 0.11);
+            cOceanTrench = vec3<f32>(0.006, 0.015, 0.035);
+        }
+
         let reefInfluence = 1.0 - smoothstep(0.001, 0.025, normDepth);
         let shelfReefBed = mix(cOceanShelf, select(vec3<f32>(0.94, 0.92, 0.86), ALBEDO_CARBONATE_REEF * 0.85, isDark), reefInfluence);
         let cBathy = mix(

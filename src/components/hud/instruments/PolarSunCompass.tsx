@@ -11,6 +11,7 @@ export interface PolarSunCompassProps {
   altitude: number; // 10° (horizon) to 85° (zenith)
   onChange: (azimuth: number, altitude: number) => void;
   isLight?: boolean;
+  theme?: 0 | 1 | 2;
 }
 
 export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
@@ -18,6 +19,7 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
   altitude,
   onChange,
   isLight = false,
+  theme = isLight ? 1 : 0,
 }) => {
   const dialRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
@@ -78,27 +80,56 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
 
   const isSweetspot = Math.abs(azimuth - 315) <= 10 && Math.abs(altitude - 45) <= 8;
 
+  const tokens = theme === 2
+    ? {
+        cardBg: 'bg-[#101c2b]/95 border-[#263c54] text-[#e8edf2]',
+        dialBg: 'radial-gradient(circle, #18293d 0%, #0d1724 100%)',
+        dialBorder: 'border-[#3b597a]',
+        ringBorder: 'border-[#3b597a]/40',
+        axisColor: 'bg-[#3b597a]/50',
+        textColor: 'text-[#8ea4bd]',
+        accent: 'text-[#c5a059]',
+        valColor: 'text-[#e8edf2]',
+      }
+    : theme === 1
+    ? {
+        cardBg: 'bg-[#f8f3e8]/95 border-[#d8cfbc] text-[#2b241a]',
+        dialBg: 'radial-gradient(circle, #fdfcf9 0%, #ece4d2 100%)',
+        dialBorder: 'border-[#b8ad98]',
+        ringBorder: 'border-[#b8ad98]/50',
+        axisColor: 'bg-[#b8ad98]/60',
+        textColor: 'text-[#7d715d]',
+        accent: 'text-[#8c4820]',
+        valColor: 'text-[#2b241a]',
+      }
+    : {
+        cardBg: 'bg-[#0f161f]/95 border-[#333e4d] text-[#f0ede6]',
+        dialBg: 'radial-gradient(circle, #1a2633 0%, #0c1219 100%)',
+        dialBorder: 'border-[#3a4d61]',
+        ringBorder: 'border-[#3a4d61]/40',
+        axisColor: 'bg-[#3a4d61]/50',
+        textColor: 'text-[#a2998a]',
+        accent: 'text-[#c5a059]',
+        valColor: 'text-[#f0ede6]',
+      };
+
   return (
-    <div
-      className={`p-2 rounded-xl border transition-all ${
-        isLight ? 'bg-zinc-50 border-zinc-200 shadow-sm' : 'bg-white/[0.02] border-white/10'
-      }`}
-    >
-      <div className="flex items-center justify-between text-[9px] mb-1.5">
-        <span className="font-bold flex items-center gap-1.5 text-amber-500 dark:text-amber-400">
+    <div className={`p-2 rounded-[3px] border shadow-sm transition-all ${tokens.cardBg}`}>
+      <div className="flex items-center justify-between text-[9px] mb-1.5 font-mono-draft">
+        <span className={`font-bold flex items-center gap-1.5 ${tokens.accent}`}>
           <span
-            className={`w-1.5 h-1.5 rounded-full bg-amber-400 ${
-              isSweetspot ? 'shadow-[0_0_8px_rgba(251,191,36,0.9)] animate-pulse' : ''
+            className={`w-1.5 h-1.5 rounded-full bg-[#c5a059] ${
+              isSweetspot ? 'shadow-[0_0_8px_rgba(197,160,89,0.9)] animate-pulse' : ''
             }`}
           ></span>
           Sun Compass
         </span>
         <div className="flex items-center gap-1 font-mono text-[8px]">
-          <span className={isLight ? 'text-zinc-600' : 'text-zinc-400'}>Sun Azimuth:</span>
-          <span className={`font-bold tabular-nums ${isLight ? 'text-amber-800' : 'text-amber-400'}`}>{Math.round(azimuth)}°</span>
-          <span className={isLight ? 'text-zinc-400' : 'text-zinc-500'}>•</span>
-          <span className={isLight ? 'text-zinc-600' : 'text-zinc-400'}>Sun Alt:</span>
-          <span className={`font-bold tabular-nums ${isLight ? 'text-amber-800' : 'text-amber-400'}`}>{Math.round(altitude)}°</span>
+          <span className={tokens.textColor}>Sun Azimuth:</span>
+          <span className={`font-bold tabular-nums ${tokens.valColor}`}>{Math.round(azimuth)}°</span>
+          <span className="opacity-40">•</span>
+          <span className={tokens.textColor}>Sun Alt:</span>
+          <span className={`font-bold tabular-nums ${tokens.valColor}`}>{Math.round(altitude)}°</span>
         </div>
       </div>
 
@@ -111,56 +142,42 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
           onPointerUp={handlePointerUp}
           onDoubleClick={() => onChange(315, 45)}
           title="Drag reticle to position sun vector (Double-click to reset to Imhof 315° / 45°)"
-          className={`relative w-24 h-24 rounded-full border flex items-center justify-center cursor-crosshair select-none touch-none ${
-            isLight
-              ? 'bg-zinc-100 border-zinc-300'
-              : 'bg-black/40 border-white/20'
-          }`}
+          className={`relative w-24 h-24 rounded-full border flex items-center justify-center cursor-crosshair select-none touch-none shadow-inner ${tokens.dialBorder}`}
           style={{
-            background: isLight
-              ? 'radial-gradient(circle, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.06) 100%)'
-              : 'radial-gradient(circle, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 70%, transparent 100%)',
+            background: tokens.dialBg,
           }}
         >
           {/* Concentric Altitude Rings (45° and 70°) */}
           <div
-            className={`absolute w-16 h-16 rounded-full border pointer-events-none ${
-              isLight ? 'border-zinc-300/80' : 'border-white/10'
-            }`}
+            className={`absolute w-16 h-16 rounded-full border pointer-events-none ${tokens.ringBorder}`}
           ></div>
           <div
-            className={`absolute w-8 h-8 rounded-full border pointer-events-none ${
-              isLight ? 'border-zinc-300/80' : 'border-white/10'
-            }`}
+            className={`absolute w-8 h-8 rounded-full border pointer-events-none ${tokens.ringBorder}`}
           ></div>
 
           {/* Cardinal Axes */}
           <div
-            className={`absolute w-full h-[1px] pointer-events-none ${
-              isLight ? 'bg-zinc-300' : 'bg-white/15'
-            }`}
+            className={`absolute w-full h-[1px] pointer-events-none ${tokens.axisColor}`}
           ></div>
           <div
-            className={`absolute h-full w-[1px] pointer-events-none ${
-              isLight ? 'bg-zinc-300' : 'bg-white/15'
-            }`}
+            className={`absolute h-full w-[1px] pointer-events-none ${tokens.axisColor}`}
           ></div>
 
           {/* Cardinal Directions */}
-          <span className="absolute top-0.5 text-[7px] text-zinc-400 font-bold pointer-events-none">N</span>
-          <span className="absolute right-1 text-[7px] text-zinc-400 font-bold pointer-events-none">E</span>
-          <span className="absolute bottom-0.5 text-[7px] text-zinc-400 font-bold pointer-events-none">S</span>
-          <span className="absolute left-1 text-[7px] text-zinc-400 font-bold pointer-events-none">W</span>
+          <span className={`absolute top-0.5 text-[7px] font-serif-title font-bold pointer-events-none ${tokens.textColor}`}>N</span>
+          <span className={`absolute right-1 text-[7px] font-serif-title font-bold pointer-events-none ${tokens.textColor}`}>E</span>
+          <span className={`absolute bottom-0.5 text-[7px] font-serif-title font-bold pointer-events-none ${tokens.textColor}`}>S</span>
+          <span className={`absolute left-1 text-[7px] font-serif-title font-bold pointer-events-none ${tokens.textColor}`}>W</span>
 
           {/* NW Imhof Sweetspot Notch (315° / 45°) */}
           <div
-            className="absolute -top-0.5 -left-0.5 w-2 h-2 border-t-2 border-l-2 border-amber-400 pointer-events-none opacity-80"
-            title="Swiss Relief NW Light Angle"
+            className="absolute -top-0.5 -left-0.5 w-2.5 h-2.5 border-t-2 border-l-2 border-[#c5a059] pointer-events-none opacity-90"
+            title="Swiss Relief NW Light Angle (315° / 45°)"
           ></div>
 
-          {/* Draggable Sun Reticle */}
+          {/* Draggable Brass Sun Reticle */}
           <div
-            className="absolute w-3.5 h-3.5 -ml-[7px] -mt-[7px] rounded-full bg-amber-400 border border-black shadow-[0_0_8px_rgba(251,191,36,0.9)] pointer-events-none transition-transform duration-75"
+            className="absolute w-3.5 h-3.5 -ml-[7px] -mt-[7px] rounded-full bg-[#c5a059] border border-[#7c6230] shadow-[0_1px_4px_rgba(0,0,0,0.5)] pointer-events-none transition-transform duration-75"
             style={{
               transform: `translate(${reticleX}px, ${reticleY}px)`,
             }}
@@ -168,11 +185,11 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-[7px] text-zinc-500 font-mono mt-1 px-1">
+      <div className="flex items-center justify-between text-[7px] font-mono-draft mt-1 px-1 opacity-75">
         <span>IMHOF NW SWEETSPOT (315° / 45°)</span>
         <button
           onClick={() => onChange(315, 45)}
-          className="text-amber-500 hover:text-amber-400 font-bold"
+          className={`font-bold hover:underline ${tokens.accent}`}
         >
           [RESET]
         </button>
