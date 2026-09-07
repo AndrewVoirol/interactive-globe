@@ -122,9 +122,9 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let unitNorm = vec2<f32>(-unitDir.y, unitDir.x);
 
     // Ribbon width in CSS pixels
-    // Surface winds: ultra-fine ~0.60px half-width (total ~1.2px) for fine filament texture
-    // Jet stream: wider ~2.40px half-width (total ~4.8px) for continuous atmospheric river
-    let baseHalfWidth = select(0.60, 2.40, isJet > 0.5) * sim.u_dpr;
+    // Surface winds: refined ~0.95px half-width (total ~1.9px stroke) for crisp filament visibility
+    // Jet stream: wider ~2.40px half-width (total ~4.8px stroke) for continuous atmospheric river
+    let baseHalfWidth = select(0.95, 2.40, isJet > 0.5) * sim.u_dpr;
     let widthAtten = select(
         clamp(p.vel.w / 16.0, 0.70, 1.25),
         clamp(p.vel.w / 40.0, 0.75, 1.60),
@@ -211,16 +211,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         if (sim.u_theme == 0u) {
             // Subtle misty slate-pearl to crisp lunar silver
             // Low saturation prevents clashing with terrain relief or ocean blues
-            let calmSurf  = vec3<f32>(0.48, 0.58, 0.68); // Muted slate-pearl
-            let briskSurf = vec3<f32>(0.84, 0.90, 0.96); // Silver filament
+            let calmSurf  = vec3<f32>(0.56, 0.66, 0.76); // Muted slate-pearl
+            let briskSurf = vec3<f32>(0.88, 0.94, 1.00); // Luminous silver filament
             color = mix(calmSurf, briskSurf, normSpeed);
         } else {
             let calmSurf  = vec3<f32>(0.58, 0.60, 0.64);
             let briskSurf = vec3<f32>(0.16, 0.18, 0.22);
             color = mix(calmSurf, briskSurf, normSpeed);
         }
-        // Speed-modulated opacity: calm breeze is subtle; active storms illuminate
-        alphaBase = mix(0.18, 0.58, smoothstep(0.08, 0.60, normSpeed));
+        // Speed-modulated opacity: calm breeze is visible; active storms illuminate
+        alphaBase = mix(0.38, 0.72, smoothstep(0.06, 0.60, normSpeed));
     }
 
     let finalAlpha = in.alpha * edgeFeather * alphaBase;

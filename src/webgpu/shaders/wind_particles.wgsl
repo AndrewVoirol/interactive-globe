@@ -201,9 +201,9 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let worldPos0 = evaluateManifoldPosition(lon, lat, alt, sim.u_mode, sim.u_unfurl);
 
     // Dynamic physical streamline step length (in geographic radians) scaled with wind velocity
-    // Surface winds: fine, short filament steps (0.012 rad)
+    // Surface winds: fine filament steps (0.020 rad) for crisp streamline continuity
     // Jet stream: long, continuous atmospheric river sweeps (0.046 rad)
-    let baseStep = select(0.012, 0.046, isJetStream);
+    let baseStep = select(0.020, 0.046, isJetStream);
     let speedNorm = select(10.0, 32.0, isJetStream);
     let speedFactor = clamp(speed / speedNorm, select(0.5, 0.8, isJetStream), select(1.7, 2.6, isJetStream));
     let stepLen = baseStep * speedFactor;
@@ -241,10 +241,10 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let worldPos3 = evaluateManifoldPosition(lon3, lat3, alt, sim.u_mode, sim.u_unfurl);
 
     // Jet stream retains high segment alpha to form continuous fluid ribbons;
-    // Surface winds decay more rapidly for delicate localized filaments.
-    let a1 = select(0.68, 0.90, isJetStream);
-    let a2 = select(0.38, 0.74, isJetStream);
-    let a3 = select(0.12, 0.52, isJetStream);
+    // Surface winds retain balanced alpha for clearly defined streamlines without noise.
+    let a1 = select(0.76, 0.90, isJetStream);
+    let a2 = select(0.50, 0.74, isJetStream);
+    let a3 = select(0.25, 0.52, isJetStream);
 
     pOut.pos = vec4<f32>(lon, lat, alt, age);
     pOut.vel = vec4<f32>(currentVel.x, currentVel.y, 0.0, speed);

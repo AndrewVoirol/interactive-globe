@@ -207,7 +207,7 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                   Physics Model
                 </span>
               </div>
-              <span className="text-[8px] text-zinc-400 truncate">1.0° Circulation Grid</span>
+              <span className="text-[8px] text-zinc-400 truncate">0.25° Operational Grid</span>
             </button>
 
             {/* Starlink & ISS Orbits Toggle */}

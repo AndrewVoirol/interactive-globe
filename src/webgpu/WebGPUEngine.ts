@@ -180,7 +180,7 @@ export class WebGPUEngine {
   public satelliteSegmentCount: number = 0;
 
   // Atmospheric Wind Streamlines & Multi-Stratum Pipelines
-  public readonly windParticleCount: number = 65536;
+  public readonly windParticleCount: number = 131072;
   public showSurfaceWinds: boolean = true;
   public showJetStream: boolean = true;
   public windSpeedMultiplier: number = 1.0;
@@ -2113,10 +2113,11 @@ export class WebGPUEngine {
 
     if (!buffer) return;
 
-    const windW = 360;
-    const windH = 181;
-    const rowBytesRaw = windW * 4; // 1440
-    const rowBytesPadded = Math.ceil(rowBytesRaw / 256) * 256; // 1536
+    const is0p25 = buffer.byteLength === 4152960;
+    const windW = is0p25 ? 1440 : 360;
+    const windH = is0p25 ? 721 : 181;
+    const rowBytesRaw = windW * 4; // 1440 * 4 = 5760 (or 360 * 4 = 1440)
+    const rowBytesPadded = Math.ceil(rowBytesRaw / 256) * 256; // 5888 (or 1536)
     const padded = new Uint8Array(rowBytesPadded * windH);
 
     const srcU8 = new Uint8Array(buffer);
@@ -2126,7 +2127,7 @@ export class WebGPUEngine {
       padded.set(srcU8.subarray(srcOffset, srcOffset + rowBytesRaw), dstOffset);
     }
 
-    if (!this.windTexture) {
+    if (!this.windTexture || this.windTexture.width !== windW || this.windTexture.height !== windH) {
       this.windTexture = this.device.createTexture({
         label: 'wind_velocity_texture',
         size: [windW, windH, 1],
@@ -2319,8 +2320,9 @@ export class WebGPUEngine {
 
     if (!buffer) return;
 
-    const windW = 360;
-    const windH = 181;
+    const is0p25 = buffer.byteLength === 4152960;
+    const windW = is0p25 ? 1440 : 360;
+    const windH = is0p25 ? 721 : 181;
     const rowBytesRaw = windW * 4;
     const rowBytesPadded = Math.ceil(rowBytesRaw / 256) * 256;
     const padded = new Uint8Array(rowBytesPadded * windH);
@@ -2332,7 +2334,7 @@ export class WebGPUEngine {
       padded.set(srcU8.subarray(srcOffset, srcOffset + rowBytesRaw), dstOffset);
     }
 
-    if (!this.jetStreamTexture) {
+    if (!this.jetStreamTexture || this.jetStreamTexture.width !== windW || this.jetStreamTexture.height !== windH) {
       this.jetStreamTexture = this.device.createTexture({
         label: 'jetstream_velocity_texture',
         size: [windW, windH, 1],
