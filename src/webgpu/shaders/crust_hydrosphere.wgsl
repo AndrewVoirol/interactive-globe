@@ -931,8 +931,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let normElev = clamp((input.elevation + 10924.0) / 19772.0, 0.0, 1.0);
         let contourFreq = 28.0;
         let contourVal = fract(normElev * contourFreq);
-        let contourWidth = fwidth(normElev * contourFreq) * 1.5;
-        let isContour = 1.0 - smoothstep(0.0, max(0.001, contourWidth), min(contourVal, 1.0 - contourVal));
+        let distToLine = min(contourVal, 1.0 - contourVal);
+        let isContour = 1.0 - smoothstep(0.0, 0.035, distToLine);
         let cChalkContour = vec3<f32>(0.92, 0.95, 0.98);
         finalCrust = mix(finalCrust, cChalkContour, isContour * 0.65);
     }
