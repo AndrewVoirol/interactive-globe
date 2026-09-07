@@ -201,8 +201,11 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let worldPos0 = evaluateManifoldPosition(lon, lat, alt, sim.u_mode, sim.u_unfurl);
 
     // Dynamic physical streamline step length (in geographic radians) scaled with wind velocity
-    let baseStep = select(0.016, 0.026, isJetStream);
-    let speedFactor = clamp(speed / 14.0, 0.6, 2.4);
+    // Surface winds: fine, short filament steps (0.012 rad)
+    // Jet stream: long, continuous atmospheric river sweeps (0.046 rad)
+    let baseStep = select(0.012, 0.046, isJetStream);
+    let speedNorm = select(10.0, 32.0, isJetStream);
+    let speedFactor = clamp(speed / speedNorm, select(0.5, 0.8, isJetStream), select(1.7, 2.6, isJetStream));
     let stepLen = baseStep * speedFactor;
 
     // Backward streamline integration (instantaneous streamline curve)
@@ -237,12 +240,18 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let lat3 = clamp(lat2 - dir2.y * stepLen, -PI * 0.49, PI * 0.49);
     let worldPos3 = evaluateManifoldPosition(lon3, lat3, alt, sim.u_mode, sim.u_unfurl);
 
+    // Jet stream retains high segment alpha to form continuous fluid ribbons;
+    // Surface winds decay more rapidly for delicate localized filaments.
+    let a1 = select(0.68, 0.90, isJetStream);
+    let a2 = select(0.38, 0.74, isJetStream);
+    let a3 = select(0.12, 0.52, isJetStream);
+
     pOut.pos = vec4<f32>(lon, lat, alt, age);
     pOut.vel = vec4<f32>(currentVel.x, currentVel.y, 0.0, speed);
     pOut.history0 = vec4<f32>(worldPos0, alpha * 1.00);
-    pOut.history1 = vec4<f32>(worldPos1, alpha * 0.80);
-    pOut.history2 = vec4<f32>(worldPos2, alpha * 0.52);
-    pOut.history3 = vec4<f32>(worldPos3, alpha * 0.18);
+    pOut.history1 = vec4<f32>(worldPos1, alpha * a1);
+    pOut.history2 = vec4<f32>(worldPos2, alpha * a2);
+    pOut.history3 = vec4<f32>(worldPos3, alpha * a3);
 
     particlesOut[index] = pOut;
 }

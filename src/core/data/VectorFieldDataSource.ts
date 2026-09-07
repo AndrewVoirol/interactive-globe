@@ -44,6 +44,11 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
    * Loads the NOAA GFS wind binary grid from file or URL.
    */
   public async loadGrid(urlOrBuffer?: string | ArrayBuffer): Promise<void> {
+    if (urlOrBuffer === 'procedural') {
+      this.initProceduralFallback();
+      return;
+    }
+
     if (urlOrBuffer instanceof ArrayBuffer) {
       this.rawGridBuffer = urlOrBuffer;
       this.u16Grid = new Uint16Array(this.rawGridBuffer);
@@ -84,6 +89,11 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
    * Loads the 250 hPa Jet Stream velocity grid.
    */
   public async loadJetStreamGrid(urlOrBuffer?: string | ArrayBuffer): Promise<void> {
+    if (urlOrBuffer === 'procedural') {
+      this.initJetStreamFallback();
+      return;
+    }
+
     if (urlOrBuffer instanceof ArrayBuffer) {
       this.jetGridBuffer = urlOrBuffer;
       this.jetU16Grid = new Uint16Array(this.jetGridBuffer);
@@ -264,7 +274,8 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
   ): number {
     const [u, v] = this.sampleVelocity(lonDeg, latDeg, 'surface');
     // Vertical velocity in m/s produced by wind deflected by topographic slope
-    return u * slopeGradientEast + v * slopeGradientNorth;
+    const lift = u * slopeGradientEast + v * slopeGradientNorth;
+    return Object.is(lift, -0) ? 0 : lift;
   }
 
   public async fetch(bounds: BoundingBox3D, zoom: number): Promise<SpatialDataChunk<VectorFieldMetadata>> {

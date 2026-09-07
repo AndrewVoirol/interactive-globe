@@ -1,0 +1,28 @@
+{
+  "source": "NOAA NCEP Global Forecast System (GFS) 1.0\u00b0 Operational Grid",
+  "provenance": "Live NOMADS Ingestion",
+  "modelRunDate": "20260906",
+  "modelRunCycle": "18Z",
+  "forecastHour": "f000 (Analysis / Real-Time Initialization)",
+  "ingestedAtUTC": "2026-09-07T00:53:36.802417+00:00",
+  "gridDimensions": {
+    "lonPoints": 360,
+    "latPoints": 181
+  },
+  "surfaceWindStats": {
+    "maxSpeedMps": 31.765836715698242,
+    "meanSpeedMps": 6.201820373535156,
+    "uMin": -23.94405746459961,
+    "uMax": 29.53594207763672,
+    "vMin": -28.2407283782959,
+    "vMax": 24.929271697998047
+  },
+  "jetStreamStats": {
+    "maxSpeedMps": 91.91759490966797,
+    "meanSpeedMps": 21.080364227294922,
+    "uMin": -37.73468780517578,
+    "uMax": 88.56531524658203,
+    "vMin": -52.89734649658203,
+    "vMax": 62.40265655517578
+  }
+}

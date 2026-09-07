@@ -6,6 +6,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { encodeFloat16 } from '../src/core/math/float16';
 
@@ -174,7 +175,32 @@ export async function fetchOrGenerateGFS(): Promise<void> {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  console.log('Generating NOAA GFS 1.0° planetary wind velocity field...');
+  // 1. Attempt live ingestion from NOAA NOMADS via fetch-real-gfs.py
+  const pythonScript = path.join(projectRoot, 'scripts/fetch-real-gfs.py');
+  if (fs.existsSync(pythonScript)) {
+    try {
+      console.log('Attempting live NOAA GFS ingestion from NOMADS...');
+      execSync(`uv run --with eccodes,numpy python3 "${pythonScript}"`, {
+        cwd: projectRoot,
+        stdio: 'inherit',
+        timeout: 45000,
+      });
+
+      const surfStats = fs.statSync(outputPath);
+      const jetPath = path.join(outputDir, 'gfs-jetstream-latest.bin');
+      const multiPath = path.join(outputDir, 'gfs-multistratum-latest.bin');
+
+      if (surfStats.size === 260640 && fs.existsSync(jetPath) && fs.existsSync(multiPath)) {
+        console.log('[OK] Live NOAA GFS planetary wind velocity fields successfully ingested.');
+        return;
+      }
+    } catch (err: any) {
+      console.warn('Live NOAA GFS ingestion failed or timed out; engaging analytical fallback:', err?.message || err);
+    }
+  }
+
+  // 2. Analytical atmospheric circulation fallback model
+  console.log('Generating fallback NOAA GFS 1.0° planetary wind velocity field...');
   const buffer = generateGFSAtmosphericCirculationGrid();
 
   fs.writeFileSync(outputPath, Buffer.from(buffer));

@@ -121,9 +121,15 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let unitDir = dirPx / lenPx;
     let unitNorm = vec2<f32>(-unitDir.y, unitDir.x);
 
-    // Ribbon width in CSS pixels (Surface winds ~1.2px, Jet Stream ~1.8px)
-    let baseHalfWidth = select(1.2, 1.8, isJet > 0.5) * sim.u_dpr;
-    let widthAtten = clamp(p.vel.w / 26.0, 0.75, 1.40); // Scaled with speed
+    // Ribbon width in CSS pixels
+    // Surface winds: ultra-fine ~0.60px half-width (total ~1.2px) for fine filament texture
+    // Jet stream: wider ~2.40px half-width (total ~4.8px) for continuous atmospheric river
+    let baseHalfWidth = select(0.60, 2.40, isJet > 0.5) * sim.u_dpr;
+    let widthAtten = select(
+        clamp(p.vel.w / 16.0, 0.70, 1.25),
+        clamp(p.vel.w / 40.0, 0.75, 1.60),
+        isJet > 0.5
+    );
     let halfW = baseHalfWidth * widthAtten;
 
     let u = in.corner.x; // [0..1] along segment
@@ -163,42 +169,60 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // Lateral anti-aliasing via parabolic box-filter
     let lateralDist = abs(in.uv.y);
-    let edgeFeather = 1.0 - smoothstep(0.20, 0.95, lateralDist);
+    let edgeFeather = 1.0 - smoothstep(0.18, 0.95, lateralDist);
 
     var color: vec3<f32>;
-    let normSpeed = clamp(in.speed / 35.0, 0.0, 1.0);
+    var alphaBase: f32;
 
     if (in.isJetStream > 0.5) {
-        // High-Altitude Jet Stream Palette:
-        // Luminous Platinum Cyan to Solar Amber / Electric Violet
+        // High-Altitude Jet Stream (250 hPa, real speeds up to 92 m/s / 180 kt):
+        // Disciplined Thermal Metal Palette (Zero magenta / candy pink)
+        let normSpeed = clamp(in.speed / 80.0, 0.0, 1.0);
+
         if (sim.u_theme == 0u) {
-            // Dark Obsidian theme: Electric Cyan -> Luminescent Amber -> Violet
-            let calmJet = vec3<f32>(0.28, 0.78, 0.95);
-            let fastJet = vec3<f32>(0.98, 0.82, 0.32);
-            let coreJet = vec3<f32>(0.95, 0.45, 0.88);
+            // Dark Obsidian theme:
+            // Subdued slate-blue (< 35 m/s) -> Luminescent platinum-cyan (~55 m/s) -> Solar amber core (> 70 m/s)
+            let coolJet = vec3<f32>(0.22, 0.50, 0.70); // Deep aerospace slate-blue
+            let midJet  = vec3<f32>(0.55, 0.82, 0.92); // Luminescent platinum
+            let coreJet = vec3<f32>(1.00, 0.82, 0.38); // Warm solar gold
+            let peakJet = vec3<f32>(1.00, 0.94, 0.82); // Core highlight
+
+            if (normSpeed < 0.45) {
+                color = mix(coolJet, midJet, normSpeed / 0.45);
+            } else if (normSpeed < 0.82) {
+                color = mix(midJet, coreJet, (normSpeed - 0.45) / 0.37);
+            } else {
+                color = mix(coreJet, peakJet, (normSpeed - 0.82) / 0.18);
+            }
+        } else {
+            // Light Monochrome theme: Charcoal to Deep Indigo-Navy
+            let calmJet = vec3<f32>(0.42, 0.46, 0.54);
+            let fastJet = vec3<f32>(0.12, 0.20, 0.38);
+            let coreJet = vec3<f32>(0.04, 0.08, 0.18);
             color = mix(calmJet, fastJet, smoothstep(0.2, 0.7, normSpeed));
             color = mix(color, coreJet, smoothstep(0.7, 1.0, normSpeed));
-        } else {
-            // Light Monochrome theme: Charcoal to Rich Indigo
-            let calmJet = vec3<f32>(0.45, 0.48, 0.55);
-            let fastJet = vec3<f32>(0.12, 0.18, 0.32);
-            color = mix(calmJet, fastJet, normSpeed);
         }
+        alphaBase = 0.75;
     } else {
-        // Surface Boundary Layer Palette:
-        // Luminous cyan-white streamlines hugging terrain with high contrast
+        // Surface Boundary Layer (10m, speeds up to 32 m/s):
+        // Fine, delicate filaments hugging terrain
+        let normSpeed = clamp(in.speed / 18.0, 0.0, 1.0);
+
         if (sim.u_theme == 0u) {
-            let calmSurf = vec3<f32>(0.38, 0.70, 0.95);
-            let briskSurf = vec3<f32>(0.85, 0.95, 1.00);
+            // Subtle misty slate-pearl to crisp lunar silver
+            // Low saturation prevents clashing with terrain relief or ocean blues
+            let calmSurf  = vec3<f32>(0.48, 0.58, 0.68); // Muted slate-pearl
+            let briskSurf = vec3<f32>(0.84, 0.90, 0.96); // Silver filament
             color = mix(calmSurf, briskSurf, normSpeed);
         } else {
-            let calmSurf = vec3<f32>(0.50, 0.54, 0.60);
-            let briskSurf = vec3<f32>(0.10, 0.12, 0.16);
+            let calmSurf  = vec3<f32>(0.58, 0.60, 0.64);
+            let briskSurf = vec3<f32>(0.16, 0.18, 0.22);
             color = mix(calmSurf, briskSurf, normSpeed);
         }
+        // Speed-modulated opacity: calm breeze is subtle; active storms illuminate
+        alphaBase = mix(0.18, 0.58, smoothstep(0.08, 0.60, normSpeed));
     }
 
-    let alphaBase = select(0.78, 0.65, in.isJetStream > 0.5);
     let finalAlpha = in.alpha * edgeFeather * alphaBase;
     return vec4<f32>(color, finalAlpha);
 }
