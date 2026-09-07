@@ -161,7 +161,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         onPointerUp={handlePointerUp}
         onDoubleClick={() => onGlideToAlpha?.(alpha < 0.5 ? 1.0 : 0.0)}
         title="Drag vernier reticle along curvature arc (Double-click to toggle Globe/Map)"
-        className={`relative w-full h-9 rounded-lg border flex items-center justify-center cursor-pointer select-none touch-none shadow-inner ${sextantTokens.containerBg}`}
+        className={`relative w-full h-9 rounded-[2px] border flex items-center justify-center cursor-pointer select-none touch-none shadow-inner ${sextantTokens.containerBg}`}
       >
         <svg className="w-full h-full pointer-events-none" viewBox="0 0 240 36">
           {/* Radial reference rays */}

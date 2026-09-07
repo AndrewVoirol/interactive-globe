@@ -38,19 +38,30 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
   return (
     <div className="absolute bottom-8 inset-x-0 flex flex-col items-center gap-2 z-10 pointer-events-none font-mono select-none">
       <div
-        className={`flex items-center gap-3 px-5 py-2 rounded-2xl backdrop-blur-xl shadow-2xl pointer-events-auto border transition-colors ${
+        className={`flex items-center gap-3 px-5 py-2 rounded-[3px] shadow-2xl pointer-events-auto border transition-colors relative scroll-curl-lip ${
           theme === 1
-            ? 'bg-[#f8f3e8]/95 border-[#cfc4af] text-[#2b2b2b] shadow-2xl shadow-[#d8cfbc]/50'
+            ? 'paper-cream border-[#cfc4af] text-[#2b2b2b] shadow-2xl shadow-[#d8cfbc]/50'
             : theme === 2
-            ? 'bg-[#111f30]/95 border-[#2a435e] text-[#e8edf2] shadow-2xl shadow-[#071320]/80'
-            : 'bg-[#151e29]/95 border-[#333e4d] text-[#f0ede6] shadow-2xl shadow-[#080d12]/80'
+            ? 'paper-cyanotype border-[#2a435e] text-[#e8edf2] shadow-2xl shadow-[#071320]/80'
+            : 'paper-tharp border-[#333e4d] text-[#f0ede6] shadow-2xl shadow-[#080d12]/80'
         }`}
       >
+        {/* Subtle Inner Drafting Neatline Rule */}
+        <div
+          className={`pointer-events-none absolute inset-[2.5px] rounded-[2px] border ${
+            theme === 1
+              ? 'border-[#cfc4af]/40'
+              : theme === 2
+              ? 'border-[#3b597a]/30'
+              : 'border-white/5'
+          }`}
+        />
+
         {/* Play/Pause Toggle */}
         <button
           onClick={onTogglePlay}
           title={isPlaying ? 'Pause Morph (Space)' : 'Play Auto-Morph Loop (Space)'}
-          className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0 border ${
+          className={`tactile-btn w-7 h-7 rounded-[2px] flex items-center justify-center transition-all shrink-0 border z-10 ${
             isPlaying
               ? theme === 1
                 ? 'bg-[#2b241a] text-[#fdfcf9] border-[#2b241a]'
@@ -71,7 +82,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         <button
           onClick={onToggleSpeed}
           title="Toggle Auto-Morph Speed"
-          className={`text-[9px] font-bold px-1.5 py-0.5 rounded border transition-colors tabular-nums shrink-0 ${
+          className={`tactile-btn text-[9px] font-bold px-1.5 py-0.5 rounded-[2px] border transition-colors tabular-nums shrink-0 z-10 ${
             theme === 1
               ? 'border-[#d8cfbc] bg-[#f4eee1] text-[#4a3b32] hover:bg-[#ede3d4]'
               : theme === 2
@@ -86,7 +97,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         <button
           onClick={() => onGlideToAlpha(0.0)}
           title="Smooth glide to Spherical Globe (Press G)"
-          className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all shrink-0 border ${
+          className={`tactile-btn text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] transition-all shrink-0 border z-10 ${
             alpha < 0.03
               ? theme === 1
                 ? 'bg-[#2b241a] text-[#fdfcf9] border-[#2b241a] shadow-sm'
@@ -102,7 +113,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         >
           <span>Globe</span>
           <kbd
-            className={`text-[8px] px-1 py-0.5 rounded font-normal ${
+            className={`text-[8px] px-1 py-0.5 rounded-[1px] font-normal ${
               alpha < 0.03
                 ? theme === 1
                   ? 'bg-white/20 text-[#fdfcf9]'
@@ -117,7 +128,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         </button>
 
         {/* Gaussian Curvature Unfurl Sextant Arc */}
-        <div className="shrink-0">
+        <div className="shrink-0 z-10">
           <CurvatureUnfurlSextant
             alpha={alpha}
             onAlphaChange={onAlphaChange}
@@ -132,7 +143,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         <button
           onClick={() => onGlideToAlpha(1.0)}
           title="Smooth glide to Planar Map (Press M)"
-          className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all shrink-0 border ${
+          className={`tactile-btn text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] transition-all shrink-0 border z-10 ${
             alpha > 0.97
               ? theme === 1
                 ? 'bg-[#2b241a] text-[#fdfcf9] border-[#2b241a] shadow-sm'
@@ -148,7 +159,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         >
           <span>Map</span>
           <kbd
-            className={`text-[8px] px-1 py-0.5 rounded font-normal ${
+            className={`text-[8px] px-1 py-0.5 rounded-[1px] font-normal ${
               alpha > 0.97
                 ? theme === 1
                   ? 'bg-white/20 text-[#fdfcf9]'
@@ -163,7 +174,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         </button>
 
         <span
-          className={`text-[9px] tabular-nums pl-2 border-l min-w-[3.25rem] text-right shrink-0 ${
+          className={`text-[9px] tabular-nums pl-2 border-l min-w-[3.25rem] text-right shrink-0 z-10 ${
             theme === 1
               ? 'text-[#7d715d] border-[#d8cfbc]'
               : theme === 2
@@ -177,10 +188,10 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
 
       {/* Legacy shortcut reference for contract compatibility: B: Backend */}
       <div
-        className={`text-[9px] tracking-wide font-mono px-3 py-1 rounded-full backdrop-blur-md transition-colors z-20 pointer-events-none ${
+        className={`text-[9px] tracking-wide font-mono px-3 py-1 rounded-[2px] border backdrop-blur-md transition-colors z-20 pointer-events-none ${
           isLight
-            ? 'text-zinc-900 bg-white/95 border border-zinc-300 shadow-md font-semibold'
-            : 'text-zinc-200 bg-black/60 border border-white/15 shadow-md font-medium'
+            ? 'text-zinc-900 bg-white/95 border-zinc-300 shadow-md font-semibold'
+            : 'text-zinc-200 bg-black/60 border-white/15 shadow-md font-medium'
         }`}
       >
         Space: Play/Pause • G: Globe • M: Map • D: Style (A/B/C) • V: Vectors • 1-5: Paradigms • T: Theme • H: Zen

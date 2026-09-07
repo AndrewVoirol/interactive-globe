@@ -294,13 +294,14 @@ export default function App() {
 
         {/* Top Technical Calibration Bar */}
         {!isZenMode && (
-          <header className={`absolute top-3.5 left-16 right-4 md:right-84 h-7 flex items-center justify-between text-[9px] font-mono tracking-widest uppercase z-20 pointer-events-none px-3 rounded-lg border backdrop-blur-md shadow-sm transition-colors duration-500 ${neatlineTheme.bar}`}>
-            <div className="flex items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap">
+          <header className={`absolute top-3.5 left-16 right-4 md:right-84 h-7 flex items-center justify-between text-[9px] font-mono tracking-widest uppercase z-20 pointer-events-none px-3 rounded-[3px] border backdrop-blur-md shadow-sm transition-colors duration-500 relative scroll-curl-lip ${neatlineTheme.bar}`}>
+            <div className="pointer-events-none absolute inset-[2px] rounded-[2px] border border-current/20" />
+            <div className="flex items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap z-10">
               <span className="font-bold">HYDROGRAPHIC SURVEY // CARTOGRAPHIC MATRIX</span>
               <span className="opacity-40">|</span>
               <span className="opacity-80">SCALE {mapScaleStr}</span>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-3 shrink-0 z-10">
               <span className={`font-bold ${neatlineTheme.accent}`}>{latStr} · {lonStr}</span>
               <span className="opacity-40">|</span>
               <span className="opacity-80 font-bold">{fps} FPS</span>
@@ -310,15 +311,16 @@ export default function App() {
 
         {/* Bottom-Left Nautical Compass Rosette & Imhof Illumination Indicator (Stacked cleanly above canvas cartouche) */}
         {!isZenMode && (
-          <aside className={`absolute bottom-[98px] left-5 z-20 pointer-events-none flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg border backdrop-blur-md transition-colors duration-500 text-[9px] font-mono ${neatlineTheme.bar}`}>
-            <svg className={`w-5 h-5 shrink-0 ${neatlineTheme.accent}`} viewBox="0 0 100 100" fill="none" stroke="currentColor">
+          <aside className={`absolute bottom-[98px] left-5 z-20 pointer-events-none flex items-center gap-2.5 px-2.5 py-1.5 rounded-[3px] border backdrop-blur-md transition-colors duration-500 text-[9px] font-mono relative scroll-curl-lip ${neatlineTheme.bar}`}>
+            <div className="pointer-events-none absolute inset-[2px] rounded-[2px] border border-current/20" />
+            <svg className={`w-5 h-5 shrink-0 ${neatlineTheme.accent} z-10`} viewBox="0 0 100 100" fill="none" stroke="currentColor">
               <circle cx="50" cy="50" r="44" strokeWidth="1.5" strokeDasharray="2 3" />
               <line x1="50" y1="6" x2="50" y2="94" strokeWidth="1" />
               <line x1="6" y1="50" x2="94" y2="50" strokeWidth="1" />
               <polygon points="50,14 54,46 50,42 46,46" fill="currentColor" />
               <text x="54" y="24" fontSize="12" fill="currentColor" fontFamily="Cinzel, serif">N</text>
             </svg>
-            <div className="leading-tight">
+            <div className="leading-tight z-10">
               <div className="font-bold tracking-wider">IMHOF NW ILLUMINATION</div>
               <div className="opacity-70 text-[8px]">315° Azimuth · 45° Solar Angle</div>
             </div>
@@ -470,10 +472,10 @@ export default function App() {
         {isZenMode && (
           <button
             onClick={() => setIsZenMode(false)}
-            className={`absolute top-4 right-4 z-30 px-3 py-1.5 rounded-full backdrop-blur-xl border text-[10px] font-mono transition-all shadow-lg pointer-events-auto ${
+            className={`tactile-btn absolute top-4 right-4 z-30 px-3 py-1.5 rounded-[2px] backdrop-blur-xl border text-[10px] font-mono transition-all shadow-lg pointer-events-auto ${
               isLight
                 ? 'bg-white/90 border-zinc-300 text-zinc-900 hover:text-black hover:border-zinc-400 shadow-zinc-300/50'
-                : 'bg-[#0F121A]/80 border-white/10 text-zinc-300 hover:text-white hover:border-white/30'
+                : 'bg-[#0F121A]/90 border-white/15 text-zinc-300 hover:text-white hover:border-white/30'
             }`}
           >
             Exit Zen Mode (H)
@@ -484,11 +486,15 @@ export default function App() {
         {!isZenMode && !isAirDancerMode && (
           <button
             onClick={() => setIsAirDancerMode(true)}
-            title="🎈 (W)"
+            title="Cartographic Aerial Observer // Balloon (W)"
             aria-label="Wacky Wavy Inflatable Tube Man Easter Egg"
-            className="absolute top-4 left-4 z-30 text-2xl transition-transform hover:scale-125 active:scale-95 cursor-pointer pointer-events-auto select-none p-1 focus:outline-none"
+            className={`tactile-btn absolute top-4 left-4 z-30 transition-transform hover:scale-110 active:scale-95 cursor-pointer pointer-events-auto select-none p-1.5 rounded-[3px] border backdrop-blur-md focus:outline-none shadow-sm ${
+              isLight
+                ? 'bg-[#f4eee1]/90 border-[#cfc4af] text-zinc-800'
+                : 'bg-[#101721]/90 border-[#333e4d] text-[#f0ede6]'
+            }`}
           >
-            <span className="inline-block animate-bounce">🎈</span>
+            <span className="inline-block text-base leading-none">🎈</span>
           </button>
         )}
 

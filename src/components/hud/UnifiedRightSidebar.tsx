@@ -298,7 +298,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       {/* ========================================================================= */}
       <div className="fixed top-4 right-4 z-20 pointer-events-auto max-w-sm w-96 font-mono select-none transition-all duration-500 origin-top ease-out">
         <div
-          className={`rounded-[3px] border shadow-2xl p-3 text-xs max-h-[calc(100vh-2rem)] flex flex-col transition-all duration-300 relative ${
+          className={`rounded-[3px] border shadow-2xl p-3 text-xs max-h-[calc(100vh-2rem)] flex flex-col transition-all duration-300 relative scroll-curl-lip ${
+            isSidebarOpen ? 'blueprint-unroll' : ''
+          } ${
             theme === 1
               ? 'paper-cream border-[#cfc4af] text-[#2b2b2b] shadow-2xl shadow-[#d8cfbc]/40'
               : theme === 2
@@ -572,13 +574,14 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               </button>
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className={`text-[10px] font-bold px-2 py-1 rounded-[2px] border transition-all ${
+                className={`tactile-btn text-[10px] font-bold px-2 py-1 rounded-[2px] border transition-all ${
                   isLight
                     ? 'border-zinc-300 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'
                     : 'border-white/10 text-zinc-400 hover:text-white hover:border-white/30'
                 }`}
+                title={isSidebarOpen ? 'Roll up drafting panel' : 'Unfurl drafting panel'}
               >
-                {isSidebarOpen ? 'Collapse' : 'Expand'}
+                {isSidebarOpen ? 'Roll Up' : 'Unfurl'}
               </button>
             </div>
           </div>
@@ -1019,111 +1022,100 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <span className="text-[9px] font-mono opacity-50">Active: Mode {mode + 1}</span>
                     </div>
 
-                    <div className="grid grid-cols-5 gap-1">
-                      {/* Mode 0: Linear */}
-                      <button
-                        onClick={() => onModeChange(0)}
-                        title="Mode 1 (Linear): Standard Spherical-to-Planar Linear Mix"
-                        className={`py-1.5 px-1 rounded-[2px] text-[9px] font-bold transition-all text-center flex flex-col items-center gap-0.5 border ${
-                          mode === 0
-                            ? isLight
-                              ? 'bg-amber-500 text-white border-amber-600 shadow-md font-extrabold ring-1 ring-amber-400'
-                              : 'bg-amber-500/30 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.3)] ring-1 ring-amber-400/60 font-extrabold'
-                            : isLight
-                            ? 'border-zinc-200 text-zinc-600 hover:text-amber-700 hover:border-amber-300 bg-zinc-50'
-                            : 'border-white/10 text-zinc-400 hover:text-amber-300 hover:border-white/25 bg-white/[0.02]'
-                        }`}
-                      >
-                        <span className="flex items-center gap-1">
-                          {mode === 0 && <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse"></span>}
-                          <span>Linear</span>
-                        </span>
-                        <kbd className="text-[7px] opacity-70">1</kbd>
-                      </button>
+                    {/* Compact Rotary Vernier Stepper for Paradigms 0-4 */}
+                    <div
+                      className={`p-1.5 rounded-[2px] border ${
+                        theme === 1
+                          ? 'bg-[#f4eee1] border-[#cfc4af] text-[#2b2b2b]'
+                          : theme === 2
+                          ? 'bg-[#101c2b] border-[#263c54] text-[#e8edf2]'
+                          : 'bg-[#0f161f] border-[#333e4d] text-[#f0ede6]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={() => onModeChange(((mode + 4) % 5) as SimulationMode)}
+                          title="Previous Simulation Paradigm (or press 1-5)"
+                          className="tactile-btn px-2.5 py-1 rounded-[1px] border border-current/25 hover:border-current text-[10px] font-bold"
+                        >
+                          ◀
+                        </button>
 
-                      {/* Mode 1: Scroll */}
-                      <button
-                        onClick={() => onModeChange(1)}
-                        title="Mode 2 (Scroll): Cylindrical Unrolling along Mercator Longitudinal Seam"
-                        className={`py-1.5 px-1 rounded-[2px] text-[9px] font-bold transition-all text-center flex flex-col items-center gap-0.5 border ${
-                          mode === 1
-                            ? isLight
-                              ? 'bg-slate-700 text-white border-slate-800 shadow-md font-extrabold ring-1 ring-slate-500'
-                              : 'bg-slate-300/35 text-slate-100 border-slate-300/80 shadow-[0_0_10px_rgba(203,213,225,0.3)] ring-1 ring-slate-300/60 font-extrabold'
-                            : isLight
-                            ? 'border-zinc-200 text-zinc-600 hover:text-slate-800 hover:border-slate-300 bg-zinc-50'
-                            : 'border-white/10 text-zinc-400 hover:text-slate-200 hover:border-white/25 bg-white/[0.02]'
-                        }`}
-                      >
-                        <span className="flex items-center gap-1">
-                          {mode === 1 && <span className="w-1.5 h-1.5 rounded-full bg-slate-200 animate-pulse"></span>}
-                          <span>Scroll</span>
-                        </span>
-                        <kbd className="text-[7px] opacity-70">2</kbd>
-                      </button>
+                        <div className="flex flex-col items-center flex-1 px-2 min-w-0">
+                          <div className="flex items-center gap-1.5 font-bold text-[10px] tracking-wider truncate">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                mode === 0
+                                  ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]'
+                                  : mode === 1
+                                  ? 'bg-slate-300 shadow-[0_0_6px_rgba(203,213,225,0.8)]'
+                                  : mode === 2
+                                  ? 'bg-[#C86D51] shadow-[0_0_6px_rgba(200,109,81,0.8)]'
+                                  : mode === 3
+                                  ? 'bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,0.8)]'
+                                  : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]'
+                              }`}
+                            />
+                            <span className={theme === 1 ? 'text-[#8c4820]' : theme === 2 ? 'text-[#a5d5ff]' : 'text-[#c5a059]'}>
+                              {mode === 0 && '1: LINEAR DILATION'}
+                              {mode === 1 && '2: CYLINDER UNROLL'}
+                              {mode === 2 && '3: GRIFFITH RUPTURE'}
+                              {mode === 3 && '4: FLUID VORTEX'}
+                              {mode === 4 && '5: DYMAXION NET'}
+                            </span>
+                          </div>
+                          <span className="text-[7px] opacity-60 font-mono truncate">
+                            {mode === 0 && 'Spherical-to-Planar Linear Mix · [Key 1]'}
+                            {mode === 1 && 'Mercator Longitudinal Seam Unroll · [Key 2]'}
+                            {mode === 2 && 'Antimeridian LEFM Fracture · [Key 3]'}
+                            {mode === 3 && 'Navier-Stokes Hydrodynamic Advection · [Key 4]'}
+                            {mode === 4 && 'Fuller 20-Facet Icosahedral Net · [Key 5]'}
+                          </span>
+                        </div>
 
-                      {/* Mode 2: Griffith */}
-                      <button
-                        onClick={() => onModeChange(2)}
-                        title="Mode 3 (Griffith): Linear Elastic Fracture Mechanics Rupture along Antimeridian"
-                        className={`py-1.5 px-1 rounded-[2px] text-[9px] font-bold transition-all text-center flex flex-col items-center gap-0.5 border ${
-                          mode === 2
-                            ? isLight
-                              ? 'bg-[#C86D51] text-white border-[#B05B41] shadow-md font-extrabold ring-1 ring-[#E08A6F]'
-                              : 'bg-[#C86D51]/40 text-[#FFAE96] border-[#C86D51]/80 shadow-[0_0_10px_rgba(200,109,81,0.4)] ring-1 ring-[#C86D51]/60 font-extrabold'
-                            : isLight
-                            ? 'border-zinc-200 text-zinc-600 hover:text-[#C86D51] hover:border-[#C86D51]/30 bg-zinc-50'
-                            : 'border-white/10 text-zinc-400 hover:text-[#E08A6F] hover:border-white/25 bg-white/[0.02]'
-                        }`}
-                      >
-                        <span className="flex items-center gap-1">
-                          {mode === 2 && <span className="w-1.5 h-1.5 rounded-full bg-[#FFAE96] animate-pulse"></span>}
-                          <span>Griffith</span>
-                        </span>
-                        <kbd className="text-[7px] opacity-70">3</kbd>
-                      </button>
+                        <button
+                          onClick={() => onModeChange(((mode + 1) % 5) as SimulationMode)}
+                          title="Next Simulation Paradigm (or press 1-5)"
+                          className="tactile-btn px-2.5 py-1 rounded-[1px] border border-current/25 hover:border-current text-[10px] font-bold"
+                        >
+                          ▶
+                        </button>
+                      </div>
 
-                      {/* Mode 3: Fluid */}
-                      <button
-                        onClick={() => onModeChange(3)}
-                        title="Mode 4 (Fluid): Hydrodynamic Liquefaction & Navier-Stokes Turbulent Flow"
-                        className={`py-1.5 px-1 rounded-[2px] text-[9px] font-bold transition-all text-center flex flex-col items-center gap-0.5 border ${
-                          mode === 3
-                            ? isLight
-                              ? 'bg-indigo-600 text-white border-indigo-700 shadow-md font-extrabold ring-1 ring-indigo-400'
-                              : 'bg-indigo-500/35 text-indigo-200 border-indigo-400/80 shadow-[0_0_10px_rgba(129,140,248,0.4)] ring-1 ring-indigo-400/60 font-extrabold'
-                            : isLight
-                            ? 'border-zinc-200 text-zinc-600 hover:text-indigo-600 hover:border-indigo-300 bg-zinc-50'
-                            : 'border-white/10 text-zinc-400 hover:text-indigo-300 hover:border-white/25 bg-white/[0.02]'
-                        }`}
-                      >
-                        <span className="flex items-center gap-1">
-                          {mode === 3 && <span className="w-1.5 h-1.5 rounded-full bg-indigo-300 animate-pulse"></span>}
-                          <span>Fluid</span>
-                        </span>
-                        <kbd className="text-[7px] opacity-70">4</kbd>
-                      </button>
-
-                      {/* Mode 4: Dymaxion */}
-                      <button
-                        onClick={() => onModeChange(4)}
-                        title="Mode 5 (Dymaxion): Buckminster Fuller 20-Facet Icosahedral Unfolding"
-                        className={`py-1.5 px-1 rounded-[2px] text-[9px] font-bold transition-all text-center flex flex-col items-center gap-0.5 border ${
-                          mode === 4
-                            ? isLight
-                              ? 'bg-emerald-600 text-white border-emerald-700 shadow-md font-extrabold ring-1 ring-emerald-400'
-                              : 'bg-emerald-500/35 text-emerald-200 border-emerald-400/80 shadow-[0_0_10px_rgba(52,211,153,0.4)] ring-1 ring-emerald-400/60 font-extrabold'
-                            : isLight
-                            ? 'border-zinc-200 text-zinc-600 hover:text-emerald-600 hover:border-emerald-300 bg-zinc-50'
-                            : 'border-white/10 text-zinc-400 hover:text-emerald-300 hover:border-white/25 bg-white/[0.02]'
-                        }`}
-                      >
-                        <span className="flex items-center gap-1">
-                          {mode === 4 && <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>}
-                          <span>Dymaxion</span>
-                        </span>
-                        <kbd className="text-[7px] opacity-70">5</kbd>
-                      </button>
+                      {/* Vernier Detent Quick-Index Pips (Linear, Scroll, Fracture, Fluid, Dymaxion) */}
+                      <div className="grid grid-cols-5 gap-1 mt-1.5 pt-1.5 border-t border-current/10">
+                        {([
+                          { id: 0, label: 'Linear', title: 'Mode 1: Linear Dilation (Press 1)' },
+                          { id: 1, label: 'Scroll', title: 'Mode 2: Cylinder Unroll / Scroll (Press 2)' },
+                          { id: 2, label: 'Fracture', title: 'Mode 3: Griffith Rupture / Fracture (Press 3)' },
+                          { id: 3, label: 'Fluid', title: 'Mode 4: Fluid Vortex Advection (Press 4)' },
+                          { id: 4, label: 'Dymaxion', title: 'Mode 5: Fuller Dymaxion Net (Press 5)' },
+                        ] as const).map((m) => {
+                          const isSel = mode === m.id;
+                          return (
+                            <button
+                              key={m.id}
+                              onClick={() => onModeChange(m.id as SimulationMode)}
+                              title={m.title}
+                              className={`tactile-btn py-1 rounded-[2px] text-[8px] font-mono uppercase tracking-tight text-center border transition-all ${
+                                isSel
+                                  ? theme === 1
+                                    ? 'bg-[#2b241a] text-[#fdfcf9] border-[#2b241a] font-bold shadow-sm'
+                                    : theme === 2
+                                    ? 'bg-[#203a57] text-[#a5d5ff] border-[#4fa3e3] font-bold shadow-sm'
+                                    : 'bg-[#1b2b3a] text-[#c5a059] border-[#3b788a] font-bold shadow-sm'
+                                  : theme === 1
+                                  ? 'border-transparent text-[#7d715d] hover:bg-[#eae0d2] hover:text-[#2b241a]'
+                                  : theme === 2
+                                  ? 'border-transparent text-[#8ea4bd] hover:bg-[#15273c] hover:text-[#e8edf2]'
+                                  : 'border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
+                              }`}
+                            >
+                              {m.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 

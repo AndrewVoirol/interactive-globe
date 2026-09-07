@@ -765,10 +765,22 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let cRamp = mix(mix(mix(mix(cLowland, cPlateau, t0), cFlank, t1), cAlpine, t2), cSummit, t3);
 
     // Aerial Perspective & Illumination Combine
-    let cWarmSun = vec3<f32>(1.04, 0.98, 0.88);
-    let cCoolHaze = vec3<f32>(0.84, 0.90, 1.06);
-    let skyHaze = mix(cCoolHaze, cWarmSun, clamp(NdotL1 * 1.5, 0.0, 1.0));
-    let landIllum = (cSunLight * (sunDirect * 0.85 + ridgeEnhance) + cSkyAmbient * (skyIndirect * creviceAO)) * skyHaze;
+    var landIllum: vec3<f32>;
+    if (sim.u_theme == 1u) {
+        // Eduard Imhof Dual-Temperature Vector Illumination:
+        // Warm golden ochre on NW 315° direct illuminated slopes vs cool violet-umber on SE 135° shadowed slopes
+        let cWarmDirect = vec3<f32>(1.12, 1.02, 0.88);
+        let cCoolShadow = vec3<f32>(0.38, 0.32, 0.44);
+        let sunWeight = clamp(NdotL1 * 1.4, 0.0, 1.0);
+        let directComponent = cWarmDirect * (sunDirect * 0.90 + ridgeEnhance * 0.8);
+        let shadowComponent = cCoolShadow * (skyIndirect * creviceAO);
+        landIllum = mix(shadowComponent, directComponent, sunWeight);
+    } else {
+        let cWarmSun = vec3<f32>(1.04, 0.98, 0.88);
+        let cCoolHaze = vec3<f32>(0.84, 0.90, 1.06);
+        let skyHaze = mix(cCoolHaze, cWarmSun, clamp(NdotL1 * 1.5, 0.0, 1.0));
+        landIllum = (cSunLight * (sunDirect * 0.85 + ridgeEnhance) + cSkyAmbient * (skyIndirect * creviceAO)) * skyHaze;
+    }
     let tintedLand = cRamp * landIllum;
     let finalLand = mix(tintedLand, cRockShaded, rockWeight);
 
@@ -818,6 +830,14 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             );
             // Mid-ocean ridge crest highlight
             cBathy = mix(cBathy, cBathyRidge, kRidge * 0.45);
+
+            // Marie Tharp Procedural Bathymetric Fault & Shelf Hachuring:
+            if (sim.u_theme == 0u) {
+                let bathySlope = length(vec2<f32>(dHx, dHy));
+                let faultLine = sin((input.uv.x * 1200.0 + input.uv.y * 600.0) * 0.5);
+                let hachure = smoothstep(0.72, 0.96, faultLine) * smoothstep(0.08, 0.35, bathySlope);
+                cBathy = mix(cBathy, cBathyRidge, hachure * 0.45);
+            }
 
             let bathyIllum = cSunLight * (sunDirect * 0.80 + ridgeEnhance * 0.8) + cSkyAmbient * (skyIndirect * creviceAO);
             finalCrust = mix(cBathy * bathyIllum, cRockShaded, rockWeight * 0.4);
@@ -905,6 +925,17 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         graticuleWeight = minorGraticule * 0.08 + majorGraticule * 0.16;
     }
     finalCrust = mix(finalCrust, cGraticule, clamp(graticuleWeight, 0.0, 0.35));
+
+    // Prussian Cyanotype: Analytical Chalk Ruling Pen Elevation Isoline Contours
+    if (sim.u_theme == 2u) {
+        let normElev = clamp((input.elevation + 10924.0) / 19772.0, 0.0, 1.0);
+        let contourFreq = 28.0;
+        let contourVal = fract(normElev * contourFreq);
+        let contourWidth = fwidth(normElev * contourFreq) * 1.5;
+        let isContour = 1.0 - smoothstep(0.0, max(0.001, contourWidth), min(contourVal, 1.0 - contourVal));
+        let cChalkContour = vec3<f32>(0.92, 0.95, 0.98);
+        finalCrust = mix(finalCrust, cChalkContour, isContour * 0.65);
+    }
 
     // Atmospheric limb darkening in light mode to define globe silhouette against white canvas
     if (sim.u_theme == 1u && sim.u_unfurl < 0.6) {
