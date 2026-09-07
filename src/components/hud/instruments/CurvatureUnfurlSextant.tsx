@@ -12,6 +12,7 @@ export interface CurvatureUnfurlSextantProps {
   onAlphaChange: (val: number) => void;
   onGlideToAlpha?: (target: number) => void;
   mode?: SimulationMode;
+  theme?: 0 | 1 | 2;
   isLight?: boolean;
 }
 
@@ -59,17 +60,54 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   onAlphaChange,
   onGlideToAlpha,
   mode = 0,
+  theme = 2,
   isLight = false,
 }) => {
   const boxRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
 
+  // Theme-aware mineral pigment tokens
+  const sextantTokens = theme === 2
+    ? {
+        arcStroke: '#4f79a3',
+        thumbFill: '#e8edf2',
+        thumbStroke: '#c5a059',
+        activeTick: '#c5a059',
+        inactiveTick: 'rgba(232, 237, 242, 0.25)',
+        rayStroke: 'rgba(232, 237, 242, 0.08)',
+        containerBg: 'bg-[#0f1c2b]/90 border-[#263c54]',
+        labelColor: 'text-[#c5a059]',
+        subColor: 'text-[#8ea4bd]',
+      }
+    : theme === 1
+    ? {
+        arcStroke: '#8c4820',
+        thumbFill: '#fdfcf9',
+        thumbStroke: '#c5a059',
+        activeTick: '#c5a059',
+        inactiveTick: 'rgba(43, 36, 26, 0.25)',
+        rayStroke: 'rgba(43, 36, 26, 0.12)',
+        containerBg: 'bg-[#f2ebd9]/90 border-[#d8cfbc]',
+        labelColor: 'text-[#8c4820]',
+        subColor: 'text-[#7d715d]',
+      }
+    : {
+        arcStroke: '#3b788a',
+        thumbFill: '#f0ede6',
+        thumbStroke: '#c5a059',
+        activeTick: '#c5a059',
+        inactiveTick: 'rgba(240, 237, 230, 0.25)',
+        rayStroke: 'rgba(240, 237, 230, 0.08)',
+        containerBg: 'bg-[#101721]/90 border-[#333e4d]',
+        labelColor: 'text-[#c5a059]',
+        subColor: 'text-[#a2998a]',
+      };
+
   const updateFromPointer = useCallback(
     (clientX: number) => {
       if (!boxRef.current) return;
       const rect = boxRef.current.getBoundingClientRect();
-      // Arc spans from x = 15 to x = 225 within viewBox of 0 0 240 36
-      const padPct = 15 / 240; // 0.0625 margin on left and right
+      const padPct = 15 / 240;
       const rawFrac = (clientX - rect.left) / rect.width;
       let normX = (rawFrac - padPct) / (1.0 - 2 * padPct);
       normX = Math.max(0.0, Math.min(1.0, normX));
@@ -100,16 +138,13 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   };
 
   // SVG dimensions: 240 x 36
-  // Arc path: starts curved at y=6, flattens to bottom line y=26 as alpha goes 0 -> 1
   const peakY = 6 + alpha * 20;
   const pathD = `M 15 26 Q 120 ${peakY} 225 26`;
 
-  // Quadratic Bezier interpolation for reticle thumb at t = alpha
   const t = Math.max(0, Math.min(1, alpha));
   const thumbX = 15 + t * 210;
   const thumbY = (1 - t) * (1 - t) * 26 + 2 * (1 - t) * t * peakY + t * t * 26;
 
-  // Active milestone description
   const milestones = MILESTONES_BY_MODE[mode] || MILESTONES_BY_MODE[0];
   let currentMilestone = milestones[0];
   if (alpha >= 0.85) currentMilestone = milestones[3];
@@ -126,31 +161,27 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         onPointerUp={handlePointerUp}
         onDoubleClick={() => onGlideToAlpha?.(alpha < 0.5 ? 1.0 : 0.0)}
         title="Drag vernier reticle along curvature arc (Double-click to toggle Globe/Map)"
-        className={`relative w-full h-9 rounded-lg border flex items-center justify-center cursor-pointer select-none touch-none ${
-          isLight
-            ? 'bg-zinc-100/90 border-zinc-300 shadow-inner'
-            : 'bg-black/50 border-white/15 shadow-inner'
-        }`}
+        className={`relative w-full h-9 rounded-lg border flex items-center justify-center cursor-pointer select-none touch-none shadow-inner ${sextantTokens.containerBg}`}
       >
         <svg className="w-full h-full pointer-events-none" viewBox="0 0 240 36">
-          {/* Subtle radial reference rays */}
-          <line x1="120" y1="34" x2="15" y2="10" stroke={isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'} strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="68" y2="6" stroke={isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'} strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="120" y2="4" stroke={isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'} strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="172" y2="6" stroke={isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'} strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="225" y2="10" stroke={isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)'} strokeDasharray="2 2" />
+          {/* Radial reference rays */}
+          <line x1="120" y1="34" x2="15" y2="10" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="68" y2="6" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="120" y2="4" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="172" y2="6" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="225" y2="10" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
 
           {/* Magnetic tick markers */}
-          <circle cx="15" cy="26" r="2" fill={alpha < 0.15 ? (isLight ? '#7C3AED' : '#C084FC') : (isLight ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.25)')} />
-          <circle cx="78" cy="17" r="2" fill={alpha >= 0.15 && alpha < 0.5 ? (isLight ? '#7C3AED' : '#C084FC') : (isLight ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.25)')} />
-          <circle cx="162" cy="17" r="2" fill={alpha >= 0.5 && alpha < 0.85 ? (isLight ? '#7C3AED' : '#C084FC') : (isLight ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.25)')} />
-          <circle cx="225" cy="26" r="2" fill={alpha >= 0.85 ? (isLight ? '#7C3AED' : '#C084FC') : (isLight ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.25)')} />
+          <circle cx="15" cy="26" r="2" fill={alpha < 0.15 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
+          <circle cx="78" cy="17" r="2" fill={alpha >= 0.15 && alpha < 0.5 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
+          <circle cx="162" cy="17" r="2" fill={alpha >= 0.5 && alpha < 0.85 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
+          <circle cx="225" cy="26" r="2" fill={alpha >= 0.85 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
 
           {/* Curvature Unfurling Arc */}
           <path
             d={pathD}
             fill="none"
-            stroke={isLight ? '#7C3AED' : '#C084FC'}
+            stroke={sextantTokens.arcStroke}
             strokeWidth="2.5"
             strokeLinecap="round"
           />
@@ -160,32 +191,26 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
             cx={thumbX}
             cy={thumbY}
             r="4.5"
-            fill="#FFFFFF"
-            stroke={isLight ? '#6D28D9' : '#9333EA'}
+            fill={sextantTokens.thumbFill}
+            stroke={sextantTokens.thumbStroke}
             strokeWidth="2"
             className="shadow-sm"
           />
         </svg>
 
         {/* Milestone Tick Labels */}
-        <div className={`absolute top-1 left-2 text-[8px] font-mono font-bold pointer-events-none ${
-          isLight ? 'text-purple-700' : 'text-purple-400'
-        }`}>
+        <div className={`absolute top-1 left-2 text-[8px] font-mono font-bold pointer-events-none ${sextantTokens.labelColor}`}>
           K &gt; 0
         </div>
-        <div className={`absolute top-1 right-2 text-[8px] font-mono font-bold pointer-events-none ${
-          isLight ? 'text-purple-700' : 'text-purple-400'
-        }`}>
+        <div className={`absolute top-1 right-2 text-[8px] font-mono font-bold pointer-events-none ${sextantTokens.labelColor}`}>
           K = 0
         </div>
       </div>
 
       {/* Stage Telemetry Tag */}
-      <div className={`text-[9px] font-mono tracking-wider uppercase mt-0.5 w-full h-3.5 leading-tight text-center truncate ${
-        isLight ? 'text-zinc-700' : 'text-zinc-400'
-      }`}>
-        <span className={isLight ? 'text-purple-700 font-bold' : 'text-purple-400 font-bold'}>{currentMilestone.label}</span>
-        <span className={isLight ? 'text-zinc-600' : 'opacity-70'}> • {currentMilestone.desc}</span>
+      <div className="text-[9px] font-mono tracking-wider uppercase mt-0.5 w-full h-3.5 leading-tight text-center truncate">
+        <span className={`font-bold ${sextantTokens.labelColor}`}>{currentMilestone.label}</span>
+        <span className={`opacity-70 ${sextantTokens.subColor}`}> • {currentMilestone.desc}</span>
       </div>
     </div>
   );

@@ -272,11 +272,59 @@ export default function App() {
     ? '1 : 127,420,000' 
     : `1 : ${Math.round(127420000 / Math.max(0.2, Math.cos((latDeg * Math.PI) / 180))).toLocaleString('en-US')}`;
 
+  const neatlineTheme = theme === 2
+    ? { border: 'border-[#3b597a]/60', text: 'text-[#8ea4bd]', bar: 'border-[#2a435e]/80 bg-[#0c1520]/80 text-[#9bb0c4]', accent: 'text-[#c5a059]' }
+    : theme === 1
+    ? { border: 'border-[#b8ad98]', text: 'text-[#7d715d]', bar: 'border-[#cfc4af]/80 bg-[#f9f5ec]/85 text-[#4a4030]', accent: 'text-[#8c4820]' }
+    : { border: 'border-[#7a6f5e]/80', text: 'text-[#a2998a]', bar: 'border-[#333e4d]/80 bg-[#0c1219]/80 text-[#ccc2b0]', accent: 'text-[#c5a059]' };
+
   return (
     <CursorProvider>
       <div className={`relative w-screen h-screen flex flex-col font-mono overflow-hidden select-none transition-colors duration-500 ${
         theme === 2 ? 'paper-cyanotype text-[#E8EDF2]' : (theme === 1 ? 'paper-cream text-[#2B2B2B]' : 'paper-tharp text-[#F0EDE6]')
       }`}>
+        {/* Outer Archival Neatline & Geodetic Corner Marks */}
+        <div className={`absolute inset-2 pointer-events-none border border-current/25 z-20 transition-colors duration-500 m-1 ${neatlineTheme.border}`}>
+          <div className="absolute inset-1 border border-current/15"></div>
+          <span className={`absolute top-1 left-2 text-[9px] font-mono tracking-widest opacity-60 ${neatlineTheme.text}`}>⌜ 00.00°</span>
+          <span className={`absolute top-1 right-2 text-[9px] font-mono tracking-widest opacity-60 ${neatlineTheme.text}`}>⌝ 90.00°</span>
+          <span className={`absolute bottom-1 left-2 text-[9px] font-mono tracking-widest opacity-60 ${neatlineTheme.text}`}>⌞ 180.00°</span>
+          <span className={`absolute bottom-1 right-2 text-[9px] font-mono tracking-widest opacity-60 ${neatlineTheme.text}`}>⌟ 270.00°</span>
+        </div>
+
+        {/* Top Technical Calibration Bar */}
+        {!isZenMode && (
+          <header className={`absolute top-3.5 left-16 right-4 md:right-84 h-7 flex items-center justify-between text-[9px] font-mono tracking-widest uppercase z-20 pointer-events-none px-3 rounded-lg border backdrop-blur-md shadow-sm transition-colors duration-500 ${neatlineTheme.bar}`}>
+            <div className="flex items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap">
+              <span className="font-bold">HYDROGRAPHIC SURVEY // CARTOGRAPHIC MATRIX</span>
+              <span className="opacity-40">|</span>
+              <span className="opacity-80">SCALE {mapScaleStr}</span>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className={`font-bold ${neatlineTheme.accent}`}>{latStr} · {lonStr}</span>
+              <span className="opacity-40">|</span>
+              <span className="opacity-80 font-bold">{fps} FPS</span>
+            </div>
+          </header>
+        )}
+
+        {/* Bottom-Left Nautical Compass Rosette & Imhof Illumination Indicator (Stacked cleanly above canvas cartouche) */}
+        {!isZenMode && (
+          <aside className={`absolute bottom-[98px] left-5 z-20 pointer-events-none flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg border backdrop-blur-md transition-colors duration-500 text-[9px] font-mono ${neatlineTheme.bar}`}>
+            <svg className={`w-5 h-5 shrink-0 ${neatlineTheme.accent}`} viewBox="0 0 100 100" fill="none" stroke="currentColor">
+              <circle cx="50" cy="50" r="44" strokeWidth="1.5" strokeDasharray="2 3" />
+              <line x1="50" y1="6" x2="50" y2="94" strokeWidth="1" />
+              <line x1="6" y1="50" x2="94" y2="50" strokeWidth="1" />
+              <polygon points="50,14 54,46 50,42 46,46" fill="currentColor" />
+              <text x="54" y="24" fontSize="12" fill="currentColor" fontFamily="Cinzel, serif">N</text>
+            </svg>
+            <div className="leading-tight">
+              <div className="font-bold tracking-wider">IMHOF NW ILLUMINATION</div>
+              <div className="opacity-70 text-[8px]">315° Azimuth · 45° Solar Angle</div>
+            </div>
+          </aside>
+        )}
+
         {/* Viewport Canvas (Standalone WebGPU Instrument with SVG Fallback) */}
         <div className="w-full h-full relative">
           {hasWebGPU ? (

@@ -7,11 +7,11 @@
 // ============================================================================
 
 import { Vector3, Vector4, PerspectiveCamera } from '../core/math/cameraMath';
-import { isWebGPUSupported } from './support';
+import { isWebGPUSupported, getWebGPUDevice, getWebGPUAdapter } from './support';
 import { projectToDymaxion2D } from '../utils/dymaxion';
 import { decodeContourMesh } from '../utils/contour-topology';
 
-export { isWebGPUSupported };
+export { isWebGPUSupported, getWebGPUDevice, getWebGPUAdapter };
 
 import physicsSimWGSL from './shaders/physics_sim.wgsl?raw';
 import pointsRenderWGSL from './shaders/points_render.wgsl?raw';
@@ -267,6 +267,7 @@ export class WebGPUEngine {
   }
 
   public async initialize(config: WebGPUInitConfig): Promise<void> {
+    console.log('[WebGPUEngine] initialize start');
     if (this.isInitialized) {
       this.dispose();
     }
@@ -275,68 +276,29 @@ export class WebGPUEngine {
       throw new Error('WebGPU is not supported in this environment.');
     }
 
-    const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
-    if (!adapter) {
-      throw new Error('No appropriate GPUAdapter found.');
-    }
+    if (!this.device) {
+      console.log('[WebGPUEngine] acquiring device via getWebGPUDevice()...');
+      const device = await getWebGPUDevice();
+      if (!device) {
+        throw new Error('Failed to acquire WebGPU device.');
+      }
+      this.device = device;
+      this.adapter = (await getWebGPUAdapter())!;
+      this.profiler = new GPUProfiler(this.device);
 
-    this.adapter = adapter;
-    const requiredLimits: Record<string, number> = {};
-    if (adapter.limits?.maxStorageBufferBindingSize) {
-      requiredLimits.maxStorageBufferBindingSize = Math.min(
-        adapter.limits.maxStorageBufferBindingSize,
-        1024 * 1024 * 1024 // 1 GB
-      );
-    }
-    if (adapter.limits?.maxBufferSize) {
-      requiredLimits.maxBufferSize = Math.min(
-        adapter.limits.maxBufferSize,
-        1024 * 1024 * 1024 // 1 GB
-      );
-    }
-    if (adapter.limits?.maxComputeWorkgroupStorageSize) {
-      requiredLimits.maxComputeWorkgroupStorageSize = adapter.limits.maxComputeWorkgroupStorageSize;
-    }
-    if (adapter.limits?.maxComputeInvocationsPerWorkgroup) {
-      requiredLimits.maxComputeInvocationsPerWorkgroup = adapter.limits.maxComputeInvocationsPerWorkgroup;
-    }
+      this.device.lost?.then((info) => {
+        this.isInitialized = false;
+        this.device = null as any;
+        this.onDeviceLostCallback?.(info);
+      }).catch(() => {});
 
-    const requiredFeatures: GPUFeatureName[] = [];
-    if (adapter.features?.has('timestamp-query')) {
-      requiredFeatures.push('timestamp-query');
-    }
-    if (adapter.features?.has('texture-formats-tier1' as any)) {
-      requiredFeatures.push('texture-formats-tier1' as any);
-    }
-    if (adapter.features?.has('texture-formats-tier2' as any)) {
-      requiredFeatures.push('texture-formats-tier2' as any);
-    }
-    if (adapter.features?.has('float32-filterable' as any)) {
-      requiredFeatures.push('float32-filterable' as any);
-    }
-
-    try {
-      this.device = await adapter.requestDevice({
-        requiredLimits,
-        requiredFeatures,
+      this.device.addEventListener?.('uncapturederror', (event: any) => {
+        console.error('WebGPU Uncaptured Error:', event.error?.message || event);
       });
-    } catch (err) {
-      console.warn('WebGPU requestDevice failed with requiredFeatures, retrying without optional features:', err);
-      this.device = await adapter.requestDevice({
-        requiredLimits,
-        requiredFeatures: [],
-      });
+      console.log('[WebGPUEngine] device acquired successfully via singleton!');
+    } else {
+      console.log('[WebGPUEngine] Reusing existing GPUDevice!');
     }
-    this.profiler = new GPUProfiler(this.device);
-
-    this.device.lost?.then((info) => {
-      this.isInitialized = false;
-      this.onDeviceLostCallback?.(info);
-    }).catch(() => {});
-
-    this.device.addEventListener?.('uncapturederror', (event: any) => {
-      console.error('WebGPU Uncaptured Error:', event.error?.message || event);
-    });
 
     this.context = config.canvas.getContext('webgpu') as GPUCanvasContext;
     if (!this.context) {
@@ -354,6 +316,7 @@ export class WebGPUEngine {
     this.lineIndexCount = config.lineIndices.length;
 
     this.updateDepthTexture(config.canvas.width || 800, config.canvas.height || 600);
+    console.log('[WebGPUEngine] creating initial textures and samplers...');
 
     // ========================================================================
     // 1. DEM Ingestion Sampler & Default 2x2 Synchronous Placeholder Texture (M1-T1)
@@ -628,12 +591,15 @@ export class WebGPUEngine {
       initialStaticParticles,
     };
 
+    console.log('[WebGPUEngine] calling setupPipelines...');
     // Setup Pipelines & BindGroups
     await this.setupPipelines();
+    console.log('[WebGPUEngine] setupPipelines completed!');
     this.updateDEMBindGroups();
 
     this.currentStep = 0;
     this.isInitialized = true;
+    console.log('[WebGPUEngine] ALL INITIALIZATION COMPLETE! isInitialized = true');
   }
 
   /**

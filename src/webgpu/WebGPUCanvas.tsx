@@ -559,17 +559,22 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     setLoadError(null);
 
     const t0 = performance.now();
+    console.log('[WebGPUCanvas] Starting load for:', binFile, 'isMounted:', isMounted);
 
     // If switching datasets (e.g. from 100k to 1M+ or vice versa), dispose previous engine state
     if (engineRef.current.initialized) {
       engineRef.current.dispose();
     }
     loadedBinRef.current = binFile;
+    const engine = engineRef.current;
+    (window as any).__WEBGPU_ENGINE__ = engine;
 
     fetch(binFile)
       .then(async (res) => {
+        console.log('[WebGPUCanvas] Fetch response received, ok:', res.ok, 'status:', res.status);
         if (!res.ok) throw new Error(`BIN fetch failed (${res.status})`);
         const buffer = await res.arrayBuffer();
+        console.log('[WebGPUCanvas] ArrayBuffer received, bytes:', buffer.byteLength, 'isMounted:', isMounted);
         if (!isMounted) return;
 
         const view = new DataView(buffer);
@@ -588,8 +593,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const typeData = new Float32Array(buffer, typOffset, pointCount);
         const lineIndices = new Uint32Array(buffer, iOffset, indexCount);
 
-        const engine = engineRef.current;
-        (window as any).__WEBGPU_ENGINE__ = engine;
+        console.log('[WebGPUCanvas] Initializing engine with pointCount:', pointCount);
         await engine.initialize({
           canvas,
           pointCount,
@@ -598,6 +602,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           typeData,
           lineIndices,
         });
+        console.log('[WebGPUCanvas] engine.initialize completed successfully!');
 
         // Configure dual-surface crust resolution dynamically across 100k .. 16M tiers
         const sphereInfo = engine.rebuildSphereMesh(tier.lat, tier.lon);
@@ -610,7 +615,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
         engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
 
-        if (!isMounted) return;
+        if (!isMounted) {
+          console.log('[WebGPUCanvas] isMounted is false after engine.initialize!');
+          return;
+        }
         setIsLoading(false);
 
         const t1 = performance.now();
@@ -632,6 +640,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         });
       })
       .catch(async (binErr) => {
+        console.error('[WebGPUCanvas] bin load error:', binErr);
         if (!jsonFile) {
           console.error('WebGPU binary load failed:', binErr);
           if (isMounted) {

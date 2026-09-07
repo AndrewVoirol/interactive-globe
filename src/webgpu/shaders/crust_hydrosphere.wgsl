@@ -351,6 +351,7 @@ fn computeHydrosphereShading(
 
     // Dampen sky glare on the unfurled flat map so the ocean stays deep, clear, and visible
     let mapFresnelAtten = mix(1.0, 0.20, sim.u_unfurl);
+    let isDark = sim.u_theme != 1u;
     let skyReflection = select(vec3<f32>(0.75, 0.85, 0.95), vec3<f32>(0.20, 0.38, 0.55), isDark) * (fresnel * mapFresnelAtten);
     let specAtten = mix(1.0, 0.35, sim.u_unfurl);
     let finalColor = waterColor * (1.0 - fresnel * 0.4) + skyReflection + vec3<f32>(sunSpecular * fresnel * specAtten);
@@ -772,6 +773,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let finalLand = mix(tintedLand, cRockShaded, rockWeight);
 
     var finalCrust: vec3<f32>;
+    let isDark = sim.u_theme != 1u;
 
     if (sim.u_renderStyle == 0u) {
         // ====================================================================
@@ -843,6 +845,31 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let bathyIllum = cSunLight * (sunDirect * 0.75) + cSkyAmbient * (skyIndirect * creviceAO * 0.8);
         finalCrust = mix(cBathy * bathyIllum, finalLand, smoothstep(0.32, 0.68, isLand));
     }
+
+    // Archival Cartographic Drafting Graticule (15° Parallels & Meridians)
+    let meridianGrid = fract(input.uv.x * 24.0);
+    let parallelGrid = fract(input.uv.y * 12.0);
+    let lineU = 1.0 - smoothstep(0.0, 0.018, min(meridianGrid, 1.0 - meridianGrid));
+    let lineV = 1.0 - smoothstep(0.0, 0.018, min(parallelGrid, 1.0 - parallelGrid));
+    let minorGraticule = max(lineU, lineV);
+
+    let isEquator = 1.0 - smoothstep(0.0, 0.026, abs(input.uv.y - 0.5));
+    let isPrime   = 1.0 - smoothstep(0.0, 0.026, abs(input.uv.x - 0.5));
+    let majorGraticule = max(isEquator, isPrime);
+
+    var cGraticule: vec3<f32>;
+    var graticuleWeight: f32;
+    if (sim.u_theme == 2u) {
+        cGraticule = vec3<f32>(0.91, 0.93, 0.96); // Chalk Ruling Pen Linework
+        graticuleWeight = minorGraticule * 0.09 + majorGraticule * 0.18;
+    } else if (sim.u_theme == 1u) {
+        cGraticule = vec3<f32>(0.28, 0.22, 0.16); // Copperplate Sepia Ink Linework
+        graticuleWeight = minorGraticule * 0.08 + majorGraticule * 0.16;
+    } else {
+        cGraticule = vec3<f32>(0.23, 0.47, 0.54); // Marine Turquoise Drafting Linework
+        graticuleWeight = minorGraticule * 0.08 + majorGraticule * 0.16;
+    }
+    finalCrust = mix(finalCrust, cGraticule, clamp(graticuleWeight, 0.0, 0.35));
 
     // Atmospheric limb darkening in light mode to define globe silhouette against white canvas
     if (sim.u_theme == 1u && sim.u_unfurl < 0.6) {

@@ -38,26 +38,30 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
   return (
     <div className="absolute bottom-8 inset-x-0 flex flex-col items-center gap-2 z-10 pointer-events-none font-mono select-none">
       <div
-        className={`flex items-center gap-3 px-5 py-2 rounded-full backdrop-blur-xl shadow-2xl pointer-events-auto border transition-colors ${
+        className={`flex items-center gap-3 px-5 py-2 rounded-2xl backdrop-blur-xl shadow-2xl pointer-events-auto border transition-colors ${
           theme === 1
-            ? 'bg-[#fcfaf7]/90 border-[#d6c7b2] text-[#2c221e] shadow-[#d6c7b2]/40'
+            ? 'bg-[#f8f3e8]/95 border-[#cfc4af] text-[#2b2b2b] shadow-2xl shadow-[#d8cfbc]/50'
             : theme === 2
-            ? 'bg-[#0f1d2d]/90 border-[#386b99]/70 text-[#cbe1f7] shadow-[#071320]/80'
-            : 'bg-[#0F121A]/85 border-white/10 text-zinc-200 shadow-black/60'
+            ? 'bg-[#111f30]/95 border-[#2a435e] text-[#e8edf2] shadow-2xl shadow-[#071320]/80'
+            : 'bg-[#151e29]/95 border-[#333e4d] text-[#f0ede6] shadow-2xl shadow-[#080d12]/80'
         }`}
       >
         {/* Play/Pause Toggle */}
         <button
           onClick={onTogglePlay}
           title={isPlaying ? 'Pause Morph (Space)' : 'Play Auto-Morph Loop (Space)'}
-          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all shrink-0 ${
+          className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0 border ${
             isPlaying
-              ? isLight
-                ? 'bg-zinc-900 text-white'
-                : 'bg-white text-black font-bold'
-              : isLight
-              ? 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-              : 'bg-white/10 text-zinc-300 hover:bg-white/20'
+              ? theme === 1
+                ? 'bg-[#2b241a] text-[#fdfcf9] border-[#2b241a]'
+                : theme === 2
+                ? 'bg-[#254263] text-[#f5f8fc] border-[#4a729e]'
+                : 'bg-[#22384a] text-[#f0ede6] border-[#3b788a]'
+              : theme === 1
+              ? 'bg-[#eee5d0] text-[#4a3b32] border-[#d8cfbc] hover:bg-[#eae0d2]'
+              : theme === 2
+              ? 'bg-[#162a42] text-[#9fcbf9] border-[#263c54] hover:bg-[#1a3352]'
+              : 'bg-[#1b2b3a] text-[#c5a059] border-[#333e4d] hover:bg-[#22384a]'
           }`}
         >
           {isPlaying ? '⏸' : '▶'}
@@ -68,9 +72,11 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
           onClick={onToggleSpeed}
           title="Toggle Auto-Morph Speed"
           className={`text-[9px] font-bold px-1.5 py-0.5 rounded border transition-colors tabular-nums shrink-0 ${
-            isLight
-              ? 'border-zinc-300 text-zinc-700 hover:bg-zinc-100'
-              : 'border-white/10 text-zinc-400 hover:text-white hover:border-white/20'
+            theme === 1
+              ? 'border-[#d8cfbc] bg-[#f4eee1] text-[#4a3b32] hover:bg-[#ede3d4]'
+              : theme === 2
+              ? 'border-[#263c54] bg-[#101c2b] text-[#8ea4bd] hover:text-[#e8edf2]'
+              : 'border-[#333e4d] bg-[#0f161f] text-[#a2998a] hover:text-[#f0ede6]'
           }`}
         >
           {playbackSpeed}x
@@ -80,26 +86,30 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         <button
           onClick={() => onGlideToAlpha(0.0)}
           title="Smooth glide to Spherical Globe (Press G)"
-          className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-all shrink-0 ${
+          className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all shrink-0 border ${
             alpha < 0.03
-              ? isLight
-                ? 'bg-zinc-900 text-white shadow-sm'
-                : 'bg-white text-black shadow-md font-extrabold'
-              : isLight
-              ? 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
-              : 'text-zinc-400 hover:text-white hover:bg-white/10'
+              ? theme === 1
+                ? 'bg-[#2b241a] text-[#fdfcf9] border-[#2b241a] shadow-sm'
+                : theme === 2
+                ? 'bg-[#254263] text-[#f5f8fc] border-[#4a729e] shadow-sm ring-1 ring-[#c5a059]/40 font-extrabold'
+                : 'bg-[#22384a] text-[#f0ede6] border-[#3b788a] shadow-sm ring-1 ring-[#c5a059]/40 font-extrabold'
+              : theme === 1
+              ? 'border-[#d8cfbc] bg-[#f4eee1]/60 text-[#5a4f3e] hover:bg-[#ede3d4]'
+              : theme === 2
+              ? 'border-[#263c54] bg-[#101c2b]/60 text-[#8ea4bd] hover:text-[#e8edf2]'
+              : 'border-[#333e4d] bg-[#0f161f]/60 text-[#a2998a] hover:text-[#f0ede6]'
           }`}
         >
           <span>Globe</span>
           <kbd
             className={`text-[8px] px-1 py-0.5 rounded font-normal ${
               alpha < 0.03
-                ? isLight
-                  ? 'bg-zinc-800 text-white'
-                  : 'bg-black/20 text-black'
-                : isLight
-                ? 'bg-zinc-200 text-zinc-600'
-                : 'bg-white/10 text-zinc-400'
+                ? theme === 1
+                  ? 'bg-white/20 text-[#fdfcf9]'
+                  : 'bg-black/30 text-[#f5f8fc]'
+                : theme === 1
+                ? 'bg-[#eae0d2] text-[#5a4f3e]'
+                : 'bg-white/10 text-current'
             }`}
           >
             G
@@ -113,6 +123,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
             onAlphaChange={onAlphaChange}
             onGlideToAlpha={onGlideToAlpha}
             mode={mode}
+            theme={theme}
             isLight={isLight}
           />
         </div>
@@ -121,26 +132,30 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         <button
           onClick={() => onGlideToAlpha(1.0)}
           title="Smooth glide to Planar Map (Press M)"
-          className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-all shrink-0 ${
+          className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all shrink-0 border ${
             alpha > 0.97
-              ? isLight
-                ? 'bg-zinc-900 text-white shadow-sm'
-                : 'bg-white text-black shadow-md font-extrabold'
-              : isLight
-              ? 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
-              : 'text-zinc-400 hover:text-white hover:bg-white/10'
+              ? theme === 1
+                ? 'bg-[#2b241a] text-[#fdfcf9] border-[#2b241a] shadow-sm'
+                : theme === 2
+                ? 'bg-[#254263] text-[#f5f8fc] border-[#4a729e] shadow-sm ring-1 ring-[#c5a059]/40 font-extrabold'
+                : 'bg-[#22384a] text-[#f0ede6] border-[#3b788a] shadow-sm ring-1 ring-[#c5a059]/40 font-extrabold'
+              : theme === 1
+              ? 'border-[#d8cfbc] bg-[#f4eee1]/60 text-[#5a4f3e] hover:bg-[#ede3d4]'
+              : theme === 2
+              ? 'border-[#263c54] bg-[#101c2b]/60 text-[#8ea4bd] hover:text-[#e8edf2]'
+              : 'border-[#333e4d] bg-[#0f161f]/60 text-[#a2998a] hover:text-[#f0ede6]'
           }`}
         >
           <span>Map</span>
           <kbd
             className={`text-[8px] px-1 py-0.5 rounded font-normal ${
               alpha > 0.97
-                ? isLight
-                  ? 'bg-zinc-800 text-white'
-                  : 'bg-black/20 text-black'
-                : isLight
-                ? 'bg-zinc-200 text-zinc-600'
-                : 'bg-white/10 text-zinc-400'
+                ? theme === 1
+                  ? 'bg-white/20 text-[#fdfcf9]'
+                  : 'bg-black/30 text-[#f5f8fc]'
+                : theme === 1
+                ? 'bg-[#eae0d2] text-[#5a4f3e]'
+                : 'bg-white/10 text-current'
             }`}
           >
             M
@@ -149,7 +164,11 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
 
         <span
           className={`text-[9px] tabular-nums pl-2 border-l min-w-[3.25rem] text-right shrink-0 ${
-            isLight ? 'text-zinc-600 border-zinc-200' : 'text-zinc-400 border-white/10'
+            theme === 1
+              ? 'text-[#7d715d] border-[#d8cfbc]'
+              : theme === 2
+              ? 'text-[#8ea4bd] border-[#263c54]'
+              : 'text-[#a2998a] border-[#333e4d]'
           }`}
         >
           {alpha.toFixed(3)}
