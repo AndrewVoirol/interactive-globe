@@ -193,6 +193,7 @@ export class WebGPUEngine {
   private windRibbonPipeline: GPURenderPipeline | null = null;
   private windRibbonBindGroups: [GPUBindGroup, GPUBindGroup] | null = null;
   private windStep: number = 0;
+  private windBuffersInitialized: boolean = false;
 
   // Autonomous Origami Paper Crane Soaring Engine
   public readonly craneSolver: OrigamiCraneFlightSolver = new OrigamiCraneFlightSolver();

@@ -82,12 +82,10 @@ function createEngineConfig(pointCount: number, lineCount = 100): WebGPUInitConf
   return {
     canvas,
     pointCount,
-    lineCount,
     pointsData,
     target2DData,
     typeData,
     lineIndices,
-    resolution: '1M',
   };
 }
 
@@ -95,8 +93,8 @@ describe('Phase 5: Atmospheric Wind System & Autonomous Origami Crane Engine', (
   describe('1. VectorFieldDataSource Multi-Stratum Modeling', () => {
     it('WIND-01: initializes dual-stratum procedural fallback with valid physical ranges', async () => {
       const source = new VectorFieldDataSource();
-      await source.loadGrid();
-      await source.loadJetStreamGrid();
+      await source.loadGrid('procedural');
+      await source.loadJetStreamGrid('procedural');
 
       // Sample surface winds at mid-latitudes (35°N, 0°E)
       const [uSurf, vSurf] = source.sampleVelocity(0, 35, 'surface');
@@ -169,7 +167,7 @@ describe('Phase 5: Atmospheric Wind System & Autonomous Origami Crane Engine', (
       // Place crane in the Patagonian Andes (-71.0°W, -45.0°S) where 22 m/s westerlies blow against ridges
       const solver = new OrigamiCraneFlightSolver(-71.0, -45.0, 2500);
       const source = new VectorFieldDataSource();
-      await source.loadGrid();
+      await source.loadGrid('procedural');
 
       const initialAlt = solver.getState().altitude;
 
