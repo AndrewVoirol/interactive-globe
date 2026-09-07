@@ -37,6 +37,232 @@ const PIGMENT_SWATCHES: Record<0 | 1 | 2, Array<{ name: string; hex: string; dep
   ],
 };
 
+// --- Tactile Instrument Components ---
+
+interface KnurledSlideSwitchProps {
+  checked: boolean;
+  onChange?: () => void;
+  title: string;
+  label: string;
+  sublabel?: string;
+  theme: 0 | 1 | 2;
+  isLight?: boolean;
+}
+
+const KnurledSlideSwitch: React.FC<KnurledSlideSwitchProps> = ({
+  checked,
+  onChange,
+  title,
+  label,
+  sublabel,
+  theme,
+  isLight,
+}) => {
+  return (
+    <div
+      onClick={onChange}
+      title={title}
+      role="switch"
+      aria-checked={checked}
+      className={`tactile-btn group flex items-center justify-between py-1.5 px-2 rounded-[2px] border cursor-pointer select-none transition-all ${
+        checked
+          ? theme === 1
+            ? 'bg-[#ede3d4] border-[#b8ad98]'
+            : theme === 2
+            ? 'bg-[#152a40] border-[#386087]'
+            : 'bg-[#13222f] border-[#2e536e]'
+          : isLight
+          ? 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'
+          : 'bg-white/[0.02] border-white/10 hover:bg-white/[0.04]'
+      }`}
+    >
+      <div className="flex flex-col min-w-0 pr-2">
+        <span
+          className={`font-bold text-[9px] truncate transition-colors ${
+            checked
+              ? theme === 1
+                ? 'text-[#2b241a]'
+                : theme === 2
+                ? 'text-[#a5d5ff]'
+                : 'text-cyan-300'
+              : isLight
+              ? 'text-zinc-600'
+              : 'text-zinc-400'
+          }`}
+        >
+          {label}
+        </span>
+        {sublabel && (
+          <span className="text-[7px] opacity-60 font-mono truncate">
+            {sublabel}
+          </span>
+        )}
+      </div>
+
+      {/* 3-Ridge Machined Knurled Slide Track & Thumb */}
+      <div
+        className={`knurl-switch w-8 h-4 rounded-[2px] border relative shrink-0 shadow-inner flex items-center px-0.5 ${
+          checked
+            ? theme === 1
+              ? 'bg-[#c8b9a6] border-[#8c4820]'
+              : theme === 2
+              ? 'bg-[#203a57] border-[#4fa3e3]'
+              : 'bg-[#1a3848] border-cyan-400'
+            : isLight
+            ? 'bg-zinc-200 border-zinc-300'
+            : 'bg-black/40 border-white/15'
+        }`}
+      >
+        <div
+          className={`knurl-thumb w-3 h-3 rounded-[1px] border shadow-md flex items-center justify-center ${
+            checked
+              ? 'translate-x-3.5 ' +
+                (theme === 1
+                  ? 'bg-[#8c4820] border-[#5a2c10] text-[#fdfcf9]'
+                  : theme === 2
+                  ? 'bg-[#4fa3e3] border-[#7ec0f2] text-black'
+                  : 'bg-cyan-400 border-cyan-300 text-black')
+              : 'translate-x-0 ' +
+                (isLight
+                  ? 'bg-zinc-100 border-zinc-300 text-zinc-500'
+                  : 'bg-zinc-700 border-zinc-600 text-zinc-400')
+          }`}
+        >
+          <div className="w-1.5 h-1.5 flex flex-col justify-between opacity-70">
+            <span className="knurl-ridge" />
+            <span className="knurl-ridge" />
+            <span className="knurl-ridge" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface VernierSliderWithStepperProps {
+  id: string;
+  label: string;
+  sublabel?: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  readout: string;
+  onChange?: (v: number) => void;
+  theme: 0 | 1 | 2;
+  isLight?: boolean;
+}
+
+const VernierSliderWithStepper: React.FC<VernierSliderWithStepperProps> = ({
+  id,
+  label,
+  sublabel,
+  value,
+  min,
+  max,
+  step,
+  readout,
+  onChange,
+  theme,
+  isLight,
+}) => {
+  const handleStep = (dir: -1 | 1) => {
+    if (!onChange) return;
+    const next = Math.max(min, Math.min(max, parseFloat((value + dir * step).toFixed(3))));
+    onChange(next);
+  };
+
+  return (
+    <div
+      className={`p-2 rounded-[2px] border space-y-1.5 transition-all ${
+        isLight ? 'bg-zinc-50/80 border-zinc-200' : 'bg-white/[0.02] border-white/10'
+      }`}
+    >
+      <div className="flex items-center justify-between text-[9px]">
+        <div className="flex flex-col">
+          <span
+            className={`font-bold uppercase tracking-wider ${
+              isLight ? 'text-zinc-700' : 'text-zinc-300'
+            }`}
+          >
+            {label}
+          </span>
+          {sublabel && <span className="text-[7px] opacity-60 font-mono">{sublabel}</span>}
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => handleStep(-1)}
+            title={`Decrease ${label}`}
+            className="tactile-press w-4 h-4 rounded-[1px] border border-current/25 hover:border-current flex items-center justify-center font-bold text-[9px] leading-none select-none"
+          >
+            -
+          </button>
+          <span className="font-mono font-bold tabular-nums text-[10px] min-w-[36px] text-right">
+            {readout}
+          </span>
+          <button
+            type="button"
+            onClick={() => handleStep(1)}
+            title={`Increase ${label}`}
+            className="tactile-press w-4 h-4 rounded-[1px] border border-current/25 hover:border-current flex items-center justify-center font-bold text-[9px] leading-none select-none"
+          >
+            +
+          </button>
+        </div>
+      </div>
+
+      <div className="relative pt-0.5">
+        <input
+          id={id}
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange?.(parseFloat(e.target.value))}
+          className="w-full slider-archival h-1 cursor-pointer block"
+        />
+        {/* Calibrated Millimeter Ticks */}
+        <div className="vernier-ticks pt-0.5">
+          <span>|</span><span>·</span><span>·</span><span>·</span><span>|</span>
+          <span>·</span><span>·</span><span>·</span><span>|</span><span>·</span>
+          <span>·</span><span>·</span><span>|</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const OpticalReticlePip: React.FC<{ active: boolean; theme: 0 | 1 | 2 }> = ({ active, theme }) => {
+  return (
+    <div
+      className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 transition-colors shadow-sm ${
+        active
+          ? theme === 1
+            ? 'border-[#8c4820] bg-[#8c4820]/15'
+            : theme === 2
+            ? 'border-[#4fa3e3] bg-[#4fa3e3]/20 shadow-[0_0_8px_rgba(79,163,227,0.4)]'
+            : 'border-cyan-400 bg-cyan-400/20 shadow-[0_0_8px_rgba(0,229,255,0.4)]'
+          : 'border-current/30 bg-transparent opacity-50'
+      }`}
+    >
+      <span
+        className={`reticle-pip w-1.5 h-1.5 rounded-full ${
+          active
+            ? 'scale-100 opacity-100 ' +
+              (theme === 1
+                ? 'bg-[#8c4820]'
+                : theme === 2
+                ? 'bg-[#4fa3e3]'
+                : 'bg-cyan-300')
+            : 'scale-0 opacity-0 bg-transparent'
+        }`}
+      />
+    </div>
+  );
+};
+
 export interface UnifiedRightSidebarProps {
   isZenMode: boolean;
   onZenToggle: () => void;
@@ -298,8 +524,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       {/* ========================================================================= */}
       <div className="fixed top-4 right-4 z-20 pointer-events-auto max-w-sm w-96 font-mono select-none transition-all duration-500 origin-top ease-out">
         <div
-          className={`rounded-[3px] border shadow-2xl p-3 text-xs max-h-[calc(100vh-2rem)] flex flex-col transition-all duration-300 relative scroll-curl-lip ${
-            isSidebarOpen ? 'blueprint-unroll' : ''
+          className={`rounded-[3px] border shadow-2xl p-3 text-xs flex flex-col transition-all duration-300 relative scroll-curl-lip ${
+            isSidebarOpen ? 'max-h-[calc(100vh-2rem)]' : 'max-h-[105px] overflow-hidden'
           } ${
             theme === 1
               ? 'paper-cream border-[#cfc4af] text-[#2b2b2b] shadow-2xl shadow-[#d8cfbc]/40'
@@ -635,7 +861,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
           {/* Main Body (Expandable)                                                */}
           {/* --------------------------------------------------------------------- */}
           {isSidebarOpen && (
-            <div className="mt-2.5 space-y-3 overflow-y-auto pr-1 flex-1 min-h-0">
+            <div className="scroll-unfurl-anim mt-2.5 space-y-3 overflow-y-auto pr-1 flex-1 min-h-0">
               {/* ================================================================= */}
               {/* PLATE 1: SURVEY & ARCHIVAL PHYSICAL MEDIUM                        */}
               {/* ================================================================= */}
@@ -681,7 +907,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <button
                         onClick={() => handleSelectMedium(0)}
                         title="Marie Tharp Physiographic: Oceanic abyss, turquoise shelf, parchment continents"
-                        className={`py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-0.5 border transition-all ${
+                        className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
                           theme === 0
                             ? 'bg-gradient-to-b from-[#0c1b2b] to-[#060e17] text-cyan-300 border-cyan-400/80 shadow-[0_0_12px_rgba(0,229,255,0.3)] ring-1 ring-cyan-400 font-black'
                             : theme === 1
@@ -689,14 +915,17 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-cyan-300 hover:border-cyan-500/30'
                         }`}
                       >
-                        <span className="text-[10px] font-black tracking-tight">Tharp</span>
-                        <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Physiographic</span>
+                        <OpticalReticlePip active={theme === 0} theme={theme} />
+                        <div className="flex flex-col items-center">
+                          <span className="text-[10px] font-black tracking-tight">Tharp</span>
+                          <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Physiographic</span>
+                        </div>
                       </button>
 
                       <button
                         onClick={() => handleSelectMedium(1)}
                         title="Cream Rag Paper: Eduard Imhof Swiss Alpine watercolor relief on 100% cotton rag"
-                        className={`py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-0.5 border transition-all ${
+                        className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
                           theme === 1
                             ? 'bg-[#fcfaf7] text-[#2c221e] border-[#b87452] shadow-md ring-1 ring-[#b87452] font-black'
                             : theme === 2
@@ -704,14 +933,17 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-white'
                         }`}
                       >
-                        <span className="text-[10px] font-black tracking-tight">Cream Rag</span>
-                        <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Swiss Relief</span>
+                        <OpticalReticlePip active={theme === 1} theme={theme} />
+                        <div className="flex flex-col items-center">
+                          <span className="text-[10px] font-black tracking-tight">Cream Rag</span>
+                          <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Swiss Relief</span>
+                        </div>
                       </button>
 
                       <button
                         onClick={() => handleSelectMedium(2)}
                         title="Prussian Cyanotype: Ferroprussiate blueprint & technical drafting linen"
-                        className={`py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-0.5 border transition-all ${
+                        className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
                           theme === 2
                             ? 'bg-gradient-to-b from-[#142e4d] to-[#0b1c30] text-[#a5d5ff] border-[#4fa3e3] shadow-[0_0_12px_rgba(79,163,227,0.4)] ring-1 ring-[#4fa3e3] font-black'
                             : theme === 1
@@ -719,8 +951,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-[#a5d5ff] hover:border-[#386b99]'
                         }`}
                       >
-                        <span className="text-[10px] font-black tracking-tight">Prussian</span>
-                        <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Cyanotype</span>
+                        <OpticalReticlePip active={theme === 2} theme={theme} />
+                        <div className="flex flex-col items-center">
+                          <span className="text-[10px] font-black tracking-tight">Prussian</span>
+                          <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Cyanotype</span>
+                        </div>
                       </button>
                     </div>
 
@@ -799,7 +1034,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           onSelectRenderStyle?.('architectural');
                         }}
                         title="Direction A: Architectural Topographic Relief (Monochrome Eduard Imhof hillshading & dual-tier isocontours)"
-                        className={`py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-0.5 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
+                        className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
                           activeDirection === 'architectural'
                             ? isLight
                               ? 'bg-zinc-900 text-white border-zinc-900 shadow-md ring-1 ring-zinc-900 font-black'
@@ -809,8 +1044,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-white hover:border-white/25 hover:bg-white/5'
                         }`}
                       >
-                        <span className="text-[10px] font-black tracking-tight">A: Relief</span>
-                        <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Architectural</span>
+                        <OpticalReticlePip active={activeDirection === 'architectural'} theme={theme} />
+                        <div className="flex flex-col items-center">
+                          <span className="text-[10px] font-black tracking-tight">A: Relief</span>
+                          <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Architectural</span>
+                        </div>
                       </button>
 
                       {/* Direction B */}
@@ -819,7 +1057,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           onSelectRenderStyle?.('hybrid');
                         }}
                         title="Direction B: Hydrosphere & Bathymetric Depth (Two-Surface Model: smooth sea level + Beer-Lambert depth)"
-                        className={`py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-0.5 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
+                        className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
                           activeDirection === 'hybrid'
                             ? 'bg-cyan-500 text-black border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.6)] ring-1 ring-cyan-300 font-black'
                             : isLight
@@ -827,8 +1065,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-cyan-300 hover:border-cyan-500/40 hover:bg-cyan-500/5'
                         }`}
                       >
-                        <span className="text-[10px] font-black tracking-tight">B: Depth</span>
-                        <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Hydrosphere</span>
+                        <OpticalReticlePip active={activeDirection === 'hybrid'} theme={theme} />
+                        <div className="flex flex-col items-center">
+                          <span className="text-[10px] font-black tracking-tight">B: Depth</span>
+                          <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Hydrosphere</span>
+                        </div>
                       </button>
 
                       {/* Direction C */}
@@ -837,7 +1078,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           onSelectRenderStyle?.('photoreal');
                         }}
                         title="Direction C: NASA Blue Marble (True-color orbital photography + 3D DEM relief)"
-                        className={`py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-0.5 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
+                        className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
                           activeDirection === 'photoreal'
                             ? 'bg-sky-500 text-black border-sky-400 shadow-[0_0_12px_rgba(14,165,233,0.6)] ring-1 ring-sky-300 font-black'
                             : isLight
@@ -845,8 +1086,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             : 'bg-white/[0.02] border-white/10 text-zinc-400 hover:text-sky-300 hover:border-sky-500/40 hover:bg-sky-500/5'
                         }`}
                       >
-                        <span className="text-[10px] font-black tracking-tight">C: Orbital</span>
-                        <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Photoreal</span>
+                        <OpticalReticlePip active={activeDirection === 'photoreal'} theme={theme} />
+                        <div className="flex flex-col items-center">
+                          <span className="text-[10px] font-black tracking-tight">C: Orbital</span>
+                          <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Photoreal</span>
+                        </div>
                       </button>
                     </div>
                   </div>
@@ -984,25 +1228,21 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       isLight={isLight}
                     />
 
-                    {/* Crevice AO (Ambient Occlusion: 0%-100%) */}
-                    <div className="flex items-center gap-1.5 pt-1 px-1">
-                      <span className="w-20 text-zinc-500 dark:text-zinc-400 font-bold text-[8px] uppercase tracking-wider flex-shrink-0">
-                        Crevice AO:
-                      </span>
-                      <input
+                    {/* Crevice AO (Vernier Slider & Precision Stepper) */}
+                    <div className="pt-1">
+                      <VernierSliderWithStepper
                         id="sidebar-crevice-ao"
-                        name="creviceAO"
-                        type="range"
-                        min="0.0"
-                        max="1.0"
-                        step="0.05"
+                        label="Crevice AO"
+                        sublabel="Ambient Occlusion"
                         value={primaryLayer?.ambientOcclusion ?? 0.65}
-                        onChange={(e) => onAmbientOcclusionChangeDataLayer?.(primaryLayerId, parseFloat(e.target.value))}
-                        className="w-full slider-archival cursor-pointer h-1"
+                        min={0.0}
+                        max={1.0}
+                        step={0.05}
+                        readout={`${Math.round((primaryLayer?.ambientOcclusion ?? 0.65) * 100)}%`}
+                        onChange={(v) => onAmbientOcclusionChangeDataLayer?.(primaryLayerId, v)}
+                        theme={theme}
+                        isLight={isLight}
                       />
-                      <span className="w-10 text-right font-bold text-zinc-500 dark:text-zinc-300 tabular-nums flex-shrink-0">
-                        {Math.round((primaryLayer?.ambientOcclusion ?? 0.65) * 100)}%
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -1174,80 +1414,51 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       </button>
                     </div>
 
-                    {/* Cursor Physics Toggle */}
-                    <button
-                      onClick={() => onCursorPhysicsToggle(!cursorPhysicsEnabled)}
-                      title="Toggle interactive raycast cursor dynamic physics & vortex forces"
-                      className={`py-1 px-2.5 rounded-[2px] text-[10px] font-bold border transition-all flex items-center gap-1.5 ${
-                        cursorPhysicsEnabled
-                          ? isLight
-                            ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-1 ring-emerald-400 font-extrabold'
-                            : 'bg-emerald-500/25 text-emerald-300 border-emerald-400/60 shadow-[0_0_10px_rgba(52,211,153,0.3)] ring-1 ring-emerald-400/50 font-extrabold'
-                          : isLight
-                          ? 'bg-zinc-100 border-zinc-200 text-zinc-500 hover:text-zinc-800'
-                          : 'bg-white/[0.02] border-white/10 text-zinc-500 hover:text-zinc-300'
-                      }`}
-                    >
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          cursorPhysicsEnabled
-                            ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse'
-                            : 'bg-zinc-500'
-                        }`}
-                      ></span>
-                      <span>Cursor Physics</span>
-                    </button>
+                    {/* Cursor Physics Knurled Slide Switch */}
+                    <div className="w-full pt-1">
+                      <KnurledSlideSwitch
+                        checked={cursorPhysicsEnabled}
+                        onChange={() => onCursorPhysicsToggle(!cursorPhysicsEnabled)}
+                        title="Toggle interactive raycast cursor dynamic physics & vortex forces"
+                        label="Cursor Physics"
+                        sublabel="Dynamic Vector Forces"
+                        theme={theme}
+                        isLight={isLight}
+                      />
+                    </div>
                   </div>
 
                   {/* Contextual Physical Simulation Parameters (Mode 2 / Mode 3) */}
                   {mode === 2 && (
-                    <div className={`p-2 rounded-[2px] border flex flex-col gap-1.5 transition-all ${
-                      isLight ? 'bg-zinc-100/80 border-zinc-200' : 'bg-white/[0.02] border-white/10'
-                    }`}>
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span className="font-bold flex items-center gap-1.5 text-[#C86D51]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#C86D51] animate-pulse"></span>
-                          Fracture Intensity
-                        </span>
-                        <span className="font-mono font-bold opacity-80">{(fractureIntensity ?? 1.0).toFixed(2)}x</span>
-                      </div>
-                      <input
-                        id="sidebar-fracture-intensity"
-                        name="fractureIntensity"
-                        type="range"
-                        min="0.5"
-                        max="2.5"
-                        step="0.05"
-                        value={fractureIntensity ?? 1.0}
-                        onChange={(e) => onFractureIntensityChange?.(parseFloat(e.target.value))}
-                        className="w-full slider-archival h-1 cursor-pointer"
-                      />
-                    </div>
+                    <VernierSliderWithStepper
+                      id="sidebar-fracture-intensity"
+                      label="Fracture Intensity"
+                      sublabel="Griffith LEFM Crack Propagation"
+                      value={fractureIntensity ?? 1.0}
+                      min={0.5}
+                      max={2.5}
+                      step={0.05}
+                      readout={`${(fractureIntensity ?? 1.0).toFixed(2)}x`}
+                      onChange={(v) => onFractureIntensityChange?.(v)}
+                      theme={theme}
+                      isLight={isLight}
+                    />
                   )}
 
                   {mode === 3 && (
-                    <div className={`p-2 rounded-[2px] border flex flex-col gap-1.5 transition-all ${
-                      isLight ? 'bg-zinc-100/80 border-zinc-200' : 'bg-white/[0.02] border-white/10'
-                    }`}>
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span className="font-bold flex items-center gap-1.5 text-indigo-400">
-                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
-                          Vortex Swirl Strength
-                        </span>
-                        <span className="font-mono font-bold opacity-80">{(fluidVortexStrength ?? 1.0).toFixed(2)}x</span>
-                      </div>
-                      <input
-                        id="sidebar-vortex-strength"
-                        name="vortexStrength"
-                        type="range"
-                        min="0.2"
-                        max="3.0"
-                        step="0.05"
-                        value={fluidVortexStrength ?? 1.0}
-                        onChange={(e) => onFluidVortexStrengthChange?.(parseFloat(e.target.value))}
-                        className="w-full slider-archival h-1 cursor-pointer"
-                      />
-                    </div>
+                    <VernierSliderWithStepper
+                      id="sidebar-vortex-strength"
+                      label="Vortex Swirl Strength"
+                      sublabel="Turbulent Lamb-Oseen Advection"
+                      value={fluidVortexStrength ?? 1.0}
+                      min={0.2}
+                      max={3.0}
+                      step={0.05}
+                      readout={`${(fluidVortexStrength ?? 1.0).toFixed(2)}x`}
+                      onChange={(v) => onFluidVortexStrengthChange?.(v)}
+                      theme={theme}
+                      isLight={isLight}
+                    />
                   )}
 
                   {/* Geodesic Arcs & Overlays */}
@@ -1407,72 +1618,39 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       </span>
                       <span className="text-[7px] font-mono opacity-60">Cartographic Taxonomy</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="space-y-1.5">
                       {/* Bathymetric Soundings */}
-                      <button
-                        onClick={onSoundingsToggle}
+                      <KnurledSlideSwitch
+                        checked={showSoundings}
+                        onChange={onSoundingsToggle}
                         title="Toggle Bathymetric Spot Soundings (Ocean basin depths & historic fathom soundings)"
-                        className={`py-1.5 px-1 rounded-[2px] text-[9px] font-bold border transition-all text-center flex items-center justify-center gap-1 ${
-                          showSoundings
-                            ? theme === 1
-                              ? 'bg-[#3b597a] text-white border-[#2c4766] shadow-sm font-extrabold ring-1 ring-[#2c4766]'
-                              : 'bg-cyan-500/25 text-cyan-200 border-cyan-400/80 shadow-[0_0_8px_rgba(6,182,212,0.3)] ring-1 ring-cyan-400/50 font-extrabold'
-                            : isLight
-                            ? 'border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-800'
-                            : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:text-white'
-                        }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            showSoundings ? 'bg-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.8)]' : 'bg-zinc-500'
-                          }`}
-                        />
-                        <span>Soundings</span>
-                      </button>
+                        label="Soundings"
+                        sublabel="Ocean Basin Fathom Depths"
+                        theme={theme}
+                        isLight={isLight}
+                      />
 
                       {/* Triangulation Sightlines */}
-                      <button
-                        onClick={onTriangulationToggle}
+                      <KnurledSlideSwitch
+                        checked={showTriangulation}
+                        onChange={onTriangulationToggle}
                         title="Toggle Geodetic Triangulation Sightlines & Survey Benchmarks"
-                        className={`py-1.5 px-1 rounded-[2px] text-[9px] font-bold border transition-all text-center flex items-center justify-center gap-1 ${
-                          showTriangulation
-                            ? theme === 1
-                              ? 'bg-[#a85032] text-white border-[#8c3e24] shadow-sm font-extrabold ring-1 ring-[#8c3e24]'
-                              : 'bg-amber-500/25 text-amber-200 border-amber-400/80 shadow-[0_0_8px_rgba(251,191,36,0.3)] ring-1 ring-amber-400/50 font-extrabold'
-                            : isLight
-                            ? 'border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-800'
-                            : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:text-white'
-                        }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            showTriangulation ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]' : 'bg-zinc-500'
-                          }`}
-                        />
-                        <span>Triangulation</span>
-                      </button>
+                        label="Triangulation"
+                        sublabel="Geodetic Survey Benchmarks"
+                        theme={theme}
+                        isLight={isLight}
+                      />
 
                       {/* Title Cartouche */}
-                      <button
-                        onClick={onCartoucheToggle}
+                      <KnurledSlideSwitch
+                        checked={showCartouche}
+                        onChange={onCartoucheToggle}
                         title="Toggle Archival Survey Title Cartouche & Scale Ratio"
-                        className={`py-1.5 px-1 rounded-[2px] text-[9px] font-bold border transition-all text-center flex items-center justify-center gap-1 ${
-                          showCartouche
-                            ? theme === 1
-                              ? 'bg-[#4a3b32] text-white border-[#382b24] shadow-sm font-extrabold ring-1 ring-[#382b24]'
-                              : 'bg-sky-500/25 text-sky-200 border-sky-400/80 shadow-[0_0_8px_rgba(14,165,233,0.3)] ring-1 ring-sky-400/50 font-extrabold'
-                            : isLight
-                            ? 'border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-800'
-                            : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:text-white'
-                        }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            showCartouche ? 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.8)]' : 'bg-zinc-500'
-                          }`}
-                        />
-                        <span>Cartouche</span>
-                      </button>
+                        label="Cartouche"
+                        sublabel="Archival Seal & Projection Spec"
+                        theme={theme}
+                        isLight={isLight}
+                      />
                     </div>
                   </div>
 
@@ -2195,6 +2373,25 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Parchment Scroll Tension Weight & Curl Lip Bar */}
+          {isSidebarOpen && (
+            <div
+              className={`mt-2 -mx-3 -mb-3 py-1 px-3 rounded-b-[2px] border-t flex items-center justify-between text-[7px] font-mono tracking-wider uppercase select-none ${
+                theme === 1
+                  ? 'bg-[#e4dac7] border-[#cfc4af] text-[#786b58]'
+                  : theme === 2
+                  ? 'bg-[#0b1622] border-[#263c54] text-[#6b89a8]'
+                  : 'bg-[#0a1017] border-[#2e3b4a] text-zinc-500'
+              }`}
+            >
+              <span className="flex items-center gap-1">
+                <span className="w-1 h-1 rounded-full bg-current opacity-60" />
+                <span>Scroll Tensioned • 100% Rag</span>
+              </span>
+              <span className="opacity-50">1:50,000,000</span>
             </div>
           )}
         </div>

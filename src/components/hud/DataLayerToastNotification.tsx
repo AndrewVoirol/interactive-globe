@@ -15,7 +15,7 @@ export interface ToastMessage {
 
 export interface DataLayerToastNotificationProps {
   toasts: ToastMessage[];
-  theme: 0 | 1;
+  theme: 0 | 1 | 2;
   onDismissToast?: (id: string) => void;
 }
 

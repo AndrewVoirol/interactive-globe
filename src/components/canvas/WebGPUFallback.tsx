@@ -7,7 +7,7 @@
 import React from 'react';
 
 export interface WebGPUFallbackProps {
-  theme?: 0 | 1;
+  theme?: 0 | 1 | 2;
   errorMessage?: string;
   onRetry?: () => void;
 }
