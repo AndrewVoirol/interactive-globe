@@ -24,7 +24,7 @@ export const DataLayerToastNotification: React.FC<DataLayerToastNotificationProp
   theme,
   onDismissToast,
 }) => {
-  const isLight = theme === 1;
+  const themeName = theme === 2 ? 'cyanotype' : theme === 1 ? 'cream' : 'tharp';
 
   useEffect(() => {
     if (toasts.length === 0) return;
@@ -78,20 +78,18 @@ export const DataLayerToastNotification: React.FC<DataLayerToastNotificationProp
         return (
           <div
             key={toast.id}
-            className={`p-3 rounded-xl border backdrop-blur-xl shadow-2xl transition-all duration-300 flex flex-col gap-1 text-xs pointer-events-auto ${
-              isLight
-                ? 'bg-white/95 border-zinc-200 text-zinc-800 shadow-zinc-300/50'
-                : 'bg-[#0F121A]/95 border-white/15 text-zinc-200 shadow-black/70'
-            }`}
+            data-theme={themeName}
+            className="p-3 rounded-[2px] border backdrop-blur-xl shadow-2xl transition-all duration-300 flex flex-col gap-1 pointer-events-auto bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2 font-bold truncate">
                 {icon}
-                <span className="truncate text-[11px]">{toast.title}</span>
+                <span className="truncate text-body tracking-tight">{toast.title}</span>
               </div>
               <button
                 onClick={() => onDismissToast?.(toast.id)}
-                className="text-zinc-500 hover:text-white p-0.5"
+                className="text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-accent)] p-0.5 transition-colors"
+                title="Dismiss"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -100,20 +98,20 @@ export const DataLayerToastNotification: React.FC<DataLayerToastNotificationProp
             </div>
 
             {toast.message && (
-              <p className={`text-[10px] pl-6 ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
+              <p className="text-micro pl-6 text-[var(--theme-text-secondary)]">
                 {toast.message}
               </p>
             )}
 
             {toast.progress !== undefined && (
               <div className="mt-1 space-y-0.5">
-                <div className="flex items-center justify-between text-[8px] font-bold text-sky-400">
+                <div className="flex items-center justify-between text-nano font-bold text-[var(--theme-text-accent)] font-mono">
                   <span>LOADING TILES</span>
                   <span>{Math.round(toast.progress)}%</span>
                 </div>
-                <div className="h-1 w-full bg-zinc-700/40 rounded-full overflow-hidden">
+                <div className="h-1 w-full bg-[var(--theme-control-border)] rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-sky-400 transition-all duration-200"
+                    className="h-full bg-[var(--theme-text-accent)] transition-all duration-200"
                     style={{ width: `${Math.max(0, Math.min(100, toast.progress))}%` }}
                   />
                 </div>

@@ -82,41 +82,29 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
 
   const tokens = theme === 2
     ? {
-        cardBg: 'bg-[#101c2b]/95 border-[#263c54] text-[#e8edf2]',
         dialBg: 'radial-gradient(circle, #18293d 0%, #0d1724 100%)',
         dialBorder: 'border-[#3b597a]',
         ringBorder: 'border-[#3b597a]/40',
         axisColor: 'bg-[#3b597a]/50',
-        textColor: 'text-[#8ea4bd]',
-        accent: 'text-[#c5a059]',
-        valColor: 'text-[#e8edf2]',
       }
     : theme === 1
     ? {
-        cardBg: 'bg-[#f8f3e8]/95 border-[#d8cfbc] text-[#2b241a]',
         dialBg: 'radial-gradient(circle, #fdfcf9 0%, #ece4d2 100%)',
         dialBorder: 'border-[#b8ad98]',
         ringBorder: 'border-[#b8ad98]/50',
         axisColor: 'bg-[#b8ad98]/60',
-        textColor: 'text-[#7d715d]',
-        accent: 'text-[#8c4820]',
-        valColor: 'text-[#2b241a]',
       }
     : {
-        cardBg: 'bg-[#0f161f]/95 border-[#333e4d] text-[#f0ede6]',
         dialBg: 'radial-gradient(circle, #1a2633 0%, #0c1219 100%)',
         dialBorder: 'border-[#3a4d61]',
         ringBorder: 'border-[#3a4d61]/40',
         axisColor: 'bg-[#3a4d61]/50',
-        textColor: 'text-[#a2998a]',
-        accent: 'text-[#c5a059]',
-        valColor: 'text-[#f0ede6]',
       };
 
   return (
-    <div className={`p-2 rounded-[3px] border shadow-sm transition-all ${tokens.cardBg}`}>
+    <div className="p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
       <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
-        <span className={`font-bold flex items-center gap-1.5 ${tokens.accent}`}>
+        <span className="font-bold flex items-center gap-1.5 text-[var(--theme-text-accent)]">
           <span
             className={`w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] ${
               isSweetspot ? 'shadow-sm animate-pulse' : ''
@@ -125,11 +113,11 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
           Sun Compass
         </span>
         <div className="flex items-center gap-1 font-mono text-nano">
-          <span className={tokens.textColor}>Sun Azimuth:</span>
-          <span className={`font-bold tabular-nums ${tokens.valColor}`}>{Math.round(azimuth)}°</span>
+          <span className="text-[var(--theme-text-secondary)]">Sun Azimuth:</span>
+          <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">{Math.round(azimuth)}°</span>
           <span className="opacity-40">•</span>
-          <span className={tokens.textColor}>Sun Alt:</span>
-          <span className={`font-bold tabular-nums ${tokens.valColor}`}>{Math.round(altitude)}°</span>
+          <span className="text-[var(--theme-text-secondary)]">Sun Alt:</span>
+          <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">{Math.round(altitude)}°</span>
         </div>
       </div>
 
@@ -164,10 +152,10 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
           ></div>
 
           {/* Cardinal Directions */}
-          <span className={`absolute top-0.5 text-nano font-cartouche font-bold pointer-events-none ${tokens.textColor}`}>N</span>
-          <span className={`absolute right-1 text-nano font-cartouche font-bold pointer-events-none ${tokens.textColor}`}>E</span>
-          <span className={`absolute bottom-0.5 text-nano font-cartouche font-bold pointer-events-none ${tokens.textColor}`}>S</span>
-          <span className={`absolute left-1 text-nano font-cartouche font-bold pointer-events-none ${tokens.textColor}`}>W</span>
+          <span className="absolute top-0.5 text-nano font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]">N</span>
+          <span className="absolute right-1 text-nano font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]">E</span>
+          <span className="absolute bottom-0.5 text-nano font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]">S</span>
+          <span className="absolute left-1 text-nano font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]">W</span>
 
           {/* NW Imhof Sweetspot Notch (315° / 45°) */}
           <div
@@ -189,7 +177,7 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
         <span>IMHOF NW SWEETSPOT (315° / 45°)</span>
         <button
           onClick={() => onChange(315, 45)}
-          className={`font-bold hover:underline ${tokens.accent}`}
+          className="font-bold hover:underline text-[var(--theme-text-accent)]"
         >
           [RESET]
         </button>

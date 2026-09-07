@@ -30,7 +30,7 @@ export interface DataLayerItem {
 
 export interface DataLayersDrawerProps {
   isZenMode: boolean;
-  theme: 0 | 1;
+  theme: 0 | 1 | 2;
   dataLayers?: DataLayerItem[];
   onAddDataLayer?: (layer: DataLayerItem) => void;
   onToggleDataLayer?: (id: string) => void;

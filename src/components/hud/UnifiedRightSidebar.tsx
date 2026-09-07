@@ -14,6 +14,8 @@ import { HypsometricReliefCurve } from './instruments/HypsometricReliefCurve';
 import { BathymetricTideGauge } from './instruments/BathymetricTideGauge';
 import { TactileSwitch } from '../ui/TactileSwitch';
 import { VernierSlider } from '../ui/VernierSlider';
+import { SegmentedControl } from '../ui/SegmentedControl';
+import { TactileButton } from '../ui/TactileButton';
 
 const PIGMENT_SWATCHES: Record<0 | 1 | 2, Array<{ name: string; hex: string; depth: string }>> = {
   0: [
@@ -390,8 +392,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       {/* ========================================================================= */}
       <div className="fixed top-4 right-4 z-20 pointer-events-auto max-w-sm w-96 font-mono select-none transition-all duration-500 origin-top ease-out">
         <div
-          className={`rounded-[3px] border shadow-2xl p-3 text-xs flex flex-col transition-all duration-300 relative scroll-curl-lip ${
-            isSidebarOpen ? 'max-h-[calc(100vh-2rem)]' : 'max-h-[105px] overflow-hidden'
+          className={`rounded-[3px] border shadow-2xl p-3 text-xs flex flex-col sidebar-spring-transition relative scroll-curl-lip ${
+            isSidebarOpen ? 'max-h-[calc(100vh-2rem)]' : 'max-h-[82px] overflow-hidden'
           } ${
             theme === 1
               ? 'paper-cream border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#d8cfbc]/40'
@@ -547,11 +549,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 className="px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-control-hover-border)] text-nano font-mono tracking-tight transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
               >
                 <span
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{
-                    backgroundColor: theme === 0 ? '#00e5ff' : theme === 1 ? '#bf6540' : '#4fa3e3',
-                    boxShadow: theme === 0 ? '0 0 6px rgba(0,229,255,0.6)' : theme === 1 ? 'none' : '0 0 6px rgba(79,163,227,0.6)'
-                  }}
+                  className="w-2 h-2 rounded-full shrink-0 bg-[var(--theme-pulse-indicator)] shadow-[0_0_6px_var(--theme-pulse-indicator)]"
                 />
                 <span className="font-bold text-nano uppercase tracking-wider text-[var(--theme-text-primary)]">
                   {theme === 0 ? 'Tharp' : theme === 1 ? 'Cream' : 'Cyanotype'}
@@ -572,7 +570,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     : mode === 3
                     ? 'bg-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.8)]'
                     : mode === 2
-                    ? 'bg-[#C86D51] shadow-[0_0_10px_rgba(200,109,81,0.8)]'
+                    ? 'bg-[var(--theme-pulse-indicator)] shadow-[0_0_10px_var(--theme-pulse-indicator)]'
                     : mode === 1
                     ? 'bg-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.8)]'
                     : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]'
@@ -602,10 +600,17 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
           </div>
 
           {/* --------------------------------------------------------------------- */}
-          {/* Row 3: Drafting Plate Navigation Strip                                */}
+          {/* Expandable Scroll Drawer (Animated Roll-Up & Unfurl Spring Mechanics) */}
           {/* --------------------------------------------------------------------- */}
-          {isSidebarOpen && (
-            <div className="flex items-center justify-between py-1.5 border-b border-[var(--theme-panel-header-border)] gap-1 text-nano font-mono uppercase tracking-wider overflow-x-auto scrollbar-none">
+          <div
+            className={`sidebar-spring-transition flex flex-col flex-1 min-h-0 overflow-hidden ${
+              isSidebarOpen
+                ? 'opacity-100 max-h-[calc(100vh-8.5rem)] mt-1'
+                : 'opacity-0 max-h-0 pointer-events-none'
+            }`}
+          >
+            {/* Row 3: Drafting Plate Navigation Strip */}
+            <div className="flex items-center justify-between py-1.5 border-b border-[var(--theme-panel-header-border)] gap-1 text-nano font-mono uppercase tracking-wider overflow-x-auto scrollbar-none shrink-0">
               {(
                 [
                   { id: 'all', label: 'ALL' },
@@ -632,13 +637,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 );
               })}
             </div>
-          )}
 
-          {/* --------------------------------------------------------------------- */}
-          {/* Main Body (Expandable)                                                */}
-          {/* --------------------------------------------------------------------- */}
-          {isSidebarOpen && (
-            <div className="scroll-unfurl-anim mt-2.5 space-y-3 overflow-y-auto pr-1 flex-1 min-h-0">
+            {/* Main Body (Expandable) */}
+            <div className="mt-2.5 space-y-3 overflow-y-auto pr-1 flex-1 min-h-0">
               {/* ================================================================= */}
               {/* PLATE 1: SURVEY & ARCHIVAL PHYSICAL MEDIUM                        */}
               {/* ================================================================= */}
@@ -677,7 +678,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <OpticalReticlePip active={theme === 0} theme={theme} />
                         <div className="flex flex-col items-center">
                           <span className="text-body font-black tracking-tight">Tharp</span>
-                          <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Physiographic</span>
+                          <span className="text-nano uppercase font-bold tracking-tight opacity-75">Physiographic</span>
                         </div>
                       </button>
 
@@ -693,7 +694,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <OpticalReticlePip active={theme === 1} theme={theme} />
                         <div className="flex flex-col items-center">
                           <span className="text-body font-black tracking-tight">Cream Rag</span>
-                          <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Swiss Relief</span>
+                          <span className="text-nano uppercase font-bold tracking-tight opacity-75">Swiss Relief</span>
                         </div>
                       </button>
 
@@ -709,7 +710,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <OpticalReticlePip active={theme === 2} theme={theme} />
                         <div className="flex flex-col items-center">
                           <span className="text-body font-black tracking-tight">Prussian</span>
-                          <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Cyanotype</span>
+                          <span className="text-nano uppercase font-bold tracking-tight opacity-75">Cyanotype</span>
                         </div>
                       </button>
                     </div>
@@ -736,10 +737,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               className="w-full h-3.5 rounded-[1px] border border-black/20 shadow-inner"
                               style={{ backgroundColor: swatch.hex }}
                             />
-                            <div className="text-[7.5px] font-serif-title truncate w-full tracking-tight opacity-90 leading-tight text-[var(--theme-text-primary)]">
+                            <div className="text-nano font-serif-title truncate w-full tracking-tight opacity-90 leading-tight text-[var(--theme-text-primary)]">
                               {swatch.name}
                             </div>
-                            <div className="text-[6.5px] font-mono opacity-60 uppercase tracking-tighter text-[var(--theme-text-secondary)]">
+                            <div className="text-nano font-mono opacity-60 uppercase tracking-tighter text-[var(--theme-text-secondary)]">
                               {swatch.depth}
                             </div>
                           </div>
@@ -752,15 +753,15 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
                     <div className="flex items-center justify-between text-micro font-extrabold uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-[var(--theme-pulse-indicator)] shadow-sm animate-pulse"></span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-text-accent)]" />
                         <span className="text-[var(--theme-text-primary)]">Cartographic Style</span>
                       </span>
                       <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-accent)]">
                         {activeDirection === 'architectural'
-                          ? 'Direction A (Relief)'
+                          ? 'A: Relief'
                           : activeDirection === 'hybrid'
-                          ? 'Direction B (Depth)'
-                          : 'Direction C (Orbital)'}
+                          ? 'B: Depth'
+                          : 'C: Orbital'}
                       </span>
                     </div>
 
@@ -780,7 +781,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <OpticalReticlePip active={activeDirection === 'architectural'} theme={theme} />
                         <div className="flex flex-col items-center">
                           <span className="text-body font-black tracking-tight">A: Relief</span>
-                          <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Architectural</span>
+                          <span className="text-nano uppercase font-bold tracking-tight opacity-75">Architectural</span>
                         </div>
                       </button>
 
@@ -799,7 +800,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <OpticalReticlePip active={activeDirection === 'hybrid'} theme={theme} />
                         <div className="flex flex-col items-center">
                           <span className="text-body font-black tracking-tight">B: Depth</span>
-                          <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Hydrosphere</span>
+                          <span className="text-nano uppercase font-bold tracking-tight opacity-75">Hydrosphere</span>
                         </div>
                       </button>
 
@@ -818,7 +819,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <OpticalReticlePip active={activeDirection === 'photoreal'} theme={theme} />
                         <div className="flex flex-col items-center">
                           <span className="text-body font-black tracking-tight">C: Orbital</span>
-                          <span className="text-[7px] uppercase font-bold tracking-tight opacity-75">Photoreal</span>
+                          <span className="text-nano uppercase font-bold tracking-tight opacity-75">Photoreal</span>
                         </div>
                       </button>
                     </div>
@@ -884,7 +885,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     </span>
                   </div>
 
-                  <div className="space-y-2 text-[9px]">
+                  <div className="space-y-2 text-micro">
                     {/* Instrument 1: 2D Polar Sun Compass (Sun Azimuth: 0-360°, Sun Alt: 10-85°) */}
                     <PolarSunCompass
                       theme={theme}
@@ -961,7 +962,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <button
                           onClick={() => onModeChange(((mode + 4) % 5) as SimulationMode)}
                           title="Previous Simulation Paradigm (or press 1-5)"
-                          className="tactile-btn px-2.5 py-1 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[10px] font-bold"
+                          className="tactile-btn px-2.5 py-1 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-micro font-bold"
                         >
                           ◀
                         </button>
@@ -975,7 +976,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   : mode === 1
                                   ? 'bg-slate-300 shadow-[0_0_6px_rgba(203,213,225,0.8)]'
                                   : mode === 2
-                                  ? 'bg-[#C86D51] shadow-[0_0_6px_rgba(200,109,81,0.8)]'
+                                  ? 'bg-[var(--theme-pulse-indicator)] shadow-[0_0_6px_var(--theme-pulse-indicator)]'
                                   : mode === 3
                                   ? 'bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,0.8)]'
                                   : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]'
@@ -1001,7 +1002,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <button
                           onClick={() => onModeChange(((mode + 1) % 5) as SimulationMode)}
                           title="Next Simulation Paradigm (or press 1-5)"
-                          className="tactile-btn px-2.5 py-1 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[10px] font-bold"
+                          className="tactile-btn px-2.5 py-1 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-micro font-bold"
                         >
                           ▶
                         </button>
@@ -1038,42 +1039,17 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
                   {/* View Mode & Cursor Dynamics */}
                   <div className="flex items-center justify-between gap-2">
-                    {/* Layer Mode (Both, Points, Wire) */}
-                    <div className="flex items-center rounded-[2px] p-0.5 border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]">
-                      <button
-                        onClick={() => onLayerModeChange(0)}
-                        title="Display both point cloud and wireframe lattice"
-                        className={`px-2.5 py-1 rounded-[2px] text-nano font-bold transition-all ${
-                          layerMode === 0
-                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm font-extrabold'
-                            : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)] hover:bg-[var(--theme-control-hover-bg)]'
-                        }`}
-                      >
-                        Both
-                      </button>
-                      <button
-                        onClick={() => onLayerModeChange(1)}
-                        title="Points Only: disable wireframe lattice"
-                        className={`px-2.5 py-1 rounded-[2px] text-nano font-bold transition-all ${
-                          layerMode === 1
-                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm font-extrabold'
-                            : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)] hover:bg-[var(--theme-control-hover-bg)]'
-                        }`}
-                      >
-                        Points
-                      </button>
-                      <button
-                        onClick={() => onLayerModeChange(2)}
-                        title="Wireframe Only: disable point vertices"
-                        className={`px-2.5 py-1 rounded-[2px] text-nano font-bold transition-all ${
-                          layerMode === 2
-                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm font-extrabold'
-                            : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)] hover:bg-[var(--theme-control-hover-bg)]'
-                        }`}
-                      >
-                        Wire
-                      </button>
-                    </div>
+                    {/* Layer Mode (Both, Points, Wireframe) */}
+                    <SegmentedControl
+                      size="sm"
+                      value={layerMode}
+                      onChange={(val) => onLayerModeChange(val as 0 | 1 | 2)}
+                      options={[
+                        { id: 0, label: 'Both', title: 'Display both point cloud and wireframe lattice' },
+                        { id: 1, label: 'Points', title: 'Points Only: disable wireframe lattice' },
+                        { id: 2, label: 'Wireframe', title: 'Wireframe Only: disable point vertices' },
+                      ]}
+                    />
 
                     {/* Cursor Physics Knurled Slide Switch */}
                     <div className="w-full pt-1">
@@ -1216,11 +1192,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       title="Toggle Tissot Indicatrix Ellipses (Deformation Tensors)"
                       className={`py-1.5 px-1 rounded-[2px] text-micro font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
                         showTissot
-                          ? theme === 1
-                            ? 'bg-[#8c4820] text-white border-[#703818] shadow-md font-extrabold ring-1 ring-[#c5a059]'
-                            : theme === 2
-                            ? 'bg-[#294d75] text-[#f0f4f8] border-[#4a729e] shadow-sm ring-1 ring-[#c5a059]/60 font-extrabold'
-                            : 'bg-[#22384a] text-[#f0ede6] border-[#3b788a] shadow-sm ring-1 ring-[#c5a059]/60 font-extrabold'
+                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)] font-extrabold'
                           : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                       }`}
                     >
@@ -1351,12 +1323,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               {(activePlate === 'all' || activePlate === 'planetary') && (
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-1.5 pb-1 border-b border-black/10 dark:border-white/10">
-                    <span className="text-[10px] font-mono tracking-widest font-black uppercase text-zinc-500">
+                    <span className="text-body font-mono tracking-widest font-black uppercase text-zinc-500">
                       PLATE IV • PLANETARY INSTRUMENTATION
                     </span>
                   </div>
 
-                  {/* Surface Clarity: Point Lattice Suppression Pill */}
                   {/* Surface Clarity: Point Lattice Suppression Pill */}
                   <div className="flex items-center justify-between p-1.5 rounded-[2px] border text-micro bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
                     <span className="font-semibold text-[var(--theme-text-muted)] uppercase tracking-wider text-nano">
@@ -1408,11 +1379,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       >
                         <div className="flex items-center justify-between w-full">
                           <span className="font-bold text-nano truncate">NOAA Wind</span>
-                          <span className="flex items-center gap-1 text-[7px] font-bold px-1 py-0.5 rounded-[2px] bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                          <span className="flex items-center gap-1 text-nano font-bold px-1 py-0.5 rounded-[2px] bg-sky-500/20 text-sky-300 border border-sky-500/40">
                             Physics Model
                           </span>
                         </div>
-                        <span className="text-[7.5px] text-[var(--theme-text-muted)] truncate">0.25° Operational</span>
+                        <span className="text-nano text-[var(--theme-text-muted)] truncate">0.25° Operational</span>
                       </button>
 
                       {/* Starlink Orbits Toggle */}
@@ -1430,12 +1401,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       >
                         <div className="flex items-center justify-between w-full">
                           <span className="font-bold text-nano truncate">Starlink Orbits</span>
-                          <span className="flex items-center gap-1 text-[7px] font-bold px-1 py-0.5 rounded-[2px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">
+                          <span className="flex items-center gap-1 text-nano font-bold px-1 py-0.5 rounded-[2px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">
                             <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
                             Live
                           </span>
                         </div>
-                        <span className="text-[7.5px] text-[var(--theme-text-muted)] truncate">CelesTrak (110 Sats)</span>
+                        <span className="text-nano text-[var(--theme-text-muted)] truncate">CelesTrak (110 Sats)</span>
                       </button>
 
                       {/* 250 hPa Jet Stream Toggle */}
@@ -1449,11 +1420,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       >
                         <div className="flex items-center justify-between w-full">
                           <span className="font-bold text-nano truncate">Jet Stream</span>
-                          <span className="flex items-center gap-1 text-[7px] font-bold px-1 py-0.5 rounded-[2px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                          <span className="flex items-center gap-1 text-nano font-bold px-1 py-0.5 rounded-[2px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
                             250 hPa
                           </span>
                         </div>
-                        <span className="text-[7.5px] text-[var(--theme-text-muted)] truncate">High-Alt Core</span>
+                        <span className="text-nano text-[var(--theme-text-muted)] truncate">High-Alt Core</span>
                       </button>
 
                       {/* Origami Crane Companion Toggle */}
@@ -1467,13 +1438,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       >
                         <div className="flex items-center justify-between w-full">
                           <span className="font-bold text-nano truncate">Origami Crane</span>
-                          <span className="flex items-center gap-1 text-[7px] font-bold px-1 py-0.5 rounded-[2px] bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                          <span className="flex items-center gap-1 text-nano font-bold px-1 py-0.5 rounded-[2px] bg-amber-500/20 text-amber-300 border border-amber-500/40">
                             {isCraneActive && craneTelemetry
                               ? `${craneTelemetry.variometer >= 0 ? '+' : ''}${craneTelemetry.variometer} m/s`
                               : 'Soaring'}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between w-full text-[7.5px] text-[var(--theme-text-muted)]">
+                        <div className="flex items-center justify-between w-full text-nano text-[var(--theme-text-muted)]">
                           <span className="truncate">
                             {isCraneActive && craneTelemetry
                               ? `${craneTelemetry.alt.toLocaleString()}m • ${craneTelemetry.speed} km/h`
@@ -1485,7 +1456,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                 e.stopPropagation();
                                 (window as any).__FOCUS_CRANE__?.();
                               }}
-                              className="text-[7px] px-1 py-0.2 rounded-[2px] bg-amber-400/20 hover:bg-amber-400/40 text-amber-200 border border-amber-400/40 font-bold tracking-wider"
+                              className="text-nano px-1 py-0.2 rounded-[2px] bg-amber-400/20 hover:bg-amber-400/40 text-amber-200 border border-amber-400/40 font-bold tracking-wider"
                               title="Focus Camera on Crane"
                             >
                               FOCUS
@@ -1504,7 +1475,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               {(activePlate === 'all' || activePlate === 'layers') && (
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-1.5 pb-1 border-b border-black/10 dark:border-white/10">
-                    <span className="text-[10px] font-mono tracking-widest font-black uppercase text-zinc-500">
+                    <span className="text-body font-mono tracking-widest font-black uppercase text-zinc-500">
                       PLATE V • CARTOGRAPHIC DATASETS & LAYERS
                     </span>
                   </div>
@@ -1565,18 +1536,18 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                 </div>
                                 <div className="flex items-center gap-1.5 ml-4">
                                   {layer.id === 'starlink-iss-orbits' && (
-                                    <span className="flex items-center gap-1 text-[7px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse shrink-0">
+                                    <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse shrink-0">
                                       <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
                                       Live Synced
                                     </span>
                                   )}
                                   {layer.id === 'noaa-gfs-wind' && (
-                                    <span className="flex items-center gap-1 text-[7px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)] shrink-0">
+                                    <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)] shrink-0">
                                       Physics Model
                                     </span>
                                   )}
                                   {layer.renderStyle && (
-                                    <span className="text-[7px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-sky-500/15 text-sky-500 dark:text-sky-300 border-sky-500/30">
+                                    <span className="text-nano uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-sky-500/15 text-sky-500 dark:text-sky-300 border-sky-500/30">
                                       {layer.renderStyle}
                                     </span>
                                   )}
@@ -1700,9 +1671,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               layer.category === 'ocean' ||
                               !!layer.renderStyle ||
                               layer.elevationEncoding) && (
-                              <div className="space-y-1.5 pt-1.5 border-t border-white/5 text-[9px]">
+                              <div className="space-y-1.5 pt-1.5 border-t border-white/5 text-micro">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-emerald-500 dark:text-emerald-400 font-bold text-[8px] uppercase tracking-wider">
+                                  <span className="text-emerald-500 dark:text-emerald-400 font-bold text-nano uppercase tracking-wider">
                                     3D Relief:
                                   </span>
                                   <input
@@ -1724,7 +1695,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                 </div>
 
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-amber-500 dark:text-amber-400 font-bold text-[8px] uppercase tracking-wider">
+                                  <span className="text-amber-500 dark:text-amber-400 font-bold text-nano uppercase tracking-wider">
                                     Sun Azimuth:
                                   </span>
                                   <input
@@ -1753,7 +1724,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                 {(layer.renderStyle === 'architectural' || layer.id === 'architectural-topo-relief') && (
                                   <div className="pt-1.5 border-t border-white/5 space-y-1">
                                     <div className="flex items-center gap-1.5">
-                                      <span className="text-zinc-500 dark:text-zinc-400 font-bold text-[8px] uppercase tracking-wider">
+                                      <span className="text-zinc-500 dark:text-zinc-400 font-bold text-nano uppercase tracking-wider">
                                         Crevice AO:
                                       </span>
                                       <input
@@ -1773,7 +1744,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                         {Math.round((layer.ambientOcclusion ?? 0.65) * 100)}%
                                       </span>
                                     </div>
-                                    <div className="flex items-center justify-between text-[8px] text-emerald-500 dark:text-emerald-400 font-mono">
+                                    <div className="flex items-center justify-between text-nano text-emerald-500 dark:text-emerald-400 font-mono">
                                       <span>Contour Filter:</span>
                                       <span className="font-bold">fwidth() Anti-Aliased</span>
                                     </div>
@@ -1784,7 +1755,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                 {(layer.renderStyle === 'hybrid' || layer.id === 'hybrid-crust-hydrosphere') && (
                                   <div className="pt-1.5 border-t border-white/5 space-y-1.5">
                                     <div className="flex items-center gap-1.5">
-                                      <span className="text-cyan-500 dark:text-cyan-400 font-bold text-[8px] uppercase tracking-wider">
+                                      <span className="text-cyan-500 dark:text-cyan-400 font-bold text-nano uppercase tracking-wider">
                                         Sea Level:
                                       </span>
                                       <input
@@ -1806,7 +1777,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                     </div>
 
                                     <div className="flex items-center gap-1.5">
-                                      <span className="text-sky-500 dark:text-sky-400 font-bold text-[8px] uppercase tracking-wider">
+                                      <span className="text-sky-500 dark:text-sky-400 font-bold text-nano uppercase tracking-wider">
                                         Clarity:
                                       </span>
                                       <input
@@ -1828,7 +1799,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                     </div>
 
                                     <div className="flex items-center gap-1.5">
-                                      <span className="text-amber-500 dark:text-amber-400 font-bold text-[8px] uppercase tracking-wider">
+                                      <span className="text-amber-500 dark:text-amber-400 font-bold text-nano uppercase tracking-wider">
                                         Peak Sharp:
                                       </span>
                                       <input
@@ -1856,7 +1827,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             {/* Color Legend Bar */}
                             {legend && (
                               <div className="space-y-1 pt-1 border-t border-white/5">
-                                <div className="flex items-center justify-between text-[8px] text-zinc-400 font-bold">
+                                <div className="flex items-center justify-between text-nano text-zinc-400 font-bold">
                                   <span>{legend.minLabel}</span>
                                   <span className="text-sky-400 uppercase tracking-wider">{legend.unit}</span>
                                   <span>{legend.maxLabel}</span>
@@ -1884,7 +1855,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               {/* Telemetry Footer */}
               <div className="pt-2 border-t border-[var(--theme-card-border)] text-nano grid grid-cols-2 gap-2 tabular-nums text-[var(--theme-text-secondary)]">
                 <div>
-                  <span className="block text-[8px] uppercase font-bold tracking-wider opacity-60">
+                  <span className="block text-nano uppercase font-bold tracking-wider opacity-60">
                     Center Coordinate
                   </span>
                   <span className="font-bold text-[var(--theme-text-primary)]">
@@ -1892,13 +1863,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="block text-[8px] uppercase font-bold tracking-wider opacity-60">
+                  <span className="block text-nano uppercase font-bold tracking-wider opacity-60">
                     Nominal Scale
                   </span>
                   <span className="font-bold text-[var(--theme-text-primary)]">{mapScaleStr}</span>
                 </div>
                 {backend === 'webgpu' && gpuReport && (
-                  <div className="col-span-2 pt-1.5 mt-0.5 border-t border-[var(--theme-card-border)] flex flex-col gap-1 text-[8px] text-[var(--theme-text-secondary)]">
+                  <div className="col-span-2 pt-1.5 mt-0.5 border-t border-[var(--theme-card-border)] flex flex-col gap-1 text-nano text-[var(--theme-text-secondary)]">
                     <div className="flex items-center justify-between font-bold">
                       <span className="text-sky-400 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
@@ -1906,7 +1877,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       </span>
                       <span className="text-emerald-400 font-mono">Total: {(gpuReport.totalGpuMs ?? 0).toFixed(2)}ms</span>
                     </div>
-                    <div className="grid grid-cols-4 gap-1 font-mono opacity-80 text-[7.5px]">
+                    <div className="grid grid-cols-4 gap-1 font-mono opacity-80 text-nano">
                       <span>Sim: {(gpuReport.computeMs ?? 0).toFixed(2)}ms</span>
                       <span>Relief: {(gpuReport.reliefMs ?? 0).toFixed(2)}ms</span>
                       <span>Lines: {(gpuReport.linesMs ?? 0).toFixed(2)}ms</span>
@@ -1916,18 +1887,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 )}
               </div>
             </div>
-          )}
 
-          {/* Parchment Scroll Tension Weight & Curl Lip Bar */}
-          {isSidebarOpen && (
+            {/* Parchment Scroll Tension Weight & Curl Lip Bar */}
             <div
-              className={`mt-2 -mx-3 -mb-3 py-1 px-3 rounded-b-[2px] border-t flex items-center justify-between text-[7px] font-mono tracking-wider uppercase select-none ${
-                theme === 1
-                  ? 'bg-[#e4dac7] border-[#cfc4af] text-[#786b58]'
-                  : theme === 2
-                  ? 'bg-[#0b1622] border-[#263c54] text-[#6b89a8]'
-                  : 'bg-[#0a1017] border-[#2e3b4a] text-zinc-500'
-              }`}
+              className="mt-2 -mx-3 -mb-3 py-1 px-3 rounded-b-[2px] border-t border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] text-[var(--theme-text-secondary)] flex items-center justify-between text-nano font-mono tracking-wider uppercase select-none shrink-0"
             >
               <span className="flex items-center gap-1">
                 <span className="w-1 h-1 rounded-full bg-current opacity-60" />
@@ -1935,7 +1898,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               </span>
               <span className="opacity-50">1:50,000,000</span>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
@@ -1991,19 +1954,19 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       )}
                       <span>{preset.name}</span>
                       {preset.id === 'starlink-iss-orbits' && (
-                        <span className="flex items-center gap-1 text-[7px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse shrink-0">
+                        <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse shrink-0">
                           <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
                           Live Synced
                         </span>
                       )}
                       {preset.id === 'noaa-gfs-wind' && (
-                        <span className="flex items-center gap-1 text-[7px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)] shrink-0">
+                        <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)] shrink-0">
                           Physics Model
                         </span>
                       )}
                     </span>
                     <span
-                      className={`text-[8px] uppercase font-bold px-1.5 py-0.5 rounded-[2px] border ${
+                      className={`text-nano uppercase font-bold px-1.5 py-0.5 rounded-[2px] border ${
                         preset.category === 'topo'
                           ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/30'
                           : preset.category === 'satellite'
@@ -2021,7 +1984,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     {preset.details}
                   </p>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[9px]">
+                  <div className="flex items-center justify-between pt-1 border-t border-white/5 text-micro">
                     <span className="opacity-60 truncate max-w-[200px]" title={preset.attribution}>
                       {preset.attribution}
                     </span>

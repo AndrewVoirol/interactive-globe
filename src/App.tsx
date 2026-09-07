@@ -11,6 +11,7 @@ import { ProceduralAudioEngine } from './core/audio/ProceduralAudioEngine';
 import { useGlobeLayerManager } from './core/layers/useGlobeLayerManager';
 import { KinematicCameraController } from './components/canvas/KinematicCameraController';
 import WebGPUFallback from './components/canvas/WebGPUFallback';
+import { TactileButton } from './components/ui/TactileButton';
 
 export { KinematicCameraController } from './components/canvas/KinematicCameraController';
 
@@ -272,32 +273,26 @@ export default function App() {
     ? '1 : 127,420,000' 
     : `1 : ${Math.round(127420000 / Math.max(0.2, Math.cos((latDeg * Math.PI) / 180))).toLocaleString('en-US')}`;
 
-  const neatlineTheme = theme === 2
-    ? { border: 'border-[#3b597a]/60', text: 'text-[#8ea4bd]', bar: 'border-[#2a435e]/80 bg-[#0c1520]/80 text-[#9bb0c4]', accent: 'text-[#c5a059]' }
-    : theme === 1
-    ? { border: 'border-[#b8ad98]', text: 'text-[#7d715d]', bar: 'border-[#cfc4af]/80 bg-[#f9f5ec]/85 text-[#4a4030]', accent: 'text-[#8c4820]' }
-    : { border: 'border-[#7a6f5e]/80', text: 'text-[#a2998a]', bar: 'border-[#333e4d]/80 bg-[#0c1219]/80 text-[#ccc2b0]', accent: 'text-[#c5a059]' };
-
   return (
     <CursorProvider>
       <div
         data-theme={theme === 2 ? 'cyanotype' : theme === 1 ? 'cream' : 'tharp'}
-        className={`relative w-screen h-screen flex flex-col font-mono overflow-hidden select-none transition-colors duration-500 ${
-          theme === 2 ? 'paper-cyanotype text-[#E8EDF2]' : (theme === 1 ? 'paper-cream text-[#2B2B2B]' : 'paper-tharp text-[#F0EDE6]')
+        className={`relative w-screen h-screen flex flex-col font-mono overflow-hidden select-none transition-colors duration-500 text-[var(--theme-text-primary)] ${
+          theme === 2 ? 'paper-cyanotype' : (theme === 1 ? 'paper-cream' : 'paper-tharp')
         }`}
       >
         {/* Outer Archival Neatline & Geodetic Corner Marks */}
-        <div className={`absolute inset-2 pointer-events-none border border-current/25 z-20 transition-colors duration-500 m-1 ${neatlineTheme.border}`}>
-          <div className="absolute inset-1 border border-current/15"></div>
-          <span className={`absolute top-1 left-2 text-[9px] font-mono tracking-widest opacity-60 ${neatlineTheme.text}`}>⌜ 00.00°</span>
-          <span className={`absolute top-1 right-2 text-[9px] font-mono tracking-widest opacity-60 ${neatlineTheme.text}`}>⌝ 90.00°</span>
-          <span className={`absolute bottom-1 left-2 text-[9px] font-mono tracking-widest opacity-60 ${neatlineTheme.text}`}>⌞ 180.00°</span>
-          <span className={`absolute bottom-1 right-2 text-[9px] font-mono tracking-widest opacity-60 ${neatlineTheme.text}`}>⌟ 270.00°</span>
+        <div className="absolute inset-2 pointer-events-none border border-[var(--theme-neatline-border)] z-20 transition-colors duration-500 m-1">
+          <div className="absolute inset-1 border border-current/15" />
+          <span className="absolute top-1 left-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80">⌜ 00.00°</span>
+          <span className="absolute top-1 right-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80">⌝ 90.00°</span>
+          <span className="absolute bottom-1 left-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80">⌞ 180.00°</span>
+          <span className="absolute bottom-1 right-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80">⌟ 270.00°</span>
         </div>
 
         {/* Top Technical Calibration Bar */}
         {!isZenMode && (
-          <header className={`absolute top-3.5 left-16 right-4 md:right-84 h-7 flex items-center justify-between text-[9px] font-mono tracking-widest uppercase z-20 pointer-events-none px-3 rounded-[3px] border backdrop-blur-md shadow-sm transition-colors duration-500 relative scroll-curl-lip ${neatlineTheme.bar}`}>
+          <header className="absolute top-3.5 left-16 right-4 md:right-84 h-7 flex items-center justify-between text-micro font-mono tracking-widest uppercase z-20 pointer-events-none px-3 rounded-[3px] border backdrop-blur-md shadow-sm transition-colors duration-500 relative scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)]">
             <div className="pointer-events-none absolute inset-[2px] rounded-[2px] border border-current/20" />
             <div className="flex items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap z-10">
               <span className="font-bold">HYDROGRAPHIC SURVEY // CARTOGRAPHIC MATRIX</span>
@@ -305,7 +300,7 @@ export default function App() {
               <span className="opacity-80">SCALE {mapScaleStr}</span>
             </div>
             <div className="flex items-center gap-3 shrink-0 z-10">
-              <span className={`font-bold ${neatlineTheme.accent}`}>{latStr} · {lonStr}</span>
+              <span className="font-bold text-[var(--theme-text-accent)]">{latStr} · {lonStr}</span>
               <span className="opacity-40">|</span>
               <span className="opacity-80 font-bold">{fps} FPS</span>
             </div>
@@ -314,9 +309,9 @@ export default function App() {
 
         {/* Bottom-Left Nautical Compass Rosette & Imhof Illumination Indicator (Stacked cleanly above canvas cartouche) */}
         {!isZenMode && (
-          <aside className={`absolute bottom-[98px] left-5 z-20 pointer-events-none flex items-center gap-2.5 px-2.5 py-1.5 rounded-[3px] border backdrop-blur-md transition-colors duration-500 text-[9px] font-mono relative scroll-curl-lip ${neatlineTheme.bar}`}>
+          <aside className="absolute bottom-[98px] left-5 z-20 pointer-events-none flex items-center gap-2.5 px-2.5 py-1.5 rounded-[3px] border backdrop-blur-md transition-colors duration-500 text-micro font-mono relative scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)]">
             <div className="pointer-events-none absolute inset-[2px] rounded-[2px] border border-current/20" />
-            <svg className={`w-5 h-5 shrink-0 ${neatlineTheme.accent} z-10`} viewBox="0 0 100 100" fill="none" stroke="currentColor">
+            <svg className="w-5 h-5 shrink-0 text-[var(--theme-text-accent)] z-10" viewBox="0 0 100 100" fill="none" stroke="currentColor">
               <circle cx="50" cy="50" r="44" strokeWidth="1.5" strokeDasharray="2 3" />
               <line x1="50" y1="6" x2="50" y2="94" strokeWidth="1" />
               <line x1="6" y1="50" x2="94" y2="50" strokeWidth="1" />
@@ -325,7 +320,7 @@ export default function App() {
             </svg>
             <div className="leading-tight z-10">
               <div className="font-bold tracking-wider">IMHOF NW ILLUMINATION</div>
-              <div className="opacity-70 text-[8px]">315° Azimuth · 45° Solar Angle</div>
+              <div className="opacity-70 text-nano">315° Azimuth · 45° Solar Angle</div>
             </div>
           </aside>
         )}
@@ -334,8 +329,8 @@ export default function App() {
         <div className="w-full h-full relative">
           {hasWebGPU ? (
             <React.Suspense fallback={
-              <div className={`w-full h-full flex items-center justify-center font-mono text-xs ${theme === 1 ? 'bg-[#F8FAFC] text-zinc-700' : (theme === 2 ? 'bg-[#101C2B] text-zinc-300' : 'bg-[#090B10] text-zinc-300')}`}>
-                <span className={`w-6 h-6 border-2 border-t-transparent rounded-full animate-spin ${theme === 1 ? 'border-zinc-800' : 'border-zinc-300'}`}></span>
+              <div className="w-full h-full flex items-center justify-center font-mono text-micro bg-[var(--theme-panel-bg)] text-[var(--theme-text-primary)]">
+                <span className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin border-[var(--theme-text-accent)]"></span>
                 <span className="ml-2">Initializing WebGPU WGSL Pipeline...</span>
               </div>
             }>
@@ -475,31 +470,17 @@ export default function App() {
         {isZenMode && (
           <button
             onClick={() => setIsZenMode(false)}
-            className={`tactile-btn absolute top-4 right-4 z-30 px-3 py-1.5 rounded-[2px] backdrop-blur-xl border text-[10px] font-mono transition-all shadow-lg pointer-events-auto ${
-              isLight
+            className={`tactile-btn absolute top-4 right-4 z-30 px-3 py-1.5 rounded-[2px] backdrop-blur-xl border text-nano font-mono transition-all shadow-lg pointer-events-auto ${
+              theme === 1
                 ? 'bg-white/90 border-zinc-300 text-zinc-900 hover:text-black hover:border-zinc-400 shadow-zinc-300/50'
-                : 'bg-[#0F121A]/90 border-white/15 text-zinc-300 hover:text-white hover:border-white/30'
+                : 'bg-[var(--theme-panel-bg)]/90 border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] hover:border-white/30'
             }`}
           >
             Exit Zen Mode (H)
           </button>
         )}
 
-        {/* Floating Air Dancer Fun Launcher Button (Easter Egg) */}
-        {!isZenMode && !isAirDancerMode && (
-          <button
-            onClick={() => setIsAirDancerMode(true)}
-            title="Cartographic Aerial Observer // Balloon (W)"
-            aria-label="Wacky Wavy Inflatable Tube Man Easter Egg"
-            className={`tactile-btn absolute top-4 left-4 z-30 transition-transform hover:scale-110 active:scale-95 cursor-pointer pointer-events-auto select-none p-1.5 rounded-[3px] border backdrop-blur-md focus:outline-none shadow-sm ${
-              isLight
-                ? 'bg-[#f4eee1]/90 border-[#cfc4af] text-zinc-800'
-                : 'bg-[#101721]/90 border-[#333e4d] text-[#f0ede6]'
-            }`}
-          >
-            <span className="inline-block text-base leading-none">🎈</span>
-          </button>
-        )}
+        {/* TODO: Easter Egg Pass - Re-integrate Air Dancer (Wacky Wavy Inflatable Tube Man) as a subtle hidden easter egg (e.g. secret key sequence or hidden cartouche click) */}
 
         {/* Wacky Wavy Inflatable Tube Man ("Air Dancer") Dealership Experience */}
         {isAirDancerMode && (

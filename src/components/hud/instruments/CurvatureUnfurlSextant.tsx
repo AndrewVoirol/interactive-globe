@@ -60,8 +60,8 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   onAlphaChange,
   onGlideToAlpha,
   mode = 0,
-  theme = 2,
   isLight = false,
+  theme = isLight ? 1 : 0,
 }) => {
   const boxRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
@@ -75,9 +75,6 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         activeTick: '#c5a059',
         inactiveTick: 'rgba(232, 237, 242, 0.25)',
         rayStroke: 'rgba(232, 237, 242, 0.08)',
-        containerBg: 'bg-[#0f1c2b]/90 border-[#263c54]',
-        labelColor: 'text-[#c5a059]',
-        subColor: 'text-[#8ea4bd]',
       }
     : theme === 1
     ? {
@@ -87,9 +84,6 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         activeTick: '#8c4820',
         inactiveTick: 'rgba(43, 36, 26, 0.25)',
         rayStroke: 'rgba(43, 36, 26, 0.12)',
-        containerBg: 'bg-[#f2ebd9]/90 border-[#d8cfbc]',
-        labelColor: 'text-[#8c4820]',
-        subColor: 'text-[#7d715d]',
       }
     : {
         arcStroke: '#3b788a',
@@ -98,9 +92,6 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         activeTick: '#c5a059',
         inactiveTick: 'rgba(240, 237, 230, 0.25)',
         rayStroke: 'rgba(240, 237, 230, 0.08)',
-        containerBg: 'bg-[#101721]/90 border-[#333e4d]',
-        labelColor: 'text-[#c5a059]',
-        subColor: 'text-[#a2998a]',
       };
 
   const updateFromPointer = useCallback(
@@ -161,7 +152,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         onPointerUp={handlePointerUp}
         onDoubleClick={() => onGlideToAlpha?.(alpha < 0.5 ? 1.0 : 0.0)}
         title="Drag vernier reticle along curvature arc (Double-click to toggle Globe/Map)"
-        className={`relative w-full h-9 rounded-[2px] border flex items-center justify-center cursor-pointer select-none touch-none shadow-inner ${sextantTokens.containerBg}`}
+        className="relative w-full h-9 rounded-[2px] border flex items-center justify-center cursor-pointer select-none touch-none shadow-inner bg-[var(--theme-card-bg)] border-[var(--theme-card-border)]"
       >
         <svg className="w-full h-full pointer-events-none" viewBox="0 0 240 36">
           {/* Radial reference rays */}
@@ -199,18 +190,18 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         </svg>
 
         {/* Milestone Tick Labels */}
-        <div className={`absolute top-1 left-2 text-nano font-mono font-bold pointer-events-none ${sextantTokens.labelColor}`}>
+        <div className="absolute top-1 left-2 text-nano font-mono font-bold pointer-events-none text-[var(--theme-text-accent)]">
           K &gt; 0
         </div>
-        <div className={`absolute top-1 right-2 text-nano font-mono font-bold pointer-events-none ${sextantTokens.labelColor}`}>
+        <div className="absolute top-1 right-2 text-nano font-mono font-bold pointer-events-none text-[var(--theme-text-accent)]">
           K = 0
         </div>
       </div>
 
       {/* Stage Telemetry Tag */}
       <div className="text-micro font-mono tracking-wider uppercase mt-0.5 w-full h-3.5 leading-tight text-center truncate">
-        <span className={`font-bold ${sextantTokens.labelColor}`}>{currentMilestone.label}</span>
-        <span className={`opacity-70 ${sextantTokens.subColor}`}> • {currentMilestone.desc}</span>
+        <span className="font-bold text-[var(--theme-text-accent)]">{currentMilestone.label}</span>
+        <span className="opacity-70 text-[var(--theme-text-secondary)]"> • {currentMilestone.desc}</span>
       </div>
     </div>
   );

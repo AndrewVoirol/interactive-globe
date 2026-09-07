@@ -9,7 +9,7 @@ import { SimulationMode, GeodesicOverlayMode } from '../../types';
 export interface TopologyControlDockProps {
   isZenMode: boolean;
   onZenToggle: () => void;
-  theme: 0 | 1;
+  theme: 0 | 1 | 2;
   mode: SimulationMode;
   onModeChange: (m: SimulationMode) => void;
   layerMode: 0 | 1 | 2;

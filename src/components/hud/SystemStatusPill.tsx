@@ -13,7 +13,7 @@ export interface SystemStatusPillProps {
   hasWebGPU: boolean;
   resolution: ResolutionTier;
   onResolutionChange: (r: ResolutionTier) => void;
-  theme: 0 | 1;
+  theme: 0 | 1 | 2;
   onThemeToggle: () => void;
   isAudioMuted?: boolean;
   onAudioMuteToggle?: () => void;
@@ -64,8 +64,10 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
     <div className="fixed top-4 left-4 z-20 pointer-events-auto font-mono select-none transition-all duration-300 ease-out">
       <div
         className={`rounded-2xl border backdrop-blur-xl shadow-xl px-3.5 py-2 text-xs flex items-center gap-2.5 transition-all duration-300 ${
-          isLight
+          theme === 1
             ? 'bg-white/90 border-zinc-200/80 text-zinc-800 shadow-zinc-200/50'
+            : theme === 2
+            ? 'bg-[#0f1c2b]/90 border-[#263c54]/80 text-[#e8edf2] shadow-[#071320]/60'
             : 'bg-[#0F121A]/90 border-white/10 text-zinc-300 shadow-black/60'
         }`}
       >

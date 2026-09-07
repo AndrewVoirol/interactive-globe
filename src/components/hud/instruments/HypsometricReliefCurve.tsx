@@ -76,52 +76,40 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
 
   const tokens = theme === 2
     ? {
-        cardBg: 'bg-[#101c2b]/95 border-[#263c54] text-[#e8edf2]',
         mountainBg: 'bg-[#0d1724]',
         mountainBorder: 'border-[#3b597a]/60',
         gradStops: ['#0e1824', '#4f79a3', '#e8edf2'],
         strokeColor: '#e8edf2',
-        textColor: 'text-[#8ea4bd]',
-        accent: 'text-[#c5a059]',
-        valColor: 'text-[#e8edf2]',
       }
     : theme === 1
     ? {
-        cardBg: 'bg-[#f8f3e8]/95 border-[#d8cfbc] text-[#2b241a]',
         mountainBg: 'bg-[#f4ede0]',
         mountainBorder: 'border-[#b8ad98]/60',
         gradStops: ['#9e6d50', '#cfb588', '#fdfcf9'],
         strokeColor: '#8c4820',
-        textColor: 'text-[#7d715d]',
-        accent: 'text-[#8c4820]',
-        valColor: 'text-[#2b241a]',
       }
     : {
-        cardBg: 'bg-[#0f161f]/95 border-[#333e4d] text-[#f0ede6]',
         mountainBg: 'bg-[#0c1219]',
         mountainBorder: 'border-[#3a4d61]/60',
         gradStops: ['#0f171f', '#23778a', '#cbb692'],
         strokeColor: '#38bdf8',
-        textColor: 'text-[#a2998a]',
-        accent: 'text-[#c5a059]',
-        valColor: 'text-[#f0ede6]',
       };
 
   return (
-    <div className={`p-2 rounded-[3px] border shadow-sm transition-all ${tokens.cardBg}`}>
+    <div className="p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
       <div className="flex items-center justify-between text-micro mb-1.5 font-mono-draft">
-        <span className={`font-bold flex items-center gap-1.5 ${tokens.accent}`}>
+        <span className="font-bold flex items-center gap-1.5 text-[var(--theme-text-accent)]">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse"></span>
           Hypsometric Relief
         </span>
         <div className="flex items-center gap-1 font-mono text-nano">
-          <span className={tokens.textColor}>3D Relief:</span>
-          <span className={`font-bold tabular-nums ${tokens.valColor}`}>
+          <span className="text-[var(--theme-text-secondary)]">3D Relief:</span>
+          <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
             {displacementScale.toFixed(2)}x
           </span>
           <span className="opacity-40">•</span>
-          <span className={tokens.textColor}>Peak Sharp:</span>
-          <span className={`font-bold tabular-nums ${tokens.valColor}`}>
+          <span className="text-[var(--theme-text-secondary)]">Peak Sharp:</span>
+          <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
             {peakExponent.toFixed(1)}x
           </span>
         </div>
@@ -158,27 +146,27 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
         </svg>
 
         {/* Labels */}
-        <div className={`absolute top-1 left-1.5 text-[7px] font-mono-draft pointer-events-none opacity-80 ${tokens.textColor}`}>
+        <div className="absolute top-1 left-1.5 text-nano font-mono-draft pointer-events-none opacity-80 text-[var(--theme-text-secondary)]">
           PEAK AMPLITUDE (0.25x)
         </div>
-        <div className={`absolute bottom-1 left-1.5 text-[7px] font-mono-draft pointer-events-none opacity-80 ${tokens.textColor}`}>
+        <div className="absolute bottom-1 left-1.5 text-nano font-mono-draft pointer-events-none opacity-80 text-[var(--theme-text-secondary)]">
           SEA LEVEL BASELINE (0m)
         </div>
-        <div className={`absolute bottom-1 right-1.5 text-[7px] font-mono-draft pointer-events-none font-bold ${tokens.accent}`}>
+        <div className="absolute bottom-1 right-1.5 text-nano font-mono-draft pointer-events-none font-bold text-[var(--theme-text-accent)]">
           ARÊTE SHARPNESS ◄►
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-[7px] font-mono-draft mt-1 px-1 opacity-75">
+      <div className="flex items-center justify-between text-nano font-mono-draft mt-1 px-1 opacity-75">
         <span>DRAG SUMMIT VERTICALLY / HORIZONTALLY</span>
         <button
           onClick={() => {
             onDisplacementChange(theme === 1 ? 0.14 : (theme === 2 ? 0.11 : 0.12));
             onPeakExponentChange(theme === 1 ? 1.6 : (theme === 2 ? 1.4 : 1.3));
           }}
-          className={`font-bold hover:underline ${tokens.accent}`}
+          className="font-bold hover:underline text-[var(--theme-text-accent)]"
         >
-          [PRESET]
+          [RESET]
         </button>
       </div>
     </div>
