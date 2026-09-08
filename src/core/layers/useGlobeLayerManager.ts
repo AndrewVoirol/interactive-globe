@@ -32,6 +32,7 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
         seaLevelOffset: 0,
         waterClarity: 0.75,
         peakExponent: 1.4,
+        paperTooth: 0.40,
       },
     ]
   );
@@ -227,6 +228,10 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
     queueUpdate(id, { ambientOcclusion });
   }, [queueUpdate]);
 
+  const handlePaperToothChangeDataLayer = useCallback((id: string, paperTooth: number) => {
+    queueUpdate(id, { paperTooth });
+  }, [queueUpdate]);
+
   const handleSelectRenderStyle = useCallback(
     (style: DataLayerRenderStyle) => {
       const presetId =
@@ -300,6 +305,7 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
     handleWaterClarityChangeDataLayer,
     handlePeakExponentChangeDataLayer,
     handleAmbientOcclusionChangeDataLayer,
+    handlePaperToothChangeDataLayer,
     handleReorderDataLayer,
     handleSelectRenderStyle,
   };

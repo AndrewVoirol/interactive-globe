@@ -300,8 +300,8 @@ export const LIGHT_MONOCHROME_THEME: ThemePalette = {
   mode: 1,
   mediumId: 'cream',
   viewportBackground: {
-    hex: '#F8FAFC',
-    rgb: [248 / 255, 250 / 255, 252 / 255],
+    hex: '#F3ECE0',
+    rgb: [243 / 255, 236 / 255, 224 / 255],
     alpha: 1.0,
   },
   hudSurface: {

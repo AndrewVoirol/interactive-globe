@@ -190,6 +190,7 @@ export interface UnifiedRightSidebarProps {
   onWaterClarityChangeDataLayer?: (id: string, clarity: number) => void;
   onPeakExponentChangeDataLayer?: (id: string, exponent: number) => void;
   onAmbientOcclusionChangeDataLayer?: (id: string, ao: number) => void;
+  onPaperToothChangeDataLayer?: (id: string, tooth: number) => void;
   onReorderDataLayer?: (id: string, direction: 'up' | 'down') => void;
   onSelectRenderStyle?: (style: DataLayerRenderStyle) => void;
   fractureIntensity?: number;
@@ -257,6 +258,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onWaterClarityChangeDataLayer,
   onPeakExponentChangeDataLayer,
   onAmbientOcclusionChangeDataLayer,
+  onPaperToothChangeDataLayer,
   onReorderDataLayer,
   onSelectRenderStyle,
   fractureIntensity = 1.0,
@@ -396,6 +398,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
         onAmbientOcclusionChangeDataLayer?.(primaryLayerId, 0.65);
         onWaterClarityChangeDataLayer?.(primaryLayerId, 0.70);
         onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, 0);
+        onPaperToothChangeDataLayer?.(primaryLayerId, 0.40);
       } else if (targetMode === 2) {
         // Prussian Cyanotype (Ferroprussiate Blueprint: high-contrast draft hachure)
         onHillshadeChangeDataLayer?.(primaryLayerId, 315, 0.65, 50);
@@ -1111,6 +1114,23 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         step={0.05}
                         readout={`${Math.round((primaryLayer?.ambientOcclusion ?? 0.65) * 100)}%`}
                         onChange={(v) => onAmbientOcclusionChangeDataLayer?.(primaryLayerId, v)}
+                        theme={theme}
+                        isLight={isLight}
+                      />
+                    </div>
+
+                    {/* Paper Tooth / Micro-Fiber Roughness (Method B) */}
+                    <div className={`pt-1 transition-opacity ${theme === 1 ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                      <VernierSliderWithStepper
+                        id="sidebar-paper-tooth"
+                        label="Paper Tooth"
+                        sublabel={theme === 1 ? "Cotton Rag Tooth" : "Cream Rag Exclusive"}
+                        value={primaryLayer?.paperTooth ?? 0.40}
+                        min={0.0}
+                        max={1.0}
+                        step={0.05}
+                        readout={`${Math.round((primaryLayer?.paperTooth ?? 0.40) * 100)}%`}
+                        onChange={(v) => onPaperToothChangeDataLayer?.(primaryLayerId, v)}
                         theme={theme}
                         isLight={isLight}
                       />

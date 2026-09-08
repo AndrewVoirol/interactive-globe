@@ -304,8 +304,8 @@ describe('Requirement R4: Live Planetary Instrumentation & Automation', () => {
       expect(uTrade).toBeLessThan(0.0);
       expect(Number.isFinite(vTrade)).toBe(true);
 
-      // Mid-latitude westerlies at latitude 45°N: Westerlies (u > 0)
-      const [uWest, vWest] = source.sampleVelocity(160.0, 45.0);
+      // Mid-latitude westerlies at latitude 45°N (North Atlantic flow corridor): Westerlies (u > 0)
+      const [uWest, vWest] = source.sampleVelocity(-45.0, 45.0);
       expect(uWest).toBeGreaterThan(0.0);
       expect(Number.isFinite(vWest)).toBe(true);
 

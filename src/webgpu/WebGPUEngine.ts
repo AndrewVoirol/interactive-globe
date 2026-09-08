@@ -83,6 +83,7 @@ export interface WebGPUFrameParams {
   vortexStrength?: number;
   fractureIntensity?: number;
   isolatedStratum?: number | null;
+  paperTooth?: number;
 }
 
 export class WebGPUEngine {
@@ -3164,7 +3165,9 @@ export class WebGPUEngine {
       cf[20] = params.cursorActive ? 1.0 : 0.0;
       cf[21] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
       cf[22] = params.seaLevel !== undefined ? params.seaLevel : 0.0;
-      cf[23] = 0.04; // u_roughness
+      cf[23] = params.theme === 1
+        ? (params.paperTooth !== undefined ? params.paperTooth : 0.40)
+        : 0.04; // u_roughness (Theme 1: Paper Tooth, other themes: water specular roughness)
 
       // u_viewMatrix (offset 96 = 24 floats)
       params.camera.matrixWorldInverse.toArray(cf, 24);
@@ -3350,7 +3353,7 @@ export class WebGPUEngine {
         {
           view: this.context.getCurrentTexture().createView(),
           clearValue: isLight
-            ? { r: 0.973, g: 0.980, b: 0.988, a: 0.0 } // Transparent alpha: DOM .paper-cream physical paper grain shows through
+            ? { r: 0.0, g: 0.0, b: 0.0, a: 0.0 } // Pure transparent: premultiplied alpha 0.0 allows DOM .paper-cream cotton rag grain to show through without additive blowout
             : { r: 0.008, g: 0.016, b: 0.031, a: 1.0 }, // #020408 obsidian
           loadOp: 'clear',
           storeOp: 'store',

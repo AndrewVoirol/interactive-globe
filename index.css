@@ -324,12 +324,13 @@ html, body, #root {
 }
 
 .paper-cream {
-  background-color: #f4eee1;
+  background-color: #f3ece0;
   background-image: 
-    /* Gentle cotton rag fiber tooth */
-    radial-gradient(#d6cbb6 0.75px, transparent 0.75px),
-    linear-gradient(to bottom, #f8f3e8, #ece4d2);
-  background-size: 18px 18px, 100% 100%;
+    /* Gentle cotton rag fiber tooth and organic flecks */
+    radial-gradient(rgba(140, 115, 85, 0.18) 0.65px, transparent 0.65px),
+    radial-gradient(ellipse at 40% 30%, rgba(200, 185, 160, 0.18) 0%, transparent 60%),
+    linear-gradient(to bottom, #f7f1e6, #ebe1cf);
+  background-size: 16px 16px, 100% 100%, 100% 100%;
 }
 
 .paper-tharp {

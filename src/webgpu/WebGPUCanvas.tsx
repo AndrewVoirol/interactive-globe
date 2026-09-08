@@ -920,6 +920,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const ambientOcclusion = liveOverrides?.ambientOcclusion ?? activeDataLayer?.ambientOcclusion ?? 0.65;
         const waterClarity = liveOverrides?.waterClarity ?? activeDataLayer?.waterClarity ?? 0.75;
         const peakExponent = liveOverrides?.peakExponent ?? activeDataLayer?.peakExponent ?? 1.4;
+        const paperTooth = liveOverrides?.paperTooth ?? activeDataLayer?.paperTooth ?? 0.40;
         const opacity = activeDataLayer?.opacity ?? 1.0;
         const renderStyle = activeDataLayer?.renderStyle ?? (activeDataLayer?.id === 'hybrid-crust-hydrosphere' ? 'hybrid' : 'architectural');
 
@@ -970,6 +971,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           ambientOcclusion,
           waterClarity,
           peakExponent,
+          paperTooth,
           opacity,
           renderStyle,
           isolatedStratum:

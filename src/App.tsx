@@ -134,6 +134,7 @@ export default function App() {
     handleWaterClarityChangeDataLayer,
     handlePeakExponentChangeDataLayer,
     handleAmbientOcclusionChangeDataLayer,
+    handlePaperToothChangeDataLayer,
     handleReorderDataLayer,
     handleSelectRenderStyle,
   } = useGlobeLayerManager();
@@ -512,6 +513,7 @@ export default function App() {
           onWaterClarityChangeDataLayer={handleWaterClarityChangeDataLayer}
           onPeakExponentChangeDataLayer={handlePeakExponentChangeDataLayer}
           onAmbientOcclusionChangeDataLayer={handleAmbientOcclusionChangeDataLayer}
+          onPaperToothChangeDataLayer={handlePaperToothChangeDataLayer}
           onReorderDataLayer={handleReorderDataLayer}
           onSelectRenderStyle={handleSelectRenderStyleWithVectorAuto}
           fractureIntensity={fractureIntensity}

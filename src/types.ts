@@ -41,4 +41,5 @@ export interface DataLayerItem {
   waterClarity?: number;
   peakExponent?: number;
   ambientOcclusion?: number;
+  paperTooth?: number;
 }

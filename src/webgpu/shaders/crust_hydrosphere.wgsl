@@ -68,6 +68,11 @@ fn computeSunLightDir(azimuthDeg: f32, altitudeDeg: f32) -> vec3<f32> {
     ));
 }
 
+// Procedural pseudo-random 2D hash for micro-fiber paper tooth
+fn hashPaper2D(p: vec2<f32>) -> f32 {
+    return fract(sin(dot(p, vec2<f32>(127.1, 311.7))) * 43758.5453123);
+}
+
 // ----------------------------------------------------------------------------
 // Hydrosphere Optics & Jerlov Radiative Transfer (Frontier 3)
 // ----------------------------------------------------------------------------
@@ -783,7 +788,22 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         landIllum = (cSunLight * (sunDirect * 0.85 + ridgeEnhance) + cSkyAmbient * (skyIndirect * creviceAO)) * skyHaze;
     }
     let tintedLand = cRamp * landIllum;
-    let finalLand = mix(tintedLand, cRockShaded, rockWeight);
+    var finalLand = mix(tintedLand, cRockShaded, rockWeight);
+
+    // Method B: Tactile Cotton Rag Micro-Fiber Roughness (Arches 300gsm Paper Tooth)
+    // Strictly restricted to Theme 1 (Cream Rag / Swiss Relief)
+    if (sim.u_theme == 1u) {
+        // Dual-scale anisotropic cellulose fibers modulated by grazing NW Imhof sunlight
+        let fiberCoord = input.uv * 1800.0;
+        let fiberFleck = hashPaper2D(fiberCoord);
+        let fiberStrand = hashPaper2D(vec2<f32>(fiberCoord.x * 0.45 + 37.0, fiberCoord.y * 1.95 + 83.0));
+        let fiberTooth = (fiberFleck * 0.60 + fiberStrand * 0.40 - 0.50) * (sim.u_roughness * 0.70);
+
+        // Grazing raking light amplifies micro-shadows behind individual fibers
+        let grazingFactor = pow(max(0.0, NdotL1), 0.65);
+        let toothGlaze = 1.0 + fiberTooth * grazingFactor;
+        finalLand = clamp(finalLand * toothGlaze, vec3<f32>(0.0), vec3<f32>(1.0));
+    }
 
     var finalCrust: vec3<f32>;
     let isDark = sim.u_theme != 1u;

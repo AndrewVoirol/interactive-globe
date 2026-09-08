@@ -59,7 +59,7 @@ describe('Phase 4: Crafted Visual Design & Procedural Audio Experience Test Suit
       expect(themeMgr.getMode()).toBe(1);
       const palette = themeMgr.getPalette();
       expect(palette.name).toContain('Light Monochrome');
-      expect(palette.viewportBackground.hex).toBe('#F8FAFC');
+      expect(palette.viewportBackground.hex).toBe('#F3ECE0');
       expect(palette.geographicCoastlines.hex).toBe('#14171C');
       expect(palette.structuralOceanNodes.hex).toBe('#D1D5DB');
     });
