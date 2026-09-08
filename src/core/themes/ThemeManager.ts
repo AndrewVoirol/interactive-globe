@@ -111,6 +111,8 @@ export interface ThemePalette {
   geographicWireframe: ElementThemeSpec;
   structuralWireframe: ElementThemeSpec;
   ui: UIThemeTokens;
+  activePigment?: { name: string; hex: string; depth: string } | null;
+  isolatedStratum?: number | null;
 }
 
 export const DARK_CYBER_UI_TOKENS: UIThemeTokens = {
@@ -341,7 +343,7 @@ export const PRUSSIAN_CYANOTYPE_UI_TOKENS: UIThemeTokens = {
   textPrimary: '#E8EDF2',
   textSecondary: '#8EA4BD',
   textMuted: '#6B94BD',
-  textAccent: '#C5A059',
+  textAccent: '#A5D5FF',
   textInverse: '#0C1520',
 
   panelBg: 'rgba(18, 32, 48, 0.92)',
@@ -351,7 +353,7 @@ export const PRUSSIAN_CYANOTYPE_UI_TOKENS: UIThemeTokens = {
   cardBorder: '#263C54',
   cardBorderHover: '#3B597A',
   neatlineBorder: 'rgba(59, 89, 122, 0.70)',
-  neatlineAccent: '#C5A059',
+  neatlineAccent: '#A5D5FF',
 
   controlBg: 'rgba(16, 28, 43, 0.65)',
   controlBorder: '#263C54',
@@ -362,7 +364,7 @@ export const PRUSSIAN_CYANOTYPE_UI_TOKENS: UIThemeTokens = {
   controlActiveBg: '#203A57',
   controlActiveBorder: '#4F79A3',
   controlActiveText: '#E8EDF2',
-  controlActiveRing: 'rgba(197, 160, 89, 0.40)',
+  controlActiveRing: 'rgba(165, 213, 255, 0.40)',
 
   statusSage: '#4FA3E3',
   statusSlate: '#6B94BD',
@@ -375,26 +377,26 @@ export const PRUSSIAN_CYANOTYPE_UI_TOKENS: UIThemeTokens = {
   switchThumbBg: '#1A2F47',
   switchThumbBorder: '#263C54',
   switchThumbText: '#8EA4BD',
-  switchThumbActiveBg: '#C5A059',
-  switchThumbActiveBorder: '#E2C37E',
+  switchThumbActiveBg: '#E8EDF2',
+  switchThumbActiveBorder: '#4F79A3',
   switchThumbActiveText: '#0C1520',
   knurlRidge: 'currentColor',
 
   sliderTrackBg: 'rgba(79, 121, 163, 0.30)',
   sliderTrackFill: '#4F79A3',
-  sliderThumbBg: '#C5A059',
-  sliderThumbBorder: '#7C6230',
+  sliderThumbBg: '#E8EDF2',
+  sliderThumbBorder: '#4F79A3',
   sliderTickColor: 'rgba(232, 237, 242, 0.25)',
   stepperBtnBg: '#101C2B',
   stepperBtnBorder: '#263C54',
-  stepperBtnText: '#C5A059',
+  stepperBtnText: '#A5D5FF',
   stepperBtnHoverBg: '#162B42',
 
   directionA: { bg: '#203A57', border: '#4F79A3', text: '#E8EDF2', ring: 'rgba(79, 121, 163, 0.5)' },
   directionB: { bg: '#162B42', border: '#386B99', text: '#A5D5FF', ring: 'rgba(56, 107, 153, 0.5)' },
   directionC: { bg: '#102236', border: '#294C6F', text: '#8EC5FC', ring: 'rgba(41, 76, 111, 0.5)' },
 
-  reticlePipActive: '#C5A059',
+  reticlePipActive: '#A5D5FF',
   reticleRingActive: '#4F79A3',
   pulseIndicator: '#4F79A3',
 
@@ -453,6 +455,8 @@ export class ThemeManager {
   private static instance: ThemeManager;
   private currentMode: ThemeMode = 0;
   private listeners: Set<ThemeChangeListener> = new Set();
+  private isolatedStratum: number | null = null;
+  private activePigment: { name: string; hex: string; depth: string } | null = null;
 
   private constructor(initialMode: ThemeMode = 0) {
     this.currentMode = initialMode;
@@ -482,9 +486,38 @@ export class ThemeManager {
     return DARK_CYBER_THEME;
   }
 
+  public getIsolatedStratum(): number | null {
+    return this.isolatedStratum;
+  }
+
+  public getActivePigment(): { name: string; hex: string; depth: string } | null {
+    return this.activePigment;
+  }
+
+  public setIsolatedStratum(
+    stratum: number | null,
+    swatch?: { name: string; hex: string; depth: string } | null
+  ): void {
+    this.isolatedStratum = stratum;
+    this.activePigment = swatch ?? null;
+    if (typeof document !== 'undefined' && document.documentElement) {
+      if (swatch) {
+        document.documentElement.style.setProperty('--theme-active-pigment', swatch.hex);
+        document.documentElement.style.setProperty('--theme-text-accent', swatch.hex);
+      } else {
+        const defaultAccent = this.getPalette().ui.textAccent;
+        document.documentElement.style.removeProperty('--theme-active-pigment');
+        document.documentElement.style.setProperty('--theme-text-accent', defaultAccent);
+      }
+    }
+    this.notifyListeners();
+  }
+
   public setMode(mode: ThemeMode): void {
     if (this.currentMode !== mode) {
       this.currentMode = mode;
+      this.isolatedStratum = null;
+      this.activePigment = null;
       this.notifyListeners();
     }
   }
@@ -526,7 +559,15 @@ export class ThemeManager {
     target.style.setProperty('--theme-text-primary', ui.textPrimary);
     target.style.setProperty('--theme-text-secondary', ui.textSecondary);
     target.style.setProperty('--theme-text-muted', ui.textMuted);
-    target.style.setProperty('--theme-text-accent', ui.textAccent);
+    if (this.activePigment) {
+      target.style.setProperty('--theme-active-pigment', this.activePigment.hex);
+      target.style.setProperty('--theme-text-accent', this.activePigment.hex);
+    } else {
+      if (typeof target.style.removeProperty === 'function') {
+        target.style.removeProperty('--theme-active-pigment');
+      }
+      target.style.setProperty('--theme-text-accent', ui.textAccent);
+    }
     target.style.setProperty('--theme-text-inverse', ui.textInverse);
 
     target.style.setProperty('--theme-panel-bg', ui.panelBg);

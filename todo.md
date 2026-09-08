@@ -123,3 +123,19 @@
   - **Target Files**: `validation-report-v3.md`, `PROJECT.md`
   - **Specification**: Synthesize empirical results into publication-grade `validation-report-v3.md` conforming to `validation-report-v2.md` scorecard standards; update `PROJECT.md` feature inventory; document specific feedback instructions for the research team.
   - **Micro-Verification**: All scorecard dimensions scored (Scorecard Grade: PRODUCTION READY 10/10), 0 regressions (901/901 tests passing), all milestones M1-T1 through M3-T4 completed.
+
+---
+
+## Milestone 4: Physical Medium Fidelity & Tactile Rag Emulation (Follow-Up Backlog)
+
+- [ ] **Task M4-T1**: Method B: Procedural Micro-Fiber Surface Roughness in Shaders
+  - **Phase**: `[PLANNING]`
+  - **Target Files**: `src/webgpu/shaders/crust_hydrosphere.wgsl`, `src/core/themes/ThemeManager.ts`
+  - **Specification**: In `crust_hydrosphere.wgsl`, inject high-frequency procedural fiber micro-roughness (hash-based fiber distribution) into diffuse reflectance when `sim.u_theme == 1u` (Theme 1: Cream Rag). Simulates watercolor pigment and gouache absorbing unevenly into 100% cotton rag paper fibers on lit slopes.
+  - **Micro-Verification**: SIMD32 branchless execution, zero ALU stalls, perceptible tactile relief tooth under grazing sunlight.
+
+- [ ] **Task M4-T2**: Method C: Screen-Space Intaglio Plate Tone & Paper Tooth Pass
+  - **Phase**: `[PLANNING]`
+  - **Target Files**: `src/webgpu/WebGPUEngine.ts`, `src/webgpu/shaders/`
+  - **Specification**: Implement post-process screen-space paper texture pass across entire viewport (both terrain and background canvas), rendering micro-tooth and edge plate tone emulating an engraved intaglio print on Arches 300gsm cotton rag.
+  - **Micro-Verification**: Sub-millisecond pass execution, resolution-invariant fiber scale on Retina displays.

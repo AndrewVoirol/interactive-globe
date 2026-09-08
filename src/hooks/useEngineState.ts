@@ -59,11 +59,14 @@ export function useEngineState() {
     vramMb: 4.57
   });
 
+  const [isolatedStratum, setIsolatedStratumState] = useState<number | null>(() => ThemeManager.getInstance().getIsolatedStratum());
+
   // Keep ThemeManager in sync
   useEffect(() => {
     const unsubscribe = ThemeManager.getInstance().subscribe((palette) => {
       setThemeState(palette.mode);
       setThemePalette(palette);
+      setIsolatedStratumState(ThemeManager.getInstance().getIsolatedStratum());
     });
     return unsubscribe;
   }, []);
@@ -75,6 +78,11 @@ export function useEngineState() {
 
   const setMediumId = (id: ArchivalMediumId) => {
     ThemeManager.getInstance().setMediumId(id);
+  };
+
+  const setIsolatedStratum = (stratum: number | null, swatch?: { name: string; hex: string; depth: string } | null) => {
+    ThemeManager.getInstance().setIsolatedStratum(stratum, swatch);
+    setIsolatedStratumState(stratum);
   };
 
   useEffect(() => {
@@ -139,6 +147,7 @@ export function useEngineState() {
     theme, setTheme,
     setMediumId,
     themePalette,
+    isolatedStratum, setIsolatedStratum,
     hasWebGPU, setHasWebGPU,
     alpha, setAlpha,
     mode, setMode,

@@ -180,7 +180,7 @@
   --theme-text-primary: #E8EDF2;
   --theme-text-secondary: #8EA4BD;
   --theme-text-muted: #6B94BD;
-  --theme-text-accent: #C5A059;
+  --theme-text-accent: #A5D5FF;
   --theme-text-inverse: #0C1520;
 
   --theme-panel-bg: rgba(18, 32, 48, 0.92);
@@ -190,7 +190,7 @@
   --theme-card-border: #263C54;
   --theme-card-border-hover: #3B597A;
   --theme-neatline-border: rgba(59, 89, 122, 0.70);
-  --theme-neatline-accent: #C5A059;
+  --theme-neatline-accent: #A5D5FF;
 
   --theme-control-bg: rgba(16, 28, 43, 0.65);
   --theme-control-border: #263C54;
@@ -201,7 +201,7 @@
   --theme-control-active-bg: #203A57;
   --theme-control-active-border: #4F79A3;
   --theme-control-active-text: #E8EDF2;
-  --theme-control-active-ring: rgba(197, 160, 89, 0.40);
+  --theme-control-active-ring: rgba(165, 213, 255, 0.40);
   --theme-focus-ring: rgba(79, 121, 163, 0.40);
 
   --theme-status-sage: #4FA3E3;
@@ -220,19 +220,19 @@
   --theme-switch-thumb-bg: #1A2F47;
   --theme-switch-thumb-border: #263C54;
   --theme-switch-thumb-text: #8EA4BD;
-  --theme-switch-thumb-active-bg: #C5A059;
-  --theme-switch-thumb-active-border: #E2C37E;
+  --theme-switch-thumb-active-bg: #E8EDF2;
+  --theme-switch-thumb-active-border: #4F79A3;
   --theme-switch-thumb-active-text: #0C1520;
   --theme-knurl-ridge: currentColor;
 
   --theme-slider-track-bg: rgba(79, 121, 163, 0.30);
   --theme-slider-track-fill: #4F79A3;
-  --theme-slider-thumb-bg: #C5A059;
-  --theme-slider-thumb-border: #7C6230;
+  --theme-slider-thumb-bg: #E8EDF2;
+  --theme-slider-thumb-border: #4F79A3;
   --theme-slider-tick: rgba(232, 237, 242, 0.25);
   --theme-stepper-btn-bg: #101C2B;
   --theme-stepper-btn-border: #263C54;
-  --theme-stepper-btn-text: #C5A059;
+  --theme-stepper-btn-text: #A5D5FF;
   --theme-stepper-btn-hover-bg: #162B42;
 
   --theme-direction-a-bg: #203A57;
@@ -250,7 +250,7 @@
   --theme-direction-c-text: #8EC5FC;
   --theme-direction-c-ring: rgba(41, 76, 111, 0.5);
 
-  --theme-reticle-pip-active: #C5A059;
+  --theme-reticle-pip-active: #A5D5FF;
   --theme-reticle-ring-active: #4F79A3;
   --theme-pulse-indicator: #4F79A3;
 

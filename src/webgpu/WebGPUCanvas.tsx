@@ -123,6 +123,7 @@ export interface WebGPUCanvasProps {
   fractureIntensity?: number;
   audioEngine?: ProceduralAudioEngine;
   onGpuProfilerReport?: (report: any) => void;
+  isolatedStratum?: number | null;
 }
 
 export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
@@ -153,6 +154,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   fractureIntensity = 1.0,
   audioEngine,
   onGpuProfilerReport,
+  isolatedStratum,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -258,6 +260,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     dataLayers,
     vortexStrength,
     fractureIntensity,
+    isolatedStratum,
   });
   useEffect(() => {
     stateRef.current = {
@@ -275,8 +278,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       dataLayers,
       vortexStrength,
       fractureIntensity,
+      isolatedStratum,
     };
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum]);
 
   const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport });
   useEffect(() => {
@@ -968,6 +972,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           peakExponent,
           opacity,
           renderStyle,
+          isolatedStratum:
+            stateRef.current.isolatedStratum !== undefined &&
+            stateRef.current.isolatedStratum !== null
+              ? stateRef.current.isolatedStratum
+              : -1,
         });
 
         // Periodic GPU Profiler sampling (every 250ms)
@@ -1066,11 +1075,24 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                 });
               }
 
-              // 2. Tissot Indicatrices
+              // 2. Tissot Indicatrices (Authentic Mathematical Conjugate Axes & Drafting Ink)
               if (curShowTissot) {
+                const inkColor =
+                  curTheme === 1
+                    ? 'rgba(140, 72, 32, 0.85)' // Cream Rag: Warm Sepia / Umber
+                    : curTheme === 2
+                    ? 'rgba(165, 213, 255, 0.85)' // Prussian Cyanotype: Washed Cerulean
+                    : 'rgba(56, 189, 248, 0.85)'; // Tharp: Marine Cyan Technical Ink
+                const crosshairColor =
+                  curTheme === 1
+                    ? 'rgba(140, 72, 32, 0.55)'
+                    : curTheme === 2
+                    ? 'rgba(232, 237, 242, 0.55)'
+                    : 'rgba(56, 189, 248, 0.55)';
+
                 tissotCirclesRef.current.forEach(c => {
-                  const { colorRGB } = evaluateTissotDistortion(c.baseAreaRatio, curMode, curUnfurl);
-                  ctx.strokeStyle = `rgb(${Math.round(colorRGB[0] * 255)}, ${Math.round(colorRGB[1] * 255)}, ${Math.round(colorRGB[2] * 255)})`;
+                  // Outer Indicatrix Perimeter
+                  ctx.strokeStyle = inkColor;
                   ctx.lineWidth = 1.0;
                   ctx.beginPath();
                   let started = false;
@@ -1090,6 +1112,40 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                     }
                   }
                   ctx.stroke();
+
+                  // Internal Principal Conjugate Crosshairs (N-S Meridian & E-W Parallel axes)
+                  ctx.strokeStyle = crosshairColor;
+                  ctx.lineWidth = 0.75;
+                  ctx.setLineDash([2, 2]);
+
+                  const renderAxis = (axis: [{ lat: number; lon: number }, { lat: number; lon: number }]) => {
+                    if (!axis || axis.length < 2) return;
+                    ctx.beginPath();
+                    let axisStarted = false;
+                    const STEPS = 8;
+                    for (let s = 0; s <= STEPS; s++) {
+                      const f = s / STEPS;
+                      const aLon = axis[0].lon + f * (axis[1].lon - axis[0].lon);
+                      const aLat = axis[0].lat + f * (axis[1].lat - axis[0].lat);
+                      const aPos = evaluatePointMorph(aLon, aLat, curUnfurl, curMode, time, 0.04);
+                      const [ax, ay, aFront] = projectPoint(aPos[0], aPos[1], aPos[2]);
+                      if (!aFront) {
+                        axisStarted = false;
+                        continue;
+                      }
+                      if (!axisStarted) {
+                        ctx.moveTo(ax, ay);
+                        axisStarted = true;
+                      } else {
+                        ctx.lineTo(ax, ay);
+                      }
+                    }
+                    ctx.stroke();
+                  };
+
+                  if (c.axisMajor) renderAxis(c.axisMajor);
+                  if (c.axisMinor) renderAxis(c.axisMinor);
+                  ctx.setLineDash([]);
                 });
               }
 
@@ -1252,33 +1308,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                     : 'rgba(0, 229, 255, 0.6)';
                 ctx.lineWidth = 1;
                 ctx.strokeRect(cx, cy, cw, ch);
-
-                // Inner fine hairline border
-                ctx.strokeStyle =
-                  curTheme === 1
-                    ? 'rgba(168, 120, 80, 0.35)'
-                    : curTheme === 2
-                    ? 'rgba(79, 163, 227, 0.3)'
-                    : 'rgba(0, 229, 255, 0.25)';
-                ctx.lineWidth = 0.5;
-                ctx.strokeRect(cx + 3, cy + 3, cw - 6, ch - 6);
-
-                // Corner cross ticks
-                const tickLen = 4;
-                ctx.beginPath();
-                // top-left
-                ctx.moveTo(cx + 3, cy + 3 + tickLen);
-                ctx.lineTo(cx + 3 + tickLen, cy + 3);
-                // top-right
-                ctx.moveTo(cx + cw - 3, cy + 3 + tickLen);
-                ctx.lineTo(cx + cw - 3 - tickLen, cy + 3);
-                // bottom-left
-                ctx.moveTo(cx + 3, cy + ch - 3 - tickLen);
-                ctx.lineTo(cx + 3 + tickLen, cy + ch - 3);
-                // bottom-right
-                ctx.moveTo(cx + cw - 3, cy + ch - 3 - tickLen);
-                ctx.lineTo(cx + cw - 3 - tickLen, cy + ch - 3);
-                ctx.stroke();
 
                 // Typography inside Cartouche
                 const titleColor = curTheme === 1 ? '#2c221e' : curTheme === 2 ? '#cbe1f7' : '#e0f2fe';

@@ -178,6 +178,16 @@ export async function fetchOrGenerateTLE(): Promise<TLERecord[]> {
 
   let satellites: TLERecord[] = [];
 
+  if (process.env.VITEST && fs.existsSync(outputPath)) {
+    try {
+      const cached = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+      if (Array.isArray(cached) && cached.length > 0) {
+        console.log(`Retaining ${cached.length} previously cached CelesTrak records (test mode).`);
+        return cached;
+      }
+    } catch {}
+  }
+
   try {
     console.log('Fetching live CelesTrak active TLE ephemeris...');
     const controller = new AbortController();

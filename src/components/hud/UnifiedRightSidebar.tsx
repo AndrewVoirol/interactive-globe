@@ -16,6 +16,7 @@ import { TactileSwitch } from '../ui/TactileSwitch';
 import { VernierSlider } from '../ui/VernierSlider';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { TactileButton } from '../ui/TactileButton';
+import { ThemeManager } from '../../core/themes/ThemeManager';
 
 const PIGMENT_SWATCHES: Record<0 | 1 | 2, Array<{ name: string; hex: string; depth: string }>> = {
   0: [
@@ -120,7 +121,7 @@ const OpticalReticlePip: React.FC<{ active: boolean; theme?: 0 | 1 | 2 }> = ({ a
           : theme === 1
           ? 'border-[#8C4820]/45 bg-[#8C4820]/5 group-hover:border-[#8C4820]'
           : theme === 2
-          ? 'border-[#4F79A3]/50 bg-[#4F79A3]/10 group-hover:border-[#C5A059]'
+          ? 'border-[#4F79A3]/50 bg-[#4F79A3]/10 group-hover:border-[#A5D5FF]'
           : 'border-[#7A6F5E]/60 bg-white/5 group-hover:border-[#C5A059]'
       }`}
     >
@@ -141,6 +142,8 @@ export interface UnifiedRightSidebarProps {
   theme: 0 | 1 | 2;
   onThemeToggle: () => void;
   onSelectThemeMode?: (mode: 0 | 1 | 2) => void;
+  isolatedStratum?: number | null;
+  onIsolatedStratumChange?: (stratum: number | null, swatch?: { name: string; hex: string; depth: string } | null) => void;
   showSoundings?: boolean;
   onSoundingsToggle?: () => void;
   showTriangulation?: boolean;
@@ -206,6 +209,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   theme,
   onThemeToggle,
   onSelectThemeMode,
+  isolatedStratum: externalIsolatedStratum,
+  onIsolatedStratumChange,
   showSoundings = true,
   onSoundingsToggle,
   showTriangulation = false,
@@ -282,7 +287,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
     }
     setInternalCatalogOpen(nextVal);
   };
-  const [isolatedStratum, setIsolatedStratum] = useState<number | null>(null);
+  const [internalIsolatedStratum, setInternalIsolatedStratum] = useState<number | null>(() => ThemeManager.getInstance().getIsolatedStratum());
+  const isolatedStratum = externalIsolatedStratum !== undefined ? externalIsolatedStratum : internalIsolatedStratum;
+  const setIsolatedStratum = (val: number | null | ((prev: number | null) => number | null)) => {
+    const nextVal = typeof val === 'function' ? val(isolatedStratum) : val;
+    setInternalIsolatedStratum(nextVal);
+  };
   const [expandedLayerId, setExpandedLayerId] = useState<string | null>(null);
   const [catalogFilter, setCatalogFilter] = useState<'all' | 'topo' | 'vectors' | 'satellite'>('all');
   const catalogSheetRef = useRef<HTMLDivElement>(null);
@@ -554,7 +564,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               >
                 <span
                   className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    backend === 'webgpu' ? 'bg-[var(--theme-text-accent)] animate-pulse' : 'bg-[var(--theme-status-sage)]'
+                    backend === 'webgpu' ? 'bg-[var(--theme-text-accent)]' : 'bg-[var(--theme-status-sage)]'
                   }`}
                 ></span>
                 <span>{backend === 'webgpu' ? 'WebGPU' : 'WebGL2'}</span>
@@ -670,7 +680,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     : mode === 1
                     ? 'bg-[var(--theme-status-sage)] shadow-[0_0_8px_var(--theme-status-sage)]'
                     : 'bg-[var(--theme-status-amber)] shadow-[0_0_8px_var(--theme-status-amber)]'
-                } animate-pulse`}
+                }`}
               ></span>
               {/* Medium-Adaptive Archival Cartouche Vignette Emblem */}
               <span className="shrink-0 text-[var(--theme-text-accent)] opacity-85" title="Archival Cartouche Vignette Emblem">
@@ -777,26 +787,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2.5 transition-all shadow-sm relative overflow-hidden"
                     style={theme === 0 ? { boxShadow: 'var(--theme-cathode-glow, none)' } : undefined}
                   >
-                    {/* Medium Physical Structural Anatomy */}
-                    {theme === 1 && (
-                      <div className="pointer-events-none absolute inset-[3px] rounded-[2px] border border-[#8C4820]/30" />
-                    )}
-                    {theme === 2 && (
-                      <>
-                        <span className="pointer-events-none absolute top-0.5 left-1 text-nano font-mono text-[#4fa3e3] opacity-60">+</span>
-                        <span className="pointer-events-none absolute top-0.5 right-1 text-nano font-mono text-[#4fa3e3] opacity-60">+</span>
-                        <span className="pointer-events-none absolute bottom-0.5 left-1 text-nano font-mono text-[#4fa3e3] opacity-60">+</span>
-                        <span className="pointer-events-none absolute bottom-0.5 right-1 text-nano font-mono text-[#4fa3e3] opacity-60">+</span>
-                      </>
-                    )}
-
                     <div className="flex items-center justify-between text-micro font-semibold uppercase tracking-wider relative z-10">
                       <span className="flex items-center gap-1.5">
                         <span
-                          className="w-2 h-2 rounded-full animate-pulse"
+                          className="w-2 h-2 rounded-full"
                           style={{
-                            backgroundColor: theme === 0 ? '#00e5ff' : theme === 1 ? '#bf6540' : '#4fa3e3',
-                            boxShadow: theme === 0 ? '0 0 8px rgba(0,229,255,0.8)' : theme === 2 ? '0 0 8px rgba(79,163,227,0.8)' : 'none',
+                            backgroundColor: theme === 0 ? '#C5A059' : theme === 1 ? '#8C4820' : '#A5D5FF',
                           }}
                         />
                         <span className="text-[var(--theme-text-primary)]">
@@ -875,7 +871,45 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           return (
                             <div
                               key={idx}
-                              onClick={() => setIsolatedStratum((prev) => (prev === idx ? null : idx))}
+                              onClick={() => {
+                                const nextStratum = isolatedStratum === idx ? null : idx;
+                                const nextSwatch = nextStratum !== null ? swatch : null;
+                                setIsolatedStratum(nextStratum);
+                                onIsolatedStratumChange?.(nextStratum, nextSwatch);
+
+                                // Update global theme tokens via ThemeManager
+                                ThemeManager.getInstance().setIsolatedStratum(nextStratum, nextSwatch);
+
+                                // Dynamically tune the primary cartographic layer pipeline based on the isolated stratum
+                                if (primaryLayerId) {
+                                  if (nextStratum === null) {
+                                    // Reset to medium defaults
+                                    handleSelectMedium(theme);
+                                  } else if (idx === 0) {
+                                    // Abyssal Trench (-11,000m): Emphasize deep trenches & bathymetry
+                                    onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, -25);
+                                    onWaterClarityChangeDataLayer?.(primaryLayerId, 0.92);
+                                  } else if (idx === 1) {
+                                    // Shelf Break / Mid-Ocean Ridge: Highlight tectonic rift structures
+                                    onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, -8);
+                                    onWaterClarityChangeDataLayer?.(primaryLayerId, 0.82);
+                                    onAmbientOcclusionChangeDataLayer?.(primaryLayerId, 0.72);
+                                  } else if (idx === 2) {
+                                    // Coastal / Turquoise Bank: Maximize coastal shallow clarity
+                                    onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, 0);
+                                    onWaterClarityChangeDataLayer?.(primaryLayerId, 0.75);
+                                  } else if (idx === 3) {
+                                    // Steppe / Lowland: Balanced terrain relief
+                                    onPeakExponentChangeDataLayer?.(primaryLayerId, 1.3);
+                                    onDisplacementScaleChangeDataLayer?.(primaryLayerId, 0.12);
+                                  } else if (idx === 4) {
+                                    // Glacial / Alpine Ridge: Razor arêtes & alpine summit sharpening
+                                    onPeakExponentChangeDataLayer?.(primaryLayerId, 2.0);
+                                    onDisplacementScaleChangeDataLayer?.(primaryLayerId, 0.16);
+                                    onAmbientOcclusionChangeDataLayer?.(primaryLayerId, 0.75);
+                                  }
+                                }
+                              }}
                               className={`pigment-pan p-1 rounded-[2px] border text-center flex flex-col items-center gap-1 transition-all shadow-sm cursor-pointer select-none ${
                                 isIsolated
                                   ? 'ring-2 ring-[var(--theme-text-accent)] border-[var(--theme-control-active-border)] bg-[var(--theme-control-active-bg)]'
@@ -1020,7 +1054,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
                   <div className="flex items-center justify-between text-micro font-semibold uppercase tracking-wider">
                     <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[var(--theme-pulse-indicator)] shadow-sm animate-pulse"></span>
+                      <span className="w-2 h-2 rounded-full bg-[var(--theme-pulse-indicator)] shadow-sm"></span>
                       <span className="text-[var(--theme-text-primary)]">Scene Controls</span>
                     </span>
                     <span className="text-nano font-mono text-[var(--theme-text-accent)] font-bold">
@@ -1330,7 +1364,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <span
                         className={`w-2 h-2 rounded-full ${
                           showLandmarks
-                            ? 'bg-[var(--theme-status-sage)] animate-pulse shadow-[0_0_6px_var(--theme-status-sage)]'
+                            ? 'bg-[var(--theme-status-sage)] shadow-[0_0_6px_var(--theme-status-sage)]'
                             : theme === 1 ? 'bg-[#b8ad98]' : 'bg-zinc-500/60'
                         }`}
                       ></span>
@@ -1372,7 +1406,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           showVectors
                             ? theme === 1
                               ? 'bg-[#FDFCF9]'
-                              : 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)] animate-pulse'
+                              : 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]'
                             : theme === 1 ? 'bg-[#b8ad98]' : 'bg-zinc-500/60'
                         }`}
                       ></span>
@@ -1520,8 +1554,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   <div className="p-2 rounded-[3px] border space-y-1.5 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)]">
                     <div className="flex items-center justify-between text-nano font-bold uppercase tracking-wider text-[var(--theme-text-muted)]">
                       <span>Planetary Instrumentation</span>
-                      <span className="flex items-center gap-1 font-mono text-[var(--theme-status-sage)] animate-pulse">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-status-sage)] animate-ping"></span>
+                      <span className="flex items-center gap-1 font-mono text-[var(--theme-status-sage)]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-status-sage)]"></span>
                         Live Synced
                       </span>
                     </div>
@@ -1577,7 +1611,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             ? 'bg-[#2e6b47]/20 text-[#1b432b] border-[#2e6b47]/40'
                             : theme === 2
                             ? 'bg-[#2a5540]/40 text-[#a3e5be] border-[#387256]/50'
-                            : 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 animate-pulse'
+                            : 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40'
                         }`}>
                           <span className={`w-1 h-1 rounded-full animate-ping ${
                             theme === 1
@@ -1756,7 +1790,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                         ? 'bg-[#2b6b88] shadow-[0_0_6px_rgba(43,107,136,0.6)]'
                                         : theme === 2
                                         ? 'bg-[#5b9dd9] shadow-[0_0_6px_rgba(91,157,217,0.6)]'
-                                        : 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)] animate-pulse'
+                                        : 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)]'
                                       : theme === 1 ? 'bg-[#b8ad98]/60' : 'bg-[var(--theme-text-muted)]'
                                   }`}
                                 />
@@ -1775,7 +1809,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                       ? 'bg-[#2e6b47]/20 text-[#1b432b] border-[#2e6b47]/40 shadow-sm'
                                       : theme === 2
                                       ? 'bg-[#2a5540]/40 text-[#a3e5be] border-[#387256]/50 shadow-sm'
-                                      : 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 shadow-[0_0_8px_var(--theme-status-sage)] animate-pulse'
+                                      : 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 shadow-[0_0_8px_var(--theme-status-sage)]'
                                   }`}>
                                     <span className={`w-1 h-1 rounded-full animate-ping ${
                                       theme === 1 ? 'bg-[#1b432b]' : theme === 2 ? 'bg-[#a3e5be]' : 'bg-[var(--theme-status-sage)]'
@@ -2133,7 +2167,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     <div className="col-span-2 pt-1.5 mt-0.5 border-t border-[var(--theme-card-border)] flex flex-col gap-1 text-nano text-[var(--theme-text-secondary)]">
                       <div className="flex items-center justify-between font-bold">
                         <span className="text-[var(--theme-status-slate)] flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-status-slate)] animate-pulse"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-status-slate)]"></span>
                           GPU Profiler
                         </span>
                         <span className="text-[var(--theme-status-sage)] font-mono">Total: {(gpuReport.totalGpuMs ?? 0).toFixed(2)}ms</span>
@@ -2192,7 +2226,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     ? 'bg-[#8C4820]'
                     : theme === 2
                     ? 'bg-[#4fa3e3] shadow-[0_0_8px_rgba(79,163,227,0.8)]'
-                    : 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)] animate-pulse'
+                    : 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)]'
                 }`}
               />
               <div>
@@ -2288,7 +2322,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             ? 'bg-[#2e6b47]/20 text-[#1b432b] border-[#2e6b47]/40 shadow-sm'
                             : theme === 2
                             ? 'bg-[#2a5540]/40 text-[#a3e5be] border-[#387256]/50 shadow-sm'
-                            : 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 shadow-[0_0_8px_var(--theme-status-sage)] animate-pulse'
+                            : 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 shadow-[0_0_8px_var(--theme-status-sage)]'
                         }`}>
                           <span className={`w-1 h-1 rounded-full animate-ping ${
                             theme === 1 ? 'bg-[#1b432b]' : theme === 2 ? 'bg-[#a3e5be]' : 'bg-[var(--theme-status-sage)]'

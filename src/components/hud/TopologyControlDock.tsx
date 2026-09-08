@@ -61,7 +61,7 @@ export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
   if (isZenMode) return null;
 
   return (
-    <div className={`fixed top-4 right-4 z-20 pointer-events-auto max-w-sm w-96 font-mono select-none transition-all duration-300 ease-out ${className || ''}`}>
+    <div className={`fixed top-5 right-5 z-20 pointer-events-auto max-w-sm w-96 font-mono select-none transition-all duration-300 ease-out ${className || ''}`}>
       <div
         className={`rounded-2xl border backdrop-blur-xl shadow-2xl p-4 text-micro transition-all duration-300 ${
           isLight
@@ -83,7 +83,7 @@ export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
                   : mode === 1
                   ? 'bg-slate-300'
                   : 'bg-amber-400'
-              } animate-pulse`}
+              }`}
             ></span>
             <span className={`text-title font-bold tracking-wider uppercase ${isLight ? 'text-zinc-900' : 'text-zinc-200'}`}>
               INDICATRIX // TOPOLOGY CONTROL
@@ -243,7 +243,7 @@ export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
                     : 'bg-white/[0.02] border-white/10 text-zinc-500 hover:text-zinc-300'
                 }`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${cursorPhysicsEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`}></span>
+                <span className={`w-1.5 h-1.5 rounded-full ${cursorPhysicsEnabled ? 'bg-emerald-400' : 'bg-zinc-600'}`}></span>
                 <span>Cursor Physics</span>
               </button>
             </div>
@@ -306,7 +306,7 @@ export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
                   showTissot ? (isLight ? 'bg-purple-700 text-white' : 'bg-purple-500/25 text-purple-200') : 'text-zinc-400'
                 }`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${showTissot ? 'bg-purple-400 animate-pulse' : 'bg-zinc-600'}`}></span>
+                <span className={`w-1.5 h-1.5 rounded-full ${showTissot ? 'bg-purple-400' : 'bg-zinc-600'}`}></span>
                 <span>Tissot</span>
               </button>
               <button

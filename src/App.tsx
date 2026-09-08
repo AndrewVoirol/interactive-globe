@@ -62,6 +62,7 @@ export default function App() {
     fluidVortexStrength, setFluidVortexStrength,
     gpuReport, setGpuReport,
     dataInfo, setDataInfo,
+    isolatedStratum,
   } = engineState;
 
   const {
@@ -332,7 +333,8 @@ export default function App() {
           </header>
         )}
 
-        {/* Bottom-Left Nautical Compass Rosette & Imhof Illumination Indicator (Stacked cleanly above canvas cartouche) */}
+
+
         {!isZenMode && (
           <aside
             onClick={() => setTheme((t) => (((t + 1) % 3) as any))}
@@ -351,7 +353,7 @@ export default function App() {
                 <polygon points="88,50 56,53 50,50 56,47" fill="currentColor" />
                 <polygon points="88,50 56,47 50,50" fill="currentColor" opacity="0.3" />
                 <polygon points="12,50 44,47 50,50 44,53" fill="currentColor" />
-                <polygon points="12,50 44,53 50,50" fill="currentColor" opacity="0.3" />
+                <polygon points="12,50 44,53 50,50 44,47" fill="currentColor" opacity="0.3" />
                 <polygon points="77,23 54,46 50,50 52,43" fill="currentColor" opacity="0.7" />
                 <polygon points="23,77 46,54 50,50 48,57" fill="currentColor" opacity="0.7" />
                 <polygon points="77,77 54,54 50,50 57,52" fill="currentColor" opacity="0.7" />
@@ -408,6 +410,7 @@ export default function App() {
                 mode={mode}
                 layerMode={layerMode}
                 theme={theme}
+                isolatedStratum={isolatedStratum}
                 showSoundings={showSoundings}
                 showTriangulation={showTriangulation}
                 showCartouche={showCartouche}
@@ -551,7 +554,7 @@ export default function App() {
             }`}
           >
             <div className="flex items-center gap-2 text-micro font-mono">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)]" />
               <span className="font-bold tracking-wider uppercase text-[var(--theme-text-accent)]">
                 {mode === 0 && 'Mode 1: Linear Dilation'}
                 {mode === 1 && 'Mode 2: Cylinder Unroll'}

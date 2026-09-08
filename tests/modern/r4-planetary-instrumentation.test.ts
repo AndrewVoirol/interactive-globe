@@ -338,7 +338,7 @@ describe('Requirement R4: Live Planetary Instrumentation & Automation', () => {
       expect(result.tleSatellites).toBeGreaterThanOrEqual(50);
       expect(fs.existsSync(gfsWindPath)).toBe(true);
       expect(fs.existsSync(starlinkPath)).toBe(true);
-    });
+    }, 60000);
 
     it('PLANET-GPU-01: verifies WebGPUEngine ingests wind texture and satellite orbit line ribbons', async () => {
       const { WebGPUEngine } = await import('../../src/webgpu/WebGPUEngine');

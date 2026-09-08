@@ -27,7 +27,7 @@ struct SimUniforms {
     u_peakExponent: f32,
     u_layerOpacity: f32,
     u_renderStyle: u32,       // 0 = Architectural / Relief, 1 = Hybrid / Depth, 2 = Orbital
-    u_padding: f32,
+    u_isolatedStratum: f32,   // -1.0 = All active, 0.0..4.0 = Isolate specific stratum band
 };
 
 @group(0) @binding(0) var<uniform> sim: SimUniforms;
@@ -574,6 +574,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let dv_dy = dpdy(input.uv.y);
     let dym_dx = dpdx(input.dymaxion2D);
     let dym_dy = dpdy(input.dymaxion2D);
+    let dUV = fwidth(input.uv);
 
     // Dymaxion cross-facet polygon tearing discard guard via analytical 2D Jacobian
     if (sim.u_mode == 4u && sim.u_unfurl > 0.02) {
@@ -901,15 +902,50 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         finalCrust = mix(cBathy * bathyIllum, finalLand, smoothstep(0.32, 0.68, isLand));
     }
 
+    // Hypsometric Stratum Isolation Glaze (Non-Destructive Elevation Band Highlight)
+    if (sim.u_isolatedStratum >= -0.5) {
+        let targetStratum = u32(round(sim.u_isolatedStratum));
+        var currentStratum = 2u;
+        if (input.elevation < -4000.0) {
+            currentStratum = 0u; // Abyssal Trench
+        } else if (input.elevation < -200.0) {
+            currentStratum = 1u; // Continental Shelf Break / Mid-Ocean Ridge
+        } else if (input.elevation < 500.0) {
+            currentStratum = 2u; // Continental Shelf & Coastal Lowlands
+        } else if (input.elevation < 2500.0) {
+            currentStratum = 3u; // Steppe / Montane Plateaus
+        } else {
+            currentStratum = 4u; // Glacial Summits & Alpine Ridges
+        }
+
+        if (currentStratum == targetStratum) {
+            // Selected stratum: subtle mineral brilliance & contrast boost
+            finalCrust = finalCrust * 1.15;
+        } else {
+            // Non-selected stratum: soften contrast towards subdued tone to maintain geographic context
+            let luma = dot(finalCrust, vec3<f32>(0.299, 0.587, 0.114));
+            finalCrust = mix(finalCrust, vec3<f32>(luma), 0.50) * 0.70;
+        }
+    }
+
     // Archival Cartographic Drafting Graticule (15° Parallels & Meridians)
     let meridianGrid = fract(input.uv.x * 24.0);
     let parallelGrid = fract(input.uv.y * 12.0);
-    let lineU = 1.0 - smoothstep(0.0, 0.018, min(meridianGrid, 1.0 - meridianGrid));
-    let lineV = 1.0 - smoothstep(0.0, 0.018, min(parallelGrid, 1.0 - parallelGrid));
+
+    // Polar meridian attenuation: smoothly fade meridians approaching poles (>75° latitude)
+    let poleDist = abs(input.uv.y - 0.5) * 2.0;
+    let meridianFade = 1.0 - smoothstep(0.78, 0.95, poleDist);
+
+    // Screen-space derivative feathering (fwidth) for resolution-invariant hairline linework
+    let halfWidthU = max(0.012, dUV.x * 1.25);
+    let halfWidthV = max(0.012, dUV.y * 1.25);
+
+    let lineU = (1.0 - smoothstep(0.0, halfWidthU, min(meridianGrid, 1.0 - meridianGrid))) * meridianFade;
+    let lineV = 1.0 - smoothstep(0.0, halfWidthV, min(parallelGrid, 1.0 - parallelGrid));
     let minorGraticule = max(lineU, lineV);
 
-    let isEquator = 1.0 - smoothstep(0.0, 0.026, abs(input.uv.y - 0.5));
-    let isPrime   = 1.0 - smoothstep(0.0, 0.026, abs(input.uv.x - 0.5));
+    let isEquator = 1.0 - smoothstep(0.0, max(0.020, dUV.y * 1.8), abs(input.uv.y - 0.5));
+    let isPrime   = (1.0 - smoothstep(0.0, max(0.020, dUV.x * 1.8), abs(input.uv.x - 0.5))) * meridianFade;
     let majorGraticule = max(isEquator, isPrime);
 
     var cGraticule: vec3<f32>;

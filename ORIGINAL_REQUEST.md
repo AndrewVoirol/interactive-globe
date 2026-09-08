@@ -634,3 +634,42 @@ Integrity mode: development
 - [ ] All 5 unfurl modes (Linear, Scroll, Griffith, Fluid, Dymaxion) cycle through slider states 0.0 -> 1.0 without seam tearing, inverted normals, or vertex explosion.
 - [ ] Orbital Mode (C) displays NASA Blue Marble with day/night solar terminator transition.
 - [ ] Particles in `physics_sim.wgsl` stream along physical atmospheric circulation corridors (Trade Winds, Jet Stream).
+
+## 2026-09-08T00:52:00Z
+
+Conduct an exhaustive, rigorous review and visual analysis of the Indicatrix Engine (interactive-globe) application. Use a very large team of agents acting as design experts, usability experts, cartographic researchers, and an adversarial critique coliseum to push back on mapping decisions.
+
+Working directory: /Users/andrewvoirol/Antigravity/Projects/ais-interactive-globe-to-map
+Integrity mode: development
+
+## Requirements
+
+### R1. Rigorous Visual Audit via Screenshots
+Conduct an exhaustive review of *everything*: every screen, tab, state turn, table, dropdown, and component. Do not rely solely on DOM inspection; you must **take screenshots** and perform true visual analysis. Identify elements that contradict style guides or design ethos (`DESIGN_ETHOS.md`, `design-language.md`, `AGENTS.md`).
+
+### R2. Cartographic Research & Adversarial Critique
+Deploy a research team to investigate external cartographic history and craft. Where are these design mediums inspired from? Run an "adversarial coliseum" to aggressively push back on design decisions that lack utility or contradict traditional cartographic meaning.
+
+### R3. Critique and Refine the Physical Mediums (Themes)
+Evaluate the core rendering themes (Tharp/Physiographic, Cream Rag/Swiss Relief, Prussian/Cyanotype) as standalone physical mediums. Ensure consistency, proper contrast, depth, and visual integrity through all user interactions and map generations.
+
+### R4. Investigate and Wire "Hypsometric Pigment Pans"
+Investigate the "pigment pans" feature in the unified right sidebar (`UnifiedRightSidebar.tsx`). Diagnose why interacting with them currently does nothing (state management bug, missing pipeline wire, or incomplete feature) and wire it up so it functions as intended.
+
+### R5. Eliminate Visual Noise with Justification
+Eliminate visual noise across the application. You must explicitly detail in your deliverable what specific "noise" was removed, why it was removed, and what criteria classified it as "noise".
+
+## Acceptance Criteria
+
+### Audit & Visual Analysis Deliverable
+- [ ] A comprehensive `visual-audit-report.md` is generated and saved to the project root.
+- [ ] The report explicitly details what "noise" was removed, why, and the classification criteria.
+- [ ] The report includes evidence of true visual analysis (e.g., referencing specific screenshots taken via headless browser/MCP during the audit), verifying that every screen, tab, dropdown, and component was analyzed visually.
+
+### Cartographic Integrity
+- [ ] The deliverable contains an adversarial critique section, evaluating the app's UI/UX decisions against historical cartographic craft and external research.
+- [ ] Floating UI elements maintain a strict 10px minimum clearance from the outer neatline, verified by both layout inspection and visual analysis.
+
+### Theme Viability & Pigment Pans Functionality
+- [ ] All 3 themes render without visual tearing and maintain their defined OKLCH palettes.
+- [ ] Clicking a pigment pan in the `UnifiedRightSidebar` successfully updates the global theme state and rendering pipeline without a page reload.

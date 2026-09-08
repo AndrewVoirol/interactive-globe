@@ -99,7 +99,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
     <div className="p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
       <div className="flex items-center justify-between text-micro mb-1.5 font-mono-draft">
         <span className="font-bold flex items-center gap-1.5 text-[var(--theme-text-accent)]">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)]"></span>
           Hypsometric Relief
         </span>
         <div className="flex items-center gap-1 font-mono text-nano">
@@ -211,7 +211,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
             cy={peakY}
             r="4.5"
             fill="#fdfcf9"
-            stroke="#c5a059"
+            stroke={theme === 2 ? '#a5d5ff' : theme === 1 ? '#8c4820' : '#c5a059'}
             strokeWidth="2"
             className="shadow-sm"
           />

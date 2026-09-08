@@ -82,6 +82,7 @@ export interface WebGPUFrameParams {
   pointScaleMultiplier?: number;
   vortexStrength?: number;
   fractureIntensity?: number;
+  isolatedStratum?: number | null;
 }
 
 export class WebGPUEngine {
@@ -3186,7 +3187,7 @@ export class WebGPUEngine {
         styleCode = 2;
       }
       cu[62] = styleCode;
-      cf[63] = 0.0; // padding
+      cf[63] = params.isolatedStratum !== undefined && params.isolatedStratum !== null ? params.isolatedStratum : -1.0;
 
       this.device.queue.writeBuffer(this.crustUniformBuffer, 0, cf.buffer);
     }
@@ -3349,7 +3350,7 @@ export class WebGPUEngine {
         {
           view: this.context.getCurrentTexture().createView(),
           clearValue: isLight
-            ? { r: 0.973, g: 0.980, b: 0.988, a: 1.0 } // #F8FAFC archival paper
+            ? { r: 0.973, g: 0.980, b: 0.988, a: 0.0 } // Transparent alpha: DOM .paper-cream physical paper grain shows through
             : { r: 0.008, g: 0.016, b: 0.031, a: 1.0 }, // #020408 obsidian
           loadOp: 'clear',
           storeOp: 'store',

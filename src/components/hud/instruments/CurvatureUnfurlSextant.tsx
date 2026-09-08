@@ -82,8 +82,8 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
     ? {
         arcStroke: '#4f79a3',
         thumbFill: '#e8edf2',
-        thumbStroke: '#c5a059',
-        activeTick: '#c5a059',
+        thumbStroke: '#4f79a3',
+        activeTick: '#a5d5ff',
         inactiveTick: 'rgba(232, 237, 242, 0.25)',
         rayStroke: 'rgba(232, 237, 242, 0.08)',
       }

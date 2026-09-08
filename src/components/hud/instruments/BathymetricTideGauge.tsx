@@ -71,8 +71,8 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         boxBg: 'bg-[#0d1724] border-[#3b597a]/60',
         waterBorder: 'border-[#4f79a3]',
         waterGrad: 'from-[#4f79a3]/30 to-[#0e1824]/90',
-        caliperLine: 'bg-[#c5a059]',
-        caliperBadge: 'bg-[#0e1824] border-[#c5a059] text-[#c5a059]',
+        caliperLine: 'bg-[#a5d5ff]',
+        caliperBadge: 'bg-[#0e1824] border-[#a5d5ff] text-[#a5d5ff]',
       }
     : theme === 1
     ? {
@@ -94,7 +94,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
     <div className="p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
       <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
         <span className="font-bold flex items-center gap-1.5 text-[var(--theme-text-accent)]">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)]"></span>
           Bathymetric Tide Gauge
         </span>
         <div className="flex items-center gap-1 font-mono text-nano">
