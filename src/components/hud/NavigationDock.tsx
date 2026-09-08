@@ -42,7 +42,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
     >
       <div
         className={`flex items-center gap-3 px-5 py-2 rounded-[3px] shadow-2xl pointer-events-auto border transition-colors relative scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] ${
-          theme === 1 ? 'paper-cream' : theme === 2 ? 'paper-cyanotype' : 'paper-tharp'
+          theme === 1 ? 'paper-cream-panel' : theme === 2 ? 'paper-cyanotype' : 'paper-tharp'
         }`}
       >
         {/* Archival Drafting Hairline Divider (Preserves single-border HUD contract) */}

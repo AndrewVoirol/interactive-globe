@@ -4,7 +4,7 @@
   "modelRunDate": "20260908",
   "modelRunCycle": "12Z",
   "forecastHour": "f000 (Analysis / Real-Time Initialization)",
-  "ingestedAtUTC": "2026-09-08T16:23:33.465136+00:00",
+  "ingestedAtUTC": "2026-09-08T16:53:21.286308+00:00",
   "gridDimensions": {
     "lonPoints": 1440,
     "latPoints": 721,

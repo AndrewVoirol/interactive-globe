@@ -1295,7 +1295,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                 // Background plate
                 ctx.fillStyle =
                   curTheme === 1
-                    ? 'rgba(248, 244, 236, 0.90)'
+                    ? 'rgba(252, 249, 242, 0.94)'
                     : curTheme === 2
                     ? 'rgba(12, 25, 41, 0.88)'
                     : 'rgba(9, 15, 24, 0.88)';

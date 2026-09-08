@@ -280,8 +280,10 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let normal = vec2<f32>(-tangent.y, tangent.x);
 
     // 6. Stroke Width and Subpixel Radiometric Clamping
-    let nominalHalfWidthPhys = sim.u_halfWidthPx * sim.u_dpr;
-    let geomHalfWidthPhys = max(nominalHalfWidthPhys, 0.5); // Minimum 0.5 physical px to prevent aliasing dropouts
+    // Rivers (pointType < 0.75) are drawn at 58% nominal stroke width for delicate hydrological hierarchy
+    let widthScale = select(1.0, 0.58, in.posA_3d.w < 0.75);
+    let nominalHalfWidthPhys = sim.u_halfWidthPx * sim.u_dpr * widthScale;
+    let geomHalfWidthPhys = max(nominalHalfWidthPhys, 0.45); // Minimum 0.45 physical px to prevent aliasing dropouts
     let featherPhys = 1.0;                                  // 1 physical pixel feather margin
     let totalRadiusPhys = geomHalfWidthPhys + featherPhys;
 
@@ -386,15 +388,15 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             nominalAlpha = 0.80;
         }
     } else {
-        // Theme 1: Light Monochrome Architectural Print
+        // Theme 1: Light Monochrome Architectural / Swiss Relief
         if (in.pointType < 0.75) {
-            // Hydrology: Architectural indigo-slate
-            strokeColor = vec3<f32>(0.20, 0.35, 0.50);
-            nominalAlpha = 0.65;
+            // Hydrology: Washed mineral lapis/celadon glaze
+            strokeColor = vec3<f32>(0.26, 0.42, 0.54);
+            nominalAlpha = 0.45;
         } else {
-            // Coastlines: Crisp architectural charcoal ink
-            strokeColor = vec3<f32>(0.10, 0.12, 0.15);
-            nominalAlpha = 0.85;
+            // Coastlines: Archival bistre / sepia-charcoal technical drafting ink (#38302A)
+            strokeColor = vec3<f32>(0.22, 0.19, 0.16);
+            nominalAlpha = 0.58;
         }
     }
 

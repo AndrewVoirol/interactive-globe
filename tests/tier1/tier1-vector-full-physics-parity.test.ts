@@ -114,10 +114,10 @@ describe('Vector Overlay & WebGPU Full Physics Parity Verification', () => {
     });
 
     it('VEC-PAR-12: verifies Theme 1 (Light Monochrome) renders architectural charcoal coastlines and slate rivers', () => {
-      // Coastline charcoal: vec3(0.10, 0.12, 0.16)
-      expect(vectorLayerCode).toContain('vec3(0.10, 0.12, 0.16)');
-      // River slate: vec3(0.30, 0.42, 0.55)
-      expect(vectorLayerCode).toContain('vec3(0.30, 0.42, 0.55)');
+      // Coastline archival bistre / charcoal: vec3(0.22, 0.19, 0.16)
+      expect(vectorLayerCode).toContain('vec3(0.22, 0.19, 0.16)');
+      // River washed lapis / slate: vec3(0.26, 0.42, 0.54)
+      expect(vectorLayerCode).toContain('vec3(0.26, 0.42, 0.54)');
     });
   });
 

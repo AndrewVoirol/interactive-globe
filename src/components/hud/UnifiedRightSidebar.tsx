@@ -506,7 +506,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
             isSidebarOpen ? 'max-h-[calc(100vh-2.5rem)]' : 'max-h-[82px] overflow-hidden'
           } ${
             theme === 1
-              ? 'paper-cream border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#d8cfbc]/40'
+              ? 'paper-cream-panel border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#d8cfbc]/40'
               : theme === 2
               ? 'paper-cyanotype border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#071320]/80'
               : 'paper-tharp border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#080d12]/80'

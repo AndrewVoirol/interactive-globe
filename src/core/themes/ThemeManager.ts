@@ -234,7 +234,7 @@ export const LIGHT_MONOCHROME_UI_TOKENS: UIThemeTokens = {
   textAccent: '#8C4820',
   textInverse: '#FDFCF9',
 
-  panelBg: 'rgba(248, 243, 232, 0.92)',
+  panelBg: 'rgba(252, 249, 242, 0.94)',
   panelBorder: '#CFC4AF',
   panelHeaderBorder: 'rgba(184, 173, 152, 0.60)',
   cardBg: 'rgba(244, 237, 224, 0.85)',

@@ -252,15 +252,15 @@ void main() {
             alpha = 0.75;
         }
     } else {
-        // Theme 1: Light Monochrome Architectural Print
+        // Theme 1: Light Monochrome Architectural / Swiss Relief
         if (vPointType < 0.75) {
-            // River: Architectural indigo-slate
-            color = vec3(0.30, 0.42, 0.55);
-            alpha = 0.60;
+            // River: Washed mineral lapis/celadon glaze
+            color = vec3(0.26, 0.42, 0.54);
+            alpha = 0.45;
         } else {
-            // Coastline: Crisp architectural charcoal ink
-            color = vec3(0.10, 0.12, 0.16);
-            alpha = 0.80;
+            // Coastline: Archival bistre / sepia-charcoal technical drafting ink (#38302A)
+            color = vec3(0.22, 0.19, 0.16);
+            alpha = 0.58;
         }
     }
 
