@@ -43,33 +43,33 @@ export const DataLayerToastNotification: React.FC<DataLayerToastNotificationProp
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 left-6 z-30 pointer-events-none max-w-xs w-80 font-mono select-none space-y-2">
+    <div className="fixed bottom-36 left-5 z-35 pointer-events-none max-w-xs w-80 font-mono select-none space-y-2">
       {toasts.map((toast) => {
-        let badgeBg = 'bg-sky-500/20 text-sky-300 border-sky-500/40';
+        let badgeBg = 'bg-[var(--theme-status-slate)]/20 text-[var(--theme-status-slate)] border-[var(--theme-status-slate)]/40';
         let icon = (
-          <svg className="w-4 h-4 text-sky-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 text-[var(--theme-status-slate)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         );
 
         if (toast.type === 'success') {
-          badgeBg = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+          badgeBg = 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40';
           icon = (
-            <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-[var(--theme-status-sage)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
             </svg>
           );
         } else if (toast.type === 'loading') {
-          badgeBg = 'bg-sky-500/20 text-sky-300 border-sky-500/40';
+          badgeBg = 'bg-[var(--theme-status-slate)]/20 text-[var(--theme-status-slate)] border-[var(--theme-status-slate)]/40';
           icon = (
-            <svg className="w-4 h-4 text-sky-400 animate-spin flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-[var(--theme-status-slate)] animate-spin flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 12a8 8 0 018-8v8H4z" />
             </svg>
           );
         } else if (toast.type === 'warning') {
-          badgeBg = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+          badgeBg = 'bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40';
           icon = (
-            <svg className="w-4 h-4 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-[var(--theme-status-amber)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           );
@@ -83,6 +83,19 @@ export const DataLayerToastNotification: React.FC<DataLayerToastNotificationProp
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2 font-bold truncate">
+                {/* Miniature cartographic color-ramp swatch */}
+                <div className="w-1.5 h-5 rounded-full flex-shrink-0 overflow-hidden shadow-sm" title="Cartographic strata indicator">
+                  <div
+                    className="w-full h-full"
+                    style={{
+                      background: toast.type === 'success'
+                        ? 'linear-gradient(to bottom, var(--theme-status-sage), var(--theme-text-accent))'
+                        : toast.type === 'warning'
+                        ? 'linear-gradient(to bottom, var(--theme-status-amber), #c86d51)'
+                        : 'linear-gradient(to bottom, var(--theme-status-slate), var(--theme-pulse-indicator))'
+                    }}
+                  />
+                </div>
                 {icon}
                 <span className="truncate text-body tracking-tight">{toast.title}</span>
               </div>

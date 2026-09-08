@@ -79,7 +79,7 @@ export const TactileSwitch: React.FC<TactileSwitchProps> = ({
         }`}
       >
         <div
-          className={`knurl-thumb w-3 h-3 rounded-[1px] border shadow-sm flex items-center justify-center transition-transform ${
+          className={`knurl-thumb w-3 h-3 rounded-[1px] border flex items-center justify-center ${
             checked
               ? 'translate-x-3.5 bg-[var(--theme-switch-thumb-active-bg)] border-[var(--theme-switch-thumb-active-border)] text-[var(--theme-switch-thumb-active-text)]'
               : 'translate-x-0 bg-[var(--theme-switch-thumb-bg)] border-[var(--theme-switch-thumb-border)] text-[var(--theme-switch-thumb-text)]'

@@ -26,7 +26,7 @@ export const TactileButton: React.FC<TactileButtonProps> = ({
 
   if (variant === 'primary') {
     variantStyles = active
-      ? 'bg-[var(--theme-control-active-bg)] border-[var(--theme-control-active-border)] text-[var(--theme-control-active-text)] ring-1 ring-[var(--theme-control-active-ring)] shadow-sm font-black'
+      ? 'bg-[var(--theme-control-active-bg)] border-[var(--theme-control-active-border)] text-[var(--theme-control-active-text)] ring-1 ring-[var(--theme-control-active-ring)] shadow-sm font-semibold'
       : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-text-primary)] hover:bg-[var(--theme-control-hover-bg)] hover:border-[var(--theme-control-hover-border)]';
   } else if (variant === 'ghost') {
     variantStyles = active
@@ -39,7 +39,7 @@ export const TactileButton: React.FC<TactileButtonProps> = ({
   } else {
     // Secondary default
     variantStyles = active
-      ? 'bg-[var(--theme-control-active-bg)] border-[var(--theme-control-active-border)] text-[var(--theme-control-active-text)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)] font-extrabold'
+      ? 'bg-[var(--theme-control-active-bg)] border-[var(--theme-control-active-border)] text-[var(--theme-control-active-text)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)] font-semibold'
       : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-control-hover-border)]';
   }
 

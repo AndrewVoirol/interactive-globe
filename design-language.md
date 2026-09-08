@@ -131,8 +131,20 @@ The interface enforces strict monospaced alignment (`font-mono`) for all telemet
 
 ### 2.2 Component Layout Diagrams
 
+#### Top Technical Calibration Bar (`src/App.tsx`)
+Height: 28px (`h-7`), Position: `top-5 left-5 right-5 md:right-[26.5rem] 2xl:right-[51.75rem]`, Z-Index: 20, Pointer Events: None.
+Maintains a 10px clearance moat from the inner neatline and an exact 20px inter-instrument gutter from the sidebar and catalog sheet.
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ HYDROGRAPHIC SURVEY // CARTOGRAPHIC MATRIX | SCALE 1:40M   21°00'S · 010°00'W | WGS84  │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+  ▲── Truncates cleanly at smaller widths                     ▲── Fixed tabular geodetics
+```
+
 #### Top-Right Telemetry HUD Layout (`src/components/hud/TelemetryHUD.tsx`)
-Width: 384px (`w-96`), Floating Margin: 16px (`top-4 right-4`), Z-Index: 20.
+Width: 384px (`w-96`), Floating Margin: 20px (`top-5 right-5`), Z-Index: 30.
+Maintains a 10px clearance moat from the inner neatline, preventing parallel line clash.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -196,6 +208,36 @@ Bottom Dock ──►   │  [▶]  [1x]  [GLOBE G]  └────────
   border-radius: 16px;
 }
 ```
+
+---
+
+### 2.4 Cartographic Framing, Neatline Rules & Spatial Clearance
+
+#### 1. Neatline Geometry & Coordinate Hierarchy
+The outer archival neatline establishes the global boundary of the cartographic plate:
+- **Outer Frame**: `inset-2` (8px from viewport edge), 1px solid `var(--theme-neatline-border)`.
+- **Inner Hairline**: `inset-[2px]` (10px from viewport edge), 1px solid `border-current/15`.
+- **Corner Geodetics**: Coordinate stamps (`⌜ 00.00°`, `⌝ 90.00°`, etc.) rest within the neatline margins.
+
+#### 2. The 10px Spatial Moat & 20px Inter-Instrument Gutters
+HUD containers float over the map sheet and must never compete with the neatline or adjacent panels:
+- **20px Grid Axis**: Floating instruments dock at `top-5` (20px), `left-5` (20px), and `right-5` (20px).
+- **Neatline Clearance Buffer**: With the neatline inner hairline at 10px and HUD elements at 20px, an exact 10px margin of negative space separates the framing boundary from HUD borders.
+- **Inter-Instrument Gutters**: A uniform 20px (`1.25rem`) gutter separates adjacent HUD containers:
+  - Header to sidebar dock: `md:right-[26.5rem]` (20px gutter from the 25.25rem sidebar boundary).
+  - Header to catalog sheet: `2xl:right-[51.75rem]` (20px gutter from the 50.5rem catalog boundary).
+  - Catalog sheet to sidebar: `2xl:right-[26.5rem]` (20px gutter from the 25.25rem sidebar boundary).
+- **Elimination of "Railroad Tracks" & 4px Cracks**: Under no circumstances should HUD panels be placed at `top-4` (16px) or `right-4` (16px) tangent to the neatline, or spaced with cramped 4px hairline gaps.
+
+#### 3. Single-Border HUD Container Contract
+- All floating panels (calibration header, right sidebar, slide-out drawer, bottom rosette, bottom morph navigation dock `NavigationDock.tsx`) use a single outer border (`border border-[var(--theme-panel-border)]`).
+- Redundant inner neatlines (`inset-1 border-[var(--theme-neatline-border)]`, `inset-[2px] border-current/20`, `inset-[2.5px] border-[var(--theme-neatline-border)]`) are strictly prohibited inside floating containers.
+- The `var(--theme-neatline-border)` token is reserved exclusively for the outer sheet neatline and subtle internal hairline dividers (e.g. between telemetry metrics or playback controls).
+
+#### 4. Responsive Header Flow & Collision Prevention
+- **Defensive Containment**: The header title container uses `min-w-0 pr-3` and text truncation with `truncate` to prevent glyph overflow.
+- **Responsive Disclosure**: Extended subtitles (`// CARTOGRAPHIC MATRIX`) hide gracefully below `xl:`, nominal map scale hides below `lg:`, and coordinate CRS metadata (`WGS84 // EPSG:4326`) hides below `sm:`, ensuring the primary title `HYDROGRAPHIC SURVEY` and live geodetics never collide.
+- **Separation Gutter**: A guaranteed `gap-4` and dedicated padding (`pr-3` / `pl-3`) separates survey classification from geodetic surveying metadata at all times.
 
 ---
 

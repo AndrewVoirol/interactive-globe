@@ -111,7 +111,7 @@ export const VernierSlider: React.FC<VernierSliderProps> = ({
           value={value}
           disabled={disabled}
           onChange={(e) => onChange?.(parseFloat(e.target.value))}
-          className="w-full slider-archival h-1 cursor-pointer block block transition-opacity"
+          className="w-full slider-archival h-1 cursor-pointer block transition-opacity"
         />
 
         {showTicks && (

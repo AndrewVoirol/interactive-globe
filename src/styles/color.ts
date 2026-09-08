@@ -163,3 +163,33 @@ fn oklch2rgb(c: vec3<f32>) -> vec3<f32> {
     return clamp(vec3<f32>(r, g, bl), vec3<f32>(0.0), vec3<f32>(1.0));
 }
 `;
+
+// Centralized Theme Design Tokens (Section 6: Theme Color Consistency)
+export {
+  DARK_CYBER_UI_TOKENS,
+  LIGHT_MONOCHROME_UI_TOKENS,
+  PRUSSIAN_CYANOTYPE_UI_TOKENS,
+  ThemeManager,
+} from '../core/themes';
+export type { UIThemeTokens, ThemeMode, ArchivalMediumId } from '../core/themes';
+
+import {
+  DARK_CYBER_UI_TOKENS,
+  LIGHT_MONOCHROME_UI_TOKENS,
+  PRUSSIAN_CYANOTYPE_UI_TOKENS,
+  UIThemeTokens,
+} from '../core/themes';
+
+export const THEME_PALETTES: Record<0 | 1 | 2, UIThemeTokens> = {
+  0: DARK_CYBER_UI_TOKENS,
+  1: LIGHT_MONOCHROME_UI_TOKENS,
+  2: PRUSSIAN_CYANOTYPE_UI_TOKENS,
+};
+
+export function getThemeTokens(theme: 0 | 1 | 2 | 'tharp' | 'cream' | 'cyanotype'): UIThemeTokens {
+  if (theme === 'tharp' || theme === 0) return DARK_CYBER_UI_TOKENS;
+  if (theme === 'cream' || theme === 1) return LIGHT_MONOCHROME_UI_TOKENS;
+  if (theme === 'cyanotype' || theme === 2) return PRUSSIAN_CYANOTYPE_UI_TOKENS;
+  return DARK_CYBER_UI_TOKENS;
+}
+

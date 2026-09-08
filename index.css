@@ -18,6 +18,7 @@
   --theme-panel-header-border: rgba(255, 255, 255, 0.10);
   --theme-card-bg: rgba(16, 23, 33, 0.70);
   --theme-card-border: rgba(51, 62, 77, 0.80);
+  --theme-card-border-hover: #415164;
   --theme-neatline-border: rgba(122, 111, 94, 0.80);
   --theme-neatline-accent: #C5A059;
 
@@ -31,6 +32,16 @@
   --theme-control-active-border: #3B788A;
   --theme-control-active-text: #F0EDE6;
   --theme-control-active-ring: rgba(197, 160, 89, 0.40);
+  --theme-focus-ring: rgba(255, 255, 255, 0.20);
+
+  --theme-status-sage: #34D399;
+  --theme-status-slate: #4FD1C5;
+  --theme-status-amber: #F59E0B;
+
+  --theme-spring-switch: 350ms cubic-bezier(0.25, 1, 0.5, 1);
+  --theme-switch-thumb-shadow: 0 0 8px rgba(79, 209, 197, 0.5);
+  --theme-shadow-ambient: 0 12px 32px -4px rgba(0, 0, 0, 0.75);
+  --theme-cathode-glow: inset 0 1px 0 rgba(79, 209, 197, 0.2);
 
   --theme-switch-track-bg: rgba(10, 17, 26, 0.80);
   --theme-switch-track-border: rgba(255, 255, 255, 0.15);
@@ -92,6 +103,7 @@
   --theme-panel-header-border: rgba(184, 173, 152, 0.60);
   --theme-card-bg: rgba(244, 237, 224, 0.85);
   --theme-card-border: #D8CFBC;
+  --theme-card-border-hover: #B8AD98;
   --theme-neatline-border: #B8AD98;
   --theme-neatline-accent: #8C4820;
 
@@ -101,10 +113,20 @@
   --theme-control-hover-bg: #EDE3D4;
   --theme-control-hover-text: #2B241A;
   --theme-control-hover-border: #B8AD98;
-  --theme-control-active-bg: #2B241A;
-  --theme-control-active-border: #2B241A;
+  --theme-control-active-bg: #3D2F1D;
+  --theme-control-active-border: #8C4820;
   --theme-control-active-text: #FDFCF9;
-  --theme-control-active-ring: rgba(140, 72, 32, 0.35);
+  --theme-control-active-ring: rgba(140, 72, 32, 0.40);
+  --theme-focus-ring: rgba(148, 163, 184, 0.35);
+
+  --theme-status-sage: #1B432B;
+  --theme-status-slate: #1A4457;
+  --theme-status-amber: #7D4700;
+
+  --theme-spring-switch: 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  --theme-switch-thumb-shadow: 0 1px 3px rgba(140, 72, 32, 0.35);
+  --theme-shadow-ambient: 0 8px 24px -2px rgba(140, 114, 82, 0.22);
+  --theme-cathode-glow: none;
 
   --theme-switch-track-bg: #E2D7C3;
   --theme-switch-track-border: #C8B9A6;
@@ -166,6 +188,7 @@
   --theme-panel-header-border: rgba(79, 121, 163, 0.40);
   --theme-card-bg: rgba(15, 28, 43, 0.85);
   --theme-card-border: #263C54;
+  --theme-card-border-hover: #3B597A;
   --theme-neatline-border: rgba(59, 89, 122, 0.70);
   --theme-neatline-accent: #C5A059;
 
@@ -179,6 +202,16 @@
   --theme-control-active-border: #4F79A3;
   --theme-control-active-text: #E8EDF2;
   --theme-control-active-ring: rgba(197, 160, 89, 0.40);
+  --theme-focus-ring: rgba(79, 121, 163, 0.40);
+
+  --theme-status-sage: #4FA3E3;
+  --theme-status-slate: #6B94BD;
+  --theme-status-amber: #E2C37E;
+
+  --theme-spring-switch: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --theme-switch-thumb-shadow: 0 1px 4px rgba(79, 163, 227, 0.4);
+  --theme-shadow-ambient: 0 12px 28px -4px rgba(5, 15, 26, 0.8);
+  --theme-cathode-glow: inset 0 1px 0 rgba(79, 163, 227, 0.25);
 
   --theme-switch-track-bg: #0D1724;
   --theme-switch-track-border: #263C54;
@@ -406,13 +439,29 @@ input[type=range].slider-archival::-moz-range-thumb {
   box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.7), 0 3px 8px -2px rgba(0, 0, 0, 0.45);
 }
 
+[data-theme="cream"] .scroll-curl-lip,
+.paper-cream.scroll-curl-lip,
+.paper-cream .scroll-curl-lip {
+  box-shadow: 0 4px 14px -2px rgba(140, 114, 82, 0.22), 0 2px 6px -1px rgba(140, 114, 82, 0.14);
+}
+
+[data-theme="cyanotype"] .scroll-curl-lip,
+.paper-cyanotype.scroll-curl-lip,
+.paper-cyanotype .scroll-curl-lip {
+  box-shadow: 0 8px 20px -4px rgba(5, 15, 26, 0.8), 0 3px 8px -2px rgba(5, 15, 26, 0.5);
+}
+
 /* Machined Knurled Slide Switch & Tumbler */
 .knurl-switch {
   transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .knurl-thumb {
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease;
+  transition: transform var(--theme-spring-switch, 0.2s cubic-bezier(0.16, 1, 0.3, 1)),
+              background-color 0.2s ease,
+              border-color 0.2s ease,
+              box-shadow 0.2s ease;
+  box-shadow: var(--theme-switch-thumb-shadow, 0 1px 2px rgba(0, 0, 0, 0.25));
 }
 
 .knurl-ridge {
@@ -439,9 +488,76 @@ input[type=range].slider-archival::-moz-range-thumb {
   transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
 }
 
+/* Interactive Control Ergonomics & Global Pointer Cursor Contract */
+button,
+input[type="range"],
+.tactile-btn,
+[role="button"],
+.pigment-pan,
+.folio-strip,
+.domain-chip {
+  cursor: pointer;
+}
+
 /* Tactile Active Press Feedback */
 .tactile-btn:active,
-.tactile-press:active {
+.tactile-press:active,
+button:active:not(:disabled) {
   transform: translateY(1px);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45) !important;
+}
+
+[data-theme="cream"] .tactile-btn:active,
+[data-theme="cream"] .tactile-press:active,
+[data-theme="cream"] button:active:not(:disabled),
+.paper-cream.tactile-btn:active,
+.paper-cream .tactile-btn:active,
+.paper-cream .tactile-press:active,
+.paper-cream button:active:not(:disabled) {
+  box-shadow: inset 0 1px 3px rgba(61, 47, 29, 0.40) !important;
+}
+
+/* Cartographic Glassmorphic Focus Rings */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--theme-focus-ring, rgba(255, 255, 255, 0.20)) !important;
+}
+
+/* Folio Strip Hover Lift & Archival Shadow */
+.folio-strip {
+  transition: transform 0.18s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.18s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+.folio-strip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.45);
+}
+[data-theme="cream"] .folio-strip:hover,
+.paper-cream .folio-strip:hover {
+  box-shadow: 0 3px 10px -2px rgba(140, 114, 82, 0.30);
+}
+
+/* Watercolor Pigment Pan Scale Hover */
+.pigment-pan {
+  transition: transform 0.15s cubic-bezier(0.34, 1.35, 0.64, 1), box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.pigment-pan:hover {
+  transform: scale(1.05);
+}
+
+/* Smooth Scroll Container Edge Mask & Breathing Room */
+.scroll-fade-mask {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0px,
+    black 14px,
+    black calc(100% - 14px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0px,
+    black 14px,
+    black calc(100% - 14px),
+    transparent 100%
+  );
 }

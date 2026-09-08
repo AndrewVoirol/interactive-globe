@@ -7,19 +7,19 @@
 import React, { useRef, useCallback } from 'react';
 
 export interface HypsometricReliefCurveProps {
-  displacementScale: number; // 0.00 to 0.25 (3D Relief extrusion height)
-  peakExponent: number; // 0.5 to 3.0 (Hypsometric sharpness curve)
-  onDisplacementChange: (scale: number) => void;
-  onPeakExponentChange: (exponent: number) => void;
+  displacementScale?: number; // 0.00 to 0.25 (3D Relief extrusion height)
+  peakExponent?: number; // 0.5 to 3.0 (Hypsometric sharpness curve)
+  onDisplacementChange?: (scale: number) => void;
+  onPeakExponentChange?: (exponent: number) => void;
   isLight?: boolean;
   theme?: 0 | 1 | 2;
 }
 
 export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
-  displacementScale,
-  peakExponent,
-  onDisplacementChange,
-  onPeakExponentChange,
+  displacementScale = 0.08,
+  peakExponent = 1.4,
+  onDisplacementChange = () => {},
+  onPeakExponentChange = () => {},
   isLight = false,
   theme = isLight ? 1 : 0,
 }) => {
@@ -118,11 +118,38 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
       {/* Interactive Mountain Cross-Section */}
       <div
         ref={boxRef}
+        tabIndex={0}
+        role="slider"
+        aria-label="Hypsometric 3D Relief and Sharpness Curve"
+        aria-valuemin={0}
+        aria-valuemax={0.25}
+        aria-valuenow={displacementScale}
+        onKeyDown={(e) => {
+          const dispStep = e.shiftKey ? 0.02 : 0.005;
+          const sharpStep = e.shiftKey ? 0.2 : 0.05;
+          if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            onDisplacementChange(Math.min(0.25, displacementScale + dispStep));
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            onDisplacementChange(Math.max(0.00, displacementScale - dispStep));
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            onPeakExponentChange(Math.min(3.0, peakExponent + sharpStep));
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            onPeakExponentChange(Math.max(0.5, peakExponent - sharpStep));
+          }
+        }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        title="Drag peak summit vertically (amplitude) and horizontally (peak sharpness)"
-        className={`relative w-full h-20 rounded-[2px] border overflow-hidden cursor-crosshair select-none touch-none shadow-inner ${tokens.mountainBg} ${tokens.mountainBorder}`}
+        onDoubleClick={() => {
+          onDisplacementChange(0.08);
+          onPeakExponentChange(1.4);
+        }}
+        title="Drag peak summit vertically (amplitude) and horizontally (peak sharpness) — Double-click to reset (0.08 / 1.4x), Arrow keys to nudge"
+        className={`relative w-full h-20 rounded-[2px] border overflow-hidden cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${tokens.mountainBg} ${tokens.mountainBorder}`}
       >
         <svg className="w-full h-full pointer-events-none" viewBox="0 0 300 100" preserveAspectRatio="none">
           <defs>
@@ -132,6 +159,51 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
               <stop offset="100%" stopColor={tokens.gradStops[2]} stopOpacity="0.85" />
             </linearGradient>
           </defs>
+          {/* Medium-Adaptive Scientific Profile Graphics */}
+          {theme === 1 ? (
+            // Cream Rag Paper: Swiss alpine ridge hachure engraving lines
+            <g className="hachures-cream opacity-40 stroke-[#8c4820]" strokeWidth="0.75" strokeLinecap="round">
+              {Array.from({ length: 18 }).map((_, i) => {
+                const hx = 20 + i * 15;
+                const distToPeak = Math.abs(hx - peakX);
+                const hy = peakY + (distToPeak / 150) * (96 - peakY);
+                if (hy >= 94) return null;
+                return (
+                  <line
+                    key={i}
+                    x1={hx}
+                    y1={hy}
+                    x2={hx}
+                    y2={Math.min(96, hy + 6 + (1 - distToPeak / 150) * 10)}
+                  />
+                );
+              })}
+            </g>
+          ) : theme === 2 ? (
+            // Prussian Cyanotype: CAD parabolic coordinate grid & millimeter ticks
+            <g className="cad-grid-cyanotype opacity-30 stroke-[#4fa3e3]" strokeWidth="0.5">
+              <line x1="0" y1="25" x2="300" y2="25" strokeDasharray="2 4" />
+              <line x1="0" y1="50" x2="300" y2="50" strokeDasharray="2 4" />
+              <line x1="0" y1="75" x2="300" y2="75" strokeDasharray="2 4" />
+              {Array.from({ length: 11 }).map((_, i) => (
+                <line key={i} x1={i * 30} y1="0" x2={i * 30} y2="100" strokeDasharray="2 4" />
+              ))}
+            </g>
+          ) : (
+            // Marie Tharp: Sonar fathometer acoustic trace with Mid-Atlantic axial rift valley profile
+            <g className="fathometer-tharp opacity-40">
+              {/* Axial rift valley acoustic trace */}
+              <path
+                d={`M ${Math.max(0, peakX - 25)} ${peakY + 12} L ${peakX} ${peakY + 4} L ${Math.min(300, peakX + 25)} ${peakY + 12}`}
+                fill="none"
+                stroke="#34d399"
+                strokeWidth="1"
+                strokeDasharray="2 2"
+              />
+              <line x1={peakX} y1="0" x2={peakX} y2="100" stroke="#00e5ff" strokeWidth="0.5" strokeDasharray="1 4" opacity="0.6" />
+            </g>
+          )}
+
           <path d={fillPath} fill={`url(#reliefGrad-${theme})`} />
           <path d={strokePath} fill="none" stroke={tokens.strokeColor} strokeWidth="2.0" strokeLinecap="round" />
           <circle

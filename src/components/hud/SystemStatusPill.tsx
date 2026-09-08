@@ -61,9 +61,9 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
       : '1.05M Nodes';
 
   return (
-    <div className="fixed top-4 left-4 z-20 pointer-events-auto font-mono select-none transition-all duration-300 ease-out">
+    <div className="fixed top-4 left-4 z-25 pointer-events-auto font-mono select-none transition-all duration-300 ease-out">
       <div
-        className={`rounded-2xl border backdrop-blur-xl shadow-xl px-3.5 py-2 text-xs flex items-center gap-2.5 transition-all duration-300 ${
+        className={`rounded-2xl border backdrop-blur-xl shadow-xl px-3.5 py-2 text-micro flex items-center gap-2.5 transition-all duration-300 ${
           theme === 1
             ? 'bg-white/90 border-zinc-200/80 text-zinc-800 shadow-zinc-200/50'
             : theme === 2
@@ -95,7 +95,7 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
         {/* 3D Terrain Vertex Count & Active Particle Compute Nodes Telemetry */}
         <div
           className={`flex items-center gap-2 px-2 py-1 rounded-lg border text-micro font-mono shrink-0 ${
-            isLight ? 'bg-zinc-100 border-zinc-200 text-zinc-700' : 'bg-black/30 border-white/5 text-zinc-300'
+            isLight ? 'bg-zinc-100 border-zinc-200 text-zinc-700' : 'bg-black/30 border-white/10 text-zinc-300'
           }`}
         >
           <span className="flex items-center gap-1" title="Dual-surface 3D terrain vertex mesh density">
@@ -110,7 +110,7 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
         </div>
 
         {/* Grid Resolution Switch */}
-        <div className="flex items-center bg-black/20 rounded-lg p-0.5 border border-white/5 gap-0.5">
+        <div className="flex items-center bg-black/20 rounded-lg p-0.5 border border-white/10 gap-0.5">
           {(['100k', '1M', '3M', '4M', '8M', '16M'] as ResolutionTier[]).map((tier) => (
             <button
               key={tier}
@@ -118,9 +118,9 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
               className={`px-1.5 py-0.5 rounded text-nano font-bold transition-all ${
                 resolution === tier
                   ? tier === '16M'
-                    ? 'bg-amber-500 text-black font-extrabold shadow-sm'
+                    ? 'bg-amber-500 text-black font-semibold shadow-sm'
                     : tier === '1M' || tier === '4M'
-                    ? 'bg-purple-600 text-white font-extrabold shadow-sm'
+                    ? 'bg-purple-600 text-white font-semibold shadow-sm'
                     : isLight
                     ? 'bg-zinc-900 text-white'
                     : 'bg-white/20 text-white'

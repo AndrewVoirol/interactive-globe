@@ -75,6 +75,10 @@ export interface TelemetryHUDProps {
   fluidVortexStrength?: number;
   onFluidVortexStrengthChange?: (v: number) => void;
   gpuReport?: any;
+  isCatalogOpen?: boolean;
+  onCatalogOpenChange?: (open: boolean) => void;
+  isSidebarOpen?: boolean;
+  onSidebarOpenChange?: (open: boolean) => void;
 }
 
 export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
@@ -142,6 +146,10 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         fluidVortexStrength={props.fluidVortexStrength}
         onFluidVortexStrengthChange={props.onFluidVortexStrengthChange}
         gpuReport={props.gpuReport}
+        isCatalogOpen={props.isCatalogOpen}
+        onCatalogOpenChange={props.onCatalogOpenChange}
+        isSidebarOpen={props.isSidebarOpen}
+        onSidebarOpenChange={props.onSidebarOpenChange}
       />
 
       {/* Bottom-Left Non-Intrusive Glassmorphic Toast Notification Stack */}

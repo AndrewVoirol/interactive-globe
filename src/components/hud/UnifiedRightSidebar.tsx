@@ -4,7 +4,7 @@
 // Unmistakable active/selected visual contrast for all modes, buttons, and switches
 // ============================================================================
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo, ResolutionTier } from '../../types';
 import { DATA_LAYER_CATALOG, BlendModeType, getPresetById, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
 import { DataLayerItem } from './DataLayersDrawer';
@@ -111,13 +111,17 @@ const VernierSliderWithStepper: React.FC<VernierSliderWithStepperProps> = ({
   );
 };
 
-const OpticalReticlePip: React.FC<{ active: boolean; theme?: 0 | 1 | 2 }> = ({ active }) => {
+const OpticalReticlePip: React.FC<{ active: boolean; theme?: 0 | 1 | 2 }> = ({ active, theme = 0 }) => {
   return (
     <div
       className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 transition-colors shadow-sm ${
         active
           ? 'border-[var(--theme-reticle-ring-active)] bg-[var(--theme-reticle-ring-active)]/20 shadow-[0_0_8px_var(--theme-reticle-ring-active)]'
-          : 'border-current/30 bg-transparent opacity-50'
+          : theme === 1
+          ? 'border-[#8C4820]/45 bg-[#8C4820]/5 group-hover:border-[#8C4820]'
+          : theme === 2
+          ? 'border-[#4F79A3]/50 bg-[#4F79A3]/10 group-hover:border-[#C5A059]'
+          : 'border-[#7A6F5E]/60 bg-white/5 group-hover:border-[#C5A059]'
       }`}
     >
       <span
@@ -190,6 +194,10 @@ export interface UnifiedRightSidebarProps {
   fluidVortexStrength?: number;
   onFluidVortexStrengthChange?: (v: number) => void;
   gpuReport?: any;
+  isCatalogOpen?: boolean;
+  onCatalogOpenChange?: (open: boolean) => void;
+  isSidebarOpen?: boolean;
+  onSidebarOpenChange?: (open: boolean) => void;
 }
 
 export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
@@ -251,9 +259,32 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   fluidVortexStrength = 1.0,
   onFluidVortexStrengthChange,
   gpuReport,
+  isCatalogOpen: externalCatalogOpen,
+  onCatalogOpenChange,
+  isSidebarOpen: externalSidebarOpen,
+  onSidebarOpenChange,
 }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  const [internalSidebarOpen, setInternalSidebarOpen] = useState(true);
+  const isSidebarOpen = externalSidebarOpen !== undefined ? externalSidebarOpen : internalSidebarOpen;
+  const setIsSidebarOpen = (val: boolean | ((prev: boolean) => boolean)) => {
+    const nextVal = typeof val === 'function' ? val(isSidebarOpen) : val;
+    if (onSidebarOpenChange) {
+      onSidebarOpenChange(nextVal);
+    }
+    setInternalSidebarOpen(nextVal);
+  };
+  const [internalCatalogOpen, setInternalCatalogOpen] = useState(false);
+  const isCatalogOpen = externalCatalogOpen !== undefined ? externalCatalogOpen : internalCatalogOpen;
+  const setIsCatalogOpen = (val: boolean | ((prev: boolean) => boolean)) => {
+    const nextVal = typeof val === 'function' ? val(isCatalogOpen) : val;
+    if (onCatalogOpenChange) {
+      onCatalogOpenChange(nextVal);
+    }
+    setInternalCatalogOpen(nextVal);
+  };
+  const [isolatedStratum, setIsolatedStratum] = useState<number | null>(null);
+  const [expandedLayerId, setExpandedLayerId] = useState<string | null>(null);
+  const [catalogFilter, setCatalogFilter] = useState<'all' | 'topo' | 'vectors' | 'satellite'>('all');
   const catalogSheetRef = useRef<HTMLDivElement>(null);
 
   type SidebarPlate = 'all' | 'survey' | 'scene' | 'paradigms' | 'planetary' | 'layers';
@@ -264,6 +295,72 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   // Active Cartographic Direction (A: Architectural, B: Hybrid, C: Photoreal)
   const activeDirection: DataLayerRenderStyle =
     dataLayers.find((l) => l.visible && l.renderStyle)?.renderStyle ?? 'architectural';
+
+  // Dynamic Tissot Indicatrix Distortion Tensor Computation (Section 1.1)
+  const parsedLat = useMemo(() => {
+    const match = latStr.match(/(\d+)°(?:(\d+)')?([NS])?/);
+    if (!match) return 0;
+    const deg = parseFloat(match[1]) + (match[2] ? parseFloat(match[2]) / 60 : 0);
+    return match[3] === 'S' ? -deg : deg;
+  }, [latStr]);
+
+  const tissotTelemetry = useMemo(() => {
+    const latRad = (parsedLat * Math.PI) / 180;
+    const cosLat = Math.max(0.087, Math.cos(latRad));
+    // Equatorial area scale factor s at phi = 0
+    const eqBaseRatio = 1.0;
+    const eqArea = ((1 - alpha) * 1.0 + alpha * (mode === 4 ? 1.04 : eqBaseRatio)).toFixed(3);
+
+    // Camera latitude area scale factor s at current latitude
+    const camBaseRatio =
+      mode === 4
+        ? 1.04
+        : mode === 1
+        ? 1.0 / (cosLat * cosLat)
+        : mode === 0
+        ? 1.0 / cosLat
+        : 1.0;
+    const localArea = ((1 - alpha) * 1.0 + alpha * camBaseRatio).toFixed(3);
+
+    // Polar dilation (standard 85° Mercator limit / Dymaxion isomeric)
+    const polarBaseRatio =
+      mode === 4
+        ? 1.041
+        : mode === 1
+        ? 131.6
+        : mode === 0
+        ? 11.5
+        : mode === 3
+        ? 1.0
+        : 1.12;
+    const polarVal = (1 - alpha) * 1.0 + alpha * polarBaseRatio;
+    const polarStr =
+      mode === 4
+        ? `${polarVal.toFixed(3)}x`
+        : mode === 1
+        ? alpha < 0.01
+          ? '1.000x'
+          : `${polarVal.toFixed(1)}x (85° limit)`
+        : `${polarVal.toFixed(2)}x`;
+
+    return { eqArea, localArea, polarStr };
+  }, [parsedLat, alpha, mode]);
+
+  // Dynamic Volumetric Scale VRAM Memory Calculation (Section 1.2)
+  const resolutionVramLabel = useMemo(() => {
+    const tierConfig: Record<ResolutionTier, { verts: string; nodes: number }> = {
+      '100k': { verts: '262K Verts', nodes: 262_144 },
+      '1M': { verts: '1.05M Verts', nodes: 1_048_576 },
+      '3M': { verts: '2.98M Verts', nodes: 2_980_000 },
+      '4M': { verts: '4.19M Verts', nodes: 4_194_304 },
+      '8M': { verts: '8.38M Verts', nodes: 8_388_608 },
+      '16M': { verts: '16.7M Verts', nodes: 16_777_216 },
+    };
+    const c = tierConfig[resolution] || tierConfig['1M'];
+    const mb = Math.round((c.nodes * 104) / (1024 * 1024));
+    const sizeStr = mb >= 1000 ? `~${(mb / 1024).toFixed(1)}GB (est.)` : `~${mb}MB (est.)`;
+    return `${c.verts} · ${sizeStr}`;
+  }, [resolution]);
 
   // Primary active dataset layer for direct scene controls
   const primaryLayer =
@@ -390,10 +487,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       {/* ========================================================================= */}
       {/* 1. Primary Unified Right Sidebar Dock                                     */}
       {/* ========================================================================= */}
-      <div className="fixed top-4 right-4 z-20 pointer-events-auto max-w-sm w-96 font-mono select-none transition-all duration-500 origin-top ease-out">
+      <div className="fixed top-5 right-5 z-30 pointer-events-auto max-w-sm w-96 font-mono select-none transition-all duration-500 origin-top ease-out">
         <div
-          className={`rounded-[3px] border shadow-2xl p-3 text-xs flex flex-col sidebar-spring-transition relative scroll-curl-lip ${
-            isSidebarOpen ? 'max-h-[calc(100vh-2rem)]' : 'max-h-[82px] overflow-hidden'
+          className={`rounded-[3px] border shadow-2xl p-3 text-micro flex flex-col sidebar-spring-transition relative scroll-curl-lip ${
+            isSidebarOpen ? 'max-h-[calc(100vh-2.5rem)]' : 'max-h-[82px] overflow-hidden'
           } ${
             theme === 1
               ? 'paper-cream border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#d8cfbc]/40'
@@ -405,15 +502,14 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
             fontFamily: 'var(--theme-font-telemetry)',
           }}
         >
-          {/* Subtle Inner Drafting Neatline Rule */}
-          <div className="pointer-events-none absolute inset-1 rounded-[2px] border border-[var(--theme-neatline-border)] opacity-30" />
-
           {/* --------------------------------------------------------------------- */}
           {/* Row 1: Engine Controls & System Status Bar                            */}
           {/* --------------------------------------------------------------------- */}
           <div className="flex items-center justify-between pb-2 border-b border-[var(--theme-panel-header-border)] gap-1.5">
             {/* Left Controls: Telemetry Status & Engine Config */}
             <div className="flex items-center gap-1.5 min-w-0">
+              {/* Archival Drafting Hairline Divider */}
+              <div className="hidden h-3 w-px bg-[var(--theme-neatline-border)]/40 shrink-0" />
               {/* Live FPS Badge (Fixed width, cohesive gap, no layout shift) */}
               <div className="flex items-center justify-center gap-1.5 w-16 shrink-0 px-1.5 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-primary)] font-bold text-nano tabular-nums transition-colors">
                 <span
@@ -421,17 +517,17 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     fps >= 100
                       ? 'bg-[var(--theme-text-accent)] shadow-[0_0_8px_rgba(197,160,89,0.8)]'
                       : fps >= 55
-                      ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
-                      : 'bg-amber-400'
+                      ? 'bg-[var(--theme-status-sage)] shadow-[0_0_8px_var(--theme-status-sage)]'
+                      : 'bg-[var(--theme-status-amber)]'
                   }`}
                 ></span>
                 <span
                   className={`w-5 text-right tabular-nums ${
                     fps >= 100
-                      ? 'text-[var(--theme-text-accent)] font-extrabold'
+                      ? 'text-[var(--theme-text-accent)] font-semibold'
                       : fps >= 55
-                      ? 'text-emerald-500 font-extrabold'
-                      : 'text-amber-500 font-extrabold'
+                      ? 'text-[var(--theme-status-sage)] font-semibold'
+                      : 'text-[var(--theme-status-amber)] font-semibold'
                   }`}
                 >
                   {fps}
@@ -450,7 +546,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     ? 'Active Engine: WebGPU WGSL Compute'
                     : 'Active Engine: WebGL2 Fallback'
                 }
-                className={`px-2 py-1 rounded-[2px] text-micro font-bold border transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`cursor-pointer px-2 py-1 rounded-[2px] text-micro font-bold border transition-all flex items-center gap-1.5 shrink-0 ${
                   backend === 'webgpu'
                     ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
                     : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-control-hover-border)]'
@@ -458,7 +554,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               >
                 <span
                   className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    backend === 'webgpu' ? 'bg-[var(--theme-text-accent)] animate-pulse' : 'bg-emerald-400'
+                    backend === 'webgpu' ? 'bg-[var(--theme-text-accent)] animate-pulse' : 'bg-[var(--theme-status-sage)]'
                   }`}
                 ></span>
                 <span>{backend === 'webgpu' ? 'WebGPU' : 'WebGL2'}</span>
@@ -470,7 +566,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 <button
                   onClick={() => onResolutionChange('100k')}
                   title="100,000 Fibonacci Nodes (High Performance)"
-                  className={`px-1.5 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
+                  className={`cursor-pointer px-1.5 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
                     resolution === '100k'
                       ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm'
                       : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)] hover:bg-[var(--theme-control-hover-bg)]'
@@ -481,7 +577,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 <button
                   onClick={() => onResolutionChange('1M')}
                   title="1,000,000 Volumetric Grid Nodes (Standard Resolution)"
-                  className={`px-1.5 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
+                  className={`cursor-pointer px-1.5 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
                     resolution === '1M'
                       ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm'
                       : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)] hover:bg-[var(--theme-control-hover-bg)]'
@@ -493,9 +589,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   <button
                     onClick={() => onResolutionChange(resolution)}
                     title={`${resolution.toUpperCase()} Volumetric Nodes (Active)`}
-                    className={`px-1.5 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
+                    className={`cursor-pointer px-1.5 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
                       resolution === '16M'
-                        ? 'bg-amber-500 text-black font-extrabold shadow-sm'
+                        ? 'bg-[var(--theme-status-amber)] text-black font-semibold shadow-sm'
                         : 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm'
                     }`}
                   >
@@ -516,14 +612,14 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       ? 'Web Audio Synthesizer: Muted (Click to Unmute)'
                       : 'Web Audio Synthesizer: Active (Click to Mute)'
                   }
-                  className={`p-1.5 rounded-[2px] border transition-all flex items-center shrink-0 ${
+                  className={`cursor-pointer p-1.5 rounded-[2px] border transition-all flex items-center shrink-0 ${
                     !isAudioMuted
-                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40 shadow-sm'
+                      ? 'border-[var(--theme-status-sage)] bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)] ring-1 ring-[var(--theme-status-sage)]/40 shadow-sm'
                       : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
                   }`}
                 >
                   {!isAudioMuted ? (
-                    <svg className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3.5 h-3.5 text-[var(--theme-status-sage)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.314M11 5L6 9H2v6h4l5 4V5z" />
                     </svg>
                   ) : (
@@ -538,15 +634,15 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               {/* Archival Physical Medium Cycle (Tharp / Cream / Cyanotype) */}
               <button
                 onClick={onThemeToggle}
-                aria-label={theme === 1 ? 'Switch to Dark Theme' : 'Switch to Light Theme'}
+                aria-label={theme === 0 ? 'Switch to Cream Rag Theme' : theme === 1 ? 'Switch to Prussian Cyanotype Theme' : 'Switch to Marie Tharp Theme'}
                 title={
-                  theme === 1
-                    ? 'Switch to Dark Cyber Palette (Press T)'
-                    : theme === 2
-                    ? 'Switch to Light Monochrome Palette (Press T)'
-                    : 'Switch to Light Monochrome Palette (Press T)'
+                  theme === 0
+                    ? 'Switch to Cream Rag Paper Palette (Press T)'
+                    : theme === 1
+                    ? 'Switch to Prussian Cyanotype Palette (Press T)'
+                    : 'Switch to Marie Tharp Palette (Press T)'
                 }
-                className="px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-control-hover-border)] text-nano font-mono tracking-tight transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
+                className="cursor-pointer px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-control-hover-border)] text-nano font-mono tracking-tight transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
               >
                 <span
                   className="w-2 h-2 rounded-full shrink-0 bg-[var(--theme-pulse-indicator)] shadow-[0_0_6px_var(--theme-pulse-indicator)]"
@@ -566,17 +662,42 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               <span
                 className={`w-2.5 h-2.5 rounded-full ${
                   mode === 4
-                    ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]'
+                    ? 'bg-[var(--theme-status-sage)] shadow-[0_0_10px_var(--theme-status-sage)]'
                     : mode === 3
                     ? 'bg-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.8)]'
                     : mode === 2
                     ? 'bg-[var(--theme-pulse-indicator)] shadow-[0_0_10px_var(--theme-pulse-indicator)]'
                     : mode === 1
-                    ? 'bg-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.8)]'
-                    : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]'
+                    ? 'bg-[var(--theme-status-sage)] shadow-[0_0_8px_var(--theme-status-sage)]'
+                    : 'bg-[var(--theme-status-amber)] shadow-[0_0_8px_var(--theme-status-amber)]'
                 } animate-pulse`}
               ></span>
-              <span className="cartouche-title text-title font-black tracking-wider uppercase text-[var(--theme-text-primary)]">
+              {/* Medium-Adaptive Archival Cartouche Vignette Emblem */}
+              <span className="shrink-0 text-[var(--theme-text-accent)] opacity-85" title="Archival Cartouche Vignette Emblem">
+                {theme === 1 ? (
+                  // Imhof Swiss Alpine Relief Ridge Emblem
+                  <svg className="w-5 h-4" viewBox="0 0 24 16" fill="currentColor">
+                    <path d="M0 16 L6 7 L9 11 L14 3 L19 10 L21 8 L24 16 Z" opacity="0.9" />
+                    <line x1="14" y1="3" x2="14" y2="16" stroke="currentColor" strokeWidth="0.75" opacity="0.4" />
+                    <line x1="6" y1="7" x2="6" y2="16" stroke="currentColor" strokeWidth="0.75" opacity="0.4" />
+                  </svg>
+                ) : theme === 2 ? (
+                  // Prussian Cyanotype Architectural Drafting Protractor Emblem
+                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                    <circle cx="10" cy="10" r="8" strokeWidth="1" strokeDasharray="1.5 1.5" />
+                    <line x1="10" y1="2" x2="10" y2="18" strokeWidth="0.75" />
+                    <line x1="2" y1="10" x2="18" y2="10" strokeWidth="0.75" />
+                    <circle cx="10" cy="10" r="2" fill="currentColor" />
+                  </svg>
+                ) : (
+                  // Marie Tharp Physiographic Sonar Ridge Emblem
+                  <svg className="w-5 h-4" viewBox="0 0 24 16" fill="none" stroke="currentColor">
+                    <path d="M1 12 Q 6 4, 10 7 L 12 11 L 14 6 Q 18 3, 23 12" strokeWidth="1.2" />
+                    <line x1="12" y1="2" x2="12" y2="15" strokeWidth="0.75" strokeDasharray="1 2" opacity="0.5" />
+                  </svg>
+                )}
+              </span>
+              <span className="cartouche-title text-title font-semibold tracking-wider uppercase text-[var(--theme-text-primary)]">
                 INDICATRIX // CONTROLS
               </span>
             </div>
@@ -585,13 +706,19 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               <button
                 onClick={onZenToggle}
                 title="Zen Presentation Mode (Press H to hide UI)"
-                className="text-nano font-bold px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] transition-all"
+                className="cursor-pointer text-nano font-bold px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-card-border-hover)] transition-all"
               >
                 Zen (H)
               </button>
               <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="tactile-btn text-nano font-bold px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] transition-all"
+                onClick={() => {
+                  const nextState = !isSidebarOpen;
+                  setIsSidebarOpen(nextState);
+                  if (!nextState) {
+                    setIsCatalogOpen(false);
+                  }
+                }}
+                className="cursor-pointer tactile-btn text-nano font-bold px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-card-border-hover)] transition-all"
                 title={isSidebarOpen ? 'Roll up drafting panel' : 'Unfurl drafting panel'}
               >
                 {isSidebarOpen ? 'Roll Up' : 'Unfurl'}
@@ -626,7 +753,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   <button
                     key={tab.id}
                     onClick={() => setActivePlate(tab.id)}
-                    className={`px-1.5 py-1 rounded-[2px] font-bold transition-all border shrink-0 ${
+                    className={`px-1.5 py-1 rounded-[2px] font-bold transition-all border shrink-0 cursor-pointer ${
                       isActive
                         ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
                         : 'border-transparent text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
@@ -639,15 +766,31 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
             </div>
 
             {/* Main Body (Expandable) */}
-            <div className="mt-2.5 space-y-3 overflow-y-auto pr-1 flex-1 min-h-0">
+            <div className="mt-2.5 space-y-3 overflow-y-auto pr-1 flex-1 min-h-0 scroll-fade-mask pt-1 pb-3">
               {/* ================================================================= */}
               {/* PLATE 1: SURVEY & ARCHIVAL PHYSICAL MEDIUM                        */}
               {/* ================================================================= */}
               {(activePlate === 'all' || activePlate === 'survey') && (
                 <div className="space-y-2.5">
                   {/* Archival Physical Medium & Mineral Swatch Ramp */}
-                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2.5 transition-all shadow-sm">
-                    <div className="flex items-center justify-between text-micro font-extrabold uppercase tracking-wider">
+                  <div
+                    className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2.5 transition-all shadow-sm relative overflow-hidden"
+                    style={theme === 0 ? { boxShadow: 'var(--theme-cathode-glow, none)' } : undefined}
+                  >
+                    {/* Medium Physical Structural Anatomy */}
+                    {theme === 1 && (
+                      <div className="pointer-events-none absolute inset-[3px] rounded-[2px] border border-[#8C4820]/30" />
+                    )}
+                    {theme === 2 && (
+                      <>
+                        <span className="pointer-events-none absolute top-0.5 left-1 text-nano font-mono text-[#4fa3e3] opacity-60">+</span>
+                        <span className="pointer-events-none absolute top-0.5 right-1 text-nano font-mono text-[#4fa3e3] opacity-60">+</span>
+                        <span className="pointer-events-none absolute bottom-0.5 left-1 text-nano font-mono text-[#4fa3e3] opacity-60">+</span>
+                        <span className="pointer-events-none absolute bottom-0.5 right-1 text-nano font-mono text-[#4fa3e3] opacity-60">+</span>
+                      </>
+                    )}
+
+                    <div className="flex items-center justify-between text-micro font-semibold uppercase tracking-wider relative z-10">
                       <span className="flex items-center gap-1.5">
                         <span
                           className="w-2 h-2 rounded-full animate-pulse"
@@ -665,58 +808,58 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-3 gap-1.5 relative z-10">
                       <button
                         onClick={() => handleSelectMedium(0)}
                         title="Marie Tharp Physiographic: Oceanic abyss, turquoise shelf, parchment continents"
-                        className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
+                        className={`tactile-btn group cursor-pointer py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
                           theme === 0
-                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] ring-1 ring-[var(--theme-control-active-ring)] font-black shadow-md'
-                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] ring-1 ring-[var(--theme-control-active-ring)] font-semibold shadow-md'
+                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-card-border-hover)]'
                         }`}
                       >
                         <OpticalReticlePip active={theme === 0} theme={theme} />
                         <div className="flex flex-col items-center">
-                          <span className="text-body font-black tracking-tight">Tharp</span>
-                          <span className="text-nano uppercase font-bold tracking-tight opacity-75">Physiographic</span>
+                          <span className="text-body font-medium tracking-tight">Tharp</span>
+                          <span className="text-nano uppercase font-medium tracking-tight opacity-75">Physiographic</span>
                         </div>
                       </button>
 
                       <button
                         onClick={() => handleSelectMedium(1)}
                         title="Cream Rag Paper: Eduard Imhof Swiss Alpine watercolor relief on 100% cotton rag"
-                        className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
+                        className={`tactile-btn group cursor-pointer py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
                           theme === 1
-                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] ring-1 ring-[var(--theme-control-active-ring)] font-black shadow-md'
-                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] ring-1 ring-[var(--theme-control-active-ring)] font-semibold shadow-md'
+                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-card-border-hover)]'
                         }`}
                       >
                         <OpticalReticlePip active={theme === 1} theme={theme} />
                         <div className="flex flex-col items-center">
-                          <span className="text-body font-black tracking-tight">Cream Rag</span>
-                          <span className="text-nano uppercase font-bold tracking-tight opacity-75">Swiss Relief</span>
+                          <span className="text-body font-medium tracking-tight">Cream Rag</span>
+                          <span className="text-nano uppercase font-medium tracking-tight opacity-75">Swiss Relief</span>
                         </div>
                       </button>
 
                       <button
                         onClick={() => handleSelectMedium(2)}
                         title="Prussian Cyanotype: Ferroprussiate blueprint & technical drafting linen"
-                        className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
+                        className={`tactile-btn group cursor-pointer py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
                           theme === 2
-                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] ring-1 ring-[var(--theme-control-active-ring)] font-black shadow-md'
-                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] ring-1 ring-[var(--theme-control-active-ring)] font-semibold shadow-md'
+                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-card-border-hover)]'
                         }`}
                       >
                         <OpticalReticlePip active={theme === 2} theme={theme} />
                         <div className="flex flex-col items-center">
-                          <span className="text-body font-black tracking-tight">Prussian</span>
-                          <span className="text-nano uppercase font-bold tracking-tight opacity-75">Cyanotype</span>
+                          <span className="text-body font-medium tracking-tight">Prussian</span>
+                          <span className="text-nano uppercase font-medium tracking-tight opacity-75">Cyanotype</span>
                         </div>
                       </button>
                     </div>
 
                     {/* Tactile Watercolor Half-Pan Pigment Strip */}
-                    <div className="pt-1 border-t border-[var(--theme-card-border)] space-y-1">
+                    <div className="pt-1 border-t border-[var(--theme-card-border)] space-y-1 relative z-10">
                       <div className="flex items-center justify-between text-nano uppercase tracking-wider opacity-75 font-mono">
                         <span className="text-[var(--theme-text-accent)]">
                           Hypsometric Pigment Pans
@@ -727,31 +870,39 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       </div>
 
                       <div className="grid grid-cols-5 gap-1">
-                        {PIGMENT_SWATCHES[theme].map((swatch, idx) => (
-                          <div
-                            key={idx}
-                            className="p-1 rounded-[2px] border border-[var(--theme-card-border)] bg-[var(--theme-control-bg)] text-center flex flex-col items-center gap-1 transition-all shadow-sm"
-                            title={`${swatch.name} (${swatch.hex}) · ${swatch.depth}`}
-                          >
+                        {PIGMENT_SWATCHES[theme].map((swatch, idx) => {
+                          const isIsolated = isolatedStratum === idx;
+                          return (
                             <div
-                              className="w-full h-3.5 rounded-[1px] border border-black/20 shadow-inner"
-                              style={{ backgroundColor: swatch.hex }}
-                            />
-                            <div className="text-nano font-serif-title truncate w-full tracking-tight opacity-90 leading-tight text-[var(--theme-text-primary)]">
-                              {swatch.name}
+                              key={idx}
+                              onClick={() => setIsolatedStratum((prev) => (prev === idx ? null : idx))}
+                              className={`pigment-pan p-1 rounded-[2px] border text-center flex flex-col items-center gap-1 transition-all shadow-sm cursor-pointer select-none ${
+                                isIsolated
+                                  ? 'ring-2 ring-[var(--theme-text-accent)] border-[var(--theme-control-active-border)] bg-[var(--theme-control-active-bg)]'
+                                  : 'border-[var(--theme-card-border)] bg-[var(--theme-control-bg)] hover:border-[var(--theme-card-border-hover)]'
+                              }`}
+                              title={`${swatch.name} (${swatch.hex}) · ${swatch.depth} (Click to isolate elevation stratum)`}
+                            >
+                              <div
+                                className="w-full h-3.5 rounded-[1px] border border-black/20 shadow-inner shrink-0"
+                                style={{ backgroundColor: swatch.hex }}
+                              />
+                              <div className="text-nano font-serif-title line-clamp-2 h-5 flex items-center justify-center w-full tracking-tight opacity-95 leading-[1.1] text-[var(--theme-text-primary)] break-words text-center">
+                                {swatch.name}
+                              </div>
+                              <div className="text-nano font-mono opacity-60 uppercase tracking-tighter text-[var(--theme-text-secondary)] shrink-0">
+                                {swatch.depth}
+                              </div>
                             </div>
-                            <div className="text-nano font-mono opacity-60 uppercase tracking-tighter text-[var(--theme-text-secondary)]">
-                              {swatch.depth}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
 
                   {/* Cartographic Rendering Direction Switcher (A / B / C) */}
                   <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
-                    <div className="flex items-center justify-between text-micro font-extrabold uppercase tracking-wider">
+                    <div className="flex items-center justify-between text-micro font-semibold uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-text-accent)]" />
                         <span className="text-[var(--theme-text-primary)]">Cartographic Style</span>
@@ -772,16 +923,16 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           onSelectRenderStyle?.('architectural');
                         }}
                         title="Direction A: Architectural Topographic Relief (Monochrome Eduard Imhof hillshading & dual-tier isocontours)"
-                        className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
+                        className={`tactile-btn group cursor-pointer py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
                           activeDirection === 'architectural'
-                            ? 'bg-[var(--theme-direction-a-bg)] text-[var(--theme-direction-a-text)] border-[var(--theme-direction-a-border)] ring-1 ring-[var(--theme-direction-a-ring)] font-black shadow-md'
+                            ? 'bg-[var(--theme-direction-a-bg)] text-[var(--theme-direction-a-text)] border-[var(--theme-direction-a-border)] ring-1 ring-[var(--theme-direction-a-ring)] font-semibold shadow-md'
                             : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-direction-a-border)]'
                         }`}
                       >
                         <OpticalReticlePip active={activeDirection === 'architectural'} theme={theme} />
                         <div className="flex flex-col items-center">
-                          <span className="text-body font-black tracking-tight">A: Relief</span>
-                          <span className="text-nano uppercase font-bold tracking-tight opacity-75">Architectural</span>
+                          <span className="text-body font-medium tracking-tight">A: Relief</span>
+                          <span className="text-nano uppercase font-medium tracking-tight opacity-75">Architectural</span>
                         </div>
                       </button>
 
@@ -791,16 +942,16 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           onSelectRenderStyle?.('hybrid');
                         }}
                         title="Direction B: Hydrosphere & Bathymetric Depth (Two-Surface Model: smooth sea level + Beer-Lambert depth)"
-                        className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
+                        className={`tactile-btn group cursor-pointer py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
                           activeDirection === 'hybrid'
-                            ? 'bg-[var(--theme-direction-b-bg)] text-[var(--theme-direction-b-text)] border-[var(--theme-direction-b-border)] ring-1 ring-[var(--theme-direction-b-ring)] font-black shadow-md'
+                            ? 'bg-[var(--theme-direction-b-bg)] text-[var(--theme-direction-b-text)] border-[var(--theme-direction-b-border)] ring-1 ring-[var(--theme-direction-b-ring)] font-semibold shadow-md'
                             : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-direction-b-border)]'
                         }`}
                       >
                         <OpticalReticlePip active={activeDirection === 'hybrid'} theme={theme} />
                         <div className="flex flex-col items-center">
-                          <span className="text-body font-black tracking-tight">B: Depth</span>
-                          <span className="text-nano uppercase font-bold tracking-tight opacity-75">Hydrosphere</span>
+                          <span className="text-body font-medium tracking-tight">B: Depth</span>
+                          <span className="text-nano uppercase font-medium tracking-tight opacity-75">Hydrosphere</span>
                         </div>
                       </button>
 
@@ -810,16 +961,16 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           onSelectRenderStyle?.('photoreal');
                         }}
                         title="Direction C: NASA Blue Marble (True-color orbital photography + 3D DEM relief)"
-                        className={`tactile-btn py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
+                        className={`tactile-btn group cursor-pointer py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all outline-none focus:outline-none focus-visible:outline-none ${
                           activeDirection === 'photoreal'
-                            ? 'bg-[var(--theme-direction-c-bg)] text-[var(--theme-direction-c-text)] border-[var(--theme-direction-c-border)] ring-1 ring-[var(--theme-direction-c-ring)] font-black shadow-md'
+                            ? 'bg-[var(--theme-direction-c-bg)] text-[var(--theme-direction-c-text)] border-[var(--theme-direction-c-border)] ring-1 ring-[var(--theme-direction-c-ring)] font-semibold shadow-md'
                             : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-direction-c-border)]'
                         }`}
                       >
                         <OpticalReticlePip active={activeDirection === 'photoreal'} theme={theme} />
                         <div className="flex flex-col items-center">
-                          <span className="text-body font-black tracking-tight">C: Orbital</span>
-                          <span className="text-nano uppercase font-bold tracking-tight opacity-75">Photoreal</span>
+                          <span className="text-body font-medium tracking-tight">C: Orbital</span>
+                          <span className="text-nano uppercase font-medium tracking-tight opacity-75">Photoreal</span>
                         </div>
                       </button>
                     </div>
@@ -827,25 +978,15 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
                   {/* Volumetric Node Scaling Card (100K - 16M Tiers) */}
                   <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
-                    <div className="flex items-center justify-between text-micro font-extrabold uppercase tracking-wider">
+                    <div className="flex items-center justify-between text-micro font-semibold uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-[var(--theme-pulse-indicator)]"></span>
                         <span className="text-[var(--theme-text-primary)]">
                           Volumetric Scale
                         </span>
                       </span>
-                      <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-accent)]">
-                        {resolution === '100k'
-                          ? '262K Verts · ~12MB'
-                          : resolution === '1M'
-                          ? '1.05M Verts · ~118MB'
-                          : resolution === '3M'
-                          ? '2.98M Verts · ~340MB'
-                          : resolution === '4M'
-                          ? '4.19M Verts · ~475MB'
-                          : resolution === '8M'
-                          ? '8.38M Verts · ~950MB'
-                          : '16.7M Verts · ~1.5GB'}
+                      <span className="text-nano font-mono font-medium px-1.5 py-0.5 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-accent)]">
+                        {resolutionVramLabel}
                       </span>
                     </div>
 
@@ -857,12 +998,14 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           className={`py-1.5 px-0.5 rounded-[2px] text-center flex flex-col items-center justify-center border transition-all ${
                             resolution === tier
                               ? tier === '16M'
-                                ? 'bg-amber-500 text-black border-amber-400 font-extrabold shadow-sm'
-                                : 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-extrabold shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
+                                ? theme === 1
+                                  ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] font-semibold shadow-sm'
+                                  : 'bg-amber-500 text-black border-amber-400 font-semibold shadow-sm'
+                                : 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-semibold shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
                               : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
                           }`}
                         >
-                          <span className="text-nano font-black">{tier.toUpperCase()}</span>
+                          <span className="text-nano font-semibold">{tier.toUpperCase()}</span>
                         </button>
                       ))}
                     </div>
@@ -875,7 +1018,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               {/* ================================================================= */}
               {(activePlate === 'all' || activePlate === 'scene') && (
                 <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
-                  <div className="flex items-center justify-between text-micro font-extrabold uppercase tracking-wider">
+                  <div className="flex items-center justify-between text-micro font-semibold uppercase tracking-wider">
                     <span className="flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-[var(--theme-pulse-indicator)] shadow-sm animate-pulse"></span>
                       <span className="text-[var(--theme-text-primary)]">Scene Controls</span>
@@ -962,7 +1105,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <button
                           onClick={() => onModeChange(((mode + 4) % 5) as SimulationMode)}
                           title="Previous Simulation Paradigm (or press 1-5)"
-                          className="tactile-btn px-2.5 py-1 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-micro font-bold"
+                          className="tactile-btn cursor-pointer px-2.5 py-1 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-micro font-bold"
                         >
                           ◀
                         </button>
@@ -972,14 +1115,18 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             <span
                               className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                                 mode === 0
-                                  ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]'
+                                  ? theme === 1
+                                    ? 'bg-[#7D4700]'
+                                    : 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]'
                                   : mode === 1
-                                  ? 'bg-slate-300 shadow-[0_0_6px_rgba(203,213,225,0.8)]'
+                                  ? 'bg-[var(--theme-status-sage)] shadow-[0_0_6px_var(--theme-status-sage)]'
                                   : mode === 2
                                   ? 'bg-[var(--theme-pulse-indicator)] shadow-[0_0_6px_var(--theme-pulse-indicator)]'
                                   : mode === 3
-                                  ? 'bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,0.8)]'
-                                  : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]'
+                                  ? theme === 1
+                                    ? 'bg-[#1A4457]'
+                                    : 'bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,0.8)]'
+                                  : 'bg-[var(--theme-status-sage)] shadow-[0_0_6px_var(--theme-status-sage)]'
                               }`}
                             />
                             <span className="text-[var(--theme-text-accent)]">
@@ -1002,7 +1149,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <button
                           onClick={() => onModeChange(((mode + 1) % 5) as SimulationMode)}
                           title="Next Simulation Paradigm (or press 1-5)"
-                          className="tactile-btn px-2.5 py-1 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-micro font-bold"
+                          className="tactile-btn cursor-pointer px-2.5 py-1 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-micro font-bold"
                         >
                           ▶
                         </button>
@@ -1023,7 +1170,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               key={m.id}
                               onClick={() => onModeChange(m.id as SimulationMode)}
                               title={m.title}
-                              className={`tactile-btn py-1 rounded-[2px] text-nano font-mono uppercase tracking-tight text-center border transition-all ${
+                              className={`tactile-btn cursor-pointer py-1 rounded-[2px] text-nano font-mono uppercase tracking-tight text-center border transition-all ${
                                 isSel
                                   ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-bold shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
                                   : 'border-transparent text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
@@ -1052,7 +1199,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     />
 
                     {/* Cursor Physics Knurled Slide Switch */}
-                    <div className="w-full pt-1">
+                    <div className="flex-1 min-w-0 pt-1">
                       <KnurledSlideSwitch
                         checked={cursorPhysicsEnabled}
                         onChange={() => onCursorPhysicsToggle(!cursorPhysicsEnabled)}
@@ -1114,7 +1261,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         onClick={() => onOverlayChange('off')}
                         className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border ${
                           activeOverlay === 'off'
-                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-extrabold'
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold'
                             : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] bg-[var(--theme-control-bg)]'
                         }`}
                       >
@@ -1122,12 +1269,14 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       </button>
                       <button
                         onClick={() => onOverlayChange('antipodes')}
-                        title="Antipodal Geodesic Connectors (Red/Rose)"
+                        title="Antipodal Geodesic Connectors (Terra Cotta / Rose)"
                         className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border ${
                           activeOverlay === 'antipodes'
-                            ? isLight
-                              ? 'bg-rose-600 text-white border-rose-700 shadow-md font-extrabold ring-1 ring-rose-400'
-                              : 'bg-rose-500/35 text-rose-200 border-rose-400/80 shadow-[0_0_10px_rgba(244,63,94,0.4)] ring-1 ring-rose-400/60 font-extrabold'
+                            ? theme === 1
+                              ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414] shadow-sm font-semibold ring-1 ring-[#8C4820]/40'
+                              : 'bg-rose-500/35 text-rose-200 border-rose-400/80 shadow-[0_0_10px_rgba(244,63,94,0.4)] ring-1 ring-rose-400/60 font-semibold'
+                            : theme === 1
+                            ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#8C4820] hover:border-[#8C4820]/40 bg-[var(--theme-control-bg)]'
                             : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-rose-500 hover:border-rose-400/50 bg-[var(--theme-control-bg)]'
                         }`}
                       >
@@ -1135,12 +1284,14 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       </button>
                       <button
                         onClick={() => onOverlayChange('conveyor')}
-                        title="Global Oceanic Conveyor Belt Thermohaline Circulation (Sky Blue)"
+                        title="Global Oceanic Conveyor Belt Thermohaline Circulation (Prussian Slate / Sky Blue)"
                         className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border ${
                           activeOverlay === 'conveyor'
-                            ? isLight
-                              ? 'bg-sky-600 text-white border-sky-700 shadow-md font-extrabold ring-1 ring-sky-400'
-                              : 'bg-sky-500/35 text-sky-200 border-sky-400/80 shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/60 font-extrabold'
+                            ? theme === 1
+                              ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A] shadow-sm font-semibold ring-1 ring-[#1A4457]/40'
+                              : 'bg-sky-500/35 text-sky-200 border-sky-400/80 shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/60 font-semibold'
+                            : theme === 1
+                            ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#1A4457] hover:border-[#1A4457]/40 bg-[var(--theme-control-bg)]'
                             : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-sky-500 hover:border-sky-400/50 bg-[var(--theme-control-bg)]'
                         }`}
                       >
@@ -1148,12 +1299,14 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       </button>
                       <button
                         onClick={() => onOverlayChange('migration')}
-                        title="Global Bird & Cetacean Migration Geodesic Arcs (Amber)"
+                        title="Global Bird & Cetacean Migration Geodesic Arcs (Raw Ochre / Amber)"
                         className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border ${
                           activeOverlay === 'migration'
-                            ? isLight
-                              ? 'bg-amber-600 text-white border-amber-700 shadow-md font-extrabold ring-1 ring-amber-400'
-                              : 'bg-amber-500/35 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.4)] ring-1 ring-amber-400/60 font-extrabold'
+                            ? theme === 1
+                              ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] shadow-sm font-semibold ring-1 ring-[#7D4700]/40'
+                              : 'bg-amber-500/35 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.4)] ring-1 ring-amber-400/60 font-semibold'
+                            : theme === 1
+                            ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#7D4700] hover:border-[#7D4700]/40 bg-[var(--theme-control-bg)]'
                             : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-amber-500 hover:border-amber-400/50 bg-[var(--theme-control-bg)]'
                         }`}
                       >
@@ -1170,17 +1323,15 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       title="Toggle Major World Geographical Landmarks"
                       className={`py-1.5 px-1 rounded-[2px] text-micro font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
                         showLandmarks
-                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-extrabold'
+                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold'
                           : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                       }`}
                     >
                       <span
                         className={`w-2 h-2 rounded-full ${
                           showLandmarks
-                            ? isLight
-                              ? 'bg-emerald-500 animate-pulse'
-                              : 'bg-emerald-400 animate-pulse'
-                            : 'bg-zinc-500'
+                            ? 'bg-[var(--theme-status-sage)] animate-pulse shadow-[0_0_6px_var(--theme-status-sage)]'
+                            : theme === 1 ? 'bg-[#b8ad98]' : 'bg-zinc-500/60'
                         }`}
                       ></span>
                       <span>Landmarks</span>
@@ -1192,13 +1343,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       title="Toggle Tissot Indicatrix Ellipses (Deformation Tensors)"
                       className={`py-1.5 px-1 rounded-[2px] text-micro font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
                         showTissot
-                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)] font-extrabold'
+                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)] font-semibold'
                           : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                       }`}
                     >
                       <span
                         className={`w-2 h-2 rounded-full ${
-                          showTissot ? 'bg-[var(--theme-pulse-indicator)] shadow-[0_0_6px_var(--theme-pulse-indicator)]' : 'bg-zinc-500'
+                          showTissot ? 'bg-[var(--theme-pulse-indicator)] shadow-[0_0_6px_var(--theme-pulse-indicator)]' : theme === 1 ? 'bg-[#b8ad98]' : 'bg-zinc-500/60'
                         }`}
                       ></span>
                       <span>Tissot</span>
@@ -1210,15 +1361,19 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       title="Toggle Vector Coastlines & Rivers (Press V)"
                       className={`py-1.5 px-1 rounded-[2px] text-micro font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
                         showVectors
-                          ? isLight
-                            ? 'bg-amber-600 text-white border-amber-700 shadow-md font-extrabold ring-1 ring-amber-400'
-                            : 'bg-amber-500/35 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.4)] ring-1 ring-amber-400/60 font-extrabold'
+                          ? theme === 1
+                            ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414] shadow-sm font-semibold ring-1 ring-[#8C4820]/40'
+                            : 'bg-amber-500/35 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.4)] ring-1 ring-amber-400/60 font-semibold'
                           : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                       }`}
                     >
                       <span
                         className={`w-2 h-2 rounded-full ${
-                          showVectors ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)] animate-pulse' : 'bg-zinc-500'
+                          showVectors
+                            ? theme === 1
+                              ? 'bg-[#FDFCF9]'
+                              : 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)] animate-pulse'
+                            : theme === 1 ? 'bg-[#b8ad98]' : 'bg-zinc-500/60'
                         }`}
                       ></span>
                       <span>Vectors (V)</span>
@@ -1226,7 +1381,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   </div>
 
                   {/* Archival High-Touch Details (Dedicated Spaces & Overlays) */}
-                  <div className="space-y-1 pt-1.5 border-t border-white/5">
+                  <div className="space-y-1 pt-1.5 border-t border-white/10">
                     <div className="flex items-center justify-between text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
                       <span>Archival Detail Overlays</span>
                       <span className="text-nano font-mono opacity-80">Cartographic Taxonomy</span>
@@ -1296,20 +1451,24 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   {/* Tissot Distortion Metrics (when Tissot is active) */}
                   {showTissot && (
                     <div className="p-2.5 rounded-[2px] border text-micro space-y-1.5 tabular-nums bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
-                      <div className="flex justify-between items-center text-nano uppercase tracking-wider font-bold">
+                      <div className="flex justify-between items-center text-nano uppercase tracking-wider font-semibold">
                         <span>Distortion Tensor</span>
-                        <span className="text-emerald-500 dark:text-emerald-400 font-extrabold">
+                        <span className="text-[var(--theme-status-sage)] font-bold">
                           {mode === 4 ? 'Isomeric (s ≈ 1.04x)' : 'Morphing Tensor'}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-nano">
+                      <div className="grid grid-cols-3 gap-1.5 text-nano">
                         <div>
-                          <span className="text-[var(--theme-text-muted)] block">Equatorial Area:</span>
-                          <span className="font-bold">1.000x</span>
+                          <span className="text-[var(--theme-text-muted)] block truncate">Eq. Area:</span>
+                          <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.eqArea}x</span>
                         </div>
                         <div>
-                          <span className="text-[var(--theme-text-muted)] block">Polar Dilation:</span>
-                          <span className="font-bold">{mode === 4 ? '1.041x' : '1.000x'}</span>
+                          <span className="text-[var(--theme-text-muted)] block truncate">Local ({latStr.trim()}):</span>
+                          <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.localArea}x</span>
+                        </div>
+                        <div>
+                          <span className="text-[var(--theme-text-muted)] block truncate">Polar Dilation:</span>
+                          <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.polarStr}</span>
                         </div>
                       </div>
                     </div>
@@ -1322,8 +1481,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               {/* ========================================================================= */}
               {(activePlate === 'all' || activePlate === 'planetary') && (
                 <div className="space-y-2.5">
-                  <div className="flex items-center gap-1.5 pb-1 border-b border-black/10 dark:border-white/10">
-                    <span className="text-body font-mono tracking-widest font-black uppercase text-zinc-500">
+                  <div className="flex items-center gap-1.5 pb-1 border-b border-[var(--theme-card-border)]">
+                    <span className="text-body font-mono tracking-widest font-semibold uppercase text-[var(--theme-text-muted)]">
                       PLATE IV • PLANETARY INSTRUMENTATION
                     </span>
                   </div>
@@ -1336,20 +1495,20 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => onLayerModeChange?.(2)}
-                        className={`px-2 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
+                        className={`px-2 py-0.5 rounded-[2px] text-nano font-bold transition-all cursor-pointer ${
                           layerMode === 2
-                            ? 'bg-emerald-500 text-black font-extrabold shadow-sm'
-                            : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)]'
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] font-semibold shadow-sm border border-[var(--theme-control-active-border)]'
+                            : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-control-hover-bg)]'
                         }`}
                       >
                         Clean Terrain
                       </button>
                       <button
                         onClick={() => onLayerModeChange?.(0)}
-                        className={`px-2 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
+                        className={`px-2 py-0.5 rounded-[2px] text-nano font-bold transition-all cursor-pointer ${
                           layerMode === 0
-                            ? 'bg-sky-500 text-black font-extrabold shadow-sm'
-                            : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)]'
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] font-semibold shadow-sm border border-[var(--theme-control-active-border)]'
+                            : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-control-hover-bg)]'
                         }`}
                       >
                         + Node Cloud
@@ -1361,94 +1520,136 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   <div className="p-2 rounded-[3px] border space-y-1.5 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)]">
                     <div className="flex items-center justify-between text-nano font-bold uppercase tracking-wider text-[var(--theme-text-muted)]">
                       <span>Planetary Instrumentation</span>
-                      <span className="flex items-center gap-1 text-emerald-400 font-mono animate-pulse">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                      <span className="flex items-center gap-1 font-mono text-[var(--theme-status-sage)] animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-status-sage)] animate-ping"></span>
                         Live Synced
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-1.5">
+                    <div className="flex flex-col gap-1.5">
                       {/* NOAA GFS Wind Toggle */}
                       <button
                         onClick={() => handleTogglePlanetaryLayer('noaa-gfs-wind')}
-                        className={`p-1.5 rounded-[2px] border transition-all text-left flex flex-col justify-between gap-1 ${
+                        className={`min-h-[38px] p-1.5 px-2 rounded-[2px] border transition-all text-left flex items-center justify-between gap-2 cursor-pointer ${
                           isNoaaActive
-                            ? 'border-sky-500/60 bg-sky-500/20 text-sky-200 shadow-[0_0_8px_rgba(56,189,248,0.25)] ring-1 ring-sky-400/40'
-                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)]'
+                            ? theme === 1
+                              ? 'border-[#2b6b88]/60 bg-[#2b6b88]/15 text-[#1a4457] shadow-sm ring-1 ring-[#2b6b88]/40'
+                              : theme === 2
+                              ? 'border-[#4a729e]/80 bg-[#254263]/40 text-[#e8edf2] shadow-sm ring-1 ring-[#4a729e]/50'
+                              : 'border-sky-500/60 bg-sky-500/20 text-sky-200 shadow-[0_0_8px_rgba(56,189,248,0.25)] ring-1 ring-sky-400/40'
+                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                         }`}
                       >
-                        <div className="flex items-center justify-between w-full">
+                        <div className="flex flex-col min-w-0">
                           <span className="font-bold text-nano truncate">NOAA Wind</span>
-                          <span className="flex items-center gap-1 text-nano font-bold px-1 py-0.5 rounded-[2px] bg-sky-500/20 text-sky-300 border border-sky-500/40">
-                            Physics Model
-                          </span>
+                          <span className="text-nano text-[var(--theme-text-muted)] truncate opacity-75">0.25° Operational</span>
                         </div>
-                        <span className="text-nano text-[var(--theme-text-muted)] truncate">0.25° Operational</span>
+                        <span className={`flex items-center gap-1 text-nano font-bold px-1.5 py-0.5 rounded-[2px] border shrink-0 ${
+                          theme === 1
+                            ? 'bg-[#2b6b88]/20 text-[#1a4457] border-[#2b6b88]/40'
+                            : theme === 2
+                            ? 'bg-[#3b5d82]/40 text-[#d8e6f3] border-[#4a729e]/50'
+                            : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                        }`}>
+                          Physics Model
+                        </span>
                       </button>
 
                       {/* Starlink Orbits Toggle */}
                       <button
                         onClick={() => handleTogglePlanetaryLayer('starlink-iss-orbits')}
-                        className={`p-1.5 rounded-[2px] border transition-all text-left flex flex-col justify-between gap-1 ${
+                        className={`min-h-[38px] p-1.5 px-2 rounded-[2px] border transition-all text-left flex items-center justify-between gap-2 cursor-pointer ${
                           isStarlinkActive
                             ? theme === 1
-                              ? 'border-[#8c4820]/60 bg-[#8c4820]/15 text-[#2b241a] shadow-sm'
+                              ? 'border-[#8c4820]/60 bg-[#8c4820]/15 text-[#2b241a] shadow-sm ring-1 ring-[#8c4820]/40'
                               : theme === 2
-                              ? 'border-[#4a729e]/80 bg-[#254263]/40 text-[#e8edf2] shadow-sm'
+                              ? 'border-[#4a729e]/80 bg-[#254263]/40 text-[#e8edf2] shadow-sm ring-1 ring-[#4a729e]/50'
                               : 'border-purple-500/60 bg-purple-500/20 text-purple-200 shadow-[0_0_8px_rgba(168,85,247,0.25)] ring-1 ring-purple-400/40'
-                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)]'
+                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                         }`}
                       >
-                        <div className="flex items-center justify-between w-full">
-                          <span className="font-bold text-nano truncate">Starlink Orbits</span>
-                          <span className="flex items-center gap-1 text-nano font-bold px-1 py-0.5 rounded-[2px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">
-                            <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
-                            Live
-                          </span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-semibold text-nano truncate">Starlink Orbits</span>
+                          <span className="text-nano text-[var(--theme-text-muted)] truncate opacity-75">CelesTrak (110 Sats as of 2026)</span>
                         </div>
-                        <span className="text-nano text-[var(--theme-text-muted)] truncate">CelesTrak (110 Sats)</span>
+                        <span className={`flex items-center gap-1 text-nano font-bold px-1.5 py-0.5 rounded-[2px] border shrink-0 ${
+                          theme === 1
+                            ? 'bg-[#2e6b47]/20 text-[#1b432b] border-[#2e6b47]/40'
+                            : theme === 2
+                            ? 'bg-[#2a5540]/40 text-[#a3e5be] border-[#387256]/50'
+                            : 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 animate-pulse'
+                        }`}>
+                          <span className={`w-1 h-1 rounded-full animate-ping ${
+                            theme === 1
+                              ? 'bg-[#1b432b]'
+                              : theme === 2
+                              ? 'bg-[#a3e5be]'
+                              : 'bg-[var(--theme-status-sage)]'
+                          }`}></span>
+                          Live
+                        </span>
                       </button>
 
                       {/* 250 hPa Jet Stream Toggle */}
                       <button
                         onClick={() => handleTogglePlanetaryLayer('noaa-gfs-jetstream')}
-                        className={`p-1.5 rounded-[2px] border transition-all text-left flex flex-col justify-between gap-1 ${
+                        className={`min-h-[38px] p-1.5 px-2 rounded-[2px] border transition-all text-left flex items-center justify-between gap-2 cursor-pointer ${
                           isJetstreamActive
-                            ? 'border-indigo-500/60 bg-indigo-500/20 text-indigo-200 shadow-[0_0_8px_rgba(99,102,241,0.25)] ring-1 ring-indigo-400/40'
-                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)]'
+                            ? theme === 1
+                              ? 'border-[#5a4878]/60 bg-[#5a4878]/15 text-[#3d2e54] shadow-sm ring-1 ring-[#5a4878]/40'
+                              : theme === 2
+                              ? 'border-[#5a6e8c]/80 bg-[#273a50]/40 text-[#dbe5f0] shadow-sm ring-1 ring-[#5a6e8c]/50'
+                              : 'border-indigo-500/60 bg-indigo-500/20 text-indigo-200 shadow-[0_0_8px_rgba(99,102,241,0.25)] ring-1 ring-indigo-400/40'
+                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                         }`}
                       >
-                        <div className="flex items-center justify-between w-full">
+                        <div className="flex flex-col min-w-0">
                           <span className="font-bold text-nano truncate">Jet Stream</span>
-                          <span className="flex items-center gap-1 text-nano font-bold px-1 py-0.5 rounded-[2px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
-                            250 hPa
-                          </span>
+                          <span className="text-nano text-[var(--theme-text-muted)] truncate opacity-75">High-Alt Core</span>
                         </div>
-                        <span className="text-nano text-[var(--theme-text-muted)] truncate">High-Alt Core</span>
+                        <span className={`flex items-center gap-1 text-nano font-bold px-1.5 py-0.5 rounded-[2px] border shrink-0 ${
+                          theme === 1
+                            ? 'bg-[#5a4878]/20 text-[#3d2e54] border-[#5a4878]/40'
+                            : theme === 2
+                            ? 'bg-[#3e4f66]/40 text-[#ccd8e6] border-[#5a6e8c]/50'
+                            : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                        }`}>
+                          250 hPa
+                        </span>
                       </button>
 
                       {/* Origami Crane Companion Toggle */}
                       <button
                         onClick={() => handleTogglePlanetaryLayer('origami-crane-companion')}
-                        className={`p-1.5 rounded-[2px] border transition-all text-left flex flex-col justify-between gap-1 ${
+                        className={`min-h-[38px] p-1.5 px-2 rounded-[2px] border transition-all text-left flex items-center justify-between gap-2 cursor-pointer ${
                           isCraneActive
-                            ? 'border-amber-500/60 bg-amber-500/20 text-amber-200 shadow-[0_0_8px_rgba(245,158,11,0.25)] ring-1 ring-amber-400/40'
-                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)]'
+                            ? theme === 1
+                              ? 'border-[#96641e]/60 bg-[#96641e]/15 text-[#52350c] shadow-sm ring-1 ring-[#96641e]/40'
+                              : theme === 2
+                              ? 'border-[#8c7a52]/80 bg-[#3a3528]/40 text-[#f0e8d0] shadow-sm ring-1 ring-[#8c7a52]/50'
+                              : 'border-amber-500/60 bg-amber-500/20 text-amber-200 shadow-[0_0_8px_rgba(245,158,11,0.25)] ring-1 ring-amber-400/40'
+                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                         }`}
                       >
-                        <div className="flex items-center justify-between w-full">
+                        <div className="flex flex-col min-w-0">
                           <span className="font-bold text-nano truncate">Origami Crane</span>
-                          <span className="flex items-center gap-1 text-nano font-bold px-1 py-0.5 rounded-[2px] bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                            {isCraneActive && craneTelemetry
-                              ? `${craneTelemetry.variometer >= 0 ? '+' : ''}${craneTelemetry.variometer} m/s`
-                              : 'Soaring'}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between w-full text-nano text-[var(--theme-text-muted)]">
-                          <span className="truncate">
+                          <span className="text-nano text-[var(--theme-text-muted)] truncate opacity-75">
                             {isCraneActive && craneTelemetry
                               ? `${craneTelemetry.alt.toLocaleString()}m • ${craneTelemetry.speed} km/h`
                               : 'Mountain Wave'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className={`flex items-center gap-1 text-nano font-bold px-1.5 py-0.5 rounded-[2px] border ${
+                            theme === 1
+                              ? 'bg-[#96641e]/20 text-[#52350c] border-[#96641e]/40'
+                              : theme === 2
+                              ? 'bg-[#5c4e30]/40 text-[#f5ebd2] border-[#8c7a52]/50'
+                              : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                          }`}>
+                            {isCraneActive && craneTelemetry
+                              ? `${craneTelemetry.variometer >= 0 ? '+' : ''}${craneTelemetry.variometer} m/s`
+                              : 'Soaring'}
                           </span>
                           {isCraneActive && (
                             <span
@@ -1456,7 +1657,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                 e.stopPropagation();
                                 (window as any).__FOCUS_CRANE__?.();
                               }}
-                              className="text-nano px-1 py-0.2 rounded-[2px] bg-amber-400/20 hover:bg-amber-400/40 text-amber-200 border border-amber-400/40 font-bold tracking-wider"
+                              className={`text-nano px-1.5 py-0.5 rounded-[2px] border font-bold tracking-wider cursor-pointer ${
+                                theme === 1
+                                  ? 'bg-[#96641e]/25 hover:bg-[#96641e]/40 text-[#422a08] border-[#96641e]/50'
+                                  : theme === 2
+                                  ? 'bg-[#5c4e30]/50 hover:bg-[#5c4e30]/70 text-[#fff5db] border-[#8c7a52]/60'
+                                  : 'bg-amber-400/20 hover:bg-amber-400/40 text-amber-200 border-amber-400/40'
+                              }`}
                               title="Focus Camera on Crane"
                             >
                               FOCUS
@@ -1474,8 +1681,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               {/* ========================================================================= */}
               {(activePlate === 'all' || activePlate === 'layers') && (
                 <div className="space-y-2.5">
-                  <div className="flex items-center gap-1.5 pb-1 border-b border-black/10 dark:border-white/10">
-                    <span className="text-body font-mono tracking-widest font-black uppercase text-zinc-500">
+                  <div className="flex items-center gap-1.5 pb-1 border-b border-[var(--theme-card-border)]">
+                    <span className="text-body font-mono tracking-widest font-semibold uppercase text-[var(--theme-text-muted)]">
                       PLATE V • CARTOGRAPHIC DATASETS & LAYERS
                     </span>
                   </div>
@@ -1488,9 +1695,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
                     <button
                       onClick={() => setIsCatalogOpen(!isCatalogOpen)}
-                      className={`text-nano font-extrabold px-2.5 py-1 rounded-[2px] border transition-all flex items-center gap-1.5 ${
+                      className={`text-nano font-semibold px-2.5 py-1 rounded-[2px] border transition-all flex items-center gap-1.5 cursor-pointer ${
                         isCatalogOpen
-                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-md font-extrabold'
+                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-md font-semibold'
                           : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                       }`}
                     >
@@ -1502,7 +1709,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   </div>
 
                   {/* Active Layers Stack */}
-                  <div className="space-y-2 max-h-80 overflow-y-auto pr-0.5">
+                  <div className="space-y-2">
                     {dataLayers && dataLayers.length > 0 ? (
                       dataLayers.map((layer, idx) => {
                         const preset = getPresetById(layer.id);
@@ -1510,55 +1717,92 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         const isFirst = idx === 0;
                         const isLast = idx === dataLayers.length - 1;
 
+                        const isExpanded = expandedLayerId === layer.id;
+
                         return (
                           <div
                             key={layer.id}
-                            className={`p-2.5 rounded-[2px] border flex flex-col gap-2 text-micro transition-all ${
+                            className={`rounded-[2px] border flex flex-col text-micro transition-all folio-strip ${
                               layer.visible
                                 ? 'bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] shadow-sm'
                                 : 'bg-[var(--theme-card-bg)]/50 border-[var(--theme-card-border)]/60 text-[var(--theme-text-muted)] opacity-60'
                             }`}
                           >
-                            {/* Layer Item Header */}
-                            <div className="flex items-center justify-between gap-1.5">
-                              <div className="flex flex-col gap-1 flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 font-bold">
-                                  <span
-                                    className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                                      layer.visible
-                                        ? 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)] animate-pulse'
-                                        : 'bg-zinc-500'
-                                    }`}
-                                  ></span>
-                                  <span className="leading-tight break-words text-nano font-bold" title={layer.name}>
-                                    {layer.name}
+                            {/* Folio Strip Header (~34px tall) */}
+                            <div className="min-h-[34px] px-2 py-1.5 flex items-center justify-between gap-1.5 select-none">
+                              {/* Left: Fold Chevron & Layer Details */}
+                              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedLayerId(isExpanded ? null : layer.id)}
+                                  className="cursor-pointer p-0.5 text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] transition-transform rounded-[1px]"
+                                  title={isExpanded ? 'Collapse parameters' : 'Expand parameters'}
+                                  aria-expanded={isExpanded}
+                                >
+                                  <svg
+                                    className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                                  </svg>
+                                </button>
+
+                                <span
+                                  className={`w-2 h-2 rounded-full shrink-0 ${
+                                    layer.visible
+                                      ? theme === 1
+                                        ? 'bg-[#2b6b88] shadow-[0_0_6px_rgba(43,107,136,0.6)]'
+                                        : theme === 2
+                                        ? 'bg-[#5b9dd9] shadow-[0_0_6px_rgba(91,157,217,0.6)]'
+                                        : 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)] animate-pulse'
+                                      : theme === 1 ? 'bg-[#b8ad98]/60' : 'bg-[var(--theme-text-muted)]'
+                                  }`}
+                                />
+
+                                <span
+                                  className="leading-tight break-words text-nano font-bold truncate cursor-pointer hover:text-[var(--theme-text-accent)]"
+                                  title={layer.name}
+                                  onClick={() => setExpandedLayerId(isExpanded ? null : layer.id)}
+                                >
+                                  {layer.name}
+                                </span>
+
+                                {layer.id === 'starlink-iss-orbits' && (
+                                  <span className={`hidden sm:inline-flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-[2px] border shrink-0 ${
+                                    theme === 1
+                                      ? 'bg-[#2e6b47]/20 text-[#1b432b] border-[#2e6b47]/40 shadow-sm'
+                                      : theme === 2
+                                      ? 'bg-[#2a5540]/40 text-[#a3e5be] border-[#387256]/50 shadow-sm'
+                                      : 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 shadow-[0_0_8px_var(--theme-status-sage)] animate-pulse'
+                                  }`}>
+                                    <span className={`w-1 h-1 rounded-full animate-ping ${
+                                      theme === 1 ? 'bg-[#1b432b]' : theme === 2 ? 'bg-[#a3e5be]' : 'bg-[var(--theme-status-sage)]'
+                                    }`} />
+                                    Live
                                   </span>
-                                </div>
-                                <div className="flex items-center gap-1.5 ml-4">
-                                  {layer.id === 'starlink-iss-orbits' && (
-                                    <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse shrink-0">
-                                      <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
-                                      Live Synced
-                                    </span>
-                                  )}
-                                  {layer.id === 'noaa-gfs-wind' && (
-                                    <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)] shrink-0">
-                                      Physics Model
-                                    </span>
-                                  )}
-                                  {layer.renderStyle && (
-                                    <span className="text-nano uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-sky-500/15 text-sky-500 dark:text-sky-300 border-sky-500/30">
-                                      {layer.renderStyle}
-                                    </span>
-                                  )}
-                                  <span className="text-nano font-mono opacity-60">
-                                    Z:{dataLayers.length - idx}
+                                )}
+
+                                {layer.id === 'noaa-gfs-wind' && (
+                                  <span className={`hidden sm:inline-flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-[2px] border shrink-0 ${
+                                    theme === 1
+                                      ? 'bg-[#2b6b88]/20 text-[#1a4457] border-[#2b6b88]/40 shadow-sm'
+                                      : theme === 2
+                                      ? 'bg-[#3b5d82]/40 text-[#d8e6f3] border-[#4a729e]/50 shadow-sm'
+                                      : 'bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)]'
+                                  }`}>
+                                    Physics
                                   </span>
-                                </div>
+                                )}
+
+                                <span className="text-nano font-mono opacity-50 shrink-0">
+                                  Z:{dataLayers.length - idx}
+                                </span>
                               </div>
 
-                              {/* Layer Action Icons */}
-                              <div className="flex items-center gap-1 flex-shrink-0">
+                              {/* Right: Layer Action Icons */}
+                              <div className="flex items-center gap-1 shrink-0">
                                 {/* Move Up */}
                                 <button
                                   disabled={isFirst}
@@ -1567,7 +1811,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   className={`p-1 rounded-[2px] border transition-all ${
                                     isFirst
                                       ? 'opacity-25 cursor-not-allowed border-transparent text-[var(--theme-text-muted)]'
-                                      : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                                      : 'cursor-pointer border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                                   }`}
                                 >
                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1583,7 +1827,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   className={`p-1 rounded-[2px] border transition-all ${
                                     isLast
                                       ? 'opacity-25 cursor-not-allowed border-transparent text-[var(--theme-text-muted)]'
-                                      : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                                      : 'cursor-pointer border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                                   }`}
                                 >
                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1595,14 +1839,18 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                 <button
                                   onClick={() => onToggleDataLayer?.(layer.id)}
                                   title={layer.visible ? 'Hide layer' : 'Show layer'}
-                                  className={`p-1 rounded-[2px] border transition-all ${
+                                  className={`p-1 rounded-[2px] border transition-all cursor-pointer ${
                                     layer.visible
-                                      ? 'border-sky-400/80 bg-sky-500/20 text-sky-400 shadow-sm ring-1 ring-sky-400/40'
-                                      : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-secondary)] hover:border-[var(--theme-card-border-hover)]'
+                                      ? theme === 1
+                                        ? 'border-[#2b6b88]/60 bg-[#2b6b88]/15 text-[#1a4457] shadow-sm hover:border-[var(--theme-card-border-hover)]'
+                                        : theme === 2
+                                        ? 'border-[#4a729e]/80 bg-[#254263]/40 text-[#e8edf2] shadow-sm hover:border-[var(--theme-card-border-hover)]'
+                                        : 'border-sky-400/80 bg-sky-500/20 text-sky-400 shadow-sm ring-1 ring-sky-400/40 hover:border-[var(--theme-card-border-hover)]'
+                                      : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-secondary)] hover:border-[var(--theme-card-border-hover)]'
                                   }`}
                                 >
                                   {layer.visible ? (
-                                    <svg className="w-3.5 h-3.5 text-sky-500 dark:text-sky-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className={`w-3.5 h-3.5 ${theme === 1 ? 'text-[#1a4457]' : theme === 2 ? 'text-[#d8e6f3]' : 'text-sky-500 dark:text-sky-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                     </svg>
@@ -1617,7 +1865,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                 <button
                                   onClick={() => onRemoveDataLayer?.(layer.id)}
                                   title="Remove layer"
-                                  className="p-1 rounded-[2px] border border-rose-500/30 text-rose-500 hover:bg-rose-500/20 transition-all"
+                                  className={`p-1 rounded-[2px] border transition-all cursor-pointer hover:border-[var(--theme-card-border-hover)] ${
+                                    theme === 1
+                                      ? 'border-[#9c2f2f]/40 text-[#9c2f2f] hover:bg-[#9c2f2f]/15'
+                                      : theme === 2
+                                      ? 'border-[#d05c5c]/40 text-[#f08080] hover:bg-[#d05c5c]/20'
+                                      : 'border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
+                                  }`}
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1626,278 +1880,297 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               </div>
                             </div>
 
-                            {/* Opacity & Blend Controls */}
-                            <div className="grid grid-cols-2 gap-2 text-nano">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[var(--theme-text-muted)] font-bold">Opacity:</span>
-                                <input
-                                  id={`sidebar-opacity-${layer.id}`}
-                                  name={`opacity-${layer.id}`}
-                                  type="range"
-                                  min="0"
-                                  max="1"
-                                  step="0.05"
-                                  value={layer.opacity ?? 0.85}
-                                  onChange={(e) => onOpacityChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
-                                  className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
-                                />
-                                <span className="w-7 text-right font-bold tabular-nums">
-                                  {Math.round((layer.opacity ?? 0.85) * 100)}%
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-1">
-                                <span className="text-[var(--theme-text-muted)] font-bold">Blend:</span>
-                                <select
-                                  id={`sidebar-blend-${layer.id}`}
-                                  name={`blend-${layer.id}`}
-                                  value={layer.blendMode ?? preset?.defaultBlendMode ?? 0}
-                                  onChange={(e) =>
-                                    onBlendModeChangeDataLayer?.(layer.id, parseInt(e.target.value) as BlendModeType)
-                                  }
-                                  className="w-full py-0.5 px-1 rounded-[2px] text-nano font-bold border bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-text-primary)]"
-                                >
-                                  <option value={0}>Normal</option>
-                                  <option value={1}>Additive</option>
-                                  <option value={2}>Multiply</option>
-                                  <option value={3}>Screen</option>
-                                </select>
-                              </div>
-                            </div>
-
-                            {/* Terrain 3D Relief & Sun Azimuth (for Topo / Satellite / Ocean) */}
-                            {(layer.category === 'topo' ||
-                              layer.category === 'satellite' ||
-                              layer.category === 'ocean' ||
-                              !!layer.renderStyle ||
-                              layer.elevationEncoding) && (
-                              <div className="space-y-1.5 pt-1.5 border-t border-white/5 text-micro">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-emerald-500 dark:text-emerald-400 font-bold text-nano uppercase tracking-wider">
-                                    3D Relief:
-                                  </span>
-                                  <input
-                                    id={`sidebar-relief-${layer.id}`}
-                                    name={`displacementScale-${layer.id}`}
-                                    type="range"
-                                    min="0"
-                                    max="0.50"
-                                    step="0.01"
-                                    value={layer.displacementScale ?? preset?.defaultDisplacementScale ?? 0.08}
-                                    onChange={(e) =>
-                                      onDisplacementScaleChangeDataLayer?.(layer.id, parseFloat(e.target.value))
-                                    }
-                                    className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
-                                  />
-                                  <span className="w-8 text-right font-bold text-emerald-500 dark:text-emerald-300 tabular-nums">
-                                    {(layer.displacementScale ?? preset?.defaultDisplacementScale ?? 0.08).toFixed(2)}
-                                  </span>
-                                </div>
-
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-amber-500 dark:text-amber-400 font-bold text-nano uppercase tracking-wider">
-                                    Sun Azimuth:
-                                  </span>
-                                  <input
-                                    id={`sidebar-azimuth-${layer.id}`}
-                                    name={`sunAzimuth-${layer.id}`}
-                                    type="range"
-                                    min="0"
-                                    max="360"
-                                    step="5"
-                                    value={layer.sunAzimuth ?? 315}
-                                    onChange={(e) =>
-                                      onHillshadeChangeDataLayer?.(
-                                        layer.id,
-                                        parseFloat(e.target.value),
-                                        layer.hillshadeIntensity ?? 0.65
-                                      )
-                                    }
-                                    className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
-                                  />
-                                  <span className="w-8 text-right font-bold text-amber-500 dark:text-amber-300 tabular-nums">
-                                    {Math.round(layer.sunAzimuth ?? 315)}°
-                                  </span>
-                                </div>
-
-                                {/* Direction A: Valley Crevice Ambient Occlusion & Antialiased Contours */}
-                                {(layer.renderStyle === 'architectural' || layer.id === 'architectural-topo-relief') && (
-                                  <div className="pt-1.5 border-t border-white/5 space-y-1">
+                            {/* Collapsible Folio Accordion Body */}
+                            <div
+                              className={`transition-all duration-150 ease-out overflow-hidden ${
+                                isExpanded
+                                  ? 'max-h-[600px] opacity-100 mt-1 border-t border-[var(--theme-panel-header-border)] p-2.5 pt-0 space-y-2 pointer-events-auto'
+                                  : 'max-h-0 opacity-0 border-t-0 p-0 m-0 pointer-events-none'
+                              }`}
+                              style={{ transitionTimingFunction: 'var(--theme-spring-switch, cubic-bezier(0.34, 1.35, 0.64, 1))' }}
+                            >
+                                  {/* Opacity & Blend Controls */}
+                                  <div className="grid grid-cols-2 gap-2 text-nano pt-1.5 items-center">
                                     <div className="flex items-center gap-1.5">
-                                      <span className="text-zinc-500 dark:text-zinc-400 font-bold text-nano uppercase tracking-wider">
-                                        Crevice AO:
-                                      </span>
+                                      <span className="text-[var(--theme-text-muted)] font-semibold">Opacity:</span>
                                       <input
-                                        id={`sidebar-layer-ao-${layer.id}`}
-                                        name={`layerAo-${layer.id}`}
+                                        id={`sidebar-opacity-${layer.id}`}
+                                        name={`opacity-${layer.id}`}
                                         type="range"
                                         min="0"
                                         max="1"
                                         step="0.05"
-                                        value={layer.ambientOcclusion ?? 0.65}
+                                        value={layer.opacity ?? 0.85}
+                                        onChange={(e) => onOpacityChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
+                                        className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
+                                      />
+                                      <span className="w-7 text-right font-semibold tabular-nums">
+                                        {Math.round((layer.opacity ?? 0.85) * 100)}%
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between gap-1">
+                                      <span className="text-[var(--theme-text-muted)] font-semibold text-nano">Blend:</span>
+                                      <SegmentedControl<BlendModeType>
+                                        size="sm"
+                                        value={layer.blendMode ?? preset?.defaultBlendMode ?? 0}
+                                        onChange={(val) => onBlendModeChangeDataLayer?.(layer.id, val)}
+                                        options={[
+                                          { id: 0, label: 'Norm', title: 'Normal Blend' },
+                                          { id: 1, label: 'Add', title: 'Additive Blend' },
+                                          { id: 2, label: 'Mult', title: 'Multiply Blend' },
+                                          { id: 3, label: 'Scrn', title: 'Screen Blend' },
+                                        ]}
+                                      />
+                                    </div>
+                                  </div>
+
+                                {/* Terrain 3D Relief & Sun Azimuth (for Topo / Satellite / Ocean) */}
+                                {(layer.category === 'topo' ||
+                                  layer.category === 'satellite' ||
+                                  layer.category === 'ocean' ||
+                                  !!layer.renderStyle ||
+                                  layer.elevationEncoding) && (
+                                  <div className="space-y-1.5 pt-1.5 border-t border-white/10 text-micro">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">
+                                        3D Relief:
+                                      </span>
+                                      <input
+                                        id={`sidebar-relief-${layer.id}`}
+                                        name={`displacementScale-${layer.id}`}
+                                        type="range"
+                                        min="0"
+                                        max="0.50"
+                                        step="0.01"
+                                        value={layer.displacementScale ?? preset?.defaultDisplacementScale ?? 0.08}
                                         onChange={(e) =>
-                                          onAmbientOcclusionChangeDataLayer?.(layer.id, parseFloat(e.target.value))
+                                          onDisplacementScaleChangeDataLayer?.(layer.id, parseFloat(e.target.value))
                                         }
                                         className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
                                       />
-                                      <span className="w-8 text-right font-bold text-zinc-500 dark:text-zinc-300 tabular-nums">
-                                        {Math.round((layer.ambientOcclusion ?? 0.65) * 100)}%
+                                      <span className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums">
+                                        {(layer.displacementScale ?? preset?.defaultDisplacementScale ?? 0.08).toFixed(2)}
                                       </span>
                                     </div>
-                                    <div className="flex items-center justify-between text-nano text-emerald-500 dark:text-emerald-400 font-mono">
-                                      <span>Contour Filter:</span>
-                                      <span className="font-bold">fwidth() Anti-Aliased</span>
-                                    </div>
-                                  </div>
-                                )}
 
-                                {/* Direction B: Hydrosphere Depth, Sea Level, Clarity & Peak Exaggeration */}
-                                {(layer.renderStyle === 'hybrid' || layer.id === 'hybrid-crust-hydrosphere') && (
-                                  <div className="pt-1.5 border-t border-white/5 space-y-1.5">
                                     <div className="flex items-center gap-1.5">
-                                      <span className="text-cyan-500 dark:text-cyan-400 font-bold text-nano uppercase tracking-wider">
-                                        Sea Level:
+                                      <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">
+                                        Sun Azimuth:
                                       </span>
                                       <input
-                                        id={`sidebar-layer-sealevel-${layer.id}`}
-                                        name={`layerSeaLevel-${layer.id}`}
+                                        id={`sidebar-azimuth-${layer.id}`}
+                                        name={`sunAzimuth-${layer.id}`}
                                         type="range"
-                                        min="-150"
-                                        max="100"
+                                        min="0"
+                                        max="360"
                                         step="5"
-                                        value={layer.seaLevelOffset ?? 0}
+                                        value={layer.sunAzimuth ?? 315}
                                         onChange={(e) =>
-                                          onSeaLevelOffsetChangeDataLayer?.(layer.id, parseFloat(e.target.value))
+                                          onHillshadeChangeDataLayer?.(
+                                            layer.id,
+                                            parseFloat(e.target.value),
+                                            layer.hillshadeIntensity ?? 0.65
+                                          )
                                         }
                                         className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
                                       />
-                                      <span className="w-8 text-right font-bold text-cyan-500 dark:text-cyan-300 tabular-nums">
-                                        {(layer.seaLevelOffset ?? 0) > 0 ? `+${layer.seaLevelOffset}m` : `${layer.seaLevelOffset ?? 0}m`}
+                                      <span className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums">
+                                        {Math.round(layer.sunAzimuth ?? 315)}°
                                       </span>
                                     </div>
 
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-sky-500 dark:text-sky-400 font-bold text-nano uppercase tracking-wider">
-                                        Clarity:
-                                      </span>
-                                      <input
-                                        id={`sidebar-layer-clarity-${layer.id}`}
-                                        name={`layerClarity-${layer.id}`}
-                                        type="range"
-                                        min="0.10"
-                                        max="1.00"
-                                        step="0.05"
-                                        value={layer.waterClarity ?? 0.75}
-                                        onChange={(e) =>
-                                          onWaterClarityChangeDataLayer?.(layer.id, parseFloat(e.target.value))
-                                        }
-                                        className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
-                                      />
-                                      <span className="w-8 text-right font-bold text-sky-500 dark:text-sky-300 tabular-nums">
-                                        {Math.round((layer.waterClarity ?? 0.75) * 100)}%
-                                      </span>
-                                    </div>
+                                    {/* Direction A: Valley Crevice Ambient Occlusion & Antialiased Contours */}
+                                    {(layer.renderStyle === 'architectural' || layer.id === 'architectural-topo-relief') && (
+                                      <div className="pt-1.5 border-t border-white/10 space-y-1">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">
+                                            Crevice AO:
+                                          </span>
+                                          <input
+                                            id={`sidebar-layer-ao-${layer.id}`}
+                                            name={`layerAo-${layer.id}`}
+                                            type="range"
+                                            min="0"
+                                            max="1"
+                                            step="0.05"
+                                            value={layer.ambientOcclusion ?? 0.65}
+                                            onChange={(e) =>
+                                              onAmbientOcclusionChangeDataLayer?.(layer.id, parseFloat(e.target.value))
+                                            }
+                                            className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
+                                          />
+                                          <span className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums">
+                                            {Math.round((layer.ambientOcclusion ?? 0.65) * 100)}%
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-nano font-mono text-[var(--theme-text-muted)]">
+                                          <span>Contour Filter:</span>
+                                          <span className="font-bold text-[var(--theme-text-primary)]">fwidth() Anti-Aliased</span>
+                                        </div>
+                                      </div>
+                                    )}
 
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-amber-500 dark:text-amber-400 font-bold text-nano uppercase tracking-wider">
-                                        Peak Sharp:
-                                      </span>
-                                      <input
-                                        id={`sidebar-layer-peaksharp-${layer.id}`}
-                                        name={`layerPeakSharp-${layer.id}`}
-                                        type="range"
-                                        min="1.0"
-                                        max="2.0"
-                                        step="0.1"
-                                        value={layer.peakExponent ?? 1.4}
-                                        onChange={(e) =>
-                                          onPeakExponentChangeDataLayer?.(layer.id, parseFloat(e.target.value))
-                                        }
-                                        className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
-                                      />
-                                      <span className="w-8 text-right font-bold text-amber-500 dark:text-amber-300 tabular-nums">
-                                        {(layer.peakExponent ?? 1.4).toFixed(1)}x
-                                      </span>
-                                    </div>
+                                    {/* Direction B: Hydrosphere Depth, Sea Level, Clarity & Peak Exaggeration */}
+                                    {(layer.renderStyle === 'hybrid' || layer.id === 'hybrid-crust-hydrosphere') && (
+                                      <div className="pt-1.5 border-t border-white/10 space-y-1.5">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">
+                                            Sea Level:
+                                          </span>
+                                          <input
+                                            id={`sidebar-layer-sealevel-${layer.id}`}
+                                            name={`layerSeaLevel-${layer.id}`}
+                                            type="range"
+                                            min="-150"
+                                            max="100"
+                                            step="5"
+                                            value={layer.seaLevelOffset ?? 0}
+                                            onChange={(e) =>
+                                              onSeaLevelOffsetChangeDataLayer?.(layer.id, parseFloat(e.target.value))
+                                            }
+                                            className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
+                                          />
+                                          <span className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums">
+                                            {(layer.seaLevelOffset ?? 0) > 0 ? `+${layer.seaLevelOffset}m` : `${layer.seaLevelOffset ?? 0}m`}
+                                          </span>
+                                        </div>
+
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">
+                                            Clarity:
+                                          </span>
+                                          <input
+                                            id={`sidebar-layer-clarity-${layer.id}`}
+                                            name={`layerClarity-${layer.id}`}
+                                            type="range"
+                                            min="0.10"
+                                            max="1.00"
+                                            step="0.05"
+                                            value={layer.waterClarity ?? 0.75}
+                                            onChange={(e) =>
+                                              onWaterClarityChangeDataLayer?.(layer.id, parseFloat(e.target.value))
+                                            }
+                                            className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
+                                          />
+                                          <span className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums">
+                                            {Math.round((layer.waterClarity ?? 0.75) * 100)}%
+                                          </span>
+                                        </div>
+
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">
+                                            Peak Sharp:
+                                          </span>
+                                          <input
+                                            id={`sidebar-layer-peaksharp-${layer.id}`}
+                                            name={`layerPeakSharp-${layer.id}`}
+                                            type="range"
+                                            min="1.0"
+                                            max="2.0"
+                                            step="0.1"
+                                            value={layer.peakExponent ?? 1.4}
+                                            onChange={(e) =>
+                                              onPeakExponentChangeDataLayer?.(layer.id, parseFloat(e.target.value))
+                                            }
+                                            className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
+                                          />
+                                          <span className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums">
+                                            {(layer.peakExponent ?? 1.4).toFixed(1)}x
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
-                              </div>
-                            )}
 
-                            {/* Color Legend Bar */}
-                            {legend && (
-                              <div className="space-y-1 pt-1 border-t border-white/5">
-                                <div className="flex items-center justify-between text-nano text-zinc-400 font-bold">
-                                  <span>{legend.minLabel}</span>
-                                  <span className="text-sky-400 uppercase tracking-wider">{legend.unit}</span>
-                                  <span>{legend.maxLabel}</span>
+                                  {/* Color Legend Bar */}
+                                  {legend && (
+                                    <div className="space-y-1 pt-1 border-t border-white/10">
+                                      <div className="flex items-center justify-between text-nano text-[var(--theme-text-muted)] font-bold">
+                                        <span>{legend.minLabel}</span>
+                                        <span className={`uppercase tracking-wider ${theme === 1 ? 'text-[#1a4457] font-semibold' : 'text-[var(--theme-accent-primary)]'}`}>{legend.unit}</span>
+                                        <span>{legend.maxLabel}</span>
+                                      </div>
+                                      <div
+                                        className="h-1.5 rounded-full w-full border border-white/10 shadow-inner"
+                                        style={{
+                                          background: `linear-gradient(to right, ${legend.colorStops.join(', ')})`,
+                                        }}
+                                      />
+                                    </div>
+                                  )}
                                 </div>
-                                <div
-                                  className="h-1.5 rounded-full w-full border border-white/10 shadow-inner"
-                                  style={{
-                                    background: `linear-gradient(to right, ${legend.colorStops.join(', ')})`,
-                                  }}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="p-4 rounded-[2px] border text-micro text-center italic border-[var(--theme-card-border)] text-[var(--theme-text-muted)] bg-[var(--theme-card-bg)]/40">
-                        No active cartographic data layers. Click [+ Catalog] to browse and add datasets.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Telemetry Footer */}
-              <div className="pt-2 border-t border-[var(--theme-card-border)] text-nano grid grid-cols-2 gap-2 tabular-nums text-[var(--theme-text-secondary)]">
-                <div>
-                  <span className="block text-nano uppercase font-bold tracking-wider opacity-60">
-                    Center Coordinate
-                  </span>
-                  <span className="font-bold text-[var(--theme-text-primary)]">
-                    {latStr} {lonStr}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <span className="block text-nano uppercase font-bold tracking-wider opacity-60">
-                    Nominal Scale
-                  </span>
-                  <span className="font-bold text-[var(--theme-text-primary)]">{mapScaleStr}</span>
-                </div>
-                {backend === 'webgpu' && gpuReport && (
-                  <div className="col-span-2 pt-1.5 mt-0.5 border-t border-[var(--theme-card-border)] flex flex-col gap-1 text-nano text-[var(--theme-text-secondary)]">
-                    <div className="flex items-center justify-between font-bold">
-                      <span className="text-sky-400 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"></span>
-                        GPU Profiler
-                      </span>
-                      <span className="text-emerald-400 font-mono">Total: {(gpuReport.totalGpuMs ?? 0).toFixed(2)}ms</span>
-                    </div>
-                    <div className="grid grid-cols-4 gap-1 font-mono opacity-80 text-nano">
-                      <span>Sim: {(gpuReport.computeMs ?? 0).toFixed(2)}ms</span>
-                      <span>Relief: {(gpuReport.reliefMs ?? 0).toFixed(2)}ms</span>
-                      <span>Lines: {(gpuReport.linesMs ?? 0).toFixed(2)}ms</span>
-                      <span>Contours: {(gpuReport.contoursMs ?? 0).toFixed(2)}ms</span>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="p-4 rounded-[2px] border text-micro text-center italic border-[var(--theme-card-border)] text-[var(--theme-text-muted)] bg-[var(--theme-card-bg)]/40">
+                          No active cartographic data layers. Click [+ Catalog] to browse and add datasets.
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
 
-            {/* Parchment Scroll Tension Weight & Curl Lip Bar */}
-            <div
-              className="mt-2 -mx-3 -mb-3 py-1 px-3 rounded-b-[2px] border-t border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] text-[var(--theme-text-secondary)] flex items-center justify-between text-nano font-mono tracking-wider uppercase select-none shrink-0"
-            >
-              <span className="flex items-center gap-1">
-                <span className="w-1 h-1 rounded-full bg-current opacity-60" />
-                <span>Scroll Tensioned • 100% Rag</span>
-              </span>
-              <span className="opacity-50">1:50,000,000</span>
-            </div>
+                {/* Telemetry Footer */}
+                <div className="pt-2 border-t border-[var(--theme-card-border)] text-nano grid grid-cols-2 gap-2 tabular-nums text-[var(--theme-text-secondary)]">
+                  <div>
+                    <span className="block text-nano uppercase font-bold tracking-wider opacity-60">
+                      Center Coordinate
+                    </span>
+                    <span className="font-bold text-[var(--theme-text-primary)]">
+                      {latStr} {lonStr}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="block text-nano uppercase font-bold tracking-wider opacity-60">
+                      Nominal Scale
+                    </span>
+                    <span className="font-bold text-[var(--theme-text-primary)]">{mapScaleStr}</span>
+                  </div>
+                  {backend === 'webgpu' && gpuReport && (
+                    <div className="col-span-2 pt-1.5 mt-0.5 border-t border-[var(--theme-card-border)] flex flex-col gap-1 text-nano text-[var(--theme-text-secondary)]">
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="text-[var(--theme-status-slate)] flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-status-slate)] animate-pulse"></span>
+                          GPU Profiler
+                        </span>
+                        <span className="text-[var(--theme-status-sage)] font-mono">Total: {(gpuReport.totalGpuMs ?? 0).toFixed(2)}ms</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1 font-mono opacity-80 text-nano">
+                        <span>Sim: {(gpuReport.computeMs ?? 0).toFixed(2)}ms</span>
+                        <span>Relief: {(gpuReport.reliefMs ?? 0).toFixed(2)}ms</span>
+                        <span>Lines: {(gpuReport.linesMs ?? 0).toFixed(2)}ms</span>
+                        <span>Contours: {(gpuReport.contoursMs ?? 0).toFixed(2)}ms</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Parchment Scroll Tension Weight & Curl Lip Bar */}
+              <div
+                className="mt-2 py-1 px-2.5 rounded-[2px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] text-[var(--theme-text-secondary)] flex items-center justify-between text-nano font-mono tracking-wider uppercase select-none shrink-0"
+              >
+                <span className="flex items-center gap-1">
+                  <span className="w-1 h-1 rounded-full bg-current opacity-60" />
+                  <span>
+                    {theme === 1
+                      ? 'Scroll Tensioned • 100% Rag'
+                      : theme === 2
+                      ? 'Diazo Plate • Ferroprussiate'
+                      : 'Sounding Mylar • Marie Tharp'}
+                  </span>
+                </span>
+                <span className="opacity-70 font-semibold text-[var(--theme-text-primary)]">
+                  {theme === 1
+                    ? '310 GSM // CALIBRATED'
+                    : theme === 2
+                    ? '80 GSM // CALIBRATED'
+                    : '75 µm // CALIBRATED'}
+                </span>
+              </div>
           </div>
         </div>
       </div>
@@ -1908,14 +2181,22 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       {isCatalogOpen && (
         <div
           ref={catalogSheetRef}
-          className="fixed top-4 right-[25.5rem] z-30 pointer-events-auto w-96 max-w-[calc(100vw-27rem)] max-h-[calc(100vh-2rem)] flex flex-col font-mono select-none rounded-[3px] border backdrop-blur-2xl shadow-2xl p-4 text-micro transition-all duration-300 ease-out animate-in fade-in slide-in-from-right-4 border-[var(--theme-panel-border)] bg-[var(--theme-panel-bg)] text-[var(--theme-text-primary)]"
+          className="fixed top-5 right-5 2xl:right-[26.5rem] z-40 pointer-events-auto w-96 max-w-[calc(100vw-2.5rem)] 2xl:max-w-[calc(100vw-28rem)] max-h-[calc(100vh-2.5rem)] flex flex-col font-mono select-none rounded-[3px] border backdrop-blur-2xl shadow-2xl p-4 text-micro transition-all duration-300 ease-out animate-in fade-in slide-in-from-right-4 border-[var(--theme-panel-border)] bg-[var(--theme-panel-bg)] text-[var(--theme-text-primary)]"
         >
           {/* Catalog Sheet Header */}
           <div className="flex items-center justify-between pb-3 border-b border-[var(--theme-panel-border)]">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)] animate-pulse"></span>
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${
+                  theme === 1
+                    ? 'bg-[#8C4820]'
+                    : theme === 2
+                    ? 'bg-[#4fa3e3] shadow-[0_0_8px_rgba(79,163,227,0.8)]'
+                    : 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)] animate-pulse'
+                }`}
+              />
               <div>
-                <h3 className="text-micro font-black uppercase tracking-wider text-[var(--theme-text-primary)]">Cartographic Data Catalog</h3>
+                <h3 className="text-micro font-semibold uppercase tracking-wider text-[var(--theme-text-primary)]">Cartographic Data Catalog</h3>
                 <span className="text-nano opacity-60 text-[var(--theme-text-muted)]">
                   {DATA_LAYER_CATALOG.length} verified global datasets
                 </span>
@@ -1925,7 +2206,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
             <button
               onClick={() => setIsCatalogOpen(false)}
               title="Close Catalog Sheet (Esc)"
-              className="p-1.5 rounded-[2px] border transition-all border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]"
+              className="p-1.5 rounded-[2px] border transition-all cursor-pointer border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
@@ -1933,9 +2214,57 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
             </button>
           </div>
 
+          {/* Domain Taxonomy Filter Chips */}
+          <div className="flex items-center gap-1.5 pt-2 pb-2 border-b border-[var(--theme-panel-border)]">
+            {(['all', 'topo', 'vectors', 'satellite'] as const).map((cat) => {
+              const isSelected = catalogFilter === cat;
+              const labels = {
+                all: 'ALL',
+                topo: 'TOPO',
+                vectors: 'VECTORS',
+                satellite: 'SATELLITE',
+              };
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setCatalogFilter(cat)}
+                  className={`domain-chip cursor-pointer px-2 py-0.5 rounded-[2px] text-nano font-mono font-bold tracking-wider uppercase border transition-all ${
+                    isSelected
+                      ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
+                      : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-card-border-hover)]'
+                  }`}
+                >
+                  [{labels[cat]}]
+                </button>
+              );
+            })}
+          </div>
+
           {/* Catalog Datasets Scrollable List */}
-          <div className="overflow-y-auto space-y-2.5 pr-1 mt-3 flex-1 max-h-[calc(100vh-8rem)] pb-8">
-            {DATA_LAYER_CATALOG.map((preset) => {
+          <div className="overflow-y-auto space-y-2.5 pr-1 mt-3 flex-1 max-h-[calc(100vh-8rem)] pb-8 scroll-fade-mask pt-1">
+            {DATA_LAYER_CATALOG.filter((preset) => {
+              if (catalogFilter === 'all') return true;
+              if (catalogFilter === 'topo') {
+                return preset.category === 'topo' || preset.category === 'ocean' || preset.category === 'point';
+              }
+              if (catalogFilter === 'vectors') {
+                return (
+                  preset.category === 'vectors' ||
+                  preset.category === 'field' ||
+                  preset.category === 'trajectory' ||
+                  preset.category === 'point'
+                );
+              }
+              if (catalogFilter === 'satellite') {
+                return (
+                  preset.category === 'satellite' ||
+                  preset.category === 'night' ||
+                  preset.category === 'trajectory' ||
+                  preset.id === 'starlink-iss-orbits'
+                );
+              }
+              return true;
+            }).map((preset) => {
               const isAlreadyAdded = dataLayers.some((l) => l.id === preset.id);
 
               return (
@@ -1943,36 +2272,66 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   key={preset.id}
                   className={`p-3 rounded-[2px] border transition-all flex flex-col gap-2 ${
                     isAlreadyAdded
-                      ? 'bg-[var(--theme-control-bg)] border-emerald-500/30'
-                      : 'bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] hover:border-[var(--theme-card-border-hover)] hover:bg-[var(--theme-card-bg)] text-[var(--theme-text-primary)]'
+                      ? 'bg-[var(--theme-control-bg)] border-[var(--theme-control-active-border)]'
+                      : 'bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] hover:border-[var(--theme-card-border-hover)] text-[var(--theme-text-primary)]'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-nano flex items-center gap-1.5">
                       {isAlreadyAdded && (
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"></span>
+                        <span className={`w-2 h-2 rounded-full ${theme === 1 ? 'bg-[#1b432b]' : theme === 2 ? 'bg-[#8ee0b1]' : 'bg-[var(--theme-status-sage)] shadow-[0_0_6px_var(--theme-status-sage)]'}`}></span>
                       )}
                       <span>{preset.name}</span>
                       {preset.id === 'starlink-iss-orbits' && (
-                        <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse shrink-0">
-                          <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span className={`flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-[2px] border shrink-0 ${
+                          theme === 1
+                            ? 'bg-[#2e6b47]/20 text-[#1b432b] border-[#2e6b47]/40 shadow-sm'
+                            : theme === 2
+                            ? 'bg-[#2a5540]/40 text-[#a3e5be] border-[#387256]/50 shadow-sm'
+                            : 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 shadow-[0_0_8px_var(--theme-status-sage)] animate-pulse'
+                        }`}>
+                          <span className={`w-1 h-1 rounded-full animate-ping ${
+                            theme === 1 ? 'bg-[#1b432b]' : theme === 2 ? 'bg-[#a3e5be]' : 'bg-[var(--theme-status-sage)]'
+                          }`}></span>
                           Live Synced
                         </span>
                       )}
                       {preset.id === 'noaa-gfs-wind' && (
-                        <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-[2px] border bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)] shrink-0">
+                        <span className={`flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-[2px] border shrink-0 ${
+                          theme === 1
+                            ? 'bg-[#2b6b88]/20 text-[#1a4457] border-[#2b6b88]/40 shadow-sm'
+                            : theme === 2
+                            ? 'bg-[#3b5d82]/40 text-[#d8e6f3] border-[#4a729e]/50 shadow-sm'
+                            : 'bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)]'
+                        }`}>
                           Physics Model
                         </span>
                       )}
                     </span>
                     <span
                       className={`text-nano uppercase font-bold px-1.5 py-0.5 rounded-[2px] border ${
-                        preset.category === 'topo'
-                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/30'
+                        theme === 1
+                          ? preset.category === 'topo'
+                            ? 'bg-[#2e6b47]/15 text-[#1b432b] border-[#2e6b47]/30'
+                            : preset.category === 'satellite'
+                            ? 'bg-[#2b6b88]/15 text-[#1a4457] border-[#2b6b88]/30'
+                            : preset.category === 'vectors'
+                            ? 'bg-[#96641e]/15 text-[#52350c] border-[#96641e]/30'
+                            : 'bg-[#7a5a22]/15 text-[#422f0f] border-[#7a5a22]/30'
+                          : theme === 2
+                          ? preset.category === 'topo'
+                            ? 'bg-[#2a5540]/30 text-[#8ee0b1] border-[#387256]/50'
+                            : preset.category === 'satellite'
+                            ? 'bg-[#2b4c6e]/30 text-[#9bc5ed] border-[#416994]/50'
+                            : preset.category === 'vectors'
+                            ? 'bg-[#5c4e30]/30 text-[#ecd79f] border-[#806f47]/50'
+                            : 'bg-[#47576b]/30 text-[#c2d2e3] border-[#5d738c]/50'
+                          : preset.category === 'topo'
+                          ? 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/30'
                           : preset.category === 'satellite'
-                          ? 'bg-sky-500/20 text-sky-600 dark:text-sky-300 border-sky-500/30'
+                          ? 'bg-[#38bdf8]/20 text-[#38bdf8] border-[#38bdf8]/30'
                           : preset.category === 'vectors'
-                          ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/30'
+                          ? 'bg-[#f59e0b]/20 text-[#f59e0b] border-[#f59e0b]/30'
                           : 'bg-[#c5a059]/20 text-[#c5a059] border-[#c5a059]/30'
                       }`}
                     >
@@ -1984,7 +2343,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     {preset.details}
                   </p>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-white/5 text-micro">
+                  <div className="flex items-center justify-between pt-1 border-t border-white/10 text-micro">
                     <span className="opacity-60 truncate max-w-[200px]" title={preset.attribution}>
                       {preset.attribution}
                     </span>
@@ -2014,23 +2373,27 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       }}
                       className={`px-3 py-1.5 rounded-[2px] text-nano font-bold border transition-all flex items-center gap-1.5 ${
                         isAlreadyAdded
-                          ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/40 cursor-default ring-1 ring-emerald-500/30 font-extrabold'
-                          : 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] hover:opacity-90 shadow-sm font-extrabold'
+                          ? theme === 1
+                            ? 'bg-[#2e6b47]/15 text-[#1b432b] border-[#2e6b47]/30 cursor-default font-semibold'
+                            : theme === 2
+                            ? 'bg-[#2a5540]/30 text-[#8ee0b1] border-[#387256]/40 cursor-default font-semibold'
+                            : 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 cursor-default ring-1 ring-[var(--theme-status-sage)]/30 font-semibold'
+                          : 'cursor-pointer bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] hover:border-[var(--theme-card-border-hover)] shadow-sm font-semibold'
                       }`}
                     >
                       {isAlreadyAdded ? (
                         <>
-                          <svg className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-3.5 h-3.5 text-[var(--theme-status-sage)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
                           </svg>
-                          <span>Added ✓</span>
+                          <span>✓ Added to Stack</span>
                         </>
                       ) : (
                         <>
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
                           </svg>
-                          <span>Add Layer</span>
+                          <span>+ Add Layer to Stack</span>
                         </>
                       )}
                     </button>

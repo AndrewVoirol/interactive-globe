@@ -36,6 +36,7 @@ export interface UIThemeTokens {
   panelHeaderBorder: string;
   cardBg: string;
   cardBorder: string;
+  cardBorderHover: string;
   neatlineBorder: string;
   neatlineAccent: string;
 
@@ -50,6 +51,11 @@ export interface UIThemeTokens {
   controlActiveBorder: string;
   controlActiveText: string;
   controlActiveRing: string;
+
+  // Semantic Mineral Status Tokens
+  statusSage: string;
+  statusSlate: string;
+  statusAmber: string;
 
   // Switches & Knurled Toggles
   switchTrackBg: string;
@@ -119,6 +125,7 @@ export const DARK_CYBER_UI_TOKENS: UIThemeTokens = {
   panelHeaderBorder: 'rgba(255, 255, 255, 0.10)',
   cardBg: 'rgba(16, 23, 33, 0.70)',
   cardBorder: 'rgba(51, 62, 77, 0.80)',
+  cardBorderHover: '#415164',
   neatlineBorder: 'rgba(122, 111, 94, 0.80)',
   neatlineAccent: '#C5A059',
 
@@ -132,6 +139,10 @@ export const DARK_CYBER_UI_TOKENS: UIThemeTokens = {
   controlActiveBorder: '#3B788A',
   controlActiveText: '#F0EDE6',
   controlActiveRing: 'rgba(197, 160, 89, 0.40)',
+
+  statusSage: '#34D399',
+  statusSlate: '#4FD1C5',
+  statusAmber: '#F59E0B',
 
   switchTrackBg: 'rgba(10, 17, 26, 0.80)',
   switchTrackBorder: 'rgba(255, 255, 255, 0.15)',
@@ -226,6 +237,7 @@ export const LIGHT_MONOCHROME_UI_TOKENS: UIThemeTokens = {
   panelHeaderBorder: 'rgba(184, 173, 152, 0.60)',
   cardBg: 'rgba(244, 237, 224, 0.85)',
   cardBorder: '#D8CFBC',
+  cardBorderHover: '#B8AD98',
   neatlineBorder: '#B8AD98',
   neatlineAccent: '#8C4820',
 
@@ -236,9 +248,13 @@ export const LIGHT_MONOCHROME_UI_TOKENS: UIThemeTokens = {
   controlHoverText: '#2B241A',
   controlHoverBorder: '#B8AD98',
   controlActiveBg: '#2B241A',
-  controlActiveBorder: '#2B241A',
+  controlActiveBorder: '#8C4820',
   controlActiveText: '#FDFCF9',
-  controlActiveRing: 'rgba(140, 72, 32, 0.35)',
+  controlActiveRing: 'rgba(140, 72, 32, 0.40)',
+
+  statusSage: '#1B432B',
+  statusSlate: '#1A4457',
+  statusAmber: '#7D4700',
 
   switchTrackBg: '#E2D7C3',
   switchTrackBorder: '#C8B9A6',
@@ -333,6 +349,7 @@ export const PRUSSIAN_CYANOTYPE_UI_TOKENS: UIThemeTokens = {
   panelHeaderBorder: 'rgba(79, 121, 163, 0.40)',
   cardBg: 'rgba(15, 28, 43, 0.85)',
   cardBorder: '#263C54',
+  cardBorderHover: '#3B597A',
   neatlineBorder: 'rgba(59, 89, 122, 0.70)',
   neatlineAccent: '#C5A059',
 
@@ -346,6 +363,10 @@ export const PRUSSIAN_CYANOTYPE_UI_TOKENS: UIThemeTokens = {
   controlActiveBorder: '#4F79A3',
   controlActiveText: '#E8EDF2',
   controlActiveRing: 'rgba(197, 160, 89, 0.40)',
+
+  statusSage: '#4FA3E3',
+  statusSlate: '#6B94BD',
+  statusAmber: '#E2C37E',
 
   switchTrackBg: '#0D1724',
   switchTrackBorder: '#263C54',
@@ -513,6 +534,7 @@ export class ThemeManager {
     target.style.setProperty('--theme-panel-header-border', ui.panelHeaderBorder);
     target.style.setProperty('--theme-card-bg', ui.cardBg);
     target.style.setProperty('--theme-card-border', ui.cardBorder);
+    target.style.setProperty('--theme-card-border-hover', ui.cardBorderHover);
     target.style.setProperty('--theme-neatline-border', ui.neatlineBorder);
     target.style.setProperty('--theme-neatline-accent', ui.neatlineAccent);
 
@@ -526,6 +548,10 @@ export class ThemeManager {
     target.style.setProperty('--theme-control-active-border', ui.controlActiveBorder);
     target.style.setProperty('--theme-control-active-text', ui.controlActiveText);
     target.style.setProperty('--theme-control-active-ring', ui.controlActiveRing);
+
+    target.style.setProperty('--theme-status-sage', ui.statusSage);
+    target.style.setProperty('--theme-status-slate', ui.statusSlate);
+    target.style.setProperty('--theme-status-amber', ui.statusAmber);
 
     target.style.setProperty('--theme-switch-track-bg', ui.switchTrackBg);
     target.style.setProperty('--theme-switch-track-border', ui.switchTrackBorder);

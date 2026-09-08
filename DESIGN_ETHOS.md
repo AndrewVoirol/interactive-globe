@@ -17,7 +17,7 @@ This is not a demo. The engine's identity is depth and craft — empirical portf
 
 ---
 
-## 2. The 15 Core Design Principles
+## 2. The 16 Core Design Principles
 
 Deviations from these are architectural regressions.
 
@@ -36,6 +36,7 @@ Deviations from these are architectural regressions.
 13. **Topological Integrity** — Seam cuts geometrically clean across the antimeridian and Dymaxion net.
 14. **Visual Primacy** — Visual fidelity is the deliverable. Audio is a future wire-in, not a verification criterion. Do not invest in audio until the visual output honors the research.
 15. **Horizon Sculpting** — Geometry displacement on the silhouette, not fragment tricks. Real vertices must move.
+16. **Neatline Primacy & Spatial Clearance Moats** — The outer neatline frames the global cartographic sheet; floating instruments float with guaranteed breathing room (minimum 10-12px spatial moat). Never allow neatline tangency, parallel border clashes ("railroad tracks"), or redundant internal neatlines within floating HUD elements.
 
 ---
 
@@ -307,3 +308,34 @@ type DataLayerCategory = 'satellite' | 'night' | 'topo' | 'ocean' | 'thermal' | 
 Focus entirely on making Earth undeniably excellent. Good architecture produces abstraction naturally.
 
 The geometry source (`precompute.js`) produces generic binary columnar data — any manifold that can produce `positions3D`, `target2D`, and `typeBuffer` arrays can drive the engine. Do NOT build `IManifoldGeometry` prematurely.
+
+---
+
+## 15. Cartographic Framing, Neatline Hierarchy & Spatial Clearance Rules
+
+The Indicatrix Engine simulates archival, intaglio, and cyanotype cartographic plates. Visual clarity demands strict architectural rules governing sheet framing and floating instrument enclosures.
+
+### 15.1 The Neatline as Master Sheet Frame
+- The neatline is the outermost framing boundary of the global cartographic sheet (`inset-2` / 8px outer border with a 2px inner hairline `inset-[2px]`).
+- It bounds the entire projection, graticule, and geodetic corner coordinates (`⌜ 00.00°`, `⌝ 90.00°`, `⌞ 180.00°`, `⌟ 270.00°`).
+- The neatline belongs to the sheet, not to the instruments.
+
+### 15.2 The Spatial Clearance Moat (Zero Neatline Tangency & Inter-Instrument Gutters)
+- **The Problem**: When floating HUD panels are positioned flush or tangent (within 2–4px) to the outer neatline or to neighboring HUD containers, they form parallel double or triple lines ("railroad tracks") and cramped 4px hairline gaps. This creates visual vibration, destroys hierarchical depth, and makes the UI look pinched or uncalibrated.
+- **Neatline Moat (10px)**: All floating HUD containers (top calibration bar, unified right telemetry sidebar, slide-out catalog sheet, bottom rosette aside, bottom navigation dock) must maintain an intentional, minimum 10px–12px "cartographic moat" of negative space between the inner neatline and their outer container borders. On standard desktops, HUD elements align to a unified 20px grid axis (`top-5`, `left-5`, `right-5`). Because the neatline inner hairline sits at 10px from the screen edge, a pristine 10px moat separates sheet boundary from instrument enclosures on all sides.
+- **Inter-Instrument Gutter (20px)**: Adjacent floating panels must maintain a uniform 20px (`1.25rem`) gutter from one another:
+  - Top header to collapsed/expanded right sidebar: `md:right-[26.5rem]` (20px gutter from the 25.25rem sidebar left boundary).
+  - Top header to slide-out catalog sheet on 2xl: `2xl:right-[51.75rem]` (20px gutter from the 50.5rem catalog left boundary), completely eliminating bounding box overlap.
+  - Slide-out catalog sheet to right sidebar dock: `2xl:right-[26.5rem]` (20px gutter from the 25.25rem sidebar left boundary).
+
+### 15.3 Single-Border HUD Enclosure Contract
+- Floating HUD panels are self-contained instruments resting on paper or mylar backing with backdrop blur (`backdrop-blur-md` / `backdrop-blur-2xl`).
+- Panels MUST have a single structural perimeter border (`border border-[var(--theme-panel-border)]`).
+- Panels MUST NEVER draw duplicate inner neatline borders (`inset-1 border-[var(--theme-neatline-border)]`, `inset-[2px] border-current/20`, or `inset-[2.5px] border-[var(--theme-neatline-border)]`). This prohibition applies equally across the top header, unified right sidebar, bottom-left compass rosette aside, and bottom morph navigation dock (`NavigationDock.tsx`). Nested box-in-a-box borders inside floating panels mimic sheet borders at an inappropriate scale and multiply border clutter.
+- The theme token `var(--theme-neatline-border)` is strictly reserved for the master sheet neatline and subtle internal hairline dividers (e.g. between telemetry indicators), never for duplicate container frames.
+
+### 15.4 Defensive Header Typographic Hierarchy
+- Header telemetry bars must degrade gracefully across all viewport widths and open sidebar states.
+- **Title Immutability**: Primary titles (`HYDROGRAPHIC SURVEY`) are prioritized. Extended matrix subtitles (`// CARTOGRAPHIC MATRIX`) and secondary scale readouts must yield responsively (`hidden xl:inline`, `hidden lg:inline`) or truncate cleanly via CSS ellipsis (`min-w-0 font-bold truncate`) rather than clipping mid-glyph.
+- **Guaranteed Separation Gutter**: The leading survey title container and trailing geodetic coordinates container (`latStr · lonStr | WGS84 // EPSG:4326`) must maintain a guaranteed separation gap (`gap-4` and internal `pr-3` / `pl-3` padding), preventing text collisions where numbers and letters collide.
+- **Mobile-Safe Geodetic Disclosure**: Auxiliary spatial reference strings (`WGS84 // EPSG:4326`) hide responsively below `sm:` (`hidden sm:inline`), ensuring coordinates remain legible without crushing the primary survey title on ultra-narrow viewports.

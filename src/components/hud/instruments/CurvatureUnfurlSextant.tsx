@@ -4,7 +4,7 @@
 // Interactive 180° topological curvature arc measuring surface flattening (K > 0 to K = 0)
 // ============================================================================
 
-import React, { useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SimulationMode } from '../../../types';
 
 export interface CurvatureUnfurlSextantProps {
@@ -65,6 +65,17 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
 }) => {
   const boxRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const lastClientXRef = useRef(0);
+  const lastTimeRef = useRef(0);
+  const velocityRef = useRef(0);
+  const momentumRafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (momentumRafRef.current) cancelAnimationFrame(momentumRafRef.current);
+    };
+  }, []);
 
   // Theme-aware mineral pigment tokens
   const sextantTokens = theme === 2
@@ -110,12 +121,28 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
 
   const handlePointerDown = (e: React.PointerEvent) => {
     isDraggingRef.current = true;
+    if (momentumRafRef.current) {
+      cancelAnimationFrame(momentumRafRef.current);
+      momentumRafRef.current = null;
+    }
+    lastClientXRef.current = e.clientX;
+    lastTimeRef.current = performance.now();
+    velocityRef.current = 0;
     boxRef.current?.setPointerCapture(e.pointerId);
     updateFromPointer(e.clientX);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDraggingRef.current) return;
+    const now = performance.now();
+    const dt = now - lastTimeRef.current;
+    if (dt > 4 && boxRef.current) {
+      const rect = boxRef.current.getBoundingClientRect();
+      const dx = (e.clientX - lastClientXRef.current) / (rect.width * (1.0 - 2 * (15 / 240)));
+      velocityRef.current = dx / dt; // normalized fraction per ms
+      lastClientXRef.current = e.clientX;
+      lastTimeRef.current = now;
+    }
     updateFromPointer(e.clientX);
   };
 
@@ -125,6 +152,31 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
       boxRef.current?.releasePointerCapture(e.pointerId);
     } catch {
       // Ignore
+    }
+
+    // If stationary before releasing, cancel coasting
+    const now = performance.now();
+    if (now - lastTimeRef.current > 50) {
+      velocityRef.current = 0;
+    }
+
+    // Micro-momentum coasting (20-50ms inertia decay, strictly clamped to 2-5 alpha units)
+    let vel = velocityRef.current;
+    // Clamp velocity to enforce 2-5 alpha units (0.02 - 0.05) maximum overshoot
+    vel = Math.max(-0.0015, Math.min(0.0015, vel));
+    if (Math.abs(vel) > 0.0002) {
+      let currentAlpha = alpha;
+      const step = () => {
+        vel *= 0.60; // rapid friction damping over 20-50ms (2-3 frames)
+        if (Math.abs(vel) < 0.00008) {
+          momentumRafRef.current = null;
+          return;
+        }
+        currentAlpha = Math.max(0.0, Math.min(1.0, currentAlpha + vel * 16));
+        onAlphaChange(parseFloat(currentAlpha.toFixed(3)));
+        momentumRafRef.current = requestAnimationFrame(step);
+      };
+      momentumRafRef.current = requestAnimationFrame(step);
     }
   };
 
@@ -147,12 +199,39 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
       {/* Interactive Sextant Arc Scrubber */}
       <div
         ref={boxRef}
+        tabIndex={0}
+        role="slider"
+        aria-label="Topological Curvature Unfurl Sextant"
+        aria-valuemin={0}
+        aria-valuemax={1}
+        aria-valuenow={parseFloat(alpha.toFixed(3))}
+        onKeyDown={(e) => {
+          const step = e.shiftKey ? 0.05 : 0.01;
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            onAlphaChange(parseFloat(Math.max(0.0, alpha - step).toFixed(3)));
+          } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            onAlphaChange(parseFloat(Math.min(1.0, alpha + step).toFixed(3)));
+          } else if (e.key === 'Home') {
+            e.preventDefault();
+            onAlphaChange(0.0);
+          } else if (e.key === 'End') {
+            e.preventDefault();
+            onAlphaChange(1.0);
+          }
+        }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onPointerEnter={() => setIsHovered(true)}
+        onPointerLeave={() => setIsHovered(false)}
         onDoubleClick={() => onGlideToAlpha?.(alpha < 0.5 ? 1.0 : 0.0)}
-        title="Drag vernier reticle along curvature arc (Double-click to toggle Globe/Map)"
-        className="relative w-full h-9 rounded-[2px] border flex items-center justify-center cursor-pointer select-none touch-none shadow-inner bg-[var(--theme-card-bg)] border-[var(--theme-card-border)]"
+        title="Drag vernier reticle along curvature arc (Double-click to toggle Globe/Map, Arrow keys to nudge)"
+        className={`relative w-full h-9 rounded-[2px] border flex items-center justify-center cursor-pointer select-none touch-none shadow-inner bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${
+          isHovered ? 'shadow-[0_0_12px_var(--theme-focus-ring)] border-[var(--theme-card-border-hover)]' : ''
+        }`}
       >
         <svg className="w-full h-full pointer-events-none" viewBox="0 0 240 36">
           {/* Radial reference rays */}
@@ -181,11 +260,11 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
           <circle
             cx={thumbX}
             cy={thumbY}
-            r="4.5"
+            r={isHovered ? 5.5 : 4.5}
             fill={sextantTokens.thumbFill}
             stroke={sextantTokens.thumbStroke}
             strokeWidth="2"
-            className="shadow-sm"
+            className="shadow-sm transition-all duration-150"
           />
         </svg>
 

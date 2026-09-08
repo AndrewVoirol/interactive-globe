@@ -7,19 +7,19 @@
 import React, { useRef, useCallback } from 'react';
 
 export interface BathymetricTideGaugeProps {
-  seaLevelOffset: number; // -150m (LGM Ice Age) to +100m (Marine Transgression)
-  waterClarity: number; // 0.10 to 1.00 (Beer-Lambert optical depth penetration)
-  onSeaLevelChange: (offset: number) => void;
-  onWaterClarityChange: (clarity: number) => void;
+  seaLevelOffset?: number; // -150m (LGM Ice Age) to +100m (Marine Transgression)
+  waterClarity?: number; // 0.10 to 1.00 (Beer-Lambert optical depth penetration)
+  onSeaLevelChange?: (offset: number) => void;
+  onWaterClarityChange?: (clarity: number) => void;
   isLight?: boolean;
   theme?: 0 | 1 | 2;
 }
 
 export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
-  seaLevelOffset,
-  waterClarity,
-  onSeaLevelChange,
-  onWaterClarityChange,
+  seaLevelOffset = 0,
+  waterClarity = 0.75,
+  onSeaLevelChange = () => {},
+  onWaterClarityChange = () => {},
   isLight = false,
   theme = isLight ? 1 : 0,
 }) => {
@@ -118,12 +118,57 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         onPointerUp={handlePointerUp}
         onDoubleClick={() => onSeaLevelChange(0)}
         title="Drag waterline caliper vertically to raise/lower sea level (Double-click to reset to 0m)"
-        className={`relative w-full h-20 rounded-[2px] border overflow-hidden cursor-ns-resize select-none touch-none shadow-inner ${tokens.boxBg}`}
+        className={`relative w-full h-20 rounded-[2px] border overflow-hidden cursor-ns-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] ${tokens.boxBg}`}
       >
         {/* Continental Shelf Silhouette in background */}
         <div className="absolute inset-0 flex items-end opacity-15 pointer-events-none">
           <svg className="w-full h-full" viewBox="0 0 300 100" preserveAspectRatio="none">
             <polygon points="0,100 0,35 60,40 120,60 180,90 300,95 300,100" fill="currentColor" />
+          </svg>
+        </div>
+
+        {/* Medium-Adaptive Hydrostatic Markings */}
+        <div className="absolute top-0 bottom-0 right-14 w-8 pointer-events-none z-10 opacity-70">
+          <svg className="w-full h-full" viewBox="0 0 40 100" preserveAspectRatio="none">
+            {theme === 1 ? (
+              // Cream Rag Paper: Archival hydrographic tide benchmark staff with decimeter blocks
+              <g className="tide-staff-cream text-[#8c4820]">
+                <rect x="15" y="0" width="8" height="100" fill="none" stroke="currentColor" strokeWidth="0.75" />
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <g key={i}>
+                    {i % 2 === 0 && <rect x="15" y={i * 10} width="8" height="10" fill="currentColor" opacity="0.6" />}
+                    <line x1="12" y1={i * 10} x2="26" y2={i * 10} stroke="currentColor" strokeWidth="0.5" />
+                  </g>
+                ))}
+              </g>
+            ) : theme === 2 ? (
+              // Prussian Cyanotype: Hydrostatic manometer glass tube with millimeter calibration ticks
+              <g className="manometer-cyanotype text-[#4fa3e3]">
+                <rect x="16" y="2" width="6" height="96" rx="3" fill="none" stroke="currentColor" strokeWidth="0.75" opacity="0.8" />
+                {Array.from({ length: 20 }).map((_, i) => (
+                  <line
+                    key={i}
+                    x1="22"
+                    y1={5 + i * 4.6}
+                    x2={i % 5 === 0 ? "30" : "26"}
+                    y2={5 + i * 4.6}
+                    stroke="currentColor"
+                    strokeWidth={i % 5 === 0 ? "0.8" : "0.4"}
+                  />
+                ))}
+              </g>
+            ) : (
+              // Marie Tharp: CTD oceanographic bathymetric pressure column with dbar calibrations
+              <g className="ctd-column-tharp text-[#00e5ff]">
+                <line x1="20" y1="0" x2="20" y2="100" stroke="currentColor" strokeWidth="0.75" strokeDasharray="1 3" />
+                {[0, 25, 50, 75, 100].map((y, i) => (
+                  <g key={i}>
+                    <line x1="14" y1={y} x2="26" y2={y} stroke="currentColor" strokeWidth="0.75" />
+                    <circle cx="20" cy={y} r="1.5" fill="currentColor" />
+                  </g>
+                ))}
+              </g>
+            )}
           </svg>
         </div>
 

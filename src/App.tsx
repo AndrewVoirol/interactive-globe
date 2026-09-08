@@ -73,6 +73,30 @@ export default function App() {
 
   const controlsRef = useRef<any>(null);
   const appStartTimeRef = useRef(performance.now());
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMouseIdle, setIsMouseIdle] = useState(false);
+  const mouseIdleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!isZenMode) {
+      setIsMouseIdle(false);
+      return;
+    }
+    const resetIdleTimer = () => {
+      setIsMouseIdle(false);
+      if (mouseIdleTimeoutRef.current) clearTimeout(mouseIdleTimeoutRef.current);
+      mouseIdleTimeoutRef.current = setTimeout(() => {
+        setIsMouseIdle(true);
+      }, 2500);
+    };
+    resetIdleTimer();
+    window.addEventListener('mousemove', resetIdleTimer);
+    return () => {
+      window.removeEventListener('mousemove', resetIdleTimer);
+      if (mouseIdleTimeoutRef.current) clearTimeout(mouseIdleTimeoutRef.current);
+    };
+  }, [isZenMode]);
   const audioEngineRef = useRef<ProceduralAudioEngine>(new ProceduralAudioEngine(true));
 
   const [isAudioMuted, setIsAudioMuted] = useState(true);
@@ -273,6 +297,8 @@ export default function App() {
     ? '1 : 127,420,000' 
     : `1 : ${Math.round(127420000 / Math.max(0.2, Math.cos((latDeg * Math.PI) / 180))).toLocaleString('en-US')}`;
 
+  const isSidebarActive = !isZenMode && isSidebarOpen;
+
   return (
     <CursorProvider>
       <div
@@ -282,42 +308,85 @@ export default function App() {
         }`}
       >
         {/* Outer Archival Neatline & Geodetic Corner Marks */}
-        <div className="absolute inset-2 pointer-events-none border border-[var(--theme-neatline-border)] z-20 transition-colors duration-500 m-1">
-          <div className="absolute inset-1 border border-current/15" />
+        <div className="absolute inset-2 pointer-events-none border border-[var(--theme-neatline-border)] z-20 transition-colors duration-500">
+          <div className="absolute inset-[2px] border border-current/15" />
           <span className="absolute top-1 left-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80">⌜ 00.00°</span>
-          <span className="absolute top-1 right-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80">⌝ 90.00°</span>
-          <span className="absolute bottom-1 left-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80">⌞ 180.00°</span>
-          <span className="absolute bottom-1 right-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80">⌟ 270.00°</span>
+          <span className={`absolute top-1 ${isSidebarActive ? (isCatalogOpen ? '2xl:right-[50.5rem] md:right-[26rem]' : 'md:right-[26rem]') : ''} right-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌝ 90.00°</span>
+          <span className={`absolute bottom-1 ${showCartouche ? 'left-[268px]' : 'left-2'} text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌞ 180.00°</span>
+          <span className={`absolute bottom-1 ${isSidebarActive ? (isCatalogOpen ? '2xl:right-[50.5rem] md:right-[26rem]' : 'md:right-[26rem]') : ''} right-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌟ 270.00°</span>
         </div>
 
-        {/* Top Technical Calibration Bar */}
+        {/* Top Technical Calibration Bar (Aligned on 20px grid axis with 10px neatline clearance moat) */}
         {!isZenMode && (
-          <header className="absolute top-3.5 left-16 right-4 md:right-84 h-7 flex items-center justify-between text-micro font-mono tracking-widest uppercase z-20 pointer-events-none px-3 rounded-[3px] border backdrop-blur-md shadow-sm transition-colors duration-500 relative scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)]">
-            <div className="pointer-events-none absolute inset-[2px] rounded-[2px] border border-current/20" />
-            <div className="flex items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap z-10">
-              <span className="font-bold">HYDROGRAPHIC SURVEY // CARTOGRAPHIC MATRIX</span>
-              <span className="opacity-40">|</span>
-              <span className="opacity-80">SCALE {mapScaleStr}</span>
+          <header className={`absolute top-5 left-5 right-5 ${isCatalogOpen ? '2xl:right-[51.75rem] md:right-[26.5rem]' : 'md:right-[26.5rem]'} h-7 flex items-center justify-between gap-4 text-micro font-mono tracking-widest uppercase z-20 pointer-events-none px-3 rounded-[3px] border backdrop-blur-md shadow-sm transition-all duration-300 scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)]`}>
+            <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap z-10 min-w-0 pr-3">
+              <span className="min-w-0 font-bold truncate">HYDROGRAPHIC SURVEY<span className="hidden xl:inline"> // CARTOGRAPHIC MATRIX</span></span>
+              <span className="hidden lg:inline opacity-40 shrink-0">|</span>
+              <span className="hidden lg:inline opacity-80 truncate shrink-0">SCALE {mapScaleStr}</span>
             </div>
-            <div className="flex items-center gap-3 shrink-0 z-10">
-              <span className="font-bold text-[var(--theme-text-accent)]">{latStr} · {lonStr}</span>
-              <span className="opacity-40">|</span>
-              <span className="opacity-80 font-bold">{fps} FPS</span>
+            <div className="flex items-center gap-2.5 shrink-0 z-10 pl-3">
+              <span className="font-bold text-[var(--theme-text-accent)] tabular-nums">{latStr} · {lonStr}</span>
+              <span className="hidden sm:inline opacity-40 shrink-0">|</span>
+              <span className="hidden sm:inline opacity-80 font-bold shrink-0">WGS84 // EPSG:4326</span>
             </div>
           </header>
         )}
 
         {/* Bottom-Left Nautical Compass Rosette & Imhof Illumination Indicator (Stacked cleanly above canvas cartouche) */}
         {!isZenMode && (
-          <aside className="absolute bottom-[98px] left-5 z-20 pointer-events-none flex items-center gap-2.5 px-2.5 py-1.5 rounded-[3px] border backdrop-blur-md transition-colors duration-500 text-micro font-mono relative scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)]">
-            <div className="pointer-events-none absolute inset-[2px] rounded-[2px] border border-current/20" />
-            <svg className="w-5 h-5 shrink-0 text-[var(--theme-text-accent)] z-10" viewBox="0 0 100 100" fill="none" stroke="currentColor">
-              <circle cx="50" cy="50" r="44" strokeWidth="1.5" strokeDasharray="2 3" />
-              <line x1="50" y1="6" x2="50" y2="94" strokeWidth="1" />
-              <line x1="6" y1="50" x2="94" y2="50" strokeWidth="1" />
-              <polygon points="50,14 54,46 50,42 46,46" fill="currentColor" />
-              <text x="54" y="24" fontSize="12" fill="currentColor" fontFamily="Cinzel, serif">N</text>
-            </svg>
+          <aside
+            onClick={() => setTheme((t) => (((t + 1) % 3) as any))}
+            title="Click to Cycle Cartographic Aesthetic Themes (Tharp, Cream Rag, Cyanotype) or press T"
+            className="absolute bottom-[98px] left-5 z-20 pointer-events-auto cursor-pointer tactile-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-[3px] border backdrop-blur-md transition-all duration-300 text-micro font-mono scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] select-none shadow-md"
+          >
+            {theme === 1 ? (
+              // Cream Rag Paper: 16-point intaglio nautical compass rosette with fleur-de-lis
+              <svg className="w-5 h-5 shrink-0 text-[var(--theme-text-accent)] z-10" viewBox="0 0 100 100" fill="none">
+                <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="1" strokeDasharray="1.5 2.5" opacity="0.6" />
+                <circle cx="50" cy="50" r="42" stroke="currentColor" strokeWidth="0.75" />
+                <polygon points="50,12 53,44 50,50 47,44" fill="currentColor" />
+                <polygon points="50,12 47,44 50,50" fill="currentColor" opacity="0.3" />
+                <polygon points="50,88 47,56 50,50 53,56" fill="currentColor" />
+                <polygon points="50,88 53,56 50,50" fill="currentColor" opacity="0.3" />
+                <polygon points="88,50 56,53 50,50 56,47" fill="currentColor" />
+                <polygon points="88,50 56,47 50,50" fill="currentColor" opacity="0.3" />
+                <polygon points="12,50 44,47 50,50 44,53" fill="currentColor" />
+                <polygon points="12,50 44,53 50,50" fill="currentColor" opacity="0.3" />
+                <polygon points="77,23 54,46 50,50 52,43" fill="currentColor" opacity="0.7" />
+                <polygon points="23,77 46,54 50,50 48,57" fill="currentColor" opacity="0.7" />
+                <polygon points="77,77 54,54 50,50 57,52" fill="currentColor" opacity="0.7" />
+                <polygon points="23,23 46,46 50,50 43,48" fill="currentColor" opacity="0.7" />
+                <path d="M50 4 C48 8, 44 10, 47 14 C48 11, 50 10, 50 14 C50 10, 52 11, 53 14 C56 10, 52 8, 50 4 Z" fill="currentColor" />
+                <circle cx="50" cy="50" r="3" fill="currentColor" />
+                <text x="50" y="24" textAnchor="middle" fontSize="10" fill="currentColor" fontFamily="Cinzel, serif" fontWeight="bold">N</text>
+              </svg>
+            ) : theme === 2 ? (
+              // Prussian Cyanotype: Architectural CAD drafting protractor & registration crosshairs
+              <svg className="w-5 h-5 shrink-0 text-[var(--theme-text-accent)] z-10" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+                <circle cx="50" cy="50" r="44" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
+                <circle cx="50" cy="50" r="38" strokeWidth="0.75" />
+                <line x1="50" y1="4" x2="50" y2="96" strokeWidth="0.75" />
+                <line x1="4" y1="50" x2="96" y2="50" strokeWidth="0.75" />
+                <line x1="19" y1="19" x2="81" y2="81" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.6" />
+                <line x1="19" y1="81" x2="81" y2="19" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.6" />
+                <circle cx="50" cy="50" r="2" fill="currentColor" strokeWidth="0" />
+                <polygon points="50,10 54,34 50,30 46,34" fill="currentColor" strokeWidth="0" />
+                <text x="50" y="25" textAnchor="middle" fontSize="9" fill="currentColor" strokeWidth="0" fontFamily="IBM Plex Mono, monospace" fontWeight="bold">N</text>
+              </svg>
+            ) : (
+              // Marie Tharp: Acoustic sonar bathymetric sounding cone & depth rings
+              <svg className="w-5 h-5 shrink-0 text-[var(--theme-text-accent)] z-10" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+                <circle cx="50" cy="50" r="44" strokeWidth="0.75" strokeDasharray="2 4" opacity="0.4" />
+                <circle cx="50" cy="50" r="32" strokeWidth="0.75" opacity="0.6" />
+                <circle cx="50" cy="50" r="18" strokeWidth="0.75" opacity="0.8" />
+                <line x1="50" y1="6" x2="50" y2="94" strokeWidth="0.75" opacity="0.5" />
+                <line x1="6" y1="50" x2="94" y2="50" strokeWidth="0.75" opacity="0.5" />
+                <path d="M50 50 L28 12 A 44 44 0 0 1 72 12 Z" fill="currentColor" fillOpacity="0.15" strokeWidth="0.75" />
+                <polygon points="50,10 53,28 50,25 47,28" fill="currentColor" strokeWidth="0" />
+                <circle cx="50" cy="50" r="2" fill="currentColor" strokeWidth="0" />
+                <text x="50" y="22" textAnchor="middle" fontSize="9" fill="currentColor" strokeWidth="0" fontFamily="Cinzel, serif" fontWeight="bold">N</text>
+              </svg>
+            )}
             <div className="leading-tight z-10">
               <div className="font-bold tracking-wider">IMHOF NW ILLUMINATION</div>
               <div className="opacity-70 text-nano">315° Azimuth · 45° Solar Angle</div>
@@ -447,6 +516,10 @@ export default function App() {
           fluidVortexStrength={fluidVortexStrength}
           onFluidVortexStrengthChange={setFluidVortexStrength}
           gpuReport={gpuReport}
+          isCatalogOpen={isCatalogOpen}
+          onCatalogOpenChange={setIsCatalogOpen}
+          isSidebarOpen={isSidebarOpen}
+          onSidebarOpenChange={setIsSidebarOpen}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}
@@ -466,18 +539,38 @@ export default function App() {
           mode={mode}
         />
 
-        {/* Zen Mode Minimal Restore Pill */}
+        {/* Zen Mode Translucent Cartographic Anchor Pill */}
         {isZenMode && (
-          <button
-            onClick={() => setIsZenMode(false)}
-            className={`tactile-btn absolute top-4 right-4 z-30 px-3 py-1.5 rounded-[2px] backdrop-blur-xl border text-nano font-mono transition-all shadow-lg pointer-events-auto ${
+          <div
+            className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-auto flex items-center gap-3 px-3.5 py-1.5 rounded-[3px] border backdrop-blur-xl transition-all duration-500 shadow-xl select-none ${
+              isMouseIdle ? 'opacity-25 hover:opacity-100' : 'opacity-90'
+            } ${
               theme === 1
-                ? 'bg-white/90 border-zinc-300 text-zinc-900 hover:text-black hover:border-zinc-400 shadow-zinc-300/50'
-                : 'bg-[var(--theme-panel-bg)]/90 border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] hover:border-white/30'
+                ? 'bg-white/90 border-zinc-300 text-zinc-900 shadow-zinc-300/50'
+                : 'bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)]'
             }`}
           >
-            Exit Zen Mode (H)
-          </button>
+            <div className="flex items-center gap-2 text-micro font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse" />
+              <span className="font-bold tracking-wider uppercase text-[var(--theme-text-accent)]">
+                {mode === 0 && 'Mode 1: Linear Dilation'}
+                {mode === 1 && 'Mode 2: Cylinder Unroll'}
+                {mode === 2 && 'Mode 3: Griffith Rupture'}
+                {mode === 3 && 'Mode 4: Fluid Vortex'}
+                {mode === 4 && 'Mode 5: Dymaxion Net'}
+              </span>
+              <span className="opacity-40">|</span>
+              <span className="opacity-80 font-bold tabular-nums">
+                α: {Math.round(alpha * 100)}%
+              </span>
+            </div>
+            <button
+              onClick={() => setIsZenMode(false)}
+              className="tactile-btn px-2.5 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-card-border-hover)] text-nano font-mono uppercase tracking-wider font-bold transition-all cursor-pointer"
+            >
+              Exit Zen (H)
+            </button>
+          </div>
         )}
 
         {/* TODO: Easter Egg Pass - Re-integrate Air Dancer (Wacky Wavy Inflatable Tube Man) as a subtle hidden easter egg (e.g. secret key sequence or hidden cartouche click) */}

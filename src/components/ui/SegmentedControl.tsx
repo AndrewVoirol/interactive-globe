@@ -72,15 +72,15 @@ export function SegmentedControl<T extends string | number>({
             disabled={disabled}
             onClick={() => onChange(opt.id)}
             onKeyDown={(e) => handleKeyDown(e, idx)}
-            className={`tactile-btn rounded-[2px] font-bold transition-all shrink-0 flex flex-col items-center justify-center outline-none focus-visible:ring-1 focus-visible:ring-[var(--theme-text-accent)] ${
-              size === 'sm' ? 'px-1.5 py-0.5 text-nano' : 'px-2 py-1 text-micro'
+            className={`tactile-btn rounded-[2px] font-bold transition-all shrink-0 flex flex-col items-center justify-center outline-none whitespace-nowrap focus-visible:ring-1 focus-visible:ring-[var(--theme-text-accent)] ${
+              size === 'sm' ? 'px-1.5 py-0.5 text-nano tracking-tight' : 'px-2 py-1 text-micro'
             } ${
               isSelected
-                ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm font-extrabold'
+                ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm font-semibold'
                 : 'text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-control-hover-bg)] border border-transparent'
             }`}
           >
-            <span>{opt.label}</span>
+            <span className="truncate">{opt.label}</span>
             {opt.sublabel && (
               <span className="text-nano opacity-65 uppercase font-mono tracking-tighter">
                 {opt.sublabel}

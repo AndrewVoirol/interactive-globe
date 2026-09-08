@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: ['selector', '[data-theme="tharp"], [data-theme="cyanotype"]'],
   content: [
     './index.html',
     './*.{js,ts,jsx,tsx}',
@@ -31,6 +32,7 @@ export default {
         'theme-panel-border': 'var(--theme-panel-border)',
         'theme-card-bg': 'var(--theme-card-bg)',
         'theme-card-border': 'var(--theme-card-border)',
+        'theme-card-border-hover': 'var(--theme-card-border-hover)',
         'theme-neatline-border': 'var(--theme-neatline-border)',
         'theme-neatline-accent': 'var(--theme-neatline-accent)',
 
@@ -38,6 +40,8 @@ export default {
         'theme-control-border': 'var(--theme-control-border)',
         'theme-control-text': 'var(--theme-control-text)',
         'theme-control-hover-bg': 'var(--theme-control-hover-bg)',
+        'theme-control-hover-border': 'var(--theme-control-hover-border)',
+        'theme-control-hover-text': 'var(--theme-control-hover-text)',
         'theme-control-active-bg': 'var(--theme-control-active-bg)',
         'theme-control-active-border': 'var(--theme-control-active-border)',
         'theme-control-active-text': 'var(--theme-control-active-text)',
@@ -50,6 +54,11 @@ export default {
         'theme-slider-track-bg': 'var(--theme-slider-track-bg)',
         'theme-slider-track-fill': 'var(--theme-slider-track-fill)',
         'theme-slider-thumb-bg': 'var(--theme-slider-thumb-bg)',
+
+        'theme-status-sage': 'var(--theme-status-sage)',
+        'theme-status-slate': 'var(--theme-status-slate)',
+        'theme-status-amber': 'var(--theme-status-amber)',
+        'theme-focus-ring': 'var(--theme-focus-ring)',
       },
       animation: {
         'spin-slow': 'spin 20s linear infinite',

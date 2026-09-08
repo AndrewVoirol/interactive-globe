@@ -37,7 +37,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
 
   return (
     <div
-      className="absolute bottom-8 inset-x-0 flex flex-col items-center gap-2 z-10 pointer-events-none font-mono select-none"
+      className="absolute bottom-8 inset-x-0 flex flex-col items-center gap-2 z-20 pointer-events-none font-mono select-none"
       style={{ fontFamily: 'var(--theme-font-telemetry)' }}
     >
       <div
@@ -45,8 +45,8 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
           theme === 1 ? 'paper-cream' : theme === 2 ? 'paper-cyanotype' : 'paper-tharp'
         }`}
       >
-        {/* Subtle Inner Drafting Neatline Rule */}
-        <div className="pointer-events-none absolute inset-[2.5px] rounded-[2px] border border-[var(--theme-neatline-border)] opacity-60" />
+        {/* Archival Drafting Hairline Divider (Preserves single-border HUD contract) */}
+        <div className="hidden h-4 w-px bg-[var(--theme-neatline-border)]/40 shrink-0 z-10" />
 
         {/* Play/Pause Toggle */}
         <button
@@ -54,7 +54,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
           title={isPlaying ? 'Pause Morph (Space)' : 'Play Auto-Morph Loop (Space)'}
           className={`tactile-btn w-7 h-7 rounded-[2px] flex items-center justify-center transition-all shrink-0 border z-10 ${
             isPlaying
-              ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
+              ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold'
               : 'bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] border-[var(--theme-control-border)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
           }`}
         >
@@ -65,7 +65,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         <button
           onClick={onToggleSpeed}
           title="Toggle Auto-Morph Speed"
-          className="tactile-btn text-micro font-bold px-1.5 py-0.5 rounded-[2px] border transition-colors tabular-nums shrink-0 z-10 bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]"
+          className="tactile-btn text-micro font-medium px-1.5 py-0.5 rounded-[2px] border transition-colors tabular-nums shrink-0 z-10 bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]"
         >
           {playbackSpeed}x
         </button>
@@ -74,9 +74,9 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         <button
           onClick={() => onGlideToAlpha(0.0)}
           title="Smooth glide to Spherical Globe (Press G)"
-          className={`tactile-btn text-body font-bold uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] transition-all shrink-0 border z-10 ${
+          className={`tactile-btn text-body font-semibold uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] transition-all shrink-0 border z-10 ${
             alpha < 0.03
-              ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)] font-extrabold'
+              ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)] font-semibold'
               : 'bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] border-[var(--theme-control-border)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
           }`}
         >
@@ -108,9 +108,9 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         <button
           onClick={() => onGlideToAlpha(1.0)}
           title="Smooth glide to Planar Map (Press M)"
-          className={`tactile-btn text-body font-bold uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] transition-all shrink-0 border z-10 ${
+          className={`tactile-btn text-body font-semibold uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] transition-all shrink-0 border z-10 ${
             alpha > 0.97
-              ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)] font-extrabold'
+              ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)] font-semibold'
               : 'bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] border-[var(--theme-control-border)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
           }`}
         >
