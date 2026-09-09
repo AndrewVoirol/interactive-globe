@@ -142,6 +142,7 @@ ais-interactive-globe-to-map/
 | Phase 2 - M1 | WebGPU Shader & Ingestion Pipelines | ETOPO 2022 DEM unpacking, Eduard Imhof Swiss relief shading, Jerlov oceanic optics, and screen-space vector ribbons | Phase 1 M7 | DONE |
 | Phase 2 - M2 | Contour & Vector Topology | Isoline contour binary mesh streaming, Simon l'Huilier spherical excess on $S^2$, and 14-cut topological severance | Phase 2 M1 | DONE |
 | Phase 2 - M3 | Apple Silicon M4 Pro 16M Node Scaling & Publication | SIMD32 workgroup 256 zero-copy dispatch, triple-buffered GPUProfiler, 16M node UMA budgets, and validation-report-v3.md | Phase 2 M2 | DONE |
+| Stage 3 | Coupled System Dynamics | Orographic wind velocity & condensation wash (R1), autonomous origami crane orographic lift coupling & HUD telemetry (R2), WebGPU DEM pipeline bindings & uniform control flow (R3) | Stage 2 | DONE |
 
 ## Interface Contracts
 

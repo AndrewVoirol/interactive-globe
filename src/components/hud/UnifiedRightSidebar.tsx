@@ -444,8 +444,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
   const [craneTelemetry, setCraneTelemetry] = useState<{
     alt: number;
+    clearance: number;
     speed: number;
     variometer: number;
+    glideRatio: number;
   } | null>(null);
 
   useEffect(() => {
@@ -460,8 +462,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
         if (s) {
           setCraneTelemetry({
             alt: Math.round(s.altitude),
+            clearance: Math.round(s.clearance ?? Math.max(80, s.altitude - (s.terrainElevation ?? 0))),
             speed: Math.round(s.airspeed * 3.6),
             variometer: Number(s.variometer.toFixed(1)),
+            glideRatio: Number((s.glideRatio ?? 9.5).toFixed(1)),
           });
         }
       }
@@ -1687,14 +1691,14 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       >
                         <div className="flex flex-col min-w-0">
                           <span className="font-bold text-nano truncate">Origami Crane</span>
-                          <span className="text-nano text-[var(--theme-text-muted)] truncate opacity-75">
+                          <span className="text-nano text-[var(--theme-text-muted)] truncate opacity-75 font-mono">
                             {isCraneActive && craneTelemetry
-                              ? `${craneTelemetry.alt.toLocaleString()}m • ${craneTelemetry.speed} km/h`
+                              ? `${craneTelemetry.alt.toLocaleString()}m • AGL ${craneTelemetry.clearance}m • ${craneTelemetry.speed} km/h`
                               : 'Mountain Wave'}
                           </span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
-                          <span className={`flex items-center gap-1 text-nano font-bold px-1.5 py-0.5 rounded-[2px] border ${
+                          <span className={`flex items-center gap-1 text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] border ${
                             theme === 1
                               ? 'bg-[#96641e]/20 text-[#52350c] border-[#96641e]/40'
                               : theme === 2
@@ -1702,7 +1706,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                           }`}>
                             {isCraneActive && craneTelemetry
-                              ? `${craneTelemetry.variometer >= 0 ? '+' : ''}${craneTelemetry.variometer} m/s`
+                              ? `${craneTelemetry.variometer >= 1.0 ? '▲ ' : ''}${craneTelemetry.variometer >= 0 ? '+' : ''}${craneTelemetry.variometer} m/s`
                               : 'Soaring'}
                           </span>
                           {isCraneActive && (
@@ -2235,7 +2239,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       {isCatalogOpen && (
         <div
           ref={catalogSheetRef}
-          className="fixed top-5 right-5 2xl:right-[26.5rem] z-40 pointer-events-auto w-96 max-w-[calc(100vw-2.5rem)] 2xl:max-w-[calc(100vw-28rem)] max-h-[calc(100vh-2.5rem)] flex flex-col font-mono select-none rounded-[3px] border backdrop-blur-2xl shadow-2xl p-4 text-micro transition-all duration-300 ease-out animate-in fade-in slide-in-from-right-4 border-[var(--theme-panel-border)] bg-[var(--theme-panel-bg)] text-[var(--theme-text-primary)]"
+          className="fixed top-5 right-5 2xl:right-[26.5rem] z-40 pointer-events-auto w-96 max-w-[calc(100vw-2.5rem)] 2xl:max-w-[calc(100vw-28rem)] max-h-[calc(100vh-2.5rem)] 2xl:max-h-[calc(100vh-8.5rem)] flex flex-col font-mono select-none rounded-[3px] border backdrop-blur-2xl shadow-2xl p-4 text-micro transition-all duration-300 ease-out animate-in fade-in slide-in-from-right-4 border-[var(--theme-panel-border)] bg-[var(--theme-panel-bg)] text-[var(--theme-text-primary)]"
         >
           {/* Catalog Sheet Header */}
           <div className="flex items-center justify-between pb-3 border-b border-[var(--theme-panel-border)]">

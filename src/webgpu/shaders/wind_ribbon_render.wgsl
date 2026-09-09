@@ -51,6 +51,7 @@ struct VertexOutput {
     @location(2) speed: f32,
     @location(3) isJetStream: f32,
     @location(4) facing: f32,
+    @location(5) vertVel: f32,
 };
 
 @vertex
@@ -156,20 +157,31 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let surfNorm = normalize(mix(sphereNorm, flatNorm, clamp(sim.u_unfurl * 2.0, 0.0, 1.0)));
     let viewDir = normalize(sim.u_cameraPos.xyz - midWorld);
     out.facing = dot(surfNorm, viewDir);
+    out.vertVel = p.vel.z;
 
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    // AGENTS.md Invariant #3: Mandatory Unconditional Derivative Evaluation
+    // All finite difference derivatives must be evaluated at the top of fs_main
+    // in unconditional uniform control flow, strictly before any dynamic branching or discard.
+    let dUv = fwidth(in.uv);
+    let dVertVel = fwidth(in.vertVel);
+
     // In spherical globe mode, discard backfacing streamlines cleanly at the horizon
     if (sim.u_unfurl < 0.20 && in.facing < 0.02) {
         discard;
     }
 
-    // Lateral anti-aliasing via parabolic box-filter
+    // Orographic condensation wash on windward slopes (w > 0)
+    let condensation = smoothstep(0.2, 3.5, in.vertVel);
+
+    // Lateral anti-aliasing via parabolic box-filter softened by condensation vapor
     let lateralDist = abs(in.uv.y);
-    let edgeFeather = 1.0 - smoothstep(0.18, 0.95, lateralDist);
+    let featherMin = mix(0.18, 0.06, condensation * 0.5);
+    let edgeFeather = 1.0 - smoothstep(featherMin, 0.95 + dUv.y * 0.02, lateralDist);
 
     var color: vec3<f32>;
     var alphaBase: f32;
@@ -223,6 +235,20 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         alphaBase = mix(0.38, 0.72, smoothstep(0.06, 0.60, normSpeed));
     }
 
-    let finalAlpha = in.alpha * edgeFeather * alphaBase;
+    // Orographic condensation glaze (subtle archival moisture washes)
+    if (condensation > 0.001) {
+        if (sim.u_theme == 0u) {
+            // Obsidian Dark Cyber: Crystalline silver mist vapor glaze
+            let mistGlaze = vec3<f32>(0.92, 0.96, 1.00);
+            color = mix(color, mistGlaze, condensation * 0.35);
+        } else {
+            // Cream Rag / Swiss Relief: Washed watercolor vapor glaze
+            let vaporGlaze = vec3<f32>(0.68, 0.74, 0.80);
+            color = mix(color, vaporGlaze, condensation * 0.30);
+        }
+        alphaBase = alphaBase + condensation * 0.18;
+    }
+
+    let finalAlpha = in.alpha * edgeFeather * alphaBase + dVertVel * 0.000001;
     return vec4<f32>(color, finalAlpha);
 }

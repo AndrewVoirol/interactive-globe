@@ -673,3 +673,212 @@ Eliminate visual noise across the application. You must explicitly detail in you
 ### Theme Viability & Pigment Pans Functionality
 - [ ] All 3 themes render without visual tearing and maintain their defined OKLCH palettes.
 - [ ] Clicking a pigment pan in the `UnifiedRightSidebar` successfully updates the global theme state and rendering pipeline without a page reload.
+
+
+## 2026-09-08T18:36:43Z
+
+# Teamwork Project Prompt
+
+> Requested team: Deploy three focused agents with strict verification gates: [VECTOR-ENGINEER], [HYDROLOGY-ENGINEER], [VERIFICATION-LEAD]
+
+Execute STAGE 1 (The Foundational Substrate) of the Indicatrix Engine Transformation: eliminate vector ribbon geometric standoff and floating silhouette spikes, implement camera-distance-adaptive stroke scaling, and implement in-shader geomorphic drainage conforming to DEM valley troughs.
+
+Working directory: /Users/andrewvoirol/Antigravity/Projects/ais-interactive-globe-to-map  
+Integrity mode: development  
+Reference: artifacts://teamwork_preview_master_dossier.md (Document ID: `HANDBOOK-INDICATRIX-STAGES-2026-09`, Section 2)
+
+## Team Mandate & Roles
+
+- **[VECTOR-ENGINEER]**: Responsible for `vector_ribbon.wgsl` and `WebGPUEngine.ts`. Eliminate the `0.025` normal standoff; implement surface-conforming elevation offset; implement camera-distance adaptive stroke scaling (`0.35px` at planetary orbit, `0.75px` zoomed); evaluate horizon facing falloff to eliminate detached spikes on the silhouette.
+- **[HYDROLOGY-ENGINEER]**: Responsible for `crust_hydrosphere.wgsl`. Implement in-shader geomorphic drainage using DEM discrete Laplacian curvature (`kValley`) and elevation descent; glaze self-tapering waterways directly into DEM valley troughs for Cream Rag and Cyanotype; set Cream Rag initial state with Imhof relief and watercolor shelves.
+- **[VERIFICATION-LEAD]**: Use Chrome DevTools MCP to capture Viewpoint 1 (Limb Horizon at 75° pitch) and Viewpoint 2 (Alpine Basin at 3.5x zoom). Verify that zero vector spikes float past the silhouette and that waterways sit in the actual DEM valleys. Report empirical FPS and shader compilation status.
+
+## Requirements
+
+### R1. Vector Ribbon Surface-Conforming Geometry & Horizon Falloff
+- In `src/webgpu/shaders/vector_ribbon.wgsl` and `src/webgpu/WebGPUEngine.ts`:
+  - Eliminate the artificial `0.025` normal standoff (`standoff = 0.0`).
+  - Align ribbon vertex elevation displacement with the terrain crust decoding logic so vector linework strictly conforms to the DEM surface without clipping.
+  - Implement camera-distance-adaptive stroke scaling: dynamic transition from ultra-fine hairline (`0.35px` physical / CSS stroke scaling) at full planetary orbit to standard line width (`0.75px`) at close zoom.
+  - Refine horizon facing falloff (`in.facing`) and front-to-back attenuation so vectors smoothly attenuate before the silhouette limb. Ensure any finite difference derivative calls (`fwidth`, `dpdx`, `dpdy`) remain in unconditional uniform control flow strictly before conditional discards (per AGENTS.md invariant #3).
+
+### R2. In-Shader Geomorphic Hydrology Drainage
+- In `src/webgpu/shaders/crust_hydrosphere.wgsl`:
+  - Calculate discrete Laplacian valley curvature (`kValley`) and elevation descent gradient to detect natural geomorphic drainage channels.
+  - Glaze self-tapering waterways (headwaters hairline to broad valley confluences) directly into the DEM valley troughs for Cream Rag (Theme 1) and Prussian Cyanotype (Theme 2).
+  - Hydrological linework must visually harmonize with Eduard Imhof relief shading and avoid artifacting across tile borders.
+  - Ensure the initial application view defaults to Cream Rag with its optimal paper substrate, relief, and watercolor shelf presentation.
+
+### R3. TypeScript & Shading Language Invariants
+- Comply with all authoritative invariants from `AGENTS.md`:
+  - **WGSL Uniform Control Flow**: Unconditional evaluation of all derivatives (`fwidth`) at entry of `fs_main` prior to any branching or `discard`.
+  - **Substrate Clear Invariant**: Premultiplied alpha zero clear (`{ r: 0.0, g: 0.0, b: 0.0, a: 0.0 }`) to avoid DOM background blowout.
+  - **Type Checking**: Clean execution of `npx tsc --noEmit` and `npm test` with zero compile or test regressions.
+
+## Acceptance Criteria
+
+### Shaders & TypeScript Build
+- [ ] `npx tsc --noEmit` passes with 0 errors.
+- [ ] `npm test` passes with 0 regressions.
+- [ ] Live WebGPU shader compilation succeeds in browser with zero driver errors or WGSL uniform control flow rejections.
+
+### Visual & Runtime Verification Gate 1 (via Chrome DevTools MCP)
+- [ ] **Capture 1 (Limb Horizon)**: Captured at 75° pitch looking across the planetary limb. Zero vector spikes or disconnected geometry float outside the planetary silhouette.
+- [ ] **Capture 2 (Alpine Basin Zoom)**: Captured at 3.5x zoom focused over the Alpine arc, Po Valley, and Rhône basin. In-shader waterways sit centered within the DEM valley floors, exhibiting smooth self-tapering linework.
+- [ ] **Empirical Runtime Metrics**: Live browser FPS measured and confirmed ≥ 60 FPS (target ≥ 110 FPS on Apple Silicon) with zero console warnings.
+
+## 2026-09-08T19:23:00Z
+
+Execute STAGE 2 (The Physical Medium as Ink) of the Indicatrix Engine Transformation. Elevate the three cartographic themes from color-swap palettes into physically-grounded material simulations — copperplate intaglio on cotton rag, 1842 Herschel cyanotype photochemistry, and Heezen–Tharp physiographic stippling — while enforcing strict HUD layout invariants from `AGENTS.md` and maintaining zero-frame theme switching at ≥110 FPS.
+
+Working directory: /Users/andrewvoirol/Antigravity/Projects/ais-interactive-globe-to-map
+Integrity mode: development
+
+**Prerequisite**: Stage 1 (The Foundational Substrate) has been completed and verified. Zero-standoff vector ribbons, camera-distance adaptive stroke scaling, horizon facing falloff, and in-shader geomorphic drainage are all in place and passing (`npx tsc --noEmit` = 0 errors, `npm test` = all passing, live FPS 86–116 on Apple Silicon).
+
+## Authoritative References
+
+The following files are the authoritative design specifications. Consult them before making any changes:
+- `AGENTS.md`: 7 project invariants including WGSL uniform control flow, cartographic framing, HUD layout geometry, substrate/optics hierarchy, and archival ink rules.
+- `DESIGN_ETHOS.md`: 15 core design principles, rendering identities, hydrosphere physics, and framing hierarchy.
+- `design-language.md`: OKLCH-to-Linear-sRGB color spaces, theme tokens, typographic scale, HUD geometry.
+
+## Team Mandate & Roles
+
+- **[MATERIALS-ENGINEER]**: Responsible for `src/webgpu/shaders/crust_hydrosphere.wgsl` and `src/core/themes/ThemeManager.ts`. Implement physically-grounded medium simulation for all three themes:
+  - **Cream Rag (Theme 1)**: Subtractive Kubelka-Munk intaglio ink absorption with capillary micro-bleed; high-frequency cellulose paper fiber tooth modulated by the `u_roughness` / tactile slider; Lehmann slope-angle hachuring where steep mountain faces receive technical line density proportional to slope angle.
+  - **Prussian Cyanotype (Theme 2)**: 1842 John Herschel photochemical exposure model — unexposed areas (mountain ridges, coastlines, graticules) wash out to crisp ruling-pen chalk linework (`#E8EDF2`); exposed oceanic and lowland areas develop deep ferroprussiate indigo washes (`#162B42`); exposure intensity correlates with elevation inversion.
+  - **Marie Tharp (Theme 0)**: Bruce Heezen & Marie Tharp physiographic pen-and-ink stippling on abyssal plains and rift valleys; stipple density modulated by bathymetric slope gradient; mid-ocean ridge crests rendered with concentrated hatching.
+  - All medium effects must operate within the existing `u_theme` branching in the fragment shader. No new shader pipeline compilation or bind group changes on theme switch — only uniform buffer updates.
+
+- **[CARTOGRAPHY-DESIGNER]**: Responsible for all React HUD overlay components. Enforce the cartographic layout invariants from `AGENTS.md` by remediating the following **9 known violations** identified during pre-flight audit:
+
+  **Vertical Gutter Violations (left-column instrument stack):**
+  1. **Cartouche-to-Aside Gap = 6px** (requires 20px): In `src/webgpu/WebGPUCanvas.tsx` line 1339 and `src/App.tsx` line 343. Cartouche top edge at `h - 92px`, Imhof NW Aside at `bottom-[98px]`. Fix: shift Aside to `bottom-[112px]` when Cartouche is visible.
+  2. **Aside-to-Toast Gap ≈ 8px** (requires 20px): In `src/App.tsx` line 343 and `src/components/hud/DataLayerToastNotification.tsx` line 46. Fix: cascade the toast stack position upward to maintain 20px gutter from the shifted Aside.
+  3. **Aside doesn't adapt when Cartouche is toggled off**: Aside stays at `bottom-[98px]` even when Cartouche is hidden. Should drop to `bottom-5` (20px from neatline) when `showCartouche` is false.
+
+  **Corner Mark Collisions:**
+  4. **`⌝ 90.00°` collides with header bar**: At `md:right-[26rem]`, the corner mark text overlaps the header bar's right end horizontally and has 2px vertical overlap. Corner marks must clear all floating panels dynamically.
+  5. **`⌜ 00.00°` encroaches on header**: At `top-1 left-2`, the mark overlaps the header at `top-5 left-5` by 2px vertically.
+
+  **Mobile / Responsive Violations:**
+  6. **Header vs. sidebar collision below `md:`**: Header defaults to `right-5` on mobile, directly colliding with the `right-5 w-96` sidebar.
+  7. **Right corner marks trapped under sidebar below `md:`**: `⌝ 90.00°` and `⌟ 270.00°` fall back to `right-2`, fully occluded by the 384px sidebar.
+
+  **Utility Class & Edge Cases:**
+  8. **Invalid `z-35` Tailwind class**: In `src/components/hud/DataLayerToastNotification.tsx` line 46. Tailwind v3 drops `z-35` silently. Fix: change to `z-[35]`.
+  9. **Catalog-to-NavigationDock overlap on compact `2xl` (1536–1650px)**: Catalog sheet (`z-40`) extends down to 20px from bottom and overlaps the centered NavigationDock (`z-20`) by ~325px on narrow 2xl viewports.
+
+- **[VERIFICATION-LEAD]**: Use Chrome DevTools MCP to perform live visual verification:
+  - **Capture 3 (Cream Rag Intaglio Close-up)**: Close-up of alpine terrain showing paper fiber tooth texture and Lehmann hachuring on steep slopes.
+  - **Capture 4 (Cyanotype Blueprint)**: Architectural view showing glowing chalk ruling-pen linework and coordinate graticules against ferroprussiate washes.
+  - **Capture 5 (1-Frame Hot Switch)**: Confirm instantaneous medium switching between all three themes with zero shader recompilation lag or frame drops.
+  - Report empirical FPS, console errors, and WGSL compilation status for each theme.
+
+## Requirements
+
+### R1. Physical Medium Simulation in WGSL Fragment Shader
+- In `src/webgpu/shaders/crust_hydrosphere.wgsl`:
+  - **Cream Rag**: Enhance the existing `hashPaper2D` cellulose fiber tooth with Lehmann slope-angle hachuring — technical line density increases with terrain slope angle (theta > 20°), using the existing `gradDir` and `strikeDir` vectors. Implement subtractive Kubelka-Munk ink absorption for watercolor depth glazes using the existing `evaluateKubelkaMunkReflectance` function.
+  - **Prussian Cyanotype**: Implement photochemical exposure model — the fragment shader treats elevation as an exposure mask. High-altitude features remain "unexposed" (bright chalk), while oceanic depths and lowland valleys "develop" into deep ferroprussiate indigo. Graticule lines render as ruling-pen chalk against the developed substrate.
+  - **Marie Tharp**: Extend the existing bathymetric fault hachuring (currently only in Theme 0 block at line ~948) into full physiographic stippling — procedural dot density modulated by bathymetric slope gradient on abyssal plains, with concentrated hatching along mid-ocean ridge transform faults.
+  - All derivative evaluations (`fwidth`, `dpdx`, `dpdy`) must remain in unconditional uniform control flow at the top of `fs_main` (AGENTS.md Invariant #3).
+
+### R2. Theme Manager Medium Properties
+- In `src/core/themes/ThemeManager.ts`:
+  - Add physical medium properties to the `ThemePalette` interface — `mediumProperties` object containing: `inkAbsorption` (0–1 Kubelka-Munk scattering coefficient), `fiberDensity` (paper tooth frequency multiplier), `exposureGamma` (cyanotype photochemical curve), `stippleDensity` (Tharp stipple frequency).
+  - These properties are passed as uniforms to the shader and switch instantaneously when `setMode()` is called — no pipeline recompilation, no new bind groups.
+  - Ensure `applyCSSVariables()` continues to update all CSS custom properties on theme switch for HUD consistency.
+
+### R3. HUD Cartographic Layout Compliance (9 Known Violations)
+- Remediate all 9 violations identified in the pre-flight audit (listed in the Team Mandate above):
+  - Fix the 3 vertical gutter violations in the left-column instrument stack (Cartouche → Aside → Toast cascade)
+  - Fix the 2 corner mark collision issues (dynamic clearing of header bar)
+  - Fix the 2 mobile/responsive violations (header-sidebar collision, corner mark occlusion)
+  - Fix the invalid `z-35` utility class
+  - Address the catalog-to-NavigationDock overlap on compact 2xl viewports
+- Preserve the existing compliant layout geometry: 10px neatline moats on all primary containers, 20px header-to-sidebar gutters, single-border enclosure contract.
+
+### R4. TypeScript & WGSL Invariant Compliance
+- `npx tsc --noEmit` passes with 0 errors.
+- `npm test` (Vitest) passes with 0 regressions against the current test suite.
+- Live WebGPU shader compilation succeeds in browser with zero WGSL uniform control flow rejections.
+- Premultiplied alpha transparent clear value (`{ r: 0.0, g: 0.0, b: 0.0, a: 0.0 }`) preserved (AGENTS.md Invariant #5).
+
+## Acceptance Criteria
+
+### Build & Type Safety
+- [ ] `npx tsc --noEmit` passes with 0 errors.
+- [ ] `npm test` passes with 0 regressions.
+- [ ] `npm run build` produces a clean production build.
+
+### Visual Verification Gate 2 (via Chrome DevTools MCP)
+- [ ] **Capture 3 (Cream Rag Intaglio)**: Close-up capture of alpine terrain showing visible paper fiber tooth modulation and Lehmann slope-dependent hachure lines on steep mountain faces. Slopes > 35° show noticeably denser technical hatching than gentle lowlands.
+- [ ] **Capture 4 (Cyanotype Blueprint)**: Capture showing chalk-white ruling-pen coastlines and graticules against deep ferroprussiate indigo ocean washes. Mountain summits render as bright unexposed chalk; deep ocean basins show maximum Prussian blue development.
+- [ ] **Capture 5 (Hot Switch Verification)**: Switching between all three themes (keyboard shortcut or UI control) produces zero frame drops, zero console errors, and zero shader recompilation events. FPS remains ≥ 60 during transition.
+
+### Runtime Performance
+- [ ] Sustained FPS ≥ 110 on Apple Silicon in Cream Rag theme at default viewport.
+- [ ] Theme switching completes within 1 frame (< 8.3ms at 120 Hz) — uniform buffer update only, no pipeline rebuild.
+- [ ] Zero `fwidth must only be called from uniform control flow` or similar WGSL compilation errors in browser console.
+
+### HUD Layout Invariants (9 Violations Remediated)
+- [ ] Cartouche-to-Aside vertical gap ≥ 20px (was 6px).
+- [ ] Aside-to-Toast vertical gap ≥ 20px (was ~8px).
+- [ ] Aside position adapts dynamically when Cartouche is toggled off (drops to `bottom-5`).
+- [ ] Corner marks (`⌜ ⌝ ⌞ ⌟`) clear all floating panels at all breakpoints — no horizontal or vertical overlap with header bar.
+- [ ] Header bar does not collide with sidebar below `md:` breakpoint.
+- [ ] Right corner marks are not occluded by sidebar on mobile viewports.
+- [ ] `z-35` replaced with `z-[35]` in DataLayerToastNotification.
+- [ ] Catalog sheet does not overlap NavigationDock on 1536–1650px viewports, or overlap is handled gracefully (z-index + pointer-events).
+- [ ] All pre-existing compliant geometry preserved: 10px moats, 20px header-sidebar gutters, single-border enclosure.
+
+## 2026-09-08T20:42:39Z
+
+# Teamwork Project Prompt
+
+Requested team: Deploy three specialized agents with strict verification gates: [ATMOSPHERIC-ENGINEER], [DYNAMICS-ENGINEER], and [VERIFICATION-LEAD]
+
+Execute STAGE 3 (Coupled System Dynamics) of the Indicatrix Engine Transformation: couple NOAA GFS horizontal wind velocities with the 3D DEM elevation gradient for orographic lift and condensation, and integrate the autonomous origami crane flight controller into the resulting terrain lift field.
+
+Working directory: /Users/andrewvoirol/Antigravity/Projects/ais-interactive-globe-to-map
+Integrity mode: development
+
+## Requirements
+
+### R1. Orographic Wind Velocity & Topographic Condensation
+In `src/webgpu/shaders/wind_particles.wgsl` and `src/webgpu/shaders/wind_ribbon_render.wgsl`, couple horizontal NOAA GFS wind velocity $\mathbf{u}_h = (u, v)$ with the 3D DEM elevation gradient $\nabla h = (\frac{\partial h}{\partial x}, \frac{\partial h}{\partial y})$ sampled from `u_demTexture`:
+- Compute vertical orographic velocity $w = \mathbf{u}_h \cdot \nabla h$.
+- Modulate particle altitude $z$ and streamline vertical deflection over mountain barriers (e.g., Alps, Andes, Himalayas).
+- In `wind_ribbon_render.wgsl`, evaluate orographic condensation wash on windward slopes ($w > 0$) as subtle moisture glazes without altering the non-moralized drafting ink palette, maintaining uniform control flow for all derivatives.
+
+### R2. Autonomous Origami Crane Orographic Lift Coupling
+In `src/core/physics/OrigamiCraneFlightSolver.ts` and `src/webgpu/WebGPUEngine.ts`:
+- Wire the elevation sampler and real-time wind field into `OrigamiCraneFlightSolver.step()` during the engine render loop.
+- Modulate the crane's vertical variometer, altitude, and glide ratio based on local orographic vertical air motion $w = \mathbf{u}_h \cdot \nabla h$.
+- Ensure terrain ground clearance enforcement ($\ge 80\text{m}$) prevents clipping into mountain meshes.
+- Update HUD telemetry states in `DataLayersDrawer.tsx` / `UnifiedRightSidebar.tsx` to reflect positive variometer climb rates ($+3\text{ m/s}$ to $+5\text{ m/s}$) when crossing ridges.
+
+### R3. WebGPU Pipeline Binding & Uniform Control Flow Invariants
+- Bind `u_demTexture` and `u_demSampler` into `windComputeBindGroupLayout` / `windComputePipeline` in `WebGPUEngine.ts`.
+- Adhere strictly to the WebGPU WGSL Uniform Control Flow invariant: all texture sampling and derivative evaluations must occur before dynamic branching or discards.
+- Maintain the strict 5-core-buffer invariant on engine initialization, ensuring wind and crane buffers remain lazily allocated.
+
+## Acceptance Criteria
+
+### Atmospheric Orographic Dynamics
+- [ ] `wind_particles.wgsl` samples `u_demTexture` and evaluates $w = \mathbf{u}_h \cdot \nabla h$ during RK2 advection.
+- [ ] Streamline 3D coordinates reflect vertical displacement over elevated terrain barriers.
+- [ ] `wind_ribbon_render.wgsl` renders orographic condensation washes under uniform control flow without driver-level compilation errors.
+
+### Crane Flight Aerodynamics & Telemetry
+- [ ] `OrigamiCraneFlightSolver.step()` receives active wind and elevation gradient data from the engine loop.
+- [ ] Variometer telemetry measures positive climb ($+1.5$ to $+5.0\text{ m/s}$) when traversing windward mountain barriers (e.g., Andes at $-68.5^\circ\text{W}, -32.5^\circ\text{S}$).
+- [ ] Crane maintains $\ge 80\text{m}$ clearance over mountain summits without terrain clipping.
+- [ ] Vitest test suite passes with zero regressions (`npm test tests/phase5-wind-crane-physics.test.ts`).
+
+### Verification Gate 3 (Visual & Performance)
+- [ ] Chrome DevTools MCP captures Viewpoint 5 (Orographic Streamline Deflection over the Alps/Andes) into `screenshots/`.
+- [ ] Console logs confirm zero WebGPU WGSL uniform control flow validation errors.
+- [ ] WebGPU frame profiling confirms 120 FPS target with zero dropped frames.

@@ -68,6 +68,7 @@ export interface TelemetryHUDProps {
   onWaterClarityChangeDataLayer?: (id: string, clarity: number) => void;
   onPeakExponentChangeDataLayer?: (id: string, exponent: number) => void;
   onAmbientOcclusionChangeDataLayer?: (id: string, ao: number) => void;
+  onPaperToothChangeDataLayer?: (id: string, tooth: number) => void;
   onReorderDataLayer?: (id: string, direction: 'up' | 'down') => void;
   onSelectRenderStyle?: (style: DataLayerRenderStyle) => void;
   fractureIntensity?: number;

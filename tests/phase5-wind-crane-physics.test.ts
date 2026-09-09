@@ -262,6 +262,87 @@ describe('Phase 5: Atmospheric Wind System & Autonomous Origami Crane Engine', (
         }
       }
     });
+
+    it('CRANE-06: achieves +1.5 to +5.0 m/s variometer climb rate traversing Andes windward ridge', async () => {
+      // Andes at -68.5°W, -32.5°S (Aconcagua mountain wave corridor)
+      const solver = new OrigamiCraneFlightSolver(-68.5, -32.5, 5100);
+      const windSource = new VectorFieldDataSource();
+      await windSource.loadGrid('procedural');
+
+      // Sample elevation from analytical Andes model (elevation 5000m, windward slope +0.22)
+      const andesElevationSampler = (lon: number, lat: number) => {
+        const ridgeLon = -68.5;
+        const distFromRidge = lon - ridgeLon;
+        const ridgeProfile = Math.exp(-Math.pow(distFromRidge / 1.4, 2));
+        const elev = 1500.0 + 3500.0 * ridgeProfile;
+        return {
+          elevationMeters: elev,
+          gradEast: distFromRidge <= 0 ? 0.22 : -0.15,
+          gradNorth: 0.02,
+        };
+      };
+
+      solver.step(
+        {
+          dt: 0.05,
+          unfurl: 0.0,
+          mode: 0,
+          elevationSampler: andesElevationSampler,
+        },
+        windSource
+      );
+
+      const state = solver.getState();
+      // Requirement: Variometer climb rate between +1.5 and +5.0 m/s
+      expect(state.variometer).toBeGreaterThanOrEqual(1.5);
+      expect(state.variometer).toBeLessThanOrEqual(5.0);
+      // Effective glide ratio when climbing should indicate soaring state (99.0)
+      expect(state.glideRatio).toBe(99.0);
+      expect(state.terrainElevation).toBeCloseTo(5000.0, -1);
+      expect(state.clearance).toBeGreaterThanOrEqual(80.0);
+    });
+
+    it('CRANE-07: strictly enforces ground clearance >= 80m and updates clearance/glideRatio telemetry', () => {
+      // Start crane directly on a 4200m ridge
+      const solver = new OrigamiCraneFlightSolver(-68.5, -32.5, 4200);
+
+      const highRidgeSampler = () => ({
+        elevationMeters: 4200,
+        gradEast: 0.0,
+        gradNorth: 0.0,
+      });
+
+      // Step without wind (still air sink)
+      solver.step({
+        dt: 0.1,
+        unfurl: 0.0,
+        mode: 0,
+        elevationSampler: highRidgeSampler,
+      });
+
+      const state = solver.getState();
+      // Altitude must be at least terrain (4200m) + min clearance (80m) = 4280m
+      expect(state.altitude).toBeGreaterThanOrEqual(4280.0);
+      expect(state.clearance).toBeGreaterThanOrEqual(80.0);
+      expect(state.terrainElevation).toBe(4200);
+      expect(Number.isFinite(state.glideRatio)).toBe(true);
+      expect(state.glideRatio).toBeGreaterThan(0);
+    });
+
+    it('CRANE-08: WebGPUEngine provides sampleCPUElevationAndGradient and dynamic terrain shadow', async () => {
+      setupMockNavigator();
+      const engine = new WebGPUEngine();
+      const config = createEngineConfig(1024, 100);
+      await engine.initialize(config);
+
+      const sample = engine.sampleCPUElevationAndGradient(-68.5, -32.5);
+      expect(sample.elevationMeters).toBeGreaterThan(4500.0);
+      expect(sample.gradEast).toBeGreaterThan(0.0);
+      expect(Number.isFinite(sample.gradNorth)).toBe(true);
+
+      engine.dispose();
+      restoreMockNavigator();
+    });
   });
 
   describe('3. DataLayerCatalog Preset Ingestion', () => {

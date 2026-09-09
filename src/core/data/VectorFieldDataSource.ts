@@ -166,7 +166,8 @@ export class VectorFieldDataSource implements IDataSource<VectorFieldMetadata> {
           uMps = -8.0 * Math.cos((latDeg / 30) * (Math.PI * 0.5));
           vMps = (latDeg > 0 ? -2.5 : 2.5) * Math.sin(lonIdx * 0.05);
         } else if (Math.abs(latDeg) <= 60) {
-          uMps = 22.0 * Math.cos(((Math.abs(latDeg) - 45) / 15) * (Math.PI * 0.5));
+          const midLatFactor = Math.cos(((Math.abs(latDeg) - 45) / 20) * (Math.PI * 0.5));
+          uMps = 10.0 + 16.0 * Math.max(0.0, midLatFactor);
           vMps = 5.0 * Math.sin(lonIdx * 0.1);
         } else {
           uMps = -5.0;

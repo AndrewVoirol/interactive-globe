@@ -28,6 +28,8 @@ import { encodeFloat16 } from '../core/math/float16';
 import { parseTLE, propagateOrbitalPosition } from '../core/math/sgp4';
 import { loadNodeAssetBuffer, loadNodeAssetText } from '../utils/nodeAssetLoader';
 import { OrigamiCraneFlightSolver, CraneState } from '../core/physics/OrigamiCraneFlightSolver';
+import { VectorFieldDataSource } from '../core/data/VectorFieldDataSource';
+import { ThemeManager, PhysicalMediumProperties } from '../core/themes';
 
 export interface WebGPUInitConfig {
   canvas: HTMLCanvasElement;
@@ -84,6 +86,8 @@ export interface WebGPUFrameParams {
   fractureIntensity?: number;
   isolatedStratum?: number | null;
   paperTooth?: number;
+  mediumProperties?: PhysicalMediumProperties;
+  elevationSampler?: (lon: number, lat: number) => { elevationMeters: number; gradEast: number; gradNorth: number };
 }
 
 export class WebGPUEngine {
@@ -98,6 +102,7 @@ export class WebGPUEngine {
   private lineIndexBuffer!: GPUBuffer;
   private lineIndexCount: number = 0;
   private pointCount: number = 0;
+  private readonly baseRadius: number = 5.0;
 
   // Contour Mesh GPU Buffers (M2-T1)
   public contourVertexBuffer: GPUBuffer | null = null;
@@ -140,7 +145,7 @@ export class WebGPUEngine {
   public crustVertexBuffer: GPUBuffer | null = null;
   public crustIndexBuffer: GPUBuffer | null = null;
   public crustIndexCount: number = 0;
-  private crustFloats = new Float32Array(64);
+  private crustFloats = new Float32Array(68);
   private crustUints = new Uint32Array(this.crustFloats.buffer);
   private crustHydrospherePipeline!: GPURenderPipeline;
   private crustBindGroupLayout!: GPUBindGroupLayout;
@@ -196,6 +201,8 @@ export class WebGPUEngine {
   private windRibbonBindGroups: [GPUBindGroup, GPUBindGroup] | null = null;
   private windStep: number = 0;
   private windBuffersInitialized: boolean = false;
+  private windDataSource: VectorFieldDataSource = new VectorFieldDataSource();
+  private cpuDEMData: Uint16Array | Uint8Array | null = null;
 
   // Autonomous Origami Paper Crane Soaring Engine
   public readonly craneSolver: OrigamiCraneFlightSolver = new OrigamiCraneFlightSolver();
@@ -842,9 +849,9 @@ export class WebGPUEngine {
       this.loadVectorData('/geo-vectors.bin').catch(() => {});
     }
 
-    // 3. Lithosphere Crust & Hydrosphere Uniform Buffer (256 bytes) (M1-T3)
+    // 3. Lithosphere Crust & Hydrosphere Uniform Buffer (272 bytes) (M1-T3, STAGE 2)
     this.crustUniformBuffer = this.device.createBuffer({
-      size: 256,
+      size: 272,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -993,7 +1000,7 @@ export class WebGPUEngine {
 
       this.windUniformBuffer = this.device.createBuffer({
         label: 'wind_uniform_buffer',
-        size: 32,
+        size: 48,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
 
@@ -1008,7 +1015,7 @@ export class WebGPUEngine {
   }
 
   private updateWindBindGroups(): void {
-    if (!this.device || !this.windParticleBuffers || !this.windUniformBuffer || !this.windTextureView || !this.jetStreamTextureView) return;
+    if (!this.device || !this.windParticleBuffers || !this.windUniformBuffer || !this.windTextureView || !this.jetStreamTextureView || !this.demTextureView || !this.demSampler) return;
 
     try {
       const windComputeShaderModule = this.device.createShaderModule({
@@ -1025,6 +1032,8 @@ export class WebGPUEngine {
           { binding: 3, visibility: GPUShaderStage.COMPUTE, sampler: {} },
           { binding: 4, visibility: GPUShaderStage.COMPUTE, texture: {} },
           { binding: 5, visibility: GPUShaderStage.COMPUTE, texture: {} },
+          { binding: 6, visibility: GPUShaderStage.COMPUTE, sampler: { type: 'filtering' } },
+          { binding: 7, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float', viewDimension: '2d' } },
         ],
       });
 
@@ -1052,6 +1061,8 @@ export class WebGPUEngine {
             { binding: 3, resource: this.windSampler! },
             { binding: 4, resource: this.windTextureView! },
             { binding: 5, resource: this.jetStreamTextureView! },
+            { binding: 6, resource: this.demSampler! },
+            { binding: 7, resource: this.demTextureView! },
           ],
         }),
         this.device.createBindGroup({
@@ -1064,6 +1075,8 @@ export class WebGPUEngine {
             { binding: 3, resource: this.windSampler! },
             { binding: 4, resource: this.windTextureView! },
             { binding: 5, resource: this.jetStreamTextureView! },
+            { binding: 6, resource: this.demSampler! },
+            { binding: 7, resource: this.demTextureView! },
           ],
         }),
       ];
@@ -1247,6 +1260,9 @@ export class WebGPUEngine {
         ],
       });
     }
+
+    // Atmospheric Wind BindGroups (update with new DEM view)
+    this.updateWindBindGroups();
   }
 
   public async loadOrbitalTextures(
@@ -1587,6 +1603,7 @@ export class WebGPUEngine {
       // Buffer ingestion with full mipmap pyramid generation
       if (!this.device || !this.isInitialized) return;
       const byteLength = urlOrBuffer.byteLength;
+      this.cpuDEMData = byteLength === 16777216 ? new Uint16Array(urlOrBuffer) : new Uint8Array(urlOrBuffer);
       const oldTexture = this.demTexture;
       if (byteLength === 16777216) {
         // Full-range 16-bit uint16 texture (2048 x 1024 x 4 x 2 bytes = 16 MB)
@@ -2376,6 +2393,108 @@ export class WebGPUEngine {
     return this.craneSolver.getState();
   }
 
+  /**
+   * Samples terrain elevation and slope gradients on the CPU.
+   * Leverages the loaded DEM buffer if available, or a physically grounded
+   * procedural orographic terrain model for real-time crane ridge lift.
+   */
+  public sampleCPUElevation(
+    lonDeg: number,
+    latDeg: number
+  ): { elevationMeters: number; gradEast: number; gradNorth: number } {
+    if (this.cpuDEMData) {
+      const u = (((lonDeg + 180.0) / 360.0) % 1.0 + 1.0) % 1.0;
+      const v = Math.min(0.999, Math.max(0.001, 0.5 - latDeg / 180.0));
+      const W = 2048;
+      const H = 1024;
+      const px = Math.min(W - 1, Math.max(0, Math.floor(u * W)));
+      const py = Math.min(H - 1, Math.max(0, Math.floor(v * H)));
+
+      const sampleAt = (x: number, y: number): number => {
+        const wrapX = ((x % W) + W) % W;
+        const clampY = Math.min(H - 1, Math.max(0, y));
+        const idx = (clampY * W + wrapX) * 4;
+        const r = this.cpuDEMData![idx];
+        const b = this.cpuDEMData![idx + 2];
+        const isU16 = this.cpuDEMData instanceof Uint16Array;
+        const maxVal = isU16 ? 65535 : 255;
+        const isLand = b > maxVal * 0.45;
+        return isLand ? (r / maxVal) * 8848.0 : 0.0;
+      };
+
+      const hCenter = sampleAt(px, py);
+      const hEast = sampleAt(px + 1, py);
+      const hWest = sampleAt(px - 1, py);
+      const hNorth = sampleAt(px, py - 1);
+      const hSouth = sampleAt(px, py + 1);
+
+      const R_E = 6371000.0;
+      const dLonRad = (2.0 * Math.PI) / W;
+      const dLatRad = Math.PI / H;
+      const cosLat = Math.max(0.05, Math.cos((latDeg * Math.PI) / 180.0));
+      const dx = 2.0 * R_E * cosLat * dLonRad;
+      const dy = 2.0 * R_E * dLatRad;
+
+      return {
+        elevationMeters: hCenter,
+        gradEast: (hEast - hWest) / dx,
+        gradNorth: (hNorth - hSouth) / dy,
+      };
+    }
+
+    // Physically grounded procedural mountain barrier models
+    // 1. Andes Cordillera (-74°W to -64°W, -56°S to 12°N)
+    if (lonDeg >= -74.0 && lonDeg <= -64.0 && latDeg >= -56.0 && latDeg <= 12.0) {
+      const ridgeLon = -68.5;
+      const distFromRidge = lonDeg - ridgeLon;
+      const ridgeProfile = Math.exp(-Math.pow(distFromRidge / 1.4, 2));
+      const elev = 1500.0 + 3500.0 * ridgeProfile;
+      return {
+        elevationMeters: elev,
+        gradEast: distFromRidge <= 0 ? 0.22 : -0.15,
+        gradNorth: 0.02,
+      };
+    }
+
+    // 2. Himalayas / Tibetan Plateau (75°E to 98°E, 26°N to 38°N)
+    if (lonDeg >= 75.0 && lonDeg <= 98.0 && latDeg >= 26.0 && latDeg <= 38.0) {
+      const ridgeLat = 28.5;
+      const distFromRidge = latDeg - ridgeLat;
+      const ridgeProfile = Math.exp(-Math.pow(distFromRidge / 2.0, 2));
+      const elev = 2000.0 + 4500.0 * ridgeProfile;
+      return {
+        elevationMeters: elev,
+        gradEast: 0.02,
+        gradNorth: distFromRidge < 0 ? 0.20 : -0.08,
+      };
+    }
+
+    // 3. European Alps (5°E to 16°E, 44°N to 48°N)
+    if (lonDeg >= 5.0 && lonDeg <= 16.0 && latDeg >= 44.0 && latDeg <= 48.0) {
+      return {
+        elevationMeters: 2800.0,
+        gradEast: 0.08,
+        gradNorth: 0.06,
+      };
+    }
+
+    return {
+      elevationMeters: 0,
+      gradEast: 0,
+      gradNorth: 0,
+    };
+  }
+
+  /**
+   * Alias for sampleCPUElevation to provide explicit semantic contract.
+   */
+  public sampleCPUElevationAndGradient(
+    lonDeg: number,
+    latDeg: number
+  ): { elevationMeters: number; gradEast: number; gradNorth: number } {
+    return this.sampleCPUElevation(lonDeg, latDeg);
+  }
+
   public toggleSurfaceWinds(show?: boolean): boolean {
     this.showSurfaceWinds =
       show !== undefined ? show : !this.showSurfaceWinds;
@@ -2712,6 +2831,8 @@ export class WebGPUEngine {
         depthWriteEnabled: false,
         depthCompare: 'less-equal',
         format: 'depth24plus',
+        depthBias: -120,
+        depthBiasSlopeScale: -1.0,
       },
       primitive: {
         topology: 'triangle-strip',
@@ -2770,139 +2891,7 @@ export class WebGPUEngine {
     // 12. Atmospheric Wind Compute & Ribbon Pipelines
     try {
       if (this.windParticleBuffers && this.windUniformBuffer && this.windTextureView && this.jetStreamTextureView) {
-        const windComputeShaderModule = this.device.createShaderModule({
-          label: 'wind_particles_compute',
-          code: windParticlesWGSL,
-        });
-
-        const windComputeBindGroupLayout = this.device.createBindGroupLayout({
-          label: 'wind_compute_bind_group_layout',
-          entries: [
-            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
-            { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
-            { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
-            { binding: 3, visibility: GPUShaderStage.COMPUTE, sampler: {} },
-            { binding: 4, visibility: GPUShaderStage.COMPUTE, texture: {} },
-            { binding: 5, visibility: GPUShaderStage.COMPUTE, texture: {} },
-          ],
-        });
-
-        const windComputePipelineLayout = this.device.createPipelineLayout({
-          bindGroupLayouts: [windComputeBindGroupLayout],
-        });
-
-        this.windComputePipeline = this.device.createComputePipeline({
-          label: 'wind_compute_pipeline',
-          layout: windComputePipelineLayout,
-          compute: {
-            module: windComputeShaderModule,
-            entryPoint: 'cs_advect_wind',
-          },
-        });
-
-        this.windComputeBindGroups = [
-          this.device.createBindGroup({
-            label: 'wind_compute_bg_0_to_1',
-            layout: windComputeBindGroupLayout,
-            entries: [
-              { binding: 0, resource: { buffer: this.windUniformBuffer } },
-              { binding: 1, resource: { buffer: this.windParticleBuffers[0] } },
-              { binding: 2, resource: { buffer: this.windParticleBuffers[1] } },
-              { binding: 3, resource: this.windSampler! },
-              { binding: 4, resource: this.windTextureView! },
-              { binding: 5, resource: this.jetStreamTextureView! },
-            ],
-          }),
-          this.device.createBindGroup({
-            label: 'wind_compute_bg_1_to_0',
-            layout: windComputeBindGroupLayout,
-            entries: [
-              { binding: 0, resource: { buffer: this.windUniformBuffer } },
-              { binding: 1, resource: { buffer: this.windParticleBuffers[1] } },
-              { binding: 2, resource: { buffer: this.windParticleBuffers[0] } },
-              { binding: 3, resource: this.windSampler! },
-              { binding: 4, resource: this.windTextureView! },
-              { binding: 5, resource: this.jetStreamTextureView! },
-            ],
-          }),
-        ];
-
-        // Wind Ribbon Render Pipeline
-        const windRibbonShaderModule = this.device.createShaderModule({
-          label: 'wind_ribbon_render',
-          code: windRibbonRenderWGSL,
-        });
-
-        const windRibbonBindGroupLayout = this.device.createBindGroupLayout({
-          label: 'wind_ribbon_bind_group_layout',
-          entries: [
-            { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
-            { binding: 1, visibility: GPUShaderStage.VERTEX, buffer: { type: 'read-only-storage' } },
-          ],
-        });
-
-        const windRibbonPipelineLayout = this.device.createPipelineLayout({
-          bindGroupLayouts: [windRibbonBindGroupLayout],
-        });
-
-        const windQuadCornerLayout: GPUVertexBufferLayout = {
-          arrayStride: 8,
-          stepMode: 'vertex',
-          attributes: [
-            { shaderLocation: 0, offset: 0, format: 'float32x2' },
-          ],
-        };
-
-        this.windRibbonPipeline = this.device.createRenderPipeline({
-          label: 'wind_ribbon_pipeline',
-          layout: windRibbonPipelineLayout,
-          vertex: {
-            module: windRibbonShaderModule,
-            entryPoint: 'vs_main',
-            buffers: [windQuadCornerLayout],
-          },
-          fragment: {
-            module: windRibbonShaderModule,
-            entryPoint: 'fs_main',
-            targets: [
-              {
-                format: this.format,
-                blend: {
-                  color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
-                  alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
-                },
-              },
-            ],
-          },
-          depthStencil: {
-            depthWriteEnabled: false,
-            depthCompare: 'always',
-            format: 'depth24plus',
-          },
-          primitive: {
-            topology: 'triangle-strip',
-            cullMode: 'none',
-          },
-        });
-
-        this.windRibbonBindGroups = [
-          this.device.createBindGroup({
-            label: 'wind_ribbon_bg_0',
-            layout: windRibbonBindGroupLayout,
-            entries: [
-              { binding: 0, resource: { buffer: this.ribbonUniformBuffer } },
-              { binding: 1, resource: { buffer: this.windParticleBuffers[0] } },
-            ],
-          }),
-          this.device.createBindGroup({
-            label: 'wind_ribbon_bg_1',
-            layout: windRibbonBindGroupLayout,
-            entries: [
-              { binding: 0, resource: { buffer: this.ribbonUniformBuffer } },
-              { binding: 1, resource: { buffer: this.windParticleBuffers[1] } },
-            ],
-          }),
-        ];
+        this.updateWindBindGroups();
       }
     } catch {
       // Mock environment guard
@@ -3102,10 +3091,25 @@ export class WebGPUEngine {
 
       ribF[20] = params.cursorActive ? 1.0 : 0.0;
       ribF[21] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
-      ribF[22] = 0.85; // u_halfWidthPx (nominal hairline half-width)
+
+      // Camera-distance-adaptive stroke scaling:
+      // 0.35px physical/CSS stroke scaling at planetary orbit (camDist >= 25.0)
+      // 0.75px zoomed in (camDist <= 8.0)
+      // Smoothly interpolate between these scales based on camera distance
+      const camDist = Math.hypot(
+        params.camera.position.x,
+        params.camera.position.y,
+        params.camera.position.z
+      );
+      const orbitT = Math.max(0.0, Math.min(1.0, (camDist - 8.0) / (25.0 - 8.0)));
+      const strokeWidthPx = 0.75 + (0.35 - 0.75) * orbitT;
+      ribF[22] = strokeWidthPx * 0.5; // u_halfWidthPx (nominal hairline half-width in CSS pixels)
+
       ribF[23] = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1.0 : 1.0, 3.0); // u_dpr
       ribF[24] = 0.1; // u_nearPlane
-      ribF[25] = 0.0; ribF[26] = 0.0; ribF[27] = 0.0; // padding
+      ribF[25] = params.peakExponent !== undefined ? params.peakExponent : 1.4; // u_peakExponent
+      ribF[26] = params.seaLevel !== undefined ? params.seaLevel : 0.0;         // u_seaLevel
+      ribF[27] = 0.0; // padding
 
       // u_viewMatrix (offset 112 = 28 floats)
       params.camera.matrixWorldInverse.toArray(ribF, 28);
@@ -3192,16 +3196,24 @@ export class WebGPUEngine {
       cu[62] = styleCode;
       cf[63] = params.isolatedStratum !== undefined && params.isolatedStratum !== null ? params.isolatedStratum : -1.0;
 
+      // STAGE 2 Physical Medium Properties (floats 64..67, offset 256)
+      const themePalette = ThemeManager.getInstance().getPalette();
+      const medium = params.mediumProperties ?? themePalette?.mediumProperties;
+      this.crustFloats[64] = medium?.inkAbsorption ?? 0.8;
+      this.crustFloats[65] = medium?.fiberDensity ?? 1.0;
+      this.crustFloats[66] = medium?.exposureGamma ?? 1.0;
+      this.crustFloats[67] = medium?.stippleDensity ?? 1.0;
+
       this.device.queue.writeBuffer(this.crustUniformBuffer, 0, cf.buffer);
     }
 
     // ------------------------------------------------------------------------
-    // Wind Simulation Uniforms (32 bytes)
+    // Wind Simulation Uniforms (48 bytes)
     // ------------------------------------------------------------------------
     if (this.windUniformBuffer) {
       const showSurf = params.showSurfaceWinds !== undefined ? (params.showSurfaceWinds ? 1.0 : 0.0) : (this.showSurfaceWinds ? 1.0 : 0.0);
       const showJet = params.showJetStream !== undefined ? (params.showJetStream ? 1.0 : 0.0) : (this.showJetStream ? 1.0 : 0.0);
-      const windU = new Float32Array(8);
+      const windU = new Float32Array(12);
       const windU32 = new Uint32Array(windU.buffer);
       windU[0] = params.unfurl;
       windU32[1] = params.mode;
@@ -3211,6 +3223,10 @@ export class WebGPUEngine {
       windU[5] = this.windSpeedMultiplier;
       windU[6] = showSurf;
       windU[7] = showJet;
+      windU[8] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
+      windU[9] = 0.0;
+      windU[10] = 0.0;
+      windU[11] = 0.0;
       this.device.queue.writeBuffer(this.windUniformBuffer, 0, windU.buffer);
     }
 
@@ -3218,11 +3234,15 @@ export class WebGPUEngine {
     // Autonomous Origami Paper Crane Uniforms (240 bytes)
     // ------------------------------------------------------------------------
     if ((this.isCraneActive || params.showCrane) && this.craneUniformBuffer) {
-      this.craneSolver.step({
-        dt: params.dt,
-        unfurl: params.unfurl,
-        mode: params.mode as any,
-      });
+      this.craneSolver.step(
+        {
+          dt: params.dt,
+          unfurl: params.unfurl,
+          mode: params.mode as any,
+          elevationSampler: params.elevationSampler || ((lon, lat) => this.sampleCPUElevation(lon, lat)),
+        },
+        this.windDataSource
+      );
 
       const cart = this.craneSolver.computeCartographicState(params.unfurl, params.mode as any);
       const state = this.craneSolver.getState();
@@ -3254,7 +3274,9 @@ export class WebGPUEngine {
 
       // [16..19]: shadowPos (xyz on terrain/sphere) + altitude (w)
       const normLen = Math.hypot(cart.worldPos[0], cart.worldPos[1], cart.worldPos[2]) || 1.0;
-      const shadowR = 5.004;
+      const altScale = 0.00003;
+      const terrainElev = state.terrainElevation ?? 0;
+      const shadowR = this.baseRadius + 0.006 + Math.max(0, terrainElev) * altScale;
       cf[16] = (cart.worldPos[0] / normLen) * shadowR;
       cf[17] = (cart.worldPos[1] / normLen) * shadowR;
       cf[18] = (cart.worldPos[2] / normLen) * shadowR;
@@ -3569,6 +3591,7 @@ export class WebGPUEngine {
     this.windRibbonBindGroups = null;
     this.cranePipeline = null;
     this.craneBindGroup = null;
+    this.cpuDEMData = null;
     this.device?.destroy?.();
     this.isInitialized = false;
   }

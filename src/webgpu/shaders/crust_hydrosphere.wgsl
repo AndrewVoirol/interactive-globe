@@ -28,6 +28,7 @@ struct SimUniforms {
     u_layerOpacity: f32,
     u_renderStyle: u32,       // 0 = Architectural / Relief, 1 = Hybrid / Depth, 2 = Orbital
     u_isolatedStratum: f32,   // -1.0 = All active, 0.0..4.0 = Isolate specific stratum band
+    u_mediumProperties: vec4<f32>, // x: inkAbsorption, y: fiberDensity, z: exposureGamma, w: stippleDensity
 };
 
 @group(0) @binding(0) var<uniform> sim: SimUniforms;
@@ -572,7 +573,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    // Unconditional derivative evaluation for WGSL uniform control flow conformance
+    // 1. Unconditional derivative evaluation for WGSL uniform control flow conformance (Invariant #3)
     let du_dx = dpdx(input.uv.x);
     let du_dy = dpdy(input.uv.x);
     let dv_dx = dpdx(input.uv.y);
@@ -580,6 +581,28 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let dym_dx = dpdx(input.dymaxion2D);
     let dym_dy = dpdy(input.dymaxion2D);
     let dUV = fwidth(input.uv);
+
+    // 2. Unconditional DEM 5-tap sampling with screen-space derivative LOD strictly before any branching/discard (Invariant #3)
+    let duv_dx = vec2<f32>(du_dx, dv_dx);
+    let duv_dy = vec2<f32>(du_dy, dv_dy);
+    let texSize = vec2<f32>(2048.0, 1024.0);
+    let deltaMax2 = max(dot(duv_dx * texSize, duv_dx * texSize), dot(duv_dy * texSize, duv_dy * texSize));
+    let mipLOD = clamp(0.5 * log2(max(deltaMax2, 1e-4)), 0.0, 11.0);
+
+    let mipStep = exp2(floor(mipLOD));
+    let ts = vec2<f32>(1.0 / 2048.0, 1.0 / 1024.0) * max(1.0, mipStep);
+
+    // Antimeridian seamless horizontal wrapping (fract on U) and polar clamp (clamp on V) to eliminate tile/seam artifacts
+    let uvR = vec2<f32>(fract(input.uv.x + ts.x), clamp(input.uv.y, 0.0, 1.0));
+    let uvL = vec2<f32>(fract(input.uv.x - ts.x + 1.0), clamp(input.uv.y, 0.0, 1.0));
+    let uvU = vec2<f32>(input.uv.x, clamp(input.uv.y + ts.y, 0.0, 1.0));
+    let uvD = vec2<f32>(input.uv.x, clamp(input.uv.y - ts.y, 0.0, 1.0));
+
+    let demC = textureSampleLevel(u_demTexture, u_demSampler, input.uv, mipLOD);
+    let demR = textureSampleLevel(u_demTexture, u_demSampler, uvR, mipLOD);
+    let demL = textureSampleLevel(u_demTexture, u_demSampler, uvL, mipLOD);
+    let demU = textureSampleLevel(u_demTexture, u_demSampler, uvU, mipLOD);
+    let demD = textureSampleLevel(u_demTexture, u_demSampler, uvD, mipLOD);
 
     // Dymaxion cross-facet polygon tearing discard guard via analytical 2D Jacobian
     if (sim.u_mode == 4u && sim.u_unfurl > 0.02) {
@@ -639,22 +662,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let upVec = select(vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), abs(n0.y) > 0.95);
     let tangentX = normalize(cross(upVec, n0));
     let tangentY = cross(n0, tangentX);
-
-    // Sample 5-tap cross with screen-space derivative LOD for optimal texture cache coherence and zero moiré
-    let duv_dx = vec2<f32>(du_dx, dv_dx);
-    let duv_dy = vec2<f32>(du_dy, dv_dy);
-    let texSize = vec2<f32>(2048.0, 1024.0);
-    let deltaMax2 = max(dot(duv_dx * texSize, duv_dx * texSize), dot(duv_dy * texSize, duv_dy * texSize));
-    let mipLOD = clamp(0.5 * log2(max(deltaMax2, 1e-4)), 0.0, 11.0);
-
-    let mipStep = exp2(floor(mipLOD));
-    let ts = vec2<f32>(1.0 / 2048.0, 1.0 / 1024.0) * max(1.0, mipStep);
-
-    let demC = textureSampleLevel(u_demTexture, u_demSampler, input.uv, mipLOD);
-    let demR = textureSampleLevel(u_demTexture, u_demSampler, input.uv + vec2<f32>(ts.x, 0.0), mipLOD);
-    let demL = textureSampleLevel(u_demTexture, u_demSampler, input.uv - vec2<f32>(ts.x, 0.0), mipLOD);
-    let demU = textureSampleLevel(u_demTexture, u_demSampler, input.uv + vec2<f32>(0.0, ts.y), mipLOD);
-    let demD = textureSampleLevel(u_demTexture, u_demSampler, input.uv - vec2<f32>(0.0, ts.y), mipLOD);
 
     let isLand = demC.b;
     let landElev = demC.r;
@@ -790,19 +797,149 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let tintedLand = cRamp * landIllum;
     var finalLand = mix(tintedLand, cRockShaded, rockWeight);
 
-    // Method B: Tactile Cotton Rag Micro-Fiber Roughness (Arches 300gsm Paper Tooth)
-    // Strictly restricted to Theme 1 (Cream Rag / Swiss Relief)
+    // ========================================================================
+    // STAGE 2 PHYSICAL MEDIUM AS INK: CONTINENTAL CRUST SHADING
+    // ========================================================================
     if (sim.u_theme == 1u) {
-        // Dual-scale anisotropic cellulose fibers modulated by grazing NW Imhof sunlight
-        let fiberCoord = input.uv * 1800.0;
+        // --- THEME 1: CREAM RAG (Copperplate Intaglio on Cotton Rag) ---
+        // 1. Dual-scale anisotropic cellulose fibers modulated by fiberDensity & u_roughness
+        let fiberFreq = 1800.0 * max(0.1, sim.u_mediumProperties.y);
+        let fiberCoord = input.uv * fiberFreq;
         let fiberFleck = hashPaper2D(fiberCoord);
         let fiberStrand = hashPaper2D(vec2<f32>(fiberCoord.x * 0.45 + 37.0, fiberCoord.y * 1.95 + 83.0));
-        let fiberTooth = (fiberFleck * 0.60 + fiberStrand * 0.40 - 0.50) * (sim.u_roughness * 0.70);
+        let fiberTooth = (fiberFleck * 0.60 + fiberStrand * 0.40 - 0.50) * (sim.u_roughness * 0.85);
 
         // Grazing raking light amplifies micro-shadows behind individual fibers
         let grazingFactor = pow(max(0.0, NdotL1), 0.65);
         let toothGlaze = 1.0 + fiberTooth * grazingFactor;
         finalLand = clamp(finalLand * toothGlaze, vec3<f32>(0.0), vec3<f32>(1.0));
+
+        // 2. Johann Georg Lehmann (1799) slope-angle hachuring (steep alpine faces theta > 20°)
+        let slopeAngle = acos(cosSlope);
+        let rad20 = 0.349066; // 20° in radians
+        let rad45 = 0.785398; // 45° in radians
+        if (slopeAngle > rad20) {
+            let slopeIntensity = clamp((slopeAngle - rad20) / (rad45 - rad20), 0.0, 1.0);
+            let hatchSpacing = fract(uStrike * 1.35);
+            let distToHatch = min(hatchSpacing, 1.0 - hatchSpacing);
+            // Stroke width increases with slope angle (Lehmann's principle: steeper = denser/thicker)
+            let strokeHalfW = mix(0.04, 0.32, slopeIntensity);
+            let hatchCoverage = 1.0 - smoothstep(strokeHalfW - 0.03, strokeHalfW + 0.03, distToHatch);
+            // Intermittent engraved cuts along the fall line
+            let strokeCut = step(0.20, fract(uFall * 0.42));
+            let lehmannStroke = hatchCoverage * strokeCut * slopeIntensity;
+            let cCopperplateSepia = vec3<f32>(0.22, 0.19, 0.16); // Archival sepia-charcoal ink #38302A
+            finalLand = mix(finalLand, cCopperplateSepia, lehmannStroke * 0.75);
+        }
+
+        // 3. Subtractive Kubelka-Munk intaglio ink absorption with capillary micro-bleed into fibers
+        let capillaryBleed = fiberTooth * (sim.u_mediumProperties.x * 0.35);
+        let kSepia = vec3<f32>(1.45, 1.72, 2.15); // Sepia spectral absorption
+        let surfaceLuma = dot(finalLand, vec3<f32>(0.299, 0.587, 0.114));
+        let inkDensity = clamp(1.0 - surfaceLuma, 0.0, 1.0);
+        let cPaperBase = vec3<f32>(0.953, 0.925, 0.878); // Arches 300gsm Cream Rag #F3ECE0
+        let intaglioAbsorbed = cPaperBase * exp(-kSepia * (inkDensity * (1.0 + capillaryBleed)));
+        finalLand = mix(finalLand, intaglioAbsorbed, clamp(sim.u_mediumProperties.x * 0.60, 0.0, 0.90));
+    } else if (sim.u_theme == 2u) {
+        // --- THEME 2: PRUSSIAN CYANOTYPE (1842 John Herschel Photochemical Model) ---
+        // Actinic exposure model: elevation inversion with sensitometric curve E = (1.0 - elevNorm)^exposureGamma
+        let normLandElev = clamp(landElev, 0.0, 1.0);
+        let landExposure = pow(clamp(1.0 - normLandElev, 0.0, 1.0), max(0.1, sim.u_mediumProperties.z));
+        let cChalkRulingPen = vec3<f32>(0.91, 0.93, 0.96); // Unexposed summit resist #E8EDF2
+        let cWashedCerulean = vec3<f32>(0.16, 0.30, 0.46); // Lowland blueprint wash #294D75
+        let developedCyanotype = mix(cChalkRulingPen, cWashedCerulean, smoothstep(0.04, 0.80, landExposure));
+
+        // Summits, sharp ridges, and crests wash out to crisp ruling-pen chalk linework (#E8EDF2)
+        let unexposedResist = smoothstep(0.68, 0.98, normLandElev) + kRidge * 0.45;
+        finalLand = mix(developedCyanotype * (diffuseTotal * 0.5 + 0.5), cChalkRulingPen, clamp(unexposedResist, 0.0, 0.95));
+
+        // Subtle architectural blueprint linen tooth
+        let linenFreq = 1200.0 * max(0.1, sim.u_mediumProperties.y);
+        let linenTooth = (hashPaper2D(input.uv * linenFreq) - 0.5) * (sim.u_roughness * 0.35);
+        finalLand = clamp(finalLand * (1.0 + linenTooth), vec3<f32>(0.0), vec3<f32>(1.0));
+    }
+
+    // ------------------------------------------------------------------------
+    // STAGE 1 In-Shader Geomorphic Hydrology Drainage (Frontiers 3 & 4)
+    // Conforms self-tapering waterways directly into DEM valley troughs.
+    // Invariant #7 Line Ratio: Major river widths strictly proportioned below
+    // coastline widths (55-60% ratio: 1.98px vs 3.40px maximum, tapering
+    // down to 0.40px hairline headwaters in alpine terrain).
+    // ------------------------------------------------------------------------
+    if (isLand > 0.45) {
+        // 1. Geomorphic Elevation Descent & Catchment Drainage Accumulation
+        let normElev = clamp(landElev, 0.0, 1.0);
+        let descentAccum = pow(1.0 - normElev, 1.6);
+
+        // 2. Discrete Second-Derivative Valley Sub-Texel Centering
+        let d2x = hR + hL - 2.0 * hC;
+        let d2y = hD + hU - 2.0 * hC;
+        let gx  = (hR - hL) * 0.5;
+        let gy  = (hD - hU) * 0.5;
+
+        let deltaX = select(0.0, -clamp(gx / max(d2x, 1e-4), -0.75, 0.75), d2x > 1e-4);
+        let deltaY = select(0.0, -clamp(gy / max(d2y, 1e-4), -0.75, 0.75), d2y > 1e-4);
+
+        // Sub-texel offset from cell center [-0.5, +0.5]
+        let uvGrid = input.uv / ts;
+        let fCell  = fract(uvGrid) - vec2<f32>(0.5);
+
+        // Metric coordinate offset on globe manifold (accounting for spherical latitude convergence)
+        var metricDistVec = (fCell - vec2<f32>(deltaX, deltaY)) * ts;
+        metricDistVec.x = metricDistVec.x * cosLat;
+
+        let distUv = length(metricDistVec);
+        let pixelUv = length(dUV);
+        let distPx = distUv / max(pixelUv, 1e-6);
+
+        // 3. Self-Tapering Waterway Line Width (Invariant #7: 55-60% of coastline width 3.40px)
+        // High alpine headwaters: 0.40px ultra-fine hairline
+        // Lowland valley confluences: 1.98px (58.2% of 3.40px)
+        let riverWidthPx = mix(0.40, 1.98, descentAccum);
+        let riverHalfWidth = riverWidthPx * 0.5;
+        let riverFeather = 0.45;
+
+        // Sub-pixel screen-space box feathering for resolution-invariant linework
+        let channelCoverage = 1.0 - smoothstep(riverHalfWidth - riverFeather, riverHalfWidth + riverFeather, distPx);
+
+        // 4. Geomorphic Concavity Gate (kValley from discrete 5-tap Laplacian)
+        let valleyGate = smoothstep(0.06, 0.32, kValley);
+
+        // Cliff attenuation: in sheer vertical rock cliffs (>35°), water forms narrow chutes
+        let cliffDampen = 1.0 - rockWeight * 0.35;
+
+        let waterwayGlaze = channelCoverage * valleyGate * cliffDampen;
+
+        if (waterwayGlaze > 0.001) {
+            var cWaterway: vec3<f32>;
+            var glazeAlpha: f32;
+
+            if (sim.u_theme == 1u) {
+                // Theme 1 (Cream Rag Paper): Archival Mineral Glazes / Washed Celadon-Lapis
+                // Alpine headwaters: washed mineral celadon (#77998B / vec3(0.32, 0.48, 0.46))
+                // Lowland confluences: deep archival lapis glaze (#263B52 / vec3(0.18, 0.32, 0.46))
+                let cAlpineCeladon = vec3<f32>(0.32, 0.48, 0.46);
+                let cLowlandLapis   = vec3<f32>(0.18, 0.32, 0.46);
+                cWaterway = mix(cAlpineCeladon, cLowlandLapis, descentAccum);
+                glazeAlpha = waterwayGlaze * mix(0.38, 0.52, descentAccum);
+            } else if (sim.u_theme == 2u) {
+                // Theme 2 (Prussian Cyanotype): Washed Architectural Cerulean / Blueprint Drafting Ink
+                // Headwaters: delicate blueprint chalk cerulean (#7AA2C8)
+                // Confluences: rich ferroprussiate cerulean (#4F79A3 / vec3(0.32, 0.58, 0.80))
+                let cChalkCerulean = vec3<f32>(0.52, 0.76, 0.92);
+                let cDraftCerulean = vec3<f32>(0.32, 0.58, 0.80);
+                cWaterway = mix(cChalkCerulean, cDraftCerulean, descentAccum);
+                glazeAlpha = waterwayGlaze * mix(0.48, 0.65, descentAccum);
+            } else {
+                // Theme 0 (Marie Tharp): Deep Marine Turquoise Drafting Glaze
+                let cAlpineCyan = vec3<f32>(0.32, 0.64, 0.72);
+                let cEstuaryCyan = vec3<f32>(0.18, 0.46, 0.56);
+                cWaterway = mix(cAlpineCyan, cEstuaryCyan, descentAccum);
+                glazeAlpha = waterwayGlaze * mix(0.42, 0.58, descentAccum);
+            }
+
+            finalLand = mix(finalLand, cWaterway, clamp(glazeAlpha, 0.0, 0.85));
+        }
     }
 
     var finalCrust: vec3<f32>;
@@ -829,10 +966,13 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 cBathyShelf  = vec3<f32>(0.16, 0.30, 0.46); // Drafting cobalt #294D75
                 cBathyAbyss  = vec3<f32>(0.08, 0.17, 0.26); // Prussian indigo #162B42
                 cBathyTrench = vec3<f32>(0.05, 0.09, 0.14); // Deep exposed prussiate #0E1824
-                cBathyRidge  = vec3<f32>(0.85, 0.90, 0.96); // Chalk ruling pen crest
+                cBathyRidge  = vec3<f32>(0.91, 0.93, 0.96); // Chalk ruling pen crest #E8EDF2
             } else if (sim.u_theme == 1u) {
-                // Cream Cotton Rag: Eduard Imhof soft celadon continental shelf & marine indigo
-                cBathyShelf  = vec3<f32>(0.52, 0.65, 0.58); // Shelf celadon #77998B
+                // Cream Cotton Rag: Eduard Imhof tiered watercolor shelves (inner celadon, outer shelf break, marine indigo)
+                let cInnerShelf = vec3<f32>(0.56, 0.68, 0.62); // Luminous shelf celadon #77998B
+                let cOuterShelf = vec3<f32>(0.42, 0.55, 0.56); // Mineral celadon-lapis wash
+                let shelfTier = smoothstep(0.004, 0.018, normDepth);
+                cBathyShelf  = mix(cInnerShelf, cOuterShelf, shelfTier);
                 cBathyAbyss  = vec3<f32>(0.24, 0.35, 0.46); // Soft marine indigo #263B52
                 cBathyTrench = vec3<f32>(0.14, 0.20, 0.26); // Trench umber
                 cBathyRidge  = vec3<f32>(0.88, 0.84, 0.78); // Warm bleached parchment
@@ -849,15 +989,55 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 cBathyTrench,
                 smoothstep(0.35, 0.85, normDepth)
             );
+
+            if (sim.u_theme == 2u) {
+                // Exposure-modulated ferroprussiate deepening based on sensitometric curve
+                let deepExposure = pow(clamp(normDepth, 0.0, 1.0), max(0.1, sim.u_mediumProperties.z));
+                cBathy = mix(cBathy, cBathyTrench, smoothstep(0.35, 0.95, deepExposure) * 0.60);
+            }
+
             // Mid-ocean ridge crest highlight
             cBathy = mix(cBathy, cBathyRidge, kRidge * 0.45);
 
-            // Marie Tharp Procedural Bathymetric Fault & Shelf Hachuring:
+            // Marie Tharp (Theme 0): Bruce Heezen & Marie Tharp Physiographic Pen-and-Ink Stippling
+            // Modulated by bathymetric slope gradient and u_mediumProperties.w (stippleDensity)
             if (sim.u_theme == 0u) {
                 let bathySlope = length(vec2<f32>(dHx, dHy));
-                let faultLine = sin((input.uv.x * 1200.0 + input.uv.y * 600.0) * 0.5);
-                let hachure = smoothstep(0.72, 0.96, faultLine) * smoothstep(0.08, 0.35, bathySlope);
-                cBathy = mix(cBathy, cBathyRidge, hachure * 0.45);
+                let stippleFreq = 1400.0 * max(0.1, sim.u_mediumProperties.w);
+                let stippleCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * stippleFreq;
+                let cellId = floor(stippleCoord);
+                let cellFract = fract(stippleCoord);
+
+                // Jittered stipple dot within lattice cell
+                let dotCenter = vec2<f32>(
+                    hashPaper2D(cellId + vec2<f32>(1.0, 7.0)),
+                    hashPaper2D(cellId + vec2<f32>(13.0, 41.0))
+                ) * 0.6 + vec2<f32>(0.2);
+                let distToDot = length(cellFract - dotCenter);
+
+                // Dot density increases with bathymetric slope gradient on abyssal plains and continental rises
+                let dotProb = clamp(0.18 + bathySlope * 3.8, 0.08, 0.92);
+                let cellRng = hashPaper2D(cellId * 3.17 + vec2<f32>(19.3, 7.1));
+                let hasDot = cellRng < dotProb;
+
+                // Dot radius slightly larger on steeper slopes
+                let dotRadius = mix(0.11, 0.24, clamp(bathySlope * 3.2, 0.0, 1.0));
+                let dotMask = select(0.0, 1.0 - smoothstep(dotRadius - 0.04, dotRadius + 0.04, distToDot), hasDot);
+
+                let cStippleInk = vec3<f32>(0.03, 0.05, 0.07);
+                cBathy = mix(cBathy, cStippleInk, dotMask * 0.70);
+
+                // Mid-ocean ridge crests and rift valleys: concentrated transform fault hatching
+                let uRidgeStrike = dot(vec2<f32>(input.uv.x * cosLat, input.uv.y) * 950.0, strikeDir);
+                let ridgeHatchWave = smoothstep(0.38, 0.94, sin(uRidgeStrike * 1.65));
+                let ridgeHatchStrength = ridgeHatchWave * (kRidge * 1.6 + kValley * 0.75);
+                let ridgeHatch = clamp(ridgeHatchStrength, 0.0, 1.0);
+                cBathy = mix(cBathy, cBathyRidge, ridgeHatch * 0.60);
+            } else if (sim.u_theme == 1u) {
+                // Cream Rag: Subtractive paper tooth and ink absorption into cotton rag ground
+                let fiberFreq = 1800.0 * max(0.1, sim.u_mediumProperties.y);
+                let bFiberTooth = (hashPaper2D(input.uv * fiberFreq) - 0.5) * (sim.u_roughness * 0.40);
+                cBathy = clamp(cBathy * (1.0 + bFiberTooth), vec3<f32>(0.0), vec3<f32>(1.0));
             }
 
             let bathyIllum = cSunLight * (sunDirect * 0.80 + ridgeEnhance * 0.8) + cSkyAmbient * (skyIndirect * creviceAO);
@@ -902,7 +1082,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             cOceanDeep   = vec3<f32>(0.08, 0.16, 0.26);
             cOceanTrench = vec3<f32>(0.04, 0.08, 0.14);
         } else if (sim.u_theme == 1u) {
-            cOceanShelf  = vec3<f32>(0.56, 0.68, 0.62);
+            let cInnerShelf = vec3<f32>(0.58, 0.70, 0.64);
+            let cOuterShelf = vec3<f32>(0.44, 0.56, 0.58);
+            let shelfTier = smoothstep(0.004, 0.018, normDepth);
+            cOceanShelf  = mix(cInnerShelf, cOuterShelf, shelfTier);
             cOceanDeep   = vec3<f32>(0.26, 0.38, 0.48);
             cOceanTrench = vec3<f32>(0.15, 0.22, 0.30);
         } else {
@@ -989,7 +1172,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let contourVal = fract(normElev * contourFreq);
         let distToLine = min(contourVal, 1.0 - contourVal);
         let isContour = 1.0 - smoothstep(0.0, 0.035, distToLine);
-        let cChalkContour = vec3<f32>(0.92, 0.95, 0.98);
+        let cChalkContour = vec3<f32>(0.91, 0.93, 0.96); // Chalk Ruling Pen Linework #E8EDF2
         finalCrust = mix(finalCrust, cChalkContour, isContour * 0.65);
     }
 

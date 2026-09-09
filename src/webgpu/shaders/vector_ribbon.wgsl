@@ -19,8 +19,8 @@ struct SimUniforms {
     u_halfWidthPx: f32,        // Nominal half-width in CSS pixels
     u_dpr: f32,                // Device Pixel Ratio (e.g. 2.0 for Retina)
     u_nearPlane: f32,          // Near clipping distance (e.g. 0.1)
-    u_pad0: f32,
-    u_pad1: f32,
+    u_peakExponent: f32,       // Peak exponent matching crust_hydrosphere.wgsl
+    u_seaLevel: f32,           // Dynamic sea level in meters
     u_pad2: f32,
     u_viewMatrix: mat4x4<f32>,
     u_projectionMatrix: mat4x4<f32>,
@@ -98,7 +98,7 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
 
     let curR = max(length(pos3D), 0.001);
     let lambda = atan2(pos3D.x, pos3D.z);
-    let phi = asin(clamp(pos3D.y / curR, -1.0, 1.0));
+    let phi = asin(clamp(pos3D.y / curR, -0.9998, 0.9998));
 
     if (sim.u_mode == 1u) {
         // Mode 1: Cylindrical Scroll Unfurling
@@ -187,8 +187,9 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
         out.normal = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
     } else {
         // Mode 0: Linear Manifold Mix
+        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
         out.pos = mix(pos3D, pos2D, ease);
-        out.normal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
+        out.normal = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
     }
 
     // Topographic Elevation Coupling from ETOPO 2022 DEM (Synchronized with crust_hydrosphere.wgsl)
@@ -208,15 +209,15 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
         let normH = elevMeters / 8848.0;
         let camDist = length(sim.u_cameraPos.xyz);
         let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
-        let dynamicExp = mix(1.0, 1.8, orbitT);
+        let dynamicExp = mix(1.0, 1.8, orbitT) * (max(0.5, sim.u_peakExponent) / 1.4);
         normalDisplacement = pow(normH, max(0.5, dynamicExp)) * dispScale * poleAtten;
     } else {
         let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
         normalDisplacement = -pow(normD, 0.85) * (dispScale * 0.65) * poleAtten;
     }
 
-    // Normal Standoff: +0.025 units above terrain to guarantee zero clipping or submergence
-    let standoff = 0.025 * (1.0 - clamp(sim.u_unfurl, 0.0, 1.0) * 0.4);
+    // Eliminated 0.025 normal standoff: set standoff = 0.0 to conform directly to terrain surface without floating spikes
+    let standoff = 0.0;
     out.pos += out.normal * (normalDisplacement + standoff);
 
     return out;
@@ -233,9 +234,26 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let defA = evaluateManifold(in.posA_3d.xyz, in.posA_target2d.xy, in.posA_target2d.zw);
     let defB = evaluateManifold(in.posB_3d.xyz, in.posB_target2d.xy, in.posB_target2d.zw);
 
+    // Compute view-space positions, normals, and horizon facing for both endpoints
+    let viewPosA = sim.u_viewMatrix * vec4<f32>(defA.pos, 1.0);
+    let viewNormalA = normalize((sim.u_viewMatrix * vec4<f32>(defA.normal, 0.0)).xyz);
+    let facingA = dot(viewNormalA, -normalize(viewPosA.xyz));
+
+    let viewPosB = sim.u_viewMatrix * vec4<f32>(defB.pos, 1.0);
+    let viewNormalB = normalize((sim.u_viewMatrix * vec4<f32>(defB.normal, 0.0)).xyz);
+    let facingB = dot(viewNormalB, -normalize(viewPosB.xyz));
+
+    let sphereFactor = 1.0 - smoothstep(0.0, 0.35, sim.u_unfurl);
+
+    // Early-out backface culling on spherical globe: if both endpoints are behind the horizon limb, cull segment completely
+    if (sphereFactor > 0.5 && facingA < 0.0 && facingB < 0.0) {
+        out.clipPos = vec4<f32>(0.0, 0.0, -1.0, 0.0); // Degenerate cull
+        return out;
+    }
+
     // 2. Homogeneous Clip-Space Coordinates
-    var clipA = sim.u_projectionMatrix * sim.u_viewMatrix * vec4<f32>(defA.pos, 1.0);
-    var clipB = sim.u_projectionMatrix * sim.u_viewMatrix * vec4<f32>(defB.pos, 1.0);
+    var clipA = sim.u_projectionMatrix * viewPosA;
+    var clipB = sim.u_projectionMatrix * viewPosB;
 
     let nearGuard = max(sim.u_nearPlane, 0.05);
 
@@ -279,20 +297,33 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let tangent = select(vec2<f32>(1.0, 0.0), deltaPx / lenPx, lenPx > 1e-4);
     let normal = vec2<f32>(-tangent.y, tangent.x);
 
-    // 6. Stroke Width and Subpixel Radiometric Clamping
+    // Quad corner selection: in.corner.x in [0, 1], in.corner.y in [-1, +1]
+    let isEndB = in.corner.x > 0.5;
+    let baseClip = select(clipA, clipB, isEndB);
+    let facingEnd = select(facingA, facingB, isEndB);
+
+    // 6. Camera-Distance-Adaptive Stroke Scaling & Subpixel Radiometric Clamping
     // Rivers (pointType < 0.75) are drawn at 58% nominal stroke width for delicate hydrological hierarchy
     let widthScale = select(1.0, 0.58, in.posA_3d.w < 0.75);
-    let nominalHalfWidthPhys = sim.u_halfWidthPx * sim.u_dpr * widthScale;
-    let geomHalfWidthPhys = max(nominalHalfWidthPhys, 0.45); // Minimum 0.45 physical px to prevent aliasing dropouts
-    let featherPhys = 1.0;                                  // 1 physical pixel feather margin
+
+    // Camera-distance adaptive stroke scaling:
+    // 0.35px physical/CSS stroke scaling at planetary orbit (camDist >= 25.0)
+    // 0.75px zoomed in (camDist <= 8.0)
+    let camDist = length(sim.u_cameraPos.xyz);
+    let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
+    let targetHalfWidthCss = mix(0.375, 0.175, orbitT); // 0.75px -> 0.35px full stroke width
+    let effectiveHalfWidthCss = select(targetHalfWidthCss, sim.u_halfWidthPx, sim.u_halfWidthPx > 0.001);
+
+    // Smooth limb horizon width taper: prevent ribbons from extruding past the planetary silhouette
+    let limbTaper = select(1.0, smoothstep(0.0, 0.08, max(0.0, facingEnd)), sphereFactor > 0.5);
+
+    let nominalHalfWidthPhys = effectiveHalfWidthCss * sim.u_dpr * widthScale;
+    let geomHalfWidthPhys = max(nominalHalfWidthPhys, 0.20) * limbTaper;
+    let featherPhys = 1.0 * limbTaper;
     let totalRadiusPhys = geomHalfWidthPhys + featherPhys;
 
     // Cap extension ratio for round caps
     let capExcess = totalRadiusPhys / max(lenPx, 1.0);
-
-    // Quad corner selection: in.corner.x in [0, 1], in.corner.y in [-1, +1]
-    let isEndB = in.corner.x > 0.5;
-    let baseClip = select(clipA, clipB, isEndB);
 
     // Longitudinal parameterization: extend unclipped ends by capExcess so round cap SDF can evaluate
     let baseU_A = select(uA_param - capExcess, uA_param, !wA_ok);
@@ -329,11 +360,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     out.alphaPeak = min(1.0, 2.0 * nominalHalfWidthPhys);
 
     // 8. Surface Facing & Horizon Culling
-    let dynamicNormal = select(defA.normal, defB.normal, isEndB);
-    let viewPos = sim.u_viewMatrix * vec4<f32>(select(defA.pos, defB.pos, isEndB), 1.0);
-    let viewNormal = normalize((sim.u_viewMatrix * vec4<f32>(dynamicNormal, 0.0)).xyz);
-    let viewDir = -normalize(viewPos.xyz);
-    out.facing = dot(viewNormal, viewDir);
+    out.facing = facingEnd;
 
     return out;
 }
@@ -343,15 +370,11 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 // ----------------------------------------------------------------------------
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // 1. Planetary Horizon Backface Attenuation
-    let sphereFactor = 1.0 - smoothstep(0.0, 0.35, sim.u_unfurl);
-    if (sphereFactor > 0.0 && in.facing < -0.15) {
-        discard;
-    }
-    let facingFade = mix(0.3, 1.0, smoothstep(-0.15, 0.25, in.facing));
-
-    // 2. Analytical Distance Function with Circular Cap Evaluation
-    // in.uv.x is longitudinal [0, 1], in.uv.y is lateral [-1, +1]
+    // ------------------------------------------------------------------------
+    // 1. UNIFORM CONTROL FLOW EVALUATION (Invariant #3)
+    // All finite difference derivatives (fwidth) MUST be evaluated unconditionally
+    // at the very top of fs_main before ANY branching, conditional blocks, or discard.
+    // ------------------------------------------------------------------------
     let u = in.uv.x;
     let v = in.uv.y;
 
@@ -361,14 +384,25 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Normalized Euclidean distance metric from the ribbon spine
     let dNorm = sqrt(uExcess * uExcess + v * v);
 
-    // 3. Screen-Pixel Derivative Feathering (Exact Physical Pixel Ramp)
-    // fwidth(dNorm) measures the rate of change of dNorm across 1 physical screen pixel
+    // Screen-Pixel Derivative Feathering (Exact Physical Pixel Ramp)
+    // Evaluated in unconditional uniform control flow
     let delta = max(0.5 * fwidth(dNorm), 1e-4);
 
     // Linear coverage ramp over a 1.0 physical pixel boundary transition
     let coverage = clamp(1.0 - (dNorm - (1.0 - delta)) / (2.0 * delta), 0.0, 1.0);
 
-    if (coverage <= 0.0) {
+    // ------------------------------------------------------------------------
+    // 2. Horizon Facing Falloff & Backface Attenuation
+    // ------------------------------------------------------------------------
+    let sphereFactor = 1.0 - smoothstep(0.0, 0.35, sim.u_unfurl);
+
+    // Smooth limb horizon falloff: cleanly attenuates to 0.0 at the silhouette
+    // Completely eliminates detached spikes, floating slivers, or disconnected geometry
+    let horizonAtten = smoothstep(0.0, 0.10, in.facing);
+    let facingFade = mix(1.0, horizonAtten, sphereFactor);
+
+    // Discard non-covered pixels or geometry behind the planetary horizon
+    if (coverage <= 0.0 || (sphereFactor > 0.0 && in.facing <= 0.0)) {
         discard;
     }
 

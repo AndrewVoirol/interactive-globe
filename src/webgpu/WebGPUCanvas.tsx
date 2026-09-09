@@ -401,6 +401,54 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     updateCameraTransform();
   }, [updateCameraTransform]);
 
+  // DevTools Camera Navigation Hook for Automated Verification
+  useEffect(() => {
+    (window as any).__INDICATRIX_CAMERA__ = {
+      setSpherical: (r: number, theta: number, phi: number, target?: [number, number, number]) => {
+        if (target) targetRef.current.set(target[0], target[1], target[2]);
+        sphericalRef.current.radius = r;
+        sphericalRef.current.theta = theta;
+        sphericalRef.current.phi = phi;
+        velocityRef.current.velTheta = 0;
+        velocityRef.current.velPhi = 0;
+        velocityRef.current.velRadius = 0;
+        velocityRef.current.velPanX = 0;
+        velocityRef.current.velPanY = 0;
+        targetCameraPosRef.current = null;
+        updateCameraTransform();
+      },
+      lookAtCoordinates: (lonDeg: number, latDeg: number, zoomRadius = 15, target?: [number, number, number]) => {
+        if (target) targetRef.current.set(target[0], target[1], target[2]);
+        sphericalRef.current.radius = zoomRadius;
+        sphericalRef.current.theta = (lonDeg * Math.PI) / 180;
+        sphericalRef.current.phi = ((90 - latDeg) * Math.PI) / 180;
+        velocityRef.current.velTheta = 0;
+        velocityRef.current.velPhi = 0;
+        velocityRef.current.velRadius = 0;
+        velocityRef.current.velPanX = 0;
+        velocityRef.current.velPanY = 0;
+        targetCameraPosRef.current = null;
+        updateCameraTransform();
+      },
+      setTarget: (x: number, y: number, z: number) => {
+        targetRef.current.set(x, y, z);
+        updateCameraTransform();
+      },
+      getSpherical: () => ({
+        radius: sphericalRef.current.radius,
+        theta: sphericalRef.current.theta,
+        phi: sphericalRef.current.phi,
+        latDeg: 90 - (sphericalRef.current.phi * 180) / Math.PI,
+        lonDeg: (sphericalRef.current.theta * 180) / Math.PI,
+        target: [targetRef.current.x, targetRef.current.y, targetRef.current.z],
+        cameraPos: [cameraRef.current.position.x, cameraRef.current.position.y, cameraRef.current.position.z],
+      }),
+    };
+    return () => {
+      delete (window as any).__INDICATRIX_CAMERA__;
+    };
+  }, [updateCameraTransform]);
+
   // Internal Camera Controls (Orbit gestures for WebGPU Native Canvas)
   useEffect(() => {
     const canvas = canvasRef.current;

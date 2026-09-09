@@ -99,6 +99,13 @@ export interface UIThemeTokens {
   cartoucheTransform: string;
 }
 
+export interface PhysicalMediumProperties {
+  inkAbsorption: number; // 0-1 Kubelka-Munk scattering coefficient
+  fiberDensity: number;  // paper tooth frequency multiplier
+  exposureGamma: number; // cyanotype photochemical sensitometric curve
+  stippleDensity: number;// Tharp abyssal plain stipple frequency
+}
+
 export interface ThemePalette {
   name: string;
   mode: ThemeMode;
@@ -113,6 +120,7 @@ export interface ThemePalette {
   ui: UIThemeTokens;
   activePigment?: { name: string; hex: string; depth: string } | null;
   isolatedStratum?: number | null;
+  mediumProperties: PhysicalMediumProperties;
 }
 
 export const DARK_CYBER_UI_TOKENS: UIThemeTokens = {
@@ -223,6 +231,12 @@ export const DARK_CYBER_THEME: ThemePalette = {
     alpha: 0.025,
   },
   ui: DARK_CYBER_UI_TOKENS,
+  mediumProperties: {
+    inkAbsorption: 0.70,
+    fiberDensity: 1.0,
+    exposureGamma: 1.0,
+    stippleDensity: 1.0,
+  },
 };
 
 export const MARIE_THARP_THEME = DARK_CYBER_THEME;
@@ -335,6 +349,12 @@ export const LIGHT_MONOCHROME_THEME: ThemePalette = {
     alpha: 0.04,
   },
   ui: LIGHT_MONOCHROME_UI_TOKENS,
+  mediumProperties: {
+    inkAbsorption: 0.85,
+    fiberDensity: 1.25,
+    exposureGamma: 1.0,
+    stippleDensity: 0.2,
+  },
 };
 
 export const CREAM_RAG_THEME = LIGHT_MONOCHROME_THEME;
@@ -447,6 +467,12 @@ export const PRUSSIAN_CYANOTYPE_THEME: ThemePalette = {
     alpha: 0.05,
   },
   ui: PRUSSIAN_CYANOTYPE_UI_TOKENS,
+  mediumProperties: {
+    inkAbsorption: 0.40,
+    fiberDensity: 0.80,
+    exposureGamma: 1.85,
+    stippleDensity: 0.0,
+  },
 };
 
 export type ThemeChangeListener = (theme: ThemePalette) => void;
@@ -640,6 +666,15 @@ export class ThemeManager {
     target.style.setProperty('--theme-font-body', ui.fontBody);
     target.style.setProperty('--theme-tracking-cartouche', ui.cartoucheTracking);
     target.style.setProperty('--theme-transform-cartouche', ui.cartoucheTransform);
+
+    // Physical Medium Properties (Stage 2)
+    const medium = palette.mediumProperties;
+    if (medium) {
+      target.style.setProperty('--theme-ink-absorption', medium.inkAbsorption.toString());
+      target.style.setProperty('--theme-fiber-density', medium.fiberDensity.toString());
+      target.style.setProperty('--theme-exposure-gamma', medium.exposureGamma.toString());
+      target.style.setProperty('--theme-stipple-density', medium.stippleDensity.toString());
+    }
   }
 
   private notifyListeners(): void {

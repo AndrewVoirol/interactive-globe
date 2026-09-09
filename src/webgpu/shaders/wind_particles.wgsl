@@ -20,6 +20,10 @@ struct WindSimUniforms {
     u_speedMultiplier: f32,
     u_showSurfaceWinds: f32,
     u_showJetStream: f32,
+    u_displacementScale: f32,
+    u_pad0: f32,
+    u_pad1: f32,
+    u_pad2: f32,
 };
 
 struct WindParticle {
@@ -37,6 +41,8 @@ struct WindParticle {
 @group(0) @binding(3) var u_windSampler: sampler;
 @group(0) @binding(4) var u_windTexture: texture_2d<f32>;
 @group(0) @binding(5) var u_jetTexture: texture_2d<f32>;
+@group(0) @binding(6) var u_demSampler: sampler;
+@group(0) @binding(7) var u_demTexture: texture_2d<f32>;
 
 // Deterministic fast hash for particle respawning
 fn hash12(p: vec2<f32>) -> f32 {
@@ -63,6 +69,59 @@ fn sampleVelocity(lonRad: f32, latRad: f32, isJet: bool) -> vec2<f32> {
     } else {
         return textureSampleLevel(u_windTexture, u_windSampler, uv, 0.0).xy;
     }
+}
+
+// Unpack ETOPO 2022 DEM elevation at equirectangular coordinates
+fn sampleTerrainElevation(lonRad: f32, latRad: f32) -> f32 {
+    let u = fract(lonRad / TWO_PI + 0.5);
+    let v = clamp(0.5 - latRad / PI, 0.001, 0.999);
+    let sample = textureSampleLevel(u_demTexture, u_demSampler, vec2<f32>(u, v), 0.0);
+    // ETOPO 2022 format: R is normalized continental elevation (0..8848m), B is land mask (>0.45 = land)
+    let landElev = sample.r * 8848.0;
+    // Over ocean, winds flow over sea surface boundary layer (0.0m)
+    return select(0.0, landElev, sample.b > 0.45);
+}
+
+struct TerrainSample {
+    elevation: f32,
+    gradient: vec2<f32>,
+};
+
+fn sampleTerrain(lonRad: f32, latRad: f32) -> TerrainSample {
+    // Texel step corresponding to 1 texel on 2048x1024 DEM
+    let dLon = TWO_PI / 2048.0;
+    let dLat = PI / 1024.0;
+
+    let hCenter = sampleTerrainElevation(lonRad, latRad);
+    let hEast   = sampleTerrainElevation(lonRad + dLon, latRad);
+    let hWest   = sampleTerrainElevation(lonRad - dLon, latRad);
+    let hNorth  = sampleTerrainElevation(lonRad, clamp(latRad + dLat, -PI * 0.495, PI * 0.495));
+    let hSouth  = sampleTerrainElevation(lonRad, clamp(latRad - dLat, -PI * 0.495, PI * 0.495));
+
+    // Spherical metric arc lengths:
+    // dx = 2 * R_E * cos(lat) * dLon
+    // dy = 2 * R_E * dLat
+    let cosLat = max(0.05, cos(latRad));
+    let dx = 2.0 * EARTH_RADIUS * cosLat * dLon;
+    let dy = 2.0 * EARTH_RADIUS * dLat;
+
+    var res: TerrainSample;
+    res.elevation = hCenter;
+    res.gradient = vec2<f32>((hEast - hWest) / dx, (hNorth - hSouth) / dy);
+    return res;
+}
+
+fn computeLiftedAltitude(lonRad: f32, latRad: f32, vel: vec2<f32>, isJet: bool) -> f32 {
+    let t = sampleTerrain(lonRad, latRad);
+    let w = dot(vel, t.gradient);
+    let terrainDisp = (t.elevation / 8848.0) * (sim.u_displacementScale * 2.8);
+    let baseAlt = select(0.04, 0.22, isJet);
+    let lift = select(
+        terrainDisp + clamp(w * 0.005, 0.0, 0.035),
+        terrainDisp * 0.25 + clamp(w * 0.002, -0.01, 0.02),
+        isJet
+    );
+    return baseAlt + lift;
 }
 
 // Evaluates 3D world position across Indicatrix's 5 morphing paradigms
@@ -139,7 +198,6 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     var lon = pIn.pos.x;
     var lat = pIn.pos.y;
-    let alt = select(0.04, 0.22, isJetStream); // Surface hugs terrain (+0.04), Jet stream floats (+0.22)
     var age = pIn.pos.w;
 
     let dt = sim.u_deltaTime * sim.u_speedMultiplier;
@@ -193,12 +251,23 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let currentVel = sampleVelocity(lon, lat, isJetStream);
     let speed = length(currentVel);
 
+    // Orographic vertical velocity w = u_h · ∇h (in m/s) and terrain-lifted altitude
+    let t0 = sampleTerrain(lon, lat);
+    let wOrographic = dot(currentVel, t0.gradient);
+    let terrainDisp0 = (t0.elevation / 8848.0) * (sim.u_displacementScale * 2.8);
+    let baseAlt = select(0.04, 0.22, isJetStream);
+    let alt0 = baseAlt + select(
+        terrainDisp0 + clamp(wOrographic * 0.005, 0.0, 0.035),
+        terrainDisp0 * 0.25 + clamp(wOrographic * 0.002, -0.01, 0.02),
+        isJetStream
+    );
+
     // Calculate fade alpha: smooth fade in at birth, fade out at end of life
     let fadeIn = smoothstep(0.0, 0.12, age);
     let fadeOut = 1.0 - smoothstep(0.85, 1.0, age);
     let alpha = fadeIn * fadeOut;
 
-    let worldPos0 = evaluateManifoldPosition(lon, lat, alt, sim.u_mode, sim.u_unfurl);
+    let worldPos0 = evaluateManifoldPosition(lon, lat, alt0, sim.u_mode, sim.u_unfurl);
 
     // Dynamic physical streamline step length (in geographic radians) scaled with wind velocity
     // Surface winds: fine filament steps (0.020 rad) for crisp streamline continuity
@@ -216,10 +285,11 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if (lon1 > PI) { lon1 = lon1 - TWO_PI; }
     if (lon1 < -PI) { lon1 = lon1 + TWO_PI; }
     let lat1 = clamp(lat - dir0.y * stepLen, -PI * 0.49, PI * 0.49);
-    let worldPos1 = evaluateManifoldPosition(lon1, lat1, alt, sim.u_mode, sim.u_unfurl);
+    let v1 = sampleVelocity(lon1, lat1, isJetStream);
+    let alt1 = computeLiftedAltitude(lon1, lat1, v1, isJetStream);
+    let worldPos1 = evaluateManifoldPosition(lon1, lat1, alt1, sim.u_mode, sim.u_unfurl);
 
     // Step 1 -> 2
-    let v1 = sampleVelocity(lon1, lat1, isJetStream);
     let s1 = max(length(v1), 0.01);
     let dir1 = v1 / s1;
     let cosLat1 = max(0.08, cos(lat1));
@@ -227,10 +297,11 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if (lon2 > PI) { lon2 = lon2 - TWO_PI; }
     if (lon2 < -PI) { lon2 = lon2 + TWO_PI; }
     let lat2 = clamp(lat1 - dir1.y * stepLen, -PI * 0.49, PI * 0.49);
-    let worldPos2 = evaluateManifoldPosition(lon2, lat2, alt, sim.u_mode, sim.u_unfurl);
+    let v2 = sampleVelocity(lon2, lat2, isJetStream);
+    let alt2 = computeLiftedAltitude(lon2, lat2, v2, isJetStream);
+    let worldPos2 = evaluateManifoldPosition(lon2, lat2, alt2, sim.u_mode, sim.u_unfurl);
 
     // Step 2 -> 3
-    let v2 = sampleVelocity(lon2, lat2, isJetStream);
     let s2 = max(length(v2), 0.01);
     let dir2 = v2 / s2;
     let cosLat2 = max(0.08, cos(lat2));
@@ -238,7 +309,9 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if (lon3 > PI) { lon3 = lon3 - TWO_PI; }
     if (lon3 < -PI) { lon3 = lon3 + TWO_PI; }
     let lat3 = clamp(lat2 - dir2.y * stepLen, -PI * 0.49, PI * 0.49);
-    let worldPos3 = evaluateManifoldPosition(lon3, lat3, alt, sim.u_mode, sim.u_unfurl);
+    let v3 = sampleVelocity(lon3, lat3, isJetStream);
+    let alt3 = computeLiftedAltitude(lon3, lat3, v3, isJetStream);
+    let worldPos3 = evaluateManifoldPosition(lon3, lat3, alt3, sim.u_mode, sim.u_unfurl);
 
     // Jet stream retains high segment alpha to form continuous fluid ribbons;
     // Surface winds retain balanced alpha for clearly defined streamlines without noise.
@@ -246,8 +319,8 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let a2 = select(0.50, 0.74, isJetStream);
     let a3 = select(0.25, 0.52, isJetStream);
 
-    pOut.pos = vec4<f32>(lon, lat, alt, age);
-    pOut.vel = vec4<f32>(currentVel.x, currentVel.y, 0.0, speed);
+    pOut.pos = vec4<f32>(lon, lat, alt0, age);
+    pOut.vel = vec4<f32>(currentVel.x, currentVel.y, wOrographic, speed);
     pOut.history0 = vec4<f32>(worldPos0, alpha * 1.00);
     pOut.history1 = vec4<f32>(worldPos1, alpha * a1);
     pOut.history2 = vec4<f32>(worldPos2, alpha * a2);

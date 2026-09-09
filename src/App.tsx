@@ -80,6 +80,10 @@ export default function App() {
   const mouseIdleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    window.dispatchEvent(new CustomEvent('cartouche-visibility-change', { detail: { showCartouche } }));
+  }, [showCartouche]);
+
+  useEffect(() => {
     if (!isZenMode) {
       setIsMouseIdle(false);
       return;
@@ -305,6 +309,7 @@ export default function App() {
     <CursorProvider>
       <div
         data-theme={theme === 2 ? 'cyanotype' : theme === 1 ? 'cream' : 'tharp'}
+        data-cartouche={showCartouche ? 'true' : 'false'}
         className={`relative w-screen h-screen flex flex-col font-mono overflow-hidden select-none transition-colors duration-500 text-[var(--theme-text-primary)] ${
           theme === 2 ? 'paper-cyanotype' : (theme === 1 ? 'paper-cream' : 'paper-tharp')
         }`}
@@ -312,15 +317,15 @@ export default function App() {
         {/* Outer Archival Neatline & Geodetic Corner Marks */}
         <div className="absolute inset-2 pointer-events-none border border-[var(--theme-neatline-border)] z-20 transition-colors duration-500">
           <div className="absolute inset-[2px] border border-current/15" />
-          <span className="absolute top-1 left-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80">⌜ 00.00°</span>
-          <span className={`absolute top-1 ${isSidebarActive ? (isCatalogOpen ? '2xl:right-[50.5rem] md:right-[26rem]' : 'md:right-[26rem]') : ''} right-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌝ 90.00°</span>
+          <span className="absolute top-[1px] left-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80">⌜ 00.00°</span>
+          <span className={`absolute top-[1px] right-2 ${isSidebarActive ? 'max-md:hidden' : ''} text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌝ 90.00°</span>
           <span className={`absolute bottom-1 ${showCartouche ? 'left-[268px]' : 'left-2'} text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌞ 180.00°</span>
-          <span className={`absolute bottom-1 ${isSidebarActive ? (isCatalogOpen ? '2xl:right-[50.5rem] md:right-[26rem]' : 'md:right-[26rem]') : ''} right-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌟ 270.00°</span>
+          <span className={`absolute bottom-1 ${isSidebarActive ? (isCatalogOpen ? '2xl:right-[50.5rem] md:right-[26rem] max-md:hidden' : 'md:right-[26rem] max-md:hidden') : ''} right-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌟ 270.00°</span>
         </div>
 
         {/* Top Technical Calibration Bar (Aligned on 20px grid axis with 10px neatline clearance moat) */}
         {!isZenMode && (
-          <header className={`absolute top-5 left-5 right-5 ${isCatalogOpen ? '2xl:right-[51.75rem] md:right-[26.5rem]' : 'md:right-[26.5rem]'} h-7 flex items-center justify-between gap-4 text-micro font-mono tracking-widest uppercase z-20 pointer-events-none px-3 rounded-[3px] border backdrop-blur-md shadow-sm transition-all duration-300 scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)]`}>
+          <header className={`absolute top-5 left-5 right-5 ${isCatalogOpen ? '2xl:right-[51.75rem] md:right-[26.5rem]' : 'md:right-[26.5rem]'} ${isSidebarActive ? 'max-md:hidden' : ''} h-7 flex items-center justify-between gap-4 text-micro font-mono tracking-widest uppercase z-20 pointer-events-none px-3 rounded-[3px] border backdrop-blur-md shadow-sm transition-all duration-300 scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)]`}>
             <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap z-10 min-w-0 pr-3">
               <span className="min-w-0 font-bold truncate">HYDROGRAPHIC SURVEY<span className="hidden xl:inline"> // CARTOGRAPHIC MATRIX</span></span>
               <span className="hidden lg:inline opacity-40 shrink-0">|</span>
@@ -340,7 +345,7 @@ export default function App() {
           <aside
             onClick={() => setTheme((t) => (((t + 1) % 3) as any))}
             title="Click to Cycle Cartographic Aesthetic Themes (Tharp, Cream Rag, Cyanotype) or press T"
-            className="absolute bottom-[98px] left-5 z-20 pointer-events-auto cursor-pointer tactile-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-[3px] border backdrop-blur-md transition-all duration-300 text-micro font-mono scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] select-none shadow-md"
+            className={`absolute ${showCartouche ? 'bottom-[112px]' : 'bottom-5'} left-5 z-20 pointer-events-auto cursor-pointer tactile-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-[3px] border backdrop-blur-md transition-all duration-300 text-micro font-mono scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] select-none shadow-md`}
           >
             {theme === 1 ? (
               // Cream Rag Paper: 16-point intaglio nautical compass rosette with fleur-de-lis

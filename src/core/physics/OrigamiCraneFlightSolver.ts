@@ -11,12 +11,15 @@ import { SimulationMode } from '../../types';
 export interface CraneState {
   lon: number;            // Geographic longitude in degrees (-180 to 180)
   lat: number;            // Geographic latitude in degrees (-90 to 90)
-  altitude: number;       // Altitude offset above base sphere radius (meters / cartographic units)
+  altitude: number;       // Altitude offset above base sphere radius (meters MSL)
+  terrainElevation: number; // Local terrain elevation in meters MSL
+  clearance: number;      // Terrain ground clearance in meters AGL (strictly >= 80m)
   heading: number;        // Heading in radians (0 = North, PI/2 = East)
   pitch: number;          // Pitch in radians (positive = nose up)
   roll: number;           // Roll / bank angle in radians (positive = right wing down)
   airspeed: number;       // Airspeed in m/s (typically 12 - 24 m/s)
   groundSpeed: number;    // Ground speed in m/s (airspeed + wind)
+  glideRatio: number;     // Effective instantaneous glide ratio (L/D)
   wingFlex: number;       // Dynamic wing deflection in radians (-0.15 to +0.25)
   variometer: number;     // Vertical climb/sink rate in m/s
   flightDuration: number; // Elapsed flight time in seconds
@@ -52,6 +55,9 @@ export class OrigamiCraneFlightSolver {
       lon: initialLon,
       lat: initialLat,
       altitude: initialAltMeters,
+      terrainElevation: 0.0,
+      clearance: initialAltMeters,
+      glideRatio: this.glideRatio,
       heading: Math.PI * 0.45, // Eastward heading
       pitch: 0.02,
       roll: 0.0,
@@ -74,6 +80,9 @@ export class OrigamiCraneFlightSolver {
     this.state.lon = lon;
     this.state.lat = lat;
     this.state.altitude = Math.max(500, altitudeMeters);
+    this.state.terrainElevation = 0.0;
+    this.state.clearance = this.state.altitude;
+    this.state.glideRatio = this.glideRatio;
     this.state.heading = Math.random() * Math.PI * 2.0;
     this.state.pitch = 0.01;
     this.state.roll = 0.0;
@@ -102,55 +111,51 @@ export class OrigamiCraneFlightSolver {
     this.state.currentStratum = stratum;
 
     // 2. Sample atmospheric horizontal wind vector [u, v] (East, North)
-    let uWind = 0;
-    let vWind = 0;
-    if (windSource) {
-      const [u, v] = windSource.sampleVelocity(lon, lat, stratum);
-      uWind = u;
-      vWind = v;
-    }
+    const [uWind, vWind] = windSource ? windSource.sampleVelocity(lon, lat, stratum) : [0, 0];
 
     // 3. Evaluate terrain elevation and orographic slope updrafts
-    let terrainElev = 0;
-    let orographicUpdraft = 0;
-    if (params.elevationSampler) {
-      const { elevationMeters, gradEast, gradNorth } = params.elevationSampler(lon, lat);
-      terrainElev = elevationMeters;
-      // Orographic lift: wind blowing up an incline produces positive vertical velocity
-      orographicUpdraft = uWind * gradEast + vWind * gradNorth;
-    }
+    const { elevationMeters, gradEast, gradNorth } = params.elevationSampler
+      ? params.elevationSampler(lon, lat)
+      : { elevationMeters: 0, gradEast: 0, gradNorth: 0 };
+    const terrainElev = elevationMeters;
+
+    // Kinematic surface orographic updraft: w_sfc = u*gradEast + v*gradNorth
+    const orographicUpdraftSfc = uWind * gradEast + vWind * gradNorth;
+
+    // Vertical scale-height decay: eta(z, h) = exp(-max(0, z - h) / 2500)
+    const heightAboveTerrain = Math.max(0, altitude - terrainElev);
+    const scaleHeightDecay = Math.exp(-heightAboveTerrain / 2500.0);
+    const localOrographicUpdraft = orographicUpdraftSfc * scaleHeightDecay;
 
     // Thermal updraft procedural model (convective bubbling in equatorial/mid-latitude afternoon)
     const thermalCycle = Math.sin(lon * 0.05 + lat * 0.08 + this.state.flightDuration * 0.2);
     const thermalUpdraft = thermalCycle > 0.6 ? (thermalCycle - 0.6) * 4.0 : 0.0;
 
-    // Net atmospheric vertical air motion
-    const verticalAirMotion = orographicUpdraft * 0.8 + thermalUpdraft;
+    // Net atmospheric vertical air motion w(z)
+    const verticalAirMotion = localOrographicUpdraft + thermalUpdraft;
 
     // 4. Glider aerodynamics:
-    // Natural sink rate in still air: V_sink = Airspeed / GlideRatio
+    // Natural sink rate in still air: V_sink = Airspeed / GlideRatio (L/D)
     const stillAirSink = airspeed / this.glideRatio;
-    const netClimbRate = verticalAirMotion - stillAirSink;
+    let netClimbRate = verticalAirMotion - stillAirSink;
     this.state.variometer = netClimbRate;
 
     // 5. Autopilot steering decisions:
-    // - If in strong lift (netClimbRate > 1.2 m/s), circle in a gentle thermal bank to stay in the lift
-    // - If sink is strong (netClimbRate < -1.5 m/s), speed up and turn toward ridges or downwind
+    // - Ridge soaring ("Ride the Ridge"): align heading along ridge crest (perpendicular to slope gradient)
+    // - Thermal soaring: circle in rising convective column
+    // - Cruising: drift downwind along streamlines with soft wandering
     let targetRoll = 0.0;
     let targetHeading = heading;
 
-    if (netClimbRate > 1.5) {
+    if (localOrographicUpdraft > 1.0) {
+      // Ride the ridge: align heading perpendicular to slope gradient
+      const ridgeAngle = Math.atan2(-gradEast, gradNorth);
+      targetHeading = ridgeAngle;
+      targetRoll = 0.05 * Math.sin(this.state.flightDuration * 0.5);
+    } else if (netClimbRate > 1.2) {
       // Circle gently in thermal / wave core
       targetRoll = 0.35; // ~20 degrees bank
       targetHeading += 0.4 * dt;
-    } else if (orographicUpdraft > 1.0) {
-      // Ride the ridge: align heading perpendicular to the slope gradient
-      if (params.elevationSampler) {
-        const { gradEast, gradNorth } = params.elevationSampler(lon, lat);
-        const ridgeAngle = Math.atan2(-gradEast, gradNorth);
-        targetHeading = ridgeAngle;
-        targetRoll = 0.05 * Math.sin(this.state.flightDuration * 0.5);
-      }
     } else {
       // Cruise downwind / along streamlines with slight wandering
       const windAngle = Math.atan2(uWind, vWind);
@@ -172,7 +177,6 @@ export class OrigamiCraneFlightSolver {
     this.state.pitch = Math.atan2(netClimbRate, this.state.airspeed);
 
     // 7. Dynamic wing flex physics (damped harmonic oscillator responding to vertical load)
-    // Updrafts increase wing flex; turbulence adds high-frequency paper flutter
     const loadFactor = (netClimbRate + 9.81) / 9.81; // G-load
     const targetWingFlex = Math.max(-0.15, Math.min(0.25, (loadFactor - 1.0) * 0.12));
     const kSpring = 45.0;
@@ -181,21 +185,34 @@ export class OrigamiCraneFlightSolver {
     this.wingFlexVel += flexAccel * dt;
     this.state.wingFlex += this.wingFlexVel * dt;
 
-    // 8. Integrate geographic position:
-    // Air velocity vector in NED (North, East, Down)
+    // 8. Integrate geographic position & ground velocity:
     const airNorth = this.state.airspeed * Math.cos(this.state.heading);
     const airEast = this.state.airspeed * Math.sin(this.state.heading);
 
-    // Ground velocity in m/s
     const groundNorth = airNorth + vWind;
     const groundEast = airEast + uWind;
     this.state.groundSpeed = Math.hypot(groundNorth, groundEast);
 
-    // Geographic degree conversion (Earth radius ~ 6,371,000 m)
     const earthRadius = 6371000.0;
-    const dLat = (groundNorth * dt / earthRadius) * (180.0 / Math.PI);
     const cosLat = Math.cos((lat * Math.PI) / 180.0);
     const safeCosLat = Math.max(0.01, Math.abs(cosLat));
+
+    // Lookahead anticipation to avoid mountain summits before impact
+    const lookaheadSec = 2.0;
+    const lookaheadLat = Math.max(-88.0, Math.min(88.0, lat + (groundNorth * lookaheadSec / earthRadius) * (180.0 / Math.PI)));
+    const lookaheadLon = ((lon + (groundEast * lookaheadSec / (earthRadius * safeCosLat)) * (180.0 / Math.PI) + 180.0) % 360.0) - 180.0;
+    const minClearance = 80.0; // meters above ground
+
+    if (params.elevationSampler) {
+      const ahead = params.elevationSampler(lookaheadLon, lookaheadLat);
+      const targetAltAhead = ahead.elevationMeters + minClearance;
+      if (this.state.altitude < targetAltAhead) {
+        const anticipatoryClimb = Math.min(8.0, (targetAltAhead - this.state.altitude) / lookaheadSec);
+        netClimbRate = Math.max(netClimbRate, anticipatoryClimb);
+      }
+    }
+
+    const dLat = (groundNorth * dt / earthRadius) * (180.0 / Math.PI);
     const dLon = (groundEast * dt / (earthRadius * safeCosLat)) * (180.0 / Math.PI);
 
     this.state.lat = Math.max(-88.0, Math.min(88.0, lat + dLat));
@@ -204,14 +221,21 @@ export class OrigamiCraneFlightSolver {
     // Altitude integration
     this.state.altitude += netClimbRate * dt;
 
-    // Ground clearance enforcement (prevent clipping below terrain)
-    const minClearance = 80.0; // meters above ground
+    // Hard ground clearance enforcement (>= 80.0m) preventing mountain clipping
     if (this.state.altitude < terrainElev + minClearance) {
       this.state.altitude = terrainElev + minClearance;
-      if (netClimbRate < 0) this.state.variometer = 0;
+      if (netClimbRate < 0) netClimbRate = 0;
     }
 
     // Telemetry updates
+    this.state.variometer = netClimbRate;
+    this.state.clearance = Math.max(0, this.state.altitude - terrainElev);
+    this.state.terrainElevation = terrainElev;
+    this.state.glideRatio =
+      this.state.variometer > 0
+        ? 99.0
+        : Math.min(99.0, Number((this.state.groundSpeed / Math.max(0.1, -this.state.variometer)).toFixed(1)));
+
     this.state.flightDuration += dt;
     this.state.distanceTraveled += (this.state.groundSpeed * dt) / 1000.0;
   }

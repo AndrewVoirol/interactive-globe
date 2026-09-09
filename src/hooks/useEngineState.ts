@@ -11,7 +11,11 @@ export function useEngineState() {
   const [backend, setBackend] = useState<'webgl2' | 'webgpu'>(
     typeof navigator !== 'undefined' && 'gpu' in navigator ? 'webgpu' : 'webgl2'
   );
-  const [theme, setThemeState] = useState<ThemeMode>(ThemeManager.getInstance().getMode()); // 0 = Tharp, 1 = Cream, 2 = Cyanotype
+  const [theme, setThemeState] = useState<ThemeMode>(() => {
+    const tm = ThemeManager.getInstance();
+    tm.setMode(1);
+    return 1;
+  }); // 0 = Tharp, 1 = Cream, 2 = Cyanotype
   const [themePalette, setThemePalette] = useState<ThemePalette>(ThemeManager.getInstance().getPalette());
   const [hasWebGPU, setHasWebGPU] = useState<boolean>(false);
   const [alpha, setAlpha] = useState(0); 
