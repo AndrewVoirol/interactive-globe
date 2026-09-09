@@ -192,7 +192,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let normSpeed = clamp(in.speed / 80.0, 0.0, 1.0);
 
         if (sim.u_theme == 0u) {
-            // Dark Obsidian theme:
+            // Dark Obsidian / Marie Tharp theme:
             // Subdued slate-blue (< 35 m/s) -> Luminescent platinum-cyan (~55 m/s) -> Solar amber core (> 70 m/s)
             let coolJet = vec3<f32>(0.22, 0.50, 0.70); // Deep aerospace slate-blue
             let midJet  = vec3<f32>(0.55, 0.82, 0.92); // Luminescent platinum
@@ -206,15 +206,26 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             } else {
                 color = mix(coreJet, peakJet, (normSpeed - 0.82) / 0.18);
             }
+            alphaBase = 0.75;
+        } else if (sim.u_theme == 2u) {
+            // Theme 2: Prussian Cyanotype (Blueprint architectural drafting traces)
+            // Chalk cerulean (#7AA2C8) to crisp chalk ruling pen white (#E8EDF2)
+            // Higher transparency (alpha ~ 0.50) suggesting blueprint drafting linework
+            let ceruleanJet = vec3<f32>(0.478, 0.635, 0.784); // #7AA2C8
+            let midChalk    = vec3<f32>(0.72, 0.84, 0.94);
+            let coreChalk   = vec3<f32>(0.91, 0.93, 0.95);    // #E8EDF2
+            color = mix(ceruleanJet, midChalk, smoothstep(0.2, 0.65, normSpeed));
+            color = mix(color, coreChalk, smoothstep(0.65, 0.98, normSpeed));
+            alphaBase = 0.50;
         } else {
-            // Light Monochrome theme: Charcoal to Deep Indigo-Navy
+            // Theme 1: Light Monochrome theme (Cream Rag): Charcoal to Deep Indigo-Navy
             let calmJet = vec3<f32>(0.42, 0.46, 0.54);
             let fastJet = vec3<f32>(0.12, 0.20, 0.38);
             let coreJet = vec3<f32>(0.04, 0.08, 0.18);
             color = mix(calmJet, fastJet, smoothstep(0.2, 0.7, normSpeed));
             color = mix(color, coreJet, smoothstep(0.7, 1.0, normSpeed));
+            alphaBase = 0.75;
         }
-        alphaBase = 0.75;
     } else {
         // Surface Boundary Layer (10m, speeds up to 32 m/s):
         // Fine, delicate filaments hugging terrain
@@ -226,21 +237,31 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let calmSurf  = vec3<f32>(0.56, 0.66, 0.76); // Muted slate-pearl
             let briskSurf = vec3<f32>(0.88, 0.94, 1.00); // Luminous silver filament
             color = mix(calmSurf, briskSurf, normSpeed);
+            alphaBase = mix(0.38, 0.72, smoothstep(0.06, 0.60, normSpeed));
+        } else if (sim.u_theme == 2u) {
+            // Theme 2: Prussian Cyanotype: Chalk cerulean (#7AA2C8) to chalk white (#E8EDF2)
+            let calmSurf  = vec3<f32>(0.38, 0.54, 0.70); // Muted blueprint cerulean
+            let briskSurf = vec3<f32>(0.75, 0.88, 0.98); // Luminous chalk filament
+            color = mix(calmSurf, briskSurf, normSpeed);
+            alphaBase = mix(0.25, 0.50, smoothstep(0.06, 0.60, normSpeed));
         } else {
             let calmSurf  = vec3<f32>(0.58, 0.60, 0.64);
             let briskSurf = vec3<f32>(0.16, 0.18, 0.22);
             color = mix(calmSurf, briskSurf, normSpeed);
+            alphaBase = mix(0.38, 0.72, smoothstep(0.06, 0.60, normSpeed));
         }
-        // Speed-modulated opacity: calm breeze is visible; active storms illuminate
-        alphaBase = mix(0.38, 0.72, smoothstep(0.06, 0.60, normSpeed));
     }
 
     // Orographic condensation glaze (subtle archival moisture washes)
     if (condensation > 0.001) {
         if (sim.u_theme == 0u) {
-            // Obsidian Dark Cyber: Crystalline silver mist vapor glaze
+            // Obsidian Dark Cyber / Marie Tharp: Crystalline silver mist vapor glaze
             let mistGlaze = vec3<f32>(0.92, 0.96, 1.00);
             color = mix(color, mistGlaze, condensation * 0.35);
+        } else if (sim.u_theme == 2u) {
+            // Prussian Cyanotype: Actinic chalk mist glaze
+            let actinicGlaze = vec3<f32>(0.88, 0.93, 0.98);
+            color = mix(color, actinicGlaze, condensation * 0.35);
         } else {
             // Cream Rag / Swiss Relief: Washed watercolor vapor glaze
             let vaporGlaze = vec3<f32>(0.68, 0.74, 0.80);

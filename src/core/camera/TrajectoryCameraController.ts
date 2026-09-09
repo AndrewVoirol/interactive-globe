@@ -47,14 +47,68 @@ export class TrajectoryCameraController {
   private pathWaypoints: Waypoint3D[] = [];
   private pathProgress = 0; // [0.0..1.0]
   private dollyFov = 60;
+  private duration = 8.0; // Sequence duration in seconds
+  private isPlaying = true;
+  private loop = false;
 
   public setMode(newMode: CameraKinematicMode): void {
     this.mode = newMode;
   }
 
-  public setWaypoints(waypoints: Waypoint3D[]): void {
+  public setWaypoints(waypoints: Waypoint3D[], duration = 8.0, loop = false): void {
     this.pathWaypoints = waypoints;
     this.pathProgress = 0;
+    this.duration = duration > 0 ? duration : 8.0;
+    this.loop = loop;
+    this.isPlaying = true;
+    if (waypoints.length > 0) {
+      this.position.copy(waypoints[0].position);
+      if (waypoints[0].target) this.target.copy(waypoints[0].target);
+      if (waypoints[0].fov) this.dollyFov = waypoints[0].fov;
+    }
+  }
+
+  public setDuration(seconds: number): void {
+    this.duration = Math.max(0.1, seconds);
+  }
+
+  public getDuration(): number {
+    return this.duration;
+  }
+
+  public getProgress(): number {
+    return this.pathProgress;
+  }
+
+  public setProgress(p: number): void {
+    this.pathProgress = Math.max(0, Math.min(1, p));
+    this.applyWaypointsAtProgress(this.pathProgress);
+  }
+
+  public getFov(): number {
+    return this.dollyFov;
+  }
+
+  public isFinished(): boolean {
+    return this.pathProgress >= 1.0;
+  }
+
+  public setIsPlaying(playing: boolean): void {
+    this.isPlaying = playing;
+  }
+
+  public getIsPlaying(): boolean {
+    return this.isPlaying;
+  }
+
+  public reset(): void {
+    this.pathProgress = 0;
+    this.isPlaying = false;
+    if (this.pathWaypoints.length > 0) {
+      this.position.copy(this.pathWaypoints[0].position);
+      if (this.pathWaypoints[0].target) this.target.copy(this.pathWaypoints[0].target);
+      if (this.pathWaypoints[0].fov) this.dollyFov = this.pathWaypoints[0].fov;
+    }
   }
 
   /**
@@ -147,24 +201,51 @@ export class TrajectoryCameraController {
 
   private updateDollyCinematic(dt: number): void {
     if (this.pathWaypoints.length < 2) return;
+    if (!this.isPlaying) return;
 
-    this.pathProgress += dt * 0.05;
-    if (this.pathProgress > 1.0) this.pathProgress = 1.0;
+    const speed = this.duration > 0 ? 1.0 / this.duration : 0.05;
+    this.pathProgress += dt * speed;
 
+    if (this.pathProgress >= 1.0) {
+      if (this.loop) {
+        this.pathProgress -= 1.0;
+      } else {
+        this.pathProgress = 1.0;
+        this.isPlaying = false;
+      }
+    }
+
+    this.applyWaypointsAtProgress(this.pathProgress);
+  }
+
+  public applyWaypointsAtProgress(progress: number): void {
+    if (this.pathWaypoints.length < 2) return;
+    const clampedProgress = Math.max(0, Math.min(1, progress));
     const totalSegs = this.pathWaypoints.length - 1;
-    const scaledProgress = this.pathProgress * totalSegs;
-    const index = Math.floor(scaledProgress);
+    const scaledProgress = clampedProgress * totalSegs;
+    const index = Math.min(Math.floor(scaledProgress), totalSegs - 1);
     const fraction = scaledProgress - index;
 
     const wp0 = this.pathWaypoints[index];
     const wp1 = this.pathWaypoints[Math.min(index + 1, totalSegs)];
 
     this.position.lerpVectors(wp0.position, wp1.position, fraction);
+
+    // Globe safety floor: radius >= 5.8 to avoid near-plane clipping
+    const currentRadius = this.position.length();
+    if (currentRadius < 5.8) {
+      this.position.multiplyScalar(5.8 / Math.max(0.001, currentRadius));
+    }
+
     if (wp0.target && wp1.target) {
       this.target.lerpVectors(wp0.target, wp1.target, fraction);
+    } else if (wp0.target) {
+      this.target.copy(wp0.target);
     }
     if (wp0.fov && wp1.fov) {
       this.dollyFov = wp0.fov + (wp1.fov - wp0.fov) * fraction;
+    } else if (wp0.fov) {
+      this.dollyFov = wp0.fov;
     }
   }
 

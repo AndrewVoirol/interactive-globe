@@ -72,14 +72,20 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var baseAlpha = select(mix(0.03, 0.35, in.vPointType), mix(0.05, 0.95, in.vPointType), sim.u_layerMode == 1u);
 
     if (sim.u_theme == 0u) {
-        // Theme 0: Obsidian & Celestial Platinum
+        // Theme 0: Obsidian & Celestial Platinum (Marie Tharp)
         geographicColor = vec3<f32>(0.92, 0.90, 0.87);
         structuralColor = vec3<f32>(0.12, 0.15, 0.20);
     } else if (sim.u_theme == 1u) {
-        // Light Monochrome: Architectural Charcoal Land on Misty Silver Ocean
+        // Light Monochrome: Architectural Charcoal Land on Misty Silver Ocean (Cream Rag)
         geographicColor = vec3<f32>(0.08, 0.09, 0.11);
         structuralColor = vec3<f32>(0.82, 0.85, 0.89);
         baseAlpha = select(mix(0.08, 0.35, in.vPointType), mix(0.12, 0.95, in.vPointType), sim.u_layerMode == 1u);
+    } else if (sim.u_theme == 2u) {
+        // Theme 2: Prussian Cyanotype (Washed Cerulean #A5D5FF on Prussian Indigo #162B42 Ground)
+        // STRICTLY MONOCHROMATIC
+        geographicColor = vec3<f32>(0.647, 0.835, 1.00); // Washed cerulean accent #A5D5FF
+        structuralColor = vec3<f32>(0.086, 0.169, 0.259); // Ferroprussiate indigo #162B42
+        baseAlpha = select(mix(0.08, 0.40, in.vPointType), mix(0.15, 0.98, in.vPointType), sim.u_layerMode == 1u);
     }
 
     let baseColor = mix(structuralColor, geographicColor, in.vPointType);
@@ -93,6 +99,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let carbonInk = vec3<f32>(0.02, 0.02, 0.02);
             finalColor = mix(baseColor, warmUmber, smoothstep(0.15, 0.55, in.vMetric));
             finalColor = mix(finalColor, carbonInk, smoothstep(0.55, 0.90, in.vMetric));
+        } else if (sim.u_theme == 2u) {
+            // Theme 2: Monochromatic Cyanotype LEFM fracture
+            let ceruleanStress = vec3<f32>(0.478, 0.635, 0.784); // Chalk cerulean #7AA2C8
+            let activeCrackWhite = vec3<f32>(0.91, 0.93, 0.95);  // Chalk ruling pen white #E8EDF2
+            var stressColor = mix(baseColor, ceruleanStress, smoothstep(0.12, 0.55, in.vMetric));
+            stressColor = mix(stressColor, activeCrackWhite, smoothstep(0.55, 0.90, in.vMetric));
+            finalColor = stressColor;
         } else {
             let tensionAmber = vec3<f32>(0.78, 0.43, 0.32);
             let ruptureCrimson = vec3<f32>(0.85, 0.28, 0.20);
@@ -114,6 +127,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let obsidianCore = vec3<f32>(0.02, 0.03, 0.05);
             let fluidGray = mix(charcoalStreamline, obsidianCore, smoothstep(0.3, 0.9, in.vMetric));
             finalColor = mix(baseColor, fluidGray, smoothstep(0.05, 0.4, in.vMetric));
+        } else if (sim.u_theme == 2u) {
+            // Theme 2: Monochromatic Cyanotype Vorticity
+            let deepPrussian = vec3<f32>(0.086, 0.169, 0.259);
+            let ceruleanEddy = vec3<f32>(0.478, 0.635, 0.784);
+            let chalkHighlight = vec3<f32>(0.91, 0.93, 0.95);
+            var fluidColor = mix(deepPrussian, ceruleanEddy, smoothstep(0.05, 0.50, in.vMetric));
+            fluidColor = mix(fluidColor, chalkHighlight, smoothstep(0.50, 0.95, in.vMetric));
+            finalColor = mix(baseColor, fluidColor, smoothstep(0.0, 0.15, in.vMetric));
         } else {
             let oceanicIndigo = vec3<f32>(0.10, 0.14, 0.22);
             let biolumCyan = vec3<f32>(0.42, 0.68, 0.82);

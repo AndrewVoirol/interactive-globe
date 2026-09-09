@@ -201,7 +201,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var color: vec3<f32>;
 
     if (sim.u_theme == 1u) {
-        // Light Monochrome Theme
+        // Light Monochrome Theme (Cream Rag)
         if (h < 0.5525) {
             // Bathymetric: subtle slate-indigo
             color = mix(vec3<f32>(0.15, 0.25, 0.40), vec3<f32>(0.35, 0.45, 0.60), h / 0.5525);
@@ -209,8 +209,18 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             // Topographic: warm charcoal-ochre
             color = mix(vec3<f32>(0.25, 0.20, 0.15), vec3<f32>(0.10, 0.10, 0.10), (h - 0.5525) / 0.4475);
         }
+    } else if (sim.u_theme == 2u) {
+        // Theme 2: Prussian Cyanotype (Blueprint contours)
+        // STRICTLY MONOCHROMATIC
+        if (h < 0.5525) {
+            // Bathymetric: drafting cerulean (#4F79A3) to washed cerulean (#7AA2C8)
+            color = mix(vec3<f32>(0.31, 0.475, 0.64), vec3<f32>(0.478, 0.635, 0.784), h / 0.5525);
+        } else {
+            // Topographic: washed cerulean to chalk ruling pen white (#E8EDF2)
+            color = mix(vec3<f32>(0.478, 0.635, 0.784), vec3<f32>(0.91, 0.93, 0.95), (h - 0.5525) / 0.4475);
+        }
     } else {
-        // Obsidian Dark Cyber Theme
+        // Theme 0: Obsidian Dark Cyber / Marie Tharp Theme
         if (h < 0.5525) {
             // Bathymetry: deep cyan to electric sapphire
             color = mix(vec3<f32>(0.02, 0.20, 0.45), vec3<f32>(0.00, 0.65, 0.85), h / 0.5525);

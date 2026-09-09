@@ -42,7 +42,19 @@ export async function getWebGPUDevice(): Promise<GPUDevice | null> {
       const adapter = await getWebGPUAdapter();
       if (!adapter) return null;
       try {
-        const device = await adapter.requestDevice();
+        const requiredFeatures: GPUFeatureName[] = [];
+        if (adapter.features && adapter.features.has('texture-formats-tier1' as any)) {
+          requiredFeatures.push('texture-formats-tier1' as any);
+        }
+        if (adapter.features && adapter.features.has('float32-filterable')) {
+          requiredFeatures.push('float32-filterable');
+        }
+        if (adapter.features && adapter.features.has('timestamp-query')) {
+          requiredFeatures.push('timestamp-query');
+        }
+        const device = await adapter.requestDevice(
+          requiredFeatures.length > 0 ? { requiredFeatures } : undefined
+        );
         if (device && device.lost) {
           device.lost.then(() => {
             globalDevicePromise = null;

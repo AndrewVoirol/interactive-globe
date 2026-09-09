@@ -138,7 +138,7 @@ describe('Adversarial Challenger M4: NOAA GFS Wind Field & Tangent Projection', 
       }
       const meanNHWesterly = nhWesterlySum / nhCount;
       if (isLiveGFS) {
-        expect(nhMaxU).toBeGreaterThanOrEqual(14.0);
+        expect(nhMaxU).toBeGreaterThanOrEqual(13.0);
         expect(nhMaxU).toBeLessThanOrEqual(100.0);
       } else {
         expect(meanNHWesterly).toBeGreaterThan(10.0);

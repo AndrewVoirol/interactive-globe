@@ -36,6 +36,19 @@ struct SimUniforms {
 @group(0) @binding(2) var u_demSampler: sampler;
 @group(0) @binding(3) var u_orbitalTextures: texture_2d_array<f32>; // Layer 0: Day Blue Marble, Layer 1: Night Lights
 @group(0) @binding(4) var u_orbitalSampler: sampler;
+@group(0) @binding(5) var u_regionalDEMTexture: texture_2d<f32>;
+
+struct RegionalOverlayUniforms {
+    u_regionalBounds: vec4<f32>, // minLon, minLat, maxLon, maxLat (bytes 0..15)
+    u_pad0: vec4<f32>,           // (bytes 16..31)
+    u_pad1: vec4<f32>,           // (bytes 32..47)
+    u_regionalActive: u32,       // (bytes 48..51)
+    u_pad2: u32,
+    u_pad3: u32,
+    u_pad4: u32,
+};
+
+@group(0) @binding(6) var<uniform> u_regionalOverlay: RegionalOverlayUniforms;
 
 struct VertexInput {
     @location(0) position: vec3<f32>, // Base manifold position
@@ -331,7 +344,7 @@ fn computeHydrosphereShading(
         cSkyAmbient = vec3<f32>(0.14, 0.18, 0.24);
         cTrench     = vec3<f32>(0.005, 0.015, 0.05); // Abyssal Trench #0F171F
     }
-    let cSunLight = vec3<f32>(1.08, 1.02, 0.94);
+    let cSunLight = select(vec3<f32>(1.08, 1.02, 0.94), vec3<f32>(0.95, 0.98, 1.02), sim.u_theme == 2u);
     let sunIllum = cSunLight * (NdotL * 0.85 + 0.15) + cSkyAmbient * 0.80;
 
     // Jerlov volume radiance: Type I crystal sapphire blue vs Type III emerald green
@@ -509,14 +522,72 @@ fn decodeElevation(texColor: vec4<f32>) -> f32 {
     return normElev * 19772.0 - 10924.0; // [-10,924m .. +8,848m]
 }
 
+fn getRegionalBlendWeight(uv: vec2<f32>) -> f32 {
+    if (u_regionalOverlay.u_regionalActive == 0u) {
+        return 0.0;
+    }
+
+    let bounds = u_regionalOverlay.u_regionalBounds;
+    let minLon = bounds.x;
+    let minLat = bounds.y;
+    let maxLon = bounds.z;
+    let maxLat = bounds.w;
+
+    let lon = uv.x * 360.0 - 180.0;
+    let lat = 90.0 - uv.y * 180.0;
+
+    if (lon < minLon || lon > maxLon || lat < minLat || lat > maxLat) {
+        return 0.0;
+    }
+
+    let regU = (lon - minLon) / (maxLon - minLon);
+    let regV = (maxLat - lat) / (maxLat - minLat);
+
+    let blendDeg = 0.5;
+    let lonSpan = maxLon - minLon;
+    let latSpan = maxLat - minLat;
+    let marginU = clamp(blendDeg / lonSpan, 0.001, 0.49);
+    let marginV = clamp(blendDeg / latSpan, 0.001, 0.49);
+
+    let distU = min(regU, 1.0 - regU);
+    let distV = min(regV, 1.0 - regV);
+
+    let weightU = smoothstep(0.0, marginU, distU);
+    let weightV = smoothstep(0.0, marginV, distV);
+    return weightU * weightV;
+}
+
+fn sampleRegionalComposite(uv: vec2<f32>, globalSample: vec4<f32>, lod: f32) -> vec4<f32> {
+    let weight = getRegionalBlendWeight(uv);
+    if (weight <= 0.0001) {
+        return globalSample;
+    }
+
+    let bounds = u_regionalOverlay.u_regionalBounds;
+    let minLon = bounds.x;
+    let minLat = bounds.y;
+    let maxLon = bounds.z;
+    let maxLat = bounds.w;
+
+    let lon = uv.x * 360.0 - 180.0;
+    let lat = 90.0 - uv.y * 180.0;
+
+    let regU = clamp((lon - minLon) / (maxLon - minLon), 0.0, 1.0);
+    let regV = clamp((maxLat - lat) / (maxLat - minLat), 0.0, 1.0);
+
+    let regSample = textureSampleLevel(u_regionalDEMTexture, u_demSampler, vec2<f32>(regU, regV), lod);
+    return mix(globalSample, regSample, weight);
+}
+
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
     var output: VertexOutput;
     output.uv = input.uv;
     output.surfaceType = input.surfaceType;
 
-    // Sample DEM
-    let demSample = textureSampleLevel(u_demTexture, u_demSampler, input.uv, 0.0);
+    // Sample DEM with seamless Regional High-Resolution Compositing
+    let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, input.uv, 0.0);
+    let demSample = sampleRegionalComposite(input.uv, demSampleGlobal, 0.0);
     let elevMeters = decodeElevation(demSample);
     output.elevation = elevMeters;
 
@@ -585,12 +656,24 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // 2. Unconditional DEM 5-tap sampling with screen-space derivative LOD strictly before any branching/discard (Invariant #3)
     let duv_dx = vec2<f32>(du_dx, dv_dx);
     let duv_dy = vec2<f32>(du_dy, dv_dy);
-    let texSize = vec2<f32>(2048.0, 1024.0);
+    let texSize = vec2<f32>(8192.0, 4096.0);
     let deltaMax2 = max(dot(duv_dx * texSize, duv_dx * texSize), dot(duv_dy * texSize, duv_dy * texSize));
-    let mipLOD = clamp(0.5 * log2(max(deltaMax2, 1e-4)), 0.0, 11.0);
+    let mipLOD = clamp(0.5 * log2(max(deltaMax2, 1e-4)), 0.0, 13.0);
 
     let mipStep = exp2(floor(mipLOD));
-    let ts = vec2<f32>(1.0 / 2048.0, 1.0 / 1024.0) * max(1.0, mipStep);
+    let tsGlobal = vec2<f32>(1.0 / 8192.0, 1.0 / 4096.0) * max(1.0, mipStep);
+
+    let regDims = textureDimensions(u_regionalDEMTexture);
+    let regWeightC = getRegionalBlendWeight(input.uv);
+    let regSpanLon = max(0.001, u_regionalOverlay.u_regionalBounds.z - u_regionalOverlay.u_regionalBounds.x);
+    let regSpanLat = max(0.001, u_regionalOverlay.u_regionalBounds.w - u_regionalOverlay.u_regionalBounds.y);
+    let tsRegional = vec2<f32>(
+        (regSpanLon / 360.0) / max(f32(regDims.x), 1.0),
+        (regSpanLat / 180.0) / max(f32(regDims.y), 1.0)
+    ) * max(1.0, mipStep);
+
+    let ts = mix(tsGlobal, tsRegional * 3.0, regWeightC);
+    let slopeScale = clamp(mix(1.0, 2.2, regWeightC), 1.0, 2.5);
 
     // Antimeridian seamless horizontal wrapping (fract on U) and polar clamp (clamp on V) to eliminate tile/seam artifacts
     let uvR = vec2<f32>(fract(input.uv.x + ts.x), clamp(input.uv.y, 0.0, 1.0));
@@ -603,6 +686,13 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let demL = textureSampleLevel(u_demTexture, u_demSampler, uvL, mipLOD);
     let demU = textureSampleLevel(u_demTexture, u_demSampler, uvU, mipLOD);
     let demD = textureSampleLevel(u_demTexture, u_demSampler, uvD, mipLOD);
+
+    // Seamless Regional High-Resolution DEM Compositing (NOAA CUDEM ~10m)
+    let finalDemC = sampleRegionalComposite(input.uv, demC, 0.0);
+    let finalDemR = sampleRegionalComposite(uvR, demR, 0.0);
+    let finalDemL = sampleRegionalComposite(uvL, demL, 0.0);
+    let finalDemU = sampleRegionalComposite(uvU, demU, 0.0);
+    let finalDemD = sampleRegionalComposite(uvD, demD, 0.0);
 
     // Dymaxion cross-facet polygon tearing discard guard via analytical 2D Jacobian
     if (sim.u_mode == 4u && sim.u_unfurl > 0.02) {
@@ -663,26 +753,26 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let tangentX = normalize(cross(upVec, n0));
     let tangentY = cross(n0, tangentX);
 
-    let isLand = demC.b;
-    let landElev = demC.r;
-    let oceanDepth = demC.g;
+    let isLand = finalDemC.b;
+    let landElev = finalDemC.r;
+    let oceanDepth = finalDemC.g;
 
     let hC = select(-oceanDepth * 0.25, landElev, isLand > 0.45);
-    let hR = select(-demR.g * 0.25, demR.r, demR.b > 0.45);
-    let hL = select(-demL.g * 0.25, demL.r, demL.b > 0.45);
-    let hU = select(-demU.g * 0.25, demU.r, demU.b > 0.45);
-    let hD = select(-demD.g * 0.25, demD.r, demD.b > 0.45);
+    let hR = select(-finalDemR.g * 0.25, finalDemR.r, finalDemR.b > 0.45);
+    let hL = select(-finalDemL.g * 0.25, finalDemL.r, finalDemL.b > 0.45);
+    let hU = select(-finalDemU.g * 0.25, finalDemU.r, finalDemU.b > 0.45);
+    let hD = select(-finalDemD.g * 0.25, finalDemD.r, finalDemD.b > 0.45);
 
     // Controlled displacement scale: eliminates harsh 120x normal blowout while retaining crisp relief
     let dispScale = sim.u_displacementScale * 16.0 + 1.0;
-    let dHx = (hR - hL) * 0.5 * dispScale;
-    let dHy = (hD - hU) * 0.5 * dispScale;
+    let dHx = (hR - hL) * 0.5 * dispScale * slopeScale;
+    let dHy = (hD - hU) * 0.5 * dispScale * slopeScale;
 
     // Perturbed surface normal in 3D world space
     let perturbedN = normalize(n0 - tangentX * dHx - tangentY * dHy);
 
     // Discrete Laplacian Curvature
-    let laplacian = (hR + hL + hU + hD) - 4.0 * hC;
+    let laplacian = ((hR + hL + hU + hD) - 4.0 * hC) * slopeScale;
     let kRidge  = clamp(-laplacian * 45.0, 0.0, 1.0);
     let kValley = clamp(laplacian * 45.0, 0.0, 1.0);
 
@@ -763,7 +853,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let cRockShaded = mix(cRockDark, cRockLit, hachurePattern * diffuseTotal);
 
     // Natural Illumination Split: Warm Sun Direct + Cool Cerulean Sky Fill
-    let cSunLight = vec3<f32>(1.08, 1.02, 0.94);
+    let cSunLight = select(vec3<f32>(1.08, 1.02, 0.94), vec3<f32>(0.96, 0.98, 1.02), sim.u_theme == 2u);
     let sunDirect = max(0.0, NdotL1);
     let skyIndirect = 0.40 + 0.60 * max(0.0, perturbedN.y * 0.5 + 0.5);
 
@@ -788,6 +878,15 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let directComponent = cWarmDirect * (sunDirect * 0.90 + ridgeEnhance * 0.8);
         let shadowComponent = cCoolShadow * (skyIndirect * creviceAO);
         landIllum = mix(shadowComponent, directComponent, sunWeight);
+    } else if (sim.u_theme == 2u) {
+        // Prussian Cyanotype: Actinic Monochromatic Photochemical Illumination
+        // STRICTLY MONOCHROMATIC — pure cool actinic blueprint lighting, zero warm/yellow sun component
+        let cActinicDirect = vec3<f32>(0.96, 0.98, 1.02);
+        let cActinicShadow = vec3<f32>(0.18, 0.32, 0.48);
+        let sunWeight = clamp(NdotL1 * 1.4, 0.0, 1.0);
+        let directComponent = cActinicDirect * (sunDirect * 0.85 + ridgeEnhance * 0.8);
+        let shadowComponent = cActinicShadow * (skyIndirect * creviceAO);
+        landIllum = mix(shadowComponent, directComponent, sunWeight);
     } else {
         let cWarmSun = vec3<f32>(1.04, 0.98, 0.88);
         let cCoolHaze = vec3<f32>(0.84, 0.90, 1.06);
@@ -800,7 +899,79 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // ========================================================================
     // STAGE 2 PHYSICAL MEDIUM AS INK: CONTINENTAL CRUST SHADING
     // ========================================================================
-    if (sim.u_theme == 1u) {
+    if (sim.u_theme == 0u) {
+        // --- THEME 0: MARIE THARP / HEINRICH BERANN (Physiographic Pen-and-Ink & Gouache on Illustration Board) ---
+        let landSlope = length(vec2<f32>(dHx, dHy));
+        let cGouacheParchment = vec3<f32>(0.96, 0.93, 0.88); // Alpine Ridge #F4EDE1
+        let cInkTharp = vec3<f32>(0.18, 0.14, 0.11); // Archival bone-sepia drafting ink #2E241C
+        let cParchmentInk = vec3<f32>(0.80, 0.71, 0.57); // Warm parchment ink tone #CBB692
+
+        // 1. Berann-style gouache brushwork built up in layers following terrain contours & slope gradients
+        // Directional stroke texture aligned to terrain slope gradient (broad, painterly character)
+        let brushCoord = vec2<f32>(uStrike * 0.45, uFall * 0.25);
+        let brush1 = sin(brushCoord.x * 2.0 + sin(brushCoord.y * 1.4) * 1.5);
+        let brush2 = cos(brushCoord.x * 3.8 + brushCoord.y * 0.85);
+        let painterlyBrush = (brush1 * 0.60 + brush2 * 0.40) * 0.5 + 0.5;
+
+        let strokeFlank = smoothstep(0.04, 0.42, landSlope);
+        let cGouacheBody = mix(cParchmentInk * 0.75, cGouacheParchment, painterlyBrush);
+        finalLand = mix(finalLand, cGouacheBody, painterlyBrush * strokeFlank * 0.28 * sim.u_mediumProperties.w);
+
+        // Gouache highlights on illuminated ridge crests and slope faces
+        let gouacheLift = smoothstep(0.38, 0.88, diffuseTotal) * (kRidge * 0.45 + clamp(landSlope * 2.6, 0.0, 0.45));
+        finalLand = mix(finalLand, cGouacheParchment, gouacheLift * 0.32);
+
+        // 2. Physiographic cross-hatching and slope-gradient pen-and-ink shading
+        let inkTone = mix(cParchmentInk * 0.55, cInkTharp, smoothstep(0.08, 0.35, landSlope));
+
+        let hatchSpacing1 = fract(uStrike * 1.85);
+        let distHatch1 = min(hatchSpacing1, 1.0 - hatchSpacing1);
+        let hatch1 = 1.0 - smoothstep(0.04, 0.12, distHatch1);
+
+        let hatchSpacing2 = fract((uStrike * 0.707 + uFall * 0.707) * 1.85);
+        let distHatch2 = min(hatchSpacing2, 1.0 - hatchSpacing2);
+        let hatch2 = 1.0 - smoothstep(0.04, 0.12, distHatch2);
+
+        let crossHatch = max(hatch1, hatch2 * smoothstep(0.25, 0.65, landSlope * 4.0));
+        let shadowSlopeFactor = clamp((1.0 - NdotL1) * 0.75 + landSlope * 1.6, 0.0, 1.0);
+        let physiographicHatch = crossHatch * shadowSlopeFactor * smoothstep(0.06, 0.40, landSlope);
+        finalLand = mix(finalLand, inkTone, physiographicHatch * 0.35 * sim.u_mediumProperties.w);
+
+        // 3. Physiographic stippling on lowland transitions and plateaus modulated by stippleDensity (1.0)
+        let stippleFreq = 1600.0 * max(0.1, sim.u_mediumProperties.w);
+        let stippleCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * stippleFreq;
+        let cellId = floor(stippleCoord);
+        let cellFract = fract(stippleCoord);
+        let dotCenter = vec2<f32>(
+            hashPaper2D(cellId + vec2<f32>(3.0, 11.0)),
+            hashPaper2D(cellId + vec2<f32>(17.0, 31.0))
+        ) * 0.6 + vec2<f32>(0.2);
+        let distToDot = length(cellFract - dotCenter);
+
+        let dotProb = clamp(0.10 + landSlope * 3.6 + (1.0 - diffuseTotal) * 0.20, 0.04, 0.82);
+        let cellRng = hashPaper2D(cellId * 2.83 + vec2<f32>(11.7, 23.4));
+        let hasDot = cellRng < dotProb;
+        let dotRadius = mix(0.10, 0.22, clamp(landSlope * 3.2, 0.0, 1.0));
+        let dotMask = select(0.0, 1.0 - smoothstep(dotRadius - 0.04, dotRadius + 0.04, distToDot), hasDot);
+        let stippleTone = mix(cParchmentInk * 0.40, cInkTharp, smoothstep(0.05, 0.25, landSlope));
+        finalLand = mix(finalLand, stippleTone, dotMask * 0.40 * sim.u_mediumProperties.w);
+
+        // 4. Illustration board substrate: smoother, less fibrous than cotton rag, with lower frequency broader grain
+        let boardFreq = 750.0 * max(0.1, sim.u_mediumProperties.y);
+        let boardCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * boardFreq;
+        let boardFleck1 = hashPaper2D(boardCoord);
+        let boardFleck2 = hashPaper2D(boardCoord * 0.45 + vec2<f32>(19.3, 57.1));
+        let boardTooth = (boardFleck1 * 0.65 + boardFleck2 * 0.35 - 0.50) * (sim.u_roughness * 0.40);
+        finalLand = clamp(finalLand * (1.0 + boardTooth), vec3<f32>(0.0), vec3<f32>(1.0));
+
+        // Subtractive ink absorption into warm parchment illustration board
+        let kTharpInk = vec3<f32>(1.55, 1.70, 2.00); // Warm sepia-umber absorption
+        let surfaceLumaTharp = dot(finalLand, vec3<f32>(0.299, 0.587, 0.114));
+        let inkDensityTharp = clamp(1.0 - surfaceLumaTharp, 0.0, 1.0);
+        let cBoardBase = vec3<f32>(0.80, 0.71, 0.57); // Warm parchment #CBB692
+        let boardAbsorbed = cBoardBase * exp(-kTharpInk * (inkDensityTharp * 0.85));
+        finalLand = mix(finalLand, boardAbsorbed, clamp(sim.u_mediumProperties.x * 0.35, 0.0, 0.50));
+    } else if (sim.u_theme == 1u) {
         // --- THEME 1: CREAM RAG (Copperplate Intaglio on Cotton Rag) ---
         // 1. Dual-scale anisotropic cellulose fibers modulated by fiberDensity & u_roughness
         let fiberFreq = 1800.0 * max(0.1, sim.u_mediumProperties.y);
@@ -853,9 +1024,36 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let unexposedResist = smoothstep(0.68, 0.98, normLandElev) + kRidge * 0.45;
         finalLand = mix(developedCyanotype * (diffuseTotal * 0.5 + 0.5), cChalkRulingPen, clamp(unexposedResist, 0.0, 0.95));
 
-        // Subtle architectural blueprint linen tooth
-        let linenFreq = 1200.0 * max(0.1, sim.u_mediumProperties.y);
-        let linenTooth = (hashPaper2D(input.uv * linenFreq) - 0.5) * (sim.u_roughness * 0.35);
+        // 1. Prussian Blue Crystal Precipitation Noise (colloidal ferroprussiate micro-crystals)
+        // High-frequency crystalline granularity in deep exposure regions — NOT smooth gradients
+        let crystalFreq = 2600.0 * max(0.1, sim.u_mediumProperties.y);
+        let crystalCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * crystalFreq;
+        let crystal1 = hashPaper2D(crystalCoord);
+        let crystal2 = hashPaper2D(crystalCoord * 1.618 + vec2<f32>(13.7, 47.3));
+        let crystalGranularity = (crystal1 * crystal2 - 0.22) * 2.2;
+        let crystalStrength = smoothstep(0.25, 0.85, landExposure) * (0.32 * sim.u_roughness);
+        let cPrussianCrystal = vec3<f32>(0.06, 0.11, 0.18); // Deep Prussian blue crystal precipitate #0F1C2E
+        finalLand = mix(finalLand, cPrussianCrystal, clamp(crystalGranularity * crystalStrength, 0.0, 0.40));
+
+        // 2. Subtle Wash Edge Effect (ferroprussiate developer solution pooling at rinse boundaries)
+        // Mid-elevation transition boundary darkening along exposure gradient
+        let washEdgeBand = 1.0 - abs(landExposure - 0.48) * 3.6;
+        let washEdge = pow(clamp(washEdgeBand, 0.0, 1.0), 2.2);
+        let slopeFactor = smoothstep(0.04, 0.28, length(vec2<f32>(dHx, dHy)));
+        let cWashEdgeIndigo = vec3<f32>(0.08, 0.15, 0.25); // Rinse solution boundary concentration
+        finalLand = mix(finalLand, cWashEdgeIndigo, washEdge * slopeFactor * 0.30);
+
+        // 3. Structured Drafting Linen Tooth (interlocking orthogonal warp/weft weave grid)
+        // Rough linen cloth weave texture with distinct regular structural grid (strictly monochromatic)
+        let linenFreq = 1400.0 * max(0.1, sim.u_mediumProperties.y);
+        let linenCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * linenFreq;
+        let warp = cos(linenCoord.x * 3.14159265);
+        let weft = cos(linenCoord.y * 3.14159265);
+        let cellCoord = floor(linenCoord);
+        let isWarpOver = select(-1.0, 1.0, fract((cellCoord.x + cellCoord.y) * 0.5) < 0.25 || fract((cellCoord.x + cellCoord.y) * 0.5) > 0.75);
+        let weaveGrid = (warp - weft) * isWarpOver * 0.35 + (warp * weft) * 0.15;
+        let linenSlub = (hashPaper2D(linenCoord * 0.5) - 0.5) * 0.40;
+        let linenTooth = (weaveGrid + linenSlub) * (sim.u_roughness * 0.65);
         finalLand = clamp(finalLand * (1.0 + linenTooth), vec3<f32>(0.0), vec3<f32>(1.0));
     }
 
@@ -994,6 +1192,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 // Exposure-modulated ferroprussiate deepening based on sensitometric curve
                 let deepExposure = pow(clamp(normDepth, 0.0, 1.0), max(0.1, sim.u_mediumProperties.z));
                 cBathy = mix(cBathy, cBathyTrench, smoothstep(0.35, 0.95, deepExposure) * 0.60);
+
+                // Ocean trench Prussian crystal precipitation noise (colloidal insoluble ferroprussiate micro-crystals)
+                let bCrystalCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * (2600.0 * max(0.1, sim.u_mediumProperties.y));
+                let bCrystal = (hashPaper2D(bCrystalCoord) * hashPaper2D(bCrystalCoord * 1.618 + vec2<f32>(7.1, 31.9)) - 0.22) * 2.0;
+                let bCrystalWeight = smoothstep(0.35, 0.95, deepExposure) * (0.28 * sim.u_roughness);
+                cBathy = mix(cBathy, vec3<f32>(0.03, 0.06, 0.10), clamp(bCrystal * bCrystalWeight, 0.0, 0.35));
             }
 
             // Mid-ocean ridge crest highlight
@@ -1038,9 +1242,28 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 let fiberFreq = 1800.0 * max(0.1, sim.u_mediumProperties.y);
                 let bFiberTooth = (hashPaper2D(input.uv * fiberFreq) - 0.5) * (sim.u_roughness * 0.40);
                 cBathy = clamp(cBathy * (1.0 + bFiberTooth), vec3<f32>(0.0), vec3<f32>(1.0));
+            } else if (sim.u_theme == 2u) {
+                // Prussian Cyanotype: Structured blueprint linen weave tooth on bathymetric ground
+                let linenFreq = 1400.0 * max(0.1, sim.u_mediumProperties.y);
+                let linenCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * linenFreq;
+                let warp = cos(linenCoord.x * 3.14159265);
+                let weft = cos(linenCoord.y * 3.14159265);
+                let cellCoord = floor(linenCoord);
+                let isWarpOver = select(-1.0, 1.0, fract((cellCoord.x + cellCoord.y) * 0.5) < 0.25 || fract((cellCoord.x + cellCoord.y) * 0.5) > 0.75);
+                let weaveGrid = (warp - weft) * isWarpOver * 0.30 + (warp * weft) * 0.12;
+                let bLinenTooth = (weaveGrid + (hashPaper2D(linenCoord * 0.5) - 0.5) * 0.35) * (sim.u_roughness * 0.50);
+                cBathy = clamp(cBathy * (1.0 + bLinenTooth), vec3<f32>(0.0), vec3<f32>(1.0));
             }
 
-            let bathyIllum = cSunLight * (sunDirect * 0.80 + ridgeEnhance * 0.8) + cSkyAmbient * (skyIndirect * creviceAO);
+            var bathyIllum: vec3<f32>;
+            if (sim.u_theme == 2u) {
+                // Prussian Cyanotype: Actinic bathymetric illumination with zero warm sunlight
+                let cActinicDirect = vec3<f32>(0.92, 0.96, 1.00);
+                let cActinicShadow = vec3<f32>(0.18, 0.28, 0.42);
+                bathyIllum = cActinicDirect * (sunDirect * 0.80 + ridgeEnhance * 0.8) + cActinicShadow * (skyIndirect * creviceAO);
+            } else {
+                bathyIllum = cSunLight * (sunDirect * 0.80 + ridgeEnhance * 0.8) + cSkyAmbient * (skyIndirect * creviceAO);
+            }
             finalCrust = mix(cBathy * bathyIllum, cRockShaded, rockWeight * 0.4);
         }
     } else if (sim.u_renderStyle == 2u) {
@@ -1165,15 +1388,100 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     }
     finalCrust = mix(finalCrust, cGraticule, clamp(graticuleWeight, 0.0, 0.35));
 
-    // Prussian Cyanotype: Analytical Chalk Ruling Pen Elevation Isoline Contours
-    if (sim.u_theme == 2u) {
-        let normElev = clamp((input.elevation + 10924.0) / 19772.0, 0.0, 1.0);
-        let contourFreq = 28.0;
-        let contourVal = fract(normElev * contourFreq);
-        let distToLine = min(contourVal, 1.0 - contourVal);
-        let isContour = 1.0 - smoothstep(0.0, 0.035, distToLine);
-        let cChalkContour = vec3<f32>(0.91, 0.93, 0.96); // Chalk Ruling Pen Linework #E8EDF2
-        finalCrust = mix(finalCrust, cChalkContour, isContour * 0.65);
+    // ========================================================================
+    // MEDIUM-SPECIFIC ANALYTICAL CONTOURS & OCEANOGRAPHIC ISOBATHS
+    // ========================================================================
+    if (sim.u_renderStyle != 2u) {
+        let camDist = length(sim.u_cameraPos.xyz);
+        let orbitZoom = clamp((25.0 - camDist) / (25.0 - 6.0), 0.0, 1.0);
+
+        // True screen-space DEM gradient derivatives via precomputed dUV (Invariant #3)
+        // Eliminates the ~42x displacement normal blowout so anti-Moiré and hairlines render correctly
+        let pxPerTexel = dUV / max(ts, vec2<f32>(1e-6));
+        let dDemLandX = (finalDemR.r - finalDemL.r) * 0.5;
+        let dDemLandY = (finalDemD.r - finalDemU.r) * 0.5;
+        let dDemDepthX = (finalDemR.g - finalDemL.g) * 0.5;
+        let dDemDepthY = (finalDemD.g - finalDemU.g) * 0.5;
+        let dDemGlobalX = (finalDemR.a - finalDemL.a) * 0.5;
+        let dDemGlobalY = (finalDemD.a - finalDemU.a) * 0.5;
+
+        if (sim.u_theme == 1u) {
+            // --- THEME 1 (Cream Rag): Eduard Imhof Swiss Topographic Analytical Contours ---
+            // Generates copperplate sepia contours on land, fading on steep slopes where Lehmann hachures dominate
+            if (isLand > 0.45 && landElev >= 0.0) {
+                let normLand = clamp(landElev, 0.0, 1.0);
+                let creamFreq = mix(32.0, 64.0, orbitZoom);
+                let elevIndex = normLand * creamFreq;
+
+                // Screen-space derivative width evaluation using true unscaled DEM gradient (Invariant #3)
+                let dElevPx = length(vec2<f32>(dDemLandX * pxPerTexel.x, dDemLandY * pxPerTexel.y)) * creamFreq;
+                let halfW = max(0.008, dElevPx * 0.85);
+
+                // Minor contours (every interval)
+                let minorVal = fract(elevIndex);
+                let distMinor = min(minorVal, 1.0 - minorVal);
+                let isMinor = 1.0 - smoothstep(0.0, halfW, distMinor);
+
+                // Major index contours (every 5th interval)
+                let majorIndex = elevIndex * 0.20;
+                let majorVal = fract(majorIndex);
+                let distMajor = min(majorVal, 1.0 - majorVal) * 5.0;
+                let isMajor = 1.0 - smoothstep(0.0, halfW * 1.5, distMajor);
+
+                // Slope coordination: contours fade on slopes > 20° (0.349 rad) where Lehmann hachures dominate
+                let slopeAngle = acos(cosSlope);
+                let hachureFade = 1.0 - smoothstep(0.30, 0.42, slopeAngle);
+
+                // Anti-Moiré suppression at orbital distance when lines crowd into sub-pixel clusters
+                let moireGuard = 1.0 - smoothstep(0.35, 0.85, dElevPx);
+                let moireGuardMajor = 1.0 - smoothstep(0.35, 0.85, dElevPx * 0.20);
+
+                let cCopperplateSepia = vec3<f32>(0.22, 0.19, 0.16); // Archival sepia-charcoal ink #38302A
+                let contourAlpha = (isMinor * 0.25 * moireGuard + isMajor * 0.35 * moireGuardMajor) * hachureFade;
+                finalCrust = mix(finalCrust, cCopperplateSepia, clamp(contourAlpha, 0.0, 0.65));
+            }
+        } else if (sim.u_theme == 2u) {
+            // --- THEME 2 (Prussian Cyanotype): Analytical Chalk Ruling Pen Isoline Contours ---
+            // View-dependent frequency and screen-space derivative feathering to eliminate globe-scale Moiré
+            let normElev = clamp((input.elevation + 10924.0) / 19772.0, 0.0, 1.0);
+            let cyanoFreq = mix(16.0, 44.0, orbitZoom);
+            let contourVal = fract(normElev * cyanoFreq);
+            let distToLine = min(contourVal, 1.0 - contourVal);
+
+            let dElevPx = length(vec2<f32>(dDemGlobalX * pxPerTexel.x, dDemGlobalY * pxPerTexel.y)) * cyanoFreq;
+            let halfW = max(0.008, dElevPx * 0.85);
+            let isContour = 1.0 - smoothstep(0.0, halfW, distToLine);
+
+            // Anti-Moiré suppression when lines crowd into sub-pixel clusters
+            let moireGuard = 1.0 - smoothstep(0.35, 0.85, dElevPx);
+
+            let cChalkContour = vec3<f32>(0.91, 0.93, 0.96); // Chalk Ruling Pen Linework #E8EDF2
+            finalCrust = mix(finalCrust, cChalkContour, isContour * moireGuard * 0.60);
+        } else if (sim.u_theme == 0u) {
+            // --- THEME 0 (Marie Tharp): Oceanographic Isobaths on Continental Shelf & Abyssal Plain ---
+            // Land has NO contours per physiographic tradition; ocean basins feature major 1000m isobaths
+            if (isLand <= 0.45) {
+                let normDepth = clamp(oceanDepth, 0.0, 1.0);
+                let depthMeters = normDepth * 10924.0;
+                let isobathFreq = depthMeters / 1000.0; // 1000m depth contours
+                let isobathVal = fract(isobathFreq);
+                let distToIsobath = min(isobathVal, 1.0 - isobathVal);
+
+                let dDepthPx = length(vec2<f32>(dDemDepthX * pxPerTexel.x, dDemDepthY * pxPerTexel.y)) * 10.924;
+                let isobathWidth = max(0.008, dDepthPx * 0.85);
+                let isIsobath = 1.0 - smoothstep(0.0, isobathWidth, distToIsobath);
+
+                // Continental shelf break isobath (200m depth contour) visible on continental shelf
+                let shelfIsobathVal = fract(depthMeters / 200.0);
+                let distToShelfIsobath = min(shelfIsobathVal, 1.0 - shelfIsobathVal);
+                let isShelfIsobath = (1.0 - smoothstep(0.0, isobathWidth * 5.0, distToShelfIsobath)) * smoothstep(600.0, 100.0, depthMeters);
+
+                let moireGuard = 1.0 - smoothstep(0.35, 0.85, dDepthPx);
+                let cMarineTurquoise = vec3<f32>(0.20, 0.58, 0.65); // Thin marine turquoise drafting ink #3394A6
+                let netIsobath = max(isIsobath, isShelfIsobath * 0.70);
+                finalCrust = mix(finalCrust, cMarineTurquoise, netIsobath * moireGuard * 0.45);
+            }
+        }
     }
 
     // Atmospheric limb darkening in light mode to define globe silhouette against white canvas

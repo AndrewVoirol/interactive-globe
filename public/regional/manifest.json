@@ -1,0 +1,49 @@
+{
+  "version": "1.0",
+  "description": "High-Resolution NOAA CUDEM Regional Elevation Overlays (1/3 arc-second ~10m)",
+  "elevationEncoding": {
+    "zMin": -10924.0,
+    "zMax": 8848.0,
+    "zSpan": 19772.0,
+    "channels": {
+      "R": "land_elevation_normalized_to_8848m",
+      "G": "ocean_depth_normalized_to_10924m",
+      "B": "shoreline_land_mask",
+      "A": "full_range_signed_elevation_normalized"
+    }
+  },
+  "regions": [
+    {
+      "id": "hawaii",
+      "name": "Hawaii",
+      "bounds": {
+        "minLon": -161.0,
+        "maxLon": -154.0,
+        "minLat": 18.0,
+        "maxLat": 23.0
+      },
+      "width": 5400,
+      "height": 3600,
+      "binUrl": "/regional/hawaii-dem-u16.bin",
+      "webpUrl": "/regional/hawaii-dem.webp",
+      "minElevationMeters": -5800.07177734375,
+      "maxElevationMeters": 4011.42041015625
+    },
+    {
+      "id": "capecod",
+      "name": "Cape Cod",
+      "bounds": {
+        "minLon": -71.0,
+        "maxLon": -69.0,
+        "minLat": 41.0,
+        "maxLat": 43.0
+      },
+      "width": 2400,
+      "height": 2400,
+      "binUrl": "/regional/capecod-dem-u16.bin",
+      "webpUrl": "/regional/capecod-dem.webp",
+      "minElevationMeters": -285.8948974609375,
+      "maxElevationMeters": 97.74481964111328
+    }
+  ]
+}

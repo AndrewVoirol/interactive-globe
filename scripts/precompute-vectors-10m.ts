@@ -73,9 +73,12 @@ async function run() {
     if (!demU16) return 0;
     const u = (lon + 180.0) / 360.0;
     const v = (90.0 - lat) / 180.0;
-    const px = Math.max(0, Math.min(2047, Math.floor(u * 2048)));
-    const py = Math.max(0, Math.min(1023, Math.floor(v * 1024)));
-    const idx = (py * 2048 + px) * 4;
+    const is8k = demU16.length >= 8192 * 4096 * 4;
+    const W = is8k ? 8192 : 2048;
+    const H = is8k ? 4096 : 1024;
+    const px = Math.max(0, Math.min(W - 1, Math.floor(u * W)));
+    const py = Math.max(0, Math.min(H - 1, Math.floor(v * H)));
+    const idx = (py * W + px) * 4;
     const val = demU16[idx + 3]; // Channel 3: continuous signed geoid elevation
     return (val / 65535.0) * 19772.0 - 10924.0;
   }

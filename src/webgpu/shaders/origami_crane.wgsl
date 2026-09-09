@@ -225,7 +225,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         // Soft diffuse shadow based on altitude
         let altMeters = crane.u_shadowPos.w;
         let altFade = clamp(1.0 - (altMeters / 12000.0), 0.15, 0.75);
-        let shadowColor = vec3<f32>(0.02, 0.03, 0.05);
+        var shadowColor = vec3<f32>(0.02, 0.03, 0.05);
+        if (crane.u_theme == 2u) {
+            // Prussian deep indigo shadow
+            shadowColor = vec3<f32>(0.05, 0.09, 0.15);
+        }
         return vec4<f32>(shadowColor, 0.45 * altFade);
     }
 
@@ -241,12 +245,18 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     var paperColor: vec3<f32>;
     if (crane.u_theme == 0u) {
-        // Dark Obsidian Theme: Warm Washi Rice Paper with golden edge reflection
+        // Dark Obsidian Theme (Marie Tharp): Warm Washi Rice Paper with golden edge reflection
         let washiBase = vec3<f32>(0.92, 0.90, 0.86);
         let washiCrease = vec3<f32>(0.78, 0.74, 0.68);
         paperColor = mix(washiCrease, washiBase, clamp(lighting, 0.0, 1.0));
+    } else if (crane.u_theme == 2u) {
+        // Prussian Cyanotype: Chalk-white paper form on Prussian ground (blueprint origami pattern)
+        // STRICTLY MONOCHROMATIC
+        let cyanotypeBase = vec3<f32>(0.95, 0.97, 1.00); // Luminous chalk white #F2F7FD
+        let cyanotypeCrease = vec3<f32>(0.55, 0.70, 0.85); // Blueprint cerulean fold/crease #8CB3D9
+        paperColor = mix(cyanotypeCrease, cyanotypeBase, clamp(lighting, 0.0, 1.0));
     } else {
-        // Light Monochrome Theme: Architectural Charcoal Ink Paper
+        // Light Monochrome Theme (Cream Rag): Architectural Charcoal Ink Paper
         let inkBase = vec3<f32>(0.12, 0.14, 0.18);
         let inkCrease = vec3<f32>(0.04, 0.05, 0.07);
         paperColor = mix(inkCrease, inkBase, clamp(lighting, 0.0, 1.0));

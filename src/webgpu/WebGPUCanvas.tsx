@@ -20,9 +20,10 @@ import {
   LANDMARK_ANCHORS,
   sampleGreatCircleGeodesic,
   generateTissotCircles,
-  evaluateTissotDistortion,
   evaluatePointMorph,
 } from '../core/GlobeOverlay';
+import { TrajectoryCameraController, Waypoint3D } from '../core/camera/TrajectoryCameraController';
+import { HAWAII_WAYPOINTS, CAPE_COD_WAYPOINTS } from '../core/camera/litmusWaypoints';
 
 export interface BathymetricSounding {
   name: string;
@@ -124,6 +125,24 @@ export interface WebGPUCanvasProps {
   audioEngine?: ProceduralAudioEngine;
   onGpuProfilerReport?: (report: any) => void;
   isolatedStratum?: number | null;
+  isDemoMode?: boolean;
+  demoSequence?: 'hawaii' | 'cape-cod';
+  onDemoModeChange?: (active: boolean, sequence?: 'hawaii' | 'cape-cod') => void;
+}
+
+interface RegionalManifestEntry {
+  id: string;
+  name: string;
+  bounds: {
+    minLon: number;
+    maxLon: number;
+    minLat: number;
+    maxLat: number;
+  };
+  width: number;
+  height: number;
+  binUrl: string;
+  webpUrl: string;
 }
 
 export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
@@ -155,12 +174,16 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   audioEngine,
   onGpuProfilerReport,
   isolatedStratum,
+  isDemoMode = false,
+  demoSequence = 'hawaii',
+  onDemoModeChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const viewportSizeRef = useRef<{ width: number; height: number; dpr: number }>({ width: 0, height: 0, dpr: 1 });
   const engineRef = useRef<WebGPUEngine>(new WebGPUEngine());
+  const trajectoryControllerRef = useRef<TrajectoryCameraController>(new TrajectoryCameraController());
   const loadedBinRef = useRef<string | null>(null);
   const loadedDataInfoRef = useRef<{ pointCount: number; lineCount: number; baseVramBytes: number } | null>(null);
   const sharedCursorTracker = useCursorTracker();
@@ -244,6 +267,22 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Regional High-Resolution DEM Overlay State (NOAA CUDEM ~10m)
+  const regionalManifestRef = useRef<RegionalManifestEntry[]>([]);
+  const activeRegionIdRef = useRef<string | null>(null);
+  const loadingRegionsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetch('/regional/manifest.json')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && Array.isArray(data.regions)) {
+          regionalManifestRef.current = data.regions;
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Dynamic Props Ref to decouple renderLoop from React re-renders
   const stateRef = useRef({
     unfurlProgress,
@@ -261,6 +300,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     vortexStrength,
     fractureIntensity,
     isolatedStratum,
+    isDemoMode,
+    demoSequence,
   });
   useEffect(() => {
     stateRef.current = {
@@ -279,13 +320,36 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       vortexStrength,
       fractureIntensity,
       isolatedStratum,
+      isDemoMode,
+      demoSequence,
     };
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence]);
 
-  const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport });
+  const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange });
   useEffect(() => {
-    callbacksRef.current = { onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport };
-  }, [onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport]);
+    callbacksRef.current = { onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange };
+  }, [onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange]);
+
+  // Synchronize Trajectory Controller with demo mode and active sequence
+  useEffect(() => {
+    const trajectory = trajectoryControllerRef.current;
+    trajectory.setMode('dolly-cinematic');
+    const waypoints = demoSequence === 'cape-cod' ? CAPE_COD_WAYPOINTS : HAWAII_WAYPOINTS;
+    trajectory.setWaypoints(waypoints, 8.0, false);
+    trajectory.setIsPlaying(isDemoMode);
+  }, [demoSequence]);
+
+  useEffect(() => {
+    const trajectory = trajectoryControllerRef.current;
+    if (isDemoMode) {
+      if (trajectory.isFinished()) {
+        trajectory.setProgress(0);
+      }
+      trajectory.setIsPlaying(true);
+    } else {
+      trajectory.setIsPlaying(false);
+    }
+  }, [isDemoMode]);
 
   // Dynamic planetary layer loading when layers are enabled
   useEffect(() => {
@@ -405,7 +469,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   useEffect(() => {
     (window as any).__INDICATRIX_CAMERA__ = {
       setSpherical: (r: number, theta: number, phi: number, target?: [number, number, number]) => {
-        if (target) targetRef.current.set(target[0], target[1], target[2]);
+        cameraRef.current.up.set(0, 1, 0);
+        if (target) {
+          targetRef.current.set(target[0], target[1], target[2]);
+        } else {
+          targetRef.current.set(0, 0, 0);
+        }
         sphericalRef.current.radius = r;
         sphericalRef.current.theta = theta;
         sphericalRef.current.phi = phi;
@@ -418,8 +487,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         updateCameraTransform();
       },
       lookAtCoordinates: (lonDeg: number, latDeg: number, zoomRadius = 15, target?: [number, number, number]) => {
-        if (target) targetRef.current.set(target[0], target[1], target[2]);
-        sphericalRef.current.radius = zoomRadius;
+        cameraRef.current.up.set(0, 1, 0);
+        if (target) {
+          targetRef.current.set(target[0], target[1], target[2]);
+        } else {
+          targetRef.current.set(0, 0, 0);
+        }
+        sphericalRef.current.radius = Math.max(5.08, Math.min(zoomRadius, 30.0));
         sphericalRef.current.theta = (lonDeg * Math.PI) / 180;
         sphericalRef.current.phi = ((90 - latDeg) * Math.PI) / 180;
         velocityRef.current.velTheta = 0;
@@ -434,6 +508,71 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         targetRef.current.set(x, y, z);
         updateCameraTransform();
       },
+      setObliqueView: (lonDeg: number, latDeg: number, altitudeRadius = 6.05, pitchDeg = 52, headingDeg = 0) => {
+        const phi = ((90 - latDeg) * Math.PI) / 180;
+        const theta = (lonDeg * Math.PI) / 180;
+        const sinPhi = Math.sin(phi);
+        const cosPhi = Math.cos(phi);
+        const sinTheta = Math.sin(theta);
+        const cosTheta = Math.cos(theta);
+
+        const nx = sinPhi * sinTheta;
+        const ny = cosPhi;
+        const nz = sinPhi * cosTheta;
+
+        const northX = -Math.sin((latDeg * Math.PI) / 180) * sinTheta;
+        const northY = Math.cos((latDeg * Math.PI) / 180);
+        const northZ = -Math.sin((latDeg * Math.PI) / 180) * cosTheta;
+
+        const eastX = cosTheta;
+        const eastY = 0;
+        const eastZ = -sinTheta;
+
+        const hRad = (headingDeg * Math.PI) / 180;
+        const forwardX = northX * Math.cos(hRad) + eastX * Math.sin(hRad);
+        const forwardY = northY * Math.cos(hRad) + eastY * Math.sin(hRad);
+        const forwardZ = northZ * Math.cos(hRad) + eastZ * Math.sin(hRad);
+
+        const pRad = (pitchDeg * Math.PI) / 180;
+        const vDirX = -Math.cos(pRad) * nx + Math.sin(pRad) * forwardX;
+        const vDirY = -Math.cos(pRad) * ny + Math.sin(pRad) * forwardY;
+        const vDirZ = -Math.cos(pRad) * nz + Math.sin(pRad) * forwardZ;
+
+        const camX = nx * altitudeRadius;
+        const camY = ny * altitudeRadius;
+        const camZ = nz * altitudeRadius;
+
+        const targetDist = 3.5;
+        const targetX = camX + vDirX * targetDist;
+        const targetY = camY + vDirY * targetDist;
+        const targetZ = camZ + vDirZ * targetDist;
+
+        cameraRef.current.position.set(camX, camY, camZ);
+        targetRef.current.set(targetX, targetY, targetZ);
+        cameraRef.current.up.set(nx, ny, nz);
+        cameraRef.current.lookAt(targetRef.current);
+        cameraRef.current.updateMatrixWorld();
+
+        velocityRef.current.velTheta = 0;
+        velocityRef.current.velPhi = 0;
+        velocityRef.current.velRadius = 0;
+        velocityRef.current.velPanX = 0;
+        velocityRef.current.velPanY = 0;
+        targetCameraPosRef.current = null;
+      },
+      setPose: (pos: [number, number, number], target: [number, number, number], up?: [number, number, number]) => {
+        cameraRef.current.position.set(pos[0], pos[1], pos[2]);
+        targetRef.current.set(target[0], target[1], target[2]);
+        if (up) cameraRef.current.up.set(up[0], up[1], up[2]);
+        cameraRef.current.lookAt(targetRef.current);
+        cameraRef.current.updateMatrixWorld();
+        velocityRef.current.velTheta = 0;
+        velocityRef.current.velPhi = 0;
+        velocityRef.current.velRadius = 0;
+        velocityRef.current.velPanX = 0;
+        velocityRef.current.velPanY = 0;
+        targetCameraPosRef.current = null;
+      },
       getSpherical: () => ({
         radius: sphericalRef.current.radius,
         theta: sphericalRef.current.theta,
@@ -444,8 +583,52 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         cameraPos: [cameraRef.current.position.x, cameraRef.current.position.y, cameraRef.current.position.z],
       }),
     };
+    (window as any).__INDICATRIX_WEBGPU_ENGINE__ = engineRef.current;
+    (window as any).__INDICATRIX_TRAJECTORY__ = {
+      startDemo: (seq: 'hawaii' | 'cape-cod' = 'hawaii', duration = 8.0) => {
+        const trajectory = trajectoryControllerRef.current;
+        trajectory.setMode('dolly-cinematic');
+        trajectory.setWaypoints(seq === 'cape-cod' ? CAPE_COD_WAYPOINTS : HAWAII_WAYPOINTS, duration, false);
+        trajectory.setIsPlaying(true);
+        callbacksRef.current.onDemoModeChange?.(true, seq);
+      },
+      stopDemo: () => {
+        trajectoryControllerRef.current.setIsPlaying(false);
+        callbacksRef.current.onDemoModeChange?.(false);
+      },
+      toggleDemo: (seq?: 'hawaii' | 'cape-cod') => {
+        if (stateRef.current.isDemoMode) {
+          trajectoryControllerRef.current.setIsPlaying(false);
+          callbacksRef.current.onDemoModeChange?.(false);
+        } else {
+          const s = seq ?? stateRef.current.demoSequence;
+          const trajectory = trajectoryControllerRef.current;
+          trajectory.setMode('dolly-cinematic');
+          trajectory.setWaypoints(s === 'cape-cod' ? CAPE_COD_WAYPOINTS : HAWAII_WAYPOINTS, 8.0, false);
+          trajectory.setIsPlaying(true);
+          callbacksRef.current.onDemoModeChange?.(true, s);
+        }
+      },
+      isDemoActive: () => stateRef.current.isDemoMode,
+      getProgress: () => trajectoryControllerRef.current.getProgress(),
+      setProgress: (p: number) => trajectoryControllerRef.current.setProgress(p),
+      controller: trajectoryControllerRef.current,
+      waypoints: {
+        hawaii: HAWAII_WAYPOINTS,
+        capeCod: CAPE_COD_WAYPOINTS,
+      },
+    };
+    if ((window as any).__INDICATRIX_ENGINE__) {
+      (window as any).__INDICATRIX_ENGINE__.getActiveRegionalDEM = () =>
+        engineRef.current?.getActiveRegionalDEM() ?? null;
+    }
     return () => {
       delete (window as any).__INDICATRIX_CAMERA__;
+      delete (window as any).__INDICATRIX_WEBGPU_ENGINE__;
+      delete (window as any).__INDICATRIX_TRAJECTORY__;
+      if ((window as any).__INDICATRIX_ENGINE__) {
+        delete (window as any).__INDICATRIX_ENGINE__.getActiveRegionalDEM;
+      }
     };
   }, [updateCameraTransform]);
 
@@ -455,6 +638,16 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     if (!canvas) return;
 
     const onPointerDown = (e: PointerEvent) => {
+      if (stateRef.current.isDemoMode) {
+        callbacksRef.current.onDemoModeChange?.(false);
+        const camera = cameraRef.current;
+        const target = targetRef.current;
+        const offset = new Vector3().subVectors(camera.position, target);
+        sphericalRef.current.radius = offset.length();
+        sphericalRef.current.theta = Math.atan2(offset.x, offset.z);
+        sphericalRef.current.phi = Math.acos(Math.min(Math.max(offset.y / Math.max(sphericalRef.current.radius, 0.001), -1), 1));
+      }
+
       const isPinchMode = e.shiftKey || cursorPhysicsEnabledRef.current;
       if (isPinchMode && e.button === 0) {
         isPinchingRef.current = true;
@@ -847,8 +1040,35 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const dt = Math.min((now - lastFrameTimeRef.current) / 1000, 0.1);
         lastFrameTimeRef.current = now;
 
-        // Smooth kinematic camera gliding for camera preset transitions (matching WebGL2 KinematicCameraController)
-        if (targetCameraPosRef.current && !isDraggingRef.current) {
+        // Trajectory Camera Controller override when Demo Mode is active
+        const curIsDemoMode = stateRef.current.isDemoMode;
+        if (curIsDemoMode) {
+          const trajectory = trajectoryControllerRef.current;
+          trajectory.update(dt);
+          camera.position.copy(trajectory.position);
+          targetRef.current.copy(trajectory.target);
+          camera.lookAt(targetRef.current);
+          if (trajectory.getFov()) {
+            camera.fov = trajectory.getFov();
+            camera.updateProjectionMatrix();
+          }
+          camera.updateMatrixWorld();
+
+          // Suppress manual inertial velocities while trajectory camera has authority
+          velocityRef.current.velTheta = 0;
+          velocityRef.current.velPhi = 0;
+          velocityRef.current.velRadius = 0;
+          velocityRef.current.velPanX = 0;
+          velocityRef.current.velPanY = 0;
+
+          if (trajectory.isFinished()) {
+            callbacksRef.current.onDemoModeChange?.(false);
+            const offset = new Vector3().subVectors(camera.position, targetRef.current);
+            sphericalRef.current.radius = offset.length();
+            sphericalRef.current.theta = Math.atan2(offset.x, offset.z);
+            sphericalRef.current.phi = Math.acos(Math.min(Math.max(offset.y / Math.max(sphericalRef.current.radius, 0.001), -1), 1));
+          }
+        } else if (targetCameraPosRef.current && !isDraggingRef.current) {
           const targetPos = targetCameraPosRef.current;
           camera.position.lerp(targetPos, 0.08);
           targetRef.current.lerp(new Vector3(0, 0, 0), 0.08);
@@ -898,7 +1118,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
             if (Math.abs(vel.velRadius) > 1e-6) {
               sphericalRef.current.radius = Math.min(
-                Math.max(sphericalRef.current.radius + vel.velRadius, 6.0),
+                Math.max(sphericalRef.current.radius + vel.velRadius, 5.08),
                 50.0
               );
               vel.velRadius *= decay;
@@ -911,6 +1131,79 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
 
         // Auto-rotation disabled to preserve user target coordinate inspection
+
+        // --------------------------------------------------------------------
+        // Regional High-Resolution DEM Overlay (NOAA CUDEM ~10m) Camera Trigger
+        // --------------------------------------------------------------------
+        const regions = regionalManifestRef.current;
+        if (regions.length > 0 && engineRef.current) {
+          const currentRadius = sphericalRef.current.radius;
+          const currentPhi = sphericalRef.current.phi;
+          const currentTheta = sphericalRef.current.theta;
+          const currentLat = 90 - (currentPhi * 180) / Math.PI;
+          let currentLon = (currentTheta * 180) / Math.PI;
+          currentLon = ((currentLon + 180) % 360 + 360) % 360 - 180;
+
+          // Camera zoom threshold: radius <= 12.0 indicates regional focus
+          const isZoomedIn = currentRadius <= 12.0;
+
+          let matchedRegion: RegionalManifestEntry | null = null;
+          if (isZoomedIn) {
+            for (const reg of regions) {
+              const b = reg.bounds;
+              // Allow 0.75° boundary buffer for pre-fetching
+              if (
+                currentLon >= b.minLon - 0.75 &&
+                currentLon <= b.maxLon + 0.75 &&
+                currentLat >= b.minLat - 0.75 &&
+                currentLat <= b.maxLat + 0.75
+              ) {
+                matchedRegion = reg;
+                break;
+              }
+            }
+          }
+
+          if (matchedRegion) {
+            if (activeRegionIdRef.current !== matchedRegion.id) {
+              activeRegionIdRef.current = matchedRegion.id;
+              const regId = matchedRegion.id;
+              const engine = engineRef.current;
+              if (!engine.getRegionalDEMTexture(regId) && !loadingRegionsRef.current.has(regId)) {
+                loadingRegionsRef.current.add(regId);
+                engine
+                  .loadRegionalDEMTexture(
+                    matchedRegion.binUrl,
+                    matchedRegion.bounds,
+                    matchedRegion.width,
+                    matchedRegion.height,
+                    regId
+                  )
+                  .then(() => {
+                    loadingRegionsRef.current.delete(regId);
+                    if (activeRegionIdRef.current === regId) {
+                      engine.setActiveRegionalDEM(regId);
+                    }
+                  })
+                  .catch(() => {
+                    loadingRegionsRef.current.delete(regId);
+                  });
+              } else if (engine.getRegionalDEMTexture(regId)) {
+                engine.setActiveRegionalDEM(regId);
+              }
+            }
+          } else {
+            if (activeRegionIdRef.current !== null) {
+              const prevId = activeRegionIdRef.current;
+              activeRegionIdRef.current = null;
+              const engine = engineRef.current;
+              engine.setActiveRegionalDEM(null);
+              if (currentRadius > 14.0) {
+                engine.releaseRegionalDEMTexture(prevId);
+              }
+            }
+          }
+        }
 
         // Analytical Manifold Cursor Raycast via CursorTracker
         const cursorUniforms = tracker.update(camera, curUnfurl);

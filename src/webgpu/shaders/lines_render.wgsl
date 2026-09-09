@@ -59,13 +59,23 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    // ------------------------------------------------------------------------
+    // UNIFORM CONTROL FLOW EVALUATION (Invariant #3)
+    // All finite difference derivatives (dpdx, dpdy) MUST be evaluated
+    // unconditionally at the top of fs_main before ANY conditional branches or discard.
+    // ------------------------------------------------------------------------
+    let dpdxWorld = dpdx(in.worldPos);
+    let dpdyWorld = dpdy(in.worldPos);
+    let dpdxSphere = dpdx(in.spherePos);
+    let dpdySphere = dpdy(in.spherePos);
+    let dWorld = length(dpdxWorld) + length(dpdyWorld);
+    let dSphere = length(dpdxSphere) + length(dpdySphere) + 1e-7;
+
     if (sim.u_layerMode == 1u) {
         discard;
     }
     // Dymaxion cross-facet wireframe stretch discard
     if (sim.u_mode == 4u && sim.u_unfurl > 0.02) {
-        let dWorld = length(dpdx(in.worldPos)) + length(dpdy(in.worldPos));
-        let dSphere = length(dpdx(in.spherePos)) + length(dpdy(in.spherePos)) + 1e-7;
         if (dWorld / dSphere > 8.0 * (1.0 + sim.u_unfurl)) {
             discard;
         }
@@ -77,7 +87,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var alpha = 0.35;
 
     if (sim.u_theme == 1u) {
-        // Light Monochrome (swisstopo): Subtle graphite isobaths
+        // Light Monochrome (swisstopo / Cream Rag): Subtle graphite isobaths
         let h = in.vElevation;
         if (h < 0.0) {
             wireColor = vec3<f32>(0.45, 0.58, 0.70); // Bathymetric blue-gray
@@ -89,8 +99,25 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             wireColor = vec3<f32>(0.35, 0.33, 0.30); // Alpine dark charcoal
             alpha = 0.45;
         }
+    } else if (sim.u_theme == 2u) {
+        // Theme 2: Prussian Cyanotype (Blueprint architectural lines)
+        // STRICTLY MONOCHROMATIC
+        let h = in.vElevation;
+        if (h < 0.0) {
+            // Bathymetric & marine grid: drafting cerulean (#4F79A3)
+            wireColor = vec3<f32>(0.31, 0.475, 0.64);
+            alpha = 0.28;
+        } else if (h < 1500.0) {
+            // Lowlands/plateaus: soft cerulean tint (#7AA2C8)
+            wireColor = vec3<f32>(0.478, 0.635, 0.784);
+            alpha = 0.30;
+        } else {
+            // Ridges & summits: chalk ruling pen white (#E8EDF2)
+            wireColor = vec3<f32>(0.91, 0.93, 0.95);
+            alpha = 0.35;
+        }
     } else {
-        // Dark Obsidian with Hypsometric Depth Tint
+        // Theme 0: Dark Obsidian (Marie Tharp) with Hypsometric Depth Tint
         let h = in.vElevation;
         if (h < -3000.0) {
             wireColor = vec3<f32>(0.10, 0.25, 0.55); // Abyssal navy

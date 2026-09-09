@@ -80,6 +80,10 @@ export interface TelemetryHUDProps {
   onCatalogOpenChange?: (open: boolean) => void;
   isSidebarOpen?: boolean;
   onSidebarOpenChange?: (open: boolean) => void;
+  isDemoMode?: boolean;
+  demoSequence?: 'hawaii' | 'cape-cod';
+  onToggleDemoMode?: (seq?: 'hawaii' | 'cape-cod') => void;
+  onSelectDemoSequence?: (seq: 'hawaii' | 'cape-cod') => void;
 }
 
 export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
@@ -151,6 +155,10 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onCatalogOpenChange={props.onCatalogOpenChange}
         isSidebarOpen={props.isSidebarOpen}
         onSidebarOpenChange={props.onSidebarOpenChange}
+        isDemoMode={props.isDemoMode}
+        demoSequence={props.demoSequence}
+        onToggleDemoMode={props.onToggleDemoMode}
+        onSelectDemoSequence={props.onSelectDemoSequence}
       />
 
       {/* Bottom-Left Non-Intrusive Glassmorphic Toast Notification Stack */}

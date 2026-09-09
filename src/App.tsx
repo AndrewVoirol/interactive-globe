@@ -104,6 +104,23 @@ export default function App() {
   }, [isZenMode]);
   const audioEngineRef = useRef<ProceduralAudioEngine>(new ProceduralAudioEngine(true));
 
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
+  const [demoSequence, setDemoSequence] = useState<'hawaii' | 'cape-cod'>('hawaii');
+
+  const toggleDemoMode = useCallback((seq?: 'hawaii' | 'cape-cod') => {
+    if (seq) setDemoSequence(seq);
+    setIsDemoMode((prev) => !prev);
+  }, []);
+
+  const selectDemoSequence = useCallback((seq: 'hawaii' | 'cape-cod') => {
+    setDemoSequence(seq);
+  }, []);
+
+  const handleDemoModeChange = useCallback((active: boolean, seq?: 'hawaii' | 'cape-cod') => {
+    if (seq) setDemoSequence(seq);
+    setIsDemoMode(active);
+  }, []);
+
   const [isAudioMuted, setIsAudioMuted] = useState(true);
   const [isAirDancerMode, setIsAirDancerMode] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
@@ -245,10 +262,7 @@ export default function App() {
         // Standalone WebGPU instrument: WebGL2 backend is retired
         // setBackend((b) => (b === 'webgpu' ? 'webgl2' : 'webgpu'))
       } else if (e.key === 'd' || e.key === 'D') {
-        const order: Array<'architectural' | 'hybrid' | 'photoreal'> = ['architectural', 'hybrid', 'photoreal'];
-        const currentIdx = activeDirection ? order.indexOf(activeDirection) : -1;
-        const nextStyle = order[(currentIdx + 1) % order.length];
-        handleSelectRenderStyleWithVectorAuto(nextStyle);
+        toggleDemoMode();
       } else if (e.key === '7') {
         handleSelectRenderStyleWithVectorAuto('architectural');
       } else if (e.key === '8') {
@@ -274,6 +288,7 @@ export default function App() {
     setMode,
     setShowVectors,
     setTheme,
+    toggleDemoMode,
   ]);
 
   const handleFpsUpdate = useCallback((val: number) => {
@@ -439,6 +454,9 @@ export default function App() {
                 onDataLoaded={handleDataLoaded}
                 onError={handleWebGPUError}
                 onCoordsChange={handleCoordsChange}
+                isDemoMode={isDemoMode}
+                demoSequence={demoSequence}
+                onDemoModeChange={handleDemoModeChange}
               />
             </React.Suspense>
           ) : (
@@ -530,6 +548,10 @@ export default function App() {
           onCatalogOpenChange={setIsCatalogOpen}
           isSidebarOpen={isSidebarOpen}
           onSidebarOpenChange={setIsSidebarOpen}
+          isDemoMode={isDemoMode}
+          demoSequence={demoSequence}
+          onToggleDemoMode={toggleDemoMode}
+          onSelectDemoSequence={selectDemoSequence}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}

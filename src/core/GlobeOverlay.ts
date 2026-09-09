@@ -467,26 +467,3 @@ export function generateTissotCircles(
   return circles;
 }
 
-/**
- * Calculates current areal dilation and returns hex color and ratio:
- * - Emerald (#10B981) for area preservation s <= 1.18
- * - Amber (#F59E0B) for moderate stretch 1.18 < s <= 2.2
- * - Crimson (#F43F5E) for extreme polar distortion s > 2.2
- */
-export function evaluateTissotDistortion(
-  baseAreaRatio: number,
-  mode: number,
-  alpha: number
-): { s: number; colorHex: string; colorRGB: [number, number, number] } {
-  // If Dymaxion (Mode 4), area is preserved across all facets (max distortion < 1.05)
-  const targetRatio = mode === 4 ? 1.04 : baseAreaRatio;
-  const currentS = (1 - alpha) * 1.0 + alpha * targetRatio;
-
-  if (currentS <= 1.18) {
-    return { s: currentS, colorHex: '#10B981', colorRGB: [0.063, 0.725, 0.506] }; // Emerald
-  } else if (currentS <= 2.2) {
-    return { s: currentS, colorHex: '#F59E0B', colorRGB: [0.961, 0.620, 0.043] }; // Amber
-  } else {
-    return { s: currentS, colorHex: '#F43F5E', colorRGB: [0.957, 0.247, 0.369] }; // Crimson
-  }
-}

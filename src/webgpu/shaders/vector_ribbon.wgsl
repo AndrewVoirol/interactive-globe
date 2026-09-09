@@ -411,7 +411,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var nominalAlpha: f32;
 
     if (sim.u_theme == 0u) {
-        // Theme 0: Dark Palette Cartographic Hairlines
+        // Theme 0: Dark Palette Cartographic Hairlines (Marie Tharp)
         if (in.pointType < 0.75) {
             // Major Hydrological Arteries: Mineral cyan/slate-blue
             strokeColor = vec3<f32>(0.38, 0.58, 0.78);
@@ -421,8 +421,20 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             strokeColor = vec3<f32>(0.94, 0.92, 0.88);
             nominalAlpha = 0.80;
         }
+    } else if (sim.u_theme == 2u) {
+        // Theme 2: Prussian Cyanotype (Actinic unexposed resist / Photographic negative)
+        // STRICTLY MONOCHROMATIC — only Prussian blue + white
+        if (in.pointType < 0.75) {
+            // Major Hydrological Arteries: Washed cerulean (#4F79A3)
+            strokeColor = vec3<f32>(0.31, 0.475, 0.64);
+            nominalAlpha = 0.60;
+        } else {
+            // Continental Coastlines: Chalk ruling pen white (#E8EDF2 / unexposed resist)
+            strokeColor = vec3<f32>(0.91, 0.93, 0.95);
+            nominalAlpha = 0.98;
+        }
     } else {
-        // Theme 1: Light Monochrome Architectural / Swiss Relief
+        // Theme 1: Light Monochrome Architectural / Swiss Relief (Cream Rag)
         if (in.pointType < 0.75) {
             // Hydrology: Washed mineral lapis/celadon glaze
             strokeColor = vec3<f32>(0.26, 0.42, 0.54);

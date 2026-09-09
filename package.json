@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "precompute": "node scripts/precompute.js",
-    "precompute:etopo": "uv run --with numpy --with pillow python scripts/precompute-etopo2022.py",
+    "precompute:etopo": "uv run --with numpy --with pillow --with scipy --with netCDF4 python scripts/precompute-etopo2022.py",
     "precompute:contours": "uv run --with numpy --with pillow python scripts/precompute-contours.py",
     "precompute:contours-ts": "npx tsx scripts/precompute-contours.ts",
     "precompute:vectors": "npx tsx scripts/precompute-vectors.ts",
@@ -16,6 +16,7 @@
     "refresh:planetary": "npx tsx scripts/refresh-planetary-data.ts",
     "refresh:wind": "npx tsx scripts/fetch-or-generate-gfs-wind.ts",
     "refresh:starlink": "npx tsx scripts/fetch-or-generate-tle-starlink.ts",
+    "lint:wgsl": "node scripts/lint-wgsl-control-flow.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

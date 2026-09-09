@@ -23,4 +23,7 @@ dist-ssr
 *.sln
 .agents/
 .archive/
-
+.temp_frames/
+.temp_screencasts/
+screenshots/memory-check.json
+screenshots/performance-profile.json

@@ -262,6 +262,25 @@ describe('Challenger 2: WebGPU Runtime & Stress Verification Suite', () => {
       engine.dispose();
     });
 
+    it('C2-STRESS-04b: ingests 256MB 16-bit 8K DEM buffer and sets rgba16unorm format with 8192x4096 dimensions', async () => {
+      const engine = new WebGPUEngine();
+      const config = createEngineConfig(100, 10);
+      await engine.initialize(config);
+
+      const u16Buffer = new ArrayBuffer(268435456); // 8192 * 4096 * 4 * 2 = 256 MB
+      await engine.loadDEMTexture(u16Buffer);
+
+      const texture = engine.getDEMTexture();
+      expect(texture).toBeDefined();
+      expect(texture?.format).toBe('rgba16unorm');
+      expect(texture?.width).toBe(8192);
+      expect(texture?.height).toBe(4096);
+      expect(engine.demWidth).toBe(8192);
+      expect(engine.demHeight).toBe(4096);
+
+      engine.dispose();
+    });
+
     it('C2-STRESS-05: ingests 8MB 8-bit DEM fallback buffer and sets rgba8unorm format', async () => {
       const engine = new WebGPUEngine();
       const config = createEngineConfig(100, 10);
@@ -273,6 +292,29 @@ describe('Challenger 2: WebGPU Runtime & Stress Verification Suite', () => {
       const texture = engine.getDEMTexture();
       expect(texture).toBeDefined();
       expect(texture?.format).toBe('rgba8unorm');
+      expect(texture?.width).toBe(2048);
+      expect(texture?.height).toBe(1024);
+      expect(engine.demWidth).toBe(2048);
+      expect(engine.demHeight).toBe(1024);
+
+      engine.dispose();
+    });
+
+    it('C2-STRESS-05b: ingests 134MB 8K 8-bit DEM fallback buffer and sets 8192x4096 dimensions', async () => {
+      const engine = new WebGPUEngine();
+      const config = createEngineConfig(100, 10);
+      await engine.initialize(config);
+
+      const u8Buffer = new ArrayBuffer(8192 * 4096 * 4); // 134 MB
+      await engine.loadDEMTexture(u8Buffer);
+
+      const texture = engine.getDEMTexture();
+      expect(texture).toBeDefined();
+      expect(texture?.format).toBe('rgba8unorm');
+      expect(texture?.width).toBe(8192);
+      expect(texture?.height).toBe(4096);
+      expect(engine.demWidth).toBe(8192);
+      expect(engine.demHeight).toBe(4096);
 
       engine.dispose();
     });

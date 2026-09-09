@@ -202,6 +202,10 @@ export interface UnifiedRightSidebarProps {
   onCatalogOpenChange?: (open: boolean) => void;
   isSidebarOpen?: boolean;
   onSidebarOpenChange?: (open: boolean) => void;
+  isDemoMode?: boolean;
+  demoSequence?: 'hawaii' | 'cape-cod';
+  onToggleDemoMode?: (seq?: 'hawaii' | 'cape-cod') => void;
+  onSelectDemoSequence?: (seq: 'hawaii' | 'cape-cod') => void;
 }
 
 export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
@@ -270,6 +274,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onCatalogOpenChange,
   isSidebarOpen: externalSidebarOpen,
   onSidebarOpenChange,
+  isDemoMode = false,
+  demoSequence = 'hawaii',
+  onToggleDemoMode,
+  onSelectDemoSequence,
 }) => {
   const [internalSidebarOpen, setInternalSidebarOpen] = useState(true);
   const isSidebarOpen = externalSidebarOpen !== undefined ? externalSidebarOpen : internalSidebarOpen;
@@ -1504,6 +1512,61 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         );
                       })}
                     </div>
+                  </div>
+
+                  {/* Trajectory Camera & Litmus Demo Flight */}
+                  <div className="space-y-1.5 p-2 rounded-[2px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]">
+                    <div className="flex items-center justify-between text-micro uppercase font-bold tracking-wider">
+                      <span className="flex items-center gap-1.5 text-[var(--theme-text-primary)]">
+                        <span className={`w-1.5 h-1.5 rounded-full ${isDemoMode ? 'bg-[var(--theme-status-sage)] shadow-[0_0_6px_var(--theme-status-sage)] animate-pulse' : 'bg-zinc-500'}`} />
+                        Demo Mode (D)
+                      </span>
+                      <span className="text-nano font-mono text-[var(--theme-text-muted)]">
+                        {isDemoMode ? 'CINEMATIC FLIGHT' : 'STANDBY'}
+                      </span>
+                    </div>
+
+                    {/* Sequence Selectors */}
+                    <div className="grid grid-cols-2 gap-1 text-nano font-bold">
+                      <button
+                        onClick={() => {
+                          onSelectDemoSequence?.('hawaii');
+                          if (!isDemoMode) onToggleDemoMode?.('hawaii');
+                        }}
+                        className={`py-1 rounded-[2px] border transition-all ${
+                          demoSequence === 'hawaii' && isDemoMode
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
+                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)]'
+                        }`}
+                      >
+                        Hawaii (Litmus)
+                      </button>
+                      <button
+                        onClick={() => {
+                          onSelectDemoSequence?.('cape-cod');
+                          if (!isDemoMode) onToggleDemoMode?.('cape-cod');
+                        }}
+                        className={`py-1 rounded-[2px] border transition-all ${
+                          demoSequence === 'cape-cod' && isDemoMode
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
+                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)]'
+                        }`}
+                      >
+                        Cape Cod (Litmus)
+                      </button>
+                    </div>
+
+                    {/* Toggle Button */}
+                    <button
+                      onClick={() => onToggleDemoMode?.()}
+                      className={`w-full py-1.5 rounded-[2px] border text-nano font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        isDemoMode
+                          ? 'bg-rose-900/40 border-rose-500/60 text-rose-300 shadow-sm ring-1 ring-rose-500/30'
+                          : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
+                      }`}
+                    >
+                      <span>{isDemoMode ? 'Stop Flight (Press D)' : 'Launch Cinematic Flight (Press D)'}</span>
+                    </button>
                   </div>
 
                   {/* Tissot Distortion Metrics (when Tissot is active) */}

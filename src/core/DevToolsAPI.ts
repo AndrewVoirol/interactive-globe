@@ -10,6 +10,7 @@ export interface IndicatrixEngineDevTools {
   setTheme: (theme: any) => void;
   setShowVectors: (show: boolean) => void;
   setCursorPhysicsEnabled: (enabled: boolean) => void;
+  getActiveRegionalDEM?: () => string | null;
 }
 
 declare global {

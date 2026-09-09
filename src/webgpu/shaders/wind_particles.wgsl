@@ -88,9 +88,9 @@ struct TerrainSample {
 };
 
 fn sampleTerrain(lonRad: f32, latRad: f32) -> TerrainSample {
-    // Texel step corresponding to 1 texel on 2048x1024 DEM
-    let dLon = TWO_PI / 2048.0;
-    let dLat = PI / 1024.0;
+    // Texel step corresponding to 1 texel on 8192x4096 DEM
+    let dLon = TWO_PI / 8192.0;
+    let dLat = PI / 4096.0;
 
     let hCenter = sampleTerrainElevation(lonRad, latRad);
     let hEast   = sampleTerrainElevation(lonRad + dLon, latRad);

@@ -23,7 +23,7 @@ describe('Phase 2 Interactive Unfurl & Loaders Verification Suite', () => {
 
     expect(fs.statSync(vectorBinPath).size).toBeGreaterThan(1024 * 1024);
     expect(fs.statSync(contourBinPath).size).toBeGreaterThan(1024 * 1024);
-    expect(fs.statSync(demBinPath).size).toBe(16777216); // Exactly 16 MB 16-bit DEM
+    expect([16777216, 268435456]).toContain(fs.statSync(demBinPath).size); // 16 MB (2k) or 256 MB (8k) 16-bit DEM
   });
 
   it('UNFURL-02: smoothly unfurls across all 5 projection modes at full pipeline depth', async () => {

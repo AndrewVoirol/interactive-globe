@@ -151,6 +151,27 @@ export class WebGPUEngine {
   private crustBindGroupLayout!: GPUBindGroupLayout;
   private crustBindGroup!: GPUBindGroup;
 
+  // High-Resolution Regional DEM Overlay Pipeline
+  public regionalDEMTextures = new Map<string, {
+    texture: GPUTexture;
+    view: GPUTextureView;
+    bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number };
+    width: number;
+    height: number;
+    id: string;
+  }>();
+  public activeRegionalDEM: {
+    texture: GPUTexture;
+    view: GPUTextureView;
+    bounds: [number, number, number, number];
+    width: number;
+    height: number;
+    id: string;
+  } | null = null;
+  private dummyRegionalTexture: GPUTexture | null = null;
+  private dummyRegionalTextureView: GPUTextureView | null = null;
+  public regionalUniformBuffer: GPUBuffer | null = null;
+
   // NASA Blue Marble & VIIRS Night Lights Draping (Feature F28)
   private orbitalTexture: GPUTexture | null = null;
   private orbitalTextureView: GPUTextureView | null = null;
@@ -202,7 +223,9 @@ export class WebGPUEngine {
   private windStep: number = 0;
   private windBuffersInitialized: boolean = false;
   private windDataSource: VectorFieldDataSource = new VectorFieldDataSource();
-  private cpuDEMData: Uint16Array | Uint8Array | null = null;
+  public cpuDEMData: Uint16Array | Uint8Array | Uint8ClampedArray | null = null;
+  public demWidth: number = 8192;
+  public demHeight: number = 4096;
 
   // Autonomous Origami Paper Crane Soaring Engine
   public readonly craneSolver: OrigamiCraneFlightSolver = new OrigamiCraneFlightSolver();
@@ -849,11 +872,27 @@ export class WebGPUEngine {
       this.loadVectorData('/geo-vectors.bin').catch(() => {});
     }
 
-    // 3. Lithosphere Crust & Hydrosphere Uniform Buffer (272 bytes) (M1-T3, STAGE 2)
+    // 3. Lithosphere Crust & Hydrosphere Uniform Buffer (272 bytes, 16-byte aligned) (M1-T3, STAGE 2)
     this.crustUniformBuffer = this.device.createBuffer({
       size: 272,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
+
+    // 1x1 Fallback dummy regional DEM texture view for binding slot 5
+    this.dummyRegionalTexture = this.device.createTexture({
+      label: 'dummy_regional_dem_texture',
+      size: [1, 1, 1],
+      format: 'rgba8unorm',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    const dummyPix = new Uint8Array([0, 0, 0, 142]);
+    this.device.queue.writeTexture(
+      { texture: this.dummyRegionalTexture },
+      dummyPix,
+      { bytesPerRow: 256, rowsPerImage: 1 },
+      [1, 1, 1]
+    );
+    this.dummyRegionalTextureView = this.dummyRegionalTexture.createView();
 
     // 4. Dual-Surface Lithosphere Crust & Liquid Hydrosphere 3D Sphere Grid Buffers
     // Test environment uses lightweight 128x256; live production engine uses 512x1024 (1M triangles)
@@ -1248,6 +1287,10 @@ export class WebGPUEngine {
 
     // Crust / Hydrosphere BindGroup
     if (this.crustBindGroupLayout && this.crustUniformBuffer && this.orbitalTextureView && this.orbitalSampler) {
+      const regView = this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || this.demTextureView);
+      const regBuffer = (this.activeRegionalDEM && this.regionalUniformBuffer)
+        ? this.regionalUniformBuffer
+        : (this.reliefUniformBuffer || this.crustUniformBuffer);
       this.crustBindGroup = this.device.createBindGroup({
         label: 'crust_hydrosphere_bind_group',
         layout: this.crustBindGroupLayout,
@@ -1257,6 +1300,8 @@ export class WebGPUEngine {
           { binding: 2, resource: this.demSampler },
           { binding: 3, resource: this.orbitalTextureView },
           { binding: 4, resource: this.orbitalSampler },
+          { binding: 5, resource: regView },
+          { binding: 6, resource: { buffer: regBuffer } },
         ],
       });
     }
@@ -1572,27 +1617,97 @@ export class WebGPUEngine {
 
     try {
       if (typeof urlOrBuffer === 'string') {
-        let buffer: ArrayBuffer | null = null;
+        const url = urlOrBuffer;
+        let res: Response | null = null;
+        let isImage = url.endsWith('.webp') || url.endsWith('.png');
+
         try {
-          const res = await fetch(urlOrBuffer);
-          if (res.ok) {
-            buffer = await res.arrayBuffer();
+          res = await fetch(url);
+          if (!res.ok && url.endsWith('.bin')) {
+            // Primary .bin fetch 404/failure: fallback to .webp
+            const fallbackUrl = url.replace('-u16.bin', '.webp');
+            const res2 = await fetch(fallbackUrl);
+            if (res2.ok) {
+              res = res2;
+              isImage = true;
+            }
           }
         } catch {
-          // If primary .bin fetch fails, attempt fallback to .webp
-          if (urlOrBuffer.endsWith('.bin')) {
-            const fallbackUrl = urlOrBuffer.replace('-u16.bin', '.webp');
+          if (url.endsWith('.bin')) {
             try {
+              const fallbackUrl = url.replace('-u16.bin', '.webp');
               const res2 = await fetch(fallbackUrl);
               if (res2.ok) {
-                buffer = await res2.arrayBuffer();
+                res = res2;
+                isImage = true;
               }
-            } catch {
-              // Fallback failure handled below
-            }
+            } catch {}
           }
         }
 
+        if (!res || !res.ok) return;
+
+        // Lossless WebP/PNG image fallback decoding in browser environment
+        if (isImage && typeof createImageBitmap !== 'undefined') {
+          const blob = await res.blob();
+          const imgBitmap = await createImageBitmap(blob);
+          const width = imgBitmap.width;
+          const height = imgBitmap.height;
+          this.demWidth = width;
+          this.demHeight = height;
+
+          let u8: Uint8Array | null = null;
+          if (typeof OffscreenCanvas !== 'undefined') {
+            const osc = new OffscreenCanvas(width, height);
+            const ctx = osc.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(imgBitmap, 0, 0);
+              const imgData = ctx.getImageData(0, 0, width, height);
+              u8 = new Uint8Array(imgData.data.buffer);
+              this.cpuDEMData = u8;
+            }
+          }
+
+          const oldTexture = this.demTexture;
+          const mips8 = u8
+            ? this.generateMipsRGBA8(u8, width, height)
+            : [{ data: new Uint8Array(0), width, height }];
+
+          const newTexture = this.device.createTexture({
+            size: [width, height, 1],
+            mipLevelCount: u8 ? mips8.length : 1,
+            format: 'rgba8unorm',
+            usage: (typeof GPUTextureUsage !== 'undefined'
+              ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT)
+              : (4 | 8 | 16)),
+          });
+
+          if (u8) {
+            for (let level = 0; level < mips8.length; level++) {
+              const m = mips8[level];
+              this.device.queue.writeTexture(
+                { texture: newTexture, mipLevel: level },
+                m.data,
+                { bytesPerRow: m.width * 4, rowsPerImage: m.height },
+                [m.width, m.height, 1]
+              );
+            }
+          } else {
+            this.device.queue.copyExternalImageToTexture(
+              { source: imgBitmap },
+              { texture: newTexture },
+              [width, height]
+            );
+          }
+
+          this.demTexture = newTexture;
+          this.demTextureView = this.demTexture.createView();
+          if (oldTexture) oldTexture.destroy();
+          this.updateDEMBindGroups();
+          return;
+        }
+
+        const buffer = await res.arrayBuffer();
         if (buffer && buffer.byteLength > 0) {
           if (!this.device || !this.isInitialized) return;
           await this.loadDEMTexture(buffer);
@@ -1603,10 +1718,17 @@ export class WebGPUEngine {
       // Buffer ingestion with full mipmap pyramid generation
       if (!this.device || !this.isInitialized) return;
       const byteLength = urlOrBuffer.byteLength;
-      this.cpuDEMData = byteLength === 16777216 ? new Uint16Array(urlOrBuffer) : new Uint8Array(urlOrBuffer);
+      const isU16 = byteLength === 268435456 || byteLength === 16777216;
+      this.cpuDEMData = isU16 ? new Uint16Array(urlOrBuffer) : new Uint8Array(urlOrBuffer);
+      const is8k = isU16 ? byteLength === 268435456 : byteLength >= 8192 * 4096 * 4;
+      const width = is8k ? 8192 : 2048;
+      const height = is8k ? 4096 : 1024;
+      this.demWidth = width;
+      this.demHeight = height;
+
       const oldTexture = this.demTexture;
-      if (byteLength === 16777216) {
-        // Full-range 16-bit uint16 texture (2048 x 1024 x 4 x 2 bytes = 16 MB)
+      if (isU16) {
+        // Full-range 16-bit uint16 texture (8192 x 4096 x 4 x 2 bytes = 256 MB or 2048 x 1024 x 4 x 2 bytes = 16 MB)
         const u16 = new Uint16Array(urlOrBuffer);
         let loaded = false;
         if (typeof (this.device as any).pushErrorScope === 'function') {
@@ -1632,9 +1754,9 @@ export class WebGPUEngine {
             testTex.destroy();
             const validationErr = await this.device.popErrorScope();
             if (!validationErr) {
-              const mips16 = this.generateMipsRGBA16(u16, 2048, 1024);
+              const mips16 = this.generateMipsRGBA16(u16, width, height);
               const newTexture = this.device.createTexture({
-                size: [2048, 1024, 1],
+                size: [width, height, 1],
                 mipLevelCount: mips16.length,
                 format: 'rgba16unorm',
                 usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
@@ -1660,9 +1782,9 @@ export class WebGPUEngine {
         } else {
           // Mock test environment (Vitest)
           try {
-            const mips16 = this.generateMipsRGBA16(u16, 2048, 1024);
+            const mips16 = this.generateMipsRGBA16(u16, width, height);
             const newTexture = this.device.createTexture({
-              size: [2048, 1024, 1],
+              size: [width, height, 1],
               mipLevelCount: mips16.length,
               format: 'rgba16unorm',
               usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
@@ -1686,13 +1808,13 @@ export class WebGPUEngine {
 
         if (!loaded) {
           // Graceful downsample 16-bit uint16 to 8-bit rgba8unorm if tier1 is unavailable
-          const u8 = new Uint8Array(2048 * 1024 * 4);
+          const u8 = new Uint8Array(width * height * 4);
           for (let i = 0; i < u16.length; i++) {
             u8[i] = u16[i] >> 8;
           }
-          const mips8 = this.generateMipsRGBA8(u8, 2048, 1024);
+          const mips8 = this.generateMipsRGBA8(u8, width, height);
           const newTexture = this.device.createTexture({
-            size: [2048, 1024, 1],
+            size: [width, height, 1],
             mipLevelCount: mips8.length,
             format: 'rgba8unorm',
             usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
@@ -1713,8 +1835,6 @@ export class WebGPUEngine {
         }
       } else if (byteLength > 0) {
         // Fallback 8-bit texture ingestion or test mock buffer
-        const width = 2048;
-        const height = 1024;
         const u8 = new Uint8Array(urlOrBuffer);
         const mips8 = this.generateMipsRGBA8(u8.length >= width * height * 4 ? u8 : new Uint8Array(width * height * 4), width, height);
         const newTexture = this.device.createTexture({
@@ -1741,6 +1861,311 @@ export class WebGPUEngine {
     } catch (err) {
       console.warn('WebGPUEngine.loadDEMTexture encountered non-fatal error; retaining fallback texture:', err);
     }
+  }
+
+  /**
+   * Loads a high-resolution regional DEM texture (NOAA CUDEM ~10m) for litmus test regions (Hawaii, Cape Cod).
+   * Supports both 16-bit binary buffers (.bin) and lossless WebP fallbacks (.webp).
+   */
+  public async loadRegionalDEMTexture(
+    urlOrBuffer: string | ArrayBuffer,
+    bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number },
+    width: number = 2048,
+    height: number = 2048,
+    id: string = 'regional'
+  ): Promise<void> {
+    if (!this.device || !this.isInitialized) return;
+
+    try {
+      let buffer: ArrayBuffer | null = null;
+      let isImage = false;
+
+      if (typeof urlOrBuffer === 'string') {
+        const url = urlOrBuffer;
+        isImage = url.endsWith('.webp') || url.endsWith('.png');
+        let res: Response | null = null;
+        try {
+          res = await fetch(url);
+          if (!res.ok && url.endsWith('.bin')) {
+            const fallbackUrl = url.replace('-u16.bin', '.webp');
+            const res2 = await fetch(fallbackUrl);
+            if (res2.ok) {
+              res = res2;
+              isImage = true;
+            }
+          }
+        } catch {
+          if (url.endsWith('.bin')) {
+            try {
+              const fallbackUrl = url.replace('-u16.bin', '.webp');
+              const res2 = await fetch(fallbackUrl);
+              if (res2.ok) {
+                res = res2;
+                isImage = true;
+              }
+            } catch {}
+          }
+        }
+
+        if (!res || !res.ok) return;
+
+        if (isImage && typeof createImageBitmap !== 'undefined') {
+          const blob = await res.blob();
+          const imgBitmap = await createImageBitmap(blob);
+          const w = imgBitmap.width;
+          const h = imgBitmap.height;
+
+          const texture = this.device.createTexture({
+            label: `regional_dem_${id}`,
+            size: [w, h, 1],
+            mipLevelCount: 1,
+            format: 'rgba8unorm',
+            usage: (typeof GPUTextureUsage !== 'undefined'
+              ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT)
+              : (4 | 8 | 16)),
+          });
+
+          try {
+            this.device.queue.copyExternalImageToTexture(
+              { source: imgBitmap },
+              { texture },
+              [w, h]
+            );
+          } catch {
+            if (typeof OffscreenCanvas !== 'undefined') {
+              const osc = new OffscreenCanvas(w, h);
+              const ctx = osc.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(imgBitmap, 0, 0);
+                const imgData = ctx.getImageData(0, 0, w, h);
+                const u8 = new Uint8Array(imgData.data.buffer);
+                const unpaddedRowBytes = w * 4;
+                const paddedRowBytes = Math.ceil(unpaddedRowBytes / 256) * 256;
+                let dataToWrite: ArrayBufferView;
+                if (paddedRowBytes === unpaddedRowBytes) {
+                  dataToWrite = u8;
+                } else {
+                  const padded = new Uint8Array(paddedRowBytes * h);
+                  for (let y = 0; y < h; y++) {
+                    padded.set(
+                      u8.subarray(y * unpaddedRowBytes, (y + 1) * unpaddedRowBytes),
+                      y * paddedRowBytes
+                    );
+                  }
+                  dataToWrite = padded;
+                }
+                this.device.queue.writeTexture(
+                  { texture },
+                  dataToWrite.buffer,
+                  { bytesPerRow: paddedRowBytes, rowsPerImage: h, offset: dataToWrite.byteOffset },
+                  [w, h, 1]
+                );
+              }
+            }
+          }
+
+          const view = texture.createView();
+          const existing = this.regionalDEMTextures.get(id);
+          if (existing) {
+            try { existing.texture.destroy(); } catch {}
+          }
+
+          this.regionalDEMTextures.set(id, {
+            texture,
+            view,
+            bounds,
+            width: w,
+            height: h,
+            id,
+          });
+          this.setActiveRegionalDEM(id);
+          return;
+        }
+
+        buffer = await res.arrayBuffer();
+      } else {
+        buffer = urlOrBuffer;
+      }
+
+      if (!buffer || buffer.byteLength === 0) return;
+
+      const byteLength = buffer.byteLength;
+      const isU16 = byteLength % 8 === 0;
+      const totalPixels = isU16 ? byteLength / 8 : byteLength / 4;
+      const w = width;
+      const h = height || Math.floor(totalPixels / w);
+
+      if (isU16) {
+        const u16 = new Uint16Array(buffer);
+        const unpaddedRowBytes = w * 4;
+        const paddedRowBytes = Math.ceil(unpaddedRowBytes / 256) * 256;
+        let dataToWrite: Uint8Array;
+        if (paddedRowBytes === unpaddedRowBytes) {
+          const u8 = new Uint8Array(w * h * 4);
+          for (let i = 0; i < u8.length; i++) {
+            u8[i] = u16[i] >> 8;
+          }
+          dataToWrite = u8;
+        } else {
+          const padded = new Uint8Array(paddedRowBytes * h);
+          for (let y = 0; y < h; y++) {
+            const srcRowOffset = y * w * 4;
+            const dstRowOffset = y * paddedRowBytes;
+            for (let x = 0; x < unpaddedRowBytes; x++) {
+              padded[dstRowOffset + x] = u16[srcRowOffset + x] >> 8;
+            }
+          }
+          dataToWrite = padded;
+        }
+
+        const texture = this.device.createTexture({
+          label: `regional_dem_${id}`,
+          size: [w, h, 1],
+          mipLevelCount: 1,
+          format: 'rgba8unorm',
+          usage: (typeof GPUTextureUsage !== 'undefined'
+            ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
+            : (4 | 8)),
+        });
+
+        this.device.queue.writeTexture(
+          { texture },
+          dataToWrite.buffer,
+          { bytesPerRow: paddedRowBytes, rowsPerImage: h, offset: dataToWrite.byteOffset },
+          [w, h, 1]
+        );
+
+        const view = texture.createView();
+        const existing = this.regionalDEMTextures.get(id);
+        if (existing) {
+          try { existing.texture.destroy(); } catch {}
+        }
+
+        this.regionalDEMTextures.set(id, {
+          texture,
+          view,
+          bounds,
+          width: w,
+          height: h,
+          id,
+        });
+        this.setActiveRegionalDEM(id);
+      } else {
+        const texture = this.device.createTexture({
+          label: `regional_dem_${id}`,
+          size: [w, h, 1],
+          mipLevelCount: 1,
+          format: 'rgba8unorm',
+          usage: (typeof GPUTextureUsage !== 'undefined'
+            ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
+            : (4 | 8)),
+        });
+
+        const unpaddedRowBytes = w * 4;
+        const paddedRowBytes = Math.ceil(unpaddedRowBytes / 256) * 256;
+        let dataToWrite: ArrayBufferView;
+        if (paddedRowBytes === unpaddedRowBytes) {
+          dataToWrite = new Uint8Array(buffer);
+        } else {
+          const padded = new Uint8Array(paddedRowBytes * h);
+          const src = new Uint8Array(buffer);
+          for (let y = 0; y < h; y++) {
+            padded.set(
+              src.subarray(y * unpaddedRowBytes, (y + 1) * unpaddedRowBytes),
+              y * paddedRowBytes
+            );
+          }
+          dataToWrite = padded;
+        }
+
+        this.device.queue.writeTexture(
+          { texture },
+          dataToWrite.buffer,
+          { bytesPerRow: paddedRowBytes, rowsPerImage: h, offset: dataToWrite.byteOffset },
+          [w, h, 1]
+        );
+
+        const view = texture.createView();
+        const existing = this.regionalDEMTextures.get(id);
+        if (existing) {
+          try { existing.texture.destroy(); } catch {}
+        }
+
+        this.regionalDEMTextures.set(id, {
+          texture,
+          view,
+          bounds,
+          width: w,
+          height: h,
+          id,
+        });
+        this.setActiveRegionalDEM(id);
+      }
+    } catch (err) {
+      console.warn(`WebGPUEngine.loadRegionalDEMTexture encountered error for ${id}:`, err);
+    }
+  }
+
+  public setActiveRegionalDEM(id: string | null): void {
+    if (id && this.regionalDEMTextures.has(id)) {
+      const entry = this.regionalDEMTextures.get(id)!;
+      this.activeRegionalDEM = {
+        texture: entry.texture,
+        view: entry.view,
+        bounds: [entry.bounds.minLon, entry.bounds.minLat, entry.bounds.maxLon, entry.bounds.maxLat],
+        width: entry.width,
+        height: entry.height,
+        id: entry.id,
+      };
+      if (!this.regionalUniformBuffer) {
+        this.regionalUniformBuffer = this.device.createBuffer({
+          label: 'regional_overlay_uniform_buffer',
+          size: 64,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+      }
+      const data = new Float32Array(16);
+      data[0] = entry.bounds.minLon;
+      data[1] = entry.bounds.minLat;
+      data[2] = entry.bounds.maxLon;
+      data[3] = entry.bounds.maxLat;
+      const u32View = new Uint32Array(data.buffer);
+      u32View[12] = 1;
+      this.device.queue.writeBuffer(this.regionalUniformBuffer, 0, data);
+    } else {
+      this.activeRegionalDEM = null;
+      if (this.regionalUniformBuffer) {
+        this.regionalUniformBuffer.destroy();
+        this.regionalUniformBuffer = null;
+      }
+    }
+    this.updateDEMBindGroups();
+  }
+
+  public getActiveRegionalDEM(): string | null {
+    return this.activeRegionalDEM ? this.activeRegionalDEM.id : null;
+  }
+
+  public releaseRegionalDEMTexture(id: string): void {
+    const entry = this.regionalDEMTextures.get(id);
+    if (entry) {
+      if (this.activeRegionalDEM && this.activeRegionalDEM.id === id) {
+        this.activeRegionalDEM = null;
+        if (this.regionalUniformBuffer) {
+          this.regionalUniformBuffer.destroy();
+          this.regionalUniformBuffer = null;
+        }
+      }
+      try {
+        entry.texture.destroy();
+      } catch {}
+      this.regionalDEMTextures.delete(id);
+      this.updateDEMBindGroups();
+    }
+  }
+
+  public getRegionalDEMTexture(id: string) {
+    return this.regionalDEMTextures.get(id) || null;
   }
 
   private generateMipsRGBA8(
@@ -2405,8 +2830,17 @@ export class WebGPUEngine {
     if (this.cpuDEMData) {
       const u = (((lonDeg + 180.0) / 360.0) % 1.0 + 1.0) % 1.0;
       const v = Math.min(0.999, Math.max(0.001, 0.5 - latDeg / 180.0));
-      const W = 2048;
-      const H = 1024;
+      let W = this.demWidth;
+      let H = this.demHeight;
+      if (this.cpuDEMData.length !== W * H * 4) {
+        const totalPixels = Math.floor(this.cpuDEMData.length / 4);
+        H = Math.max(1, Math.round(Math.sqrt(totalPixels / 2)));
+        W = H * 2;
+        if (W <= 0 || H <= 0 || isNaN(W) || isNaN(H)) {
+          W = 8192;
+          H = 4096;
+        }
+      }
       const px = Math.min(W - 1, Math.max(0, Math.floor(u * W)));
       const py = Math.min(H - 1, Math.max(0, Math.floor(v * H)));
 
@@ -2615,6 +3049,8 @@ export class WebGPUEngine {
         { binding: 2, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, sampler: {} },
         { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: { viewDimension: '2d-array' } },
         { binding: 4, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+        { binding: 5, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 6, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
       ],
     });
 
@@ -3036,8 +3472,8 @@ export class WebGPUEngine {
       rf[3] = (params.sunAltitude !== undefined ? params.sunAltitude : 45.0) * 0.65;
       rf[4] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
       rf[5] = params.hillshadeIntensity !== undefined ? params.hillshadeIntensity : 1.0;
-      rf[6] = 1.0 / 2048.0; // u_texelWidth
-      rf[7] = 1.0 / 1024.0; // u_texelHeight
+      rf[6] = 1.0 / 8192.0; // u_texelWidth
+      rf[7] = 1.0 / 4096.0; // u_texelHeight
       rf[8] = 0.65; // rock cliff exposure factor (u_rockCliffStrength: 0.0 - 1.0)
       rf[9] = params.ambientOcclusion !== undefined ? params.ambientOcclusion : 0.50;
       rf[10] = 0.40; // aerial perspective
@@ -3592,6 +4028,16 @@ export class WebGPUEngine {
     this.cranePipeline = null;
     this.craneBindGroup = null;
     this.cpuDEMData = null;
+    this.regionalUniformBuffer?.destroy();
+    this.regionalUniformBuffer = null;
+    this.dummyRegionalTexture?.destroy();
+    this.dummyRegionalTexture = null;
+    this.dummyRegionalTextureView = null;
+    this.activeRegionalDEM = null;
+    for (const entry of this.regionalDEMTextures.values()) {
+      try { entry.texture.destroy(); } catch {}
+    }
+    this.regionalDEMTextures.clear();
     this.device?.destroy?.();
     this.isInitialized = false;
   }
