@@ -55,6 +55,77 @@ export function useEngineState() {
     audioEngineRef.current = new ProceduralAudioEngine(true);
   }
 
+  // Atmospheric Cloud Strata State (Milestone 5)
+  const [showClouds, setShowCloudsState] = useState<boolean>(true);
+  const [showCloudLow, setShowCloudLowState] = useState<boolean>(true);
+  const [showCloudMid, setShowCloudMidState] = useState<boolean>(true);
+  const [showCloudHigh, setShowCloudHighState] = useState<boolean>(true);
+  const [cloudDriftSpeed, setCloudDriftSpeedState] = useState<number>(1.0);
+  const [cloudOpacity, setCloudOpacityState] = useState<number>(0.8);
+
+  const setShowClouds = (v: boolean | ((prev: boolean) => boolean)) => {
+    setShowCloudsState(v);
+  };
+  const setShowCloudLow = (v: boolean | ((prev: boolean) => boolean)) => {
+    setShowCloudLowState(v);
+  };
+  const setShowCloudMid = (v: boolean | ((prev: boolean) => boolean)) => {
+    setShowCloudMidState(v);
+  };
+  const setShowCloudHigh = (v: boolean | ((prev: boolean) => boolean)) => {
+    setShowCloudHighState(v);
+  };
+  const setCloudDriftSpeed = (v: number | ((prev: number) => number)) => {
+    setCloudDriftSpeedState((prev) => {
+      const val = typeof v === 'function' ? v(prev) : v;
+      if (typeof val !== 'number' || !Number.isFinite(val)) return prev;
+      return Math.max(0.0, Math.min(3.0, val));
+    });
+  };
+  const setCloudOpacity = (v: number | ((prev: number) => number)) => {
+    setCloudOpacityState((prev) => {
+      const val = typeof v === 'function' ? v(prev) : v;
+      if (typeof val !== 'number' || !Number.isFinite(val)) return prev;
+      return Math.max(0.1, Math.min(1.0, val));
+    });
+  };
+
+  const setCloudOptions = (
+    options: Partial<{
+      showClouds: boolean;
+      showCloudLow: boolean;
+      showCloudMid: boolean;
+      showCloudHigh: boolean;
+      cloudDriftSpeed: number;
+      cloudOpacity: number;
+    }>
+  ) => {
+    if (options.showClouds !== undefined) setShowCloudsState(options.showClouds);
+    if (options.showCloudLow !== undefined) setShowCloudLowState(options.showCloudLow);
+    if (options.showCloudMid !== undefined) setShowCloudMidState(options.showCloudMid);
+    if (options.showCloudHigh !== undefined) setShowCloudHighState(options.showCloudHigh);
+    if (options.cloudDriftSpeed !== undefined && typeof options.cloudDriftSpeed === 'number' && Number.isFinite(options.cloudDriftSpeed)) {
+      setCloudDriftSpeedState(Math.max(0.0, Math.min(3.0, options.cloudDriftSpeed)));
+    }
+    if (options.cloudOpacity !== undefined && typeof options.cloudOpacity === 'number' && Number.isFinite(options.cloudOpacity)) {
+      setCloudOpacityState(Math.max(0.1, Math.min(1.0, options.cloudOpacity)));
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__INDICATRIX_CLOUD_STATE__ = {
+        showClouds,
+        showCloudLow,
+        showCloudMid,
+        showCloudHigh,
+        cloudDriftSpeed,
+        cloudOpacity,
+      };
+      (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__ = setCloudOptions;
+    }
+  }, [showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity]);
+
   const [dataInfo, setDataInfo] = useState<LoadedDataInfo>({ 
     pointCount: 100000, 
     lineCount: 300000,
@@ -176,6 +247,13 @@ export function useEngineState() {
     gpuReport, setGpuReport,
     dataInfo, setDataInfo,
     audioEngine: audioEngineRef.current,
+    showClouds, setShowClouds,
+    showCloudLow, setShowCloudLow,
+    showCloudMid, setShowCloudMid,
+    showCloudHigh, setShowCloudHigh,
+    cloudDriftSpeed, setCloudDriftSpeed,
+    cloudOpacity, setCloudOpacity,
+    setCloudOptions,
   };
 }
 

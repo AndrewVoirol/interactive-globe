@@ -22,6 +22,7 @@ import crustHydrosphereWGSL from './shaders/crust_hydrosphere.wgsl?raw';
 import demUnpackWGSL from './shaders/dem_unpack.wgsl?raw';
 import windParticlesWGSL from './shaders/wind_particles.wgsl?raw';
 import windRibbonRenderWGSL from './shaders/wind_ribbon_render.wgsl?raw';
+import cloudShellWGSL from './shaders/cloud_shell.wgsl?raw';
 import origamiCraneWGSL from './shaders/origami_crane.wgsl?raw';
 import { GPUProfiler } from './profiling/GPUProfiler';
 import { encodeFloat16 } from '../core/math/float16';
@@ -63,22 +64,28 @@ export interface WebGPUFrameParams {
   renderLayers?: 'both' | 'points' | 'wireframe';
   displacementScale?: number;
   hillshadeIntensity?: number;
-  reliefActive?: boolean;
-  showRelief?: boolean;
-  showVectors?: boolean;
-  showContours?: boolean;
-  showSatellites?: boolean;
-  showStarlink?: boolean;
   showWind?: boolean;
   showSurfaceWinds?: boolean;
   showJetStream?: boolean;
   showCrane?: boolean;
+  showRelief?: boolean;
+  showVectors?: boolean;
+  showClouds?: boolean;
+  showCloudLow?: boolean;
+  showCloudMid?: boolean;
+  showCloudHigh?: boolean;
+  cloudOpacity?: number;
+  cloudDriftSpeed?: number;
+  peakExponent?: number;
+  reliefActive?: boolean;
+  showContours?: boolean;
+  showSatellites?: boolean;
+  showStarlink?: boolean;
   seaLevel?: number;
   sunAzimuth?: number;
   sunAltitude?: number;
   ambientOcclusion?: number;
   waterClarity?: number;
-  peakExponent?: number;
   opacity?: number;
   renderStyle?: 'architectural' | 'hybrid' | 'photoreal' | string;
   pointScaleMultiplier?: number;
@@ -88,6 +95,23 @@ export interface WebGPUFrameParams {
   paperTooth?: number;
   mediumProperties?: PhysicalMediumProperties;
   elevationSampler?: (lon: number, lat: number) => { elevationMeters: number; gradEast: number; gradNorth: number };
+}
+
+export interface CloudDimensions {
+  width: number;
+  height: number;
+  rawRowPitch: number;
+  paddedRowPitch: number;
+  stagingSizeBytes: number;
+}
+
+export interface CloudOptions {
+  enabled: boolean;
+  driftSpeed: number;
+  opacity: number;
+  showLow: boolean;
+  showMid: boolean;
+  showHigh: boolean;
 }
 
 export class WebGPUEngine {
@@ -220,6 +244,28 @@ export class WebGPUEngine {
   private windComputeBindGroups: [GPUBindGroup, GPUBindGroup] | null = null;
   private windRibbonPipeline: GPURenderPipeline | null = null;
   private windRibbonBindGroups: [GPUBindGroup, GPUBindGroup] | null = null;
+  private cloudPipeline: GPURenderPipeline | null = null;
+  private cloudBindGroupLayout: GPUBindGroupLayout | null = null;
+  private cloudBindGroups: { low: GPUBindGroup; mid: GPUBindGroup; high: GPUBindGroup } | null = null;
+  public cloudTextures: { low: GPUTexture | null; mid: GPUTexture | null; high: GPUTexture | null } = { low: null, mid: null, high: null };
+  public cloudUniformBuffers: GPUBuffer[] | null = null;
+  public cloudBuffersInitialized: boolean = false;
+  private cloudStagingBuffer: GPUBuffer | null = null;
+  private cloudSphereVertexBuffer: GPUBuffer | null = null;
+  private cloudSphereIndexBuffer: GPUBuffer | null = null;
+  private cloudIndexCount: number = 0;
+  private cloudUniformFloats: Float32Array = new Float32Array(64);
+  private cloudUniformU32: Uint32Array = new Uint32Array(this.cloudUniformFloats.buffer);
+  private cloudSampler: GPUSampler | null = null;
+  private cloudEnabled: boolean = true;
+  public cloudOptions: CloudOptions = {
+    enabled: true,
+    driftSpeed: 1.0,
+    opacity: 0.85,
+    showLow: true,
+    showMid: true,
+    showHigh: true,
+  };
   private windStep: number = 0;
   private windBuffersInitialized: boolean = false;
   private windDataSource: VectorFieldDataSource = new VectorFieldDataSource();
@@ -1272,6 +1318,11 @@ export class WebGPUEngine {
       });
     }
 
+    const regView = this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || this.demTextureView);
+    const regBuffer = (this.activeRegionalDEM && this.regionalUniformBuffer)
+      ? this.regionalUniformBuffer
+      : (this.reliefUniformBuffer || this.crustUniformBuffer);
+    
     // Vector Ribbon BindGroup
     if (this.ribbonBindGroupLayout && this.ribbonUniformBuffer) {
       this.ribbonBindGroup = this.device.createBindGroup({
@@ -1281,16 +1332,15 @@ export class WebGPUEngine {
           { binding: 0, resource: { buffer: this.ribbonUniformBuffer } },
           { binding: 1, resource: this.demTextureView },
           { binding: 2, resource: this.demSampler },
+          { binding: 3, resource: regView },
+          { binding: 4, resource: { buffer: regBuffer } },
         ],
       });
     }
 
     // Crust / Hydrosphere BindGroup
     if (this.crustBindGroupLayout && this.crustUniformBuffer && this.orbitalTextureView && this.orbitalSampler) {
-      const regView = this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || this.demTextureView);
-      const regBuffer = (this.activeRegionalDEM && this.regionalUniformBuffer)
-        ? this.regionalUniformBuffer
-        : (this.reliefUniformBuffer || this.crustUniformBuffer);
+      
       this.crustBindGroup = this.device.createBindGroup({
         label: 'crust_hydrosphere_bind_group',
         layout: this.crustBindGroupLayout,
@@ -1308,6 +1358,7 @@ export class WebGPUEngine {
 
     // Atmospheric Wind BindGroups (update with new DEM view)
     this.updateWindBindGroups();
+    this.updateCloudBindGroups();
   }
 
   public async loadOrbitalTextures(
@@ -1702,8 +1753,8 @@ export class WebGPUEngine {
 
           this.demTexture = newTexture;
           this.demTextureView = this.demTexture.createView();
-          if (oldTexture) oldTexture.destroy();
           this.updateDEMBindGroups();
+          if (oldTexture) oldTexture.destroy();
           return;
         }
 
@@ -1772,8 +1823,8 @@ export class WebGPUEngine {
               }
               this.demTexture = newTexture;
               this.demTextureView = this.demTexture.createView();
-              if (oldTexture) oldTexture.destroy();
               this.updateDEMBindGroups();
+              if (oldTexture) oldTexture.destroy();
               loaded = true;
             }
           } catch {
@@ -1800,8 +1851,8 @@ export class WebGPUEngine {
             }
             this.demTexture = newTexture;
             this.demTextureView = this.demTexture.createView();
-            if (oldTexture) oldTexture.destroy();
             this.updateDEMBindGroups();
+            if (oldTexture) oldTexture.destroy();
             loaded = true;
           } catch {}
         }
@@ -1830,8 +1881,8 @@ export class WebGPUEngine {
           }
           this.demTexture = newTexture;
           this.demTextureView = this.demTexture.createView();
-          if (oldTexture) oldTexture.destroy();
           this.updateDEMBindGroups();
+          if (oldTexture) oldTexture.destroy();
         }
       } else if (byteLength > 0) {
         // Fallback 8-bit texture ingestion or test mock buffer
@@ -1855,8 +1906,8 @@ export class WebGPUEngine {
         }
         this.demTexture = newTexture;
         this.demTextureView = this.demTexture.createView();
-        if (oldTexture) oldTexture.destroy();
         this.updateDEMBindGroups();
+        if (oldTexture) oldTexture.destroy();
       }
     } catch (err) {
       console.warn('WebGPUEngine.loadDEMTexture encountered non-fatal error; retaining fallback texture:', err);
@@ -3038,6 +3089,8 @@ export class WebGPUEngine {
         { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
         { binding: 1, visibility: GPUShaderStage.VERTEX, texture: {} },
         { binding: 2, visibility: GPUShaderStage.VERTEX, sampler: {} },
+        { binding: 3, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 4, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
       ],
     });
 
@@ -3323,6 +3376,57 @@ export class WebGPUEngine {
         cullMode: 'none',
       },
     });
+
+    // 11b. Cloud Shell Render Pipeline (Milestone 4 / Invariant §20)
+    try {
+      const cloudShaderModule = this.device.createShaderModule({
+        label: 'cloud_shell_shader',
+        code: cloudShellWGSL,
+      });
+
+      this.cloudBindGroupLayout = this.device.createBindGroupLayout({
+        label: 'cloud_shell_bind_group_layout',
+        entries: [
+          { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+          { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 2, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+          { binding: 3, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 4, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+          { binding: 5, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 6, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+        ],
+      });
+
+      const cloudPipelineLayout = this.device.createPipelineLayout({
+        label: 'cloud_shell_pipeline_layout',
+        bindGroupLayouts: [this.cloudBindGroupLayout],
+      });
+
+      this.cloudPipeline = this.device.createRenderPipeline({
+        label: 'cloud_shell_render_pipeline',
+        layout: cloudPipelineLayout,
+        vertex: {
+          module: cloudShaderModule,
+          entryPoint: 'vs_main',
+          buffers: [dualSurfaceLayout],
+        },
+        fragment: {
+          module: cloudShaderModule,
+          entryPoint: 'fs_main',
+          targets: [{
+            format: this.format,
+            blend: {
+              color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+              alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            },
+          }],
+        },
+        primitive: { topology: 'triangle-list', cullMode: 'none' },
+        depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'less-equal' },
+      });
+    } catch {
+      // Mock environment guard
+    }
 
     // 12. Atmospheric Wind Compute & Ribbon Pipelines
     try {
@@ -3740,6 +3844,11 @@ export class WebGPUEngine {
 
       this.device.queue.writeBuffer(this.craneUniformBuffer, 0, cf.buffer);
     }
+
+    // Cloud Shell Tropospheric Uniforms (256 bytes per layer)
+    if (params.showClouds !== false && this.cloudEnabled !== false) {
+      this.updateCloudUniforms(params.dt, params);
+    }
   }
 
   public render(params: WebGPUFrameParams): void {
@@ -3766,6 +3875,11 @@ export class WebGPUEngine {
       this.isCraneActive
     ) {
       this.ensureWindBuffers();
+    }
+
+    // 1c. Ensure cloud buffers lazily on-demand (Milestone 4 / Invariant §20)
+    if (params.showClouds !== false && this.cloudEnabled !== false) {
+      this.ensureCloudBuffers();
     }
 
     // 2. Update Sim, Relief, Ribbon, Wind, and Crane Uniforms
@@ -3891,15 +4005,38 @@ export class WebGPUEngine {
       this.renderSatelliteOrbits(renderPass);
     }
 
-    // 3d. Render Atmospheric Wind Streamline Ribbons
-    if (
-      params.showWind !== false &&
-      (showSurf || showJet) &&
-      this.windRibbonPipeline &&
-      this.windRibbonBindGroups &&
-      this.quadCornerBuffer
-    ) {
-      this.renderWindRibbons(renderPass);
+    // 3d. Interleaved Atmospheric Wind & Cloud Strata Passes (Milestone 4)
+    const showWind = params.showWind !== false;
+    const finalShowSurf = showWind && (params.showSurfaceWinds !== undefined ? params.showSurfaceWinds : this.showSurfaceWinds);
+    const finalShowJet = showWind && (params.showJetStream !== undefined ? params.showJetStream : this.showJetStream);
+    const showClouds = params.showClouds !== false && this.cloudEnabled !== false;
+    const showCloudLow = showClouds && (params.showCloudLow !== false) && (this.cloudOptions.showLow !== false);
+    const showCloudMid = showClouds && (params.showCloudMid !== false) && (this.cloudOptions.showMid !== false);
+    const showCloudHigh = showClouds && (params.showCloudHigh !== false) && (this.cloudOptions.showHigh !== false);
+
+    // 1. Surface Winds
+    if (finalShowSurf && this.windRibbonPipeline && this.windRibbonBindGroups && this.quadCornerBuffer) {
+      this.renderSurfaceWindRibbons(renderPass);
+    }
+
+    // 2. Cloud Low
+    if (showCloudLow) {
+      this.renderCloudLayer(renderPass, 'low', params);
+    }
+
+    // 3. Cloud Mid
+    if (showCloudMid) {
+      this.renderCloudLayer(renderPass, 'mid', params);
+    }
+
+    // 4. Jet Stream
+    if (finalShowJet && this.windRibbonPipeline && this.windRibbonBindGroups && this.quadCornerBuffer) {
+      this.renderJetStreamRibbons(renderPass);
+    }
+
+    // 5. Cloud High
+    if (showCloudHigh) {
+      this.renderCloudLayer(renderPass, 'high', params);
     }
 
     // 3e. Render Autonomous Origami Paper Crane & Ground Shadow
@@ -3945,6 +4082,493 @@ export class WebGPUEngine {
 
   public onDeviceLost(callback: (info: GPUDeviceLostInfo) => void): void {
     this.onDeviceLostCallback = callback;
+  }
+
+  
+  // ============================================================================
+  // Cloud Shell Integration
+  // ============================================================================
+
+  public getCloudUniformBuffer(): GPUBuffer | null {
+    if (!this.cloudUniformBuffers || this.cloudUniformBuffers.length === 0) return null;
+    return this.cloudUniformBuffers[0];
+  }
+
+  public get cloudDimensions(): CloudDimensions {
+    const width = 1440;
+    const height = 721;
+    const bytesPerTexel = 2; // Float16
+    const rawRowPitch = width * bytesPerTexel; // 2880
+    const paddedRowPitch = Math.ceil(rawRowPitch / 256) * 256; // 3072
+    const stagingSizeBytes = paddedRowPitch * height; // 2214912
+    return {
+      width,
+      height,
+      rawRowPitch,
+      paddedRowPitch,
+      stagingSizeBytes,
+    };
+  }
+
+  public setCloudOptions(options: Partial<CloudOptions>): void {
+    this.cloudOptions = {
+      ...this.cloudOptions,
+      ...options,
+    };
+    if (options.enabled !== undefined) {
+      this.cloudEnabled = options.enabled;
+    }
+  }
+
+  public ensureCloudBuffers(): void {
+    if (!this.device || this.cloudBuffersInitialized) return;
+
+    this.cloudUniformBuffers = [
+      this.device.createBuffer({ label: 'cloud_uniform_low', size: 256, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
+      this.device.createBuffer({ label: 'cloud_uniform_mid', size: 256, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
+      this.device.createBuffer({ label: 'cloud_uniform_high', size: 256, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
+    ];
+    this.cloudStagingBuffer = this.device.createBuffer({
+      label: 'cloud_staging',
+      size: 2214912,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+
+    const sphereMesh = this.generateSphereGrid(128, 256);
+    this.cloudSphereVertexBuffer = this.device.createBuffer({
+      label: 'cloud_sphere_vertex_buffer',
+      size: sphereMesh.vertices.byteLength,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+    });
+    this.device.queue.writeBuffer(this.cloudSphereVertexBuffer, 0, sphereMesh.vertices.buffer);
+
+    this.cloudSphereIndexBuffer = this.device.createBuffer({
+      label: 'cloud_sphere_index_buffer',
+      size: sphereMesh.indices.byteLength,
+      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+    });
+    this.device.queue.writeBuffer(this.cloudSphereIndexBuffer, 0, sphereMesh.indices.buffer);
+    this.cloudIndexCount = sphereMesh.indices.length;
+
+    if (!this.cloudTextures.low) {
+      this.cloudTextures = {
+        low: this.device.createTexture({
+          label: 'cloud_texture_low',
+          size: [1440, 721, 1],
+          format: 'r16float',
+          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+        }),
+        mid: this.device.createTexture({
+          label: 'cloud_texture_mid',
+          size: [1440, 721, 1],
+          format: 'r16float',
+          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+        }),
+        high: this.device.createTexture({
+          label: 'cloud_texture_high',
+          size: [1440, 721, 1],
+          format: 'r16float',
+          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+        }),
+      };
+    }
+
+    if (!this.cloudSampler) {
+      this.cloudSampler = this.device.createSampler({
+        label: 'cloud_sampler',
+        minFilter: 'linear',
+        magFilter: 'linear',
+      });
+    }
+
+    this.cloudBuffersInitialized = true;
+    this.updateCloudBindGroups();
+  }
+
+  public updateCloudBindGroups(): void {
+    if (
+      !this.device ||
+      !this.cloudBindGroupLayout ||
+      !this.cloudUniformBuffers ||
+      this.cloudUniformBuffers.length < 3 ||
+      !this.cloudTextures.low ||
+      !this.cloudTextures.mid ||
+      !this.cloudTextures.high
+    ) {
+      return;
+    }
+
+    if (!this.cloudSampler) {
+      this.cloudSampler = this.device.createSampler({
+        label: 'cloud_sampler',
+        minFilter: 'linear',
+        magFilter: 'linear',
+      });
+    }
+
+    const sampler = this.cloudSampler;
+    const demView = this.demTextureView || this.orbitalTextureView;
+    const demSamp = this.demSampler || sampler;
+    const regView = this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || demView);
+    const regBuffer = (this.activeRegionalDEM && this.regionalUniformBuffer)
+      ? this.regionalUniformBuffer
+      : (this.regionalUniformBuffer || this.reliefUniformBuffer || this.crustUniformBuffer || this.cloudUniformBuffers[0]);
+
+    if (!demView || !demSamp || !regView || !regBuffer) return;
+
+    this.cloudBindGroups = {
+      low: this.device.createBindGroup({
+        label: 'cloud_bg_low',
+        layout: this.cloudBindGroupLayout,
+        entries: [
+          { binding: 0, resource: { buffer: this.cloudUniformBuffers[0] } },
+          { binding: 1, resource: this.cloudTextures.low.createView() },
+          { binding: 2, resource: sampler },
+          { binding: 3, resource: demView },
+          { binding: 4, resource: demSamp },
+          { binding: 5, resource: regView },
+          { binding: 6, resource: { buffer: regBuffer } },
+        ],
+      }),
+      mid: this.device.createBindGroup({
+        label: 'cloud_bg_mid',
+        layout: this.cloudBindGroupLayout,
+        entries: [
+          { binding: 0, resource: { buffer: this.cloudUniformBuffers[1] } },
+          { binding: 1, resource: this.cloudTextures.mid.createView() },
+          { binding: 2, resource: sampler },
+          { binding: 3, resource: demView },
+          { binding: 4, resource: demSamp },
+          { binding: 5, resource: regView },
+          { binding: 6, resource: { buffer: regBuffer } },
+        ],
+      }),
+      high: this.device.createBindGroup({
+        label: 'cloud_bg_high',
+        layout: this.cloudBindGroupLayout,
+        entries: [
+          { binding: 0, resource: { buffer: this.cloudUniformBuffers[2] } },
+          { binding: 1, resource: this.cloudTextures.high.createView() },
+          { binding: 2, resource: sampler },
+          { binding: 3, resource: demView },
+          { binding: 4, resource: demSamp },
+          { binding: 5, resource: regView },
+          { binding: 6, resource: { buffer: regBuffer } },
+        ],
+      }),
+    };
+  }
+
+  public setCloudData(
+    layer: 'low' | 'mid' | 'high',
+    data: Uint8Array | ArrayBufferView | ArrayBuffer
+  ): void {
+    if (!this.device || !this.isInitialized) return;
+    this.ensureCloudBuffers();
+
+    const rawBytes = data instanceof Uint8Array
+      ? data
+      : ArrayBuffer.isView(data)
+      ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+      : new Uint8Array(data);
+    const width = 1440;
+    const height = 721;
+    const bytesPerPixel = 2; // Float16
+    const rawRowBytes = width * bytesPerPixel; // 2880
+    const paddedRowBytes = Math.ceil(rawRowBytes / 256) * 256; // 3072 (Invariant §40)
+    const totalPaddedSize = paddedRowBytes * height; // 2214912
+
+    const paddedBytes = new Uint8Array(totalPaddedSize);
+    for (let row = 0; row < height; row++) {
+      const srcOffset = row * rawRowBytes;
+      const dstOffset = row * paddedRowBytes;
+      const srcRow = rawBytes.subarray(srcOffset, Math.min(rawBytes.length, srcOffset + rawRowBytes));
+      paddedBytes.set(srcRow, dstOffset);
+    }
+
+    if (this.cloudStagingBuffer) {
+      try {
+        this.device.queue.writeBuffer(this.cloudStagingBuffer, 0, paddedBytes.buffer);
+      } catch {
+        // Mock guard
+      }
+    }
+
+    const targetTexture =
+      layer === 'low'
+        ? this.cloudTextures?.low
+        : layer === 'mid'
+        ? this.cloudTextures?.mid
+        : this.cloudTextures?.high;
+
+    if (targetTexture) {
+      try {
+        this.device.queue.writeTexture(
+          { texture: targetTexture },
+          paddedBytes.buffer,
+          { bytesPerRow: paddedRowBytes, rowsPerImage: height },
+          { width, height, depthOrArrayLayers: 1 }
+        );
+      } catch (err) {
+        console.error('Failed to write cloud texture:', err);
+      }
+    }
+  }
+
+  public async loadCloudData(
+    layer: 'low' | 'mid' | 'high',
+    urlOrData?: string | Uint8Array | ArrayBuffer
+  ): Promise<void> {
+    if (!this.device || !this.isInitialized) return;
+    this.ensureCloudBuffers();
+
+    if (urlOrData instanceof Uint8Array || urlOrData instanceof ArrayBuffer) {
+      this.setCloudData(layer, urlOrData);
+      return;
+    }
+
+    const defaultUrl = `/data/gfs-cloud-${layer}-latest.bin`;
+    const targetUrl = typeof urlOrData === 'string' ? urlOrData : defaultUrl;
+
+    let buffer: ArrayBuffer | null = null;
+    if (typeof fetch !== 'undefined') {
+      try {
+        const res = await fetch(targetUrl);
+        if (res.ok) buffer = await res.arrayBuffer();
+      } catch {
+        // Fallback
+      }
+    }
+
+    if (buffer) {
+      this.setCloudData(layer, buffer);
+    } else {
+      const procBuf = this.generateProceduralCloudBuffer(layer);
+      this.setCloudData(layer, procBuf);
+    }
+  }
+
+  public async loadAllCloudLayers(): Promise<void> {
+    await Promise.all([
+      this.loadCloudData('low'),
+      this.loadCloudData('mid'),
+      this.loadCloudData('high'),
+    ]);
+  }
+
+  public updateCloudUniforms(dt: number, params?: Partial<any>): void {
+    if (!this.device || !this.cloudUniformBuffers || this.cloudUniformBuffers.length < 3) return;
+
+    const unfurl = params?.unfurl ?? 0.0;
+    const mode = Math.max(0, Math.floor(params?.mode ?? 0));
+    const theme = Math.max(0, Math.min(2, Math.floor(params?.theme ?? 0)));
+    const time = params?.time ?? 0.0;
+    const dispScale = params?.displacementScale ?? 0.08;
+    const baseDrift = params?.cloudDriftSpeed ?? this.cloudOptions?.driftSpeed ?? 1.2;
+    const masterOpacity = params?.cloudOpacity ?? this.cloudOptions?.opacity ?? 0.85;
+    const peakExponent = params?.peakExponent ?? 1.4;
+
+    const f = this.cloudUniformFloats;
+    const u = this.cloudUniformU32;
+
+    f[0] = unfurl;
+    u[1] = mode;
+    u[2] = theme;
+    f[3] = time;
+
+    if (params?.camera) {
+      const camPos = params.camera.position ?? params.camera;
+      f[4] = camPos.x ?? 0.0;
+      f[5] = camPos.y ?? 0.0;
+      f[6] = camPos.z ?? 0.0;
+      f[7] = 1.0;
+
+      if (params.camera.matrixWorldInverse) {
+        params.camera.matrixWorldInverse.toArray(f, 32);
+      }
+      if (params.camera.projectionMatrix) {
+        params.camera.projectionMatrix.toArray(f, 48);
+      }
+    } else {
+      f[4] = 0.0;
+      f[5] = 0.0;
+      f[6] = 15.0;
+      f[7] = 1.0;
+    }
+
+    const vpW = params?.viewport?.width ?? params?.canvas?.width ?? 1920;
+    const vpH = params?.viewport?.height ?? params?.canvas?.height ?? 1080;
+    f[8] = vpW;
+    f[9] = vpH;
+    f[10] = vpW > 0 ? 1.0 / vpW : 0.0;
+    f[11] = vpH > 0 ? 1.0 / vpH : 0.0;
+
+    f[12] = 0.6; // lowDrift
+    f[13] = 1.0; // midDrift
+    f[14] = 1.8; // highDrift
+    f[15] = baseDrift; // baseDriftSpeed
+
+    f[16] = 0.0010; // low standoff
+    f[17] = 0.0040; // mid standoff
+    f[18] = 0.0080; // high standoff
+    f[19] = dispScale;
+
+    f[20] = 0.70; // low opacity
+    f[21] = 0.50; // mid opacity
+    f[22] = 0.30; // high opacity
+    f[23] = masterOpacity; // globalOpacity
+
+    u[24] = 0; // default layer 0
+    f[25] = peakExponent;
+    u[26] = 0;
+    u[27] = 0;
+
+    f[28] = 1.0;
+    f[29] = 1.0;
+    f[30] = 1.0;
+    f[31] = params?.paperTooth ?? 0.5;
+
+    for (let layerIdx = 0; layerIdx < 3; layerIdx++) {
+      const layerBuffer = new Float32Array(this.cloudUniformFloats);
+      const layerU32 = new Uint32Array(layerBuffer.buffer);
+      layerU32[24] = layerIdx;
+      layerBuffer[25] = peakExponent;
+      layerU32[26] = layerIdx === 1 ? 1 : 0;
+      layerU32[27] = layerIdx === 2 ? 1 : 0;
+
+      try {
+        this.device.queue.writeBuffer(
+          this.cloudUniformBuffers[layerIdx],
+          0,
+          layerBuffer.buffer,
+          0,
+          256
+        );
+      } catch (err) {}
+    }
+  }
+
+  public updateCloudLayerUniform(layerIdx: number): void {
+    if (!this.device || !this.cloudUniformBuffers) return;
+    const buf = new ArrayBuffer(16);
+    const u32 = new Uint32Array(buf);
+    const f32 = new Float32Array(buf);
+    u32[0] = layerIdx;
+    f32[1] = 1.4; // peakExponent
+    u32[2] = layerIdx === 1 ? 1 : 0; // isMid
+    u32[3] = layerIdx === 2 ? 1 : 0; // isHigh
+
+    const primary = this.getCloudUniformBuffer();
+    if (primary) {
+      this.device.queue.writeBuffer(primary, 96, buf, 0, 16);
+    }
+    const target = this.cloudUniformBuffers[layerIdx];
+    if (target && target !== primary) {
+      this.device.queue.writeBuffer(target, 96, buf, 0, 16);
+    }
+  }
+
+  public generateProceduralCloudBuffer(layer: 'low' | 'mid' | 'high'): ArrayBuffer {
+    const width = 1440;
+    const height = 721;
+    const totalTexels = width * height;
+    const buffer = new ArrayBuffer(totalTexels * 2);
+    const u16 = new Uint16Array(buffer);
+
+    const baseOffset = layer === 'low' ? 0.2 : layer === 'mid' ? 0.3 : 0.4;
+    const freq = layer === 'low' ? 6.0 : layer === 'mid' ? 4.0 : 3.0;
+
+    for (let y = 0; y < height; y++) {
+      const latNorm = (y / (height - 1)) * 2.0 - 1.0;
+      const latRad = latNorm * (Math.PI * 0.5);
+      const cosLat = Math.cos(latRad);
+      const rowOffset = y * width;
+
+      for (let x = 0; x < width; x++) {
+        const lonRad = (x / width) * Math.PI * 2.0;
+        const wave = Math.sin(lonRad * freq + latNorm * 3.0) * cosLat;
+        const subwave = Math.cos(lonRad * (freq * 1.5) - latNorm * 2.0) * 0.5;
+        let v = baseOffset + 0.35 * wave + 0.15 * subwave;
+        if (v < 0.0) v = 0.0;
+        else if (v > 1.0) v = 1.0;
+        u16[rowOffset + x] = encodeFloat16(v);
+      }
+    }
+    return buffer;
+  }
+
+  public renderSurfaceWindRibbons(passEncoder: GPURenderPassEncoder): void {
+    if (
+      !this.windRibbonPipeline ||
+      !this.windRibbonBindGroups ||
+      !this.quadCornerBuffer
+    )
+      return;
+
+    const activeBg = this.windRibbonBindGroups[(this.windStep + 1) % 2];
+    if (!activeBg) return;
+
+    passEncoder.setPipeline(this.windRibbonPipeline);
+    passEncoder.setBindGroup(0, activeBg);
+    passEncoder.setVertexBuffer(0, this.quadCornerBuffer);
+    const halfInstances = Math.floor(this.windParticleCount / 2) * 3;
+    passEncoder.draw(4, halfInstances, 0, 0);
+  }
+
+  public renderJetStreamRibbons(passEncoder: GPURenderPassEncoder): void {
+    if (
+      !this.windRibbonPipeline ||
+      !this.windRibbonBindGroups ||
+      !this.quadCornerBuffer
+    )
+      return;
+
+    const activeBg = this.windRibbonBindGroups[(this.windStep + 1) % 2];
+    if (!activeBg) return;
+
+    passEncoder.setPipeline(this.windRibbonPipeline);
+    passEncoder.setBindGroup(0, activeBg);
+    passEncoder.setVertexBuffer(0, this.quadCornerBuffer);
+    const halfInstances = Math.floor(this.windParticleCount / 2) * 3;
+    passEncoder.draw(4, halfInstances, 0, halfInstances);
+  }
+
+  public renderCloudLayer(
+    passEncoder: GPURenderPassEncoder,
+    layer: 'low' | 'mid' | 'high',
+    _params?: any
+  ): void {
+    if (
+      !this.cloudPipeline ||
+      !this.cloudBindGroups ||
+      !this.cloudUniformBuffers ||
+      this.cloudUniformBuffers.length < 3
+    ) {
+      return;
+    }
+
+    const vBuf = this.cloudSphereVertexBuffer || this.crustVertexBuffer;
+    const iBuf = this.cloudSphereIndexBuffer || this.crustIndexBuffer;
+    const iCount = this.cloudIndexCount || this.crustIndexCount;
+
+    if (!vBuf || !iBuf || !iCount) {
+      return;
+    }
+
+    const bindGroup =
+      layer === 'low'
+        ? this.cloudBindGroups.low
+        : layer === 'mid'
+        ? this.cloudBindGroups.mid
+        : this.cloudBindGroups.high;
+
+    if (!bindGroup) return;
+
+    passEncoder.setPipeline(this.cloudPipeline);
+    passEncoder.setBindGroup(0, bindGroup);
+    passEncoder.setVertexBuffer(0, vBuf);
+    passEncoder.setIndexBuffer(iBuf, 'uint32');
+    passEncoder.drawIndexed(iCount);
   }
 
   public dispose(): void {
@@ -4038,6 +4662,32 @@ export class WebGPUEngine {
       try { entry.texture.destroy(); } catch {}
     }
     this.regionalDEMTextures.clear();
+
+    if (this.cloudUniformBuffers) {
+      for (const b of this.cloudUniformBuffers) {
+        try { b?.destroy(); } catch {}
+      }
+      this.cloudUniformBuffers = null;
+    }
+    this.cloudStagingBuffer?.destroy();
+    this.cloudStagingBuffer = null;
+    this.cloudSphereVertexBuffer?.destroy();
+    this.cloudSphereVertexBuffer = null;
+    this.cloudSphereIndexBuffer?.destroy();
+    this.cloudSphereIndexBuffer = null;
+    this.cloudIndexCount = 0;
+    this.cloudBuffersInitialized = false;
+
+    this.cloudTextures.low?.destroy();
+    this.cloudTextures.mid?.destroy();
+    this.cloudTextures.high?.destroy();
+    this.cloudTextures = { low: null, mid: null, high: null };
+
+    this.cloudPipeline = null;
+    this.cloudSampler = null;
+    this.cloudBindGroups = null;
+    this.cloudBindGroupLayout = null;
+
     this.device?.destroy?.();
     this.isInitialized = false;
   }

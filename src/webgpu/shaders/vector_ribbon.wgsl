@@ -29,6 +29,19 @@ struct SimUniforms {
 @group(0) @binding(0) var<uniform> sim: SimUniforms;
 @group(0) @binding(1) var u_demTexture: texture_2d<f32>;
 @group(0) @binding(2) var u_demSampler: sampler;
+@group(0) @binding(3) var u_regionalDEMTexture: texture_2d<f32>;
+
+struct RegionalOverlayUniforms {
+    u_regionalBounds: vec4<f32>,
+    u_pad0: vec4<f32>,
+    u_pad1: vec4<f32>,
+    u_regionalActive: u32,
+    u_pad2: u32,
+    u_pad3: u32,
+    u_pad4: u32,
+};
+
+@group(0) @binding(4) var<uniform> u_regionalOverlay: RegionalOverlayUniforms;
 
 // ----------------------------------------------------------------------------
 // Vertex Input Structs
@@ -61,6 +74,63 @@ const RADIUS: f32 = 5.0;
 // ----------------------------------------------------------------------------
 // Analytical 3D Solenoidal Curl Noise (div u = 0 guaranteed)
 // ----------------------------------------------------------------------------
+fn getRegionalBlendWeight(uv: vec2<f32>) -> f32 {
+    if (u_regionalOverlay.u_regionalActive == 0u) {
+        return 0.0;
+    }
+
+    let bounds = u_regionalOverlay.u_regionalBounds;
+    let minLon = bounds.x;
+    let minLat = bounds.y;
+    let maxLon = bounds.z;
+    let maxLat = bounds.w;
+
+    let lon = uv.x * 360.0 - 180.0;
+    let lat = 90.0 - uv.y * 180.0;
+
+    if (lon < minLon || lon > maxLon || lat < minLat || lat > maxLat) {
+        return 0.0;
+    }
+
+    let regU = (lon - minLon) / (maxLon - minLon);
+    let regV = (maxLat - lat) / (maxLat - minLat);
+
+    let blendDeg = 0.5;
+    let lonSpan = maxLon - minLon;
+    let latSpan = maxLat - minLat;
+    let marginU = clamp(blendDeg / lonSpan, 0.001, 0.49);
+    let marginV = clamp(blendDeg / latSpan, 0.001, 0.49);
+
+    let distU = min(regU, 1.0 - regU);
+    let distV = min(regV, 1.0 - regV);
+
+    let weightU = smoothstep(0.0, marginU, distU);
+    let weightV = smoothstep(0.0, marginV, distV);
+    return weightU * weightV;
+}
+
+fn sampleRegionalComposite(uv: vec2<f32>, globalSample: vec4<f32>, lod: f32) -> vec4<f32> {
+    let weight = getRegionalBlendWeight(uv);
+    if (weight <= 0.0001) {
+        return globalSample;
+    }
+
+    let bounds = u_regionalOverlay.u_regionalBounds;
+    let minLon = bounds.x;
+    let minLat = bounds.y;
+    let maxLon = bounds.z;
+    let maxLat = bounds.w;
+
+    let lon = uv.x * 360.0 - 180.0;
+    let lat = 90.0 - uv.y * 180.0;
+
+    let regU = clamp((lon - minLon) / (maxLon - minLon), 0.0, 1.0);
+    let regV = clamp((maxLat - lat) / (maxLat - minLat), 0.0, 1.0);
+
+    let regSample = textureSampleLevel(u_regionalDEMTexture, u_demSampler, vec2<f32>(regU, regV), lod);
+    return mix(globalSample, regSample, weight);
+}
+
 fn computeCurlNoise(p: vec3<f32>, time: f32) -> vec3<f32> {
     let t = time * 0.75;
     let rot = mat3x3<f32>(
@@ -195,7 +265,8 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
     // Topographic Elevation Coupling from ETOPO 2022 DEM (Synchronized with crust_hydrosphere.wgsl)
     // Note: v = 0.0 is North Pole (+PI/2), v = 1.0 is South Pole (-PI/2)
     let demUv = vec2<f32>((lambda + PI) / (2.0 * PI), 0.5 - phi / PI);
-    let demSample = textureSampleLevel(u_demTexture, u_demSampler, demUv, 0.0);
+    let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, demUv, 0.0);
+    let demSample = sampleRegionalComposite(demUv, demSampleGlobal, 0.0);
 
     let poleDist = abs(demUv.y - 0.5) * 2.0;
     let poleAtten = 1.0 - smoothstep(0.85, 0.98, poleDist);

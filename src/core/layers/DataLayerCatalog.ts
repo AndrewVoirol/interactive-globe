@@ -1,0 +1,365 @@
+// ============================================================================
+// File: src/core/layers/DataLayerCatalog.ts
+// Cartographic Multi-Source Data Layer Catalog & Preset Registry
+// Includes NOAA GFS Multi-Stratum Atmospheric Cloud Cover (Milestone 5)
+// ============================================================================
+
+export type BlendModeType = 0 | 1 | 2 | 3; // 0 = Normal, 1 = Additive, 2 = Multiply, 3 = Screen
+
+export interface CartographicLegend {
+  colorStops: string[];
+  minLabel: string;
+  maxLabel: string;
+  unit: string;
+}
+
+export type DataLayerRenderStyle = 'architectural' | 'hybrid' | 'photoreal';
+
+export type DataLayerCategory =
+  | 'satellite'
+  | 'night'
+  | 'topo'
+  | 'ocean'
+  | 'thermal'
+  | 'vectors'
+  | 'point'
+  | 'field'
+  | 'trajectory'
+  | 'atmospheric-clouds'
+  | 'planetary-clouds';
+
+export interface DataLayerPreset {
+  id: string;
+  name: string;
+  category: DataLayerCategory;
+  type: string;
+  details: string;
+  url: string;
+  defaultOpacity: number;
+  defaultBlendMode: BlendModeType;
+  attribution: string;
+  legend: CartographicLegend;
+  elevationEncoding?: 'luminance' | 'mapbox' | 'terrarium';
+  defaultDisplacementScale?: number;
+  renderStyle?: DataLayerRenderStyle;
+  seaLevelOffset?: number; // Meters (-150 to +100m) for two-surface hydrosphere
+  waterClarity?: number; // 0.1 (turbid) to 1.0 (crystal tropical lagoon)
+  peakExponent?: number; // 1.0 to 2.0 power curve for alpine peak sharpness
+  ambientOcclusion?: number; // 0.0 to 1.0 valley crevice AO
+  autoEnableVectors?: boolean;
+}
+
+export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
+  {
+    id: 'architectural-topo-relief',
+    name: 'Architectural Topographic Relief',
+    category: 'topo',
+    type: 'Monochrome Relief & Isolines',
+    details: 'Cartographic Eduard Imhof relief shading, analytical elevation isocontours & bathymetric isobaths matching Theme 0/1',
+    url: '/earth-etopo2022-dem.webp',
+    defaultOpacity: 0.95,
+    defaultBlendMode: 0,
+    defaultDisplacementScale: 0.14,
+    renderStyle: 'architectural',
+    ambientOcclusion: 0.65,
+    autoEnableVectors: true,
+    attribution: 'NOAA NCEI ETOPO 2022 / GEBCO',
+    legend: {
+      colorStops: ['#090b10', '#1e2633', '#596b85', '#a0a6b0', '#eae6de'],
+      minLabel: 'Obsidian Abyss',
+      maxLabel: 'Platinum Ridge',
+      unit: 'Architectural',
+    },
+  },
+  {
+    id: 'hybrid-crust-hydrosphere',
+    name: 'Hydrosphere & Bathymetric Depth',
+    category: 'ocean',
+    type: 'Two-Surface Crust & Ocean',
+    details: 'Physical 3D continental elevation, smooth sea-level envelope, and Beer-Lambert volumetric depth absorption',
+    url: '/earth-etopo2022-dem.webp',
+    defaultOpacity: 0.95,
+    defaultBlendMode: 0,
+    defaultDisplacementScale: 0.12,
+    renderStyle: 'hybrid',
+    seaLevelOffset: 0,
+    waterClarity: 0.75,
+    peakExponent: 1.4,
+    attribution: 'NOAA NCEI ETOPO 2022 / Jerlov Radiative Transfer',
+    legend: {
+      colorStops: ['#020617', '#0369a1', '#06b6d4', '#15803d', '#f8fafc'],
+      minLabel: '-10,924m Trench',
+      maxLabel: '+8,848m Summit',
+      unit: 'Hydrosphere',
+    },
+  },
+  {
+    id: 'nasa-blue-marble',
+    name: 'NASA Blue Marble & Orbital Relief',
+    category: 'satellite',
+    type: 'WMTS EPSG:3857',
+    details: 'NASA Earth Observatory true-color orbital imagery with DEM analytical micro-hillshading and water sheen',
+    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg',
+    defaultOpacity: 0.90,
+    defaultBlendMode: 0,
+    defaultDisplacementScale: 0.08,
+    renderStyle: 'photoreal',
+    attribution: 'NASA Earth Observatory / EOSDIS GIBS',
+    legend: {
+      colorStops: ['#0b1329', '#1e3a8a', '#15803d', '#ca8a04', '#f8fafc'],
+      minLabel: 'Bathymetry',
+      maxLabel: 'Elevation',
+      unit: 'Orbital',
+    },
+  },
+  {
+    id: 'global-dem-crust',
+    name: 'NOAA ETOPO 2022 Topo-Bathymetry',
+    category: 'topo',
+    type: 'DEM Crust (ETOPO 2022)',
+    details: 'Seamless elevation: Challenger Deep (-10,924m) to Mount Everest (+8,848m) with Eduard Imhof relief shading',
+    url: '/earth-etopo2022-dem.webp',
+    defaultOpacity: 0.95,
+    defaultBlendMode: 0,
+    defaultDisplacementScale: 0.12,
+    renderStyle: 'hybrid',
+    attribution: 'NOAA NCEI ETOPO 2022 Global Relief Model',
+    legend: {
+      colorStops: ['#020617', '#0284c7', '#15803d', '#d97706', '#ffffff'],
+      minLabel: '-10,924m Deep',
+      maxLabel: '+8,848m Peak',
+      unit: 'Lithosphere',
+    },
+  },
+  {
+    id: 'esri-world-imagery',
+    name: 'Esri World Satellite Imagery',
+    category: 'satellite',
+    type: 'Raster XYZ',
+    details: 'High-resolution global orbital & aerial satellite surface photography',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    defaultOpacity: 0.90,
+    defaultBlendMode: 0,
+    defaultDisplacementScale: 0.08,
+    attribution: 'Esri, Maxar, Earthstar Geographics',
+    legend: {
+      colorStops: ['#0f172a', '#1e3a8a', '#166534', '#a16207', '#f8fafc'],
+      minLabel: 'Sea',
+      maxLabel: 'Land',
+      unit: 'Optical',
+    },
+  },
+  {
+    id: 'global-bathymetry-ocean',
+    name: 'Global Ocean Bathymetry & Relief',
+    category: 'ocean',
+    type: 'Raster XYZ',
+    details: 'GEBCO seafloor topography, continental shelves, and abyssal trenches',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
+    defaultOpacity: 0.85,
+    defaultBlendMode: 0,
+    defaultDisplacementScale: 0.08,
+    attribution: 'GEBCO, NOAA, Esri, DeLorme',
+    legend: {
+      colorStops: ['#020617', '#0f172a', '#1e293b', '#0369a1', '#38bdf8'],
+      minLabel: '-11,000m Trench',
+      maxLabel: '0m Shelf',
+      unit: 'Depth',
+    },
+  },
+  {
+    id: 'usgs-topo-map',
+    name: 'USGS Topographic Map',
+    category: 'topo',
+    type: 'Raster XYZ',
+    details: 'USGS National Map hypsometric elevation contours & hydrology',
+    url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
+    defaultOpacity: 0.80,
+    defaultBlendMode: 0,
+    defaultDisplacementScale: 0.08,
+    attribution: 'U.S. Geological Survey / The National Map',
+    legend: {
+      colorStops: ['#0284c7', '#86efac', '#fef08a', '#f97316', '#b91c1c'],
+      minLabel: '0m',
+      maxLabel: '+4,400m',
+      unit: 'USGS Topo',
+    },
+  },
+  {
+    id: 'nasa-city-lights',
+    name: 'NASA Blue Marble Night Lights',
+    category: 'night',
+    type: 'WMTS EPSG:3857',
+    details: 'Suomi NPP VIIRS nocturnal anthropogenic illumination & city glows',
+    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_CityLights_2012/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg',
+    defaultOpacity: 0.90,
+    defaultBlendMode: 1, // Additive for glowing city lights
+    defaultDisplacementScale: 0.08,
+    attribution: 'NASA Earth Observatory / VIIRS / NOAA',
+    legend: {
+      colorStops: ['#000000', '#7c2d12', '#d97706', '#fef08a', '#ffffff'],
+      minLabel: '0.1 nW/cm²',
+      maxLabel: '500 nW/cm²',
+      unit: 'Luminance',
+    },
+  },
+  {
+    id: 'osm-topo-terrain',
+    name: 'OpenTopoMap Topographic Relief',
+    category: 'topo',
+    type: 'Raster XYZ',
+    details: 'Contour relief, hillshading, and global hypsometric topography',
+    url: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',
+    defaultOpacity: 0.85,
+    defaultBlendMode: 0,
+    defaultDisplacementScale: 0.08,
+    attribution: 'OpenStreetMap contributors, SRTM',
+    legend: {
+      colorStops: ['#0284c7', '#22c55e', '#eab308', '#9a3412', '#78716c'],
+      minLabel: '-100m',
+      maxLabel: '+4,000m',
+      unit: 'Relief',
+    },
+  },
+  {
+    id: 'noaa-grib2-wind',
+    name: 'NOAA Global Wind Vectors',
+    category: 'field',
+    type: 'Dynamic Flow Field',
+    details: 'Real-time atmospheric wind velocity field with continuous physical particle advection & velocity ramp',
+    url: '/data/wind-grib2.json',
+    defaultOpacity: 0.90,
+    defaultBlendMode: 1,
+    attribution: 'NOAA NCEP Global Forecast System (GFS)',
+    legend: {
+      colorStops: ['#02a6d9', '#1ad973', '#f2bf1a', '#f24026'],
+      minLabel: '0 m/s Calm',
+      maxLabel: '20+ m/s Gale',
+      unit: 'Wind Velocity',
+    },
+  },
+  {
+    id: 'usgs-elevation-contours',
+    name: 'USGS Hypsometric Vector Contours',
+    category: 'point',
+    type: '3D Topographic Isolines',
+    details: 'Analytical 3D topographic isolines and bathymetric depth contours with elevation-adaptive hypsometric tinting',
+    url: '/geo-contour-mesh.bin',
+    defaultOpacity: 0.90,
+    defaultBlendMode: 0,
+    defaultDisplacementScale: 0.12,
+    attribution: 'USGS The National Map / GEBCO Topography',
+    legend: {
+      colorStops: ['#0584d9', '#0fc784', '#f2a626', '#fafaff'],
+      minLabel: '-4,000m Trench',
+      maxLabel: '+8,000m Peak',
+      unit: 'Isolines',
+    },
+  },
+  {
+    id: 'spacex-satellite-constellation',
+    name: 'SpaceX Starlink & LEO Constellation',
+    category: 'trajectory',
+    type: 'Satellite TLE Orbits',
+    details: 'Low Earth Orbit satellite coordinates and orbital trajectories propagated from NORAD two-line element sets',
+    url: '/data/tle-starlink.json',
+    defaultOpacity: 0.95,
+    defaultBlendMode: 1,
+    attribution: 'CelesTrak / NORAD Space-Track',
+    legend: {
+      colorStops: ['#34d399', '#38bdf8', '#818cf8', '#f43f5e'],
+      minLabel: 'Perigee 350km',
+      maxLabel: 'Apogee 550km',
+      unit: 'Orbital Alt',
+    },
+  },
+  {
+    id: 'noaa-gfs-wind',
+    name: 'Real NOAA GFS Surface Winds (0.25°)',
+    category: 'field',
+    type: 'field',
+    details: 'Global half-float vector grid',
+    url: '/data/gfs-wind-latest.bin',
+    defaultOpacity: 0.90,
+    defaultBlendMode: 1,
+    attribution: 'NOAA NCEP GFS',
+    legend: {
+      colorStops: ['#02a6d9', '#1ad973', '#f2bf1a', '#f24026'],
+      minLabel: '0 m/s Calm',
+      maxLabel: '35 m/s Gale',
+      unit: 'Wind Velocity (0.25° GFS)',
+    },
+  },
+  {
+    id: 'starlink-iss-orbits',
+    name: 'CelesTrak Active Starlink & ISS Orbits',
+    category: 'vectors',
+    type: 'vectors',
+    details: 'SGP4 propagated orbital ribbons',
+    url: '/data/tle-starlink.json',
+    defaultOpacity: 1.0,
+    defaultBlendMode: 1,
+    attribution: 'CelesTrak / NORAD Space-Track',
+    legend: {
+      colorStops: ['#34d399', '#38bdf8', '#818cf8', '#f43f5e'],
+      minLabel: 'Perigee 400km',
+      maxLabel: 'Apogee 560km',
+      unit: 'SGP4 Orbital Ribbons',
+    },
+  },
+  {
+    id: 'noaa-gfs-jetstream',
+    name: 'NOAA GFS 250 hPa Jet Stream',
+    category: 'field',
+    type: 'field',
+    details: 'Upper-troposphere high-altitude jet stream core (250 hPa, ~10,500m)',
+    url: '/data/gfs-jetstream-latest.bin',
+    defaultOpacity: 0.95,
+    defaultBlendMode: 1,
+    attribution: 'NOAA NCEP GFS (250 hPa)',
+    legend: {
+      colorStops: ['#818cf8', '#c084fc', '#f43f5e', '#fbbf24'],
+      minLabel: '15 m/s Stream',
+      maxLabel: '65 m/s Jet Core',
+      unit: '250 hPa Isotachs',
+    },
+  },
+  {
+    id: 'origami-crane-companion',
+    name: 'Autonomous Origami Soaring Crane',
+    category: 'vectors',
+    type: 'companion',
+    details: 'Low-poly folded paper crane hunting ridge lift over 3D mountain relief and thermals',
+    url: '',
+    defaultOpacity: 1.0,
+    defaultBlendMode: 0,
+    attribution: 'Indicatrix Autonomous Flight Dynamics',
+    legend: {
+      colorStops: ['#f8fafc', '#e2e8f0', '#94a3b8', '#38bdf8'],
+      minLabel: 'Glide 10:1',
+      maxLabel: 'Ridge Lift +5 m/s',
+      unit: 'Variometer Telemetry',
+    },
+  },
+  {
+    id: 'noaa-gfs-clouds',
+    name: 'Atmospheric Cloud Strata (NOAA GFS)',
+    category: 'atmospheric-clouds',
+    type: 'Multi-Altitude Cloud Shells',
+    details: 'Tri-altitude cloud shells (Low Stratus 1–2 km, Mid Altocumulus 4–6 km, High Cirrus 10–12 km) from NOAA GFS 0.25° grids',
+    url: '/data/gfs-cloud-low-latest.bin',
+    defaultOpacity: 0.80,
+    defaultBlendMode: 0,
+    attribution: 'NOAA NCEP GFS (LCDC / MCDC / HCDC)',
+    legend: {
+      colorStops: ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.5)', 'rgba(255,255,255,0.85)', '#ffffff'],
+      minLabel: 'Cirrus (10km)',
+      maxLabel: 'Stratus (1km)',
+      unit: 'Cloud Fraction (GFS)',
+    },
+  },
+];
+
+export function getPresetById(id: string): DataLayerPreset | undefined {
+  return DATA_LAYER_CATALOG.find((item) => item.id === id);
+}

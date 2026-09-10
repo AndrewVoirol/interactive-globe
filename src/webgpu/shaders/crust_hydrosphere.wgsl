@@ -656,12 +656,13 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // 2. Unconditional DEM 5-tap sampling with screen-space derivative LOD strictly before any branching/discard (Invariant #3)
     let duv_dx = vec2<f32>(du_dx, dv_dx);
     let duv_dy = vec2<f32>(du_dy, dv_dy);
-    let texSize = vec2<f32>(8192.0, 4096.0);
+    let demDims = textureDimensions(u_demTexture);
+    let texSize = vec2<f32>(f32(demDims.x), f32(demDims.y));
     let deltaMax2 = max(dot(duv_dx * texSize, duv_dx * texSize), dot(duv_dy * texSize, duv_dy * texSize));
     let mipLOD = clamp(0.5 * log2(max(deltaMax2, 1e-4)), 0.0, 13.0);
 
     let mipStep = exp2(floor(mipLOD));
-    let tsGlobal = vec2<f32>(1.0 / 8192.0, 1.0 / 4096.0) * max(1.0, mipStep);
+    let tsGlobal = (vec2<f32>(1.0, 1.0) / max(texSize, vec2<f32>(1.0, 1.0))) * max(1.0, mipStep);
 
     let regDims = textureDimensions(u_regionalDEMTexture);
     let regWeightC = getRegionalBlendWeight(input.uv);

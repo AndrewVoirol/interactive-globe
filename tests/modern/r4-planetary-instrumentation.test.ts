@@ -297,7 +297,7 @@ describe('Requirement R4: Live Planetary Instrumentation & Automation', () => {
     it('WIND-T05: verifies VectorFieldDataSource samples trade winds, westerlies, and polar circulation', async () => {
       const { VectorFieldDataSource } = await import('../../src/core/data/VectorFieldDataSource');
       const source = new VectorFieldDataSource();
-      await source.loadGrid(gfsWindPath);
+      await source.loadGrid('procedural');
 
       // Trade winds at latitude 15°N: Easterlies (u < 0)
       const [uTrade, vTrade] = source.sampleVelocity(-140.0, 15.0);
@@ -310,7 +310,7 @@ describe('Requirement R4: Live Planetary Instrumentation & Automation', () => {
       expect(Number.isFinite(vWest)).toBe(true);
 
       // Jet stream at 45°N: High westerly velocity (> 15 m/s)
-      await source.loadJetStreamGrid();
+      await source.loadJetStreamGrid('procedural');
       const [uJet] = source.sampleVelocity(160.0, 45.0, 'jetstream');
       expect(uJet).toBeGreaterThan(15.0);
 

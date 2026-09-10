@@ -193,14 +193,14 @@ describe('CHALLENGER STAGE 3: WebGPU Uniform Control Flow & Pipeline Binding Ver
       restoreMockNavigator();
     });
 
-    it('CHALLENGE-BIND-01: windComputeBindGroupLayout defines exactly 8 entries with bindings 6 & 7', () => {
+    it('CHALLENGE-BIND-01: windComputeBindGroupLayout defines exactly 10 entries with bindings 6 & 7', () => {
       engine.ensureWindBuffers();
 
       const windComputePipeline = (engine as any).windComputePipeline;
       expect(windComputePipeline).toBeDefined();
 
       const bgl = windComputePipeline.descriptor.layout.descriptor.bindGroupLayouts[0].descriptor;
-      expect(bgl.entries.length).toBe(8);
+      expect(bgl.entries.length).toBe(10);
 
       const entry6 = bgl.entries.find((e: any) => e.binding === 6);
       expect(entry6).toBeDefined();
@@ -225,7 +225,7 @@ describe('CHALLENGER STAGE 3: WebGPU Uniform Control Flow & Pipeline Binding Ver
 
       for (let i = 0; i < 2; i++) {
         const bgEntries = bgs[i].descriptor.entries;
-        expect(bgEntries.length).toBe(8);
+        expect(bgEntries.length).toBe(10);
 
         const slot6 = bgEntries.find((e: any) => e.binding === 6);
         const slot7 = bgEntries.find((e: any) => e.binding === 7);
@@ -290,7 +290,7 @@ describe('CHALLENGER STAGE 3: WebGPU Uniform Control Flow & Pipeline Binding Ver
       expect(windParticleBuffers).toBeDefined();
       expect(windParticleBuffers.length).toBe(2);
       expect(windUniformBuffer).toBeDefined();
-      expect(windUniformBuffer.size).toBe(48); // 12 * 4 bytes
+      expect(windUniformBuffer.size).toBe(64); // 16 * 4 bytes
       expect(craneUniformBuffer).toBeDefined();
       expect(craneUniformBuffer.size).toBe(240); // 60 * 4 bytes
     });

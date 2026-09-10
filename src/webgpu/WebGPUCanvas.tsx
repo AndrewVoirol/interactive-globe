@@ -128,6 +128,12 @@ export interface WebGPUCanvasProps {
   isDemoMode?: boolean;
   demoSequence?: 'hawaii' | 'cape-cod';
   onDemoModeChange?: (active: boolean, sequence?: 'hawaii' | 'cape-cod') => void;
+  showClouds?: boolean;
+  showCloudLow?: boolean;
+  showCloudMid?: boolean;
+  showCloudHigh?: boolean;
+  cloudDriftSpeed?: number;
+  cloudOpacity?: number;
 }
 
 interface RegionalManifestEntry {
@@ -177,12 +183,19 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   isDemoMode = false,
   demoSequence = 'hawaii',
   onDemoModeChange,
+  showClouds = true,
+  showCloudLow = true,
+  showCloudMid = true,
+  showCloudHigh = true,
+  cloudDriftSpeed = 1.0,
+  cloudOpacity = 0.85,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const viewportSizeRef = useRef<{ width: number; height: number; dpr: number }>({ width: 0, height: 0, dpr: 1 });
   const engineRef = useRef<WebGPUEngine>(new WebGPUEngine());
+  if (typeof window !== 'undefined') (window as any).__ENGINE = engineRef.current;
   const trajectoryControllerRef = useRef<TrajectoryCameraController>(new TrajectoryCameraController());
   const loadedBinRef = useRef<string | null>(null);
   const loadedDataInfoRef = useRef<{ pointCount: number; lineCount: number; baseVramBytes: number } | null>(null);
@@ -302,6 +315,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     isolatedStratum,
     isDemoMode,
     demoSequence,
+    showClouds,
+    showCloudLow,
+    showCloudMid,
+    showCloudHigh,
+    cloudDriftSpeed,
+    cloudOpacity,
   });
   useEffect(() => {
     stateRef.current = {
@@ -322,8 +341,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       isolatedStratum,
       isDemoMode,
       demoSequence,
+      showClouds,
+      showCloudLow,
+      showCloudMid,
+      showCloudHigh,
+      cloudDriftSpeed,
+      cloudOpacity,
     };
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity]);
 
   const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange });
   useEffect(() => {
@@ -365,7 +390,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       (l) => (l.id === 'noaa-gfs-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
     );
     if (hasWind) {
-      engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+      engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {}); engine.loadAllCloudLayers().catch(() => {});;
     }
     const hasJetStream = !!dataLayers?.find(
       (l) => (l.id === 'noaa-gfs-jetstream' || l.id === 'gfs-jetstream') && l.visible
@@ -857,7 +882,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         engine.loadVectorData('/geo-vectors.bin').catch(() => {});
         engine.loadContourMesh('/geo-contour-mesh.bin').catch(() => {});
         engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
-        engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+        engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {}); engine.loadAllCloudLayers().catch(() => {});;
         engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
 
         if (!isMounted) {
@@ -923,7 +948,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           engine.loadVectorData('/geo-vectors.bin').catch(() => {});
           engine.loadContourMesh('/geo-contour-mesh.bin').catch(() => {});
           engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
-          engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+          engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {}); engine.loadAllCloudLayers().catch(() => {});;
           engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
 
           if (!isMounted) return;
@@ -1304,6 +1329,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           showSurfaceWinds: hasSurfaceWind,
           showJetStream: hasJetStream,
           showCrane: hasCrane,
+          showClouds: stateRef.current.showClouds,
+          showCloudLow: stateRef.current.showCloudLow,
+          showCloudMid: stateRef.current.showCloudMid,
+          showCloudHigh: stateRef.current.showCloudHigh,
+          cloudDriftSpeed: stateRef.current.cloudDriftSpeed,
+          cloudOpacity: stateRef.current.cloudOpacity,
           vortexStrength: curVortexStrength,
           fractureIntensity: curFractureIntensity,
           seaLevel,

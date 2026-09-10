@@ -14,10 +14,23 @@ export interface CartographicLegend {
 
 export type DataLayerRenderStyle = 'architectural' | 'hybrid' | 'photoreal';
 
+export type DataLayerCategory =
+  | 'satellite'
+  | 'night'
+  | 'topo'
+  | 'ocean'
+  | 'thermal'
+  | 'vectors'
+  | 'point'
+  | 'field'
+  | 'trajectory'
+  | 'atmospheric-clouds'
+  | 'planetary-clouds';
+
 export interface DataLayerPreset {
   id: string;
   name: string;
-  category: 'satellite' | 'night' | 'topo' | 'ocean' | 'thermal' | 'vectors' | 'point' | 'field' | 'trajectory';
+  category: DataLayerCategory;
   type: string;
   details: string;
   url: string;
@@ -325,6 +338,23 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
       minLabel: 'Glide 10:1',
       maxLabel: 'Ridge Lift +5 m/s',
       unit: 'Variometer Telemetry',
+    },
+  },
+  {
+    id: 'noaa-gfs-clouds',
+    name: 'Atmospheric Cloud Strata (NOAA GFS)',
+    category: 'atmospheric-clouds',
+    type: 'Multi-Altitude Cloud Shells',
+    details: 'Tri-altitude cloud shells (Low Stratus 1–2 km, Mid Altocumulus 4–6 km, High Cirrus 10–12 km) from NOAA GFS 0.25° grids',
+    url: '/data/gfs-cloud-low-latest.bin',
+    defaultOpacity: 0.80,
+    defaultBlendMode: 0,
+    attribution: 'NOAA NCEP GFS (LCDC / MCDC / HCDC)',
+    legend: {
+      colorStops: ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.5)', 'rgba(255,255,255,0.85)', '#ffffff'],
+      minLabel: 'Cirrus (10km)',
+      maxLabel: 'Stratus (1km)',
+      unit: 'Cloud Fraction (GFS)',
     },
   },
 ];

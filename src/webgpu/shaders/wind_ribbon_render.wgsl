@@ -67,7 +67,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     }
 
     let p = particles[particleIdx];
-    let isJet = select(0.0, 1.0, p.pos.z > 0.1);
+    let isJet = select(0.0, 1.0, p.pos.z > 0.003);
 
     var ptA = p.history0;
     var ptB = p.history1;
@@ -192,7 +192,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let normSpeed = clamp(in.speed / 80.0, 0.0, 1.0);
 
         if (sim.u_theme == 0u) {
-            // Dark Obsidian / Marie Tharp theme:
+            // Theme 0: Dark Obsidian / Marie Tharp theme:
             // Subdued slate-blue (< 35 m/s) -> Luminescent platinum-cyan (~55 m/s) -> Solar amber core (> 70 m/s)
             let coolJet = vec3<f32>(0.22, 0.50, 0.70); // Deep aerospace slate-blue
             let midJet  = vec3<f32>(0.55, 0.82, 0.92); // Luminescent platinum
@@ -207,6 +207,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
                 color = mix(coreJet, peakJet, (normSpeed - 0.82) / 0.18);
             }
             alphaBase = 0.75;
+        } else if (sim.u_theme == 1u) {
+            // Theme 1: Cream Rag (Swiss Relief): Charcoal to Deep Indigo-Navy
+            let calmJet = vec3<f32>(0.42, 0.46, 0.54);
+            let fastJet = vec3<f32>(0.12, 0.20, 0.38);
+            let coreJet = vec3<f32>(0.04, 0.08, 0.18);
+            color = mix(calmJet, fastJet, smoothstep(0.2, 0.7, normSpeed));
+            color = mix(color, coreJet, smoothstep(0.7, 1.0, normSpeed));
+            alphaBase = 0.75;
         } else if (sim.u_theme == 2u) {
             // Theme 2: Prussian Cyanotype (Blueprint architectural drafting traces)
             // Chalk cerulean (#7AA2C8) to crisp chalk ruling pen white (#E8EDF2)
@@ -218,7 +226,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             color = mix(color, coreChalk, smoothstep(0.65, 0.98, normSpeed));
             alphaBase = 0.50;
         } else {
-            // Theme 1: Light Monochrome theme (Cream Rag): Charcoal to Deep Indigo-Navy
+            // Fallback: Theme 1
             let calmJet = vec3<f32>(0.42, 0.46, 0.54);
             let fastJet = vec3<f32>(0.12, 0.20, 0.38);
             let coreJet = vec3<f32>(0.04, 0.08, 0.18);
@@ -232,23 +240,32 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let normSpeed = clamp(in.speed / 18.0, 0.0, 1.0);
 
         if (sim.u_theme == 0u) {
-            // Subtle misty slate-pearl to crisp lunar silver
+            // Theme 0: Marie Tharp: Subtle misty slate-pearl to crisp lunar silver
             // Low saturation prevents clashing with terrain relief or ocean blues
             let calmSurf  = vec3<f32>(0.56, 0.66, 0.76); // Muted slate-pearl
             let briskSurf = vec3<f32>(0.88, 0.94, 1.00); // Luminous silver filament
             color = mix(calmSurf, briskSurf, normSpeed);
             alphaBase = mix(0.38, 0.72, smoothstep(0.06, 0.60, normSpeed));
+        } else if (sim.u_theme == 1u) {
+            // Theme 1: Cream Rag: Warm sienna-copper drafting filaments
+            // Contrasts cleanly against both warm ivory paper (#F3ECE0) and dark sepia relief (#38302A)
+            let calmSurf  = vec3<f32>(0.74, 0.38, 0.20); // Warm burnt sienna archival ink
+            let briskSurf = vec3<f32>(0.94, 0.58, 0.26); // Luminous polished copper filament
+            color = mix(calmSurf, briskSurf, normSpeed);
+            alphaBase = mix(0.40, 0.78, smoothstep(0.06, 0.60, normSpeed));
         } else if (sim.u_theme == 2u) {
-            // Theme 2: Prussian Cyanotype: Chalk cerulean (#7AA2C8) to chalk white (#E8EDF2)
-            let calmSurf  = vec3<f32>(0.38, 0.54, 0.70); // Muted blueprint cerulean
-            let briskSurf = vec3<f32>(0.75, 0.88, 0.98); // Luminous chalk filament
+            // Theme 2: Prussian Cyanotype: Actinic chalk white & photochemical amber
+            // Contrasts sharply against ferroprussiate indigo oceans and cerulean terrain
+            let calmSurf  = vec3<f32>(0.92, 0.96, 1.00); // Pure actinic white ruling pen line
+            let briskSurf = vec3<f32>(1.00, 0.82, 0.40); // Solar photochemical amber filament
             color = mix(calmSurf, briskSurf, normSpeed);
-            alphaBase = mix(0.25, 0.50, smoothstep(0.06, 0.60, normSpeed));
+            alphaBase = mix(0.55, 0.88, smoothstep(0.06, 0.60, normSpeed));
         } else {
-            let calmSurf  = vec3<f32>(0.58, 0.60, 0.64);
-            let briskSurf = vec3<f32>(0.16, 0.18, 0.22);
+            // Fallback: Theme 1
+            let calmSurf  = vec3<f32>(0.74, 0.38, 0.20);
+            let briskSurf = vec3<f32>(0.94, 0.58, 0.26);
             color = mix(calmSurf, briskSurf, normSpeed);
-            alphaBase = mix(0.38, 0.72, smoothstep(0.06, 0.60, normSpeed));
+            alphaBase = mix(0.40, 0.78, smoothstep(0.06, 0.60, normSpeed));
         }
     }
 
@@ -258,12 +275,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             // Obsidian Dark Cyber / Marie Tharp: Crystalline silver mist vapor glaze
             let mistGlaze = vec3<f32>(0.92, 0.96, 1.00);
             color = mix(color, mistGlaze, condensation * 0.35);
+        } else if (sim.u_theme == 1u) {
+            // Cream Rag / Swiss Relief: Washed watercolor vapor glaze
+            let vaporGlaze = vec3<f32>(0.68, 0.74, 0.80);
+            color = mix(color, vaporGlaze, condensation * 0.30);
         } else if (sim.u_theme == 2u) {
             // Prussian Cyanotype: Actinic chalk mist glaze
             let actinicGlaze = vec3<f32>(0.88, 0.93, 0.98);
             color = mix(color, actinicGlaze, condensation * 0.35);
         } else {
-            // Cream Rag / Swiss Relief: Washed watercolor vapor glaze
+            // Fallback: Theme 1
             let vaporGlaze = vec3<f32>(0.68, 0.74, 0.80);
             color = mix(color, vaporGlaze, condensation * 0.30);
         }

@@ -181,7 +181,7 @@ describe('STAGE 3: Atmospheric Orographic Dynamics & WebGPU Bindings', () => {
       // Verify windUniformBuffer size is 48 bytes (12 floats for 16-byte alignment)
       const windUBuffer = (engine as any).windUniformBuffer as any;
       expect(windUBuffer).toBeDefined();
-      expect(windUBuffer.size).toBe(48);
+      expect(windUBuffer.size).toBe(64);
     });
 
     it('STAGE3-WEBGPU-03: cleans up all resources cleanly on engine.dispose()', () => {

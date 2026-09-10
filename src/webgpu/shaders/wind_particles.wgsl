@@ -21,9 +21,10 @@ struct WindSimUniforms {
     u_showSurfaceWinds: f32,
     u_showJetStream: f32,
     u_displacementScale: f32,
-    u_pad0: f32,
+    u_peakExponent: f32,
     u_pad1: f32,
     u_pad2: f32,
+    u_cameraPos: vec4<f32>,
 };
 
 struct WindParticle {
@@ -43,6 +44,19 @@ struct WindParticle {
 @group(0) @binding(5) var u_jetTexture: texture_2d<f32>;
 @group(0) @binding(6) var u_demSampler: sampler;
 @group(0) @binding(7) var u_demTexture: texture_2d<f32>;
+@group(0) @binding(8) var u_regionalDEMTexture: texture_2d<f32>;
+
+struct RegionalOverlayUniforms {
+    u_regionalBounds: vec4<f32>,
+    u_pad0: vec4<f32>,
+    u_pad1: vec4<f32>,
+    u_regionalActive: u32,
+    u_pad2: u32,
+    u_pad3: u32,
+    u_pad4: u32,
+};
+
+@group(0) @binding(9) var<uniform> u_regionalOverlay: RegionalOverlayUniforms;
 
 // Deterministic fast hash for particle respawning
 fn hash12(p: vec2<f32>) -> f32 {
@@ -71,15 +85,73 @@ fn sampleVelocity(lonRad: f32, latRad: f32, isJet: bool) -> vec2<f32> {
     }
 }
 
-// Unpack ETOPO 2022 DEM elevation at equirectangular coordinates
+fn getRegionalBlendWeight(uv: vec2<f32>) -> f32 {
+    if (u_regionalOverlay.u_regionalActive == 0u) {
+        return 0.0;
+    }
+
+    let bounds = u_regionalOverlay.u_regionalBounds;
+    let minLon = bounds.x;
+    let minLat = bounds.y;
+    let maxLon = bounds.z;
+    let maxLat = bounds.w;
+
+    let lon = uv.x * 360.0 - 180.0;
+    let lat = 90.0 - uv.y * 180.0;
+
+    if (lon < minLon || lon > maxLon || lat < minLat || lat > maxLat) {
+        return 0.0;
+    }
+
+    let regU = (lon - minLon) / (maxLon - minLon);
+    let regV = (maxLat - lat) / (maxLat - minLat);
+
+    let blendDeg = 0.5;
+    let lonSpan = maxLon - minLon;
+    let latSpan = maxLat - minLat;
+    let marginU = clamp(blendDeg / lonSpan, 0.001, 0.49);
+    let marginV = clamp(blendDeg / latSpan, 0.001, 0.49);
+
+    let distU = min(regU, 1.0 - regU);
+    let distV = min(regV, 1.0 - regV);
+
+    let weightU = smoothstep(0.0, marginU, distU);
+    let weightV = smoothstep(0.0, marginV, distV);
+    return weightU * weightV;
+}
+
+fn sampleRegionalComposite(uv: vec2<f32>, globalSample: vec4<f32>, lod: f32) -> vec4<f32> {
+    let weight = getRegionalBlendWeight(uv);
+    if (weight <= 0.0001) {
+        return globalSample;
+    }
+
+    let bounds = u_regionalOverlay.u_regionalBounds;
+    let minLon = bounds.x;
+    let minLat = bounds.y;
+    let maxLon = bounds.z;
+    let maxLat = bounds.w;
+
+    let lon = uv.x * 360.0 - 180.0;
+    let lat = 90.0 - uv.y * 180.0;
+
+    let regU = clamp((lon - minLon) / (maxLon - minLon), 0.0, 1.0);
+    let regV = clamp((maxLat - lat) / (maxLat - minLat), 0.0, 1.0);
+
+    let regSample = textureSampleLevel(u_regionalDEMTexture, u_demSampler, vec2<f32>(regU, regV), 0.0);
+    return mix(globalSample, regSample, weight);
+}
+
+// Unpack DEM elevation at equirectangular coordinates
 fn sampleTerrainElevation(lonRad: f32, latRad: f32) -> f32 {
     let u = fract(lonRad / TWO_PI + 0.5);
     let v = clamp(0.5 - latRad / PI, 0.001, 0.999);
-    let sample = textureSampleLevel(u_demTexture, u_demSampler, vec2<f32>(u, v), 0.0);
-    // ETOPO 2022 format: R is normalized continental elevation (0..8848m), B is land mask (>0.45 = land)
-    let landElev = sample.r * 8848.0;
-    // Over ocean, winds flow over sea surface boundary layer (0.0m)
-    return select(0.0, landElev, sample.b > 0.45);
+    let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, vec2<f32>(u, v), 0.0);
+    let sample = sampleRegionalComposite(vec2<f32>(u, v), demSampleGlobal, 0.0);
+    // Invariant §15: Cross-Pipeline DEM Mathematical Parity
+    let elevMeters = sample.a * 19772.0 - 10924.0;
+    // For wind particles, ensure we don't return negative elevation (clip to sea level)
+    return max(0.0, elevMeters);
 }
 
 struct TerrainSample {
@@ -88,9 +160,9 @@ struct TerrainSample {
 };
 
 fn sampleTerrain(lonRad: f32, latRad: f32) -> TerrainSample {
-    // Texel step corresponding to 1 texel on 8192x4096 DEM
-    let dLon = TWO_PI / 8192.0;
-    let dLat = PI / 4096.0;
+    let demDims = vec2<f32>(textureDimensions(u_demTexture));
+    let dLon = TWO_PI / max(demDims.x, 1.0);
+    let dLat = PI / max(demDims.y, 1.0);
 
     let hCenter = sampleTerrainElevation(lonRad, latRad);
     let hEast   = sampleTerrainElevation(lonRad + dLon, latRad);
@@ -113,12 +185,22 @@ fn sampleTerrain(lonRad: f32, latRad: f32) -> TerrainSample {
 
 fn computeLiftedAltitude(lonRad: f32, latRad: f32, vel: vec2<f32>, isJet: bool) -> f32 {
     let t = sampleTerrain(lonRad, latRad);
-    let w = dot(vel, t.gradient);
-    let terrainDisp = (t.elevation / 8848.0) * (sim.u_displacementScale * 2.8);
-    let baseAlt = select(0.04, 0.22, isJet);
+    let wOrographic = dot(vel, t.gradient);
+    
+    let normH = max(0.0, t.elevation) / 8848.0;
+    let camDist = length(sim.u_cameraPos.xyz);
+    let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
+    let dynamicExp = mix(1.0, 1.8, orbitT) * (max(0.5, sim.u_peakExponent) / 1.4);
+    
+    let poleDist = abs(clamp(0.5 - latRad / PI, 0.001, 0.999) - 0.5) * 2.0;
+    let poleAtten = 1.0 - smoothstep(0.85, 0.98, poleDist);
+    
+    let terrainDisp = pow(normH, max(0.5, dynamicExp)) * (sim.u_displacementScale * 2.8) * poleAtten;
+    
+    let baseAlt = select(0.0005, 0.0065, isJet);
     let lift = select(
-        terrainDisp + clamp(w * 0.005, 0.0, 0.035),
-        terrainDisp * 0.25 + clamp(w * 0.002, -0.01, 0.02),
+        terrainDisp + clamp(wOrographic * 0.005, 0.0, 0.035),
+        terrainDisp + clamp(wOrographic * 0.002, -0.005, 0.010),
         isJet
     );
     return baseAlt + lift;
@@ -254,13 +336,7 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Orographic vertical velocity w = u_h · ∇h (in m/s) and terrain-lifted altitude
     let t0 = sampleTerrain(lon, lat);
     let wOrographic = dot(currentVel, t0.gradient);
-    let terrainDisp0 = (t0.elevation / 8848.0) * (sim.u_displacementScale * 2.8);
-    let baseAlt = select(0.04, 0.22, isJetStream);
-    let alt0 = baseAlt + select(
-        terrainDisp0 + clamp(wOrographic * 0.005, 0.0, 0.035),
-        terrainDisp0 * 0.25 + clamp(wOrographic * 0.002, -0.01, 0.02),
-        isJetStream
-    );
+    let alt0 = computeLiftedAltitude(lon, lat, currentVel, isJetStream);
 
     // Calculate fade alpha: smooth fade in at birth, fade out at end of life
     let fadeIn = smoothstep(0.0, 0.12, age);

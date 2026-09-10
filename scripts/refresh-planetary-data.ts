@@ -10,6 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { fetchOrGenerateGFS } from './fetch-or-generate-gfs-wind';
+import { fetchOrGenerateGFSClouds } from './fetch-or-generate-gfs-clouds';
 import { fetchOrGenerateTLE } from './fetch-or-generate-tle-starlink';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,6 +27,11 @@ export async function refreshAllPlanetaryData(): Promise<{ gfsBytes: number; tle
   const gfsPath = path.join(projectRoot, 'public/data/gfs-wind-latest.bin');
   const gfsStats = fs.statSync(gfsPath);
   console.log(`[OK] GFS Wind Grid: ${gfsStats.size} bytes written to ${gfsPath}`);
+
+  // 1.5. Refresh NOAA GFS Cloud Grids
+  console.log('--- Step 1.5/2: Ingesting NOAA GFS Cloud Field ---');
+  await fetchOrGenerateGFSClouds();
+  console.log(`[OK] GFS Cloud Grids generated.`);
 
   // 2. Refresh CelesTrak Starlink & ISS TLEs
   console.log('--- Step 2/2: Ingesting CelesTrak Starlink & ISS TLE Constellation ---');

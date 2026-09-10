@@ -882,3 +882,125 @@ In `src/core/physics/OrigamiCraneFlightSolver.ts` and `src/webgpu/WebGPUEngine.t
 - [ ] Chrome DevTools MCP captures Viewpoint 5 (Orographic Streamline Deflection over the Alps/Andes) into `screenshots/`.
 - [ ] Console logs confirm zero WebGPU WGSL uniform control flow validation errors.
 - [ ] WebGPU frame profiling confirms 120 FPS target with zero dropped frames.
+
+## 2026-09-10T00:05:07Z
+
+Build the "Alive Planet" atmosphere system for the Indicatrix Engine — a WebGPU cartographic manifold morpher. The engine already has: terrain (8K DEM), hydrosphere (Jerlov radiative transfer), wind ribbons (NOAA GFS surface + jet stream), vector boundaries, contour topology, origami crane, and 3 cartographic themes (Theme 0: Marie Tharp, Theme 1: Cream Rag, Theme 2: Prussian Cyanotype). This build adds **multi-altitude cloud shells** using real NOAA GFS data and **polishes the existing wind ribbon system** for contrast and altitude differentiation.
+
+Working directory: /Users/andrewvoirol/Antigravity/Projects/ais-interactive-globe-to-map
+Integrity mode: development
+
+## Critical Project Invariants
+
+This project has **49 numbered invariants** documented in `AGENTS.md`. The following are load-bearing for this build:
+
+- **Invariant §3 (WGSL Uniform Control Flow)**: All `fwidth()`, `dpdx()`, `dpdy()` calls MUST be evaluated at the top of `fs_main` in unconditional control flow, before any `if`, `discard`, or dynamic branching. Violation causes fatal GPU compilation errors.
+- **Invariant §5 (Premultiplied Alpha Transparent Clear)**: The engine uses `alphaMode: 'premultiplied'`. All render passes MUST use `clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }`.
+- **Invariant §10 (Horizon Tangent Attenuation)**: Surface-conforming geometry must evaluate facing (`n · v`) and smoothstep attenuate to zero before the horizon limb.
+- **Invariant §15 (Cross-Pipeline DEM Mathematical Parity)**: Any new render pass conforming to the crust must use the identical geoid decoding formula: `elevMeters = demSample.a * 19772.0 - 10924.0`.
+- **Invariant §20 (Core Buffer Discipline)**: New subsystems (cloud shells) must allocate lazily on first activation and cleanly destroy on `engine.dispose()`.
+- **Invariant §24 (Zero-Recompile Theme Switching)**: Theme changes flow through uniform buffer updates only — no pipeline recreation. All per-theme cloud inks go through uniforms.
+- **Invariant §28 (Exhaustive Multi-Medium Shader Parity)**: Every new shader MUST contain explicit branches for all 3 themes with period-accurate archival inks. No binary `if/else` fallthrough collapsing two themes.
+- **Invariant §46 (Test Import Integrity)**: Tests must import from `src/` — no local reimplementations.
+
+The full invariant list is in `AGENTS.md` at the project root. Read it before starting any work.
+
+## Reference Documents
+
+- `DESIGN_ETHOS.md`: The 16 core design principles, rendering identities, hydrosphere physics
+- `design-language.md`: Color spaces (OKLCH to Linear sRGB), theme tokens, HUD geometry
+- `AGENTS.md`: 49 numbered invariants — the authoritative constraint set
+
+## Requirements
+
+### R1. Multi-Altitude Cloud Layer (P0)
+
+Three independent cloud shells rendered as spherical geometry at different altitude standoffs above the crust, each sampling real NOAA GFS cloud fraction data:
+
+| Layer | GFS Variable | Altitude | Standoff |
+|-------|-------------|----------|----------|
+| Low (stratus/fog) | `LCDC` | ~1-2 km | R + 0.001 |
+| Mid (altocumulus) | `MCDC` | ~4-6 km | R + 0.004 |
+| High (cirrus) | `HCDC` | ~10-12 km | R + 0.008 |
+
+Cloud shells must:
+- Participate in the globe→map morph (`u_unfurl`), preserving altitude standoff as vertical offset above flattened terrain at α=1.0
+- Drift independently via `u_cloudDrift` uniform (low clouds slower than high clouds — real atmospheric drift ratios)
+- Render with altitude-dependent opacity (high cirrus 0.2–0.4, low stratus 0.5–0.8)
+- Feather cloud fraction values below 20% to zero to prevent harsh grid-aligned edges from 0.25° GFS resolution
+- Respect render pass ordering: Crust → Wind Ribbons → Cloud LOW → Cloud MID → Cloud HIGH
+- Be individually toggleable via HUD controls
+
+### R2. GFS Cloud Data Pipeline
+
+Extend the existing NOAA GFS fetch pipeline (`scripts/fetch-real-gfs.py` and `scripts/fetch-or-generate-gfs-wind.ts`) to also fetch `LCDC`, `MCDC`, and `HCDC` cloud cover percentage grids from the same NOMADS GRIB filter endpoint. The pipeline already handles 0.25° grids (1440×721) — cloud data uses the same resolution. Include a procedural fallback generator (same pattern as `fetch-or-generate-gfs-wind.ts`) that produces realistic cloud fraction patterns when NOAA is unavailable.
+
+### R3. Wind Ribbon Visual Polish (P0.5)
+
+Fix three issues in the existing wind ribbon system:
+
+**3a. Theme-aware contrast colors**: Replace the current surface wind colors for Theme 1 (Cream Rag) and Theme 2 (Cyanotype) that disappear against their respective terrain palettes:
+- Cream Rag: Warm sienna-copper wind filaments (visible against both cream paper and dark terrain features)
+- Cyanotype: Bright actinic white or warm amber contrast against the cool blue field
+- Reference: `wind_ribbon_render.wgsl` lines 229–252
+
+**3b. Jet stream altitude differentiation**: Jet stream ribbons should render at a visible altitude standoff above the surface (between mid and high cloud shells, where jet streams physically exist at ~10 km), reinforcing the layered atmosphere concept from oblique viewing angles.
+
+**3c. Layer ordering with clouds**: Wind ribbons render below the lowest cloud shell. Surface winds peek through cloud gaps naturally. Default HUD state shows one at a time, but both simultaneously must be possible.
+
+### R4. Per-Theme Cloud Inking
+
+All three cloud shells must render in theme-appropriate archival inks, driven entirely through uniform buffers (Invariant §24):
+
+| Theme | Cloud Appearance |
+|-------|------------------|
+| Theme 0 (Marie Tharp 1977) | Soft warm white, semi-transparent, subtle cast shadows |
+| Theme 1 (Cream Rag) | Warm ivory watercolor washes, absorbed into paper tooth texture |
+| Theme 2 (Prussian Cyanotype 1842) | Actinic white wisps against prussian blue, photochemical exposure |
+
+### R5. HUD Integration
+
+Add cloud layer controls to the existing HUD sidebar that follow the established cartographic instrument design language:
+- Master cloud toggle (all layers on/off)
+- Per-altitude layer toggles (Low / Mid / High)
+- Cloud drift speed slider
+- Controls must follow the 20px grid axis and 10px moat conventions documented in AGENTS.md §2
+
+## Acceptance Criteria
+
+### Build & Type Safety
+- [ ] `npx tsc --noEmit` passes with zero errors
+- [ ] `npm run build` (Vite production build) completes successfully
+- [ ] `npm test` (Vitest) — all existing tests pass, no regressions
+
+### WGSL Shader Integrity
+- [ ] `node scripts/lint-wgsl-control-flow.mjs` passes — all derivatives in unconditional control flow (Invariant §3)
+- [ ] New `cloud_shell.wgsl` shader contains explicit branches for all 3 themes (Invariant §28) — no binary if/else fallthrough
+- [ ] Cloud shell shader uses premultiplied alpha blend (Invariant §5)
+- [ ] Horizon tangent attenuation prevents cloud geometry from protruding beyond the planetary silhouette (Invariant §10)
+
+### Data Pipeline
+- [ ] Cloud fetch script successfully downloads LCDC, MCDC, HCDC from NOAA NOMADS when available
+- [ ] Procedural fallback generates 3 cloud fraction binary files (same format as wind data) when NOAA is unavailable
+- [ ] Binary files are correctly sized for 0.25° grid: 1440 × 721 × 1 component × 2 bytes = 2,076,480 bytes each
+
+### Visual Verification (Live Browser via Chrome DevTools MCP)
+- [ ] Globe view: Three cloud layers composite into one realistic cloud image from overhead
+- [ ] Oblique view: Visible depth parallax between low, mid, and high cloud shells
+- [ ] Theme 0: Marine indigo terrain visible through cloud gaps, warm white clouds
+- [ ] Theme 1: Cream paper substrate visible, ivory watercolor cloud washes
+- [ ] Theme 2: Prussian blue terrain, actinic white cloud wisps
+- [ ] Wind ribbons: Cream Rag surface winds visible as warm sienna-copper filaments against terrain
+- [ ] Wind ribbons: Cyanotype surface winds clearly visible against blue terrain
+- [ ] Jet stream ribbons render at visible altitude standoff (between mid and high cloud shells)
+- [ ] Cloud shells morph correctly during globe→map unfurl (clouds separate into visible layers at α≈0.5)
+- [ ] Theme hot-switch (all 3 themes) completes in < 1 frame (< 8.3ms at 120 Hz) with zero console errors
+
+### Performance
+- [ ] 120 FPS sustained with all 3 cloud shells active (Apple Silicon M4 Pro target)
+- [ ] No pipeline recompilation during theme switching (Invariant §24 — uniform buffer updates only)
+
+### Engine Integration
+- [ ] Cloud buffers allocate lazily via `ensureCloudBuffers()` pattern (Invariant §20)
+- [ ] `engine.dispose()` cleanly destroys all cloud GPU resources with zero VRAM leaks
+- [ ] Cloud shell DEM decoding formula matches crust exactly: `elevMeters = demSample.a * 19772.0 - 10924.0` (Invariant §15)

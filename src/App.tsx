@@ -63,6 +63,12 @@ export default function App() {
     gpuReport, setGpuReport,
     dataInfo, setDataInfo,
     isolatedStratum,
+    showClouds, setShowClouds,
+    showCloudLow, setShowCloudLow,
+    showCloudMid, setShowCloudMid,
+    showCloudHigh, setShowCloudHigh,
+    cloudDriftSpeed, setCloudDriftSpeed,
+    cloudOpacity, setCloudOpacity,
   } = engineState;
 
   const {
@@ -457,6 +463,12 @@ export default function App() {
                 isDemoMode={isDemoMode}
                 demoSequence={demoSequence}
                 onDemoModeChange={handleDemoModeChange}
+                showClouds={showClouds}
+                showCloudLow={showCloudLow}
+                showCloudMid={showCloudMid}
+                showCloudHigh={showCloudHigh}
+                cloudDriftSpeed={cloudDriftSpeed}
+                cloudOpacity={cloudOpacity}
               />
             </React.Suspense>
           ) : (

@@ -15,6 +15,7 @@
     "precompute:vectors-10m": "npx tsx scripts/precompute-vectors-10m.ts",
     "refresh:planetary": "npx tsx scripts/refresh-planetary-data.ts",
     "refresh:wind": "npx tsx scripts/fetch-or-generate-gfs-wind.ts",
+    "refresh:clouds": "npx tsx scripts/fetch-or-generate-gfs-clouds.ts",
     "refresh:starlink": "npx tsx scripts/fetch-or-generate-tle-starlink.ts",
     "lint:wgsl": "node scripts/lint-wgsl-control-flow.mjs",
     "test": "vitest run",

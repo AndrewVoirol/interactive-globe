@@ -206,6 +206,18 @@ export interface UnifiedRightSidebarProps {
   demoSequence?: 'hawaii' | 'cape-cod';
   onToggleDemoMode?: (seq?: 'hawaii' | 'cape-cod') => void;
   onSelectDemoSequence?: (seq: 'hawaii' | 'cape-cod') => void;
+  showClouds?: boolean;
+  onShowCloudsChange?: (v: boolean) => void;
+  showCloudLow?: boolean;
+  onShowCloudLowChange?: (v: boolean) => void;
+  showCloudMid?: boolean;
+  onShowCloudMidChange?: (v: boolean) => void;
+  showCloudHigh?: boolean;
+  onShowCloudHighChange?: (v: boolean) => void;
+  cloudDriftSpeed?: number;
+  onCloudDriftSpeedChange?: (v: number) => void;
+  cloudOpacity?: number;
+  onCloudOpacityChange?: (v: number) => void;
 }
 
 export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
@@ -278,7 +290,108 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   demoSequence = 'hawaii',
   onToggleDemoMode,
   onSelectDemoSequence,
+  showClouds: propShowClouds,
+  onShowCloudsChange,
+  showCloudLow: propShowCloudLow,
+  onShowCloudLowChange,
+  showCloudMid: propShowCloudMid,
+  onShowCloudMidChange,
+  showCloudHigh: propShowCloudHigh,
+  onShowCloudHighChange,
+  cloudDriftSpeed: propCloudDriftSpeed,
+  onCloudDriftSpeedChange,
+  cloudOpacity: propCloudOpacity,
+  onCloudOpacityChange,
 }) => {
+  const [internalShowClouds, setInternalShowClouds] = useState<boolean>(true);
+  const [internalShowCloudLow, setInternalShowCloudLow] = useState<boolean>(true);
+  const [internalShowCloudMid, setInternalShowCloudMid] = useState<boolean>(true);
+  const [internalShowCloudHigh, setInternalShowCloudHigh] = useState<boolean>(true);
+  const [internalCloudDriftSpeed, setInternalCloudDriftSpeed] = useState<number>(1.0);
+  const [internalCloudOpacity, setInternalCloudOpacity] = useState<number>(0.8);
+
+  const curShowClouds = propShowClouds !== undefined ? propShowClouds : internalShowClouds;
+  const curShowCloudLow = propShowCloudLow !== undefined ? propShowCloudLow : internalShowCloudLow;
+  const curShowCloudMid = propShowCloudMid !== undefined ? propShowCloudMid : internalShowCloudMid;
+  const curShowCloudHigh = propShowCloudHigh !== undefined ? propShowCloudHigh : internalShowCloudHigh;
+  const curCloudDriftSpeed = propCloudDriftSpeed !== undefined ? propCloudDriftSpeed : internalCloudDriftSpeed;
+  const curCloudOpacity = propCloudOpacity !== undefined ? propCloudOpacity : internalCloudOpacity;
+
+  const handleToggleClouds = (val: boolean) => {
+    setInternalShowClouds(val);
+    onShowCloudsChange?.(val);
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+      (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showClouds: val });
+    }
+    const cloudLayer = dataLayers.find((l) => l.id === 'noaa-gfs-clouds');
+    if (cloudLayer) {
+      if (cloudLayer.visible !== val) {
+        onToggleDataLayer?.('noaa-gfs-clouds');
+      }
+    } else if (val && onAddDataLayer) {
+      const preset = getPresetById('noaa-gfs-clouds');
+      if (preset) {
+        onAddDataLayer({
+          id: preset.id,
+          name: preset.name,
+          category: preset.category,
+          type: preset.type,
+          details: preset.details,
+          visible: true,
+          opacity: preset.defaultOpacity,
+          blendMode: preset.defaultBlendMode,
+          url: preset.url,
+        });
+      }
+    }
+  };
+
+  const handleToggleCloudLow = () => {
+    const next = !curShowCloudLow;
+    setInternalShowCloudLow(next);
+    onShowCloudLowChange?.(next);
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+      (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudLow: next });
+    }
+  };
+
+  const handleToggleCloudMid = () => {
+    const next = !curShowCloudMid;
+    setInternalShowCloudMid(next);
+    onShowCloudMidChange?.(next);
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+      (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudMid: next });
+    }
+  };
+
+  const handleToggleCloudHigh = () => {
+    const next = !curShowCloudHigh;
+    setInternalShowCloudHigh(next);
+    onShowCloudHighChange?.(next);
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+      (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudHigh: next });
+    }
+  };
+
+  const handleCloudDriftChange = (v: number) => {
+    if (typeof v !== 'number' || !Number.isFinite(v)) return;
+    const clamped = Math.max(0.0, Math.min(3.0, v));
+    setInternalCloudDriftSpeed(clamped);
+    onCloudDriftSpeedChange?.(clamped);
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+      (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ cloudDriftSpeed: clamped });
+    }
+  };
+
+  const handleCloudOpacityChange = (v: number) => {
+    if (typeof v !== 'number' || !Number.isFinite(v)) return;
+    const clamped = Math.max(0.1, Math.min(1.0, v));
+    setInternalCloudOpacity(clamped);
+    onCloudOpacityChange?.(clamped);
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+      (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ cloudOpacity: clamped });
+    }
+  };
   const [internalSidebarOpen, setInternalSidebarOpen] = useState(true);
   const isSidebarOpen = externalSidebarOpen !== undefined ? externalSidebarOpen : internalSidebarOpen;
   const setIsSidebarOpen = (val: boolean | ((prev: boolean) => boolean)) => {
@@ -482,7 +595,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   }, [isCraneActive]);
 
   const handleTogglePlanetaryLayer = (
-    id: 'noaa-gfs-wind' | 'starlink-iss-orbits' | 'noaa-gfs-jetstream' | 'origami-crane-companion'
+    id: 'noaa-gfs-wind' | 'starlink-iss-orbits' | 'noaa-gfs-jetstream' | 'origami-crane-companion' | 'noaa-gfs-clouds'
   ) => {
     const existing = dataLayers.find((l) => l.id === id);
     if (existing) {
@@ -1793,6 +1906,110 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         </div>
                       </button>
                     </div>
+                  </div>
+
+                  {/* Atmospheric Cloud Strata Instrumentation Card */}
+                  <div className="p-2 rounded-[3px] border space-y-2 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)]">
+                    <div className="flex items-center justify-between text-nano font-bold uppercase tracking-wider text-[var(--theme-text-muted)]">
+                      <span className="flex items-center gap-1.5">
+                        <span>Atmospheric Cloud Strata</span>
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={curShowClouds}
+                        onClick={() => handleToggleClouds(!curShowClouds)}
+                        className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          curShowClouds
+                            ? 'bg-[var(--theme-control-active-bg)] ring-1 ring-[var(--theme-control-active-border)]'
+                            : 'bg-[var(--theme-control-bg)] border border-[var(--theme-control-border)]'
+                        }`}
+                        title="Master Atmosphere Deck (All Cloud Layers)"
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            curShowClouds ? 'translate-x-3 bg-[var(--theme-text-accent)]' : 'translate-x-0 bg-[var(--theme-text-muted)]'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {curShowClouds && (
+                      <div className="space-y-2 pt-1 border-t border-[var(--theme-card-border)]">
+                        {/* Tri-Altitude Layer Toggles */}
+                        <div className="grid grid-cols-3 gap-1">
+                          <button
+                            type="button"
+                            onClick={handleToggleCloudLow}
+                            className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                              curShowCloudLow
+                                ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
+                                : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                            }`}
+                            title="Low Stratus / Fog (1–2 km altitude)"
+                          >
+                            <span className="font-bold text-nano">LOW</span>
+                            <span className="text-nano opacity-75">1–2 km</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleToggleCloudMid}
+                            className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                              curShowCloudMid
+                                ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
+                                : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                            }`}
+                            title="Mid Altocumulus (4–6 km altitude)"
+                          >
+                            <span className="font-bold text-nano">MID</span>
+                            <span className="text-nano opacity-75">4–6 km</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleToggleCloudHigh}
+                            className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                              curShowCloudHigh
+                                ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
+                                : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                            }`}
+                            title="High Cirrus (10–12 km altitude)"
+                          >
+                            <span className="font-bold text-nano">HIGH</span>
+                            <span className="text-nano opacity-75">10–12 km</span>
+                          </button>
+                        </div>
+
+                        {/* Cloud Drift Speed Vernier Slider */}
+                        <VernierSliderWithStepper
+                          id="sidebar-cloud-drift"
+                          label="Drift Speed"
+                          sublabel="Atmospheric Advection"
+                          value={curCloudDriftSpeed}
+                          min={0.0}
+                          max={3.0}
+                          step={0.1}
+                          readout={`${curCloudDriftSpeed.toFixed(1)}x`}
+                          onChange={handleCloudDriftChange}
+                          theme={theme}
+                          isLight={isLight}
+                        />
+
+                        {/* Cloud Opacity Slider */}
+                        <VernierSliderWithStepper
+                          id="sidebar-cloud-opacity"
+                          label="Cloud Opacity"
+                          sublabel="Strata Density"
+                          value={curCloudOpacity}
+                          min={0.1}
+                          max={1.0}
+                          step={0.05}
+                          readout={`${Math.round(curCloudOpacity * 100)}%`}
+                          onChange={handleCloudOpacityChange}
+                          theme={theme}
+                          isLight={isLight}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
