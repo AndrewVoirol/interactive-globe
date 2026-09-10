@@ -281,4 +281,31 @@ Always consult the following master specifications before proposing or making an
 - **Prohibition of Unmanaged >100MB Binaries**: No binary file exceeding 100 MB (e.g. `earth-etopo2022-dem-u16.bin` at 268 MB) may be staged or committed to Git without active Git LFS tracking configured in `.gitattributes`.
 - **Pre-Commit Enforcement**: Commits containing unmanaged files $>50\text{ MB}$ must be rejected by pre-commit hooks to avoid breaking remote git pushes.
 
+## 50. Multi-Stratum Atmospheric Shell Stratification & Optical Separation
+- **Prohibition of Composite Strata Collapse**: Multi-altitude planetary atmospheric layers (e.g. Low Stratus 1–2 km, Mid Altocumulus 4–6 km, High Cirrus 10–12 km) must NEVER be collapsed into a single 2D composite texture or rendered on a single geometric shell. Collapsing strata destroys optical depth, parallax, and meteorological readability.
+- **Discrete Geometric Shells & Standoffs**: Each atmospheric stratum must evaluate as a distinct geometric shell with an explicit physical altitude standoff:
+  $$R_{\text{stratum}} = R_0 + z_{\text{standoff}}, \quad z_{\text{stratus}} \approx 1.5\text{km}, \quad z_{\text{altocumulus}} \approx 5.0\text{km}, \quad z_{\text{cirrus}} \approx 11.0\text{km}$$
+- **Stratum-Specific Optical Identities**: Shaders must apply distinct optical and physical treatments per layer:
+  - *Low Stratus*: High-density billowy scattering, hypsometric grounding, terrain shadow interaction.
+  - *Mid Altocumulus*: Cellular wave textures, medium translucency, moderate drift.
+  - *High Cirrus*: Directional fibrous streaks, high transparency, accelerated jet-stream shear drift.
+- **Depth-Sorted Render Pass Ordering**: Strata must execute in back-to-front or altitude-sorted order with premultiplied alpha blending (`one`, `one-minus-src-alpha`), supporting independent layer toggling via HUD controls.
+
+## 51. WebGPU End-to-End Render Loop Uniform Dispatch Invariant
+- **Prohibition of Isolated-Only Method Testing**: Unit tests asserting that a secondary pipeline's uniform update method (e.g. `updateCloudUniforms()`) executes correctly in isolation are insufficient. Testing helpers without testing the main `engine.render(params)` frame loop allows uninvoked uniform updates to pass unnoticed.
+- **The Silent Zero-Matrix Hazard**: In WebGPU, unwritten uniform buffers contain all zeros. Transforming vertices by a zero `viewMatrix` or `projectionMatrix` results in `(0, 0, 0, 0)` clip coordinates. The GPU rasterizer discards these vertices without generating any validation errors, driver warnings, or console logs, producing an invisible render pass while reporting high frame rates.
+- **Mandatory Frame-Loop Wiring Verification**:
+  1. Any secondary render pass MUST have its uniform update explicitly wired inside `WebGPUEngine.render()` or `updateUniforms()`.
+  2. Integration test suites MUST invoke `engine.render(params)` directly and assert that the underlying uniform buffer contains non-zero matrix floats (`matrix[0] !== 0` or determinant $\ne 0$).
+
+## 52. WebGPU Texture Lifecycle & Rebind-First Destruction Contract
+- **Prohibition of Premature Texture Destruction**: Calling `texture.destroy()` while any active `GPUBindGroup` holds a reference to its texture view causes fatal WebGPU driver validation panics (`Texture is destroyed`) at `queue.submit()` time.
+- **Strict Rebind-First Sequence**: When swapping or updating textures dynamically (e.g., placeholder $\to$ real DEM, or updating dynamic cloud textures):
+  1. Allocate new `GPUTexture` and write payload data.
+  2. Construct all new `GPUBindGroup` instances across both primary and secondary pipelines (e.g. `demBindGroup`, `vectorDEMBindGroup`, and `cloudBindGroups`).
+  3. Assign the new bind groups to active engine fields.
+  4. Only after all references are replaced in the active render pass, invoke `oldTexture.destroy()`.
+- **Cross-Pipeline Secondary Bind Group Synchronization**: Whenever a shared resource (such as the planetary DEM texture) is updated, all secondary pipelines that bind it (terrain-lifted vectors, cloud elevation coupling) MUST have their bind groups rebuilt in the same atomic operation.
+
+
 
