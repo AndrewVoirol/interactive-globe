@@ -33,8 +33,8 @@ struct CloudUniforms {
     u_layerOpacity: vec4<f32>,    // offset 80 (floats 20..23) - x: low (0.70), y: mid (0.50), z: high (0.30), w: globalOpacity
     u_layerIndex: u32,            // offset 96 (float 24) - activeLayerIdx (0 = Low, 1 = Mid, 2 = High)
     u_peakExponent: f32,          // offset 100 (float 25) - Peak Exponent
-    u_isMid: u32,                 // offset 104 (float 26) - Boolean flag 1u if Mid
-    u_isHigh: u32,                // offset 108 (float 27) - Boolean flag 1u if High
+    u_atmosphericScale: f32,      // offset 104 (float 26) - Standoff Exaggeration [1.0 .. 12.0]
+    u_shadowIntensity: f32,       // offset 108 (float 27) - Dynamic Ground Shadow Intensity [0.0 .. 0.60]
     u_mediumProperties: vec4<f32>,// offset 112 (floats 28..31) - x: inkAbsorption, y: fiberDensity, z: exposureGamma, w: paperTooth (u_paper_tooth)
     u_viewMatrix: mat4x4<f32>,    // offset 128 (floats 32..47) - Camera view matrix (Column-major)
     u_projectionMatrix: mat4x4<f32>, // offset 192 (floats 48..63) - Camera projection matrix (Column-major)
@@ -206,9 +206,18 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     let poleDist = abs(input.uv.y - 0.5) * 2.0;
     let poleAtten = 1.0 - smoothstep(0.85, 0.98, poleDist);
     
-    // Evaluate whether keeping a terrainDamp multiplier on crustDisp is necessary so high clouds don't mimic sharp peaks too perfectly. Adjust the logic to ensure clouds don't clip the terrain while looking plausible.
+    // Surface-conforming terrain crust displacement (Invariant §15 parity with crust_hydrosphere.wgsl)
     let crustDisp = pow(normH, max(0.5, dynamicExp)) * (cloud.u_layerStandoff.w * 2.8) * poleAtten;
-    let totalOffset = baseStandoff + crustDisp; // Apply dampening to crustDisp if appropriate
+
+    // Pitch-adaptive standoff exaggeration (Spec §2.3)
+    let vCam = normalize(cloud.u_cameraPos.xyz - basePos);
+    let NdotV = clamp(dot(normal, vCam) / 0.35, 0.0, 1.0);
+    let k_exagg = 1.0 + (cloud.u_atmosphericScale - 1.0) * ((1.0 - NdotV) * (1.0 - NdotV));
+    let effStandoff = baseStandoff * k_exagg;
+
+    // Unified terrain-following displacement ensuring strict stratum hierarchy:
+    // z_low < z_mid < z_high and z_layer >= crustDisp everywhere across all landforms.
+    let totalOffset = crustDisp + effStandoff;
 
     // Morph participation with u_unfurl:
     // Evaluate world position along surface normal:
@@ -290,6 +299,26 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Unconditional texture sampling at top of fs_main before any branch or discard
     let rawCloud = textureSampleLevel(u_cloudTexture, u_cloudSampler, sampleUV, 0.0).r;
 
+    // Orographic lift & rain shadows via DEM gradient (Invariant §3, Invariant §15)
+    // Sample u_demTexture in unconditional uniform control flow at explicit LOD 0.0 strictly before discards
+    let deltaU = 0.0015;
+    let uvEast = vec2<f32>(fract(in.uv.x + deltaU), in.uv.y);
+    let uvWest = vec2<f32>(fract(in.uv.x - deltaU), in.uv.y);
+    let demEastGlobal = textureSampleLevel(u_demTexture, u_demSampler, uvEast, 0.0);
+    let demWestGlobal = textureSampleLevel(u_demTexture, u_demSampler, uvWest, 0.0);
+    let demEast = sampleRegionalComposite(uvEast, demEastGlobal, 0.0);
+    let demWest = sampleRegionalComposite(uvWest, demWestGlobal, 0.0);
+    let elevEast = decodeElevation(demEast);
+    let elevWest = decodeElevation(demWest);
+    let deltaH = (elevEast - elevWest) / 8848.0;
+
+    // Windward slopes: enhance cloud fraction by up to +35%
+    // Leeward rain shadows: thin cloud fraction by up to -70%
+    let windwardBoost = clamp(deltaH * 3.5, 0.0, 0.35);
+    let leewardShadow = clamp(-deltaH * 4.0, 0.0, 0.70);
+    let stratumCoupling = select(1.0, select(0.50, 0.15, layerIdx == 2u), layerIdx >= 1u);
+    let orographicFactor = 1.0 + (windwardBoost - leewardShadow) * stratumCoupling;
+
     // Invariant §10: Horizon Tangent Attenuation
     // Cloud fragments must evaluate surface facing (n · v) and smoothstep attenuate to zero
     // before crossing the planetary horizon limb (smoothstep(0.02, 0.20, in.facing)).
@@ -301,7 +330,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Feathering threshold < 20%:
     // Values below 20% cloud fraction feather to 0 to prevent harsh blocky pixel steps from 0.25° GFS resolution.
     let featheredCloud = smoothstep(0.0, 0.20, rawCloud);
-    let effectiveCloud = rawCloud * featheredCloud;
+    let effectiveCloud = clamp(rawCloud * featheredCloud * orographicFactor, 0.0, 1.0);
 
     if (effectiveCloud <= 0.001) {
         discard;

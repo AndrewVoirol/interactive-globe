@@ -29,6 +29,10 @@ struct SimUniforms {
     u_renderStyle: u32,       // 0 = Architectural / Relief, 1 = Hybrid / Depth, 2 = Orbital
     u_isolatedStratum: f32,   // -1.0 = All active, 0.0..4.0 = Isolate specific stratum band
     u_mediumProperties: vec4<f32>, // x: inkAbsorption, y: fiberDensity, z: exposureGamma, w: stippleDensity
+    u_shadowIntensity: f32, // Dynamic cloud ground shadow intensity (offset 272, float 68)
+    _padShadow0: f32,       // Strict 4-byte scalar padding (offset 276, float 69)
+    _padShadow1: f32,       // Strict 4-byte scalar padding (offset 280, float 70)
+    _padShadow2: f32,       // Strict 4-byte scalar padding (offset 284, float 71)
 };
 
 @group(0) @binding(0) var<uniform> sim: SimUniforms;
@@ -49,6 +53,8 @@ struct RegionalOverlayUniforms {
 };
 
 @group(0) @binding(6) var<uniform> u_regionalOverlay: RegionalOverlayUniforms;
+@group(0) @binding(7) var u_cloudTexture: texture_2d<f32>;
+@group(0) @binding(8) var u_cloudSampler: sampler;
 
 struct VertexInput {
     @location(0) position: vec3<f32>, // Base manifold position
@@ -285,7 +291,8 @@ fn computeHydrosphereShading(
     sunDir: vec3<f32>,
     uvCoord: vec2<f32>,
     elevationMeters: f32,
-    uniforms: HydrosphereUniforms
+    uniforms: HydrosphereUniforms,
+    shadowFactor: f32
 ) -> vec4<f32> {
     let depthMeters = max(0.0, uniforms.u_seaLevelOffset - elevationMeters);
     let isWater = depthMeters > 0.001;
@@ -329,7 +336,7 @@ fn computeHydrosphereShading(
     );
 
     let NdotL = max(0.05, dot(baseNormal, sunDir));
-    let seabedRadiance = R_subsurface * (NdotL * causticFactor);
+    let seabedRadiance = R_subsurface * (NdotL * causticFactor * shadowFactor);
 
     // Pelagic Radiance & Bathymetric Gradient from Jerlov Radiative Transfer
     var cSkyAmbient: vec3<f32>;
@@ -345,7 +352,7 @@ fn computeHydrosphereShading(
         cTrench     = vec3<f32>(0.005, 0.015, 0.05); // Abyssal Trench #0F171F
     }
     let cSunLight = select(vec3<f32>(1.08, 1.02, 0.94), vec3<f32>(0.95, 0.98, 1.02), sim.u_theme == 2u);
-    let sunIllum = cSunLight * (NdotL * 0.85 + 0.15) + cSkyAmbient * 0.80;
+    let sunIllum = cSunLight * (NdotL * 0.85 * shadowFactor + 0.15) + cSkyAmbient * 0.80;
 
     // Jerlov volume radiance: Type I crystal sapphire blue vs Type III emerald green
     let pelagicRadiance = (props.Rinf * 48.0) * sunIllum;
@@ -373,7 +380,7 @@ fn computeHydrosphereShading(
     let isDark = sim.u_theme != 1u;
     let skyReflection = select(vec3<f32>(0.75, 0.85, 0.95), vec3<f32>(0.20, 0.38, 0.55), isDark) * (fresnel * mapFresnelAtten);
     let specAtten = mix(1.0, 0.35, sim.u_unfurl);
-    let finalColor = waterColor * (1.0 - fresnel * 0.4) + skyReflection + vec3<f32>(sunSpecular * fresnel * specAtten);
+    let finalColor = waterColor * (1.0 - fresnel * 0.4) + skyReflection + vec3<f32>(sunSpecular * fresnel * specAtten * shadowFactor);
 
     // Dynamic optical transparency: shallow shelves are translucent to seabed below, deep abyss is dense
     let clarityScale = 0.0012 / max(0.15, sim.u_waterClarity);
@@ -642,6 +649,63 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     return output;
 }
 
+// ----------------------------------------------------------------------------
+// Cloud Ground Shadow Projection & Soft Penumbra Filtering (Spec §2.1)
+// ----------------------------------------------------------------------------
+fn computeCloudShadowOffset(uv: vec2<f32>, sunAzimuthDeg: f32, sunAltitudeDeg: f32) -> vec2<f32> {
+    const EARTH_RADIUS_KM: f32 = 6371.0;
+    const CLOUD_ALT_KM: f32 = 2.5; // Nominal tropospheric cloud deck altitude (2.5 km)
+    const TWO_PI_RE: f32 = 2.0 * 3.141592653589793 * EARTH_RADIUS_KM; // ~40030.17 km
+    const PI_RE: f32 = 3.141592653589793 * EARTH_RADIUS_KM;           // ~20015.09 km
+
+    // Key light sun azimuth (315.0 deg / NW) and altitude (45.0 deg) default
+    let azDeg = select(315.0, sunAzimuthDeg, sunAzimuthDeg > 0.0);
+    let altDeg = select(45.0, sunAltitudeDeg, sunAltitudeDeg > 0.0);
+
+    let radAz = radians(azDeg);
+    let radAlt = clamp(radians(altDeg), radians(5.0), radians(85.0)); // Prevent horizon division by zero
+    let tanAlt = tan(radAlt);
+
+    // Invariant §18: Spherical metric tensor arc-length evaluation
+    let cosLat = max(0.15, cos((uv.y - 0.5) * 3.141592653589793));
+
+    // Spec §2.1 Equirectangular shadow displacement
+    let deltaU = -(CLOUD_ALT_KM / (tanAlt * TWO_PI_RE)) * cos(radAz) / cosLat;
+    let deltaV =  (CLOUD_ALT_KM / (tanAlt * PI_RE)) * sin(radAz);
+
+    return vec2<f32>(deltaU, deltaV);
+}
+
+fn sampleCloudShadowFactor(uv: vec2<f32>, shadowOffset: vec2<f32>, intensity: f32) -> f32 {
+    let centerUV = vec2<f32>(fract(uv.x + shadowOffset.x), clamp(uv.y + shadowOffset.y, 0.001, 0.999));
+    let cosLat = max(0.15, cos((uv.y - 0.5) * 3.141592653589793));
+
+    // 20 km penumbra filter radius in UV space
+    const PENUMBRA_KM: f32 = 20.0;
+    const TWO_PI_RE: f32 = 40030.17;
+    const PI_RE: f32 = 20015.09;
+    let rU = (PENUMBRA_KM / TWO_PI_RE) / cosLat;
+    let rV = PENUMBRA_KM / PI_RE;
+
+    // 4 rotated jitter taps (Poisson disk distribution)
+    let tap0 = vec2<f32>(fract(centerUV.x - 0.38 * rU), clamp(centerUV.y - 0.92 * rV, 0.0, 1.0));
+    let tap1 = vec2<f32>(fract(centerUV.x + 0.92 * rU), clamp(centerUV.y - 0.38 * rV, 0.0, 1.0));
+    let tap2 = vec2<f32>(fract(centerUV.x + 0.38 * rU), clamp(centerUV.y + 0.92 * rV, 0.0, 1.0));
+    let tap3 = vec2<f32>(fract(centerUV.x - 0.92 * rU), clamp(centerUV.y + 0.38 * rV, 0.0, 1.0));
+
+    // Invariant §3: Explicit LOD 0.0
+    let c0 = textureSampleLevel(u_cloudTexture, u_cloudSampler, tap0, 0.0).r;
+    let c1 = textureSampleLevel(u_cloudTexture, u_cloudSampler, tap1, 0.0).r;
+    let c2 = textureSampleLevel(u_cloudTexture, u_cloudSampler, tap2, 0.0).r;
+    let c3 = textureSampleLevel(u_cloudTexture, u_cloudSampler, tap3, 0.0).r;
+
+    let cloudDens = (c0 + c1 + c2 + c3) * 0.25;
+
+    // Soft ground shadow attenuation per Spec §2.1
+    let shadowFactor = 1.0 - intensity * smoothstep(0.10, 0.35, cloudDens);
+    return clamp(shadowFactor, 0.0, 1.0);
+}
+
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // 1. Unconditional derivative evaluation for WGSL uniform control flow conformance (Invariant #3)
@@ -695,6 +759,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let finalDemU = sampleRegionalComposite(uvU, demU, 0.0);
     let finalDemD = sampleRegionalComposite(uvD, demD, 0.0);
 
+    // 3. Unconditional Cloud Ground Shadow 4-tap sampling strictly before dynamic branching/discard (Invariant #3)
+    let shadowOffset = computeCloudShadowOffset(input.uv, sim.u_sunAzimuth, sim.u_sunAltitude);
+    let shadowIntensity = sim.u_shadowIntensity;
+    let shadowFactor = sampleCloudShadowFactor(input.uv, shadowOffset, shadowIntensity);
+
     // Dymaxion cross-facet polygon tearing discard guard via analytical 2D Jacobian
     if (sim.u_mode == 4u && sim.u_unfurl > 0.02) {
         let det = du_dx * dv_dy - du_dy * dv_dx;
@@ -744,7 +813,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             sunPrimary,
             input.uv,
             input.elevation,
-            hydroUniforms
+            hydroUniforms,
+            shadowFactor
         );
     }
 
@@ -785,11 +855,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let NdotL1 = max(0.0, dot(N_view, L1_view));
     let NdotL2 = max(0.0, dot(N_view, L2_view));
 
-    var diffuseTotal = 0.08 + 0.72 * NdotL1 + 0.20 * NdotL2;
+    var diffuseTotal = 0.08 + (0.72 * NdotL1) * shadowFactor + 0.20 * NdotL2;
 
     // Ridge Crest Contrast Enhancement & Valley Crevice AO (modulated by u_ambientOcclusion)
     let ridgeEnhance = (NdotL1 - 0.5) * kRidge * 0.45;
-    diffuseTotal = clamp(diffuseTotal + ridgeEnhance, 0.04, 1.40);
+    diffuseTotal = clamp(diffuseTotal + ridgeEnhance * shadowFactor, 0.04, 1.40);
     let creviceAO = 1.0 - kValley * (0.85 * sim.u_ambientOcclusion);
     diffuseTotal = diffuseTotal * creviceAO;
 
@@ -855,7 +925,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     // Natural Illumination Split: Warm Sun Direct + Cool Cerulean Sky Fill
     let cSunLight = select(vec3<f32>(1.08, 1.02, 0.94), vec3<f32>(0.96, 0.98, 1.02), sim.u_theme == 2u);
-    let sunDirect = max(0.0, NdotL1);
+    let sunDirect = max(0.0, NdotL1) * shadowFactor;
     let skyIndirect = 0.40 + 0.60 * max(0.0, perturbedN.y * 0.5 + 0.5);
 
     // Eduard Imhof Swiss Hypsometric Tinting with Power-Curve Distribution
@@ -875,8 +945,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // Warm golden ochre on NW 315° direct illuminated slopes vs cool violet-umber on SE 135° shadowed slopes
         let cWarmDirect = vec3<f32>(1.12, 1.02, 0.88);
         let cCoolShadow = vec3<f32>(0.38, 0.32, 0.44);
-        let sunWeight = clamp(NdotL1 * 1.4, 0.0, 1.0);
-        let directComponent = cWarmDirect * (sunDirect * 0.90 + ridgeEnhance * 0.8);
+        let sunWeight = clamp(NdotL1 * 1.4 * shadowFactor, 0.0, 1.0);
+        let directComponent = cWarmDirect * (sunDirect * 0.90 + ridgeEnhance * 0.8 * shadowFactor);
         let shadowComponent = cCoolShadow * (skyIndirect * creviceAO);
         landIllum = mix(shadowComponent, directComponent, sunWeight);
     } else if (sim.u_theme == 2u) {
@@ -884,15 +954,15 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // STRICTLY MONOCHROMATIC — pure cool actinic blueprint lighting, zero warm/yellow sun component
         let cActinicDirect = vec3<f32>(0.96, 0.98, 1.02);
         let cActinicShadow = vec3<f32>(0.18, 0.32, 0.48);
-        let sunWeight = clamp(NdotL1 * 1.4, 0.0, 1.0);
-        let directComponent = cActinicDirect * (sunDirect * 0.85 + ridgeEnhance * 0.8);
+        let sunWeight = clamp(NdotL1 * 1.4 * shadowFactor, 0.0, 1.0);
+        let directComponent = cActinicDirect * (sunDirect * 0.85 + ridgeEnhance * 0.8 * shadowFactor);
         let shadowComponent = cActinicShadow * (skyIndirect * creviceAO);
         landIllum = mix(shadowComponent, directComponent, sunWeight);
     } else {
         let cWarmSun = vec3<f32>(1.04, 0.98, 0.88);
         let cCoolHaze = vec3<f32>(0.84, 0.90, 1.06);
-        let skyHaze = mix(cCoolHaze, cWarmSun, clamp(NdotL1 * 1.5, 0.0, 1.0));
-        landIllum = (cSunLight * (sunDirect * 0.85 + ridgeEnhance) + cSkyAmbient * (skyIndirect * creviceAO)) * skyHaze;
+        let skyHaze = mix(cCoolHaze, cWarmSun, clamp(NdotL1 * 1.5 * shadowFactor, 0.0, 1.0));
+        landIllum = (cSunLight * (sunDirect * 0.85 + ridgeEnhance * shadowFactor) + cSkyAmbient * (skyIndirect * creviceAO)) * skyHaze;
     }
     let tintedLand = cRamp * landIllum;
     var finalLand = mix(tintedLand, cRockShaded, rockWeight);
@@ -1261,9 +1331,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 // Prussian Cyanotype: Actinic bathymetric illumination with zero warm sunlight
                 let cActinicDirect = vec3<f32>(0.92, 0.96, 1.00);
                 let cActinicShadow = vec3<f32>(0.18, 0.28, 0.42);
-                bathyIllum = cActinicDirect * (sunDirect * 0.80 + ridgeEnhance * 0.8) + cActinicShadow * (skyIndirect * creviceAO);
+                bathyIllum = cActinicDirect * (sunDirect * 0.80 + ridgeEnhance * 0.8 * shadowFactor) + cActinicShadow * (skyIndirect * creviceAO);
             } else {
-                bathyIllum = cSunLight * (sunDirect * 0.80 + ridgeEnhance * 0.8) + cSkyAmbient * (skyIndirect * creviceAO);
+                bathyIllum = cSunLight * (sunDirect * 0.80 + ridgeEnhance * 0.8 * shadowFactor) + cSkyAmbient * (skyIndirect * creviceAO);
             }
             finalCrust = mix(cBathy * bathyIllum, cRockShaded, rockWeight * 0.4);
         }
@@ -1282,7 +1352,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let dayWeight = smoothstep(-0.08, 0.08, cosSun);
         let nightWeight = 1.0 - dayWeight;
 
-        let directIllum = 0.10 + 0.90 * max(0.0, cosSun);
+        let directIllum = 0.10 + 0.90 * max(0.0, cosSun) * shadowFactor;
         let dayLit = dayColor * directIllum;
         let nightLit = nightColor * (nightWeight * 1.25);
 

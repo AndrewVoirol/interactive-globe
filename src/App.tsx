@@ -85,6 +85,29 @@ export default function App() {
   const [isMouseIdle, setIsMouseIdle] = useState(false);
   const mouseIdleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Atmospheric Controls & Stratification State (Milestone 4)
+  const [atmosphericScale, setAtmosphericScale] = useState<number>(1.0);
+  const [shadowIntensity, setShadowIntensity] = useState<number>(0.45);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__INDICATRIX_SET_ATMOSPHERIC_SCALE__ = (valOrFn: any) => {
+        setAtmosphericScale((prev) => {
+          const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+          if (typeof v !== 'number' || !Number.isFinite(v)) return prev;
+          return Math.max(1.0, Math.min(12.0, v));
+        });
+      };
+      (window as any).__INDICATRIX_SET_SHADOW_INTENSITY__ = (valOrFn: any) => {
+        setShadowIntensity((prev) => {
+          const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+          if (typeof v !== 'number' || !Number.isFinite(v)) return prev;
+          return Math.max(0.0, Math.min(0.60, v));
+        });
+      };
+    }
+  }, []);
+
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('cartouche-visibility-change', { detail: { showCartouche } }));
   }, [showCartouche]);
@@ -326,6 +349,21 @@ export default function App() {
 
   const isSidebarActive = !isZenMode && isSidebarOpen;
 
+  const handleSnapCamera = useCallback(
+    (view: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => {
+      if (view === 'horizon') {
+        setShowClouds(true);
+        setAtmosphericScale((s) => (s <= 1.05 ? 6.0 : Math.max(s, 6.0)));
+        if (typeof window !== 'undefined' && (window as any).__INDICATRIX_CAMERA__?.snapHorizonCrossSection) {
+          (window as any).__INDICATRIX_CAMERA__.snapHorizonCrossSection(1.6);
+        }
+        return;
+      }
+      snapCamera(view as any);
+    },
+    [snapCamera, setShowClouds, setAtmosphericScale]
+  );
+
   return (
     <CursorProvider>
       <div
@@ -469,6 +507,11 @@ export default function App() {
                 showCloudHigh={showCloudHigh}
                 cloudDriftSpeed={cloudDriftSpeed}
                 cloudOpacity={cloudOpacity}
+                atmosphericScale={atmosphericScale}
+                onAtmosphericScaleChange={setAtmosphericScale}
+                shadowIntensity={shadowIntensity}
+                onShadowIntensityChange={setShadowIntensity}
+                onShowCloudsChange={setShowClouds}
               />
             </React.Suspense>
           ) : (
@@ -531,7 +574,7 @@ export default function App() {
           lonStr={lonStr}
           mapScaleStr={mapScaleStr}
           dataInfo={dataInfo}
-          onSnapCamera={snapCamera}
+          onSnapCamera={handleSnapCamera}
           isAudioMuted={isAudioMuted}
           onAudioMuteToggle={handleAudioMuteToggle}
           dataLayers={dataLayers}
@@ -564,6 +607,22 @@ export default function App() {
           demoSequence={demoSequence}
           onToggleDemoMode={toggleDemoMode}
           onSelectDemoSequence={selectDemoSequence}
+          showClouds={showClouds}
+          onShowCloudsChange={setShowClouds}
+          showCloudLow={showCloudLow}
+          onShowCloudLowChange={setShowCloudLow}
+          showCloudMid={showCloudMid}
+          onShowCloudMidChange={setShowCloudMid}
+          showCloudHigh={showCloudHigh}
+          onShowCloudHighChange={setShowCloudHigh}
+          cloudDriftSpeed={cloudDriftSpeed}
+          onCloudDriftSpeedChange={setCloudDriftSpeed}
+          cloudOpacity={cloudOpacity}
+          onCloudOpacityChange={setCloudOpacity}
+          atmosphericScale={atmosphericScale}
+          onAtmosphericScaleChange={setAtmosphericScale}
+          shadowIntensity={shadowIntensity}
+          onShadowIntensityChange={setShadowIntensity}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}

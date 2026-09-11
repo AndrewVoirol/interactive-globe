@@ -171,14 +171,14 @@ describe('STAGE 3: Atmospheric Orographic Dynamics & WebGPU Bindings', () => {
       expect(device.buffers.length).toBe(5);
     });
 
-    it('STAGE3-WEBGPU-02: lazily allocates 48-byte wind uniform buffer and creates wind bind groups', () => {
+    it('STAGE3-WEBGPU-02: lazily allocates 64-byte wind uniform buffer and creates wind bind groups', () => {
       const device = (engine as any).device as MockGPUDevice;
       expect(device.buffers.length).toBe(5);
 
       engine.ensureWindBuffers();
       expect(device.buffers.length).toBeGreaterThan(5);
 
-      // Verify windUniformBuffer size is 48 bytes (12 floats for 16-byte alignment)
+      // Verify windUniformBuffer size is 64 bytes (16 floats for 16-byte alignment)
       const windUBuffer = (engine as any).windUniformBuffer as any;
       expect(windUBuffer).toBeDefined();
       expect(windUBuffer.size).toBe(64);

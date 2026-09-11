@@ -5,7 +5,7 @@
 // ============================================================================
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Vector3, Vector4, Matrix4, PerspectiveCamera, Vec3Tuple } from '../core/math/cameraMath';
+import { Vector3, Vector4, Matrix4, PerspectiveCamera, Vec3Tuple, slerpVec3 } from '../core/math/cameraMath';
 import { WebGPUEngine } from './WebGPUEngine';
 import { CursorTracker } from '../utils/raycast';
 import { useCursorTracker } from '../core/CursorContext';
@@ -134,6 +134,12 @@ export interface WebGPUCanvasProps {
   showCloudHigh?: boolean;
   cloudDriftSpeed?: number;
   cloudOpacity?: number;
+  atmosphericScale?: number;
+  onAtmosphericScaleChange?: (v: number) => void;
+  shadowIntensity?: number;
+  onShadowIntensityChange?: (v: number) => void;
+  onShowCloudsChange?: (v: boolean) => void;
+  onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
 }
 
 interface RegionalManifestEntry {
@@ -189,6 +195,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   showCloudHigh = true,
   cloudDriftSpeed = 1.0,
   cloudOpacity = 0.85,
+  atmosphericScale = 1.0,
+  onAtmosphericScaleChange,
+  shadowIntensity = 0.45,
+  onShadowIntensityChange,
+  onShowCloudsChange,
+  onTogglePlanetaryLayer,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -197,6 +209,16 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   const engineRef = useRef<WebGPUEngine>(new WebGPUEngine());
   if (typeof window !== 'undefined') (window as any).__ENGINE = engineRef.current;
   const trajectoryControllerRef = useRef<TrajectoryCameraController>(new TrajectoryCameraController());
+  const cameraTransitionRef = useRef<{
+    startPos: Vector3;
+    endPos: Vector3;
+    startTarget: Vector3;
+    endTarget: Vector3;
+    startUp: Vector3;
+    endUp: Vector3;
+    startTime: number;
+    duration: number;
+  } | null>(null);
   const loadedBinRef = useRef<string | null>(null);
   const loadedDataInfoRef = useRef<{ pointCount: number; lineCount: number; baseVramBytes: number } | null>(null);
   const sharedCursorTracker = useCursorTracker();
@@ -321,6 +343,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     showCloudHigh,
     cloudDriftSpeed,
     cloudOpacity,
+    atmosphericScale,
+    shadowIntensity,
   });
   useEffect(() => {
     stateRef.current = {
@@ -347,13 +371,15 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       showCloudHigh,
       cloudDriftSpeed,
       cloudOpacity,
+      atmosphericScale,
+      shadowIntensity,
     };
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity]);
 
-  const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange });
+  const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange, onAtmosphericScaleChange, onShadowIntensityChange, onShowCloudsChange, onTogglePlanetaryLayer });
   useEffect(() => {
-    callbacksRef.current = { onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange };
-  }, [onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange]);
+    callbacksRef.current = { onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange, onAtmosphericScaleChange, onShadowIntensityChange, onShowCloudsChange, onTogglePlanetaryLayer };
+  }, [onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange, onAtmosphericScaleChange, onShadowIntensityChange, onShowCloudsChange, onTogglePlanetaryLayer]);
 
   // Synchronize Trajectory Controller with demo mode and active sequence
   useEffect(() => {
@@ -585,6 +611,159 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         velocityRef.current.velPanY = 0;
         targetCameraPosRef.current = null;
       },
+      animateToObliqueView: (options?: {
+        lonDeg?: number;
+        latDeg?: number;
+        altitudeRadius?: number;
+        pitchDeg?: number;
+        headingDeg?: number;
+        duration?: number;
+      }) => {
+        const lonDeg = options?.lonDeg ?? 8.5;
+        const latDeg = options?.latDeg ?? 44.5;
+        const altitudeRadius = options?.altitudeRadius ?? 5.22;
+        const pitchDeg = options?.pitchDeg ?? 78.0;
+        const headingDeg = options?.headingDeg ?? 0.0;
+        const durationSec = options?.duration ?? 1.6;
+
+        const phi = ((90 - latDeg) * Math.PI) / 180;
+        const theta = (lonDeg * Math.PI) / 180;
+        const sinPhi = Math.sin(phi);
+        const cosPhi = Math.cos(phi);
+        const sinTheta = Math.sin(theta);
+        const cosTheta = Math.cos(theta);
+
+        const nx = sinPhi * sinTheta;
+        const ny = cosPhi;
+        const nz = sinPhi * cosTheta;
+
+        const northX = -Math.sin((latDeg * Math.PI) / 180) * sinTheta;
+        const northY = Math.cos((latDeg * Math.PI) / 180);
+        const northZ = -Math.sin((latDeg * Math.PI) / 180) * cosTheta;
+
+        const eastX = cosTheta;
+        const eastY = 0;
+        const eastZ = -sinTheta;
+
+        const hRad = (headingDeg * Math.PI) / 180;
+        const forwardX = northX * Math.cos(hRad) + eastX * Math.sin(hRad);
+        const forwardY = northY * Math.cos(hRad) + eastY * Math.sin(hRad);
+        const forwardZ = northZ * Math.cos(hRad) + eastZ * Math.sin(hRad);
+
+        const pRad = (pitchDeg * Math.PI) / 180;
+        const vDirX = -Math.cos(pRad) * nx + Math.sin(pRad) * forwardX;
+        const vDirY = -Math.cos(pRad) * ny + Math.sin(pRad) * forwardY;
+        const vDirZ = -Math.cos(pRad) * nz + Math.sin(pRad) * forwardZ;
+
+        const camX = nx * altitudeRadius;
+        const camY = ny * altitudeRadius;
+        const camZ = nz * altitudeRadius;
+
+        const targetDist = 3.5;
+        const targetX = camX + vDirX * targetDist;
+        const targetY = camY + vDirY * targetDist;
+        const targetZ = camZ + vDirZ * targetDist;
+
+        velocityRef.current.velTheta = 0;
+        velocityRef.current.velPhi = 0;
+        velocityRef.current.velRadius = 0;
+        velocityRef.current.velPanX = 0;
+        velocityRef.current.velPanY = 0;
+        targetCameraPosRef.current = null;
+
+        if (durationSec <= 0) {
+          cameraRef.current.position.set(camX, camY, camZ);
+          targetRef.current.set(targetX, targetY, targetZ);
+          cameraRef.current.up.set(nx, ny, nz);
+          cameraRef.current.lookAt(targetRef.current);
+          cameraRef.current.updateMatrixWorld();
+          cameraTransitionRef.current = null;
+        } else {
+          cameraTransitionRef.current = {
+            startPos: cameraRef.current.position.clone(),
+            endPos: new Vector3(camX, camY, camZ),
+            startTarget: targetRef.current.clone(),
+            endTarget: new Vector3(targetX, targetY, targetZ),
+            startUp: cameraRef.current.up.clone(),
+            endUp: new Vector3(nx, ny, nz),
+            startTime: performance.now(),
+            duration: durationSec * 1000,
+          };
+        }
+      },
+      snapHorizonCrossSection: (duration = 1.6) => {
+        if (typeof window !== 'undefined') {
+          if ((window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+            (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showClouds: true });
+          }
+          if ((window as any).__INDICATRIX_SET_ATMOSPHERIC_SCALE__) {
+            (window as any).__INDICATRIX_SET_ATMOSPHERIC_SCALE__((s: number) => (s <= 1.05 ? 6.0 : Math.max(s, 6.0)));
+          }
+        }
+        callbacksRef.current.onShowCloudsChange?.(true);
+        callbacksRef.current.onAtmosphericScaleChange?.(6.0);
+        callbacksRef.current.onTogglePlanetaryLayer?.('noaa-gfs-jetstream', true);
+
+        const phi = ((90 - 44.5) * Math.PI) / 180;
+        const theta = (8.5 * Math.PI) / 180;
+        const sinPhi = Math.sin(phi);
+        const cosPhi = Math.cos(phi);
+        const sinTheta = Math.sin(theta);
+        const cosTheta = Math.cos(theta);
+
+        const nx = sinPhi * sinTheta;
+        const ny = cosPhi;
+        const nz = sinPhi * cosTheta;
+
+        const northX = -Math.sin((44.5 * Math.PI) / 180) * sinTheta;
+        const northY = Math.cos((44.5 * Math.PI) / 180);
+        const northZ = -Math.sin((44.5 * Math.PI) / 180) * cosTheta;
+
+        const forwardX = northX;
+        const forwardY = northY;
+        const forwardZ = northZ;
+
+        const pRad = (78.0 * Math.PI) / 180;
+        const vDirX = -Math.cos(pRad) * nx + Math.sin(pRad) * forwardX;
+        const vDirY = -Math.cos(pRad) * ny + Math.sin(pRad) * forwardY;
+        const vDirZ = -Math.cos(pRad) * nz + Math.sin(pRad) * forwardZ;
+
+        const camX = nx * 5.22;
+        const camY = ny * 5.22;
+        const camZ = nz * 5.22;
+
+        const targetDist = 3.5;
+        const targetX = camX + vDirX * targetDist;
+        const targetY = camY + vDirY * targetDist;
+        const targetZ = camZ + vDirZ * targetDist;
+
+        velocityRef.current.velTheta = 0;
+        velocityRef.current.velPhi = 0;
+        velocityRef.current.velRadius = 0;
+        velocityRef.current.velPanX = 0;
+        velocityRef.current.velPanY = 0;
+        targetCameraPosRef.current = null;
+
+        if (duration <= 0) {
+          cameraRef.current.position.set(camX, camY, camZ);
+          targetRef.current.set(targetX, targetY, targetZ);
+          cameraRef.current.up.set(nx, ny, nz);
+          cameraRef.current.lookAt(targetRef.current);
+          cameraRef.current.updateMatrixWorld();
+          cameraTransitionRef.current = null;
+        } else {
+          cameraTransitionRef.current = {
+            startPos: cameraRef.current.position.clone(),
+            endPos: new Vector3(camX, camY, camZ),
+            startTarget: targetRef.current.clone(),
+            endTarget: new Vector3(targetX, targetY, targetZ),
+            startUp: cameraRef.current.up.clone(),
+            endUp: new Vector3(nx, ny, nz),
+            startTime: performance.now(),
+            duration: duration * 1000,
+          };
+        }
+      },
       setPose: (pos: [number, number, number], target: [number, number, number], up?: [number, number, number]) => {
         cameraRef.current.position.set(pos[0], pos[1], pos[2]);
         targetRef.current.set(target[0], target[1], target[2]);
@@ -663,6 +842,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     if (!canvas) return;
 
     const onPointerDown = (e: PointerEvent) => {
+      cameraTransitionRef.current = null;
       if (stateRef.current.isDemoMode) {
         callbacksRef.current.onDemoModeChange?.(false);
         const camera = cameraRef.current;
@@ -758,6 +938,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      cameraTransitionRef.current = null;
       // Smooth inertial zoom impulse (decay factor 0.05)
       const zoomImpulse = e.deltaY * 0.015;
       velocityRef.current.velRadius += zoomImpulse;
@@ -1093,6 +1274,38 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             sphericalRef.current.theta = Math.atan2(offset.x, offset.z);
             sphericalRef.current.phi = Math.acos(Math.min(Math.max(offset.y / Math.max(sphericalRef.current.radius, 0.001), -1), 1));
           }
+        } else if (cameraTransitionRef.current && !isDraggingRef.current) {
+          const tr = cameraTransitionRef.current;
+          const elapsed = now - tr.startTime;
+          const alpha = Math.min(1.0, Math.max(0.0, elapsed / tr.duration));
+          // Smootherstep easing: 6a^5 - 15a^4 + 10a^3
+          const ease = alpha * alpha * alpha * (alpha * (alpha * 6 - 15) + 10);
+
+          // Position along spherical arc with ground clearance safety floor r >= 5.15
+          const r0 = tr.startPos.length();
+          const r1 = tr.endPos.length();
+          const curR = Math.max(5.15, r0 + (r1 - r0) * ease);
+          const slerpPos = slerpVec3(tr.startPos, tr.endPos, ease);
+          camera.position.set(slerpPos[0] * curR, slerpPos[1] * curR, slerpPos[2] * curR);
+
+          // Target lerp
+          targetRef.current.lerpVectors(tr.startTarget, tr.endTarget, ease);
+
+          // Up vector slerp
+          const slerpUp = slerpVec3(tr.startUp, tr.endUp, ease);
+          camera.up.set(slerpUp[0], slerpUp[1], slerpUp[2]);
+
+          camera.lookAt(targetRef.current);
+          camera.updateMatrixWorld();
+
+          const offset = new Vector3().subVectors(camera.position, targetRef.current);
+          sphericalRef.current.radius = offset.length();
+          sphericalRef.current.theta = Math.atan2(offset.x, offset.z);
+          sphericalRef.current.phi = Math.acos(Math.min(Math.max(offset.y / Math.max(sphericalRef.current.radius, 0.001), -1), 1));
+
+          if (alpha >= 1.0) {
+            cameraTransitionRef.current = null;
+          }
         } else if (targetCameraPosRef.current && !isDraggingRef.current) {
           const targetPos = targetCameraPosRef.current;
           camera.position.lerp(targetPos, 0.08);
@@ -1335,6 +1548,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           showCloudHigh: stateRef.current.showCloudHigh,
           cloudDriftSpeed: stateRef.current.cloudDriftSpeed,
           cloudOpacity: stateRef.current.cloudOpacity,
+          atmosphericScale: stateRef.current.atmosphericScale,
+          shadowIntensity: stateRef.current.shadowIntensity,
           vortexStrength: curVortexStrength,
           fractureIntensity: curFractureIntensity,
           seaLevel,

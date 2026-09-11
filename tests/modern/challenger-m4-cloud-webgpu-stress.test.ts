@@ -309,9 +309,9 @@ describe('Adversarial Challenger Suite: Milestone 4 WebGPU Engine Cloud Integrat
       { name: 'u_layerStandoff', wgslType: 'vec4<f32>', sizeBytes: 16, alignBytes: 16, expectedOffset: 64, floatIndex: 16 },
       { name: 'u_layerOpacity', wgslType: 'vec4<f32>', sizeBytes: 16, alignBytes: 16, expectedOffset: 80, floatIndex: 20 },
       { name: 'u_layerIndex', wgslType: 'u32', sizeBytes: 4, alignBytes: 4, expectedOffset: 96, floatIndex: 24 },
-      { name: 'u_isLow', wgslType: 'u32', sizeBytes: 4, alignBytes: 4, expectedOffset: 100, floatIndex: 25 },
-      { name: 'u_isMid', wgslType: 'u32', sizeBytes: 4, alignBytes: 4, expectedOffset: 104, floatIndex: 26 },
-      { name: 'u_isHigh', wgslType: 'u32', sizeBytes: 4, alignBytes: 4, expectedOffset: 108, floatIndex: 27 },
+      { name: 'u_peakExponent', wgslType: 'f32', sizeBytes: 4, alignBytes: 4, expectedOffset: 100, floatIndex: 25 },
+      { name: 'u_atmosphericScale', wgslType: 'f32', sizeBytes: 4, alignBytes: 4, expectedOffset: 104, floatIndex: 26 },
+      { name: 'u_shadowIntensity', wgslType: 'f32', sizeBytes: 4, alignBytes: 4, expectedOffset: 108, floatIndex: 27 },
       { name: 'u_mediumProperties', wgslType: 'vec4<f32>', sizeBytes: 16, alignBytes: 16, expectedOffset: 112, floatIndex: 28 },
       { name: 'u_viewMatrix', wgslType: 'mat4x4<f32>', sizeBytes: 64, alignBytes: 16, expectedOffset: 128, floatIndex: 32 },
       { name: 'u_projectionMatrix', wgslType: 'mat4x4<f32>', sizeBytes: 64, alignBytes: 16, expectedOffset: 192, floatIndex: 48 },
@@ -365,8 +365,8 @@ describe('Adversarial Challenger Suite: Milestone 4 WebGPU Engine Cloud Integrat
       let f32 = new Float32Array(lastWrite.data as ArrayBuffer);
       expect(u32[0]).toBe(0); // layerIdx
       expect(f32[1]).toBeCloseTo(1.4, 1); // peakExponent
-      expect(u32[2]).toBe(0);
-      expect(u32[3]).toBe(0);
+      expect(f32[2]).toBeCloseTo(1.0, 1); // u_atmosphericScale default
+      expect(f32[3]).toBeCloseTo(0.45, 1); // u_shadowIntensity default
       
       // Test layer 1 (Mid)
       engine.updateCloudLayerUniform(1);
@@ -376,8 +376,8 @@ describe('Adversarial Challenger Suite: Milestone 4 WebGPU Engine Cloud Integrat
       f32 = new Float32Array(lastWrite.data as ArrayBuffer);
       expect(u32[0]).toBe(1); // layerIdx
       expect(f32[1]).toBeCloseTo(1.4, 1); // peakExponent
-      expect(u32[2]).toBe(1);
-      expect(u32[3]).toBe(0);
+      expect(f32[2]).toBeCloseTo(1.0, 1); // u_atmosphericScale default
+      expect(f32[3]).toBeCloseTo(0.45, 1); // u_shadowIntensity default
 
       // Test layer 2 (High)
       engine.updateCloudLayerUniform(2);
@@ -388,8 +388,8 @@ describe('Adversarial Challenger Suite: Milestone 4 WebGPU Engine Cloud Integrat
       f32 = new Float32Array(lastWrite.data as ArrayBuffer);
       expect(u32[0]).toBe(2); // layerIdx
       expect(f32[1]).toBeCloseTo(1.4, 1); // peakExponent
-      expect(u32[2]).toBe(0);
-      expect(u32[3]).toBe(1);
+      expect(f32[2]).toBeCloseTo(1.0, 1); // u_atmosphericScale default
+      expect(f32[3]).toBeCloseTo(0.45, 1); // u_shadowIntensity default
     });
 
     it('CHALLENGE-M4-07B: updateCloudUniforms populates all 3 dedicated uniform buffers', () => {

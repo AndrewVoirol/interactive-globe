@@ -62,6 +62,7 @@ export interface WebGPUFrameParams {
     updateMatrixWorld?: () => void;
   };
   renderLayers?: 'both' | 'points' | 'wireframe';
+  viewport?: { width: number; height: number };
   displacementScale?: number;
   hillshadeIntensity?: number;
   showWind?: boolean;
@@ -93,6 +94,8 @@ export interface WebGPUFrameParams {
   fractureIntensity?: number;
   isolatedStratum?: number | null;
   paperTooth?: number;
+  shadowIntensity?: number;
+  atmosphericScale?: number;
   mediumProperties?: PhysicalMediumProperties;
   elevationSampler?: (lon: number, lat: number) => { elevationMeters: number; gradEast: number; gradNorth: number };
 }
@@ -169,11 +172,29 @@ export class WebGPUEngine {
   public crustVertexBuffer: GPUBuffer | null = null;
   public crustIndexBuffer: GPUBuffer | null = null;
   public crustIndexCount: number = 0;
-  private crustFloats = new Float32Array(68);
+  private crustFloats = new Float32Array(72);
   private crustUints = new Uint32Array(this.crustFloats.buffer);
   private crustHydrospherePipeline!: GPURenderPipeline;
   private crustBindGroupLayout!: GPUBindGroupLayout;
   private crustBindGroup!: GPUBindGroup;
+  private _shadowIntensity: number = 0.45;
+  public get shadowIntensity(): number {
+    return this._shadowIntensity;
+  }
+  public set shadowIntensity(val: number) {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
+    this._shadowIntensity = Math.max(0.0, Math.min(0.60, val));
+  }
+  private _atmosphericScale: number = 1.0;
+  public get atmosphericScale(): number {
+    return this._atmosphericScale;
+  }
+  public set atmosphericScale(val: number) {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
+    this._atmosphericScale = Math.max(1.0, Math.min(12.0, val));
+  }
+  private dummyCloudTexture: GPUTexture | null = null;
+  private dummyCloudTextureView: GPUTextureView | null = null;
 
   // High-Resolution Regional DEM Overlay Pipeline
   public regionalDEMTextures = new Map<string, {
@@ -249,6 +270,11 @@ export class WebGPUEngine {
   private cloudBindGroups: { low: GPUBindGroup; mid: GPUBindGroup; high: GPUBindGroup } | null = null;
   public cloudTextures: { low: GPUTexture | null; mid: GPUTexture | null; high: GPUTexture | null } = { low: null, mid: null, high: null };
   public cloudUniformBuffers: GPUBuffer[] | null = null;
+  public cloudLayerUniformMirrors: Float32Array[] = [
+    new Float32Array(64),
+    new Float32Array(64),
+    new Float32Array(64),
+  ];
   public cloudBuffersInitialized: boolean = false;
   private cloudStagingBuffer: GPUBuffer | null = null;
   private cloudSphereVertexBuffer: GPUBuffer | null = null;
@@ -270,8 +296,12 @@ export class WebGPUEngine {
   private windBuffersInitialized: boolean = false;
   private windDataSource: VectorFieldDataSource = new VectorFieldDataSource();
   public cpuDEMData: Uint16Array | Uint8Array | Uint8ClampedArray | null = null;
-  public demWidth: number = 8192;
-  public demHeight: number = 4096;
+  public static readonly DEFAULT_DEM_WIDTH = 1024 * 8;
+  public static readonly DEFAULT_DEM_HEIGHT = 1024 * 4;
+  public demWidth: number = 0;
+  public demHeight: number = 0;
+  public defaultTextureWidth: number = 1024 * 4;
+  public defaultTextureHeight: number = 1024 * 2;
 
   // Autonomous Origami Paper Crane Soaring Engine
   public readonly craneSolver: OrigamiCraneFlightSolver = new OrigamiCraneFlightSolver();
@@ -918,9 +948,9 @@ export class WebGPUEngine {
       this.loadVectorData('/geo-vectors.bin').catch(() => {});
     }
 
-    // 3. Lithosphere Crust & Hydrosphere Uniform Buffer (272 bytes, 16-byte aligned) (M1-T3, STAGE 2)
+    // 3. Lithosphere Crust & Hydrosphere Uniform Buffer (288 bytes, 16-byte aligned) (M1-T3, STAGE 2)
     this.crustUniformBuffer = this.device.createBuffer({
-      size: 272,
+      size: 288,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -939,6 +969,24 @@ export class WebGPUEngine {
       [1, 1, 1]
     );
     this.dummyRegionalTextureView = this.dummyRegionalTexture.createView();
+
+    // 1x1 Fallback dummy cloud texture view for binding slot 7 (r16float)
+    this.dummyCloudTexture = this.device.createTexture({
+      label: 'dummy_cloud_texture',
+      size: [1, 1, 1],
+      format: 'r16float',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    const dummyCloudPix = new Uint16Array([0]);
+    this.device.queue.writeTexture(
+      { texture: this.dummyCloudTexture },
+      dummyCloudPix,
+      { bytesPerRow: 256, rowsPerImage: 1 },
+      [1, 1, 1]
+    );
+    this.dummyCloudTextureView = this.dummyCloudTexture.createView({
+      label: 'dummy_cloud_texture_view',
+    });
 
     // 4. Dual-Surface Lithosphere Crust & Liquid Hydrosphere 3D Sphere Grid Buffers
     // Test environment uses lightweight 128x256; live production engine uses 512x1024 (1M triangles)
@@ -1085,7 +1133,7 @@ export class WebGPUEngine {
 
       this.windUniformBuffer = this.device.createBuffer({
         label: 'wind_uniform_buffer',
-        size: 48,
+        size: 64,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
 
@@ -1108,6 +1156,11 @@ export class WebGPUEngine {
         code: windParticlesWGSL,
       });
 
+      const regView = this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || this.demTextureView);
+      const regBuffer = (this.activeRegionalDEM && this.regionalUniformBuffer)
+        ? this.regionalUniformBuffer
+        : (this.regionalUniformBuffer || this.reliefUniformBuffer || this.crustUniformBuffer || this.windUniformBuffer);
+
       const windComputeBindGroupLayout = this.device.createBindGroupLayout({
         label: 'wind_compute_bind_group_layout',
         entries: [
@@ -1119,6 +1172,8 @@ export class WebGPUEngine {
           { binding: 5, visibility: GPUShaderStage.COMPUTE, texture: {} },
           { binding: 6, visibility: GPUShaderStage.COMPUTE, sampler: { type: 'filtering' } },
           { binding: 7, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 8, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 9, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
         ],
       });
 
@@ -1148,6 +1203,8 @@ export class WebGPUEngine {
             { binding: 5, resource: this.jetStreamTextureView! },
             { binding: 6, resource: this.demSampler! },
             { binding: 7, resource: this.demTextureView! },
+            { binding: 8, resource: regView },
+            { binding: 9, resource: { buffer: regBuffer } },
           ],
         }),
         this.device.createBindGroup({
@@ -1162,6 +1219,8 @@ export class WebGPUEngine {
             { binding: 5, resource: this.jetStreamTextureView! },
             { binding: 6, resource: this.demSampler! },
             { binding: 7, resource: this.demTextureView! },
+            { binding: 8, resource: regView },
+            { binding: 9, resource: { buffer: regBuffer } },
           ],
         }),
       ];
@@ -1340,7 +1399,38 @@ export class WebGPUEngine {
 
     // Crust / Hydrosphere BindGroup
     if (this.crustBindGroupLayout && this.crustUniformBuffer && this.orbitalTextureView && this.orbitalSampler) {
-      
+      if (!this.dummyCloudTextureView) {
+        this.dummyCloudTexture = this.device.createTexture({
+          label: 'dummy_cloud_texture',
+          size: [1, 1, 1],
+          format: 'r16float',
+          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+        });
+        const dummyCloudPix = new Uint16Array([0]);
+        this.device.queue.writeTexture(
+          { texture: this.dummyCloudTexture },
+          dummyCloudPix,
+          { bytesPerRow: 256, rowsPerImage: 1 },
+          [1, 1, 1]
+        );
+        this.dummyCloudTextureView = this.dummyCloudTexture.createView({
+          label: 'dummy_cloud_texture_view',
+        });
+      }
+
+      if (!this.cloudSampler) {
+        this.cloudSampler = this.device.createSampler({
+          label: 'cloud_sampler',
+          minFilter: 'linear',
+          magFilter: 'linear',
+        });
+      }
+
+      const cloudView = this.cloudTextures?.low
+        ? this.cloudTextures.low.createView({ label: 'crust_cloud_texture_view' })
+        : this.dummyCloudTextureView;
+      const cloudSampler = this.cloudSampler || this.demSampler;
+
       this.crustBindGroup = this.device.createBindGroup({
         label: 'crust_hydrosphere_bind_group',
         layout: this.crustBindGroupLayout,
@@ -1352,6 +1442,8 @@ export class WebGPUEngine {
           { binding: 4, resource: this.orbitalSampler },
           { binding: 5, resource: regView },
           { binding: 6, resource: { buffer: regBuffer } },
+          { binding: 7, resource: cloudView },
+          { binding: 8, resource: cloudSampler },
         ],
       });
     }
@@ -1411,8 +1503,8 @@ export class WebGPUEngine {
         nightSource = nightImage;
       }
 
-      const width = (daySource as any).width || 4096;
-      const height = (daySource as any).height || 2048;
+      const width = (daySource as any).width || this.defaultTextureWidth;
+      const height = (daySource as any).height || this.defaultTextureHeight;
 
       if (this.orbitalTexture) {
         this.orbitalTexture.destroy();
@@ -1769,17 +1861,19 @@ export class WebGPUEngine {
       // Buffer ingestion with full mipmap pyramid generation
       if (!this.device || !this.isInitialized) return;
       const byteLength = urlOrBuffer.byteLength;
-      const isU16 = byteLength === 268435456 || byteLength === 16777216;
+      const isU16 = byteLength > 0 && byteLength % 8 === 0 && Number.isInteger(Math.sqrt(byteLength / 16));
       this.cpuDEMData = isU16 ? new Uint16Array(urlOrBuffer) : new Uint8Array(urlOrBuffer);
-      const is8k = isU16 ? byteLength === 268435456 : byteLength >= 8192 * 4096 * 4;
-      const width = is8k ? 8192 : 2048;
-      const height = is8k ? 4096 : 1024;
-      this.demWidth = width;
-      this.demHeight = height;
+      const totalPixels = Math.floor(byteLength / (isU16 ? 8 : 4));
+      const calculatedH = Math.max(1, Math.round(Math.sqrt(totalPixels / 2)));
+      const calculatedW = calculatedH * 2;
+      this.demWidth = calculatedW > 0 ? calculatedW : WebGPUEngine.DEFAULT_DEM_WIDTH;
+      this.demHeight = calculatedH > 0 ? calculatedH : WebGPUEngine.DEFAULT_DEM_HEIGHT;
+      const width = this.demWidth;
+      const height = this.demHeight;
 
       const oldTexture = this.demTexture;
       if (isU16) {
-        // Full-range 16-bit uint16 texture (8192 x 4096 x 4 x 2 bytes = 256 MB or 2048 x 1024 x 4 x 2 bytes = 16 MB)
+        // Full-range 16-bit uint16 texture (RGBA16Unorm format for high-precision elevation)
         const u16 = new Uint16Array(urlOrBuffer);
         let loaded = false;
         if (typeof (this.device as any).pushErrorScope === 'function') {
@@ -2888,8 +2982,8 @@ export class WebGPUEngine {
         H = Math.max(1, Math.round(Math.sqrt(totalPixels / 2)));
         W = H * 2;
         if (W <= 0 || H <= 0 || isNaN(W) || isNaN(H)) {
-          W = 8192;
-          H = 4096;
+          W = this.demWidth > 0 ? this.demWidth : WebGPUEngine.DEFAULT_DEM_WIDTH;
+          H = this.demHeight > 0 ? this.demHeight : WebGPUEngine.DEFAULT_DEM_HEIGHT;
         }
       }
       const px = Math.min(W - 1, Math.max(0, Math.floor(u * W)));
@@ -3104,6 +3198,8 @@ export class WebGPUEngine {
         { binding: 4, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
         { binding: 5, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, texture: {} },
         { binding: 6, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+        { binding: 7, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
+        { binding: 8, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
       ],
     });
 
@@ -3550,17 +3646,21 @@ export class WebGPUEngine {
     }
 
     // [16..31]: viewMatrix (16 floats)
-    params.camera.updateMatrixWorld();
-    params.camera.matrixWorldInverse.toArray(simFloats, 16);
+    if (params.camera) {
+      params.camera.updateMatrixWorld?.();
+      params.camera.matrixWorldInverse?.toArray(simFloats, 16);
 
-    // [32..47]: projectionMatrix (16 floats)
-    params.camera.projectionMatrix.toArray(simFloats, 32);
+      // [32..47]: projectionMatrix (16 floats)
+      params.camera.projectionMatrix?.toArray(simFloats, 32);
 
-    // [48..51]: cameraPos (xyz) + pad
-    simFloats[48] = params.camera.position.x;
-    simFloats[49] = params.camera.position.y;
-    simFloats[50] = params.camera.position.z;
-    simFloats[51] = 1.0;
+      // [48..51]: cameraPos (xyz) + pad
+      if (params.camera.position) {
+        simFloats[48] = params.camera.position.x;
+        simFloats[49] = params.camera.position.y;
+        simFloats[50] = params.camera.position.z;
+      }
+      simFloats[51] = 1.0;
+    }
 
     this.device.queue.writeBuffer(this.simUniformBuffer, 0, simFloats.buffer);
 
@@ -3576,8 +3676,10 @@ export class WebGPUEngine {
       rf[3] = (params.sunAltitude !== undefined ? params.sunAltitude : 45.0) * 0.65;
       rf[4] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
       rf[5] = params.hillshadeIntensity !== undefined ? params.hillshadeIntensity : 1.0;
-      rf[6] = 1.0 / 8192.0; // u_texelWidth
-      rf[7] = 1.0 / 4096.0; // u_texelHeight
+      const curDemW = this.demWidth > 0 ? this.demWidth : WebGPUEngine.DEFAULT_DEM_WIDTH;
+      const curDemH = this.demHeight > 0 ? this.demHeight : WebGPUEngine.DEFAULT_DEM_HEIGHT;
+      rf[6] = 1.0 / curDemW; // u_texelWidth
+      rf[7] = 1.0 / curDemH; // u_texelHeight
       rf[8] = 0.65; // rock cliff exposure factor (u_rockCliffStrength: 0.0 - 1.0)
       rf[9] = params.ambientOcclusion !== undefined ? params.ambientOcclusion : 0.50;
       rf[10] = 0.40; // aerial perspective
@@ -3604,9 +3706,11 @@ export class WebGPUEngine {
       ribF[7] = 1.0 / vpHeight;
 
       // cameraPos
-      ribF[8] = params.camera.position.x;
-      ribF[9] = params.camera.position.y;
-      ribF[10] = params.camera.position.z;
+      if (params.camera?.position) {
+        ribF[8] = params.camera.position.x;
+        ribF[9] = params.camera.position.y;
+        ribF[10] = params.camera.position.z;
+      }
       ribF[11] = 1.0;
 
       // cursorHitPos
@@ -3636,11 +3740,13 @@ export class WebGPUEngine {
       // 0.35px physical/CSS stroke scaling at planetary orbit (camDist >= 25.0)
       // 0.75px zoomed in (camDist <= 8.0)
       // Smoothly interpolate between these scales based on camera distance
-      const camDist = Math.hypot(
-        params.camera.position.x,
-        params.camera.position.y,
-        params.camera.position.z
-      );
+      const camDist = params.camera?.position
+        ? Math.hypot(
+            params.camera.position.x,
+            params.camera.position.y,
+            params.camera.position.z
+          )
+        : 15.0;
       const orbitT = Math.max(0.0, Math.min(1.0, (camDist - 8.0) / (25.0 - 8.0)));
       const strokeWidthPx = 0.75 + (0.35 - 0.75) * orbitT;
       ribF[22] = strokeWidthPx * 0.5; // u_halfWidthPx (nominal hairline half-width in CSS pixels)
@@ -3652,10 +3758,10 @@ export class WebGPUEngine {
       ribF[27] = 0.0; // padding
 
       // u_viewMatrix (offset 112 = 28 floats)
-      params.camera.matrixWorldInverse.toArray(ribF, 28);
+      params.camera?.matrixWorldInverse?.toArray(ribF, 28);
 
       // u_projectionMatrix (offset 176 = 44 floats)
-      params.camera.projectionMatrix.toArray(ribF, 44);
+      params.camera?.projectionMatrix?.toArray(ribF, 44);
 
       this.device.queue.writeBuffer(this.ribbonUniformBuffer, 0, ribF.buffer);
     }
@@ -3680,9 +3786,11 @@ export class WebGPUEngine {
       cf[7] = 1.0 / vpHeight;
 
       // cameraPos (floats 8..11)
-      cf[8] = params.camera.position.x;
-      cf[9] = params.camera.position.y;
-      cf[10] = params.camera.position.z;
+      if (params.camera?.position) {
+        cf[8] = params.camera.position.x;
+        cf[9] = params.camera.position.y;
+        cf[10] = params.camera.position.z;
+      }
       cf[11] = 1.0;
 
       // cursorHitPos (floats 12..15)
@@ -3714,10 +3822,10 @@ export class WebGPUEngine {
         : 0.04; // u_roughness (Theme 1: Paper Tooth, other themes: water specular roughness)
 
       // u_viewMatrix (offset 96 = 24 floats)
-      params.camera.matrixWorldInverse.toArray(cf, 24);
-
-      // u_projectionMatrix (offset 160 = 40 floats)
-      params.camera.projectionMatrix.toArray(cf, 40);
+      if (params.camera?.matrixWorldInverse && params.camera?.projectionMatrix) {
+        params.camera.matrixWorldInverse.toArray(cf, 24);
+        params.camera.projectionMatrix.toArray(cf, 40);
+      }
 
       // Extended Cartographic UI Controls (floats 56..63, offsets 224..252)
       cf[56] = params.sunAzimuth !== undefined ? params.sunAzimuth : 315.0;
@@ -3744,6 +3852,16 @@ export class WebGPUEngine {
       this.crustFloats[66] = medium?.exposureGamma ?? 1.0;
       this.crustFloats[67] = medium?.stippleDensity ?? 1.0;
 
+      // Dynamic Cloud Ground Shadows (floats 68..71, offset 272..288) (Spec §2.1, Invariant §20)
+      // Contract: this.crustFloats[68] = params.shadowIntensity !== undefined ? params.shadowIntensity : (this.shadowIntensity ?? 0.45);
+      const rawShadow = params.shadowIntensity !== undefined ? params.shadowIntensity : this.shadowIntensity;
+      this.crustFloats[68] = (typeof rawShadow === 'number' && Number.isFinite(rawShadow))
+        ? Math.max(0.0, Math.min(0.59999996, rawShadow))
+        : (Number.isFinite(this.shadowIntensity) ? Math.min(0.59999996, this.shadowIntensity) : 0.45);
+      this.crustFloats[69] = 0.0;
+      this.crustFloats[70] = 0.0;
+      this.crustFloats[71] = 0.0;
+
       this.device.queue.writeBuffer(this.crustUniformBuffer, 0, cf.buffer);
     }
 
@@ -3753,7 +3871,7 @@ export class WebGPUEngine {
     if (this.windUniformBuffer) {
       const showSurf = params.showSurfaceWinds !== undefined ? (params.showSurfaceWinds ? 1.0 : 0.0) : (this.showSurfaceWinds ? 1.0 : 0.0);
       const showJet = params.showJetStream !== undefined ? (params.showJetStream ? 1.0 : 0.0) : (this.showJetStream ? 1.0 : 0.0);
-      const windU = new Float32Array(12);
+      const windU = new Float32Array(16);
       const windU32 = new Uint32Array(windU.buffer);
       windU[0] = params.unfurl;
       windU32[1] = params.mode;
@@ -3764,9 +3882,15 @@ export class WebGPUEngine {
       windU[6] = showSurf;
       windU[7] = showJet;
       windU[8] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
-      windU[9] = 0.0;
+      windU[9] = params.peakExponent !== undefined ? params.peakExponent : 1.4;
       windU[10] = 0.0;
       windU[11] = 0.0;
+      if (params.camera?.position) {
+        windU[12] = params.camera.position.x;
+        windU[13] = params.camera.position.y;
+        windU[14] = params.camera.position.z;
+        windU[15] = 1.0;
+      }
       this.device.queue.writeBuffer(this.windUniformBuffer, 0, windU.buffer);
     }
 
@@ -3823,16 +3947,18 @@ export class WebGPUEngine {
       cf[19] = state.altitude;
 
       // [20..35]: viewMatrix
-      params.camera.updateMatrixWorld?.();
-      params.camera.matrixWorldInverse.toArray(cf, 20);
+      params.camera?.updateMatrixWorld?.();
+      params.camera?.matrixWorldInverse?.toArray(cf, 20);
 
       // [36..51]: projectionMatrix
-      params.camera.projectionMatrix.toArray(cf, 36);
+      params.camera?.projectionMatrix?.toArray(cf, 36);
 
       // [52..55]: cameraPos
-      cf[52] = params.camera.position.x;
-      cf[53] = params.camera.position.y;
-      cf[54] = params.camera.position.z;
+      if (params.camera?.position) {
+        cf[52] = params.camera.position.x;
+        cf[53] = params.camera.position.y;
+        cf[54] = params.camera.position.z;
+      }
       cf[55] = 1.0;
 
       // [56..59]: theme, isShadowPass, unfurl, pad1
@@ -3847,12 +3973,25 @@ export class WebGPUEngine {
 
     // Cloud Shell Tropospheric Uniforms (256 bytes per layer)
     if (params.showClouds !== false && this.cloudEnabled !== false) {
+      if (params.atmosphericScale !== undefined) {
+        this.atmosphericScale = params.atmosphericScale;
+      }
+      if (params.shadowIntensity !== undefined) {
+        this.shadowIntensity = params.shadowIntensity;
+      }
       this.updateCloudUniforms(params.dt, params);
     }
   }
 
   public render(params: WebGPUFrameParams): void {
     if (!this.isInitialized) return;
+
+    if (params.atmosphericScale !== undefined) {
+      this.atmosphericScale = params.atmosphericScale;
+    }
+    if (params.shadowIntensity !== undefined) {
+      this.shadowIntensity = params.shadowIntensity;
+    }
 
     // Ensure depth texture matches current canvas dimensions
     const canvasWidth = this.context.canvas?.width || 800;
@@ -3861,8 +4000,8 @@ export class WebGPUEngine {
       this.updateDepthTexture(canvasWidth, canvasHeight);
     }
 
-    // 1. Ensure cartographic buffers if relief or vectors are active
-    if (params.reliefActive || params.showRelief || params.showVectors) {
+    // 1. Ensure cartographic buffers if relief, vectors, or cloud shadows are active
+    if (params.reliefActive || params.showRelief || params.showVectors || params.showClouds) {
       this.ensureCartographicBuffers();
     }
 
@@ -3878,7 +4017,7 @@ export class WebGPUEngine {
     }
 
     // 1c. Ensure cloud buffers lazily on-demand (Milestone 4 / Invariant §20)
-    if (params.showClouds !== false && this.cloudEnabled !== false) {
+    if ((params.showClouds || params.showCloudLow || params.showCloudMid || params.showCloudHigh) && this.cloudEnabled !== false) {
       this.ensureCloudBuffers();
     }
 
@@ -4183,6 +4322,7 @@ export class WebGPUEngine {
 
     this.cloudBuffersInitialized = true;
     this.updateCloudBindGroups();
+    this.updateDEMBindGroups();
   }
 
   public updateCloudBindGroups(): void {
@@ -4309,6 +4449,9 @@ export class WebGPUEngine {
           { bytesPerRow: paddedRowBytes, rowsPerImage: height },
           { width, height, depthOrArrayLayers: 1 }
         );
+        if (layer === 'low') {
+          this.updateDEMBindGroups();
+        }
       } catch (err) {
         console.error('Failed to write cloud texture:', err);
       }
@@ -4367,6 +4510,14 @@ export class WebGPUEngine {
     const baseDrift = params?.cloudDriftSpeed ?? this.cloudOptions?.driftSpeed ?? 1.2;
     const masterOpacity = params?.cloudOpacity ?? this.cloudOptions?.opacity ?? 0.85;
     const peakExponent = params?.peakExponent ?? 1.4;
+    const rawAtmScale = params?.atmosphericScale !== undefined ? params.atmosphericScale : this.atmosphericScale;
+    const atmosphericScale = (typeof rawAtmScale === 'number' && Number.isFinite(rawAtmScale))
+      ? Math.max(1.0, Math.min(12.0, rawAtmScale))
+      : (Number.isFinite(this.atmosphericScale) ? this.atmosphericScale : 1.0);
+    const rawShadowInt = params?.shadowIntensity !== undefined ? params.shadowIntensity : this.shadowIntensity;
+    const shadowIntensity = (typeof rawShadowInt === 'number' && Number.isFinite(rawShadowInt))
+      ? Math.max(0.0, Math.min(0.59999996, rawShadowInt))
+      : (Number.isFinite(this.shadowIntensity) ? Math.min(0.59999996, this.shadowIntensity) : 0.45);
 
     const f = this.cloudUniformFloats;
     const u = this.cloudUniformU32;
@@ -4420,8 +4571,8 @@ export class WebGPUEngine {
 
     u[24] = 0; // default layer 0
     f[25] = peakExponent;
-    u[26] = 0;
-    u[27] = 0;
+    f[26] = atmosphericScale; // u_atmosphericScale (offset 104, float 26) [1.0 .. 12.0]
+    f[27] = shadowIntensity;  // u_shadowIntensity (offset 108, float 27) [0.0 .. 0.60]
 
     f[28] = 1.0;
     f[29] = 1.0;
@@ -4433,8 +4584,12 @@ export class WebGPUEngine {
       const layerU32 = new Uint32Array(layerBuffer.buffer);
       layerU32[24] = layerIdx;
       layerBuffer[25] = peakExponent;
-      layerU32[26] = layerIdx === 1 ? 1 : 0;
-      layerU32[27] = layerIdx === 2 ? 1 : 0;
+      layerBuffer[26] = atmosphericScale;
+      layerBuffer[27] = shadowIntensity;
+
+      if (this.cloudLayerUniformMirrors && this.cloudLayerUniformMirrors[layerIdx]) {
+        this.cloudLayerUniformMirrors[layerIdx].set(layerBuffer);
+      }
 
       try {
         this.device.queue.writeBuffer(
@@ -4448,15 +4603,33 @@ export class WebGPUEngine {
     }
   }
 
-  public updateCloudLayerUniform(layerIdx: number): void {
-    if (!this.device || !this.cloudUniformBuffers) return;
+  public updateCloudLayerUniform(
+    layerIdx: number,
+    atmosphericScale?: number,
+    shadowIntensity?: number
+  ): void {
+    this.ensureCloudBuffers();
+    if (!this.device || !this.cloudUniformBuffers || layerIdx < 0 || layerIdx >= 3) return;
     const buf = new ArrayBuffer(16);
     const u32 = new Uint32Array(buf);
     const f32 = new Float32Array(buf);
     u32[0] = layerIdx;
     f32[1] = 1.4; // peakExponent
-    u32[2] = layerIdx === 1 ? 1 : 0; // isMid
-    u32[3] = layerIdx === 2 ? 1 : 0; // isHigh
+    const rawScale = atmosphericScale !== undefined ? atmosphericScale : this.atmosphericScale;
+    f32[2] = (typeof rawScale === 'number' && Number.isFinite(rawScale))
+      ? Math.max(1.0, Math.min(12.0, rawScale))
+      : (Number.isFinite(this.atmosphericScale) ? this.atmosphericScale : 1.0);
+    const rawShadow = shadowIntensity !== undefined ? shadowIntensity : this.shadowIntensity;
+    f32[3] = (typeof rawShadow === 'number' && Number.isFinite(rawShadow))
+      ? Math.max(0.0, Math.min(0.59999996, rawShadow))
+      : (Number.isFinite(this.shadowIntensity) ? Math.min(0.59999996, this.shadowIntensity) : 0.45);
+
+    if (this.cloudLayerUniformMirrors && this.cloudLayerUniformMirrors[layerIdx]) {
+      this.cloudLayerUniformMirrors[layerIdx][24] = layerIdx;
+      this.cloudLayerUniformMirrors[layerIdx][25] = 1.4;
+      this.cloudLayerUniformMirrors[layerIdx][26] = f32[2];
+      this.cloudLayerUniformMirrors[layerIdx][27] = f32[3];
+    }
 
     const primary = this.getCloudUniformBuffer();
     if (primary) {
@@ -4687,6 +4860,10 @@ export class WebGPUEngine {
     this.cloudSampler = null;
     this.cloudBindGroups = null;
     this.cloudBindGroupLayout = null;
+
+    this.dummyCloudTexture?.destroy();
+    this.dummyCloudTexture = null;
+    this.dummyCloudTextureView = null;
 
     this.device?.destroy?.();
     this.isInitialized = false;

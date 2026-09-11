@@ -51,7 +51,7 @@ export interface TelemetryHUDProps {
   lonStr: string;
   mapScaleStr: string;
   dataInfo: LoadedDataInfo;
-  onSnapCamera: (v: 'equator' | 'pole' | 'seam' | 'isometric') => void;
+  onSnapCamera: (v: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => void;
   isAudioMuted?: boolean;
   onAudioMuteToggle?: () => void;
   dataLayers?: DataLayerItem[];
@@ -84,6 +84,22 @@ export interface TelemetryHUDProps {
   demoSequence?: 'hawaii' | 'cape-cod';
   onToggleDemoMode?: (seq?: 'hawaii' | 'cape-cod') => void;
   onSelectDemoSequence?: (seq: 'hawaii' | 'cape-cod') => void;
+  showClouds?: boolean;
+  onShowCloudsChange?: (v: boolean) => void;
+  showCloudLow?: boolean;
+  onShowCloudLowChange?: (v: boolean) => void;
+  showCloudMid?: boolean;
+  onShowCloudMidChange?: (v: boolean) => void;
+  showCloudHigh?: boolean;
+  onShowCloudHighChange?: (v: boolean) => void;
+  cloudDriftSpeed?: number;
+  onCloudDriftSpeedChange?: (v: number) => void;
+  cloudOpacity?: number;
+  onCloudOpacityChange?: (v: number) => void;
+  atmosphericScale?: number;
+  onAtmosphericScaleChange?: (v: number) => void;
+  shadowIntensity?: number;
+  onShadowIntensityChange?: (v: number) => void;
 }
 
 export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
@@ -159,6 +175,22 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         demoSequence={props.demoSequence}
         onToggleDemoMode={props.onToggleDemoMode}
         onSelectDemoSequence={props.onSelectDemoSequence}
+        showClouds={props.showClouds}
+        onShowCloudsChange={props.onShowCloudsChange}
+        showCloudLow={props.showCloudLow}
+        onShowCloudLowChange={props.onShowCloudLowChange}
+        showCloudMid={props.showCloudMid}
+        onShowCloudMidChange={props.onShowCloudMidChange}
+        showCloudHigh={props.showCloudHigh}
+        onShowCloudHighChange={props.onShowCloudHighChange}
+        cloudDriftSpeed={props.cloudDriftSpeed}
+        onCloudDriftSpeedChange={props.onCloudDriftSpeedChange}
+        cloudOpacity={props.cloudOpacity}
+        onCloudOpacityChange={props.onCloudOpacityChange}
+        atmosphericScale={props.atmosphericScale}
+        onAtmosphericScaleChange={props.onAtmosphericScaleChange}
+        shadowIntensity={props.shadowIntensity}
+        onShadowIntensityChange={props.onShadowIntensityChange}
       />
 
       {/* Bottom-Left Non-Intrusive Glassmorphic Toast Notification Stack */}

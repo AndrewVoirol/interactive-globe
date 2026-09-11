@@ -307,5 +307,46 @@ Always consult the following master specifications before proposing or making an
   4. Only after all references are replaced in the active render pass, invoke `oldTexture.destroy()`.
 - **Cross-Pipeline Secondary Bind Group Synchronization**: Whenever a shared resource (such as the planetary DEM texture) is updated, all secondary pipelines that bind it (terrain-lifted vectors, cloud elevation coupling) MUST have their bind groups rebuilt in the same atomic operation.
 
+## 53. Physical Strata Ordering & UI Immutability
+- **Prohibition of Arbitrary User Layer Reordering**: Cartographic and planetary physical layers are bound by strict geocentric altitude coordinates ($r = R_0 + z$). The engine must NEVER expose UI controls or data structures that allow users or scripts to reorder strata arbitrarily (e.g., placing cloud decks below sea level or vector ink above satellites).
+- **Physical Strata Hierarchy**: Rendering and blending must respect the strict physical order:
+  $$\text{L0 (Substrate)} \to \text{L1 (Crust)} \to \text{L2 (Hydrosphere)} \to \text{L3 (Vector Ink)} \to \text{L4 (Surface Wind)} \to \text{L5 (Low Stratus)} \to \text{L6 (Mid Alto)} \to \text{L7 (Jet Stream)} \to \text{L8 (High Cirrus)} \to \text{L9 (Orbits)} \to \text{L10 (Glass HUD)}$$
+- **Atmospheric Scale Modulator Contract**: Vertical exaggeration of atmospheric layers for cartographic cutaways or horizon viewing must be controlled exclusively via a dedicated uniform multiplier (`u_atmosphericScale` $\in [1.0, 12.0]$) in the Atmosphere drawer, scaling relative to Mean Sea Level without reordering or inverting any strata.
 
+## 54. First-Principles Continuum & Cloud Depth Cues
+- **Prohibition of Decoupled 2D Cloud Decals**: Cloud layers must never be rendered as disconnected, flat, floating billboards or decal textures without ground-coupling cues.
+- **Mandatory Cloud Ground Shadow Projection**: The primary terrain/ocean shader (`crust_hydrosphere.wgsl`) MUST sample the cloud coverage texture with a sun-projected UV offset:
+  $$\Delta \mathbf{uv}_{\text{shadow}} = \frac{z_{\text{cloud}}}{\tan(\theta_{\text{sun}})} \cdot [-\cos(\phi_{\text{sun}}), \sin(\phi_{\text{sun}})] \cdot \text{scale}$$
+  modulating direct diffuse terrain irradiance with a physically calibrated penumbra (~20 km blur).
+- **Horizontal Topographic Barrier Deflection**: Atmospheric winds (`wind_particles.wgsl`, `wind_ribbons`) must evaluate the local DEM gradient $\nabla h$ and deflect horizontal velocity $\mathbf{u}_h$ around terrain barriers ($(\mathbf{u}_h \cdot \mathbf{n}_{\text{slope}}) > 0$) while conserving kinetic energy $\|\mathbf{u}_h\|$, preventing wind particles from passing through solid mountain rock.
+- **Orographic Cloud Modulations**: Cloud condensation and density must couple with vertical orographic lift $w = \mathbf{u}_h \cdot \nabla h$, creating windward cloud buildup and leeward rain shadows.
+
+## 55. Metal-3 GPU Verification Protocol
+- **Prohibition of Headless CPU/SwiftShader for WebGPU Verification**: Unit test mocks and headless SwiftShader WebGPU software emulators cannot evaluate Apple Silicon Metal-3 driver behavior, WGSL uniform control flow constraints (Invariant §3), texture row pitch alignment (Invariant §40), or actual frame render times.
+- **Mandatory Hardware Adapter Pre-Flight**: Prior to capturing visual verification screenshots or certifying any WebGPU milestone, autonomous agents MUST query the browser GPU adapter via Chrome DevTools MCP:
+  ```javascript
+  const adapter = await navigator.gpu.requestAdapter();
+  const info = await adapter.requestAdapterInfo();
+  // Must verify: info.vendor === "apple" && info.architecture === "metal-3" && !adapter.isFallbackAdapter
+  ```
+  If `isFallbackAdapter` is true or `architecture` is not native hardware, the capture session is invalid.
+- **Console Log Hygiene Gate**: Verification must include `list_console_messages` asserting zero uncaptured WebGPU validation errors, WGSL compilation warnings, or texture binding mismatches.
+
+## 56. Defensive TypedArray Uniform Scalar Guards & NaN Immunity
+- **Prohibition of Direct Object-to-TypedArray Assignment**: In WebGPU engines utilizing packed `Float32Array` or `Uint32Array` uniform backing stores, never assign external parameter values directly into typed array indices (e.g. `this.uniformFloats[offset] = params.value`). Under ECMAScript `IntegerIndexedElementSet` semantics, if `params.value` is non-primitive (such as an empty object or `Object.create(null)`), the JavaScript engine throws a synchronous, uncatchable `TypeError: Cannot convert object to primitive value`, terminating the requestAnimationFrame render loop.
+- **Mandatory Pre-Assignment Scalar Guard**: All uniform setters and frame update methods MUST validate scalar types and finite numbers strictly prior to typed array indexing:
+  ```typescript
+  const rawValue = params.property;
+  if (typeof rawValue === 'number' && Number.isFinite(rawValue)) {
+    this.uniformFloats[offset] = Math.max(MIN_VAL, Math.min(MAX_VAL, rawValue));
+  }
+  ```
+- **Adversarial Fuzzing Contract**: Any method that writes interactive or HUD parameters to GPU uniform buffers must pass 50,000 Monte Carlo fuzzing iterations verifying immunity against `NaN`, `±Infinity`, `null`, `undefined`, empty objects, and circular references.
+
+## 57. Terrain-Conforming Altitude Floors & Anti-Facade Displacement Testing
+- **Prohibition of Fixed Spherical Cloud Geometries Over High Relief**: Atmospheric strata (Low Stratus, Mid Altocumulus, High Cirrus) must never be modeled as rigid spherical shells at static geocentric radius ($r = R_0 + z_0$). Over high continental massifs (Himalayas, Andes, Alps), static radius shells clip through summits, creating subterranean cloud artifacts inside solid rock.
+- **Dynamic Terrain Clearance Floors**: Atmospheric vertex shaders and raymarching pipelines must evaluate the underlying DEM crust elevation $h(\mathbf{x})$ and enforce a terrain-following clearance floor:
+  $$z_{\text{cloud}}(\mathbf{x}) \ge h(\mathbf{x}) + z_{\text{deck}}$$
+  ensuring that cloud decks elevate naturally over mountain barriers while tapering to sea-level altitudes over maritime basins.
+- **Prohibition of Test Clamping Facades**: Test suites validating atmospheric geometry and collision envelopes must NEVER artificially clamp terrain displacement scales or altitude bounds to mask clipping failures. Tests must assert against real 8K DEM relief models and production vertical exaggeration factors ($[1.0, 12.0]$).
 

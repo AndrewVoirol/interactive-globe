@@ -71,20 +71,6 @@ fn hash21(p: f32) -> vec2<f32> {
     return fract((p3.xx + p3.yz) * p3.zy);
 }
 
-// Sample wind velocity vector (u, v in m/s) at geographic coordinates
-// NOAA GFS Grid Layout:
-// U: 0° (Greenwich) to 360°, V: +90° (North Pole, y=0) to -90° (South Pole, y=180)
-fn sampleVelocity(lonRad: f32, latRad: f32, isJet: bool) -> vec2<f32> {
-    let uCoord = fract(lonRad / TWO_PI);
-    let vCoord = clamp((PI * 0.5 - latRad) / PI, 0.001, 0.999);
-    let uv = vec2<f32>(uCoord, vCoord);
-    if (isJet) {
-        return textureSampleLevel(u_jetTexture, u_windSampler, uv, 0.0).xy;
-    } else {
-        return textureSampleLevel(u_windTexture, u_windSampler, uv, 0.0).xy;
-    }
-}
-
 fn getRegionalBlendWeight(uv: vec2<f32>) -> f32 {
     if (u_regionalOverlay.u_regionalActive == 0u) {
         return 0.0;
@@ -170,7 +156,7 @@ fn sampleTerrain(lonRad: f32, latRad: f32) -> TerrainSample {
     let hNorth  = sampleTerrainElevation(lonRad, clamp(latRad + dLat, -PI * 0.495, PI * 0.495));
     let hSouth  = sampleTerrainElevation(lonRad, clamp(latRad - dLat, -PI * 0.495, PI * 0.495));
 
-    // Spherical metric arc lengths:
+    // Spherical metric arc lengths (Invariant §18):
     // dx = 2 * R_E * cos(lat) * dLon
     // dy = 2 * R_E * dLat
     let cosLat = max(0.05, cos(latRad));
@@ -181,6 +167,42 @@ fn sampleTerrain(lonRad: f32, latRad: f32) -> TerrainSample {
     res.elevation = hCenter;
     res.gradient = vec2<f32>((hEast - hWest) / dx, (hNorth - hSouth) / dy);
     return res;
+}
+
+// Sample wind velocity vector (u, v in m/s) at geographic coordinates
+// NOAA GFS Grid Layout:
+// U: 0° (Greenwich) to 360°, V: +90° (North Pole, y=0) to -90° (South Pole, y=180)
+// Spec §2.2: Topographic Barrier Wind Deflection & Kinetic Energy Speed Conservation
+fn sampleVelocity(lonRad: f32, latRad: f32, isJet: bool) -> vec2<f32> {
+    let uCoord = fract(lonRad / TWO_PI);
+    let vCoord = clamp((PI * 0.5 - latRad) / PI, 0.001, 0.999);
+    let uv = vec2<f32>(uCoord, vCoord);
+    if (isJet) {
+        // Upper troposphere jet stream at 250 hPa (~10.5 km) bypasses surface topography
+        return textureSampleLevel(u_jetTexture, u_windSampler, uv, 0.0).xy;
+    }
+
+    let rawVel = textureSampleLevel(u_windTexture, u_windSampler, uv, 0.0).xy;
+
+    // Evaluate surface terrain elevation and spherical metric gradient
+    let terrain = sampleTerrain(lonRad, latRad);
+    let gradMag = length(terrain.gradient);
+    let slopeNormal = terrain.gradient / max(gradMag, 1e-6);
+
+    // Apply barrier deflection if over elevated terrain and steep slope
+    if (terrain.elevation > 0.0 && gradMag > 1e-5) {
+        let d = dot(rawVel, slopeNormal);
+        if (d > 0.0) {
+            // Deflect upslope barrier flow by 75% (Spec §2.2)
+            let uDeflected = rawVel - 0.75 * d * slopeNormal;
+            let rawSpeed = length(rawVel);
+            let defSpeed = length(uDeflected);
+            // Conserve kinetic energy by scaling speed to match raw incoming speed
+            return select(uDeflected, uDeflected * (rawSpeed / max(defSpeed, 1e-6)), rawSpeed > 1e-5 && defSpeed > 1e-6);
+        }
+    }
+
+    return rawVel;
 }
 
 fn computeLiftedAltitude(lonRad: f32, latRad: f32, vel: vec2<f32>, isJet: bool) -> f32 {

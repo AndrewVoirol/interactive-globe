@@ -1004,3 +1004,103 @@ Add cloud layer controls to the existing HUD sidebar that follow the established
 - [ ] Cloud buffers allocate lazily via `ensureCloudBuffers()` pattern (Invariant §20)
 - [ ] `engine.dispose()` cleanly destroys all cloud GPU resources with zero VRAM leaks
 - [ ] Cloud shell DEM decoding formula matches crust exactly: `elevMeters = demSample.a * 19772.0 - 10924.0` (Invariant §15)
+
+## 2026-09-10T22:37:52Z
+
+<USER_REQUEST>
+Execute the First-Principles Atmospheric & Topographic Coupling implementation unifying the Indicatrix Engine's 11 strata into a 3-Domain Physical Continuum (Geosphere → Troposphere → Exosphere), eliminating flat 2D cloud decals with dynamic ground shadows, introducing horizontal topographic wind deflection, decoupling tri-strata cloud shells with an Atmosphere Drawer scale slider (1.0x to 12.0x), and verifying live on Apple Silicon Metal-3 GPU.
+
+Working directory: /Users/andrewvoirol/Antigravity/Projects/ais-interactive-globe-to-map
+Integrity mode: development
+
+## Authoritative Specifications & Invariants
+- `docs/FIRST_PRINCIPLES_ATMOSPHERIC_SPEC.md`
+- `docs/horizon_strata_cutaway.jpg`
+- Invariant §3: WGSL Unconditional Derivative Evaluation (`fwidth`, `dpdx`, `dpdy` strictly evaluated at top of `fs_main` in uniform control flow)
+- Invariant §5: WebGPU Canvas Premultiplied Alpha Transparent Clear (`clearValue: { r:0, g:0, b:0, a:0 }`)
+- Invariant §10: Zero-Standoff Surface Conformance & Horizon Tangent Attenuation (`smoothstep(0.02, 0.20, in.facing)`)
+- Invariant §12: 4 Canonical Benchmark Viewpoints (Limb Horizon, Alpine Basin, Planar Unroll, Medium Shift)
+- Invariant §13: Sequential Staged Gating (Milestones 1 → 2 → 3 → 4; no monolithic convergence)
+- Invariant §14: Hardware Depth Bias for Coplanar Cartography (`depthBias: -120`, `depthBiasSlopeScale: -1.0`)
+- Invariant §15: Cross-Pipeline DEM Mathematical Parity (`elevMeters = demSample.a * 19772.0 - 10924.0`)
+- Invariant §17: Independent Victory Auditor Contract (Independent test execution & MCP browser verification)
+- Invariant §20: 16-Byte WGSL Struct Alignment & Uniform Float Packing
+- Invariant §28: Exhaustive Multi-Medium Shader Parity (Theme 0 Tharp, Theme 1 Cream Rag, Theme 2 Cyanotype)
+- Invariant §48: Dynamic Dimensions (Zero Hardcoded Numeric Literals in DEM and texture handling)
+
+---
+
+## Requirements
+
+### R1. Pre-Flight Hygiene & Dynamic Cloud Ground Shadows (Milestone 1)
+- Resolve DEM Guard hardcoded literals in `src/webgpu/WebGPUEngine.ts` (lines 273, 274, 1414, 1782, 2891) by dynamically reading texture dimensions and falling back cleanly to constant symbols.
+- Bind `u_cloudTexture` and `u_cloudSampler` into `crust_hydrosphere.wgsl`.
+- Compute physical shadow UV offsets based on key light sun azimuth ($\phi_{\text{sun}} = 315.0^\circ$) and sun altitude ($\theta_{\text{sun}} = 45.0^\circ$):
+  $$\Delta u = -\frac{z_{\text{cloud}}}{\tan(\theta_{\text{sun}}) \cdot 2\pi R_E} \cos(\phi_{\text{sun}}), \quad \Delta v = \frac{z_{\text{cloud}}}{\tan(\theta_{\text{sun}}) \cdot \pi R_E} \sin(\phi_{\text{sun}})$$
+- Implement soft ground shadow attenuation using 4-tap jittered sampling with ~20km penumbra:
+  $$\text{shadowFactor} = 1.0 - u\_shadowIntensity \cdot \text{smoothstep}(0.10, 0.35, \text{cloudDens})$$
+- Modulate direct diffuse terrain and ocean lighting by `shadowFactor`, ensuring realistic mountain ridge and maritime shadow casting.
+
+### R2. Topographic Barrier Wind Deflection (Milestone 2)
+- In `src/webgpu/shaders/wind_particles.wgsl:sampleVelocity`, evaluate the local DEM elevation gradient $\nabla h = (\partial h/\partial x, \partial h/\partial y)$ using spherical metric tensor differences.
+- Compute normalized slope normal $\hat{\mathbf{n}}_{\text{slope}} = \nabla h / \sqrt{\|\nabla h\|^2 + \epsilon}$.
+- Decompose horizontal wind velocity $\mathbf{u}$ and apply fluid deflection against upslope barriers:
+  $$d = \mathbf{u} \cdot \hat{\mathbf{n}}_{\text{slope}}$$
+  $$\mathbf{u}_{\text{deflected}} = \mathbf{u} - 0.75 \cdot d \cdot \hat{\mathbf{n}}_{\text{slope}} \quad (\text{if } d > 0)$$
+- Conserve kinetic energy by scaling $\|\mathbf{u}_{\text{deflected}}\| = \|\mathbf{u}_{\text{raw}}\|$.
+- Ensure wind streamlines smoothly steer around Alpine massifs and barrier ridges into adjacent lowlands (e.g. Po Valley) without artificial divergence or stalling.
+
+### R3. Pitch-Adaptive Cloud Shell Separation & Rain Shadows (Milestone 3)
+- In `src/webgpu/shaders/cloud_shell.wgsl`, implement the 256-byte uniform struct with 16-byte alignment, including `u_atmosphericScale` $[1.0 .. 12.0]$ and `u_shadowIntensity` $[0.0 .. 0.60]$.
+- Implement pitch-adaptive standoff exaggeration:
+  $$k_{\text{exagg}} = 1.0 + (u\_atmosphericScale - 1.0) \cdot \left(1.0 - \text{clamp}\left(\frac{\mathbf{n} \cdot \mathbf{v}_{\text{cam}}}{0.35}, 0.0, 1.0\right)\right)^2$$
+- Separate Low (0.0010), Mid (0.0040), and High (0.0080) cloud decks along the horizon limb as camera pitch approaches oblique angles (pitch $> 70^\circ$).
+- Couple cloud density to orographic lift: enhance windward condensation and create distinct leeward rain shadow thinning.
+
+### R4. Atmosphere Drawer Controls & Horizon Cross-Section Preset (Milestone 4)
+- In `UnifiedRightSidebar.tsx` and `AtmosphereDrawer`, add the "Atmospheric Scale" slider ($1.0\times$ to $12.0\times$, step $0.1$, default $1.0\times$) coupled dynamically to `u_atmosphericScale`.
+- Add a 1-click "Horizon Cross-Section" camera preset button (Pitch $78.0^\circ$, oblique limb view, altitude configured to highlight separated cloud decks and Jet Stream).
+- Ensure smooth animated transition when selecting the preset.
+
+### R5. Independent Multi-Medium Verification Gate on Apple Silicon Metal-3 GPU
+- Verify compilation with `npx tsc --noEmit` and run test suite with `npm test`.
+- Verify runtime WebGPU adapter on Apple Silicon Metal-3:
+  $$\text{adapter.info.architecture} === \text{'metal-3'}$$
+- Capture all 3 mandatory visual checkpoints:
+  1. `screenshots/capture-horizon-limb-strata.png` (Pitch $78^\circ$, showing distinct Low/Mid/High shells separated above terrain).
+  2. `screenshots/capture-alpine-wind-deflection.png` (Alps $3.5\times$ zoom, showing wind particles steering around mountain massifs).
+  3. `screenshots/capture-cloud-shadow-terrain.png` (Oblique ridge view, showing dynamic cloud ground shadows conforming to topography).
+- Multi-Medium Parity: Verify identical physical behavior and medium-appropriate ink rendering across Theme 0 (Marie Tharp 1977), Theme 1 (Cream Rag), and Theme 2 (Prussian Cyanotype 1842) at 120 FPS sustained with zero console warnings.
+
+---
+
+## Acceptance Criteria
+
+### Milestone 1: Pre-Flight Hygiene & Dynamic Cloud Ground Shadows
+- [ ] No hardcoded DEM dimensions at `WebGPUEngine.ts:273, 274, 1414, 1782, 2891` (verified by DEM Guard check).
+- [ ] `u_cloudTexture` correctly bound in `crust_hydrosphere.wgsl` and sampled with Sun Azimuth $315^\circ$ / Altitude $45^\circ$ UV offset.
+- [ ] Direct diffuse terrain/ocean lighting modulated by `shadowFactor`, producing clearly visible soft shadows under clouds on terrain and ocean.
+- [ ] Live Metal-3 DevTools MCP screenshot captured to `screenshots/capture-cloud-shadow-terrain.png`.
+
+### Milestone 2: Topographic Barrier Wind Deflection
+- [ ] `wind_particles.wgsl:sampleVelocity` computes DEM gradient and deflects upslope flow with $0.75$ barrier deflection factor.
+- [ ] Kinetic velocity magnitude $\|\mathbf{u}\|$ conserved across all deflection steps.
+- [ ] Wind particles steer tangentially around mountain ridges rather than flowing directly over peaks regardless of elevation barrier.
+- [ ] Live Metal-3 DevTools MCP screenshot captured to `screenshots/capture-alpine-wind-deflection.png`.
+
+### Milestone 3: Pitch-Adaptive Cloud Shell Separation & Rain Shadows
+- [ ] `cloud_shell.wgsl` 256-byte uniform buffer matches TypeScript byte offsets with strict 16-byte alignment.
+- [ ] Dynamic $k_{\text{exagg}} formula expands cloud deck standoffs when viewing the planetary limb (pitch $> 70^\circ$).
+- [ ] Low, Mid, and High cloud strata visually decouple into 3 distinct layered shells above the crust at high pitch angles.
+- [ ] Orographic lift modulation produces visible leeward rain shadows downwind of mountain ranges.
+- [ ] Live Metal-3 DevTools MCP screenshot captured to `screenshots/capture-horizon-limb-strata.png`.
+
+### Milestone 4: UI Drawer Controls, Horizon Preset & Multi-Medium Verification
+- [ ] "Atmospheric Scale" slider ($1.0\times$ to $12.0\times$) added to Atmosphere Drawer and updates WebGPU uniform in real time with 0 pipeline recompiles.
+- [ ] "Horizon Cross-Section" camera preset navigates camera to Pitch $78^\circ$ oblique limb view.
+- [ ] All 3 visual captures present in `screenshots/`.
+- [ ] `npx tsc --noEmit` and `npm test` pass with 0 errors.
+- [ ] Live Chrome DevTools console reports 0 WebGPU warnings/errors and confirms `architecture === 'metal-3'`.
+- [ ] Parity verified across Marie Tharp, Cream Rag, and Cyanotype themes at 120 FPS.
+
+</USER_REQUEST>
