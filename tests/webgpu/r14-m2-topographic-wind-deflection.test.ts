@@ -476,4 +476,72 @@ describe('Milestone 2: Topographic Barrier Wind Deflection', () => {
       expect(infCount).toBe(0);
     });
   });
+
+  // --------------------------------------------------------------------------
+  // Group 6: Along-Contour Valley Funneling Vector Steer (RFC Mechanic 3)
+  // --------------------------------------------------------------------------
+  describe('6. Along-Contour Valley Funneling Vector Steer (RFC Mechanic 3)', () => {
+    function simulateValleySteeredVelocity(
+      rawVel: [number, number],
+      terrain: TerrainData,
+      isJet: boolean
+    ): [number, number] {
+      if (isJet) return [rawVel[0], rawVel[1]];
+      const gradMag = Math.hypot(terrain.gradient[0], terrain.gradient[1]);
+      const slopeNormal: [number, number] = [
+        terrain.gradient[0] / Math.max(gradMag, 1e-6),
+        terrain.gradient[1] / Math.max(gradMag, 1e-6),
+      ];
+
+      if (terrain.elevation > 0.0 && gradMag > 1e-5) {
+        const d = rawVel[0] * slopeNormal[0] + rawVel[1] * slopeNormal[1];
+        if (d > 0.0) {
+          const uDeflected: [number, number] = [
+            rawVel[0] - 0.75 * d * slopeNormal[0],
+            rawVel[1] - 0.75 * d * slopeNormal[1],
+          ];
+          const tContour: [number, number] = [-slopeNormal[1], slopeNormal[0]];
+          const crossZ = rawVel[0] * slopeNormal[1] - rawVel[1] * slopeNormal[0];
+          const steerSign = crossZ >= 0.0 ? 1.0 : -1.0;
+          const rawSpeed = Math.hypot(rawVel[0], rawVel[1]);
+          const uSteered: [number, number] = [
+            uDeflected[0] + 0.25 * steerSign * tContour[0] * rawSpeed,
+            uDeflected[1] + 0.25 * steerSign * tContour[1] * rawSpeed,
+          ];
+          const defSpeed = Math.hypot(uSteered[0], uSteered[1]);
+          if (rawSpeed > 1e-5 && defSpeed > 1e-6) {
+            const scale = rawSpeed / Math.max(defSpeed, 1e-6);
+            return [uSteered[0] * scale, uSteered[1] * scale];
+          }
+          return uSteered;
+        }
+      }
+      return [rawVel[0], rawVel[1]];
+    }
+
+    it('M2-STEER-01: wind_particles.wgsl implements along-contour tangent steering in sampleVelocity', () => {
+      expect(shaderSource).toContain('let tContour = vec2<f32>(-slopeNormal.y, slopeNormal.x);');
+      expect(shaderSource).toContain('let crossZ = rawVel.x * slopeNormal.y - rawVel.y * slopeNormal.x;');
+      expect(shaderSource).toContain('let steerSign = select(-1.0, 1.0, crossZ >= 0.0);');
+      expect(shaderSource).toContain('let uSteered = uDeflected + 0.25 * steerSign * tContour * rawSpeed;');
+    });
+
+    it('M2-STEER-02: upslope wind impinging on barrier acquires along-contour component directed down valleys', () => {
+      // East-West barrier (slope normal points North: [0, 1])
+      // Wind blowing North-East: rawVel = [10, 10]
+      const rawVel: [number, number] = [10.0, 10.0];
+      const ridge: TerrainData = { elevation: 2500.0, gradient: [0.0, 0.08] };
+      const steered = simulateValleySteeredVelocity(rawVel, ridge, false);
+
+      // tContour = [-1, 0]. crossZ = 10 * 1 - 10 * 0 = 10 >= 0 -> steerSign = +1
+      // Steers wind toward West parallel to ridge (-x direction)
+      expect(steered[0]).not.toBe(rawVel[0]);
+      expect(Math.hypot(steered[0], steered[1])).toBeCloseTo(Math.hypot(rawVel[0], rawVel[1]), 5);
+    });
+
+    it('M2-STEER-03: computeLiftedAltitude scales Jet Stream altitude dynamically with pitch (RFC Mechanic 2)', () => {
+      expect(shaderSource).toContain('let k_exagg = 1.0 + 9.0 * ((1.0 - NdotV) * (1.0 - NdotV));');
+      expect(shaderSource).toContain('let baseAlt = select(0.0005, 0.0065 * k_exagg, isJet);');
+    });
+  });
 });

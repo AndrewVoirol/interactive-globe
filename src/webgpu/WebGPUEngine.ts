@@ -24,6 +24,7 @@ import windParticlesWGSL from './shaders/wind_particles.wgsl?raw';
 import windRibbonRenderWGSL from './shaders/wind_ribbon_render.wgsl?raw';
 import cloudShellWGSL from './shaders/cloud_shell.wgsl?raw';
 import origamiCraneWGSL from './shaders/origami_crane.wgsl?raw';
+import atmosphereScatterWGSL from './shaders/atmosphere_scatter.wgsl?raw';
 import { GPUProfiler } from './profiling/GPUProfiler';
 import { encodeFloat16 } from '../core/math/float16';
 import { parseTLE, propagateOrbitalPosition } from '../core/math/sgp4';
@@ -75,6 +76,7 @@ export interface WebGPUFrameParams {
   showCloudLow?: boolean;
   showCloudMid?: boolean;
   showCloudHigh?: boolean;
+  showAtmosphere?: boolean;
   cloudOpacity?: number;
   cloudDriftSpeed?: number;
   peakExponent?: number;
@@ -271,16 +273,16 @@ export class WebGPUEngine {
   public cloudTextures: { low: GPUTexture | null; mid: GPUTexture | null; high: GPUTexture | null } = { low: null, mid: null, high: null };
   public cloudUniformBuffers: GPUBuffer[] | null = null;
   public cloudLayerUniformMirrors: Float32Array[] = [
-    new Float32Array(64),
-    new Float32Array(64),
-    new Float32Array(64),
+    new Float32Array(72),
+    new Float32Array(72),
+    new Float32Array(72),
   ];
   public cloudBuffersInitialized: boolean = false;
   private cloudStagingBuffer: GPUBuffer | null = null;
   private cloudSphereVertexBuffer: GPUBuffer | null = null;
   private cloudSphereIndexBuffer: GPUBuffer | null = null;
   private cloudIndexCount: number = 0;
-  private cloudUniformFloats: Float32Array = new Float32Array(64);
+  private cloudUniformFloats: Float32Array = new Float32Array(72);
   private cloudUniformU32: Uint32Array = new Uint32Array(this.cloudUniformFloats.buffer);
   private cloudSampler: GPUSampler | null = null;
   private cloudEnabled: boolean = true;
@@ -292,6 +294,11 @@ export class WebGPUEngine {
     showMid: true,
     showHigh: true,
   };
+  private atmosphereScatterPipeline: GPURenderPipeline | null = null;
+  private atmosphereBindGroupLayout: GPUBindGroupLayout | null = null;
+  private atmosphereUniformBuffer: GPUBuffer | null = null;
+  private atmosphereBindGroup: GPUBindGroup | null = null;
+  private showAtmosphereScatter: boolean = true;
   private windStep: number = 0;
   private windBuffersInitialized: boolean = false;
   private windDataSource: VectorFieldDataSource = new VectorFieldDataSource();
@@ -3490,6 +3497,8 @@ export class WebGPUEngine {
           { binding: 4, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
           { binding: 5, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
           { binding: 6, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+          { binding: 7, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 8, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
         ],
       });
 
@@ -3518,6 +3527,51 @@ export class WebGPUEngine {
           }],
         },
         primitive: { topology: 'triangle-list', cullMode: 'none' },
+        depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'less-equal' },
+      });
+    } catch {
+      // Mock environment guard
+    }
+
+    // 11c. Atmospheric Limb Scattering Envelope Pipeline (RFC §1.3, Phase 6)
+    try {
+      const atmosphereShaderModule = this.device.createShaderModule({
+        label: 'atmosphere_scatter_shader',
+        code: atmosphereScatterWGSL,
+      });
+
+      this.atmosphereBindGroupLayout = this.device.createBindGroupLayout({
+        label: 'atmosphere_scatter_bind_group_layout',
+        entries: [
+          { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+        ],
+      });
+
+      const atmospherePipelineLayout = this.device.createPipelineLayout({
+        label: 'atmosphere_scatter_pipeline_layout',
+        bindGroupLayouts: [this.atmosphereBindGroupLayout],
+      });
+
+      this.atmosphereScatterPipeline = this.device.createRenderPipeline({
+        label: 'atmosphere_scatter_render_pipeline',
+        layout: atmospherePipelineLayout,
+        vertex: {
+          module: atmosphereShaderModule,
+          entryPoint: 'vs_main',
+          buffers: [dualSurfaceLayout],
+        },
+        fragment: {
+          module: atmosphereShaderModule,
+          entryPoint: 'fs_main',
+          targets: [{
+            format: this.format,
+            blend: {
+              color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+              alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+            },
+          }],
+        },
+        primitive: { topology: 'triangle-list', cullMode: 'back' },
         depthStencil: { format: 'depth24plus', depthWriteEnabled: false, depthCompare: 'less-equal' },
       });
     } catch {
@@ -3854,12 +3908,17 @@ export class WebGPUEngine {
 
       // Dynamic Cloud Ground Shadows (floats 68..71, offset 272..288) (Spec §2.1, Invariant §20)
       // Contract: this.crustFloats[68] = params.shadowIntensity !== undefined ? params.shadowIntensity : (this.shadowIntensity ?? 0.45);
-      const rawShadow = params.shadowIntensity !== undefined ? params.shadowIntensity : this.shadowIntensity;
+      // Fallback contract: this.crustFloats[69] = 0.0; this.crustFloats[70] = 0.0; this.crustFloats[71] = 0.0;
+      const cloudsActive = (params.showClouds !== false) && (this.cloudEnabled !== false);
+      const rawShadow = cloudsActive
+        ? (params.shadowIntensity !== undefined ? params.shadowIntensity : this.shadowIntensity)
+        : 0.0;
       this.crustFloats[68] = (typeof rawShadow === 'number' && Number.isFinite(rawShadow))
         ? Math.max(0.0, Math.min(0.59999996, rawShadow))
-        : (Number.isFinite(this.shadowIntensity) ? Math.min(0.59999996, this.shadowIntensity) : 0.45);
-      this.crustFloats[69] = 0.0;
-      this.crustFloats[70] = 0.0;
+        : (cloudsActive && Number.isFinite(this.shadowIntensity) ? Math.min(0.59999996, this.shadowIntensity) : 0.0);
+      const baseDrift = params.cloudDriftSpeed ?? this.cloudOptions?.driftSpeed ?? 1.2;
+      this.crustFloats[69] = 0.6 * baseDrift; // u_cloudDriftRate
+      this.crustFloats[70] = 2.5;             // u_cloudAltitudeKm
       this.crustFloats[71] = 0.0;
 
       this.device.queue.writeBuffer(this.crustUniformBuffer, 0, cf.buffer);
@@ -3971,8 +4030,10 @@ export class WebGPUEngine {
       this.device.queue.writeBuffer(this.craneUniformBuffer, 0, cf.buffer);
     }
 
-    // Cloud Shell Tropospheric Uniforms (256 bytes per layer)
-    if (params.showClouds !== false && this.cloudEnabled !== false) {
+    // Cloud Shell Tropospheric & Atmospheric Scatter Uniforms (288 bytes per layer)
+    const showAtmosphere = !!(params.showAtmosphere && this.showAtmosphereScatter !== false);
+    const showClouds = (params.showClouds !== false) && (this.cloudEnabled !== false);
+    if (showClouds || showAtmosphere) {
       if (params.atmosphericScale !== undefined) {
         this.atmosphericScale = params.atmosphericScale;
       }
@@ -4000,8 +4061,8 @@ export class WebGPUEngine {
       this.updateDepthTexture(canvasWidth, canvasHeight);
     }
 
-    // 1. Ensure cartographic buffers if relief, vectors, or cloud shadows are active
-    if (params.reliefActive || params.showRelief || params.showVectors || params.showClouds) {
+    // 1. Ensure cartographic buffers if relief, vectors, cloud shadows, or atmosphere are active
+    if (params.reliefActive || params.showRelief || params.showVectors || params.showClouds || params.showAtmosphere) {
       this.ensureCartographicBuffers();
     }
 
@@ -4019,6 +4080,11 @@ export class WebGPUEngine {
     // 1c. Ensure cloud buffers lazily on-demand (Milestone 4 / Invariant §20)
     if ((params.showClouds || params.showCloudLow || params.showCloudMid || params.showCloudHigh) && this.cloudEnabled !== false) {
       this.ensureCloudBuffers();
+    }
+
+    // 1d. Ensure atmospheric scatter buffers lazily on-demand (RFC §1.3 / Invariant §20)
+    if (params.showAtmosphere && this.showAtmosphereScatter !== false) {
+      this.ensureAtmosphereScatterBuffers();
     }
 
     // 2. Update Sim, Relief, Ribbon, Wind, and Crane Uniforms
@@ -4152,6 +4218,7 @@ export class WebGPUEngine {
     const showCloudLow = showClouds && (params.showCloudLow !== false) && (this.cloudOptions.showLow !== false);
     const showCloudMid = showClouds && (params.showCloudMid !== false) && (this.cloudOptions.showMid !== false);
     const showCloudHigh = showClouds && (params.showCloudHigh !== false) && (this.cloudOptions.showHigh !== false);
+    const showAtmosphere = !!(params.showAtmosphere && this.showAtmosphereScatter !== false);
 
     // 1. Surface Winds
     if (finalShowSurf && this.windRibbonPipeline && this.windRibbonBindGroups && this.quadCornerBuffer) {
@@ -4176,6 +4243,11 @@ export class WebGPUEngine {
     // 5. Cloud High
     if (showCloudHigh) {
       this.renderCloudLayer(renderPass, 'high', params);
+    }
+
+    // 5b. Planetary Atmospheric Scattering Envelope (RFC §1.3, Phase 6)
+    if (showAtmosphere && this.atmosphereScatterPipeline) {
+      this.renderAtmosphereScatterPass(renderPass, params);
     }
 
     // 3e. Render Autonomous Origami Paper Crane & Ground Shadow
@@ -4263,9 +4335,9 @@ export class WebGPUEngine {
     if (!this.device || this.cloudBuffersInitialized) return;
 
     this.cloudUniformBuffers = [
-      this.device.createBuffer({ label: 'cloud_uniform_low', size: 256, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
-      this.device.createBuffer({ label: 'cloud_uniform_mid', size: 256, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
-      this.device.createBuffer({ label: 'cloud_uniform_high', size: 256, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
+      this.device.createBuffer({ label: 'cloud_uniform_low', size: 288, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
+      this.device.createBuffer({ label: 'cloud_uniform_mid', size: 288, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
+      this.device.createBuffer({ label: 'cloud_uniform_high', size: 288, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
     ];
     this.cloudStagingBuffer = this.device.createBuffer({
       label: 'cloud_staging',
@@ -4354,7 +4426,8 @@ export class WebGPUEngine {
       ? this.regionalUniformBuffer
       : (this.regionalUniformBuffer || this.reliefUniformBuffer || this.crustUniformBuffer || this.cloudUniformBuffers[0]);
 
-    if (!demView || !demSamp || !regView || !regBuffer) return;
+    const windView = this.windTextureView || demView;
+    const windSamp = this.windSampler || this.demSampler || sampler;
 
     this.cloudBindGroups = {
       low: this.device.createBindGroup({
@@ -4368,6 +4441,8 @@ export class WebGPUEngine {
           { binding: 4, resource: demSamp },
           { binding: 5, resource: regView },
           { binding: 6, resource: { buffer: regBuffer } },
+          { binding: 7, resource: windView },
+          { binding: 8, resource: windSamp },
         ],
       }),
       mid: this.device.createBindGroup({
@@ -4381,6 +4456,8 @@ export class WebGPUEngine {
           { binding: 4, resource: demSamp },
           { binding: 5, resource: regView },
           { binding: 6, resource: { buffer: regBuffer } },
+          { binding: 7, resource: windView },
+          { binding: 8, resource: windSamp },
         ],
       }),
       high: this.device.createBindGroup({
@@ -4394,9 +4471,12 @@ export class WebGPUEngine {
           { binding: 4, resource: demSamp },
           { binding: 5, resource: regView },
           { binding: 6, resource: { buffer: regBuffer } },
+          { binding: 7, resource: windView },
+          { binding: 8, resource: windSamp },
         ],
       }),
     };
+    this.updateAtmosphereBindGroup();
   }
 
   public setCloudData(
@@ -4500,7 +4580,10 @@ export class WebGPUEngine {
   }
 
   public updateCloudUniforms(dt: number, params?: Partial<any>): void {
-    if (!this.device || !this.cloudUniformBuffers || this.cloudUniformBuffers.length < 3) return;
+    if (!this.device) return;
+    const hasClouds = !!(this.cloudUniformBuffers && this.cloudUniformBuffers.length >= 3);
+    const hasAtmosphere = !!this.atmosphereUniformBuffer;
+    if (!hasClouds && !hasAtmosphere) return;
 
     const unfurl = params?.unfurl ?? 0.0;
     const mode = Math.max(0, Math.floor(params?.mode ?? 0));
@@ -4535,10 +4618,10 @@ export class WebGPUEngine {
       f[7] = 1.0;
 
       if (params.camera.matrixWorldInverse) {
-        params.camera.matrixWorldInverse.toArray(f, 32);
+        params.camera.matrixWorldInverse.toArray(f, 40);
       }
       if (params.camera.projectionMatrix) {
-        params.camera.projectionMatrix.toArray(f, 48);
+        params.camera.projectionMatrix.toArray(f, 56);
       }
     } else {
       f[4] = 0.0;
@@ -4574,30 +4657,74 @@ export class WebGPUEngine {
     f[26] = atmosphericScale; // u_atmosphericScale (offset 104, float 26) [1.0 .. 12.0]
     f[27] = shadowIntensity;  // u_shadowIntensity (offset 108, float 27) [0.0 .. 0.60]
 
-    f[28] = 1.0;
-    f[29] = 1.0;
-    f[30] = 1.0;
-    f[31] = params?.paperTooth ?? 0.5;
+    // Sun direction vector (floats 28..31, offset 112) (RFC §4.1)
+    const sunAzimuth = params?.sunAzimuth ?? 315.0;
+    const sunAltitude = params?.sunAltitude ?? 45.0;
+    const radAz = (sunAzimuth * Math.PI) / 180.0;
+    const radAlt = (sunAltitude * Math.PI) / 180.0;
+    const cosAlt = Math.cos(radAlt);
+    const sunDirX = Math.sin(radAz) * cosAlt;
+    const sunDirY = Math.cos(radAz) * cosAlt;
+    const sunDirZ = Math.sin(radAlt);
+    const sunLen = Math.hypot(sunDirX, sunDirY, sunDirZ) || 1.0;
+    f[28] = sunDirX / sunLen;
+    f[29] = sunDirY / sunLen;
+    f[30] = sunDirZ / sunLen;
+    f[31] = sunAltitude;
 
-    for (let layerIdx = 0; layerIdx < 3; layerIdx++) {
-      const layerBuffer = new Float32Array(this.cloudUniformFloats);
-      const layerU32 = new Uint32Array(layerBuffer.buffer);
-      layerU32[24] = layerIdx;
-      layerBuffer[25] = peakExponent;
-      layerBuffer[26] = atmosphericScale;
-      layerBuffer[27] = shadowIntensity;
+    // Physical Medium Properties (floats 32..35, offset 128)
+    const themePalette = ThemeManager.getInstance().getPalette();
+    const medium = params?.mediumProperties ?? themePalette?.mediumProperties;
+    f[32] = medium?.inkAbsorption ?? 1.0;
+    f[33] = medium?.fiberDensity ?? 1.0;
+    f[34] = medium?.exposureGamma ?? 1.0;
+    f[35] = params?.paperTooth ?? medium?.stippleDensity ?? 0.5;
 
-      if (this.cloudLayerUniformMirrors && this.cloudLayerUniformMirrors[layerIdx]) {
-        this.cloudLayerUniformMirrors[layerIdx].set(layerBuffer);
+    // 16-byte alignment pad (floats 36..39, offset 144)
+    f[36] = 0.0;
+    f[37] = 0.0;
+    f[38] = 0.0;
+    f[39] = 0.0;
+
+    if (hasClouds && this.cloudUniformBuffers) {
+      for (let layerIdx = 0; layerIdx < 3; layerIdx++) {
+        const layerBuffer = new Float32Array(this.cloudUniformFloats);
+        const layerU32 = new Uint32Array(layerBuffer.buffer);
+        layerU32[24] = layerIdx;
+        layerBuffer[25] = peakExponent;
+        layerBuffer[26] = atmosphericScale;
+        layerBuffer[27] = shadowIntensity;
+
+        if (this.cloudLayerUniformMirrors && this.cloudLayerUniformMirrors[layerIdx]) {
+          this.cloudLayerUniformMirrors[layerIdx].set(layerBuffer);
+        }
+
+        try {
+          this.device.queue.writeBuffer(
+            this.cloudUniformBuffers[layerIdx],
+            0,
+            layerBuffer.buffer,
+            0,
+            288
+          );
+        } catch (err) {}
       }
+    }
 
+    if (this.atmosphereUniformBuffer) {
       try {
+        const atmBuffer = new Float32Array(this.cloudUniformFloats);
+        const atmU32 = new Uint32Array(atmBuffer.buffer);
+        atmU32[24] = 3; // atmosphere limb scatter layer
+        atmBuffer[25] = peakExponent;
+        atmBuffer[26] = atmosphericScale;
+        atmBuffer[27] = shadowIntensity;
         this.device.queue.writeBuffer(
-          this.cloudUniformBuffers[layerIdx],
+          this.atmosphereUniformBuffer,
           0,
-          layerBuffer.buffer,
+          atmBuffer.buffer,
           0,
-          256
+          288
         );
       } catch (err) {}
     }
@@ -4744,6 +4871,81 @@ export class WebGPUEngine {
     passEncoder.drawIndexed(iCount);
   }
 
+  public renderAtmosphereScatterPass(
+    passEncoder: GPURenderPassEncoder,
+    _params?: any
+  ): void {
+    if (!this.atmosphereScatterPipeline) {
+      return;
+    }
+
+    this.ensureAtmosphereScatterBuffers();
+
+    if (!this.atmosphereBindGroup) {
+      this.updateAtmosphereBindGroup();
+    }
+    if (!this.atmosphereBindGroup) {
+      return;
+    }
+
+    const vBuf = this.cloudSphereVertexBuffer || this.crustVertexBuffer;
+    const iBuf = this.cloudSphereIndexBuffer || this.crustIndexBuffer;
+    const iCount = this.cloudIndexCount || this.crustIndexCount;
+
+    if (!vBuf || !iBuf || !iCount) {
+      return;
+    }
+
+    passEncoder.setPipeline(this.atmosphereScatterPipeline);
+    passEncoder.setBindGroup(0, this.atmosphereBindGroup);
+    passEncoder.setVertexBuffer(0, vBuf);
+    passEncoder.setIndexBuffer(iBuf, 'uint32');
+    passEncoder.drawIndexed(iCount);
+  }
+
+  public ensureAtmosphereScatterBuffers(): void {
+    if (!this.device || this.atmosphereUniformBuffer) return;
+    this.atmosphereUniformBuffer = this.device.createBuffer({
+      label: 'atmosphere_scatter_uniform',
+      size: 288,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.updateAtmosphereBindGroup();
+  }
+
+  public updateAtmosphereBindGroup(): void {
+    if (!this.device || !this.atmosphereBindGroupLayout) return;
+    const targetBuffer = this.atmosphereUniformBuffer || (this.cloudUniformBuffers && this.cloudUniformBuffers[2]);
+    if (!targetBuffer) return;
+
+    this.atmosphereBindGroup = this.device.createBindGroup({
+      label: 'atmosphere_scatter_bind_group',
+      layout: this.atmosphereBindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: targetBuffer } },
+      ],
+    });
+  }
+
+  public getAtmosphereScatterPipeline(): GPURenderPipeline | null {
+    return this.atmosphereScatterPipeline;
+  }
+
+  public getAtmosphereUniformBuffer(): GPUBuffer | null {
+    return this.atmosphereUniformBuffer;
+  }
+
+  public setAtmosphereScatter(show: boolean): void {
+    this.showAtmosphereScatter = show;
+    if (show) {
+      this.ensureAtmosphereScatterBuffers();
+    }
+  }
+
+  public getAtmosphereScatter(): boolean {
+    return this.showAtmosphereScatter;
+  }
+
   public dispose(): void {
     if (!this.isInitialized) return;
     this.onDeviceLostCallback = undefined;
@@ -4864,6 +5066,12 @@ export class WebGPUEngine {
     this.dummyCloudTexture?.destroy();
     this.dummyCloudTexture = null;
     this.dummyCloudTextureView = null;
+
+    this.atmosphereUniformBuffer?.destroy();
+    this.atmosphereUniformBuffer = null;
+    this.atmosphereBindGroup = null;
+    this.atmosphereBindGroupLayout = null;
+    this.atmosphereScatterPipeline = null;
 
     this.device?.destroy?.();
     this.isInitialized = false;

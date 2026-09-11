@@ -146,7 +146,7 @@ describe('Milestone 4: WebGPU Engine Cloud Integration Suite', () => {
       expect(engine.cloudTextures.high).toBeNull();
     });
 
-    it('M4-INIT-02: ensureCloudBuffers lazily allocates cloudUniformBuffer (256 bytes) and staging buffer (2,214,912 bytes)', () => {
+    it('M4-INIT-02: ensureCloudBuffers lazily allocates cloudUniformBuffer (288 bytes) and staging buffer (2,214,912 bytes)', () => {
       const device = (engine as any).device as MockGPUDevice;
       expect(device.buffers.length).toBe(5);
 
@@ -158,7 +158,7 @@ describe('Milestone 4: WebGPU Engine Cloud Integration Suite', () => {
 
       const cloudUBuffer = engine.getCloudUniformBuffer();
       expect(cloudUBuffer).toBeDefined();
-      expect(cloudUBuffer?.size).toBe(256);
+      expect(cloudUBuffer?.size).toBe(288);
 
       const stagingBuffer = (engine as any).cloudStagingBuffer;
       expect(stagingBuffer).toBeDefined();

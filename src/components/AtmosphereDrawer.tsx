@@ -63,7 +63,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const [internalShowCloudHigh, setInternalShowCloudHigh] = useState<boolean>(true);
   const [internalCloudDriftSpeed, setInternalCloudDriftSpeed] = useState<number>(1.0);
   const [internalCloudOpacity, setInternalCloudOpacity] = useState<number>(0.8);
-  const [internalAtmosphericScale, setInternalAtmosphericScale] = useState<number>(1.0);
+  const [internalAtmosphericScale, setInternalAtmosphericScale] = useState<number>(3.5);
   const [internalShadowIntensity, setInternalShadowIntensity] = useState<number>(0.45);
 
   const curShowClouds = propShowClouds !== undefined ? propShowClouds : internalShowClouds;

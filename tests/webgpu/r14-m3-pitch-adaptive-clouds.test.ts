@@ -448,19 +448,24 @@ describe('Milestone 3: Pitch-Adaptive Cloud Shell Separation & Rain Shadows', ()
     });
 
     it('M3-UNIF-02: verifies 16-byte natural alignment and byte offsets in CloudUniforms', () => {
-      // Offset table verification
+      // Offset table verification (RFC §4.1 - 288 bytes / 72 floats)
       // Offset 96: u_layerIndex (u32, 4B)
       // Offset 100: u_peakExponent (f32, 4B)
       // Offset 104: u_atmosphericScale (f32, 4B)
       // Offset 108: u_shadowIntensity (f32, 4B)
-      // Offset 112: u_mediumProperties (vec4<f32>, 16B aligned: 112 % 16 == 0)
-      // Offset 128: u_viewMatrix (mat4x4<f32>, 16B aligned: 128 % 16 == 0)
-      // Offset 192: u_projectionMatrix (mat4x4<f32>, 16B aligned: 192 % 16 == 0)
+      // Offset 112: u_sunDirection (vec4<f32>, 16B aligned: 112 % 16 == 0)
+      // Offset 128: u_mediumProperties (vec4<f32>, 16B aligned: 128 % 16 == 0)
+      // Offset 144: u_pad (vec4<f32>, 16B aligned: 144 % 16 == 0)
+      // Offset 160: u_viewMatrix (mat4x4<f32>, 16B aligned: 160 % 16 == 0)
+      // Offset 224: u_projectionMatrix (mat4x4<f32>, 16B aligned: 224 % 16 == 0)
       expect(112 % 16).toBe(0);
       expect(128 % 16).toBe(0);
-      expect(192 % 16).toBe(0);
-      expect((192 + 64) % 16).toBe(0);
-      expect((192 + 64) % 256).toBe(0);
+      expect(144 % 16).toBe(0);
+      expect(160 % 16).toBe(0);
+      expect(224 % 16).toBe(0);
+      expect((224 + 64) % 16).toBe(0);
+      expect(224 + 64).toBe(288);
+      expect(cloudShaderSource).toMatch(/u_sunDirection\s*:\s*vec4<f32>/);
     });
 
     it('M3-UNIF-03: WebGPUEngine declares public atmosphericScale with [1.0, 12.0] clamping', () => {

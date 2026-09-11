@@ -167,7 +167,7 @@ describe('Milestone 4 Adversarial Stress Harness (Challenger)', () => {
 
       expect(lastWrite).toBeDefined();
       const f32 = new Float32Array(lastWrite!.data as ArrayBuffer);
-      expect(f32.length).toBe(64); // 256 bytes / 4 = 64 floats
+      expect(f32.length).toBe(72); // 288 bytes / 4 = 72 floats (RFC §4.1)
 
       for (let j = 0; j < f32.length; j++) {
         if (Number.isNaN(f32[j]) || !Number.isFinite(f32[j])) {

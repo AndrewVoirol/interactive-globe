@@ -122,6 +122,28 @@ export function evaluateOrographicEffect(
   return { deltaH, windwardBoost, leewardShadow, stratumCoupling, orographicFactor };
 }
 
+/**
+ * 2D wind-coupled orographic condensation and dissolution evaluator (RFC Mechanic 4)
+ * w = u · ∇h = u * dh/dx + v * dh/dy
+ * condensedCloud = clamp(rawCloud + 0.35 * tanh(0.05 * w * 50.0) * stratumCoupling, 0.0, 1.0)
+ */
+export function evaluate2DOrographicCondensation(
+  windVel: [number, number],
+  gradH: [number, number],
+  rawCloud: number,
+  layerIdx: number
+): {
+  wOrographic: number;
+  orographicLift: number;
+  condensedCloud: number;
+} {
+  const wOrographic = windVel[0] * gradH[0] + windVel[1] * gradH[1];
+  const stratumCoupling = layerIdx >= 1 ? (layerIdx === 2 ? 0.15 : 0.50) : 1.0;
+  const orographicLift = 0.35 * Math.tanh(0.05 * wOrographic * 50.0) * stratumCoupling;
+  const condensedCloud = Math.max(0.0, Math.min(1.0, rawCloud + orographicLift));
+  return { wOrographic, orographicLift, condensedCloud };
+}
+
 describe('Challenger Suite M3-IT2: Deck Hierarchy Preservation, Subterranean Clearance & Rain Shadows', () => {
   // ==========================================================================
   // Pillar 1: Planetary Elevation Probing Across Critical Landforms
@@ -303,6 +325,59 @@ describe('Challenger Suite M3-IT2: Deck Hierarchy Preservation, Subterranean Cle
         // Maximum factor is 1.0 + 0.35 * 1.0 = 1.35
         expect(orographicFactor).toBeLessThanOrEqual(1.35);
       }
+    });
+
+    it('CHALLENGE-ORO-05: Tropical easterly trade winds across Andes induce windward condensation & leeward rain shadow', () => {
+      // Trade winds blow from East to West: u = -12 m/s, v = 0 m/s
+      const tradeWind: [number, number] = [-12.0, 0.0];
+      // Eastern Amazonian slope of Andes: terrain rises to the West (dh/dx < 0)
+      // Since wind is blowing West (u < 0) and dh/dx < 0, w = u * dh/dx > 0 (windward lift!)
+      const amazonSlopeGrad: [number, number] = [-0.05, 0.0];
+      const windward = evaluate2DOrographicCondensation(tradeWind, amazonSlopeGrad, 0.20, 0);
+      expect(windward.wOrographic).toBeGreaterThan(0);
+      expect(windward.condensedCloud).toBeGreaterThan(0.20);
+
+      // Western Pacific coastal slope: terrain drops toward ocean to the West (dh/dx > 0)
+      // w = u * dh/dx < 0 (Atacama leeward rain shadow dissolution!)
+      const atacamaSlopeGrad: [number, number] = [0.05, 0.0];
+      const leeward = evaluate2DOrographicCondensation(tradeWind, atacamaSlopeGrad, 0.20, 0);
+      expect(leeward.wOrographic).toBeLessThan(0);
+      expect(leeward.condensedCloud).toBeLessThan(0.20);
+    });
+
+    it('CHALLENGE-ORO-06: Mid-latitude westerlies across Alps induce French windward lift & Po Valley rain shadow', () => {
+      // Mid-latitude westerlies: u = +15 m/s, v = 0 m/s
+      const westerly: [number, number] = [15.0, 0.0];
+      // Western French Alps slope: terrain rises to the East (dh/dx > 0)
+      // w = 15.0 * 0.06 = +0.90 m/s (strong lift!)
+      const frenchSlopeGrad: [number, number] = [0.06, 0.0];
+      const windward = evaluate2DOrographicCondensation(westerly, frenchSlopeGrad, 0.15, 0);
+      expect(windward.wOrographic).toBeGreaterThan(0);
+      expect(windward.condensedCloud).toBeGreaterThan(0.15);
+
+      // Eastern Po Valley leeward descent: terrain drops to the East (dh/dx < 0)
+      // w = 15.0 * (-0.06) = -0.90 m/s (rain shadow dissolution!)
+      const poSlopeGrad: [number, number] = [-0.06, 0.0];
+      const leeward = evaluate2DOrographicCondensation(westerly, poSlopeGrad, 0.35, 0);
+      expect(leeward.wOrographic).toBeLessThan(0);
+      expect(leeward.condensedCloud).toBeLessThan(0.35);
+    });
+
+    it('CHALLENGE-ORO-07: Indian summer monsoon southerly flow across Himalayas induces massive southern lift', () => {
+      // South Asian Monsoon: u = +4 m/s, v = +18 m/s (strong northward flow)
+      const monsoonWind: [number, number] = [4.0, 18.0];
+      // Southern Himalayan barrier (Nepal): terrain rises sharply to the North (dh/dy > 0)
+      // w = v * dh/dy > 0 (extreme orographic lift!)
+      const nepalSlopeGrad: [number, number] = [0.0, 0.08];
+      const windward = evaluate2DOrographicCondensation(monsoonWind, nepalSlopeGrad, 0.10, 0);
+      expect(windward.wOrographic).toBeGreaterThan(1.0);
+      expect(windward.condensedCloud).toBeGreaterThan(0.35);
+
+      // Northern Tibetan Plateau leeward side: terrain drops northward (dh/dy < 0)
+      const tibetSlopeGrad: [number, number] = [0.0, -0.05];
+      const leeward = evaluate2DOrographicCondensation(monsoonWind, tibetSlopeGrad, 0.30, 0);
+      expect(leeward.wOrographic).toBeLessThan(0);
+      expect(leeward.condensedCloud).toBeLessThan(0.30);
     });
   });
 

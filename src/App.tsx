@@ -86,7 +86,7 @@ export default function App() {
   const mouseIdleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Atmospheric Controls & Stratification State (Milestone 4)
-  const [atmosphericScale, setAtmosphericScale] = useState<number>(1.0);
+  const [atmosphericScale, setAtmosphericScale] = useState<number>(3.5);
   const [shadowIntensity, setShadowIntensity] = useState<number>(0.45);
 
   useEffect(() => {

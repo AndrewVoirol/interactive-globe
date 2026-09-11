@@ -195,10 +195,15 @@ fn sampleVelocity(lonRad: f32, latRad: f32, isJet: bool) -> vec2<f32> {
         if (d > 0.0) {
             // Deflect upslope barrier flow by 75% (Spec §2.2)
             let uDeflected = rawVel - 0.75 * d * slopeNormal;
+            // Mechanic 3: Along-contour valley funneling vector steer
+            let tContour = vec2<f32>(-slopeNormal.y, slopeNormal.x);
+            let crossZ = rawVel.x * slopeNormal.y - rawVel.y * slopeNormal.x;
+            let steerSign = select(-1.0, 1.0, crossZ >= 0.0);
             let rawSpeed = length(rawVel);
-            let defSpeed = length(uDeflected);
-            // Conserve kinetic energy by scaling speed to match raw incoming speed
-            return select(uDeflected, uDeflected * (rawSpeed / max(defSpeed, 1e-6)), rawSpeed > 1e-5 && defSpeed > 1e-6);
+            let uSteered = uDeflected + 0.25 * steerSign * tContour * rawSpeed;
+            let defSpeed = length(uSteered);
+            // Baseline kinetic energy conservation: return select(uDeflected, uDeflected * (rawSpeed / max(defSpeed, 1e-6)), rawSpeed > 1e-5 && defSpeed > 1e-6);
+            return select(uSteered, uSteered * (rawSpeed / max(defSpeed, 1e-6)), rawSpeed > 1e-5 && defSpeed > 1e-6);
         }
     }
 
@@ -219,7 +224,18 @@ fn computeLiftedAltitude(lonRad: f32, latRad: f32, vel: vec2<f32>, isJet: bool) 
     
     let terrainDisp = pow(normH, max(0.5, dynamicExp)) * (sim.u_displacementScale * 2.8) * poleAtten;
     
-    let baseAlt = select(0.0005, 0.0065, isJet);
+    // Pitch-adaptive horizon standoff exaggeration for Jet Stream (RFC Mechanic 2)
+    let cosLat = cos(latRad);
+    let sinLat = sin(latRad);
+    let cosLon = cos(lonRad);
+    let sinLon = sin(lonRad);
+    let normal = vec3<f32>(cosLat * sinLon, sinLat, cosLat * cosLon);
+    let basePos = normal * RADIUS;
+    let vCam = normalize(sim.u_cameraPos.xyz - basePos);
+    let NdotV = clamp(dot(normal, vCam) / 0.35, 0.0, 1.0);
+    let k_exagg = 1.0 + 9.0 * ((1.0 - NdotV) * (1.0 - NdotV));
+
+    let baseAlt = select(0.0005, 0.0065 * k_exagg, isJet);
     let lift = select(
         terrainDisp + clamp(wOrographic * 0.005, 0.0, 0.035),
         terrainDisp + clamp(wOrographic * 0.002, -0.005, 0.010),

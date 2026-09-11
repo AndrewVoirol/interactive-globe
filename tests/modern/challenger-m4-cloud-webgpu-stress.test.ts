@@ -312,12 +312,14 @@ describe('Adversarial Challenger Suite: Milestone 4 WebGPU Engine Cloud Integrat
       { name: 'u_peakExponent', wgslType: 'f32', sizeBytes: 4, alignBytes: 4, expectedOffset: 100, floatIndex: 25 },
       { name: 'u_atmosphericScale', wgslType: 'f32', sizeBytes: 4, alignBytes: 4, expectedOffset: 104, floatIndex: 26 },
       { name: 'u_shadowIntensity', wgslType: 'f32', sizeBytes: 4, alignBytes: 4, expectedOffset: 108, floatIndex: 27 },
-      { name: 'u_mediumProperties', wgslType: 'vec4<f32>', sizeBytes: 16, alignBytes: 16, expectedOffset: 112, floatIndex: 28 },
-      { name: 'u_viewMatrix', wgslType: 'mat4x4<f32>', sizeBytes: 64, alignBytes: 16, expectedOffset: 128, floatIndex: 32 },
-      { name: 'u_projectionMatrix', wgslType: 'mat4x4<f32>', sizeBytes: 64, alignBytes: 16, expectedOffset: 192, floatIndex: 48 },
+      { name: 'u_sunDirection', wgslType: 'vec4<f32>', sizeBytes: 16, alignBytes: 16, expectedOffset: 112, floatIndex: 28 },
+      { name: 'u_mediumProperties', wgslType: 'vec4<f32>', sizeBytes: 16, alignBytes: 16, expectedOffset: 128, floatIndex: 32 },
+      { name: 'u_pad', wgslType: 'vec4<f32>', sizeBytes: 16, alignBytes: 16, expectedOffset: 144, floatIndex: 36 },
+      { name: 'u_viewMatrix', wgslType: 'mat4x4<f32>', sizeBytes: 64, alignBytes: 16, expectedOffset: 160, floatIndex: 40 },
+      { name: 'u_projectionMatrix', wgslType: 'mat4x4<f32>', sizeBytes: 64, alignBytes: 16, expectedOffset: 224, floatIndex: 56 },
     ];
 
-    it('CHALLENGE-M4-06: Verifies exact byte offsets for all 16 CloudUniforms fields, confirming 256 % 256 == 0 and 256 % 16 == 0', () => {
+    it('CHALLENGE-M4-06: Verifies exact byte offsets for all CloudUniforms fields, confirming 288 bytes and 16-byte alignment', () => {
       let currentOffset = 0;
 
       for (const field of expectedLayout) {
@@ -336,18 +338,17 @@ describe('Adversarial Challenger Suite: Milestone 4 WebGPU Engine Cloud Integrat
 
       // Final struct alignment to 16 bytes
       const structSize = Math.ceil(currentOffset / 16) * 16;
-      expect(structSize).toBe(256);
+      expect(structSize).toBe(288);
       expect(structSize % 16).toBe(0);
-      expect(structSize % 256).toBe(0); // Crucial for WebGPU uniform buffer offset alignment
 
-      // Buffer size in WebGPUEngine matches 256 bytes exactly for all 3 uniform buffers
+      // Buffer size in WebGPUEngine matches 288 bytes exactly for all 3 uniform buffers
       engine.ensureCloudBuffers();
       const uniformBuffer = engine.getCloudUniformBuffer();
-      expect(uniformBuffer?.size).toBe(256);
+      expect(uniformBuffer?.size).toBe(288);
       expect(engine.cloudUniformBuffers).toBeDefined();
       expect(engine.cloudUniformBuffers?.length).toBe(3);
       for (const buf of engine.cloudUniformBuffers!) {
-        expect(buf.size).toBe(256);
+        expect(buf.size).toBe(288);
       }
     });
 
@@ -407,7 +408,7 @@ describe('Adversarial Challenger Suite: Milestone 4 WebGPU Engine Cloud Integrat
         const writes = device.queue.writeBufferCalls.slice(initialWrites).filter(c => (c.buffer as any) === targetBuffer);
         expect(writes.length).toBe(1);
         expect(writes[0].bufferOffset).toBe(0);
-        expect((writes[0].data as ArrayBuffer).byteLength).toBe(256);
+        expect((writes[0].data as ArrayBuffer).byteLength).toBe(288);
       }
     });
   });

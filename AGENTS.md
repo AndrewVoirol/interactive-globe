@@ -350,3 +350,19 @@ Always consult the following master specifications before proposing or making an
   ensuring that cloud decks elevate naturally over mountain barriers while tapering to sea-level altitudes over maritime basins.
 - **Prohibition of Test Clamping Facades**: Test suites validating atmospheric geometry and collision envelopes must NEVER artificially clamp terrain displacement scales or altitude bounds to mask clipping failures. Tests must assert against real 8K DEM relief models and production vertical exaggeration factors ($[1.0, 12.0]$).
 
+## 58. Subsystem Visibility Masking & Anti-Ghost Shadow Invariant
+- **Prohibition of Orphaned Downstream Shading Artifacts**: When a planetary layer or physical stratum (e.g. atmospheric clouds, surface wind particles, vegetation canopy) is disabled via HUD controls or frame parameters (`showClouds: false`), all downstream secondary effects across primary shaders (such as cloud ground shadows in `crust_hydrosphere.wgsl`, specular glints, or orographic condensation factors) MUST be explicitly masked to zero in their respective uniform buffers (`crustFloats[68] = 0.0`).
+- **Dynamic Drift Synchronization**: Cast ground shadows must never remain stationary while parent cloud geometry moves. The shadow coordinate evaluation must incorporate the exact drift offset over time:
+  $$\mathbf{uv}_{\text{shadow}} = \operatorname{fract}(\mathbf{uv} + \mathbf{u}_{\text{drift}} \cdot t + \Delta \mathbf{uv}_{\text{sun}})$$
+  guaranteeing that ground shadows travel across terrain and oceans synchronously with drifting cloud decks.
+
+## 59. Geometric Horizon Tangent Attenuation Domain Scoping
+- **Domain Scoping of Invariant §10**: The strict surface-facing attenuation defined in Invariant §10 (`smoothstep(0.02, 0.20, in.facing)` and `facing < 0.02` discard) applies EXCLUSIVELY to coplanar surface-conforming vector linework (coastlines, contours, graticules, administrative borders) to prevent detached 3D vertex spikes outside the geoid silhouette.
+- **Prohibition of Premature Silhouette Discard on Elevated Strata**: Tropospheric cloud shells ($z \in [1.5\text{km}, 12\text{km}]$), atmospheric scattering envelopes, and orbital craft ($z > 12\text{km}$) MUST NEVER be subjected to crust-level facing discard. Applying surface-facing discard to elevated geometry erases strata right at the horizon limb ($75^\circ - 85^\circ$ pitch), destroying limb cutaways.
+- **Elevated Shell Silhouette Thresholds**: Elevated shells must evaluate true geometric limb tangency or use relaxed thresholds (`smoothstep(-0.015, 0.04, in.facing)` with discard only at $<-0.015$), ensuring that Low, Mid, and High cloud strata and the Jet Stream remain distinctly visible against the horizon.
+
+## 60. Authoritative RFC Specification Hierarchy & Anti-Drift Contract
+- **Master RFC Primacy**: When implementing complex physical models or cross-pipeline architectures, the Master Architectural RFC in the brain repository (`*_rfc.md`) is the supreme authoritative specification. Intermediate sprint notes (`docs/*_SPEC.md`) and local developer scratchpads are secondary convenience documents.
+- **Prohibition of Silent Physical Truncation**: Implementing agents and test authors must NEVER truncate multi-dimensional physical equations (e.g. replacing 2D vector wind coupling $\mathbf{u} \cdot \nabla h$ with 1D longitude differences, or omitting along-contour valley steering terms) or alter 16-byte aligned WGSL uniform layouts (e.g. cutting 288-byte structs to 256 bytes by deleting fields) to simplify implementation or match flawed intermediate drafts.
+- **Test Alignment Gate**: Unit and adversarial test suites must be constructed to assert the physical and mathematical rubric defined in the Master RFC, preventing false-positive victory declarations where tests pass against a degraded intermediate specification.
+

@@ -30,8 +30,8 @@ struct SimUniforms {
     u_isolatedStratum: f32,   // -1.0 = All active, 0.0..4.0 = Isolate specific stratum band
     u_mediumProperties: vec4<f32>, // x: inkAbsorption, y: fiberDensity, z: exposureGamma, w: stippleDensity
     u_shadowIntensity: f32, // Dynamic cloud ground shadow intensity (offset 272, float 68)
-    _padShadow0: f32,       // Strict 4-byte scalar padding (offset 276, float 69)
-    _padShadow1: f32,       // Strict 4-byte scalar padding (offset 280, float 70)
+    u_cloudDriftRate: f32,  // Dynamic cloud drift rate for shadow sync (offset 276, float 69) _padShadow0: f32,
+    u_cloudAltitudeKm: f32, // Dynamic cloud deck altitude in km (offset 280, float 70) _padShadow1: f32,
     _padShadow2: f32,       // Strict 4-byte scalar padding (offset 284, float 71)
 };
 
@@ -654,7 +654,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 // ----------------------------------------------------------------------------
 fn computeCloudShadowOffset(uv: vec2<f32>, sunAzimuthDeg: f32, sunAltitudeDeg: f32) -> vec2<f32> {
     const EARTH_RADIUS_KM: f32 = 6371.0;
-    const CLOUD_ALT_KM: f32 = 2.5; // Nominal tropospheric cloud deck altitude (2.5 km)
+    let cloudAltKm: f32 = select(2.5, sim.u_cloudAltitudeKm, sim.u_cloudAltitudeKm > 0.0);
     const TWO_PI_RE: f32 = 2.0 * 3.141592653589793 * EARTH_RADIUS_KM; // ~40030.17 km
     const PI_RE: f32 = 3.141592653589793 * EARTH_RADIUS_KM;           // ~20015.09 km
 
@@ -670,14 +670,15 @@ fn computeCloudShadowOffset(uv: vec2<f32>, sunAzimuthDeg: f32, sunAltitudeDeg: f
     let cosLat = max(0.15, cos((uv.y - 0.5) * 3.141592653589793));
 
     // Spec §2.1 Equirectangular shadow displacement
-    let deltaU = -(CLOUD_ALT_KM / (tanAlt * TWO_PI_RE)) * cos(radAz) / cosLat;
-    let deltaV =  (CLOUD_ALT_KM / (tanAlt * PI_RE)) * sin(radAz);
+    let deltaU = -(cloudAltKm / (tanAlt * TWO_PI_RE)) * cos(radAz) / cosLat;
+    let deltaV =  (cloudAltKm / (tanAlt * PI_RE)) * sin(radAz);
 
     return vec2<f32>(deltaU, deltaV);
 }
 
 fn sampleCloudShadowFactor(uv: vec2<f32>, shadowOffset: vec2<f32>, intensity: f32) -> f32 {
-    let centerUV = vec2<f32>(fract(uv.x + shadowOffset.x), clamp(uv.y + shadowOffset.y, 0.001, 0.999));
+    let driftOffset = sim.u_time * sim.u_cloudDriftRate;
+    let centerUV = vec2<f32>(fract(uv.x + driftOffset + shadowOffset.x), clamp(uv.y + shadowOffset.y, 0.001, 0.999));
     let cosLat = max(0.15, cos((uv.y - 0.5) * 3.141592653589793));
 
     // 20 km penumbra filter radius in UV space

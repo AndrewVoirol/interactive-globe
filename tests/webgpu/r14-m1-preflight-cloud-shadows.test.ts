@@ -301,4 +301,31 @@ describe('Milestone 1: Pre-Flight Hygiene & Dynamic Cloud Ground Shadows', () =>
       expect(crustWgsl).toMatch(/directIllum\s*=\s*0\.10\s*\+\s*0\.90\s*\*\s*max\(0\.0,\s*cosSun\)\s*\*\s*shadowFactor/);
     });
   });
+
+  // --------------------------------------------------------------------------
+  // 8. Ground Shadow Synchronization & Cloud Toggle Masking (RFC §1.1, Mechanic 1)
+  // --------------------------------------------------------------------------
+  describe('8. Ground Shadow Synchronization & Cloud Toggle Masking', () => {
+    it('M1-SYNC-01: crust_hydrosphere.wgsl declares u_cloudDriftRate and u_cloudAltitudeKm in SimUniforms', () => {
+      expect(crustWgsl).toMatch(/u_cloudDriftRate\s*:\s*f32/);
+      expect(crustWgsl).toMatch(/u_cloudAltitudeKm\s*:\s*f32/);
+    });
+
+    it('M1-SYNC-02: crust_hydrosphere.wgsl evaluates driftOffset from sim.u_time * sim.u_cloudDriftRate', () => {
+      expect(crustWgsl).toMatch(/let\s+driftOffset\s*=\s*sim\.u_time\s*\*\s*sim\.u_cloudDriftRate\s*;/);
+      expect(crustWgsl).toMatch(/fract\(uv\.x\s*\+\s*driftOffset\s*\+\s*shadowOffset\.x\)/);
+    });
+
+    it('M1-SYNC-03: computeCloudShadowOffset dynamically uses sim.u_cloudAltitudeKm with fallback', () => {
+      expect(crustWgsl).toMatch(/let\s+cloudAltKm\s*:\s*f32\s*=\s*select\(2\.5,\s*sim\.u_cloudAltitudeKm,\s*sim\.u_cloudAltitudeKm\s*>\s*0\.0\);/);
+      expect(crustWgsl).toMatch(/cloudAltKm\s*\/\s*\(tanAlt\s*\*\s*TWO_PI_RE\)/);
+      expect(crustWgsl).toMatch(/cloudAltKm\s*\/\s*\(tanAlt\s*\*\s*PI_RE\)/);
+    });
+
+    it('M1-SYNC-04: WebGPUEngine masks shadow intensity to 0.0 when clouds are toggled off', () => {
+      expect(engineSource).toMatch(/const\s+cloudsActive\s*=\s*\(params\.showClouds\s*!==\s*false\)\s*&&\s*\(this\.cloudEnabled\s*!==\s*false\);/);
+      expect(engineSource).toMatch(/this\.crustFloats\[69\]\s*=\s*0\.6\s*\*\s*baseDrift\s*;/);
+      expect(engineSource).toMatch(/this\.crustFloats\[70\]\s*=\s*2\.5\s*;/);
+    });
+  });
 });
