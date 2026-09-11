@@ -85,9 +85,11 @@ export default function App() {
   const [isMouseIdle, setIsMouseIdle] = useState(false);
   const mouseIdleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Atmospheric Controls & Stratification State (Milestone 4)
+  // Atmospheric Controls & Stratification State (Milestone 4 & Physical Strata)
   const [atmosphericScale, setAtmosphericScale] = useState<number>(3.5);
   const [shadowIntensity, setShadowIntensity] = useState<number>(0.45);
+  const [verticalScaleMode, setVerticalScaleMode] = useState<number>(0);
+  const [rainShadowFeedback, setRainShadowFeedback] = useState<number>(0.0);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -103,6 +105,19 @@ export default function App() {
           const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
           if (typeof v !== 'number' || !Number.isFinite(v)) return prev;
           return Math.max(0.0, Math.min(0.60, v));
+        });
+      };
+      (window as any).__INDICATRIX_SET_VERTICAL_SCALE_MODE__ = (valOrFn: any) => {
+        setVerticalScaleMode((prev) => {
+          const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+          return v === 1 ? 1 : 0;
+        });
+      };
+      (window as any).__INDICATRIX_SET_RAIN_SHADOW_FEEDBACK__ = (valOrFn: any) => {
+        setRainShadowFeedback((prev) => {
+          const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+          if (typeof v !== 'number' || !Number.isFinite(v)) return prev;
+          return Math.max(0.0, Math.min(1.0, v));
         });
       };
     }
@@ -511,6 +526,8 @@ export default function App() {
                 onAtmosphericScaleChange={setAtmosphericScale}
                 shadowIntensity={shadowIntensity}
                 onShadowIntensityChange={setShadowIntensity}
+                verticalScaleMode={verticalScaleMode}
+                rainShadowFeedback={rainShadowFeedback}
                 onShowCloudsChange={setShowClouds}
               />
             </React.Suspense>
@@ -623,6 +640,10 @@ export default function App() {
           onAtmosphericScaleChange={setAtmosphericScale}
           shadowIntensity={shadowIntensity}
           onShadowIntensityChange={setShadowIntensity}
+          verticalScaleMode={verticalScaleMode}
+          onVerticalScaleModeChange={setVerticalScaleMode}
+          rainShadowFeedback={rainShadowFeedback}
+          onRainShadowFeedbackChange={setRainShadowFeedback}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}

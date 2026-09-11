@@ -27,6 +27,10 @@ export interface AtmosphereDrawerProps {
   onAtmosphericScaleChange?: (v: number) => void;
   shadowIntensity?: number;
   onShadowIntensityChange?: (v: number) => void;
+  verticalScaleMode?: number;
+  onVerticalScaleModeChange?: (v: number) => void;
+  rainShadowFeedback?: number;
+  onRainShadowFeedbackChange?: (v: number) => void;
   onHorizonPresetClick?: () => void;
   onSnapCamera?: (snap: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => void;
   onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
@@ -52,6 +56,10 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   onAtmosphericScaleChange,
   shadowIntensity: propShadowIntensity,
   onShadowIntensityChange,
+  verticalScaleMode: propVerticalScaleMode,
+  onVerticalScaleModeChange,
+  rainShadowFeedback: propRainShadowFeedback,
+  onRainShadowFeedbackChange,
   onHorizonPresetClick,
   onSnapCamera,
   onTogglePlanetaryLayer,
@@ -65,6 +73,8 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const [internalCloudOpacity, setInternalCloudOpacity] = useState<number>(0.8);
   const [internalAtmosphericScale, setInternalAtmosphericScale] = useState<number>(3.5);
   const [internalShadowIntensity, setInternalShadowIntensity] = useState<number>(0.45);
+  const [internalVerticalScaleMode, setInternalVerticalScaleMode] = useState<number>(0);
+  const [internalRainShadowFeedback, setInternalRainShadowFeedback] = useState<number>(0.0);
 
   const curShowClouds = propShowClouds !== undefined ? propShowClouds : internalShowClouds;
   const curShowCloudLow = propShowCloudLow !== undefined ? propShowCloudLow : internalShowCloudLow;
@@ -74,6 +84,8 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const curCloudOpacity = propCloudOpacity !== undefined ? propCloudOpacity : internalCloudOpacity;
   const curAtmosphericScale = propAtmosphericScale !== undefined ? propAtmosphericScale : internalAtmosphericScale;
   const curShadowIntensity = propShadowIntensity !== undefined ? propShadowIntensity : internalShadowIntensity;
+  const curVerticalScaleMode = propVerticalScaleMode !== undefined ? propVerticalScaleMode : internalVerticalScaleMode;
+  const curRainShadowFeedback = propRainShadowFeedback !== undefined ? propRainShadowFeedback : internalRainShadowFeedback;
 
   const handleToggleClouds = (val: boolean) => {
     setInternalShowClouds(val);
@@ -154,6 +166,28 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
       }
       if ((window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
         (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ shadowIntensity: clamped });
+      }
+    }
+  };
+
+  const handleVerticalScaleModeChange = (val: number) => {
+    setInternalVerticalScaleMode(val);
+    onVerticalScaleModeChange?.(val);
+    if (typeof window !== 'undefined') {
+      if ((window as any).__INDICATRIX_SET_VERTICAL_SCALE_MODE__) {
+        (window as any).__INDICATRIX_SET_VERTICAL_SCALE_MODE__(val);
+      }
+    }
+  };
+
+  const handleRainShadowFeedbackChange = (val: number) => {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
+    const clamped = Math.max(0.0, Math.min(1.0, val));
+    setInternalRainShadowFeedback(clamped);
+    onRainShadowFeedbackChange?.(clamped);
+    if (typeof window !== 'undefined') {
+      if ((window as any).__INDICATRIX_SET_RAIN_SHADOW_FEEDBACK__) {
+        (window as any).__INDICATRIX_SET_RAIN_SHADOW_FEEDBACK__(clamped);
       }
     }
   };
@@ -311,6 +345,55 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             step={0.05}
             readout={`${Math.round(curShadowIntensity * 100)}%`}
             onChange={handleShadowIntensityChange}
+          />
+
+          {/* Physical Strata: Vertical Scale Mode Selector */}
+          <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border)]/50">
+            <div className="flex items-center justify-between text-nano">
+              <span className="font-bold text-[var(--theme-text-primary)]">Vertical Scale Transfer</span>
+              <span className="text-[var(--theme-text-muted)] font-mono">
+                {curVerticalScaleMode === 1 ? 'Dual-Log' : 'Linear'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                type="button"
+                onClick={() => handleVerticalScaleModeChange(0)}
+                className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                  curVerticalScaleMode === 0
+                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
+                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)]'
+                }`}
+                title="Linear Power Scale (Legacy)"
+              >
+                <span className="text-nano">Linear (Legacy)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleVerticalScaleModeChange(1)}
+                className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                  curVerticalScaleMode === 1
+                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
+                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)]'
+                }`}
+                title="Symmetrical Dual-Logarithmic Scale (Piecewise Depth & Relief)"
+              >
+                <span className="text-nano">Dual-Logarithmic</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Orographic Moisture Coupling Slider */}
+          <VernierSlider
+            id="sidebar-rain-shadow"
+            label="Orographic Coupling"
+            sublabel="Windward Condensation & Rain Shadows"
+            value={curRainShadowFeedback}
+            min={0.0}
+            max={1.0}
+            step={0.05}
+            readout={`${Math.round(curRainShadowFeedback * 100)}%`}
+            onChange={handleRainShadowFeedbackChange}
           />
 
           {/* 1-Click Horizon Cross-Section (78°) Camera Preset Button */}

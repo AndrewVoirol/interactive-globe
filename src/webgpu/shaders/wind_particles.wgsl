@@ -22,7 +22,7 @@ struct WindSimUniforms {
     u_showJetStream: f32,
     u_displacementScale: f32,
     u_peakExponent: f32,
-    u_pad1: f32,
+    u_verticalScaleMode: u32,
     u_pad2: f32,
     u_cameraPos: vec4<f32>,
 };
@@ -220,9 +220,16 @@ fn computeLiftedAltitude(lonRad: f32, latRad: f32, vel: vec2<f32>, isJet: bool) 
     let dynamicExp = mix(1.0, 1.8, orbitT) * (max(0.5, sim.u_peakExponent) / 1.4);
     
     let poleDist = abs(clamp(0.5 - latRad / PI, 0.001, 0.999) - 0.5) * 2.0;
-    let poleAtten = 1.0 - smoothstep(0.85, 0.98, poleDist);
-    
-    let terrainDisp = pow(normH, max(0.5, dynamicExp)) * (sim.u_displacementScale * 2.8) * poleAtten;
+    var terrainDisp = 0.0;
+    let dispScale = sim.u_displacementScale * 2.8;
+    if (sim.u_verticalScaleMode == 1u) {
+        if (t.elevation > 0.0) {
+            let logNormH = log(1.0 + t.elevation / 1200.0) / log(1.0 + 8848.0 / 1200.0);
+            terrainDisp = logNormH * dispScale * poleAtten;
+        }
+    } else {
+        terrainDisp = pow(normH, max(0.5, dynamicExp)) * dispScale * poleAtten;
+    }
     
     // Pitch-adaptive horizon standoff exaggeration for Jet Stream (RFC Mechanic 2)
     let cosLat = cos(latRad);

@@ -223,6 +223,10 @@ export interface UnifiedRightSidebarProps {
   onAtmosphericScaleChange?: (v: number) => void;
   shadowIntensity?: number;
   onShadowIntensityChange?: (v: number) => void;
+  verticalScaleMode?: number;
+  onVerticalScaleModeChange?: (v: number) => void;
+  rainShadowFeedback?: number;
+  onRainShadowFeedbackChange?: (v: number) => void;
 }
 
 export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
@@ -311,6 +315,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onAtmosphericScaleChange,
   shadowIntensity: propShadowIntensity,
   onShadowIntensityChange,
+  verticalScaleMode: propVerticalScaleMode,
+  onVerticalScaleModeChange,
+  rainShadowFeedback: propRainShadowFeedback,
+  onRainShadowFeedbackChange,
 }) => {
   const handleToggleClouds = (val: boolean) => {
     onShowCloudsChange?.(val);
@@ -1877,6 +1885,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     onAtmosphericScaleChange={onAtmosphericScaleChange}
                     shadowIntensity={propShadowIntensity}
                     onShadowIntensityChange={onShadowIntensityChange}
+                    verticalScaleMode={propVerticalScaleMode}
+                    onVerticalScaleModeChange={onVerticalScaleModeChange}
+                    rainShadowFeedback={propRainShadowFeedback}
+                    onRainShadowFeedbackChange={onRainShadowFeedbackChange}
                     onSnapCamera={onSnapCamera}
                     onTogglePlanetaryLayer={handleTogglePlanetaryLayer}
                   />

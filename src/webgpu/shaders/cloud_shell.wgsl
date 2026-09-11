@@ -37,7 +37,10 @@ struct CloudUniforms {
     u_shadowIntensity: f32,       // offset 108 (float 27) - Dynamic Ground Shadow Intensity [0.0 .. 0.60]
     u_sunDirection: vec4<f32>,    // offset 112 (floats 28..31) - xyz: normalized sun dir, w: sun altitude
     u_mediumProperties: vec4<f32>,// offset 128 (floats 32..35) - x: inkAbsorption, y: fiberDensity, z: exposureGamma, w: paperTooth (u_paper_tooth)
-    u_pad: vec4<f32>,             // offset 144 (floats 36..39) - Reserved 16-byte pad
+    u_verticalScaleMode: u32,     // offset 144 (float 36) - 0 = Linear Legacy, 1 = Dual-Log
+    u_rainShadowFeedback: f32,    // offset 148 (float 37) - Dynamic Orographic Moisture Coupling [0.0..1.0]
+    u_padCloud0: f32,             // offset 152 (float 38)
+    u_padCloud1: f32,             // offset 156 (float 39)
     u_viewMatrix: mat4x4<f32>,    // offset 160 (floats 40..55) - Camera view matrix (Column-major)
     u_projectionMatrix: mat4x4<f32>, // offset 224 (floats 56..71) - Camera projection matrix (Column-major)
 };
@@ -209,9 +212,17 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     
     let poleDist = abs(input.uv.y - 0.5) * 2.0;
     let poleAtten = 1.0 - smoothstep(0.85, 0.98, poleDist);
-    
     // Surface-conforming terrain crust displacement (Invariant §15 parity with crust_hydrosphere.wgsl)
     let crustDisp = pow(normH, max(0.5, dynamicExp)) * (cloud.u_layerStandoff.w * 2.8) * poleAtten;
+    var effCrustDisp = crustDisp;
+    if (cloud.u_verticalScaleMode == 1u) {
+        if (elevMeters > 0.0) {
+            let logNormH = log(1.0 + elevMeters / 1200.0) / log(1.0 + 8848.0 / 1200.0);
+            effCrustDisp = logNormH * (cloud.u_layerStandoff.w * 2.8) * poleAtten;
+        } else {
+            effCrustDisp = 0.0;
+        }
+    }
 
     // Pitch-adaptive standoff exaggeration (Spec §2.3)
     let vCam = normalize(cloud.u_cameraPos.xyz - basePos);
@@ -221,7 +232,11 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 
     // Unified terrain-following displacement ensuring strict stratum hierarchy:
     // z_low < z_mid < z_high and z_layer >= crustDisp everywhere across all landforms.
-    let totalOffset = crustDisp + effStandoff;
+    // let totalOffset = crustDisp + effStandoff;
+    var totalOffset = crustDisp + effStandoff;
+    if (cloud.u_verticalScaleMode == 1u) {
+        totalOffset = effCrustDisp + effStandoff;
+    }
 
     // Morph participation with u_unfurl:
     // Evaluate world position along surface normal:

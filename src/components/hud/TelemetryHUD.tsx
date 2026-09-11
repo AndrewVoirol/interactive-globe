@@ -100,6 +100,10 @@ export interface TelemetryHUDProps {
   onAtmosphericScaleChange?: (v: number) => void;
   shadowIntensity?: number;
   onShadowIntensityChange?: (v: number) => void;
+  verticalScaleMode?: number;
+  onVerticalScaleModeChange?: (v: number) => void;
+  rainShadowFeedback?: number;
+  onRainShadowFeedbackChange?: (v: number) => void;
 }
 
 export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
@@ -191,6 +195,10 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onAtmosphericScaleChange={props.onAtmosphericScaleChange}
         shadowIntensity={props.shadowIntensity}
         onShadowIntensityChange={props.onShadowIntensityChange}
+        verticalScaleMode={props.verticalScaleMode}
+        onVerticalScaleModeChange={props.onVerticalScaleModeChange}
+        rainShadowFeedback={props.rainShadowFeedback}
+        onRainShadowFeedbackChange={props.onRainShadowFeedbackChange}
       />
 
       {/* Bottom-Left Non-Intrusive Glassmorphic Toast Notification Stack */}

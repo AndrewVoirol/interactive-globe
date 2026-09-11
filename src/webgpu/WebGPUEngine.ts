@@ -98,6 +98,8 @@ export interface WebGPUFrameParams {
   paperTooth?: number;
   shadowIntensity?: number;
   atmosphericScale?: number;
+  verticalScaleMode?: number;
+  rainShadowFeedback?: number;
   mediumProperties?: PhysicalMediumProperties;
   elevationSampler?: (lon: number, lat: number) => { elevationMeters: number; gradEast: number; gradNorth: number };
 }
@@ -195,6 +197,8 @@ export class WebGPUEngine {
     if (typeof val !== 'number' || !Number.isFinite(val)) return;
     this._atmosphericScale = Math.max(1.0, Math.min(12.0, val));
   }
+  public verticalScaleMode: number = 0; // 0 = Linear Legacy, 1 = Symmetrical Dual-Log
+  public rainShadowFeedback: number = 0.0; // 0.0 = Off, 0.0..1.0 = Dynamic Coupling Strength
   private dummyCloudTexture: GPUTexture | null = null;
   private dummyCloudTextureView: GPUTextureView | null = null;
 
@@ -3919,7 +3923,7 @@ export class WebGPUEngine {
       const baseDrift = params.cloudDriftSpeed ?? this.cloudOptions?.driftSpeed ?? 1.2;
       this.crustFloats[69] = 0.6 * baseDrift; // u_cloudDriftRate
       this.crustFloats[70] = 2.5;             // u_cloudAltitudeKm
-      this.crustFloats[71] = 0.0;
+      this.crustUints[71] = params.verticalScaleMode !== undefined ? params.verticalScaleMode : this.verticalScaleMode;
 
       this.device.queue.writeBuffer(this.crustUniformBuffer, 0, cf.buffer);
     }
@@ -3942,7 +3946,7 @@ export class WebGPUEngine {
       windU[7] = showJet;
       windU[8] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
       windU[9] = params.peakExponent !== undefined ? params.peakExponent : 1.4;
-      windU[10] = 0.0;
+      windU32[10] = params.verticalScaleMode !== undefined ? params.verticalScaleMode : this.verticalScaleMode;
       windU[11] = 0.0;
       if (params.camera?.position) {
         windU[12] = params.camera.position.x;
@@ -4680,9 +4684,10 @@ export class WebGPUEngine {
     f[34] = medium?.exposureGamma ?? 1.0;
     f[35] = params?.paperTooth ?? medium?.stippleDensity ?? 0.5;
 
-    // 16-byte alignment pad (floats 36..39, offset 144)
-    f[36] = 0.0;
-    f[37] = 0.0;
+    // 16-byte alignment uniform block (floats 36..39, offset 144)
+    const cloudU32 = new Uint32Array(this.cloudUniformFloats.buffer);
+    cloudU32[36] = params?.verticalScaleMode !== undefined ? params.verticalScaleMode : this.verticalScaleMode;
+    f[37] = params?.rainShadowFeedback !== undefined ? params.rainShadowFeedback : this.rainShadowFeedback;
     f[38] = 0.0;
     f[39] = 0.0;
 

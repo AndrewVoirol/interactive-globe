@@ -138,6 +138,8 @@ export interface WebGPUCanvasProps {
   onAtmosphericScaleChange?: (v: number) => void;
   shadowIntensity?: number;
   onShadowIntensityChange?: (v: number) => void;
+  verticalScaleMode?: number;
+  rainShadowFeedback?: number;
   onShowCloudsChange?: (v: boolean) => void;
   onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
 }
@@ -199,6 +201,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   onAtmosphericScaleChange,
   shadowIntensity = 0.45,
   onShadowIntensityChange,
+  verticalScaleMode = 0,
+  rainShadowFeedback = 0.0,
   onShowCloudsChange,
   onTogglePlanetaryLayer,
 }) => {
@@ -345,6 +349,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     cloudOpacity,
     atmosphericScale,
     shadowIntensity,
+    verticalScaleMode,
+    rainShadowFeedback,
   });
   useEffect(() => {
     stateRef.current = {
@@ -373,8 +379,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       cloudOpacity,
       atmosphericScale,
       shadowIntensity,
+      verticalScaleMode,
+      rainShadowFeedback,
     };
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback]);
 
   const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange, onAtmosphericScaleChange, onShadowIntensityChange, onShowCloudsChange, onTogglePlanetaryLayer });
   useEffect(() => {
@@ -1551,6 +1559,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           cloudOpacity: stateRef.current.cloudOpacity,
           atmosphericScale: stateRef.current.atmosphericScale,
           shadowIntensity: stateRef.current.shadowIntensity,
+          verticalScaleMode: stateRef.current.verticalScaleMode,
+          rainShadowFeedback: stateRef.current.rainShadowFeedback,
           vortexStrength: curVortexStrength,
           fractureIntensity: curFractureIntensity,
           seaLevel,

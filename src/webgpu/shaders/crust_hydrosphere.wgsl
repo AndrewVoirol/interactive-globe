@@ -32,7 +32,7 @@ struct SimUniforms {
     u_shadowIntensity: f32, // Dynamic cloud ground shadow intensity (offset 272, float 68)
     u_cloudDriftRate: f32,  // Dynamic cloud drift rate for shadow sync (offset 276, float 69) _padShadow0: f32,
     u_cloudAltitudeKm: f32, // Dynamic cloud deck altitude in km (offset 280, float 70) _padShadow1: f32,
-    _padShadow2: f32,       // Strict 4-byte scalar padding (offset 284, float 71)
+    u_verticalScaleMode: u32, // Vertical scale mode: 0 = Linear Legacy, 1 = Symmetrical Dual-Log (offset 284, float 71) _padShadow2: f32,
 };
 
 @group(0) @binding(0) var<uniform> sim: SimUniforms;
@@ -625,15 +625,27 @@ fn vs_main(input: VertexInput) -> VertexOutput {
         normalDisplacement = (waterLevel / 8848.0) * dispScale * poleAtten;
     } else {
         // Lithosphere Crust: displaced by actual topography/bathymetry with peak sharpening
-        if (elevMeters >= 0.0) {
-            let normH = elevMeters / 8848.0;
-            let camDist = length(sim.u_cameraPos.xyz);
-            let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
-            let dynamicExp = mix(1.0, 1.8, orbitT) * (max(0.5, sim.u_peakExponent) / 1.4);
-            normalDisplacement = pow(normH, max(0.5, dynamicExp)) * dispScale * poleAtten;
+        if (sim.u_verticalScaleMode == 1u) {
+            if (elevMeters >= 0.0) {
+                // Symmetrical logarithmic elevation: expands lower/mid relief (hills/valleys) while smoothly bounding summits
+                let logNormH = log(1.0 + elevMeters / 1200.0) / log(1.0 + 8848.0 / 1200.0);
+                normalDisplacement = logNormH * dispScale * poleAtten;
+            } else {
+                // Symmetrical logarithmic bathymetry: reveals continental shelf and slope without core blowout
+                let logNormD = log(1.0 + (-elevMeters) / 1500.0) / log(1.0 + 10924.0 / 1500.0);
+                normalDisplacement = -logNormD * (dispScale * 0.65) * poleAtten;
+            }
         } else {
-            let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
-            normalDisplacement = -pow(normD, 0.85) * (dispScale * 0.65) * poleAtten;
+            if (elevMeters >= 0.0) {
+                let normH = elevMeters / 8848.0;
+                let camDist = length(sim.u_cameraPos.xyz);
+                let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
+                let dynamicExp = mix(1.0, 1.8, orbitT) * (max(0.5, sim.u_peakExponent) / 1.4);
+                normalDisplacement = pow(normH, max(0.5, dynamicExp)) * dispScale * poleAtten;
+            } else {
+                let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
+                normalDisplacement = -pow(normD, 0.85) * (dispScale * 0.65) * poleAtten;
+            }
         }
     }
 
