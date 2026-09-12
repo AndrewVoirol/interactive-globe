@@ -19,6 +19,10 @@
     "refresh:clouds": "npx tsx scripts/fetch-or-generate-gfs-clouds.ts",
     "refresh:radar": "npx tsx scripts/fetch-live-radar.ts",
     "refresh:starlink": "npx tsx scripts/fetch-or-generate-tle-starlink.ts",
+    "weather:mock": "uv run --with numpy python scripts/fetch-weathernext3.py --mock --hours 24",
+    "weather:dry-run": "uv run --with zarr --with gcsfs --with numpy python scripts/fetch-weathernext3.py --dry-run",
+    "weather:fetch": "uv run --with zarr --with gcsfs --with numpy python scripts/fetch-weathernext3.py",
+    "weather:doctor": "npx tsx scripts/doctor-weather.ts",
     "lint:wgsl": "node scripts/lint-wgsl-control-flow.mjs",
     "test": "vitest run",
     "test:watch": "vitest"

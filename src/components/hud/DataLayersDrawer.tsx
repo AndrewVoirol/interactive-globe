@@ -46,6 +46,7 @@ export interface DataLayersDrawerProps {
   onPeakExponentChangeDataLayer?: (id: string, exponent: number) => void;
   onAmbientOcclusionChangeDataLayer?: (id: string, ao: number) => void;
   onReorderDataLayer?: (id: string, direction: 'up' | 'down') => void;
+  prognosticModel?: string;
 }
 
 export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
@@ -64,10 +65,15 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
   onPeakExponentChangeDataLayer,
   onAmbientOcclusionChangeDataLayer,
   onReorderDataLayer,
+  prognosticModel,
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const isLight = theme === 1;
+  const isWnModel =
+    prognosticModel === 'weathernext3' ||
+    prognosticModel === 'google-weathernext3' ||
+    prognosticModel === 'weathernext';
 
   const noaaLayer = dataLayers.find((l) => l.id === 'noaa-gfs-wind');
   const isNoaaActive = noaaLayer ? noaaLayer.visible : false;
@@ -208,12 +214,16 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
               }`}
             >
               <div className="flex items-center justify-between w-full">
-                <span className="font-bold text-micro truncate">NOAA Wind</span>
+                <span className="font-bold text-micro truncate">
+                  {isWnModel ? 'Surface Winds' : 'NOAA Wind'}
+                </span>
                 <span className="flex items-center gap-1 text-nano font-bold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/40">
-                  Physics Model
+                  {isWnModel ? 'DeepMind AI' : 'Physics Model'}
                 </span>
               </div>
-              <span className="text-nano text-zinc-400 truncate">0.25° Operational Grid</span>
+              <span className="text-nano text-zinc-400 truncate">
+                {isWnModel ? '0.1° (10km) AI Grid' : '0.25° Operational Grid'}
+              </span>
             </button>
 
             {/* Starlink & ISS Orbits Toggle */}

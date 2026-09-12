@@ -31,3 +31,9 @@ __pycache__/
 *.pyc
 .cache/
 
+# WeatherNext generated large binary slices (stage locally via `npm run weather:mock` or `npm run weather:fetch`)
+public/data/weathernext/*.bin
+!public/data/weathernext/total_precipitation_1hr_mean-0.bin
+!public/data/weathernext/total_precipitation_1hr_mean-1.bin
+!public/data/weathernext/total_precipitation_1hr_mean-2.bin
+

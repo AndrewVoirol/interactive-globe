@@ -21,6 +21,7 @@ import {
   WeatherNextMetadata,
   WEATHERNEXT_CORE_VARIABLES,
 } from '../../src/core/data/WeatherNextDataSource';
+import { encodeFloat16, decodeFloat16 } from '../../src/core/math/float16';
 
 describe('Adversarial Challenge: WeatherNextDataSource', () => {
   const originalFetch = globalThis.fetch;
@@ -972,6 +973,143 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
       // Second call with valid data succeeds
       const validBuf = await ds.getSlice('temperature_2m_mean', 0);
       expect(validBuf.byteLength).toBe(PADDED_SLICE_BYTES);
+    });
+  });
+
+  // ==========================================================================
+  // Suite 5: Prognostic Variable Switching & Single-Stream VRAM Invariants (§68 & §73)
+  // ==========================================================================
+  describe('Suite 5: Prognostic Variable Switching & Single-Stream VRAM Invariants (§68 & §73)', () => {
+    it('ADV-VAR-01: Switching active variable to wind_10m_vector adapts rg16float into r16float speed slice with exact stride and magnitude', async () => {
+      const ring = new TemporalTextureRingBuffer(mockDevice as any, 3600, 1801, 'r16float');
+      const ds = new WeatherNextDataSource({ ringBuffer: ring });
+
+      const VECTOR_PADDED_BYTES = 26280192;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+        const match = url.match(/([a-z0-9_]+)-(\d+)\.bin/);
+        const variable = match ? match[1] : 'total_precipitation_1hr_mean';
+        const hour = match ? parseInt(match[2], 10) : 0;
+
+        if (variable === 'wind_10m_vector') {
+          const buf = new ArrayBuffer(VECTOR_PADDED_BYTES);
+          const u16 = new Uint16Array(buf);
+          // Set texel (0,0) with u=3.0, v=4.0 -> magnitude must be 5.0
+          u16[0] = encodeFloat16(3.0);
+          u16[1] = encodeFloat16(4.0);
+          // Set texel (100, 50) with u=6.0, v=8.0 -> magnitude must be 10.0
+          const strideU16 = 7296; // 14592 / 2
+          const idx = 50 * strideU16 + 100 * 2;
+          u16[idx] = encodeFloat16(6.0);
+          u16[idx + 1] = encodeFloat16(8.0);
+          return {
+            ok: true,
+            arrayBuffer: async () => buf,
+          };
+        }
+
+        return {
+          ok: true,
+          arrayBuffer: async () => createTaggedSlice(variable, hour, true),
+        };
+      });
+
+      // Initial state: total_precipitation_1hr_mean at hour 0
+      await ds.seekHour(0);
+      expect(ds.getActiveVariable()).toBe('total_precipitation_1hr_mean');
+      mockDevice.queue.writeTextureCalls = [];
+
+      // Switch to wind_10m_vector
+      await ds.setActiveVariable('wind_10m_vector');
+      expect(ds.getActiveVariable()).toBe('wind_10m_vector');
+
+      // writeTexture must have been called 3 times (slots 0, 1, 2)
+      const calls = mockDevice.queue.writeTextureCalls;
+      expect(calls.length).toBe(3);
+
+      for (const call of calls) {
+        // Must match r16float pre-padded stride: 7424 bytes per row
+        expect(call.dataLayout.bytesPerRow).toBe(7424);
+        expect(call.dataLayout.rowsPerImage).toBe(1801);
+        expect(call.data.byteLength).toBe(13370624);
+
+        // Verify Euclidean speed calculation at (0,0): sqrt(3^2 + 4^2) = 5.0
+        const outU16 = new Uint16Array(
+          call.data.buffer,
+          call.data.byteOffset,
+          call.data.byteLength / 2
+        );
+        const speed00 = decodeFloat16(outU16[0]);
+        expect(speed00).toBeCloseTo(5.0, 2);
+
+        // Verify Euclidean speed calculation at (100, 50): sqrt(6^2 + 8^2) = 10.0
+        const dstStrideU16 = 3712; // 7424 / 2
+        const speed50_100 = decodeFloat16(outU16[50 * dstStrideU16 + 100]);
+        expect(speed50_100).toBeCloseTo(10.0, 2);
+      }
+
+      // VRAM footprint must strictly equal 40,111,872 bytes (40.11 MB)
+      expect(ds.getVRAMFootprintBytes()).toBe(40111872);
+    });
+
+    it('ADV-VAR-02: Switching between all prognostic variables preserves single-stream VRAM footprint', async () => {
+      const ring = new TemporalTextureRingBuffer(mockDevice as any, 3600, 1801, 'r16float');
+      const ds = new WeatherNextDataSource({ ringBuffer: ring });
+
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+        const match = url.match(/([a-z0-9_]+)-(\d+)\.bin/);
+        const variable = match ? match[1] : 'temperature_2m_mean';
+        const hour = match ? parseInt(match[2], 10) : 0;
+        const size = variable === 'wind_10m_vector' ? 26280192 : PADDED_SLICE_BYTES;
+        return {
+          ok: true,
+          arrayBuffer: async () => new ArrayBuffer(size),
+        };
+      });
+
+      const variables = [
+        'total_precipitation_1hr_mean',
+        'temperature_2m_mean',
+        'dewpoint_temperature_2m_mean',
+        'wind_10m_vector',
+        'total_precipitation_1hr_mean',
+      ];
+
+      for (const v of variables) {
+        await ds.setActiveVariable(v);
+        expect(ds.getActiveVariable()).toBe(v);
+        expect(ds.getVRAMFootprintBytes()).toBe(40111872);
+      }
+    });
+
+    it('ADV-VAR-03: setActiveVariable cancels previous in-flight requests and restages slots', async () => {
+      const ring = new TemporalTextureRingBuffer(mockDevice as any, 3600, 1801, 'r16float');
+      const ds = new WeatherNextDataSource({ ringBuffer: ring });
+
+      let rainFetchDelay = 30;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+        const match = url.match(/([a-z0-9_]+)-(\d+)\.bin/);
+        const variable = match ? match[1] : 'temperature_2m_mean';
+        const hour = match ? parseInt(match[2], 10) : 0;
+        if (variable === 'total_precipitation_1hr_mean') {
+          await new Promise((r) => setTimeout(r, rainFetchDelay));
+        }
+        return {
+          ok: true,
+          arrayBuffer: async () => createTaggedSlice(variable, hour, true),
+        };
+      });
+
+      // Start fetching rain (slow)
+      const p1 = ds.setActiveVariable('total_precipitation_1hr_mean');
+      // Immediately switch to temp (fast)
+      const p2 = ds.setActiveVariable('temperature_2m_mean');
+
+      await Promise.all([p1, p2]);
+
+      expect(ds.getActiveVariable()).toBe('temperature_2m_mean');
+      // Last writeTexture calls must be for temperature_2m_mean
+      const lastCalls = mockDevice.queue.writeTextureCalls.slice(-3);
+      expect(lastCalls.length).toBe(3);
     });
   });
 });

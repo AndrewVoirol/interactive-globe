@@ -47,18 +47,22 @@ export interface AtmosphereDrawerProps {
   onThermodynamicGatingChange?: (enabled: boolean) => void;
   prognosticModel?: PrognosticModelBackend;
   onPrognosticModelChange?: (model: PrognosticModelBackend) => void;
+  prognosticVariable?: string;
+  onPrognosticVariableChange?: (variable: string) => void;
   weatherNextDataSource?: any;
   timelineMinutes?: number;
   onTimelineChange?: (state: TimelineScrubberState) => void;
   onHorizonPresetClick?: () => void;
   onSnapCamera?: (snap: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => void;
   onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
+  hideScrubber?: boolean;
   className?: string;
 }
 
 export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   theme = 0,
   isLight = false,
+  hideScrubber = false,
   showClouds: propShowClouds,
   onShowCloudsChange,
   showCloudLow: propShowCloudLow,
@@ -87,6 +91,8 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   onThermodynamicGatingChange,
   prognosticModel: propPrognosticModel,
   onPrognosticModelChange,
+  prognosticVariable: propPrognosticVariable,
+  onPrognosticVariableChange,
   weatherNextDataSource,
   timelineMinutes,
   onTimelineChange,
@@ -109,6 +115,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const [internalWeatherOpticalMode, setInternalWeatherOpticalMode] = useState<number>(0);
   const [internalThermodynamicGating, setInternalThermodynamicGating] = useState<boolean>(true);
   const [internalPrognosticModel, setInternalPrognosticModel] = useState<PrognosticModelBackend>('gfs');
+  const [internalPrognosticVariable, setInternalPrognosticVariable] = useState<string>('total_precipitation_1hr_mean');
 
   const curShowClouds = propShowClouds !== undefined ? propShowClouds : internalShowClouds;
   const curShowCloudLow = propShowCloudLow !== undefined ? propShowCloudLow : internalShowCloudLow;
@@ -124,6 +131,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const curWeatherOpticalMode = propWeatherOpticalMode !== undefined ? propWeatherOpticalMode : internalWeatherOpticalMode;
   const curThermodynamicGating = propThermodynamicGating !== undefined ? propThermodynamicGating : internalThermodynamicGating;
   const curPrognosticModel = propPrognosticModel !== undefined ? propPrognosticModel : internalPrognosticModel;
+  const curPrognosticVariable = propPrognosticVariable !== undefined ? propPrognosticVariable : internalPrognosticVariable;
   const isGfs = curPrognosticModel === 'gfs' || curPrognosticModel === 'noaa-gfs';
   const isWeatherNext =
     curPrognosticModel === 'weathernext3' ||
@@ -135,6 +143,17 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
     onPrognosticModelChange?.(model);
     if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_PROGNOSTIC_MODEL__) {
       (window as any).__INDICATRIX_SET_PROGNOSTIC_MODEL__(model);
+    }
+  };
+
+  const handlePrognosticVariableChange = (variable: string) => {
+    setInternalPrognosticVariable(variable);
+    onPrognosticVariableChange?.(variable);
+    if (variable === 'wind_10m_vector') {
+      onTogglePlanetaryLayer?.('noaa-gfs-wind', true);
+    }
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_PROGNOSTIC_VARIABLE__) {
+      (window as any).__INDICATRIX_SET_PROGNOSTIC_VARIABLE__(variable);
     }
   };
 
@@ -667,35 +686,96 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
               </button>
             </div>
 
-            {/* WeatherNext Status Telemetry Pill */}
+            {/* WeatherNext Prognostic Variables & Status Telemetry */}
             {isWeatherNext && (
-              <div className="px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)]/60 bg-[var(--theme-control-bg)]/40 flex items-center justify-between text-nano font-mono text-[var(--theme-text-muted)]">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[var(--theme-status-sage)] font-bold">● GCS Zarr v3</span>
-                  <span>•</span>
-                  <span>3-Slot Ring Buffer</span>
+              <>
+                <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border)]/50">
+                  <div className="flex items-center justify-between text-nano">
+                    <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
+                      Prognostic Variable
+                    </span>
+                    <span className="text-[var(--theme-text-muted)] font-mono text-nano">
+                      {curPrognosticVariable === 'wind_10m_vector'
+                        ? '10m Wind'
+                        : curPrognosticVariable === 'temperature_2m_mean'
+                        ? '2m Temp'
+                        : 'Rain'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1 font-mono text-[10px] tracking-wider">
+                    <button
+                      type="button"
+                      id="sidebar-variable-rain"
+                      onClick={() => handlePrognosticVariableChange('total_precipitation_1hr_mean')}
+                      className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
+                        curPrognosticVariable === 'total_precipitation_1hr_mean'
+                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
+                          : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                      }`}
+                      title="1hr Accumulated Precipitation (mm/hr)"
+                    >
+                      <span>Rain</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="sidebar-variable-temp"
+                      onClick={() => handlePrognosticVariableChange('temperature_2m_mean')}
+                      className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
+                        curPrognosticVariable === 'temperature_2m_mean'
+                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
+                          : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                      }`}
+                      title="2m Ambient Surface Temperature (°C)"
+                    >
+                      <span>Temp</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="sidebar-variable-wind"
+                      onClick={() => handlePrognosticVariableChange('wind_10m_vector')}
+                      className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
+                        curPrognosticVariable === 'wind_10m_vector'
+                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
+                          : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                      }`}
+                      title="10m Wind Velocity Vector Field (rg16float)"
+                    >
+                      <span>10m Wind</span>
+                    </button>
+                  </div>
                 </div>
-                <span className="font-bold text-[var(--theme-text-primary)]">
-                  {timelineMinutes !== undefined && timelineMinutes > 0
-                    ? `+${Math.min(47, Math.floor(timelineMinutes / 60))}h Forecast`
-                    : '0h Analysis'}
-                </span>
-              </div>
+
+                {/* WeatherNext Status Telemetry Pill */}
+                <div className="px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)]/60 bg-[var(--theme-control-bg)]/40 flex items-center justify-between text-nano font-mono text-[var(--theme-text-muted)]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[var(--theme-status-sage)] font-bold">● GCS Zarr v3</span>
+                    <span>•</span>
+                    <span>3-Slot Ring Buffer</span>
+                  </div>
+                  <span className="font-bold text-[var(--theme-text-primary)]">
+                    {timelineMinutes !== undefined && timelineMinutes > 0
+                      ? `+${Math.min(47, Math.floor(timelineMinutes / 60))}h Forecast`
+                      : '0h Analysis'}
+                  </span>
+                </div>
+              </>
             )}
           </div>
 
           {/* Plate IV.B: Atmospheric Chronology & Temporal Scrubber */}
-          <div className="space-y-1.5 pt-1 border-t border-[var(--theme-card-border)]">
-            <div className="flex items-center justify-between text-nano">
-              <span className="font-mono uppercase tracking-wider text-[var(--theme-text-muted)]">
-                Atmospheric Chronology
-              </span>
+          {!hideScrubber && (
+            <div className="space-y-1.5 pt-1 border-t border-[var(--theme-card-border)]">
+              <div className="flex items-center justify-between text-nano">
+                <span className="font-mono uppercase tracking-wider text-[var(--theme-text-muted)]">
+                  Atmospheric Chronology
+                </span>
+              </div>
+              <TimelineScrubber
+                value={timelineMinutes}
+                onTimeChange={handleTimelineChange}
+              />
             </div>
-            <TimelineScrubber
-              value={timelineMinutes}
-              onTimeChange={handleTimelineChange}
-            />
-          </div>
+          )}
 
           {/* 1-Click Horizon Cross-Section (78°) Camera Preset Button */}
           <button

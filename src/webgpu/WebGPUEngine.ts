@@ -409,6 +409,7 @@ export class WebGPUEngine {
   private windTexture: GPUTexture | null = null;
   private windTextureView: GPUTextureView | null = null;
   private windSampler: GPUSampler | null = null;
+  private windTextureLoadSeq: number = 0;
 
   // CelesTrak Starlink & ISS Satellite Orbit Ribbons (F35)
   public satelliteSegmentBuffer: GPUBuffer | null = null;
@@ -1160,8 +1161,8 @@ export class WebGPUEngine {
     this.ensureWindTexture();
 
     if (typeof window !== 'undefined' && typeof fetch !== 'undefined' && !isTestEnv) {
-      this.loadTemperatureTexture('/data/weathernext/temp-00.bin').catch(() => {});
-      this.loadDewpointTexture('/data/weathernext/dewpoint-00.bin').catch(() => {});
+      this.loadTemperatureTexture('/data/weathernext/temperature_2m_mean-0.bin').catch(() => {});
+      this.loadDewpointTexture('/data/weathernext/dewpoint_temperature_2m_mean-0.bin').catch(() => {});
     }
 
     // 4. Dual-Surface Lithosphere Crust & Liquid Hydrosphere 3D Sphere Grid Buffers
@@ -1913,7 +1914,25 @@ export class WebGPUEngine {
 
     this.pointCount = count;
 
-    if (this.computePipeline && this.simUniformBuffer) {
+    this.updateComputeBindGroups();
+  }
+
+  private updateComputeBindGroups(): void {
+    if (
+      !this.device ||
+      !this.computePipeline ||
+      !this.simUniformBuffer ||
+      !this.particleBuffers ||
+      !this.particleBuffers[0] ||
+      !this.particleBuffers[1] ||
+      !this.staticBuffer ||
+      !this.windTextureView ||
+      !this.windSampler
+    ) {
+      return;
+    }
+
+    try {
       const compLayout = (this.computePipeline?.getBindGroupLayout
         ? this.computePipeline.getBindGroupLayout(0)
         : this.computeBindGroupLayout) || this.computeBindGroupLayout;
@@ -1926,8 +1945,8 @@ export class WebGPUEngine {
           { binding: 1, resource: { buffer: this.particleBuffers[0] } },
           { binding: 2, resource: { buffer: this.particleBuffers[1] } },
           { binding: 3, resource: { buffer: this.staticBuffer } },
-          { binding: 4, resource: this.windTextureView! },
-          { binding: 5, resource: this.windSampler! },
+          { binding: 4, resource: this.windTextureView },
+          { binding: 5, resource: this.windSampler },
         ],
       });
 
@@ -1939,11 +1958,11 @@ export class WebGPUEngine {
           { binding: 1, resource: { buffer: this.particleBuffers[1] } },
           { binding: 2, resource: { buffer: this.particleBuffers[0] } },
           { binding: 3, resource: { buffer: this.staticBuffer } },
-          { binding: 4, resource: this.windTextureView! },
-          { binding: 5, resource: this.windSampler! },
+          { binding: 4, resource: this.windTextureView },
+          { binding: 5, resource: this.windSampler },
         ],
       });
-    }
+    } catch {}
   }
 
   public async spawnParticlesOnGPU(nodeCount: number = 4194304): Promise<void> {
@@ -2839,11 +2858,13 @@ export class WebGPUEngine {
   }
 
   /**
-   * Loads the NOAA GFS 1.0° wind velocity grid into a 2D float texture (F34).
+   * Loads the NOAA GFS (1.0° / 0.25°) or Google DeepMind WeatherNext 3 (0.1°) wind velocity grid
+   * into a 2D float texture (rg16float) (F34).
    */
   public async loadWindTexture(urlOrBuffer: string | ArrayBuffer = '/data/gfs-wind-latest.bin'): Promise<void> {
     if (!this.device || !this.isInitialized) return;
 
+    const seq = ++this.windTextureLoadSeq;
     let buffer: ArrayBuffer | null = null;
     if (urlOrBuffer instanceof ArrayBuffer) {
       buffer = urlOrBuffer;
@@ -2852,33 +2873,106 @@ export class WebGPUEngine {
         const res = await fetch(urlOrBuffer);
         if (res.ok) {
           buffer = await res.arrayBuffer();
+        } else if (typeof urlOrBuffer === 'string' && urlOrBuffer.includes('wind_10m_vector')) {
+          // Fallback to GFS wind if WeatherNext wind slice is absent
+          const fallbackRes = await fetch('/data/gfs-wind-latest.bin');
+          if (fallbackRes.ok) buffer = await fallbackRes.arrayBuffer();
         }
       } catch {
-        // Fallback below
+        if (typeof urlOrBuffer === 'string' && urlOrBuffer.includes('wind_10m_vector')) {
+          try {
+            const fallbackRes = await fetch('/data/gfs-wind-latest.bin');
+            if (fallbackRes.ok) buffer = await fallbackRes.arrayBuffer();
+          } catch {}
+        }
       }
     }
 
     if (!buffer && typeof process !== 'undefined' && process.versions?.node) {
       buffer = await loadNodeAssetBuffer(typeof urlOrBuffer === 'string' ? urlOrBuffer : 'public/data/gfs-wind-latest.bin');
+      if (!buffer && typeof urlOrBuffer === 'string' && urlOrBuffer.includes('wind_10m_vector')) {
+        buffer = await loadNodeAssetBuffer('public/data/gfs-wind-latest.bin');
+      }
     }
 
-    if (!buffer) return;
+    if (!buffer || seq !== this.windTextureLoadSeq) return;
 
-    const is0p25 = buffer.byteLength === 4152960;
-    const windW = is0p25 ? 1440 : 360;
-    const windH = is0p25 ? 721 : 181;
-    const rowBytesRaw = windW * 4; // 1440 * 4 = 5760 (or 360 * 4 = 1440)
-    const rowBytesPadded = Math.ceil(rowBytesRaw / 256) * 256; // 5888 (or 1536)
-    const padded = new Uint8Array(rowBytesPadded * windH);
+    const isWn0p1Padded = buffer.byteLength === 26280192; // 14592 * 1801
+    const isWn0p1Raw = buffer.byteLength === 25934400;    // 14400 * 1801
+    const is0p25Padded = buffer.byteLength === 4245248;   // 5888 * 721
+    const is0p25Raw = buffer.byteLength === 4152960;      // 5760 * 721
+    const is1p0Padded = buffer.byteLength === 278016;     // 1536 * 181
+    const is1p0Raw = buffer.byteLength === 260640;        // 1440 * 181
 
-    const srcU8 = new Uint8Array(buffer);
-    for (let y = 0; y < windH; y++) {
-      const srcOffset = y * rowBytesRaw;
-      const dstOffset = y * rowBytesPadded;
-      padded.set(srcU8.subarray(srcOffset, srcOffset + rowBytesRaw), dstOffset);
+    let windW = 360;
+    let windH = 181;
+    let rowBytesRaw = 1440;
+    let rowBytesPadded = 1536;
+    let padded: Uint8Array;
+
+    if (isWn0p1Padded) {
+      windW = 3600;
+      windH = 1801;
+      rowBytesRaw = 14400;
+      rowBytesPadded = 14592;
+      padded = new Uint8Array(buffer);
+    } else if (isWn0p1Raw) {
+      windW = 3600;
+      windH = 1801;
+      rowBytesRaw = 14400;
+      rowBytesPadded = 14592;
+      padded = new Uint8Array(rowBytesPadded * windH);
+      const srcU8 = new Uint8Array(buffer);
+      for (let y = 0; y < windH; y++) {
+        padded.set(srcU8.subarray(y * rowBytesRaw, y * rowBytesRaw + rowBytesRaw), y * rowBytesPadded);
+      }
+    } else if (is0p25Padded) {
+      windW = 1440;
+      windH = 721;
+      rowBytesRaw = 5760;
+      rowBytesPadded = 5888;
+      padded = new Uint8Array(buffer);
+    } else if (is0p25Raw) {
+      windW = 1440;
+      windH = 721;
+      rowBytesRaw = 5760;
+      rowBytesPadded = 5888;
+      padded = new Uint8Array(rowBytesPadded * windH);
+      const srcU8 = new Uint8Array(buffer);
+      for (let y = 0; y < windH; y++) {
+        padded.set(srcU8.subarray(y * rowBytesRaw, y * rowBytesRaw + rowBytesRaw), y * rowBytesPadded);
+      }
+    } else if (is1p0Padded) {
+      windW = 360;
+      windH = 181;
+      rowBytesRaw = 1440;
+      rowBytesPadded = 1536;
+      padded = new Uint8Array(buffer);
+    } else if (is1p0Raw) {
+      windW = 360;
+      windH = 181;
+      rowBytesRaw = 1440;
+      rowBytesPadded = 1536;
+      padded = new Uint8Array(rowBytesPadded * windH);
+      const srcU8 = new Uint8Array(buffer);
+      for (let y = 0; y < windH; y++) {
+        padded.set(srcU8.subarray(y * rowBytesRaw, y * rowBytesRaw + rowBytesRaw), y * rowBytesPadded);
+      }
+    } else {
+      const bytesPerTexel = 4;
+      windW = Math.max(1, Math.round(Math.sqrt(buffer.byteLength / (2 * bytesPerTexel))));
+      windH = Math.max(1, Math.floor(buffer.byteLength / (windW * bytesPerTexel)));
+      rowBytesRaw = windW * bytesPerTexel;
+      rowBytesPadded = Math.ceil(rowBytesRaw / 256) * 256;
+      padded = new Uint8Array(rowBytesPadded * windH);
+      const srcU8 = new Uint8Array(buffer);
+      for (let y = 0; y < windH; y++) {
+        padded.set(srcU8.subarray(y * rowBytesRaw, y * rowBytesRaw + rowBytesRaw), y * rowBytesPadded);
+      }
     }
 
     if (!this.windTexture || this.windTexture.width !== windW || this.windTexture.height !== windH) {
+      this.windTexture?.destroy();
       this.windTexture = this.device.createTexture({
         label: 'wind_velocity_texture',
         size: [windW, windH, 1],
@@ -2898,6 +2992,11 @@ export class WebGPUEngine {
         [windW, windH, 1]
       );
       this.updateWindBindGroups();
+      this.updateComputeBindGroups();
+      this.updateDEMBindGroups();
+      if (this.precipRingBuffer) {
+        this.setPrecipitationRingBuffer(this.precipRingBuffer);
+      }
     } catch {
       // Mock environment guard
     }
@@ -4713,7 +4812,7 @@ export class WebGPUEngine {
   }
 
   public async loadTemperatureTexture(
-    urlOrBuffer: string | ArrayBuffer = '/data/weathernext/temp-00.bin'
+    urlOrBuffer: string | ArrayBuffer = '/data/weathernext/temperature_2m_mean-0.bin'
   ): Promise<void> {
     if (!this.device || !this.isInitialized) return;
 
@@ -4725,19 +4824,30 @@ export class WebGPUEngine {
         const res = await fetch(urlOrBuffer);
         if (res.ok) {
           buffer = await res.arrayBuffer();
+        } else if (urlOrBuffer === '/data/weathernext/temperature_2m_mean-0.bin') {
+          const fallbackRes = await fetch('/data/weathernext/temp-00.bin');
+          if (fallbackRes.ok) buffer = await fallbackRes.arrayBuffer();
         }
       } catch {
-        // Fallback below
+        if (urlOrBuffer === '/data/weathernext/temperature_2m_mean-0.bin') {
+          try {
+            const fallbackRes = await fetch('/data/weathernext/temp-00.bin');
+            if (fallbackRes.ok) buffer = await fallbackRes.arrayBuffer();
+          } catch {}
+        }
       }
     }
 
     if (!buffer && typeof process !== 'undefined' && process.versions?.node) {
       try {
         buffer = await loadNodeAssetBuffer(
-          typeof urlOrBuffer === 'string' ? urlOrBuffer : 'public/data/weathernext/temp-00.bin'
+          typeof urlOrBuffer === 'string' ? urlOrBuffer : 'public/data/weathernext/temperature_2m_mean-0.bin'
         );
-      } catch {
-        // Not found
+      } catch {}
+      if (!buffer && (urlOrBuffer === '/data/weathernext/temperature_2m_mean-0.bin' || typeof urlOrBuffer !== 'string')) {
+        try {
+          buffer = await loadNodeAssetBuffer('public/data/weathernext/temp-00.bin');
+        } catch {}
       }
     }
 
@@ -4746,7 +4856,12 @@ export class WebGPUEngine {
     const bytesPerTexel = 2; // Float16
     let texW = 3600;
     let texH = 1801;
-    if (buffer.byteLength === 1440 * 721 * bytesPerTexel) {
+    const isPadded3600 = buffer.byteLength === 13370624;
+
+    if (isPadded3600) {
+      texW = 3600;
+      texH = 1801;
+    } else if (buffer.byteLength === 1440 * 721 * bytesPerTexel) {
       texW = 1440;
       texH = 721;
     } else if (buffer.byteLength === 360 * 181 * bytesPerTexel) {
@@ -4759,14 +4874,20 @@ export class WebGPUEngine {
 
     const rowBytesRaw = texW * bytesPerTexel;
     const bytesPerRow = Math.ceil(rowBytesRaw / 256) * 256;
-    const totalPadded = bytesPerRow * texH;
-    const padded = new Uint8Array(totalPadded);
-    const srcU8 = new Uint8Array(buffer);
+    let padded: Uint8Array;
 
-    for (let r = 0; r < texH; r++) {
-      const srcOff = r * rowBytesRaw;
-      const dstOff = r * bytesPerRow;
-      padded.set(srcU8.subarray(srcOff, srcOff + rowBytesRaw), dstOff);
+    if (isPadded3600) {
+      padded = new Uint8Array(buffer);
+    } else {
+      const totalPadded = bytesPerRow * texH;
+      padded = new Uint8Array(totalPadded);
+      const srcU8 = new Uint8Array(buffer);
+
+      for (let r = 0; r < texH; r++) {
+        const srcOff = r * rowBytesRaw;
+        const dstOff = r * bytesPerRow;
+        padded.set(srcU8.subarray(srcOff, srcOff + rowBytesRaw), dstOff);
+      }
     }
 
     this.tempTexture?.destroy();
@@ -4790,7 +4911,7 @@ export class WebGPUEngine {
   }
 
   public async loadDewpointTexture(
-    urlOrBuffer: string | ArrayBuffer = '/data/weathernext/dewpoint-00.bin'
+    urlOrBuffer: string | ArrayBuffer = '/data/weathernext/dewpoint_temperature_2m_mean-0.bin'
   ): Promise<void> {
     if (!this.device || !this.isInitialized) return;
 
@@ -4802,19 +4923,30 @@ export class WebGPUEngine {
         const res = await fetch(urlOrBuffer);
         if (res.ok) {
           buffer = await res.arrayBuffer();
+        } else if (urlOrBuffer === '/data/weathernext/dewpoint_temperature_2m_mean-0.bin') {
+          const fallbackRes = await fetch('/data/weathernext/dewpoint-00.bin');
+          if (fallbackRes.ok) buffer = await fallbackRes.arrayBuffer();
         }
       } catch {
-        // Fallback below
+        if (urlOrBuffer === '/data/weathernext/dewpoint_temperature_2m_mean-0.bin') {
+          try {
+            const fallbackRes = await fetch('/data/weathernext/dewpoint-00.bin');
+            if (fallbackRes.ok) buffer = await fallbackRes.arrayBuffer();
+          } catch {}
+        }
       }
     }
 
     if (!buffer && typeof process !== 'undefined' && process.versions?.node) {
       try {
         buffer = await loadNodeAssetBuffer(
-          typeof urlOrBuffer === 'string' ? urlOrBuffer : 'public/data/weathernext/dewpoint-00.bin'
+          typeof urlOrBuffer === 'string' ? urlOrBuffer : 'public/data/weathernext/dewpoint_temperature_2m_mean-0.bin'
         );
-      } catch {
-        // Not found
+      } catch {}
+      if (!buffer && (urlOrBuffer === '/data/weathernext/dewpoint_temperature_2m_mean-0.bin' || typeof urlOrBuffer !== 'string')) {
+        try {
+          buffer = await loadNodeAssetBuffer('public/data/weathernext/dewpoint-00.bin');
+        } catch {}
       }
     }
 
@@ -4823,7 +4955,12 @@ export class WebGPUEngine {
     const bytesPerTexel = 2; // Float16
     let texW = 3600;
     let texH = 1801;
-    if (buffer.byteLength === 1440 * 721 * bytesPerTexel) {
+    const isPadded3600 = buffer.byteLength === 13370624;
+
+    if (isPadded3600) {
+      texW = 3600;
+      texH = 1801;
+    } else if (buffer.byteLength === 1440 * 721 * bytesPerTexel) {
       texW = 1440;
       texH = 721;
     } else if (buffer.byteLength === 360 * 181 * bytesPerTexel) {
@@ -4836,14 +4973,20 @@ export class WebGPUEngine {
 
     const rowBytesRaw = texW * bytesPerTexel;
     const bytesPerRow = Math.ceil(rowBytesRaw / 256) * 256;
-    const totalPadded = bytesPerRow * texH;
-    const padded = new Uint8Array(totalPadded);
-    const srcU8 = new Uint8Array(buffer);
+    let padded: Uint8Array;
 
-    for (let r = 0; r < texH; r++) {
-      const srcOff = r * rowBytesRaw;
-      const dstOff = r * bytesPerRow;
-      padded.set(srcU8.subarray(srcOff, srcOff + rowBytesRaw), dstOff);
+    if (isPadded3600) {
+      padded = new Uint8Array(buffer);
+    } else {
+      const totalPadded = bytesPerRow * texH;
+      padded = new Uint8Array(totalPadded);
+      const srcU8 = new Uint8Array(buffer);
+
+      for (let r = 0; r < texH; r++) {
+        const srcOff = r * rowBytesRaw;
+        const dstOff = r * bytesPerRow;
+        padded.set(srcU8.subarray(srcOff, srcOff + rowBytesRaw), dstOff);
+      }
     }
 
     this.dewpointTexture?.destroy();

@@ -113,6 +113,8 @@ export interface TelemetryHUDProps {
   onThermodynamicGatingChange?: (v: boolean) => void;
   prognosticModel?: PrognosticModelBackend;
   onPrognosticModelChange?: (model: PrognosticModelBackend) => void;
+  prognosticVariable?: string;
+  onPrognosticVariableChange?: (variable: string) => void;
   timelineMinutes?: number;
   onTimelineChange?: (state: TimelineScrubberState) => void;
 }
@@ -218,6 +220,8 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onThermodynamicGatingChange={props.onThermodynamicGatingChange}
         prognosticModel={props.prognosticModel}
         onPrognosticModelChange={props.onPrognosticModelChange}
+        prognosticVariable={props.prognosticVariable}
+        onPrognosticVariableChange={props.onPrognosticVariableChange}
         timelineMinutes={props.timelineMinutes}
         onTimelineChange={props.onTimelineChange}
       />

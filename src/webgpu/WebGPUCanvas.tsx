@@ -483,11 +483,23 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     if (hasSatellites) {
       engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
     }
+    const isWnModel =
+      prognosticModel === 'weathernext3' ||
+      prognosticModel === 'google-weathernext3' ||
+      prognosticModel === 'weathernext';
+
     const hasWind = !!dataLayers?.find(
       (l) => (l.id === 'noaa-gfs-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
     );
     if (hasWind) {
-      engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {}); engine.loadAllCloudLayers().catch(() => {});;
+      if (isWnModel) {
+        engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {
+          engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+        });
+      } else {
+        engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+      }
+      engine.loadAllCloudLayers().catch(() => {});
     }
     const hasJetStream = !!dataLayers?.find(
       (l) => (l.id === 'noaa-gfs-jetstream' || l.id === 'gfs-jetstream') && l.visible
@@ -522,9 +534,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       });
     }
     const hasWeatherNext =
-      (prognosticModel === 'weathernext3' ||
-        prognosticModel === 'google-weathernext3' ||
-        prognosticModel === 'weathernext') &&
+      isWnModel &&
       !!dataLayers?.find(
         (l) =>
           (l.id === 'google-weathernext3' ||
@@ -533,6 +543,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           l.visible
       );
     if (hasWeatherNext) {
+      engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {});
       import('../core/data/WeatherNextDataSource').then(({ WeatherNextDataSource }) => {
         import('./TemporalTextureRingBuffer').then(({ TemporalTextureRingBuffer }) => {
           const dev = engine.getDevice();

@@ -19,7 +19,7 @@ import { TactileButton } from '../ui/TactileButton';
 import { ThemeManager } from '../../core/themes/ThemeManager';
 import { AtmosphereDrawer, PrognosticModelBackend } from '../AtmosphereDrawer';
 export type { PrognosticModelBackend };
-import { TimelineScrubberState } from './TimelineScrubber';
+import { TimelineScrubber, type TimelineScrubberState } from './TimelineScrubber';
 
 const PIGMENT_SWATCHES: Record<0 | 1 | 2, Array<{ name: string; hex: string; depth: string }>> = {
   0: [
@@ -237,6 +237,8 @@ export interface UnifiedRightSidebarProps {
   onThermodynamicGatingChange?: (v: boolean) => void;
   prognosticModel?: PrognosticModelBackend;
   onPrognosticModelChange?: (model: PrognosticModelBackend) => void;
+  prognosticVariable?: string;
+  onPrognosticVariableChange?: (variable: string) => void;
   timelineMinutes?: number;
   onTimelineChange?: (state: TimelineScrubberState) => void;
 }
@@ -268,6 +270,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onCursorPhysicsToggle,
   prognosticModel,
   onPrognosticModelChange,
+  prognosticVariable,
+  onPrognosticVariableChange,
   activeOverlay,
   onOverlayChange,
   showLandmarks,
@@ -366,6 +370,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       }
     }
   };
+  const isWnModel =
+    prognosticModel === 'weathernext3' ||
+    prognosticModel === 'google-weathernext3' ||
+    prognosticModel === 'weathernext';
   const [internalSidebarOpen, setInternalSidebarOpen] = useState(true);
   const isSidebarOpen = externalSidebarOpen !== undefined ? externalSidebarOpen : internalSidebarOpen;
   const setIsSidebarOpen = (val: boolean | ((prev: boolean) => boolean)) => {
@@ -1779,8 +1787,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         }`}
                       >
                         <div className="flex flex-col min-w-0">
-                          <span className="font-bold text-nano truncate">NOAA Wind</span>
-                          <span className="text-nano text-[var(--theme-text-muted)] truncate opacity-75">0.25° Operational</span>
+                          <span className="font-bold text-nano truncate">
+                            {isWnModel ? 'Surface Winds' : 'NOAA Wind'}
+                          </span>
+                          <span className="text-nano text-[var(--theme-text-muted)] truncate opacity-75">
+                            {isWnModel ? '0.1° AI Prognostic' : '0.25° Operational'}
+                          </span>
                         </div>
                         <span className={`flex items-center gap-1 text-nano font-bold px-1.5 py-0.5 rounded-[2px] border shrink-0 ${
                           theme === 1
@@ -1789,7 +1801,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             ? 'bg-[#3b5d82]/40 text-[#d8e6f3] border-[#4a729e]/50'
                             : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
                         }`}>
-                          Physics Model
+                          {isWnModel ? 'DeepMind AI' : 'Physics Model'}
                         </span>
                       </button>
 
@@ -1912,11 +1924,19 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     </div>
                   </div>
 
+                  {/* Atmospheric Chronology & Temporal Scrubber */}
+                  <TimelineScrubber
+                    value={timelineMinutes}
+                    onTimeChange={onTimelineChange}
+                    className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] !p-2.5 rounded-[3px]"
+                  />
+
                   {/* Atmospheric Cloud Strata Instrumentation Card */}
                   <AtmosphereDrawer
                     className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]"
                     theme={theme}
                     isLight={isLight}
+                    hideScrubber={true}
                     showClouds={propShowClouds}
                     onShowCloudsChange={handleToggleClouds}
                     showCloudLow={propShowCloudLow}
@@ -1945,6 +1965,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     onThermodynamicGatingChange={onThermodynamicGatingChange}
                     prognosticModel={prognosticModel}
                     onPrognosticModelChange={onPrognosticModelChange}
+                    prognosticVariable={prognosticVariable}
+                    onPrognosticVariableChange={onPrognosticVariableChange}
                     timelineMinutes={timelineMinutes}
                     onTimelineChange={onTimelineChange}
                     onSnapCamera={onSnapCamera}
@@ -2069,7 +2091,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                       ? 'bg-[#3b5d82]/40 text-[#d8e6f3] border-[#4a729e]/50 shadow-sm'
                                       : 'bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)]'
                                   }`}>
-                                    Physics
+                                    {isWnModel ? '0.1° AI' : 'Physics'}
                                   </span>
                                 )}
 

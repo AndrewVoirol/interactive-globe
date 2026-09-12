@@ -81,6 +81,17 @@ PADDED_COLS = GRID_WIDTH + PADDING_TEXELS_PER_ROW  # 3712
 UNPADDED_SLICE_BYTES = RAW_ROW_BYTES * GRID_HEIGHT  # 12,967,200 bytes
 PADDED_SLICE_BYTES = PADDED_ROW_BYTES * GRID_HEIGHT  # 13,370,624 bytes
 
+# 2-channel vector field constants (rg16float)
+VECTOR_BYTES_PER_TEXEL = 4  # 2x Float16
+VECTOR_RAW_ROW_BYTES = GRID_WIDTH * VECTOR_BYTES_PER_TEXEL  # 14400
+VECTOR_PADDED_ROW_BYTES = math.ceil(VECTOR_RAW_ROW_BYTES / 256) * 256  # 14592
+VECTOR_PADDING_BYTES_PER_ROW = VECTOR_PADDED_ROW_BYTES - VECTOR_RAW_ROW_BYTES  # 192
+VECTOR_PADDING_TEXELS_PER_ROW = VECTOR_PADDING_BYTES_PER_ROW // VECTOR_BYTES_PER_TEXEL  # 48
+VECTOR_PADDED_COLS = GRID_WIDTH + VECTOR_PADDING_TEXELS_PER_ROW  # 3648
+
+VECTOR_UNPADDED_SLICE_BYTES = VECTOR_RAW_ROW_BYTES * GRID_HEIGHT  # 25,934,400 bytes
+VECTOR_PADDED_SLICE_BYTES = VECTOR_PADDED_ROW_BYTES * GRID_HEIGHT  # 26,280,192 bytes
+
 DEFAULT_HOURS = 48
 
 CORE_VARIABLES = [
@@ -101,6 +112,12 @@ VARIABLE_METADATA = {
     },
     "v_component_of_wind_10m_mean": {
         "longName": "10m Northward Wind Velocity",
+        "units": "m/s",
+        "canonicalMin": -45.0,
+        "canonicalMax": 45.0,
+    },
+    "wind_10m_vector": {
+        "longName": "10m Wind Velocity Vector Field (rg16float)",
         "units": "m/s",
         "canonicalMin": -45.0,
         "canonicalMax": 45.0,
@@ -313,8 +330,36 @@ def execute_dry_run(
 
     total_wire_sample_bytes = 0
     measured_vars = 0
+    total_disk_estimate_bytes = 0
+    total_chunks_to_fetch = 0
 
     for var_name in variables:
+        if var_name == "wind_10m_vector":
+            if "u_component_of_wind_10m_mean" not in zg or "v_component_of_wind_10m_mean" not in zg:
+                raise KeyError("u/v wind components not found in predictions.zarr for wind_10m_vector!")
+            u_arr = zg["u_component_of_wind_10m_mean"]
+            v_arr = zg["v_component_of_wind_10m_mean"]
+
+            chunk_u_bytes = 0
+            chunk_v_bytes = 0
+            try:
+                chunk_u_bytes = fs.info(f"{cycle_dir}/predictions.zarr/u_component_of_wind_10m_mean/c/0/0/0").get("size", 0)
+                chunk_v_bytes = fs.info(f"{cycle_dir}/predictions.zarr/v_component_of_wind_10m_mean/c/0/0/0").get("size", 0)
+                wire_bytes = chunk_u_bytes + chunk_v_bytes
+                total_wire_sample_bytes += wire_bytes
+                measured_vars += 2
+                wire_str = f"{wire_bytes / (1024 * 1024):.2f} MB (u+v)"
+            except Exception:
+                wire_str = "N/A"
+
+            shape_str = str(list(u_arr.shape))
+            chunks_str = str(list(u_arr.chunks))
+            print(f"{var_name:<32} {shape_str:<18} {chunks_str:<16} {'rg16flt':<8} {wire_str:<18}")
+            slice_bytes = VECTOR_PADDED_SLICE_BYTES if padded else VECTOR_UNPADDED_SLICE_BYTES
+            total_disk_estimate_bytes += hours * slice_bytes
+            total_chunks_to_fetch += 2 * hours
+            continue
+
         if var_name not in zg:
             raise KeyError(f"Requested variable '{var_name}' not found in predictions.zarr!")
         arr = zg[var_name]
@@ -333,14 +378,15 @@ def execute_dry_run(
         shape_str = str(list(arr.shape))
         chunks_str = str(list(arr.chunks))
         print(f"{var_name:<32} {shape_str:<18} {chunks_str:<16} {str(arr.dtype):<8} {size_str:<18}")
+        slice_bytes = PADDED_SLICE_BYTES if padded else UNPADDED_SLICE_BYTES
+        total_disk_estimate_bytes += hours * slice_bytes
+        total_chunks_to_fetch += hours
 
     print("-" * 96)
 
-    avg_chunk_wire_bytes = (total_wire_sample_bytes / measured_vars) if measured_vars > 0 else 23_000_000
-    total_chunks_to_fetch = len(variables) * hours
+    avg_chunk_wire_bytes = (total_wire_sample_bytes / measured_vars) if measured_vars > 0 else 21_000_000
     total_wire_estimate_bytes = total_chunks_to_fetch * avg_chunk_wire_bytes
     slice_disk_bytes = PADDED_SLICE_BYTES if padded else UNPADDED_SLICE_BYTES
-    total_disk_estimate_bytes = total_chunks_to_fetch * slice_disk_bytes
 
     print("\nBandwidth & Storage Capacity Projections:")
     print(f"Total Tensors to Fetch: {total_chunks_to_fetch} slices ({len(variables)} fields × {hours} hours)")
@@ -390,10 +436,14 @@ def check_local_cache(
     if expected_padded != padded:
         return False
 
-    expected_size = PADDED_SLICE_BYTES if padded else UNPADDED_SLICE_BYTES
-
     # Check all slice files
     for var_name in variables:
+        is_vector = var_name == "wind_10m_vector"
+        expected_size = (
+            (VECTOR_PADDED_SLICE_BYTES if padded else VECTOR_UNPADDED_SLICE_BYTES)
+            if is_vector
+            else (PADDED_SLICE_BYTES if padded else UNPADDED_SLICE_BYTES)
+        )
         for h in range(hours):
             slice_path = os.path.join(output_dir, f"{var_name}-{h}.bin")
             if not os.path.exists(slice_path):
@@ -456,6 +506,16 @@ def write_metadata_index(
             "sliceByteLength": UNPADDED_SLICE_BYTES,
             "paddedSliceByteLength": PADDED_SLICE_BYTES,
         },
+        "vectorTextureEncoding": {
+            "format": "rg16float",
+            "bytesPerTexel": VECTOR_BYTES_PER_TEXEL,
+            "rawRowBytes": VECTOR_RAW_ROW_BYTES,
+            "paddedRowBytes": VECTOR_PADDED_ROW_BYTES,
+            "paddingBytesPerRow": VECTOR_PADDING_BYTES_PER_ROW,
+            "isPrePadded": padded,
+            "sliceByteLength": VECTOR_UNPADDED_SLICE_BYTES,
+            "paddedSliceByteLength": VECTOR_PADDED_SLICE_BYTES,
+        },
         "filePattern": "/data/weathernext/{variable}-{hour}.bin",
         "provenance": {
             "sourceBucket": f"gs://{cycle_dir}/predictions.zarr",
@@ -471,6 +531,48 @@ def write_metadata_index(
     with open(meta_path, "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
     print(f"[OK] Wrote metadata sidecar to {meta_path}")
+
+
+def process_vector_slice(
+    u_raw: Any,
+    v_raw: Any,
+    padded: bool = True,
+) -> Tuple[Any, bytes]:
+    """
+    Transforms raw WeatherNext u and v wind slices [1801, 3600] (Float32) to WebGPU-ready rg16float binary payload.
+
+    1. Latitude Flip & Longitude Roll:
+       - Row 0 = North Pole (+90°N)
+       - Col 0 = Antimeridian (-180°)
+    2. Downcast:
+       Float32 -> Float16 (np.float16, 2 bytes per component).
+    3. Interleave:
+       u (R channel) and v (G channel) -> (1801, 3600, 2) rg16float (4 bytes per texel).
+    4. WebGPU 256-Byte Row Pitch Padding:
+       Raw: 3600 * 4 = 14400 bytes.
+       Padded: ceil(14400 / 256) * 256 = 14592 bytes.
+       Padding per row: 192 bytes = 96 float16 components = 48 rg16float texels.
+       Padded row texels: 3600 + 48 = 3648 texels.
+    """
+    import numpy as np
+
+    u_arr = np.squeeze(np.array(u_raw, dtype=np.float32, copy=True))
+    v_arr = np.squeeze(np.array(v_raw, dtype=np.float32, copy=True))
+
+    u_flipped = u_arr[::-1, :]
+    v_flipped = v_arr[::-1, :]
+
+    u_rolled = np.roll(u_flipped, GRID_WIDTH // 2, axis=1).astype(np.float16)
+    v_rolled = np.roll(v_flipped, GRID_WIDTH // 2, axis=1).astype(np.float16)
+
+    interleaved = np.stack([u_rolled, v_rolled], axis=-1)
+
+    if padded:
+        padded_grid = np.zeros((GRID_HEIGHT, VECTOR_PADDED_COLS, 2), dtype=np.float16)
+        padded_grid[:, :GRID_WIDTH, :] = interleaved
+        return padded_grid, padded_grid.tobytes()
+    else:
+        return interleaved, interleaved.tobytes()
 
 
 def process_slice(
@@ -504,10 +606,18 @@ def process_slice(
     """
     import numpy as np
 
+    if var_name == "wind_10m_vector":
+        if isinstance(raw_slice, (tuple, list)):
+            return process_vector_slice(raw_slice[0], raw_slice[1], padded=padded)
+        elif isinstance(raw_slice, np.ndarray) and raw_slice.ndim == 3 and raw_slice.shape[-1] == 2:
+            return process_vector_slice(raw_slice[..., 0], raw_slice[..., 1], padded=padded)
+        elif isinstance(raw_slice, np.ndarray) and raw_slice.ndim == 3 and raw_slice.shape[0] == 2:
+            return process_vector_slice(raw_slice[0, ...], raw_slice[1, ...], padded=padded)
+
     # 1. Physical unit conversions
     processed = np.squeeze(np.array(raw_slice, dtype=np.float32, copy=True))
     var_lower = var_name.lower().strip()
-    if var_lower in ("temperature_2m_mean", "dewpoint_temperature_2m_mean") or "temperature" in var_lower:
+    if var_lower in ("temperature_2m_mean", "dewpoint_temperature_2m_mean") or "temperature" in var_lower or "dewpoint" in var_lower:
         processed = processed - 273.15
     elif var_lower in ("total_precipitation_1hr_mean", "imerg_tp_1hr_mean") or "precipitation" in var_lower or "precip" in var_lower:
         processed = processed * 1000.0
@@ -544,7 +654,13 @@ def generate_mock_slice(var_name: str, hour: int) -> Any:
     lats = np.linspace(-90.0, 90.0, GRID_HEIGHT, dtype=np.float32)[:, None]
     lons = np.linspace(0.0, 360.0, GRID_WIDTH, dtype=np.float32)[None, :]
 
-    if "temperature" in var_name:
+    if "dewpoint" in var_name:
+        base_k = 250.0 + 55.0 * np.cos(np.radians(lats))
+        diurnal = 5.0 * np.sin(np.radians(lons + hour * 15.0))
+        temp_k = base_k + diurnal
+        dewpoint_depression = 4.5 + 2.5 * np.cos(np.radians(lats * 2.0))
+        return (temp_k - dewpoint_depression).astype(np.float32)
+    elif "temperature" in var_name:
         base_k = 250.0 + 55.0 * np.cos(np.radians(lats))
         diurnal = 5.0 * np.sin(np.radians(lons + hour * 15.0))
         return (base_k + diurnal).astype(np.float32)
@@ -554,6 +670,10 @@ def generate_mock_slice(var_name: str, hour: int) -> Any:
         midlat_s = np.exp(-((lats + 50.0) ** 2) / 80.0) * np.maximum(0.0, np.sin(np.radians(lons * 5.0 - hour * 15.0))) * 0.012
         precip_m = np.maximum(0.0, itcz + midlat_n + midlat_s)
         return precip_m.astype(np.float32)
+    elif var_name == "wind_10m_vector":
+        u = 15.0 * np.sin(np.radians(lats * 2.0)) + 4.0 * np.cos(np.radians(lons * 3.0 + hour * 15.0))
+        v = 10.0 * np.cos(np.radians(lats * 3.0)) + 3.0 * np.sin(np.radians(lons * 2.0 - hour * 10.0))
+        return np.stack([u, v], axis=-1).astype(np.float32)
     elif "wind" in var_name:
         w = 15.0 * np.sin(np.radians(lats * 2.0))
         return w.astype(np.float32)
@@ -564,8 +684,8 @@ def generate_mock_slice(var_name: str, hour: int) -> Any:
 
 def stage_mock_slices(
     output_dir: str,
-    variables: List[str],
-    hours: int,
+    variables: Optional[List[str]] = None,
+    hours: int = 24,
     padded: bool = True,
     cycle_name: str = "20260911_21hr_01_preds",
 ) -> None:
@@ -576,6 +696,14 @@ def stage_mock_slices(
     """
     os.makedirs(output_dir, exist_ok=True)
     init_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
+
+    if variables is None:
+        variables = [
+            "total_precipitation_1hr_mean",
+            "temperature_2m_mean",
+            "dewpoint_temperature_2m_mean",
+            "wind_10m_vector",
+        ]
 
     print(f"[DEMO] Staging {hours} hours for variables: {variables} into {output_dir}")
     for var in variables:
@@ -636,6 +764,27 @@ def extract_and_stage(
     start_time = time.perf_counter()
 
     for var_idx, var_name in enumerate(variables, 1):
+        if var_name == "wind_10m_vector":
+            if "u_component_of_wind_10m_mean" not in zg or "v_component_of_wind_10m_mean" not in zg:
+                raise KeyError("u/v wind components not found in predictions.zarr for wind_10m_vector")
+            u_arr = zg["u_component_of_wind_10m_mean"]
+            v_arr = zg["v_component_of_wind_10m_mean"]
+            var_start = time.perf_counter()
+            print(f"\n[{var_idx}/{len(variables)}] Processing 'wind_10m_vector' (interleaving u and v into rg16float)...")
+            for h in range(hours):
+                slice_filename = f"{var_name}-{h}.bin"
+                slice_path = os.path.join(output_dir, slice_filename)
+                u_raw = u_arr[h, :, :]
+                v_raw = v_arr[h, :, :]
+                _, payload = process_vector_slice(u_raw, v_raw, padded=padded)
+                with open(slice_path, "wb") as f:
+                    f.write(payload)
+                processed_slices += 1
+                if (h + 1) % 12 == 0 or (h + 1) == hours:
+                    elapsed = time.perf_counter() - var_start
+                    print(f"   -> Hour {h+1:2d}/{hours} saved ({len(payload):,} bytes) [{elapsed:.1f}s]")
+            continue
+
         if var_name not in zg:
             raise KeyError(f"Variable '{var_name}' not found in predictions.zarr")
         
@@ -745,7 +894,7 @@ def main():
     if args.variables:
         selected_vars = [v.strip() for v in args.variables.split(",") if v.strip()]
         for v in selected_vars:
-            if v not in CORE_VARIABLES:
+            if v not in CORE_VARIABLES and v != "wind_10m_vector":
                 print(f"[WARN] Requested variable '{v}' is outside the standard core 6 fields.")
     else:
         selected_vars = CORE_VARIABLES
@@ -754,8 +903,17 @@ def main():
 
     # Fast offline mock generation mode
     if args.mock:
-        mock_hours = args.hours if any(a.startswith("--hours") for a in sys.argv) else 3
-        mock_vars = selected_vars if any(a.startswith("--variables") for a in sys.argv) else ["total_precipitation_1hr_mean"]
+        mock_hours = args.hours if any(a.startswith("--hours") for a in sys.argv) else 24
+        mock_vars = (
+            selected_vars
+            if any(a.startswith("--variables") for a in sys.argv)
+            else [
+                "total_precipitation_1hr_mean",
+                "temperature_2m_mean",
+                "dewpoint_temperature_2m_mean",
+                "wind_10m_vector",
+            ]
+        )
         stage_mock_slices(
             output_dir=args.output_dir,
             variables=mock_vars,

@@ -2,9 +2,9 @@
   "source": "Google DeepMind WeatherNext 3",
   "model": "weathernext_3_0_0_statistics",
   "dataset": "gs://weathernext3_statistics_spatial/weathernext_3_0_0_statistics/zarr/2026_to_present/",
-  "forecastInitTimestamp": "2026-09-12T04:00:00Z",
+  "forecastInitTimestamp": "2026-09-12T17:00:00Z",
   "forecastRunCycle": "20260911_21hr_01_preds",
-  "ingestedAtUTC": "2026-09-12T04:17:20.960426+00:00",
+  "ingestedAtUTC": "2026-09-12T17:01:36.441858+00:00",
   "billingProject": "antigravity-agent-1765655548",
   "gridDimensions": {
     "width": 3600,
@@ -19,17 +19,41 @@
   },
   "timeHorizon": {
     "startHour": 0,
-    "endHour": 2,
+    "endHour": 23,
     "stepHours": 1,
-    "totalHours": 3
+    "totalHours": 24
   },
   "validPredictionHours": [
     0,
     1,
-    2
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
   ],
   "variables": [
-    "total_precipitation_1hr_mean"
+    "total_precipitation_1hr_mean",
+    "temperature_2m_mean",
+    "dewpoint_temperature_2m_mean",
+    "wind_10m_vector"
   ],
   "variableMetadata": {
     "total_precipitation_1hr_mean": {
@@ -37,6 +61,24 @@
       "units": "kg/m^2",
       "canonicalMin": 0.0,
       "canonicalMax": 50.0
+    },
+    "temperature_2m_mean": {
+      "longName": "2m Ambient Surface Temperature",
+      "units": "\u00b0C",
+      "canonicalMin": -90.0,
+      "canonicalMax": 60.0
+    },
+    "dewpoint_temperature_2m_mean": {
+      "longName": "2m Surface Dewpoint Temperature",
+      "units": "\u00b0C",
+      "canonicalMin": -90.0,
+      "canonicalMax": 60.0
+    },
+    "wind_10m_vector": {
+      "longName": "10m Wind Velocity Vector Field (rg16float)",
+      "units": "m/s",
+      "canonicalMin": -45.0,
+      "canonicalMax": 45.0
     }
   },
   "textureEncoding": {
@@ -48,6 +90,16 @@
     "isPrePadded": true,
     "sliceByteLength": 12967200,
     "paddedSliceByteLength": 13370624
+  },
+  "vectorTextureEncoding": {
+    "format": "rg16float",
+    "bytesPerTexel": 4,
+    "rawRowBytes": 14400,
+    "paddedRowBytes": 14592,
+    "paddingBytesPerRow": 192,
+    "isPrePadded": true,
+    "sliceByteLength": 25934400,
+    "paddedSliceByteLength": 26280192
   },
   "filePattern": "/data/weathernext/{variable}-{hour}.bin",
   "provenance": {

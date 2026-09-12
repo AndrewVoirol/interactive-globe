@@ -27,6 +27,12 @@ import {
   loadNodeAssetBuffer,
   loadNodeAssetText,
 } from '../../utils/nodeAssetLoader';
+import { encodeFloat16, decodeFloat16 } from '../math/float16';
+
+const DECODE_FLOAT16_LUT = new Float32Array(65536);
+for (let i = 0; i < 65536; i++) {
+  DECODE_FLOAT16_LUT[i] = decodeFloat16(i);
+}
 
 export const WEATHERNEXT_CORE_VARIABLES = [
   'u_component_of_wind_10m_mean',
@@ -35,6 +41,7 @@ export const WEATHERNEXT_CORE_VARIABLES = [
   'temperature_2m_mean',
   'dewpoint_temperature_2m_mean',
   'total_cloud_cover_mean',
+  'wind_10m_vector',
 ] as const;
 
 export type WeatherNextCoreVariable = (typeof WEATHERNEXT_CORE_VARIABLES)[number];
@@ -451,14 +458,61 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
     }
 
     if (this.ringBuffer && !this.ringBuffer.disposed) {
-      this.ringBuffer.uploadSlice(0, b0);
-      this.ringBuffer.uploadSlice(1, b1);
-      this.ringBuffer.uploadSlice(2, b2);
+      this.ringBuffer.uploadSlice(0, this.prepareSliceForRing(b0, targetVar));
+      this.ringBuffer.uploadSlice(1, this.prepareSliceForRing(b1, targetVar));
+      this.ringBuffer.uploadSlice(2, this.prepareSliceForRing(b2, targetVar));
     }
 
     this.currentHour = clampedHour;
     this.activeVariable = targetVar;
     this.residentHours = [h0, h1, h2];
+  }
+
+  /**
+   * Adapts a slice buffer for the bound ring buffer.
+   * If the active variable is 'wind_10m_vector' and the ring buffer format is 'r16float'
+   * (the 40.11 MB VRAM ceiling under Invariants §68 & §73), extracts the scalar wind
+   * speed magnitude sqrt(u^2 + v^2) into an r16float slice (13,370,624 bytes with
+   * exact 7424 bytesPerRow padding).
+   */
+  private prepareSliceForRing(sliceBuffer: ArrayBuffer, variable: string): ArrayBuffer {
+    if (
+      variable === 'wind_10m_vector' &&
+      this.ringBuffer &&
+      this.ringBuffer.format === 'r16float' &&
+      sliceBuffer.byteLength >= 25934400
+    ) {
+      return this.extractScalarSpeedSlice(sliceBuffer);
+    }
+    return sliceBuffer;
+  }
+
+  /**
+   * Fast scalar speed extraction from an interleaved rg16float WeatherNext slice.
+   * Converts 3600x1801 rg16float (26,280,192 bytes padded or 25,934,400 raw)
+   * into a 3600x1801 r16float slice (13,370,624 bytes with 7424 bytesPerRow)
+   * containing Euclidean wind speed sqrt(u^2 + v^2) in Float16.
+   */
+  private extractScalarSpeedSlice(vectorBuffer: ArrayBuffer): ArrayBuffer {
+    const isPaddedVector = vectorBuffer.byteLength === 26280192;
+    const srcU16 = new Uint16Array(vectorBuffer);
+    const dstBuffer = new ArrayBuffer(WEATHERNEXT_GRID_SPEC.paddedSliceBytes); // 13,370,624
+    const dstU16 = new Uint16Array(dstBuffer);
+
+    const srcStrideU16 = isPaddedVector ? 7296 : 7200; // 14592 / 2 or 14400 / 2
+    const dstStrideU16 = 3712; // 7424 / 2
+
+    for (let r = 0; r < 1801; r++) {
+      const srcRowOff = r * srcStrideU16;
+      const dstRowOff = r * dstStrideU16;
+      for (let c = 0; c < 3600; c++) {
+        const u = DECODE_FLOAT16_LUT[srcU16[srcRowOff + c * 2]];
+        const v = DECODE_FLOAT16_LUT[srcU16[srcRowOff + c * 2 + 1]];
+        const speed = Math.hypot(u, v);
+        dstU16[dstRowOff + c] = encodeFloat16(speed);
+      }
+    }
+    return dstBuffer;
   }
 
   /**
@@ -527,7 +581,7 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
         return;
       }
 
-      this.ringBuffer.uploadSlice(2, prefetchBuffer);
+      this.ringBuffer.uploadSlice(2, this.prepareSliceForRing(prefetchBuffer, targetVar));
       this.residentHours[2] = prefetchHour;
     };
 
@@ -585,9 +639,14 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
       throw new Error(`Unsupported variable '${variable}'`);
     }
 
+    if (this.activeVariable === variable && this.residentHours !== null) {
+      return;
+    }
+
     this.seekSequenceId++;
     this.advanceQueue = Promise.resolve();
     this.activeVariable = variable;
+    this.residentHours = null;
     if (this.ringBuffer && !this.ringBuffer.disposed) {
       await this.seekHour(this.currentHour, variable);
     }
@@ -702,6 +761,7 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
         temperature_2m_mean: { units: '°C', longName: '2m Ambient Surface Temperature' },
         dewpoint_temperature_2m_mean: { units: '°C', longName: '2m Surface Dewpoint Temperature' },
         total_cloud_cover_mean: { units: 'fraction', longName: 'Column-Integrated Cloud Fraction' },
+        wind_10m_vector: { units: 'm/s', longName: '10m Wind Velocity Vector Field (rg16float)' },
       },
       textureEncoding: {
         format: 'r16float',

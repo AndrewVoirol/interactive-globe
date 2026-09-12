@@ -3,7 +3,7 @@ import { SimulationMode, LoadedDataInfo } from './types';
 import { DataLayerRenderStyle, getPresetById } from './core/data/DataLayerCatalog';
 import { TelemetryHUD, type PrognosticModelBackend } from './components/hud/TelemetryHUD';
 import { NavigationDock } from './components/hud/NavigationDock';
-import { TimelineScrubber, type TimelineScrubberState } from './components/hud/TimelineScrubber';
+import type { TimelineScrubberState } from './components/hud/TimelineScrubber';
 import { useEngineState } from './hooks/useEngineState';
 import { useCameraKinematics } from './hooks/useCameraKinematics';
 import { registerDevToolsAPI } from './core/DevToolsAPI';
@@ -97,6 +97,34 @@ export default function App() {
   const [scrubTau, setScrubTau] = useState<number>(0);
   const [thermodynamicGating, setThermodynamicGating] = useState<boolean>(true);
   const [prognosticModel, setPrognosticModel] = useState<PrognosticModelBackend>('weathernext3');
+  const [prognosticVariable, setPrognosticVariable] = useState<string>('total_precipitation_1hr_mean');
+  const lastWindHourRef = useRef<number>(-1);
+
+  const handlePrognosticVariableChange = useCallback((variable: string) => {
+    setPrognosticVariable(variable);
+    const weatherNextDS =
+      (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ ||
+      (window as any).__INDICATRIX_WEATHERNEXT_SOURCE__;
+    if (weatherNextDS && !weatherNextDS.disposed && typeof weatherNextDS.setActiveVariable === 'function') {
+      weatherNextDS.setActiveVariable(variable).catch((err: any) => {
+        console.warn('[WeatherNext] setActiveVariable error:', err);
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+      if (engine && typeof engine.loadWindTexture === 'function') {
+        const currentHour = weatherNextDS?.getCurrentHour?.() ?? 0;
+        const clampedHour = Math.min(23, Math.max(0, currentHour));
+        lastWindHourRef.current = clampedHour;
+        if (variable === 'wind_10m_vector' || prognosticModel === 'weathernext3' || prognosticModel === 'google-weathernext3' || prognosticModel === 'weathernext') {
+          engine.loadWindTexture(`/data/weathernext/wind_10m_vector-${clampedHour}.bin`).catch(() => {
+            engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+          });
+        }
+      }
+    }
+  }, [prognosticModel]);
 
   const handleTimelineChange = useCallback((state: TimelineScrubberState) => {
     setTimelineMinutes(state.absoluteMinutes);
@@ -137,9 +165,21 @@ export default function App() {
         if (weatherNextDS && !weatherNextDS.disposed && typeof weatherNextDS.setTime === 'function') {
           weatherNextDS.setTime(state.bracketHour, state.tau);
         }
+
+        const isWn =
+          prognosticModel === 'weathernext3' ||
+          prognosticModel === 'google-weathernext3' ||
+          prognosticModel === 'weathernext';
+        if (engine && typeof engine.loadWindTexture === 'function' && (isWn || prognosticVariable === 'wind_10m_vector')) {
+          const windHour = Math.min(23, Math.max(0, state.bracketHour));
+          if (windHour !== lastWindHourRef.current) {
+            lastWindHourRef.current = windHour;
+            engine.loadWindTexture(`/data/weathernext/wind_10m_vector-${windHour}.bin`).catch(() => {});
+          }
+        }
       }
     }
-  }, []);
+  }, [prognosticModel, prognosticVariable]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -196,8 +236,44 @@ export default function App() {
           return clamped;
         });
       };
+      (window as any).__INDICATRIX_SET_PROGNOSTIC_VARIABLE__ = (variable: string) => {
+        handlePrognosticVariableChange(variable);
+      };
+      (window as any).__INDICATRIX_SET_PROGNOSTIC_MODEL__ = (model: PrognosticModelBackend) => {
+        handlePrognosticModelChange(model);
+      };
+
+      Object.defineProperty(window, '__INDICATRIX_WEATHER_DIAGNOSTICS__', {
+        configurable: true,
+        get: () => {
+          const ds =
+            (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ ||
+            (window as any).__INDICATRIX_WEATHERNEXT_SOURCE__;
+          const ring = (window as any).__INDICATRIX_WEATHERNEXT_RING_BUFFER__;
+          const radarDS = (window as any).__INDICATRIX_LIVE_RADAR_DATA_SOURCE__;
+          const radarRing = (window as any).__INDICATRIX_RADAR_RING_BUFFER__;
+          const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+          return {
+            prognosticModel,
+            prognosticVariable,
+            timelineMinutes,
+            weatherNext: {
+              active: !!ds && !ds.disposed,
+              currentHour: ds?.getCurrentHour?.() ?? 0,
+              activeVariable: ds?.getActiveVariable?.() ?? prognosticVariable,
+              vramBytes: ds?.getVRAMFootprintBytes?.() ?? 0,
+              ringBufferBound: !!ring && !ring.disposed,
+            },
+            radar: {
+              active: !!radarDS && !radarDS.disposed,
+              ringBufferBound: !!radarRing && !radarRing.disposed,
+            },
+            enginePrecipBound: !!engine?.precipRingBuffer,
+          };
+        },
+      });
     }
-  }, []);
+  }, [handlePrognosticVariableChange, prognosticModel, prognosticVariable, timelineMinutes]);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('cartouche-visibility-change', { detail: { showCartouche } }));
@@ -313,6 +389,17 @@ export default function App() {
               opacity: preset.defaultOpacity,
               blendMode: preset.defaultBlendMode,
             });
+          }
+        }
+      }
+
+      if (typeof window !== 'undefined') {
+        const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+        if (engine && typeof engine.loadWindTexture === 'function') {
+          if (model === 'weathernext3' || model === 'google-weathernext3' || model === 'weathernext') {
+            engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {});
+          } else {
+            engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
           }
         }
       }
@@ -778,6 +865,8 @@ export default function App() {
           onThermodynamicGatingChange={setThermodynamicGating}
           prognosticModel={prognosticModel}
           onPrognosticModelChange={handlePrognosticModelChange}
+          prognosticVariable={prognosticVariable}
+          onPrognosticVariableChange={handlePrognosticVariableChange}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}
@@ -797,19 +886,6 @@ export default function App() {
           mode={mode}
         />
 
-        {/* Persistent Bottom Weather & Atmospheric Timeline Bar */}
-        {isWeatherActive && !isZenMode && (
-          <div
-            className={`fixed bottom-[116px] left-1/2 -translate-x-1/2 z-20 pointer-events-auto max-w-xl w-[calc(100%-3rem)] transition-all duration-300 shadow-2xl ${
-              isSidebarOpen ? 'md:left-[calc(50%-12rem)]' : ''
-            }`}
-          >
-            <TimelineScrubber
-              value={timelineMinutes}
-              onTimeChange={handleTimelineChange}
-            />
-          </div>
-        )}
 
         {/* Zen Mode Translucent Cartographic Anchor Pill */}
         {isZenMode && (

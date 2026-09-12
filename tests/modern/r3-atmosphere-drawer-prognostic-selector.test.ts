@@ -178,4 +178,92 @@ describe('Milestone 3 (R3) - AtmosphereDrawer Prognostic Model Selector', () => 
       expect(wnBtn).toBeUndefined();
     });
   });
+
+  // --------------------------------------------------------------------------
+  // Suite 3: WeatherNext Prognostic Variable Segmented Selector (§R3)
+  // --------------------------------------------------------------------------
+  describe('3. WeatherNext Prognostic Variable Segmented Selector', () => {
+    it('DRAWER-08: renders Rain, Temp, and 10m Wind buttons when WeatherNext is active', async () => {
+      await act(async () => {
+        root.render(
+          React.createElement(AtmosphereDrawer, {
+            showClouds: true,
+            prognosticModel: 'weathernext3',
+            prognosticVariable: 'total_precipitation_1hr_mean',
+          } as any)
+        );
+      });
+
+      const rainBtn = container.querySelector('#sidebar-variable-rain');
+      const tempBtn = container.querySelector('#sidebar-variable-temp');
+      const windBtn = container.querySelector('#sidebar-variable-wind');
+
+      expect(rainBtn).not.toBeNull();
+      expect(tempBtn).not.toBeNull();
+      expect(windBtn).not.toBeNull();
+
+      expect(rainBtn?.textContent).toContain('Rain');
+      expect(tempBtn?.textContent).toContain('Temp');
+      expect(windBtn?.textContent).toContain('10m Wind');
+
+      // Rain is currently active
+      expect(rainBtn?.className).toContain('bg-[var(--theme-control-active-bg)]');
+      expect(tempBtn?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
+      expect(windBtn?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
+    });
+
+    it('DRAWER-09: dispatches onPrognosticVariableChange, window bridge, and auto-enables wind layer on click', async () => {
+      const onChange = vi.fn();
+      const bridgeSpy = vi.fn();
+      const toggleLayerSpy = vi.fn();
+      (window as any).__INDICATRIX_SET_PROGNOSTIC_VARIABLE__ = bridgeSpy;
+
+      await act(async () => {
+        root.render(
+          React.createElement(AtmosphereDrawer, {
+            showClouds: true,
+            prognosticModel: 'weathernext3',
+            prognosticVariable: 'total_precipitation_1hr_mean',
+            onPrognosticVariableChange: onChange,
+            onTogglePlanetaryLayer: toggleLayerSpy,
+          } as any)
+        );
+      });
+
+      const tempBtn = container.querySelector('#sidebar-variable-temp') as HTMLButtonElement;
+      const windBtn = container.querySelector('#sidebar-variable-wind') as HTMLButtonElement;
+
+      await act(async () => {
+        tempBtn.click();
+      });
+      expect(onChange).toHaveBeenCalledWith('temperature_2m_mean');
+      expect(bridgeSpy).toHaveBeenCalledWith('temperature_2m_mean');
+      expect(toggleLayerSpy).not.toHaveBeenCalled();
+
+      await act(async () => {
+        windBtn.click();
+      });
+      expect(onChange).toHaveBeenCalledWith('wind_10m_vector');
+      expect(bridgeSpy).toHaveBeenCalledWith('wind_10m_vector');
+      expect(toggleLayerSpy).toHaveBeenCalledWith('noaa-gfs-wind', true);
+
+      delete (window as any).__INDICATRIX_SET_PROGNOSTIC_VARIABLE__;
+    });
+
+    it('DRAWER-10: satisfies Invariant §4 single-border contract and hides under GFS model', async () => {
+      // Under GFS model, WeatherNext variable buttons must not render
+      await act(async () => {
+        root.render(
+          React.createElement(AtmosphereDrawer, {
+            showClouds: true,
+            prognosticModel: 'gfs',
+          } as any)
+        );
+      });
+
+      expect(container.querySelector('#sidebar-variable-rain')).toBeNull();
+      expect(container.querySelector('#sidebar-variable-temp')).toBeNull();
+      expect(container.querySelector('#sidebar-variable-wind')).toBeNull();
+    });
+  });
 });
