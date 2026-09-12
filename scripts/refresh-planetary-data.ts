@@ -29,9 +29,19 @@ export async function refreshAllPlanetaryData(): Promise<{ gfsBytes: number; tle
   console.log(`[OK] GFS Wind Grid: ${gfsStats.size} bytes written to ${gfsPath}`);
 
   // 1.5. Refresh NOAA GFS Cloud Grids
-  console.log('--- Step 1.5/2: Ingesting NOAA GFS Cloud Field ---');
+  console.log('--- Step 1.5/3: Ingesting NOAA GFS Cloud Field ---');
   await fetchOrGenerateGFSClouds();
   console.log(`[OK] GFS Cloud Grids generated.`);
+
+  // 1.75. Refresh Live Doppler Radar
+  console.log('--- Step 1.75/3: Ingesting Live Doppler Radar Mosaics ---');
+  try {
+    const { fetchLiveRadarLoop } = await import('./fetch-live-radar');
+    await fetchLiveRadarLoop();
+    console.log(`[OK] Live Doppler Radar loop generated.`);
+  } catch (err) {
+    console.warn(`[WARN] Live Doppler Radar refresh deferred:`, err);
+  }
 
   // 2. Refresh CelesTrak Starlink & ISS TLEs
   console.log('--- Step 2/2: Ingesting CelesTrak Starlink & ISS TLE Constellation ---');

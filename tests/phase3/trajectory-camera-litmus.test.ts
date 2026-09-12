@@ -10,8 +10,14 @@ import {
   buildSubdividedPath,
   HAWAII_KEYFRAMES,
   CAPE_COD_KEYFRAMES,
+  GRAND_CANYON_KEYFRAMES,
+  FUJI_KEYFRAMES,
   HAWAII_WAYPOINTS,
   CAPE_COD_WAYPOINTS,
+  GRAND_CANYON_WAYPOINTS,
+  FUJI_WAYPOINTS,
+  LITMUS_SEQUENCES,
+  SAMPLE_REGIONAL_INSETS,
 } from '../../src/core/camera/litmusWaypoints';
 import { Vector3 } from '../../src/core/math/cameraMath';
 
@@ -166,6 +172,54 @@ describe('TrajectoryCameraController & Litmus Flights', () => {
     const midTarget = controller.target.clone();
 
     expect(startTarget.distanceTo(midTarget)).toBeGreaterThan(0.01);
+  });
+
+  it('TCC-11: GRAND_CANYON_WAYPOINTS respects safety floor and covers sequence', () => {
+    expect(GRAND_CANYON_WAYPOINTS.length).toBeGreaterThan(10);
+    for (const wp of GRAND_CANYON_WAYPOINTS) {
+      const r = wp.position.length();
+      expect(r).toBeGreaterThanOrEqual(5.8 - 1e-4);
+    }
+    const first = GRAND_CANYON_WAYPOINTS[0];
+    expect(first.position.length()).toBeGreaterThan(11.0);
+
+    const last = GRAND_CANYON_WAYPOINTS[GRAND_CANYON_WAYPOINTS.length - 1];
+    expect(last.position.length()).toBeCloseTo(5.8, 1);
+  });
+
+  it('TCC-12: FUJI_WAYPOINTS respects safety floor and covers sequence', () => {
+    expect(FUJI_WAYPOINTS.length).toBeGreaterThan(10);
+    for (const wp of FUJI_WAYPOINTS) {
+      const r = wp.position.length();
+      expect(r).toBeGreaterThanOrEqual(5.8 - 1e-4);
+    }
+    const first = FUJI_WAYPOINTS[0];
+    expect(first.position.length()).toBeGreaterThan(11.0);
+
+    const last = FUJI_WAYPOINTS[FUJI_WAYPOINTS.length - 1];
+    expect(last.position.length()).toBeCloseTo(5.8, 1);
+  });
+
+  it('TCC-13: LITMUS_SEQUENCES contains all 4 configurations', () => {
+    expect(Object.keys(LITMUS_SEQUENCES)).toEqual(['hawaii', 'cape-cod', 'grand-canyon', 'fuji']);
+    for (const key of ['hawaii', 'cape-cod', 'grand-canyon', 'fuji']) {
+      const seq = LITMUS_SEQUENCES[key];
+      expect(seq.keyframes.length).toBeGreaterThanOrEqual(5);
+      expect(seq.waypoints.length).toBeGreaterThan(10);
+      expect(seq.focus.radius).toBeGreaterThanOrEqual(5.8);
+    }
+  });
+
+  it('TCC-14: SAMPLE_REGIONAL_INSETS contains all 4 regions with valid bounds and URLs', () => {
+    expect(SAMPLE_REGIONAL_INSETS.length).toBe(4);
+    const ids = SAMPLE_REGIONAL_INSETS.map(r => r.id);
+    expect(ids).toEqual(['hawaii', 'capecod', 'grand-canyon', 'fuji']);
+    for (const r of SAMPLE_REGIONAL_INSETS) {
+      expect(r.binUrl).toMatch(/^\/regional\/.+\.bin$/);
+      expect(r.webpUrl).toMatch(/^\/regional\/.+\.webp$/);
+      expect(r.bounds.maxLon).toBeGreaterThan(r.bounds.minLon);
+      expect(r.bounds.maxLat).toBeGreaterThan(r.bounds.minLat);
+    }
   });
 });
 

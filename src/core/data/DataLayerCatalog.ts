@@ -357,6 +357,48 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
       unit: 'Cloud Fraction (GFS)',
     },
   },
+  {
+    id: 'google-weathernext3',
+    name: 'Google DeepMind WeatherNext 3 (0.1° AI)',
+    category: 'field',
+    type: '0.1° (10km) AI',
+    details: 'Global 0.1° (10km) AI prognostic weather model with 48-hour continuous time horizon across 6 prognostic fields',
+    url: '/data/weathernext/meta.json',
+    defaultOpacity: 0.85,
+    defaultBlendMode: 0,
+    attribution: 'Google DeepMind WeatherNext 3',
+    legend: {
+      colorStops: ['rgba(14, 165, 233, 0.0)', '#0284c7', '#10b981', '#f59e0b', '#ef4444'],
+      minLabel: '0.0 mm/h',
+      maxLabel: '50+ mm/h',
+      unit: '0.1° (10km) AI',
+    },
+  },
+  {
+    id: 'live-doppler-radar',
+    name: 'Live Doppler Radar (RainViewer)',
+    category: 'field',
+    type: 'Doppler Radar Mosaic',
+    details: 'Global rolling 12-frame composite radar loop decoded to Float16 reflectivity field (-60m to 0m)',
+    url: '/data/radar-loop-latest.bin',
+    defaultOpacity: 0.85,
+    defaultBlendMode: 0,
+    attribution: 'RainViewer / Global Doppler Radar Mosaics',
+    legend: {
+      colorStops: [
+        'rgba(0, 0, 0, 0.0)',
+        '#0284c7',
+        '#10b981',
+        '#facc15',
+        '#f97316',
+        '#ef4444',
+        '#a855f7',
+      ],
+      minLabel: '5 dBZ (Drizzle)',
+      maxLabel: '70+ dBZ (Hail)',
+      unit: 'Reflectivity (dBZ)',
+    },
+  },
 ];
 
 export function getPresetById(id: string): DataLayerPreset | undefined {

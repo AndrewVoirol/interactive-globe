@@ -6,10 +6,15 @@
 
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { TrajectoryCameraController, Waypoint3D } from '../core/camera/TrajectoryCameraController';
-import { HAWAII_WAYPOINTS, CAPE_COD_WAYPOINTS } from '../core/camera/litmusWaypoints';
+import {
+  HAWAII_WAYPOINTS,
+  CAPE_COD_WAYPOINTS,
+  GRAND_CANYON_WAYPOINTS,
+  FUJI_WAYPOINTS,
+} from '../core/camera/litmusWaypoints';
 import { Vector3 } from '../core/math/cameraMath';
 
-export type LitmusSequenceName = 'hawaii' | 'cape-cod';
+export type LitmusSequenceName = 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji';
 
 export interface UseTrajectoryCameraControllerOptions {
   initialSequence?: LitmusSequenceName;
@@ -59,7 +64,14 @@ export function useTrajectoryCameraController(options: UseTrajectoryCameraContro
   const loadSequenceWaypoints = useCallback((seq: LitmusSequenceName, seqDuration = durationRef.current) => {
     const controller = controllerRef.current;
     controller.setMode('dolly-cinematic');
-    const waypoints: Waypoint3D[] = seq === 'cape-cod' ? CAPE_COD_WAYPOINTS : HAWAII_WAYPOINTS;
+    const waypoints: Waypoint3D[] =
+      seq === 'cape-cod'
+        ? CAPE_COD_WAYPOINTS
+        : seq === 'grand-canyon'
+        ? GRAND_CANYON_WAYPOINTS
+        : seq === 'fuji'
+        ? FUJI_WAYPOINTS
+        : HAWAII_WAYPOINTS;
     controller.setWaypoints(waypoints, seqDuration, loopRef.current);
     controller.setProgress(0);
     setProgress(0);
@@ -149,7 +161,13 @@ export function useTrajectoryCameraController(options: UseTrajectoryCameraContro
       },
       getController: () => controllerRef.current,
       getWaypoints: (seq: LitmusSequenceName) =>
-        seq === 'cape-cod' ? CAPE_COD_WAYPOINTS : HAWAII_WAYPOINTS,
+        seq === 'cape-cod'
+          ? CAPE_COD_WAYPOINTS
+          : seq === 'grand-canyon'
+          ? GRAND_CANYON_WAYPOINTS
+          : seq === 'fuji'
+          ? FUJI_WAYPOINTS
+          : HAWAII_WAYPOINTS,
     };
 
     return () => {

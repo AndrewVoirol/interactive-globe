@@ -29,3 +29,5 @@ screenshots/memory-check.json
 screenshots/performance-profile.json
 __pycache__/
 *.pyc
+.cache/
+

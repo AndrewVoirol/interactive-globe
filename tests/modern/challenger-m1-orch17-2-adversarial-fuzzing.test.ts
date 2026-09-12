@@ -274,11 +274,11 @@ describe('Adversarial Challenge: Dynamic U16 Discriminator Fuzzing & WGSL Alignm
       expect(crustHydrosphereWGSL).not.toMatch(/_padShadow\s*:\s*vec3<f32>/);
     });
 
-    it('ALIGN-WGSL-03: Verifies WebGPUEngine buffer allocation and float packing matches exactly 288 bytes', () => {
+    it('ALIGN-WGSL-03: Verifies WebGPUEngine buffer allocation and float packing matches exactly 320 bytes', () => {
       // Verify buffer allocation size in WebGPUEngine.ts
-      expect(engineSource).toMatch(/this\.crustUniformBuffer\s*=\s*this\.device\.createBuffer\(\{\s*size:\s*288/);
+      expect(engineSource).toMatch(/this\.crustUniformBuffer\s*=\s*this\.device\.createBuffer\(\{\s*size:\s*320/);
       // Verify Float32Array length
-      expect(engineSource).toContain('private crustFloats = new Float32Array(72);');
+      expect(engineSource).toContain('private crustFloats = new Float32Array(80);');
       // Verify shadow intensity mapped to index 68 (272 bytes)
       expect(engineSource).toMatch(/this\.crustFloats\[68\]\s*=\s*params\.shadowIntensity/);
       // Verify padding floats 69, 70, 71 initialized to 0.0

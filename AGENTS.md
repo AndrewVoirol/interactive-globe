@@ -17,6 +17,7 @@ Always consult the following master specifications before proposing or making an
 
 ## 3. WebGPU WGSL Uniform Control Flow & Verification Invariant
 - **Mandatory Unconditional Derivative Evaluation**: In WGSL fragment shaders, all finite difference derivatives (`fwidth()`, `dpdx()`, `dpdy()`) and implicit-LOD texture sampling operations MUST be evaluated at the top of the entry point function (`fs_main`) in unconditional uniform control flow, strictly before any dynamic branching, conditional blocks, or `discard` statements. Calling derivatives inside or downstream of conditional branches triggers fatal driver-level WebGPU compilation errors (`'fwidth' must only be called from uniform control flow`).
+- **Unconditional Multi-Frame & Advective Texture Sampling**: Any multi-frame texture sampling functions (such as semi-Lagrangian great-circle advection `sampleAdvectedPrecipitationField`) MUST likewise be evaluated unconditionally prior to dynamic branching or discard. Runtime feature toggles (e.g., `sim.u_advectionActive`) must select between sampled values using the WGSL `select(fallback, active, condition)` intrinsic rather than enclosing sampling operations inside `if` statements.
 - **Browser GPU Runtime Verification**: Unit tests using mocked WebGPU environments cannot evaluate GPU driver or Dawn WGSL compiler rejections. Whenever modifying WGSL shaders, live browser verification using Chrome DevTools MCP (`list_console_messages` + `take_screenshot`) is mandatory to confirm zero uncaptured runtime errors.
 
 ## 4. Cartographic Precision & Tissot Invariants
@@ -165,8 +166,8 @@ Always consult the following master specifications before proposing or making an
 - **Cartographic Precision Conservation**: Medium physics (tooth, absorption, actinic gamma) must remain strictly orthogonal to geometric precision. Adding tactile medium effects must NEVER soften coastline zero-standoff, blur DEM valley trough drainage, or alter elevation decoding parity.
 
 ## 29. The Zero-Orphan Integration Contract (The Anti-Disconnected-Code Invariant)
-- **Prohibition of Headless Core Implementations**: Creating controllers, kinematics engines, or math utilities in `src/core/` that pass unit tests but are unimported in the active React component tree or render loop is strictly prohibited.
-- **Mandatory Call-Site Verification**: Any task introducing a controller (e.g. `TrajectoryCameraController`) or shader pipeline must include the call site wiring (in `WebGPUCanvas.tsx`, `App.tsx`, or a dedicated hook), an interactive trigger or autonomous loop, and verified live browser invocation. Dead code or orphaned files are treated as an automatic **AUDIT FAILURE**.
+- **Prohibition of Headless Core & Unmounted UI Implementations**: Creating controllers, kinematics engines, or math utilities in `src/core/`, or UI instruments, drawers, and controls in `src/components/` (e.g. `TimelineScrubber.tsx`), that pass isolated unit tests but are unimported and unmounted in the active React component tree (`App.tsx`, `TelemetryHUD.tsx`, `AtmosphereDrawer.tsx`) or render loop is strictly prohibited.
+- **Mandatory Call-Site & Mounting Verification**: Any task introducing a controller (e.g. `TrajectoryCameraController`), shader pipeline, or HUD instrument must include the call site wiring (in `WebGPUCanvas.tsx`, `App.tsx`, or active drawer), an interactive trigger or autonomous loop, and verified live browser invocation. Dead code or orphaned files are treated as an automatic **AUDIT FAILURE**.
 
 ## 30. Pre-Profiling Semantic Realization Gate (When to Profile vs. When to Complete)
 - **Prohibition of Premature Profiling**: Performance profiling and canonical demo capture (Stage 4) must NEVER be executed while the underlying engine has incomplete shader branches, unrepresented mediums, or unwired demo controllers.
@@ -218,6 +219,10 @@ Always consult the following master specifications before proposing or making an
 ## 37. WebGPU Uniform Struct Alignment & Anti-Speculative Declaration Invariant
 - **Strict Byte-Exact Parity**: Any uniform struct defined in WGSL (`SimUniforms`, `CrustUniforms`, `CraneUniforms`) MUST maintain exact byte-for-byte and float-count parity with its corresponding TypeScript packing buffer (`Float32Array`) and layout constants.
 - **Prohibition of Speculative WGSL Fields**: Never declare unused, planned, or speculative uniform struct members in WGSL before the TypeScript packing logic is wired and committed. Adding unwritten padding or auxiliary fields alters struct size, causing buffer write out-of-bounds or assertions in uniform stress tests (e.g. `r11-materials-medium-stress.test.ts`).
+- **Decoupled Forward-Compatible CPU Buffer Staging**: When staging new uniform data on the CPU before downstream WGSL shaders are modified, the CPU allocation (`Float32Array`) and GPU buffer size (`device.createBuffer({ size })`) may be expanded ahead of WGSL struct declarations provided that:
+  1. Strict 16-byte alignment is preserved (e.g. `vec3<f32>` at byte offset 288 + 4-byte scalar pad $\to$ 304 bytes).
+  2. The buffer size satisfies $\text{size} \ge \text{minBindingSize}$ of current pipelines.
+  3. Legacy code comment signatures are retained if historical challenger suites perform static pattern validation.
 - **No Dismissal of Size Mismatches**: If a test suite fails with a buffer or struct size mismatch (e.g. `expected 304 to be 272`), do NOT treat it as pre-existing or benign; verify the exact byte layout against the CPU writer and restore byte alignment.
 
 ## 38. Monochromatic Photochemical Illumination & Solar Bleed Elimination
@@ -365,4 +370,316 @@ Always consult the following master specifications before proposing or making an
 - **Master RFC Primacy**: When implementing complex physical models or cross-pipeline architectures, the Master Architectural RFC in the brain repository (`*_rfc.md`) is the supreme authoritative specification. Intermediate sprint notes (`docs/*_SPEC.md`) and local developer scratchpads are secondary convenience documents.
 - **Prohibition of Silent Physical Truncation**: Implementing agents and test authors must NEVER truncate multi-dimensional physical equations (e.g. replacing 2D vector wind coupling $\mathbf{u} \cdot \nabla h$ with 1D longitude differences, or omitting along-contour valley steering terms) or alter 16-byte aligned WGSL uniform layouts (e.g. cutting 288-byte structs to 256 bytes by deleting fields) to simplify implementation or match flawed intermediate drafts.
 - **Test Alignment Gate**: Unit and adversarial test suites must be constructed to assert the physical and mathematical rubric defined in the Master RFC, preventing false-positive victory declarations where tests pass against a degraded intermediate specification.
+
+## 61. Compounding Geodetic Co-Registration Invariant
+- **Cross-Tier Spatial Parity**: When introducing high-resolution dynamic atmospheric data (0.1° / ~10km Google DeepMind WeatherNext 3 hourly predictions or 1km live Doppler radar nowcasts), the underlying terrain substrate and vector cartography MUST maintain proportional geodetic precision.
+- **Prohibition of Multi-Kilometer Displacement Incongruity**: Rendering sub-10km atmospheric phenomena (e.g., tropical cyclone eyes, frontal precipitation bands, convective storm cells) against generalized 1:10m vectors (such as Natural Earth with 10–20km coastal displacement errors) or low-resolution spherical geoids creates severe visual and spatial incongruity. Coastlines and hydrological boundaries must be co-registered using high-precision vector datasets (e.g. Overture Maps GeoParquet 1.1 / PMTiles v3 sub-meter shorelines) and high-resolution relief insets (Copernicus GLO-30 30m / USGS 3DEP) in active litmus basins.
+- **Geocentric Co-Registration Anchor**: Atmospheric, vector, and crust pipelines must share the exact WGS84 ellipsoidal/spherical coordinate mappings, ensuring that coastal rainfall radar echoes terminate precisely at the physical shoreline.
+
+## 62. Requester-Pays Cloud Storage & Zarr v3 Ingestion Discipline
+- **Mandatory Billing Project Header**: When accessing public scientific repositories hosted on Google Cloud Storage Requester Pays buckets (e.g. `gs://weathernext3_spatial/`, `gs://weathernext3_statistics_spatial/`), API clients and Python ingestion scripts (`scripts/fetch-weathernext3.py`) MUST explicitly supply the active billing project header (`userProject: antigravity-agent-1765655548`) via Application Default Credentials (`~/.config/gcloud/application_default_credentials.json`).
+- **Prohibition of Unbounded Client Streaming from Cloud Buckets**: Web clients must never stream raw remote Zarr chunks directly from Requester Pays cloud buckets during interactive frame loops, which would incur latency and per-request network egress charges.
+- **Local Pre-Staged Temporal Slices**: Ingestion pipelines must extract the required variables (`temperature_2m_mean`, `station_head_temperature_2m_mean`, `u_component_of_wind_10m_mean`, `v_component_of_wind_10m_mean`, `total_precipitation_1hr_mean`, `imerg_tp_1hr_mean`, `low_cloud_cover_mean`, `medium_cloud_cover_mean`, `high_cloud_cover_mean`, `surface_solar_radiation_downwards_1hr_mean`) and time horizons ($t \in [0, 48\text{h}]$) into optimized, local pre-staged binary slices in `public/data/weathernext/` for zero-latency WebGPU texture upload.
+
+## 63. Empirical Payload Grounding & Network Budget Verification
+- **Prohibition of Speculative Streaming Over-Engineering**: Architectural decisions regarding spatial indexing, quadtree streaming, or tiled chunk protocols must NEVER be based on unmeasured or hypothetical payload assumptions.
+- **Mandatory Over-The-Wire Measurement**: Prior to proposing or architecting streaming infrastructure, engineers and agents MUST empirically measure compressed payload sizes via real network requests:
+  - Live Doppler radar mosaics (e.g., RainViewer 12-frame loop: ~1.6 MB total, 8.7 KB / 256×256 WebP tile).
+  - Atmospheric AI forecast fields (e.g., WeatherNext 3 global grid: 18.53 MB compressed / 12.9 MB Float16 WebGPU texture).
+  - Global wind vectors (e.g., GFS 0.25° grid: 3.96 MB Float16).
+  - Regional 30m DEM insets (~3.5 MB per 1° tile).
+- If aggregate network footprints fit within standard modern web bandwidth and VRAM budgets (< 30 MB initial load), implementations must use simple, robust static slice fetching rather than introducing multi-tier quadtree hierarchies that risk manifold tear seams.
+
+## 64. "Living Relief" Coupled Orographic Precipitation & DEM Hydrology
+- **Physical Orographic Precipitation Modulation**: In the WebGPU crust/hydrosphere rendering pipeline (`crust_hydrosphere.wgsl`), dynamic atmospheric precipitation fields must not be rendered as detached, flat overlays. Precipitation density and optical attenuation must couple directly with the terrain elevation gradient $\nabla h$ and surface horizontal wind vector $\mathbf{u}_h$:
+  $$w = \mathbf{u}_h \cdot \nabla h$$
+  $$P_{\text{surface}} = P_{\text{raw}} \cdot \left(1.0 + \alpha \cdot \max(0.0, w)\right) \cdot \exp\left(-\beta \cdot \max(0.0, -w)\right)$$
+  amplifying rain on windward mountain slopes ($w > 0$) and suppressing precipitation in leeward rain shadows ($w < 0$).
+- **DEM-Valley Runoff Entrainment**: Overland storm runoff must couple with the in-shader Laplacian curvature $k_{\text{valley}}$ (Invariant §9 & §16), brightening and swelling river rills during active precipitation events while maintaining the 58.24% hydrological-to-coastline width ratio.
+
+## 65. Manifold Dock Purity & Drawer HUD Partitioning
+- **Prohibition of Manifold Dock Encroachment**: The bottom dock is strictly reserved for the primary Riemannian manifold morphing controls (continuous unroll parameter $t \in [0, 1]$, projection selector, and core framing).
+- **Secondary Temporal & Sensor Drawer Placement**: Specialized temporal scrubbers (e.g. Doppler radar $[-60\text{m} \to \text{NOW}]$ and WeatherNext forecast $[\text{NOW} \to +48\text{h}]$), dual-mode optical toggles (Archival Watercolor vs. Doppler), and real-time station verniers must be encapsulated inside `AtmosphereDrawer.tsx`. This preserves the clean cartographic sheet neatline and avoids cluttering the map board during projection deformation.
+
+## 66. Manifold Metric Tensor Pushforward for Tangent Vector Fields ($S^2 \to \mathbb{R}^2$)
+- **Prohibition of Unprojected Vector Fields**: Atmospheric wind velocities $\mathbf{u}_h = (u_\lambda, u_\phi)$, streamlines, and radar advection vectors must NEVER be rendered on planar unrolled projections (Mercator, Cylindrical Scroll, Dymaxion net) using raw spherical tangent coordinates.
+- **Differential Jacobian Pushforward**: As the manifold unrolls ($\alpha \in [0, 1]$), vector fields must be transformed by the differential Jacobian matrix of the active projection ($J_{\text{proj}} = \frac{\partial(x, y)}{\partial(\lambda, \phi)}$):
+  $$\mathbf{u}_{\text{planar}} = J_{\text{proj}} \cdot \mathbf{u}_{S^2}$$
+  preventing discontinuous vector rotations (up to $60^\circ$) across Dymaxion facet edges and directional distortions on planar sheets.
+
+## 67. Semi-Lagrangian Advective Temporal Morphing & Anti-Ghosting Invariant
+- **Prohibition of Naive Discrete Frame Cross-Fading**: When scrubbing or animating temporal datasets (hourly WeatherNext 3 predictions or 10-minute Doppler radar loops) at 120 FPS, shaders must NEVER use linear alpha cross-fading ($\operatorname{mix}(I_k, I_{k+1}, \tau)$). Naive cross-fading produces temporal ghosting where storm cells dissolve and reappear across basins.
+- **The Riemannian Exponential Map on $S^2$**: Intermediate fractional time-steps $\tau \in [0, 1]$ must be reconstructed via bidirectional semi-Lagrangian advection along exact great-circle geodesics on the unit sphere $S^2$, strictly avoiding flat tangent-plane division by $\cos\phi_a$:
+  $$\lambda' = \frac{u \Delta t}{R_E}, \quad \phi' = \frac{v \Delta t}{R_E}, \quad \sigma = \sqrt{(\lambda')^2 + (\phi')^2}$$
+  $$\sin\phi_d = \operatorname{sinc}(\sigma)\phi' \cos\phi_a + \cos\sigma \sin\phi_a$$
+  $$\Delta\lambda = \operatorname{atan2}\left(\operatorname{sinc}(\sigma)\lambda', \; \cos\sigma \cos\phi_a - \operatorname{sinc}(\sigma)\phi' \sin\phi_a\right)$$
+  where $\operatorname{sinc}(\sigma) \approx 1.0 - \frac{\sigma^2}{6}$ for $\sigma \le 10^{-4}$.
+- **Defensive Wrapping & Single-Pass Budget**:
+  - UV coordinate wrapping must evaluate as `fract(arrivalUV.x + delta_lambda / (2.0 * PI) + 1.0)` to eliminate negative coordinate corruption under driver fast-math.
+  - The entire bidirectional advection operator must execute within exactly 3 texture taps (`windTexture`, `precipTexture0`, `precipTexture1`) with explicit LOD 0.0 evaluated unconditionally at the top of `fs_main` (Invariant §3).
+
+
+## 68. Sliding-Window WebGPU Texture Ring Buffer & VRAM Ceiling
+- **Prohibition of Monolithic Multi-Horizon Texture Arrays**: Never allocate monolithic 2D texture arrays for all 48 forecast hours across multiple variables simultaneously ($>1.5\text{ GB}$ VRAM allocation).
+- **The 3-Slot Ring Buffer Contract**: The active WebGPU pipeline must maintain a compact 3-layer texture array (`texture_2d_array<f32>`):
+  - Layer 0: Active bracket start ($t_k$)
+  - Layer 1: Active bracket end ($t_{k+1}$)
+  - Layer 2: Asynchronous staging slot ($t_{k+2}$)
+  Background Web Workers stream upcoming hourly slices via `fetch()` and upload using `device.queue.writeTexture()` with 256-byte row padding (Invariant §40), strictly bounding active atmospheric VRAM under $200\text{ MB}$.
+
+## 69. Thermodynamic Condensation Thresholds (LCL & Froude Blocking)
+- **Prohibition of Purely Kinematic Lift Without Moisture Verification**: Shaders must not evaluate slope rain condensation ($w = \mathbf{u}_h \cdot \nabla h$) independently of atmospheric humidity.
+- **Analytical Lifting Condensation Level (LCL)**: In `crust_hydrosphere.wgsl`, evaluate the local dewpoint deficit from WeatherNext 2m temperature $T$ and dewpoint $T_d$:
+  $$\text{LCL} \approx 125.0 \cdot (T - T_d) \quad \text{meters}$$
+  Orographic cloud buildup and rain amplification must trigger only when terrain summit elevation $h(\mathbf{x}) \ge \text{LCL}$. If $h(\mathbf{x}) < \text{LCL}$, air remains unsaturated and precipitation amplification is suppressed.
+
+## 70. Archival Ink Pigmentation of Dynamic Atmospheric Fields
+- **Prohibition of Unharmonized Video-Game Heatmaps**: Atmospheric radar, precipitation, and cloud overlays must NEVER render as generic saturated neon ribbons or video-game heatmaps by default.
+- **Substrate-Absorbed Drafting Inks**: Atmospheric scalar fields must absorb into the active cartographic substrate via `u_mediumProperties` (Invariant §24 & §28):
+  - **Theme 0 (Marie Tharp 1977)**: Hand-engraved lithographic stippling density and bathymetric cross-hatching.
+  - **Theme 1 (Cream Rag 310 GSM)**: Archival sepia-charcoal ink wash (`#38302A`) modulated by paper tooth roughness ($u_{\text{tooth}}$).
+  - **Theme 2 (Prussian Cyanotype 1842)**: Photochemical actinic solarization and ferroprussiate inversion (`#0A192F`).
+  A standard "Meteorological Spectral Doppler" toggle remains isolated in `AtmosphereDrawer.tsx` for real-world severe storm tracking.
+
+## 71. Astronomical Ephemeris Coordinate Parity & IEEE-754 Safe Ingestion Invariant
+- **Geocentric Sphere Coordinate Frame Parity**: Astronomical solar direction vectors ($\mathbf{s}$) must strictly match the Indicatrix Engine's geocentric coordinate conventions:
+  $$x = \cos(\delta)\sin(\lambda_{\text{sun}}), \quad y = \sin(\delta), \quad z = \cos(\delta)\cos(\lambda_{\text{sun}})$$
+  where $\delta$ is solar declination, $\lambda_{\text{sun}}$ is subsolar longitude, $+Y$ points to the North Pole, and $+Z$ points to the Greenwich Prime Meridian at solar noon ($12:00\text{ UTC}$).
+- **Prohibition of View-Space Relief Inversion via Ephemeris**: Subsolar coordinates ($\lambda_{\text{sun}}, \delta$) must NEVER be mapped directly into cartographic hillshading angles (`u_sunAzimuth`, `u_sunAltitude`) in view space. By Swiss cartographic convention (Imhof standard, *Design Ethos §1*), terrain relief lighting must remain fixed from the northwest (315° azimuth, 45° altitude) to prevent catastrophic optical relief inversion (mountain ridges rendering as recessed trenches or craters). Astronomical ephemeris vectors belong strictly in world-space atmospheric scattering (`atmosphere.u_sunDirection`), orbital celestial terminators, and HUD telemetry (`engine.currentSolarPosition`).
+- **Multi-Millennium Timestamp Robustness**:
+  - Non-finite inputs (`NaN`, $\pm\infty$) and out-of-range epoch timestamps exceeding ECMAScript's date limits ($\pm 8.64 \times 10^{15}\text{ ms}$) must be guarded using both `Number.isFinite(utcEpochMs)` and `Number.isFinite(date.getTime())`, safely returning a fallback unit vector (`[0, 0, 1]`) and zero angles to prevent `NaN` cascades into uniform buffers.
+  - To support historical/classical cartography ($0 \le \text{year} \le 99$), avoid `Date.UTC(year, ...)` which automatically offsets 2-digit years by $+1900$; use explicit `setUTCFullYear(year, 0, 1)` to evaluate the correct day of the year.
+- **IEEE-754 Negative-Zero Neutralization**:
+  Trigonometric and diurnal calculations at exact zero-crossings (e.g. $-15^\circ \times (12.0 - 12.0) = -0$) produce IEEE-754 negative zeros. All returned angles and vector components must be sanitized with `(val || 0)` to guarantee positive zero ($+0$) across telemetry HUD displays and uniform buffers.
+
+## 72. Dual-Zone Chronometric HUD Instruments & 120 FPS React Scrubber Invariants
+- **Dependency Grounding vs. Codebase Primitives**: When a specification references a third-party UI library (e.g. `@radix-ui/react-slider`) as existing in `package.json` or sidebar controls, agents MUST inspect `package.json` before adding imports or dependencies. If the library is absent, agents must strictly conform to existing codebase primitives (`slider-archival`, `VernierSlider`, semantic HTML/CSS range inputs) rather than hallucinating imports or installing redundant dependencies.
+- **Direction-Aware Keyboard Navigation Across Asymmetric Datum Boundaries**: In piecewise non-linear sliders bridging disparate time scales (e.g. past radar $[-60\text{m}, 0\text{m}]$ at 10-minute cadence and forecast $[0\text{m}, +48\text{h}]$ at 1-hour cadence), stepping behavior at datum ($t = 0$) must check the navigation direction:
+  - Pressing `ArrowLeft` / `ArrowDown` at $0$ MUST step into the radar zone ($-10\text{m}$, or $-1\text{m}$ with `Shift`).
+  - Pressing `ArrowRight` / `ArrowUp` at $0$ MUST step into the forecast zone ($+60\text{m}$, or $+15\text{m}$ with `Shift`).
+  Evaluating domain solely by `currentMinutes < 0` at $t = 0$ incorrectly routes leftward steps through coarse forecast increments.
+- **Strict Monotonic Hour Bracket & $\tau$ Continuity**: In time bracket calculations ($\lfloor t / 60 \rfloor$), implementations must NEVER add arbitrary floating-point offsets (such as `+ 1e-6`) to the numerator. Offsets cause fractional minutes approaching hour transitions (e.g. $59.9999\text{m}$) to round up prematurely to the subsequent bracket while `tau` collapses to $0.0$, producing visual and data discontinuities.
+- **Decoupled 120 FPS requestAnimationFrame Loops in Controlled Components**: When driving high-frequency animation loops in React components that accept a controlled `value` prop:
+  - The `requestAnimationFrame` loop inside `useEffect` MUST NOT include `value` or rapidly mutating state in its dependency array.
+  - Doing so causes `cancelAnimationFrame` and loop reconstruction on every rendered frame, producing severe frame drops, stutter, or freezes.
+  - The loop must read from and write to synchronized mutable refs (`minutesRef.current`) that update independently of the React rendering cycle.
+- **Dual-Control Accessibility Tree Hygiene**: When combining a custom interactive slider element (`role="slider"`) with a hidden native `<input type="range">` for testing and automation compatibility, the hidden input MUST specify `tabIndex={-1}` and `aria-hidden="true"`. Omitting these attributes causes duplicate consecutive slider nodes in the accessibility tree and breaks single-tab-stop keyboard navigation.
+- **Substrate-Adaptive Vernier Ticks on Light Archival Grounds**: Minor tick marks and fine calibrations must NEVER use hardcoded translucent white utility classes (e.g. `bg-white/10`). On light paper substrates (Theme 1: Cream Rag `#F3ECE0`), white markings wash out into invisible specks. All ticks must reference CSS theme tokens (`var(--theme-slider-tick)` or theme border tokens).
+
+## 73. Discrete 3-Slot GPUTexture Ring Buffering & Dynamic Parameter Allocation Guard
+- **Prohibition of Monolithic Texture Arrays for Temporal Sequences**: Streaming dynamic weather, radar, and cloud forecasts must NOT use multi-layer `texture_2d_array` allocations that trigger binding complexities and driver-level allocation stalls.
+- **Discrete 3-Slot Ring Buffer Contract**:
+  Temporal streams must be managed by `TemporalTextureRingBuffer.ts` using 3 discrete `GPUTexture` instances:
+  - Slot 0: Previous frame ($t_k$)
+  - Slot 1: Current frame ($t_{k+1}$)
+  - Slot 2: Asynchronous staging slot ($t_{k+2}$)
+- **Order-3 Cyclic Permutation Invariance**:
+  Advancing the buffer (`advance()`) must execute as a zero-copy pointer/index swap following forward chronological progression:
+  $$s_0' = s_1 \quad (\text{Current} \to \text{Previous}), \quad s_1' = s_2 \quad (\text{Staging} \to \text{Current}), \quad s_2' = s_0 \quad (\text{Previous} \to \text{Recycled Staging})$$
+  guaranteeing $(\sigma)^3 = \text{id}$ with zero memory allocations during runtime rendering loops. The reverse permutation ($s_0' = s_2, s_1' = s_0$) is strictly prohibited as it routes staged data into Previous instead of Current, causing a 1-step lag in rendering.
+- **Strict 256-Byte WebGPU Row Pitch Padding**:
+  Texture uploads (`uploadSlice()`) must evaluate `bytesPerRow = Math.ceil((width \cdot \text{bpp}) / 256) \cdot 256`. Unpadded incoming buffers must be repacked into a padded stride buffer before calling `device.queue.writeTexture()` with `{ offset: 0, bytesPerRow }`.
+- **Eager Lazy-Resource Allocation Trigger Guard**:
+  When UI controls or external APIs mutate a simulation coupling coefficient from zero to non-zero (e.g. `setPluvialGamma(gamma)` with `gamma > 0.0`), the engine setter MUST eagerly invoke the corresponding subsystem lazy allocator (`ensurePrecipCrustTexture()`) rather than deferring to render passes, preventing black fallback textures or uninitialized bind group stalls upon user interaction.
+
+## 74. Prohibition of Uniform Buffer Field Multiplexing & Dual-Use Memory Aliasing
+- **Strict 1-to-1 Semantic Memory Mapping**: Uniform buffer offsets must maintain an invariant, unconditional 1-to-1 correspondence with declared WGSL struct fields. Multiplexing buffer offsets to carry different data depending on dynamic conditions (e.g. packing orbital vectors into weather simulation slots when weather is inactive) is strictly prohibited.
+- **Type-Casting Corruption Prevention**: Buffer packing routines must never write floating-point values into offsets declared as integer types (`u32`, `i32`) in WGSL, or vice-versa. Writing IEEE-754 floats into integer offsets creates bit-cast values exceeding $10^9$, producing catastrophic shader state corruption.
+- **Speculative Field Prohibition**: TypeScript packing arrays must NEVER write data to offsets that do not correspond to explicitly declared fields in the active WGSL struct. Any test or implementation relying on phantom buffer offsets is an automatic **AUDIT FAILURE**.
+
+## 75. WebGPU Dynamic Texture Binding Lifecycle & Rebind Invariant
+- **Prohibition of Static-Only Bind Group Instantiation**: WebGPU bind groups that bind dynamic textures, streaming data layers, or temporal ring buffers (`TemporalTextureRingBuffer`) must NEVER be treated as write-once initialization artifacts.
+- **Dynamic Resource Invalidation & Rebinding**:
+  1. Whenever a streaming subsystem initializes or assigns a backing resource (e.g. attaching `precipRingBuffer` or updating `precipTexture`), the engine MUST immediately invalidate and rebuild the corresponding `GPUBindGroup` (e.g. `crustBindGroup`).
+  2. Whenever a temporal ring buffer advances (`advance()`), the engine MUST update the active slot texture view in the render pass bind group before the next draw call.
+- **Triple-Cached Bind Group Ring Architecture**: To achieve zero-allocation $120\text{ FPS}$ rendering, engines coupling a 3-slot ring buffer must pre-allocate 3 distinct `GPUBindGroup` instances mapped 1:1 to physical ring buffer textures ($p \in \{0, 1, 2\}$). During `renderPass`, the engine dynamically indexes `this.crustPrecipBindGroups[ring.getActivePhysicalIndex(1)]` in $O(1)$ time without per-frame WebGPU API allocations.
+- **Universal Auxiliary Subsystem Disposal Defense**: Every engine method and render pass accessing an attached auxiliary buffer or texture stream MUST defensively verify `!buffer.disposed`. If a buffer is disposed externally, all references (`precipTextureView`, `crustPrecipBindGroups`, `isPrecipActive`) must be safely nullified or ignored, falling back cleanly to default dummy textures (`dummyPrecipTextureView`, `crustBindGroup`) without throwing unhandled runtime exceptions.
+- **Mock-Proof Lifecycle Verification**: Unit tests asserting binding integrity must not merely verify layout entries in `GPUBindGroupLayout`. Tests must assert that `device.createBindGroup` is called with the active texture view when dynamic data streams attach or cycle.
+
+## 76. Anti-Cheating Defect Injection & Non-Tautological Test Contract
+- **Prohibition of Duplicate Math and Shadow Oracles**: Unit and adversarial tests must NEVER duplicate WGSL shader algorithms or TypeScript math functions into test-local helper functions (Rule 46). All mathematical evaluations must test production modules imported directly from `src/core/` or `src/webgpu/`.
+- **Prohibition of Tautological Branch Assertions**: Tests asserting fallback or error-handling logic must NEVER duplicate the engine's conditional logic in the test body (e.g. `const bg = ring.disposed ? fallback : active; expect(bg).toBe(fallback);`). Tests must actively execute the real engine entry points (e.g. `engine.render()`) and spy on GPU driver calls (e.g. `renderPass.setBindGroup`) to verify real system behavior.
+- **Mandatory Defect Injection Verification**: When implementing a guard against a runtime bug or unhandled exception, test authors and challengers must verify test sensitivity via defect injection: commenting out or reverting the production guard MUST cause the test suite to immediately fail. Any test that continues to pass when the production fix is removed is a fraudulent test and an automatic **AUDIT FAILURE**.
+
+## 77. Equirectangular Longitude Phase Alignment & Zarr Geodetic Transformation Invariant
+- **Prohibition of Unshifted $[0^\circ, 360^\circ)$ Scalar Ingestion**: Climate and numerical weather prediction models (e.g. Google DeepMind WeatherNext 3, ECMWF IFS) natively output global grid tensors indexed along longitude $[0^\circ, 360^\circ)$ ($0^\circ$ Greenwich $\to 180^\circ\text{E} \to 360^\circ$). Shaders and DEM relief surfaces in the Indicatrix Engine evaluate equirectangular coordinates spanning $[-180^\circ, +180^\circ)$ ($u = (\text{lon} + 180)/360$, where $u=0$ is the antimeridian and $u=0.5$ is the Prime Meridian). Ingesting raw $[0^\circ, 360^\circ)$ tensors without transformation produces a fatal $180^\circ$ geographical phase offset, placing Pacific typhoons over the Sahara and Atlantic depressions over East Asia.
+- **Mandatory Horizontal Phase Roll & Latitude Normalization**:
+  All scalar downcasting and extraction pipelines ingesting $[0^\circ, 360^\circ)$ global grids MUST perform an exact $180^\circ$ horizontal roll:
+  $$\text{rolled\_slice} = \operatorname{roll}\left(\text{slice}, \; \frac{W}{2}, \; \text{axis}=1\right)$$
+  For a $0.1^\circ$ grid ($W = 3600$), this requires shifting by exactly $+1,800$ columns. Pipelines must additionally verify row ordering such that $\text{row}_0 = +90^\circ\text{N}$ (North Pole) descending monotonically to $\text{row}_{H-1} = -90^\circ\text{S}$ (South Pole) to conform with WebGPU texture $V$-coordinate origin ($V=0$ at top).
+
+## 78. Microtask FIFO Serialization & Sequence Guards for Streaming Ring Buffers
+- **Prohibition of Unsynchronized Asynchronous Slot Rotation**: In 3-slot GPU texture ring buffers (`TemporalTextureRingBuffer`), callers must NEVER invoke synchronous pointer rotation (`advance()`) while asynchronous data slice downloads (`getSlice()`) are pending. Under continuous timeline scrubbing or high-frequency scrubber dragging, asynchronous downloads complete out-of-order, causing physical GPU textures to swap ahead of incoming buffers and corrupting the active display slot with historical frames.
+- **Promise FIFO Serialization Queue**:
+  Advancement operations across bracket transitions MUST be sequenced through a continuous microtask Promise queue:
+  $$\text{advanceQueue} = \text{advanceQueue}.\text{then}(\text{async ()} \implies \{ \dots \})$$
+  ensuring that texture upload and physical slot rotation execute in strict FIFO sequence.
+- **Sequence Generation Token Cancellation**:
+  Every scrub event, seek jump, or variable toggle must increment a monotonic `currentSequenceId`. Asynchronous background prefetch completions must verify that their capture token matches `currentSequenceId` before uploading to Slot 2, silently discarding stale network responses.
+- **Resident Slot Continuity & Self-Healing**:
+  Data sources must track currently loaded forecast hours across physical slots (`residentHours: [number, number, number]`). When incoming scrub events detect non-contiguous jumps ($|h_{\text{new}} - h_{\text{resident}}| > 1$), the data source must immediately invalidate the ring and perform a synchronous triple-slot re-seed (`seekHour`) rather than attempting incremental rotation.
+
+## 79. Web Mercator Conformal Inversion & Equirectangular Reprojection Invariant
+- **Prohibition of Direct Web Mercator Tile Sampling on Equirectangular Geoids**:
+  Web mapping APIs (e.g. RainViewer, OpenStreetMap, Mapbox) deliver global tiles in Web Mercator (EPSG:3857 / Spherical Mercator) projection, where vertical coordinates follow:
+  $$y_{\text{merc}} = \frac{1}{2} - \frac{\ln\left(\tan\left(\frac{\pi}{4} + \frac{\phi}{2}\right)\right)}{2\pi}$$
+  The Indicatrix Engine 3D crust mesh samples precipitation textures using Equirectangular (Plate Carrée / EPSG:4326) coordinates ($v = (90^\circ - \phi) / 180^\circ$). Drawing Web Mercator tiles directly into texture buffers without spherical reprojection causes catastrophic north-south latitudinal warping of 26 to 32 pixels in mid-latitudes ($18^\circ$ to $22^\circ$ displacement, or 2,000–2,500 km), displacing mid-latitude storm tracks into subtropical zones.
+- **Mandatory Conformal Inversion & Resampling**:
+  All tile ingestion scripts converting Mercator tiles to equirectangular texture atlases MUST perform continuous row-by-row spherical latitude reprojection:
+  $$\phi(y_{\text{equi}}) = \left(0.5 - \frac{y_{\text{equi}}}{H}\right) \cdot \pi$$
+  $$y_{\text{merc}}(\phi) = \operatorname{clamp}\left(\left(0.5 - \frac{\ln\left(\tan\left(\frac{\pi}{4} + \frac{\phi}{2}\right)\right)}{2\pi}\right) \cdot H, \; 0, \; H - 1\right)$$
+  Rows corresponding to latitudes beyond the Web Mercator domain limit ($|\phi| > 85.051129^\circ$) must be clamped and zero-filled (transparent reflectivity) to guarantee clean, uncorrupted polar caps.
+
+## 80. Multi-Scale Ring Buffer Geometry Guard & CLI Dry-Run Integrity Invariant
+- **Multi-Resolution Buffer Dimension Validation**:
+  Streaming data sources operating at different spatial resolutions (e.g. $256 \times 256$ radar mosaics vs. $3600 \times 1801$ WeatherNext prognostic fields) must NEVER share or bind to mismatched `TemporalTextureRingBuffer` instances. Data sources must defensively validate dimensions during `bindRingBuffer()`:
+  $$\text{if } (\text{ring.width} \ne \text{self.width} \parallel \text{ring.height} \ne \text{self.height}) \implies \text{throw RangeError}$$
+  and must provide a dedicated factory method (`createRingBuffer(device: GPUDevice)`) to allocate textures matching the native data source stride.
+- **Dual-Zone Timeline Scrubbing Dispatch**:
+  Timeline scrubbers spanning observation and forecast zones (e.g. $[-60\text{m}, 0\text{m}]$ radar nowcast vs. $[0\text{m}, +48\text{h}]$ NWP forecast) must isolate data dispatch by domain. In the radar zone ($t < 0$), updates must stream into the radar ring buffer and bind to the active shader texture; in the forecast zone ($t \ge 0$), updates must stream from the prognostic model.
+- **Prohibition of Error-Swallowing in CLI Dry-Runs**:
+  Ingestion script dry-run flags (`--dry-run`) must verify real remote API connectivity and schema validity without downloading full payload binaries. Dry-run routines must NEVER catch network exceptions to synthesize fake mock success; network failures must throw non-zero exit codes to prevent broken automation pipelines from reporting false health.
+
+## 81. Prognostic Scalar Physical Unit Scaling & Ingestion Parity Invariant
+- **Prohibition of Unscaled Base-SI Ingestion**: Numerical weather prediction models and global climate datasets (e.g. Google DeepMind WeatherNext 3, ECMWF IFS) store prognostic atmospheric fields in raw base-SI units (temperature in Kelvin $K \in [190, 325]$, precipitation accumulation in meters $m \in [0.0, 0.035]$). WebGPU fragment shaders (`crust_hydrosphere.wgsl`) and cartographic hypsometric scales expect derived physical units (temperature in $^\circ\text{C}$, precipitation in $\text{mm/hr}$ or $\text{kg/m}^2/\text{hr}$). Ingesting unscaled SI values without transformation causes fatal rendering defects:
+  - Raw precipitation in meters ($\le 0.025\text{ m}$) falls below WebGPU fragment shader activation thresholds (`intensity = clamp(precipRate / 50.0, 0.0, 1.0); if (intensity <= 0.001) return vec4(0.0)`), causing complete precipitation blackout across the globe.
+  - Raw temperature in Kelvin ($190\text{ K} - 325\text{ K}$) produces Float16 values that violate physical terrestrial validation constraints ($-90^\circ\text{C}$ to $+60^\circ\text{C}$) and distort color LUT sampling.
+- **Mandatory Pre-Downcast Canonical Conversions**:
+  Extraction and staging pipelines MUST perform canonical mathematical conversions on raw Float32 slices strictly before Float16 downcasting:
+  $$T_{^\circ\text{C}} = T_{\text{K}} - 273.15$$
+  $$R_{\text{mm/hr}} = R_{\text{m}} \times 1000.0$$
+- **Offline Mock Generation Mode**:
+  Extraction scripts must provide an offline `--mock` mode with smart lightweight defaults (e.g. 3 hourly slices of 1 active variable $\approx 40.1\text{ MB}$) generating physically plausible synthetic data for local development, CI verification, and repository demo staging without requiring multi-gigabyte cloud egress or cloud credentials.
+
+## 82. Anti-Cheating Invariant & Test Oracle Integrity Contract
+- **Prohibition of In-Test Shadow Implementations (Rule 46 & Pillar D)**:
+  Test suites must NEVER re-implement algorithmic functions, parsers, or binary decoders within test files. All tests must import production functions directly from `src/` or `scripts/`. Specifically prohibited:
+  1. *Shadow algorithms*: Local functions in test files mirroring production methods (e.g. `evaluatePrecipActive`).
+  2. *Duplicate decoders*: In-test bit manipulation routines (e.g. local `decodeFloat16` instead of `src/core/math/float16`).
+  3. *Inline script string re-implementation*: Executing python/node subshells with inline scripts that duplicate production steps (`np.roll`, vertical slice inversion, row pitch padding) rather than importing the production script/module (`importlib.import_module('fetch-weathernext3')`).
+  4. *Tautological assertions*: Declaring local disconnected numeric constants and asserting trivial arithmetic without binding to production specifications (e.g. `WEATHERNEXT_GRID_SPEC`).
+- **Prohibition of Production Proxy Spoofing & Comment Decoys**:
+  Engine classes and data structures must NEVER subclass standard typed arrays (e.g. `class CrustFloatsArray extends Float32Array`) to override `.length` or `.byteLength` properties to satisfy outdated legacy test assertions. Furthermore, injecting commented-out code strings to satisfy source-code regex assertions is strictly prohibited as a fraudulent anti-cheating violation. When a struct legitimately expands, legacy test assertions must be directly updated to assert the true struct size.
+- **Hermetic Unit Test Execution Contract**:
+  Unit test suites executed during `npm test` must NEVER make unmocked live network requests (e.g. HTTP fetches to external APIs like RainViewer). All network endpoints must be hermetically intercepted via `vi.fn()`, MSW, or local mock fixtures.
+- **Prohibition of Performance Threshold Tampering**:
+  When a test asserts execution time or latency bounds (e.g. `< 50ms`), workers and challengers must NEVER loosen the assertion threshold (e.g. loosening to `< 75ms`) to mask CPU spikes or flakiness. The underlying implementation must be profiled and verified against the authentic specification threshold.
+
+## 83. Non-Finite Numeric Hardening & Uniform Buffer Protection Guard
+- **Prohibition of Unvalidated Numeric Evaluation**:
+  Evaluation functions driving dynamic WebGPU uniform updates or conditional pipeline allocations (such as `isPrecipActive()`) must NEVER rely on raw relational comparisons (`val > 0.0`).
+- **Mandatory `Number.isFinite()` Validation**:
+  Because non-finite values (`Infinity`, `-Infinity`, `NaN`) evaluate inconsistently in JavaScript (`Infinity > 0 === true`, but `NaN > 0 === false`), evaluation routines must explicitly gate on `Number.isFinite(val)`:
+  $$\text{active} = \text{Number.isFinite}(\text{val}) \land \text{val} > 0.0$$
+  This prevents non-finite inputs from triggering eager WebGPU resource allocations while uniform packing routines clamp or nullify values to $0.0$, eliminating asynchronous state divergence between CPU engine state and GPU uniform buffers.
+
+## 84. Zero-Allocation Uniform Buffer Slicing & Hot-Path Upload Integrity
+- **Prohibition of Dynamic Buffer Slicing in Render Loops**:
+  In `requestAnimationFrame` animation loops and `engine.render()` paths, uniform buffer upload logic must NEVER execute dynamic buffer allocations (`ArrayBuffer.prototype.slice()`, `new Float32Array()`, or `new Uint8Array()`). Allocating transient buffers at 60–120 FPS causes severe garbage collection pauses and frame hitching.
+- **Hot-Path Full Upload Contract**:
+  Render passes must unconditionally upload the full active uniform buffer (`cf.buffer`) to guarantee downstream shader stages receive all active uniform struct fields (e.g. `u_scrubTau` at bytes 304..319). Uniform upload conditions must never be gated on optional frame parameters or sliced via `.slice(0, 304)` in a way that starves the GPU of active values.
+- **Prohibition of Deceptive Proxy Wrappers for Legacy Tests**:
+  When a uniform buffer expands to accommodate new shader features (e.g., 288 → 304 → 320 bytes), engineers must update legacy test assertions to assert the true, authentic buffer size. Subclassing typed arrays to override `.length` or `.byteLength` (e.g., `class CrustFloatsArray extends Float32Array`) to deceive historical test assertions is strictly prohibited and constitutes an automatic **AUDIT FAILURE**.
+
+## 85. Riemannian Exponential Map S² Geodesic Advection & Manifold Departure Contract
+- **Prohibition of Flat-Earth Tangent Approximations for Atmospheric Advection**:
+  Semi-Lagrangian advection of scalar or vector fields (precipitation, clouds, moisture) over spherical planetary bodies ($S^2$) must NEVER evaluate planar coordinate offsets ($\Delta \lambda = u / (R_E \cos \phi), \Delta \phi = v / R_E$). Planar approximations collapse near the poles ($\cos \phi \to 0$), causing division-by-zero singularities, unphysical longitudinal acceleration, and visual tearing across polar latitudes.
+- **Exact Great-Circle Departure Point Evaluation**:
+  Advection departure points MUST be evaluated via the Riemannian Exponential Map on $S^2$:
+  $$\sigma = \sqrt{\lambda_p^2 + \phi_p^2}, \quad \lambda_p = u \cdot \Delta t / R_E, \quad \phi_p = v \cdot \Delta t / R_E$$
+  $$\operatorname{sinc}(\sigma) = \begin{cases} 1 - \frac{\sigma^2}{6} & \sigma \le 10^{-4} \\ \frac{\sin \sigma}{\sigma} & \sigma > 10^{-4} \end{cases}$$
+  guaranteeing exact great-circle geodesic curvature, zero singularity at exact poles ($\pm 90^\circ$), and continuous antimeridian wrapping in $O(1)$ time.
+- **Pillar D Production Export Mandate**:
+  All spherical geodesic solvers must be exported from production physics modules (`src/core/physics/SemiLagrangianAdvection.ts`). Test suites must import directly from production modules rather than maintaining duplicate local shadow functions.
+
+## 86. Lifting Condensation Level (LCL) Thermodynamic Gating & WGSL `select` Inversion Contract
+- **Physical Orographic Condensation Barrier**:
+  Orographic lift ($w = \mathbf{u}_h \cdot \nabla h$) must not unconditionally amplify precipitation on windward slopes. In atmospheric thermodynamics, air parcels must reach their Lifting Condensation Level before condensation commences:
+  $$\text{LCL} \approx 125.0 \times \max(T - T_d, 0.0) \quad \text{meters}$$
+  where $T$ is surface temperature ($^\circ\text{C}$) and $T_d$ is surface dewpoint temperature ($^\circ\text{C}$).
+- **Elevation Gating & Smooth Transition Margin**:
+  Precipitation modulation must evaluate the actual DEM surface elevation decoded strictly via Invariant §15 ($h = \text{demSample.a} \times 19772.0 - 10924.0$) using a $200\text{m}$ sub-LCL condensation margin:
+  $$\text{lclGate} = \operatorname{smoothstep}(\text{LCL} - 200.0, \; \text{LCL}, \; h)$$
+  $$\text{precip}_{\text{modulated}} = R_{\text{precip}} \times \text{lclGate}$$
+  - Terrestrial Condensation ($h \ge 0\text{m}$): Saturated or fog conditions ($T \le T_d$) evaluate to $\text{LCL} = 0\text{m}$, producing full condensation ($\text{lclGate} = 1.0$) across all land surfaces. Arid lowlands ($h < \text{LCL} - 200\text{m}$) completely suppress condensation ($\text{lclGate} = 0.0$).
+  - Submarine Bathymetric Distinction & Maritime Weather: Because raw DEM decoding maps seabed elevations down to $-10,924\text{m}$, oceanic points with $h < -200\text{m}$ evaluate to $\text{lclGate} = 0.0$ even when $T = T_d$. LCL gating functions as an orographic relief filter; global synoptic maritime precipitation requires bypassing thermodynamic gating (`u_lclBypass = 1.0`) or clamping marine elevation ($h_{\text{eff}} = \max(h, 0.0)$).
+- **The WGSL `select` Boolean Inversion Guardrail**:
+  In WGSL, `select(false_val, true_val, condition)` places the false value first (the exact inverse of the C/C++/JS ternary `condition ? true : false`). When writing shader bypass toggles where uniform default `0.0` represents "feature enabled", shaders MUST write:
+  ```wgsl
+  let lclGate = select(lclGateRaw, 1.0, sim.u_lclBypass > 0.5);
+  ```
+  Writing `select(1.0, lclGateRaw, cond)` causes default `0.0` to select `1.0`, silently bypassing the physics and turning thermodynamic gating into dead code across the entire globe. Note: Hijacking struct padding (e.g. `_padPrecip0`) is strictly prohibited; explicit semantic uniform `u_lclBypass` must be used.
+- **Unconditional Texture Sampling Invariant (Invariant §3 Parity)**:
+  Temperature and dewpoint textures (`@group(0) @binding(11) u_tempTexture` and `@group(0) @binding(12) u_dewpointTexture`) must be sampled unconditionally using `textureSampleLevel(..., 0.0)` at the top of `fs_main` prior to any dynamic branching or discard.
+
+## 87. Prohibition of Deceptive TypedArray Spoofing, Comment Injections, Dead Uniform Gating & Unmocked Network Tests
+- **Prohibition of TypedArray Proxy Spoofing (Pillar D Invariant)**:
+  Production engine classes must never subclass typed arrays (`Float32Array`, `Uint32Array`) to override `.length`, `byteLength`, or `.byteOffset` to spoof historical buffer dimensions to satisfy legacy test assertions. Struct packing arrays must reflect the true WebGPU uniform buffer byte length allocated on the GPU device.
+- **Prohibition of Deceptive Comment Injections**:
+  Source code must never contain fake commented declarations (e.g., `// private crustFloats = new Float32Array(72)`) injected solely to satisfy regex or string-matching checks in static anti-cheating tests. When struct dimensions evolve, test fixtures must be updated legitimately to check the new canonical dimensions.
+- **Prohibition of Dead GPU Uniform Padding Gating**:
+  Shader logic must never be gated behind uniform padding variables (e.g., `_padScrub0`, `_padPrecip0`). Dynamic shader features must be driven by explicit, documented uniform parameters declared in WGSL structs and TypeScript packing offsets (e.g., `u_lclBypass: f32` at float 74, `u_advectionActive: f32` at float 77).
+- **Prohibition of Scalar Textures Masquerading as Vector Fields**:
+  Shaders evaluating 2D or 3D vector fields (e.g., wind velocity $\mathbf{u}_h$, advective displacement) must bind authentic multidimensional vector textures (`u_windTexture`). Sampling scalar fields (such as precipitation reflectivity) as surrogate vector fields is strictly prohibited. Fallback dummy textures for vector bindings must maintain identical dimensionality (e.g., dedicated 1×1 `rg16float` returning `[0.0, 0.0]`), never falling back to scalar `r16float` textures.
+- **Hermetic Unit Testing Mandate**:
+  Unit test suites must NEVER execute unmocked HTTP/HTTPS requests to public remote APIs or local dev servers (`127.0.0.1:3000`). All network endpoints must be hermetically mocked with `globalThis.fetch = vi.fn()`. Mock implementations intercepting local assets must strip leading slashes and evaluate candidate paths across `public/`, `public/data/`, and `<projectRoot>`, returning simulated HTTP 404 responses for nonexistent localhost endpoints to prevent socket connections and `ECONNREFUSED` errors.
+- **Full Repository Test Suite Execution Mandate**:
+  Verification of architectural or uniform buffer modifications must NEVER rely solely on sub-folder test runs (`tests/adversarial/` or `tests/tier1/`). Agents must execute the complete top-level test suite (`npm test`) across all test tiers to detect cross-suite regressions and static challenger checks.
+
+## 88. Perceptual Camera Grounding, Live Telemetry Extraction & Dev-Server SPA Fallback Defense
+- **Perceptual Camera Grounding & Target Visibility**:
+  Visual verification screenshots and recordings targeting surface phenomena (topographic relief, drainage networks, storm advection, orographic condensation) must verify that:
+  1. The target geographic landmark (e.g. Sierra Nevada at $37^\circ\text{N} \, 118^\circ\text{W}$, Po Valley at $45^\circ\text{N} \, 10^\circ\text{E}$) is actively inside the camera viewport and unoccluded by planetary curvature.
+  2. The camera pitch is oriented towards the terrain ($\le 45^\circ$ oblique) rather than tilted into empty sky or ocean ($78^\circ$ atmospheric limb), unless specifically verifying limb horizon falloff (Invariant §10).
+  3. Physical coupling parameters required to produce the phenomenon (e.g., `Orographic Coupling`, `Pluvial Coupling`) are set $> 0\%$. Capturing screenshots with coupling sliders at $0.0$ and asserting the phenomenon is validated constitutes an automatic **AUDIT FAILURE**.
+- **Prohibition of Telemetry Cribbing from Historical Benchmarks**:
+  Telemetry cited in verification reports (FPS, frame deltas, GPU pass timings, translation distances) must be extracted directly from live HUD instruments or active DevTools performance traces during the live run. Quoting, transposing, or adapting metrics from static benchmark files (`reports/fps-benchmark-*.json`) or unit test fixtures as live browser verification constitutes an automatic **AUDIT FAILURE**.
+- **Dev-Server SPA Fallback & Binary Slice Diagnosis**:
+  When streaming or fetching binary array buffers (e.g., `.bin` forecast slices, DEM tiles), agents and ingestion loaders must defend against Single Page Application (SPA) dev-server fallbacks. If an HTTP request returns an HTML document (`<!doctype html>` or $\sim 1.7\text{ kB}$ file size) instead of the expected binary buffer:
+  1. The UI timeline scrubber must clamp to valid metadata ranges (`meta.validPredictionHours`).
+  2. Verification reports must correctly identify the issue as an unhandled missing file falling back to Vite's `index.html`, not as a "placeholder mock file".
+- **Per-Medium Framerate Parity Guard**:
+  Hot-switching across cartographic mediums (Cream Rag, Prussian Cyanotype, Marie Tharp) cannot be certified as passing if any active medium causes an unplayable framerate collapse ($< 30\text{ FPS}$). Verification must record live framerates across all $M$ mediums and isolate shader execution bottlenecks (e.g., Cyanotype actinic loops) prior to milestone sign-off.
+
+## 89. Adversarial Fuzzing Rigor, Non-Finite JS Exception Immunization & Milestone Visual Routing
+- **Prohibition of Tautological `.not.toThrow()` on Non-Finite Inputs**:
+  In TypeScript / JavaScript physics modules, arithmetic operations on `NaN` (such as `Math.max(NaN, 0)` or `125.0 * NaN`) quietly propagate `NaN` without raising runtime exceptions. Unit and adversarial tests evaluating numerical resilience against non-finite inputs (`NaN`, `Infinity`, `-Infinity`) must NEVER assert `expect(() => fn()).not.toThrow()` as evidence of safe handling. Assertions must strictly verify:
+  ```typescript
+  const res = evaluatePhysics(input);
+  expect(Number.isFinite(res)).toBe(true);
+  expect(Number.isNaN(res)).toBe(false);
+  ```
+- **Milestone-Specific Visual Gate Routing (The Anti-Generic-Benchmark Trap)**:
+  Verification auditors and autonomous agents must not certify feature milestones using generic scene captures (such as `screenshots/canonical-verify/`) if those captures do not visibly render the milestone's target UI controls, shaders, or telemetry readouts. Every visual milestone verification MUST inspect dedicated captures in `screenshots/<milestone>-gate/` displaying:
+  1. The target phenomenon with the feature enabled (e.g. `lcl-*-gating-ON.png`).
+  2. The target phenomenon with the feature bypassed or disabled (e.g. `lcl-*-gating-OFF.png`), confirming active shader sensitivity.
+  3. Interactive time-series or scrubber progressions across at least 3 discrete states ($\tau \in \{0.0, 0.5, 1.0\}$) where applicable.
+- **Spherical Metric Pole Sinc Regularization**:
+  In spherical semi-Lagrangian advection and geodesic coordinate mappings on $S^2$, departure calculations must evaluate great-circle angular distance $\sigma$ using a Taylor expansion for small angles:
+  $$\operatorname{sinc}(\sigma) = 1.0 - \frac{\sigma^2}{6} \quad (\sigma \le 10^{-4})$$
+  preventing $\sin(\sigma)/\sigma$ division-by-zero singularities at exact planetary poles ($\phi = \pm \pi/2$) under zero or near-zero displacement.
+
+## 90. Overture GeoParquet Ingestion, Quadtree Seam Filtering & Binary Budget Parity
+- **DuckDB S3 GeoParquet Streaming Pattern**:
+  When extracting vector geometries from Overture Maps GeoParquet (`theme=base/type=water` or `type=land`), extraction scripts (`scripts/precompute-overture-vectors.ts`) must configure DuckDB with `spatial` and `httpfs` extensions and anonymous S3 access (`SET s3_region = 'us-west-2';`).
+- **Quadtree Partition Seam Elimination (`isTileBoundary`)**:
+  Raw polygon boundary linestrings (`ST_Boundary(geometry)`) derived from spatial partition parquet chunks frequently introduce artificial straight-line chords corresponding to S2 or quadtree bounding box edges over open ocean. Extractors must implement bounding-box edge filtering to eliminate artificial tile-edge segments while preserving authentic natural coastlines.
+- **Topographic Relief Subdivision & Strict Budget Parity**:
+  Line segments traversing steep elevation gradients ($\Delta \text{elev} > 30\text{m}$ over $d > 0.02^\circ$) must be bilinearly sampled against the local ETOPO 2022 DEM base and subdivided to ensure sub-kilometer conformance to mountain relief. Douglas-Peucker simplification tolerances must be calibrated to fit within the target binary budget ($[35.0, 42.0]\text{ MB}$ for `public/geo-vectors.bin`) with zero antimeridian, Mercator, or Dymaxion net cut violations.
+
+## 91. Aspect-Ratio Preserved Regional DEM Insets & Sub-Tile Spatial Conformance
+- **Aspect-Ratio Conservation in 4-Channel `rgba16unorm`**:
+  Regional DEM insets (e.g. USGS 3DEP for Grand Canyon, Copernicus GLO-30 for Mount Fuji) must size their raster dimensions ($W \times H$) to match the exact geographic aspect ratio ($\Delta \lambda / \Delta \phi$) of their bounding box (e.g. $900 \times 540$ for $1.0^\circ \times 0.6^\circ$ or $0.5^\circ \times 0.3^\circ$), preventing non-square pixel squashing or spatial stretching.
+- **Sub-Tile Spatial Slicing for Overlapping COGs**:
+  When source elevation COGs (e.g., $1^\circ \times 1^\circ$ tiles) overlap regional bounding box edges, the ingestion pipeline must slice source sub-arrays prior to bilinear resampling (`tile_sub = data[src_r_start:src_r_end, src_c_start:src_c_end]`), ensuring pixel-perfect spatial alignment and zero distortion against the crust geoid.
+- **Bilinear Base DEM Pre-Sampling & Boundary Feathering**:
+  To guarantee seamless $0.5^\circ$ smoothstep boundary feathering in `crust_hydrosphere.wgsl` (`sampleRegionalComposite`), destination grids must initialize by vector-sampling the global ETOPO 2022 DEM base (`public/earth-etopo2022-dem-u16.bin`). Boundary edge elevations must match global base elevations exactly, eliminating boundary cliffs, z-fighting, or bathymetric tears.
+- **HUD Preset Grid & Safety Elevation Floor**:
+  Regional insets must be cataloged in `public/regional/manifest.json` and exposed in a responsive 2×2 grid in `UnifiedRightSidebar.tsx`. Waypoint trajectories in `litmusWaypoints.ts` must maintain a camera radius $R \ge 5.8$ against base sphere $R_0 = 5.0$, ensuring dramatic relief viewing without ground clipping.
+
+## 92. Swarm Progress Cadence & Actionable Completion Handoff Prompt
+- **Periodic Telemetry & Progress Reporting During Swarms**:
+  During long-running multi-agent swarm operations (`/teamwork-preview`), the supervising orchestrator or parent agent must provide high-signal progress updates to the user at regular intervals (every ~5 minutes or at every milestone gate transition). Updates must concisely state: active workers, current gating status, recent verification results (file size, test pass rates, errors), and next planned steps, preventing prolonged radio silence.
+- **Mandatory Copy-Pasteable Follow-Up Prompt Contract**:
+  Every `/teamwork-preview` completion report or major milestone handoff must conclude with an explicit, copy-pasteable follow-up prompt detailing logical next-phase enhancements, progressive optimizations (e.g., multi-resolution LOD streaming, additional transport linework, cinematic camera tours), or remaining remediation tasks.
 

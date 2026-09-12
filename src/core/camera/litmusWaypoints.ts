@@ -1,7 +1,7 @@
 // ============================================================================
 // File: src/core/camera/litmusWaypoints.ts
 // Architecture: Cartographic Litmus Test Waypoint Trajectories
-// Description: Multi-stage cinematic flight paths for Hawaii and Cape Cod litmus tests
+// Description: Multi-stage cinematic flight paths for Hawaii, Cape Cod, Grand Canyon, and Mount Fuji
 // ============================================================================
 
 import { Vector3 } from '../math/cameraMath';
@@ -210,5 +210,217 @@ export const CAPE_COD_KEYFRAMES: LitmusKeyframe[] = [
   },
 ];
 
+/**
+ * Grand Canyon Sequence Keyframes (5-10 seconds per medium):
+ * - Start: Wide Colorado Plateau view
+ * - Waypoint 1: Kaibab Plateau descent toward South Rim
+ * - Waypoint 2: South Rim approach focusing on Bright Angel canyon incision
+ * - Waypoint 3: Gorge oblique revealing stepped stratigraphy and river incision
+ * - End: Hold on Grand Canyon central gorge (36.06°N, -112.14°W, zoom 5.8)
+ */
+export const GRAND_CANYON_KEYFRAMES: LitmusKeyframe[] = [
+  // 1. Wide Colorado Plateau
+  {
+    lonDeg: -114.0,
+    latDeg: 37.5,
+    radius: 13.0,
+    targetLonDeg: -112.14,
+    targetLatDeg: 36.06,
+    targetRadius: 5.0,
+    fov: 52,
+  },
+  // 2. Kaibab Plateau descent
+  {
+    lonDeg: -113.0,
+    latDeg: 36.8,
+    radius: 9.0,
+    targetLonDeg: -112.14,
+    targetLatDeg: 36.06,
+    targetRadius: 5.0,
+    fov: 50,
+  },
+  // 3. South Rim approach
+  {
+    lonDeg: -112.4,
+    latDeg: 36.25,
+    radius: 7.2,
+    targetLonDeg: -112.14,
+    targetLatDeg: 36.06,
+    targetRadius: 5.0,
+    fov: 48,
+  },
+  // 4. Gorge oblique
+  {
+    lonDeg: -112.2,
+    latDeg: 36.12,
+    radius: 6.2,
+    targetLonDeg: -112.14,
+    targetLatDeg: 36.06,
+    targetRadius: 5.0,
+    fov: 46,
+  },
+  // 5. Canonical Hold on Grand Canyon gorge
+  {
+    lonDeg: -112.14,
+    latDeg: 36.06,
+    radius: 5.8,
+    targetLonDeg: -112.14,
+    targetLatDeg: 36.06,
+    targetRadius: 5.0,
+    fov: 45,
+  },
+];
+
+/**
+ * Mount Fuji Sequence Keyframes (5-10 seconds per medium):
+ * - Start: Wide Japanese archipelago overview
+ * - Waypoint 1: Honshu descent over Chubu / Kanto regions
+ * - Waypoint 2: Fuji Five Lakes approach from northern piedmont
+ * - Waypoint 3: Oblique view of summit caldera and Hoei crater
+ * - End: Canonical hold centered on Fuji caldera (35.36°N, 138.73°E, zoom 5.8)
+ */
+export const FUJI_KEYFRAMES: LitmusKeyframe[] = [
+  // 1. Wide Japanese Archipelago
+  {
+    lonDeg: 136.5,
+    latDeg: 37.0,
+    radius: 13.0,
+    targetLonDeg: 138.73,
+    targetLatDeg: 35.36,
+    targetRadius: 5.0,
+    fov: 52,
+  },
+  // 2. Honshu descent
+  {
+    lonDeg: 137.8,
+    latDeg: 36.0,
+    radius: 9.0,
+    targetLonDeg: 138.73,
+    targetLatDeg: 35.36,
+    targetRadius: 5.0,
+    fov: 50,
+  },
+  // 3. Fuji Five Lakes approach
+  {
+    lonDeg: 138.4,
+    latDeg: 35.6,
+    radius: 7.2,
+    targetLonDeg: 138.73,
+    targetLatDeg: 35.36,
+    targetRadius: 5.0,
+    fov: 48,
+  },
+  // 4. Crater oblique
+  {
+    lonDeg: 138.6,
+    latDeg: 35.45,
+    radius: 6.2,
+    targetLonDeg: 138.73,
+    targetLatDeg: 35.36,
+    targetRadius: 5.0,
+    fov: 46,
+  },
+  // 5. Canonical hold on Fuji caldera
+  {
+    lonDeg: 138.73,
+    latDeg: 35.36,
+    radius: 5.8,
+    targetLonDeg: 138.73,
+    targetLatDeg: 35.36,
+    targetRadius: 5.0,
+    fov: 45,
+  },
+];
+
 export const HAWAII_WAYPOINTS = buildSubdividedPath(HAWAII_KEYFRAMES, 20);
 export const CAPE_COD_WAYPOINTS = buildSubdividedPath(CAPE_COD_KEYFRAMES, 20);
+export const GRAND_CANYON_WAYPOINTS = buildSubdividedPath(GRAND_CANYON_KEYFRAMES, 20);
+export const FUJI_WAYPOINTS = buildSubdividedPath(FUJI_KEYFRAMES, 20);
+
+export interface LitmusSequenceConfig {
+  id: string;
+  name: string;
+  keyframes: LitmusKeyframe[];
+  waypoints: Waypoint3D[];
+  focus: { lon: number; lat: number; radius: number };
+}
+
+export const LITMUS_SEQUENCES: Record<string, LitmusSequenceConfig> = {
+  hawaii: {
+    id: 'hawaii',
+    name: 'Hawaii (Litmus)',
+    keyframes: HAWAII_KEYFRAMES,
+    waypoints: HAWAII_WAYPOINTS,
+    focus: { lon: -155.55, lat: 19.65, radius: 6.1 },
+  },
+  'cape-cod': {
+    id: 'cape-cod',
+    name: 'Cape Cod (Litmus)',
+    keyframes: CAPE_COD_KEYFRAMES,
+    waypoints: CAPE_COD_WAYPOINTS,
+    focus: { lon: -70.0, lat: 42.0, radius: 6.2 },
+  },
+  'grand-canyon': {
+    id: 'grand-canyon',
+    name: 'Grand Canyon',
+    keyframes: GRAND_CANYON_KEYFRAMES,
+    waypoints: GRAND_CANYON_WAYPOINTS,
+    focus: { lon: -112.14, lat: 36.06, radius: 5.8 },
+  },
+  fuji: {
+    id: 'fuji',
+    name: 'Mount Fuji',
+    keyframes: FUJI_KEYFRAMES,
+    waypoints: FUJI_WAYPOINTS,
+    focus: { lon: 138.73, lat: 35.36, radius: 5.8 },
+  },
+};
+
+export interface RegionalInsetMetadata {
+  id: string;
+  name: string;
+  bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number };
+  width: number;
+  height: number;
+  binUrl: string;
+  webpUrl: string;
+}
+
+export const SAMPLE_REGIONAL_INSETS: RegionalInsetMetadata[] = [
+  {
+    id: 'hawaii',
+    name: 'Hawaii',
+    bounds: { minLon: -161.0, maxLon: -154.0, minLat: 18.0, maxLat: 23.0 },
+    width: 5400,
+    height: 3600,
+    binUrl: '/regional/hawaii-dem-u16.bin',
+    webpUrl: '/regional/hawaii-dem.webp',
+  },
+  {
+    id: 'capecod',
+    name: 'Cape Cod',
+    bounds: { minLon: -71.0, maxLon: -69.0, minLat: 41.0, maxLat: 43.0 },
+    width: 2400,
+    height: 2400,
+    binUrl: '/regional/capecod-dem-u16.bin',
+    webpUrl: '/regional/capecod-dem.webp',
+  },
+  {
+    id: 'grand-canyon',
+    name: 'Grand Canyon',
+    bounds: { minLon: -112.5, maxLon: -111.5, minLat: 35.9, maxLat: 36.5 },
+    width: 900,
+    height: 540,
+    binUrl: '/regional/dem-grand-canyon-30m.bin',
+    webpUrl: '/regional/dem-grand-canyon-30m.webp',
+  },
+  {
+    id: 'fuji',
+    name: 'Mount Fuji',
+    bounds: { minLon: 138.5, maxLon: 139.0, minLat: 35.2, maxLat: 35.5 },
+    width: 900,
+    height: 540,
+    binUrl: '/regional/dem-fuji-30m.bin',
+    webpUrl: '/regional/dem-fuji-30m.webp',
+  },
+];

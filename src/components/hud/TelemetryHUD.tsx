@@ -11,6 +11,7 @@ import { UnifiedRightSidebar } from './UnifiedRightSidebar';
 import { DataLayerToastNotification, ToastMessage } from './DataLayerToastNotification';
 import { DataLayerItem } from './DataLayersDrawer';
 import { BlendModeType, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
+import { TimelineScrubberState } from './TimelineScrubber';
 
 export type { DataLayerItem, ToastMessage, LoadedDataInfo, ResolutionTier };
 
@@ -81,9 +82,9 @@ export interface TelemetryHUDProps {
   isSidebarOpen?: boolean;
   onSidebarOpenChange?: (open: boolean) => void;
   isDemoMode?: boolean;
-  demoSequence?: 'hawaii' | 'cape-cod';
-  onToggleDemoMode?: (seq?: 'hawaii' | 'cape-cod') => void;
-  onSelectDemoSequence?: (seq: 'hawaii' | 'cape-cod') => void;
+  demoSequence?: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji';
+  onToggleDemoMode?: (seq?: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji') => void;
+  onSelectDemoSequence?: (seq: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji') => void;
   showClouds?: boolean;
   onShowCloudsChange?: (v: boolean) => void;
   showCloudLow?: boolean;
@@ -104,6 +105,14 @@ export interface TelemetryHUDProps {
   onVerticalScaleModeChange?: (v: number) => void;
   rainShadowFeedback?: number;
   onRainShadowFeedbackChange?: (v: number) => void;
+  pluvialGamma?: number;
+  onPluvialGammaChange?: (v: number) => void;
+  weatherOpticalMode?: number;
+  onWeatherOpticalModeChange?: (v: number) => void;
+  thermodynamicGating?: boolean;
+  onThermodynamicGatingChange?: (v: boolean) => void;
+  timelineMinutes?: number;
+  onTimelineChange?: (state: TimelineScrubberState) => void;
 }
 
 export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
@@ -199,6 +208,14 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onVerticalScaleModeChange={props.onVerticalScaleModeChange}
         rainShadowFeedback={props.rainShadowFeedback}
         onRainShadowFeedbackChange={props.onRainShadowFeedbackChange}
+        pluvialGamma={props.pluvialGamma}
+        onPluvialGammaChange={props.onPluvialGammaChange}
+        weatherOpticalMode={props.weatherOpticalMode}
+        onWeatherOpticalModeChange={props.onWeatherOpticalModeChange}
+        thermodynamicGating={props.thermodynamicGating}
+        onThermodynamicGatingChange={props.onThermodynamicGatingChange}
+        timelineMinutes={props.timelineMinutes}
+        onTimelineChange={props.onTimelineChange}
       />
 
       {/* Bottom-Left Non-Intrusive Glassmorphic Toast Notification Stack */}

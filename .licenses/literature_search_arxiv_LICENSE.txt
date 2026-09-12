@@ -1,1 +1,4 @@
-arXiv terms at https://info.arxiv.org/help/api/index.html. Checked 2026-09-05.
+ArXiv API Terms of Use Notification:
+Accessed at: 2026-09-11T17:07:45-04:00
+Terms available at: https://info.arxiv.org/help/api/index.html
+Always check the license of papers retrieved by the skill for any restrictions.

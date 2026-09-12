@@ -1104,3 +1104,134 @@ Integrity mode: development
 - [ ] Parity verified across Marie Tharp, Cream Rag, and Cyanotype themes at 120 FPS.
 
 </USER_REQUEST>
+
+## 2026-09-12T01:17:08Z
+
+<USER_REQUEST>
+Build the complete Google DeepMind WeatherNext 3 data ingestion pipeline for the Indicatrix Engine, spanning requester-pays GCS Zarr v3 extraction, Float16 binary tiling, TypeScript data source with 3-slot ring buffering, and DataLayerCatalog integration.
+
+Working directory: `/Users/andrewvoirol/Antigravity/Projects/ais-interactive-globe-to-map`
+Integrity mode: development
+
+## Requirements
+
+### R1. Python WeatherNext 3 Extraction & Staging CLI (`scripts/fetch-weathernext3.py`)
+- Authenticate against Google Cloud using Application Default Credentials (ADC), respecting `~/.zshenv` environment variables (`GOOGLE_APPLICATION_CREDENTIALS`, `CLOUDSDK_CORE_PROJECT`).
+- Access the requester-pays GCS bucket:
+  `gs://weathernext3_statistics_spatial/weathernext_3_0_0_statistics/zarr/2026_to_present/`
+  with billing project `antigravity-agent-1765655548` (specifying `userProject` parameter).
+- Query available prediction cycles and automatically select the latest initialized forecast run.
+- Extract 48 hourly timesteps ($t = 0\text{h}$ to $t = +47\text{h}$) across 6 core meteorological prognostic fields:
+  1. `u_component_of_wind_10m_mean` (10m eastward wind velocity)
+  2. `v_component_of_wind_10m_mean` (10m northward wind velocity)
+  3. `total_precipitation_1hr_mean` (accumulated precipitation rate)
+  4. `temperature_2m_mean` (2m ambient surface temperature)
+  5. `dewpoint_temperature_2m_mean` (2m surface dewpoint temperature)
+  6. `total_cloud_cover_mean` (column-integrated cloud fraction)
+- Decode Zarr v3 compressed chunks (shape `[1, 1801, 3600]` representing $0.1^\circ$ global pole-to-pole grid), downcast Float32 $\to$ Float16 (`np.float16`).
+- Export binary slices to `public/data/weathernext/[variable]-[hour].bin` (padded or compatible with WebGPU 256-byte row pitch contracts).
+- Generate metadata index `public/data/weathernext/meta.json` recording forecast initialization timestamp, variable list, valid prediction hours, and grid dimensions (`3600x1801`).
+- Provide local caching: bypass downloading if binary files and matching cycle metadata already exist.
+- Implement `--dry-run` flag to authenticate, verify bucket connectivity, list available forecast runs, and calculate download bandwidth without fetching tensor chunks.
+- Support execution via `uv run --with zarr --with gcsfs --with numpy python scripts/fetch-weathernext3.py`.
+
+### R2. TypeScript WeatherNext Data Source & 3-Slot Ring Buffer (`src/core/data/WeatherNextDataSource.ts`)
+- Implement an asynchronous TypeScript data source loader reading metadata from `public/data/weathernext/meta.json` and on-demand Float16 slices from `public/data/weathernext/[variable]-[hour].bin`.
+- Expose `getSlice(variable: string, hour: number): Promise<ArrayBuffer>` with in-memory caching to avoid redundant HTTP requests.
+- Integrate directly with `TemporalTextureRingBuffer` (`src/webgpu/TemporalTextureRingBuffer.ts`) for GPU texture staging and streaming.
+- Implement 3-slot sliding-window buffer lifecycle:
+  - Logical Slot 0 ($t_k$): Base hour slice.
+  - Logical Slot 1 ($t_{k+1}$): Next hour slice.
+  - Logical Slot 2 ($t_{k+2}$): Asynchronous background prefetch staging.
+- Provide clean advance/rotation logic on hourly step transitions via `TemporalTextureRingBuffer.advance()`.
+
+### R3. Cartographic Catalog & Atmosphere Deck Integration (`src/core/data/DataLayerCatalog.ts` & `AtmosphereDrawer.tsx`)
+- Register `google-weathernext3` preset in `DATA_LAYER_CATALOG` (`src/core/data/DataLayerCatalog.ts` and `src/core/layers/DataLayerCatalog.ts`):
+  - Category: `field` / `atmospheric-clouds`.
+  - Resolution tag: `0.1° (10km) AI`.
+  - Source attribution: `Google DeepMind WeatherNext 3`.
+- Wire model backend selector in `src/components/AtmosphereDrawer.tsx` allowing user to switch prognostic model input between NOAA GFS ($0.25^\circ$) and DeepMind WeatherNext 3 ($0.1^\circ$).
+- Connect time scrubber callbacks (`TimelineScrubberState.bracketHour` and `TimelineScrubberState.tau`) to drive WeatherNext slice staging and interpolation factor.
+
+## Acceptance Criteria
+
+### Stage 1 Gate: GCS Ingestion CLI
+- [ ] `uv run --with zarr --with gcsfs --with numpy python scripts/fetch-weathernext3.py --dry-run` executes with exit code 0 and lists recent forecast cycles from `gs://weathernext3_statistics_spatial/weathernext_3_0_0_statistics/zarr/2026_to_present/`.
+- [ ] Dry-run prints forecast init timestamp, variable manifest, and expected byte footprint without throwing GCS authentication or billing errors.
+
+### Stage 2 Gate: TypeScript Data Source & WebGPU Ring Buffer
+- [ ] `src/core/data/WeatherNextDataSource.ts` cleanly exports `WeatherNextDataSource` class.
+- [ ] Unit tests in `tests/` verify `WeatherNextDataSource` loads `meta.json`, decodes binary slice buffers, and uploads to `TemporalTextureRingBuffer` with 256-byte row pitch compliance.
+- [ ] `npx tsc --noEmit` and `npm run build` pass with 0 errors.
+
+### Stage 3 Gate: Catalog Integration & UI Selector
+- [ ] `DATA_LAYER_CATALOG` includes the `google-weathernext3` entry with correct cartographic legend and attribution.
+- [ ] `AtmosphereDrawer.tsx` exposes model backend selector allowing toggle between GFS and WeatherNext.
+- [ ] Full automated test suite (`npm test`) passes with 0 failures across all 158+ test files.
+
+</USER_REQUEST>
+
+## 2026-09-12T12:38:03Z
+
+<USER_REQUEST>
+Upgrade the Indicatrix Engine's vector coastline linework using Overture Maps GeoParquet via DuckDB, and add 2 new high-resolution regional DEM insets (Grand Canyon and Mount Fuji) with UI preset integration and multi-medium verification.
+
+Working directory: `/Users/andrewvoirol/Antigravity/Projects/ais-interactive-globe-to-map`
+Integrity mode: development
+
+Execute this project in strictly gated sequential stages (per AGENTS.md Invariant #13). Progression to Stage 2 is blocked until Stage 1 passes Gate 1.
+Keep progress reported regularly.
+Deliverable requirement: At completion, produce an explicit summary and a specific follow-up prompt that the user can run for any remaining work, remediation, or otherwise.
+
+---
+
+## Requirements
+
+### R1. Overture Maps GeoParquet Vector Extraction & Binary Repackaging (Stage 1)
+- Install `duckdb-async` with spatial extension.
+- Query Overture Maps v1.18.0 GeoParquet directly from S3 (`s3://overturemaps-us-west-2/release/2024-*/theme=base/type=water/*` or latest stable release) in `scripts/precompute-overture-vectors.ts`.
+- Extract coastline/shoreline geometries and apply Douglas-Peucker simplification to fit within the $\le 42.0$ MB size budget (target ~35–42 MB).
+- Match the existing `geo-vectors.bin` binary layout exactly:
+  - 32-byte header: Magic `0x47564543` (`GVEC`), version 1, vertex count, index count, 16 zero-padded reserved bytes.
+  - Columnar payload: `positions3D` (Float32 x3), `target2D` (Float32 x2), `dymaxion2D` (Float32 x2), `vType` (Float32 x1), and `indices` (Uint32 x2).
+- Ensure drop-in binary compatibility with zero changes required to WebGPU vector ribbon shaders or loading logic.
+
+### R2. Additional Regional DEM Insets: Grand Canyon & Mount Fuji (Stage 2)
+- Extend `scripts/precompute-regional-dem.py` to ingest and process elevation data for two new regions:
+  1. **Grand Canyon**: bounds approx -112.5°W to -111.5°W, 35.9°N to 36.5°N, sourced from USGS 3DEP (1/3 arc-second ~10m or 1 arc-second ~30m).
+  2. **Mount Fuji**: bounds approx 138.5°E to 139.0°E, 35.2°N to 35.5°N, sourced from Copernicus GLO-30 / AW3D30.
+- Match existing preprocessing and packaging:
+  - Sample against the local ETOPO 2022 global DEM base for seamless boundary feathering.
+  - Pack into 4-channel `rgba16unorm` binary textures (`public/regional/dem-grand-canyon-30m.bin` and `public/regional/dem-fuji-30m.bin`) targeting ~3–4 MB each.
+  - Generate companion lossless WebP fallbacks (`dem-grand-canyon-30m.webp`, `dem-fuji-30m.webp`).
+- Update `public/regional/manifest.json` with the new region entries (bounds, dimensions, elevation ranges, asset paths).
+
+### R3. Regional DEM Preset UI Integration (Stage 2)
+- Update the regional preset selection list in `src/components/hud/UnifiedRightSidebar.tsx` (and camera waypoint controllers if applicable) to add Grand Canyon and Mount Fuji alongside Hawaii and Cape Cod.
+- Ensure fly-to navigation or manual camera panning to the new regions activates the high-resolution DEM overlay and applies 0.5° smoothstep boundary feathering without seam artifacts.
+
+### R4. Controlled Infrastructure & Verification (Victory Gate)
+- Allow public S3 and elevation API access for fetching Overture GeoParquet and DEM tiles.
+- Verify binary compliance and web runtime health using an independent victory audit before completion.
+- Formulate a precise, actionable follow-up prompt for any residual remediation or next-phase enhancements.
+
+---
+
+## Acceptance Criteria
+
+### Gate 1: Vector Line Integrity (Stage 1)
+- [ ] `scripts/precompute-overture-vectors.ts` executes and generates `public/geo-vectors.bin`.
+- [ ] `public/geo-vectors.bin` size is $\le 42.0$ MB and $\ge 35.0$ MB.
+- [ ] `node scripts/verify-geo-vectors-challenger.mjs` executes and passes 100% of checks (Header magic, byte layout, vertex/index counts, finite non-NaN coordinates, Dymaxion/Mercator cut bounds).
+
+### Gate 2: Regional DEM Artifacts & Types (Stage 2)
+- [ ] `public/regional/dem-grand-canyon-30m.bin` and `public/regional/dem-fuji-30m.bin` exist and are ~3–4 MB each.
+- [ ] Companion WebP fallback files exist in `public/regional/`.
+- [ ] `public/regional/manifest.json` is valid JSON containing all 4 regions (`hawaii`, `capecod`, `grand-canyon`, `fuji`).
+- [ ] `npx tsc --noEmit` and `npm run build` pass with 0 errors.
+
+### Gate 3: Live System Verification & Victory Audit
+- [ ] An independent auditor verifies both new DEM regions load in the browser without uncaptured WebGPU errors, WGSL errors, or 404 network requests.
+- [ ] Live Chrome DevTools MCP verification confirms clean relief shading over Grand Canyon and Mount Fuji across themes.
+- [ ] Explicit follow-up prompt for subsequent tasks or remediation provided in final report.
+</USER_REQUEST>

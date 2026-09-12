@@ -7,3 +7,5 @@ export * from './PhaseFieldFractureSolver';
 export * from './ShallowWaterFluidSolver';
 export * from './RigidHingeDymaxionSolver';
 export * from './PhysicsSolverRegistry';
+export * from './LCLThermodynamics';
+export * from './SemiLagrangianAdvection';

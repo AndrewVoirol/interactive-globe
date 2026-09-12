@@ -7,6 +7,14 @@
 
 import React, { useState, useCallback } from 'react';
 import { VernierSlider } from './ui/VernierSlider';
+import { TimelineScrubber, TimelineScrubberState } from './hud/TimelineScrubber';
+
+export type PrognosticModelBackend =
+  | 'noaa-gfs'
+  | 'weathernext3'
+  | 'google-weathernext3'
+  | 'gfs'
+  | 'weathernext';
 
 export interface AtmosphereDrawerProps {
   theme?: 0 | 1 | 2;
@@ -31,6 +39,17 @@ export interface AtmosphereDrawerProps {
   onVerticalScaleModeChange?: (v: number) => void;
   rainShadowFeedback?: number;
   onRainShadowFeedbackChange?: (v: number) => void;
+  pluvialGamma?: number;
+  onPluvialGammaChange?: (v: number) => void;
+  weatherOpticalMode?: number;
+  onWeatherOpticalModeChange?: (mode: number) => void;
+  thermodynamicGating?: boolean;
+  onThermodynamicGatingChange?: (enabled: boolean) => void;
+  prognosticModel?: PrognosticModelBackend;
+  onPrognosticModelChange?: (model: PrognosticModelBackend) => void;
+  weatherNextDataSource?: any;
+  timelineMinutes?: number;
+  onTimelineChange?: (state: TimelineScrubberState) => void;
   onHorizonPresetClick?: () => void;
   onSnapCamera?: (snap: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => void;
   onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
@@ -60,6 +79,17 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   onVerticalScaleModeChange,
   rainShadowFeedback: propRainShadowFeedback,
   onRainShadowFeedbackChange,
+  pluvialGamma: propPluvialGamma,
+  onPluvialGammaChange,
+  weatherOpticalMode: propWeatherOpticalMode,
+  onWeatherOpticalModeChange,
+  thermodynamicGating: propThermodynamicGating,
+  onThermodynamicGatingChange,
+  prognosticModel: propPrognosticModel,
+  onPrognosticModelChange,
+  weatherNextDataSource,
+  timelineMinutes,
+  onTimelineChange,
   onHorizonPresetClick,
   onSnapCamera,
   onTogglePlanetaryLayer,
@@ -75,6 +105,10 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const [internalShadowIntensity, setInternalShadowIntensity] = useState<number>(0.45);
   const [internalVerticalScaleMode, setInternalVerticalScaleMode] = useState<number>(0);
   const [internalRainShadowFeedback, setInternalRainShadowFeedback] = useState<number>(0.0);
+  const [internalPluvialGamma, setInternalPluvialGamma] = useState<number>(0.0);
+  const [internalWeatherOpticalMode, setInternalWeatherOpticalMode] = useState<number>(0);
+  const [internalThermodynamicGating, setInternalThermodynamicGating] = useState<boolean>(true);
+  const [internalPrognosticModel, setInternalPrognosticModel] = useState<PrognosticModelBackend>('gfs');
 
   const curShowClouds = propShowClouds !== undefined ? propShowClouds : internalShowClouds;
   const curShowCloudLow = propShowCloudLow !== undefined ? propShowCloudLow : internalShowCloudLow;
@@ -86,6 +120,64 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const curShadowIntensity = propShadowIntensity !== undefined ? propShadowIntensity : internalShadowIntensity;
   const curVerticalScaleMode = propVerticalScaleMode !== undefined ? propVerticalScaleMode : internalVerticalScaleMode;
   const curRainShadowFeedback = propRainShadowFeedback !== undefined ? propRainShadowFeedback : internalRainShadowFeedback;
+  const curPluvialGamma = propPluvialGamma !== undefined ? propPluvialGamma : internalPluvialGamma;
+  const curWeatherOpticalMode = propWeatherOpticalMode !== undefined ? propWeatherOpticalMode : internalWeatherOpticalMode;
+  const curThermodynamicGating = propThermodynamicGating !== undefined ? propThermodynamicGating : internalThermodynamicGating;
+  const curPrognosticModel = propPrognosticModel !== undefined ? propPrognosticModel : internalPrognosticModel;
+  const isGfs = curPrognosticModel === 'gfs' || curPrognosticModel === 'noaa-gfs';
+  const isWeatherNext =
+    curPrognosticModel === 'weathernext3' ||
+    curPrognosticModel === 'google-weathernext3' ||
+    curPrognosticModel === 'weathernext';
+
+  const handlePrognosticModelChange = (model: PrognosticModelBackend) => {
+    setInternalPrognosticModel(model);
+    onPrognosticModelChange?.(model);
+    if (typeof window !== 'undefined') {
+      if ((window as any).__INDICATRIX_SET_PROGNOSTIC_MODEL__) {
+        (window as any).__INDICATRIX_SET_PROGNOSTIC_MODEL__(model);
+      }
+      if (model === 'weathernext' || model === 'weathernext3' || model === 'google-weathernext3') {
+        const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__;
+        if (engine && engine.device && !(window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__) {
+          import('../core/data/WeatherNextDataSource').then(({ WeatherNextDataSource }) => {
+            import('../webgpu/TemporalTextureRingBuffer').then(({ TemporalTextureRingBuffer }) => {
+              try {
+                let ring = engine.precipRingBuffer;
+                if (!ring || ring.disposed || ring.width !== 3600) {
+                  ring = new TemporalTextureRingBuffer(engine.device, 3600, 1801, 'r16float');
+                  engine.setPrecipitationRingBuffer(ring);
+                }
+                (window as any).__INDICATRIX_WEATHERNEXT_RING_BUFFER__ = ring;
+                const ds = new WeatherNextDataSource({ ringBuffer: ring });
+                (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ = ds;
+                ds.seekHour(0).catch((err: any) => {
+                  console.warn('[WeatherNext] Initial seekHour(0) error:', err);
+                });
+              } catch (e) {
+                console.warn('[AtmosphereDrawer] Failed to initialize WeatherNextDataSource:', e);
+              }
+            });
+          });
+        }
+      }
+    }
+  };
+
+  const handleWeatherOpticalModeChange = (mode: number) => {
+    if (typeof mode !== 'number' || !Number.isFinite(mode)) return;
+    const validMode = Math.floor(mode) === 1 ? 1 : 0;
+    setInternalWeatherOpticalMode(validMode);
+    onWeatherOpticalModeChange?.(validMode);
+    if (typeof window !== 'undefined') {
+      if ((window as any).__INDICATRIX_SET_WEATHER_OPTICAL_MODE__) {
+        (window as any).__INDICATRIX_SET_WEATHER_OPTICAL_MODE__(validMode);
+      }
+      if ((window as any).__INDICATRIX_WEBGPU_ENGINE__) {
+        (window as any).__INDICATRIX_WEBGPU_ENGINE__.setWeatherOpticalMode(validMode);
+      }
+    }
+  };
 
   const handleToggleClouds = (val: boolean) => {
     setInternalShowClouds(val);
@@ -188,6 +280,83 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
     if (typeof window !== 'undefined') {
       if ((window as any).__INDICATRIX_SET_RAIN_SHADOW_FEEDBACK__) {
         (window as any).__INDICATRIX_SET_RAIN_SHADOW_FEEDBACK__(clamped);
+      }
+    }
+  };
+
+  const handlePluvialGammaChange = (val: number) => {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
+    const clamped = Math.max(0.0, Math.min(2.0, val));
+    setInternalPluvialGamma(clamped);
+    onPluvialGammaChange?.(clamped);
+    if (typeof window !== 'undefined') {
+      if ((window as any).__INDICATRIX_SET_PLUVIAL_GAMMA__) {
+        (window as any).__INDICATRIX_SET_PLUVIAL_GAMMA__(clamped);
+      }
+      if ((window as any).__INDICATRIX_WEBGPU_ENGINE__) {
+        (window as any).__INDICATRIX_WEBGPU_ENGINE__.setPluvialGamma(clamped);
+      }
+    }
+  };
+
+  const handleThermodynamicGatingChange = (enabled: boolean) => {
+    setInternalThermodynamicGating(enabled);
+    onThermodynamicGatingChange?.(enabled);
+    if (typeof window !== 'undefined') {
+      if ((window as any).__INDICATRIX_SET_THERMODYNAMIC_GATING__) {
+        (window as any).__INDICATRIX_SET_THERMODYNAMIC_GATING__(enabled);
+      }
+      const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+      if (engine) {
+        engine.lclGating = enabled;
+        if (typeof engine.setLclGating === 'function') {
+          engine.setLclGating(enabled);
+        }
+      }
+    }
+  };
+
+  const handleTimelineChange = (state: TimelineScrubberState) => {
+    onTimelineChange?.(state);
+    if (typeof window !== 'undefined') {
+      if ((window as any).__INDICATRIX_SET_TIMELINE_MINUTES__) {
+        (window as any).__INDICATRIX_SET_TIMELINE_MINUTES__(state.absoluteMinutes);
+      }
+      const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+      if (engine && typeof engine.updateAtmosphereUniforms === 'function') {
+        engine.updateAtmosphereUniforms({
+          weatherTimeMinutes: state.absoluteMinutes,
+          weatherTau: state.tau,
+          scrubTau: state.tau,
+          tau: state.tau,
+        });
+      }
+
+      // Dual-zone dispatch: Radar zone (-60m..0) vs Forecast zone (0..+48h)
+      if (state.isRadarZone || state.absoluteMinutes < 0) {
+        const radarDS = (window as any).__INDICATRIX_LIVE_RADAR_DATA_SOURCE__;
+        if (radarDS && !radarDS.disposed) {
+          radarDS.setAbsoluteMinutes(state.absoluteMinutes);
+          const radarRing = (window as any).__INDICATRIX_RADAR_RING_BUFFER__;
+          if (radarRing && !radarRing.disposed && engine && engine.precipRingBuffer !== radarRing) {
+            engine.setPrecipitationRingBuffer(radarRing);
+          }
+          radarDS.uploadToRingBuffer();
+        }
+      }
+
+      if (isWeatherNext) {
+        const wnRing = (window as any).__INDICATRIX_WEATHERNEXT_RING_BUFFER__;
+        if (wnRing && !wnRing.disposed && engine && engine.precipRingBuffer !== wnRing && !state.isRadarZone && state.absoluteMinutes >= 0) {
+          engine.setPrecipitationRingBuffer(wnRing);
+        }
+        const ds =
+          weatherNextDataSource ||
+          (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ ||
+          (window as any).__INDICATRIX_WEATHERNEXT_SOURCE__;
+        if (ds && typeof ds.setTime === 'function') {
+          ds.setTime(state.bracketHour, state.tau);
+        }
       }
     }
   };
@@ -395,6 +564,164 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             readout={`${Math.round(curRainShadowFeedback * 100)}%`}
             onChange={handleRainShadowFeedbackChange}
           />
+
+          {/* Pluvial Coupling Vernier Slider (Stage 2) */}
+          <VernierSlider
+            id="sidebar-pluvial-coupling"
+            label="Pluvial Coupling"
+            sublabel="Precipitation Swelling & River Width"
+            value={curPluvialGamma}
+            min={0.0}
+            max={2.0}
+            step={0.1}
+            readout={`${curPluvialGamma.toFixed(1)}x`}
+            onChange={handlePluvialGammaChange}
+          />
+
+          {/* Thermodynamic Gating (LCL) Toggle */}
+          <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border)]/50">
+            <div className="flex items-center justify-between text-nano">
+              <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
+                Thermodynamic Gating
+              </span>
+              <span className="text-[var(--theme-text-muted)] font-mono text-nano">
+                {curThermodynamicGating ? 'LCL ON' : 'OFF'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-1 font-mono text-[10px] tracking-wider">
+              <button
+                type="button"
+                id="sidebar-thermodynamic-gating-on"
+                onClick={() => handleThermodynamicGatingChange(true)}
+                className={`py-1.5 px-2 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
+                  curThermodynamicGating
+                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
+                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                }`}
+                title="Thermodynamic Gating Active (LCL ≈ 125m × (T - Td)): Air must reach condensation altitude"
+              >
+                <span>Thermodynamic Gating</span>
+              </button>
+              <button
+                type="button"
+                id="sidebar-thermodynamic-gating-off"
+                onClick={() => handleThermodynamicGatingChange(false)}
+                className={`py-1.5 px-2 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
+                  !curThermodynamicGating
+                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
+                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                }`}
+                title="Thermodynamic Gating Disabled: Legacy unconditional precipitation amplification (1.0x)"
+              >
+                <span>Disabled (OFF)</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Weather Optical Mode Segmented Toggle (Stage 3) */}
+          <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border)]/50">
+            <div className="flex items-center justify-between text-nano">
+              <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
+                Weather Optical Mode
+              </span>
+              <span className="text-[var(--theme-text-muted)] font-mono text-nano">
+                {curWeatherOpticalMode === 1 ? 'Doppler' : 'Ink Wash'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-1 font-mono text-[10px] tracking-wider">
+              <button
+                type="button"
+                onClick={() => handleWeatherOpticalModeChange(0)}
+                className={`py-1.5 px-2 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
+                  curWeatherOpticalMode === 0
+                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
+                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                }`}
+                title="Archival Ink Wash (Historical Cartographic Pigmentation)"
+              >
+                <span>Archival Ink Wash</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleWeatherOpticalModeChange(1)}
+                className={`py-1.5 px-2 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
+                  curWeatherOpticalMode === 1
+                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
+                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                }`}
+                title="Meteorological Spectral Doppler Radar"
+              >
+                <span>Doppler Radar</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Plate IV.A: Prognostic Model Backend Selector (Milestone 3 / R3) */}
+          <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border)]/50">
+            <div className="flex items-center justify-between text-nano">
+              <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
+                Prognostic Model
+              </span>
+              <span className="text-[var(--theme-text-muted)] font-mono text-nano">
+                {isWeatherNext ? '0.1° AI' : '0.25° GFS'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-1 font-mono text-[10px] tracking-wider">
+              <button
+                type="button"
+                onClick={() => handlePrognosticModelChange('gfs')}
+                className={`py-1.5 px-2 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
+                  isGfs
+                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
+                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                }`}
+                title="NOAA GFS (0.25° Operational Numerical Weather Prediction)"
+              >
+                <span>NOAA GFS (0.25°)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePrognosticModelChange('weathernext3')}
+                className={`py-1.5 px-2 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
+                  isWeatherNext
+                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
+                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                }`}
+                title="Google DeepMind WeatherNext 3 (0.1° / 10km AI Prognostic)"
+              >
+                <span>DeepMind WeatherNext 3 (0.1°)</span>
+              </button>
+            </div>
+
+            {/* WeatherNext Status Telemetry Pill */}
+            {isWeatherNext && (
+              <div className="px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)]/60 bg-[var(--theme-control-bg)]/40 flex items-center justify-between text-nano font-mono text-[var(--theme-text-muted)]">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[var(--theme-status-sage)] font-bold">● GCS Zarr v3</span>
+                  <span>•</span>
+                  <span>3-Slot Ring Buffer</span>
+                </div>
+                <span className="font-bold text-[var(--theme-text-primary)]">
+                  {timelineMinutes !== undefined && timelineMinutes > 0
+                    ? `+${Math.min(47, Math.floor(timelineMinutes / 60))}h Forecast`
+                    : '0h Analysis'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Plate IV.B: Atmospheric Chronology & Temporal Scrubber */}
+          <div className="space-y-1.5 pt-1 border-t border-[var(--theme-card-border)]">
+            <div className="flex items-center justify-between text-nano">
+              <span className="font-mono uppercase tracking-wider text-[var(--theme-text-muted)]">
+                Atmospheric Chronology
+              </span>
+            </div>
+            <TimelineScrubber
+              value={timelineMinutes}
+              onTimeChange={handleTimelineChange}
+            />
+          </div>
 
           {/* 1-Click Horizon Cross-Section (78°) Camera Preset Button */}
           <button

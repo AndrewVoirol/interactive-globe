@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "description": "High-Resolution NOAA CUDEM Regional Elevation Overlays (1/3 arc-second ~10m)",
+  "description": "High-Resolution Regional Elevation Overlays (1/3 arc-second ~10m & 1 arc-second ~30m)",
   "elevationEncoding": {
     "zMin": -10924.0,
     "zMax": 8848.0,
@@ -26,8 +26,8 @@
       "height": 3600,
       "binUrl": "/regional/hawaii-dem-u16.bin",
       "webpUrl": "/regional/hawaii-dem.webp",
-      "minElevationMeters": -5800.07177734375,
-      "maxElevationMeters": 4011.42041015625
+      "minElevationMeters": -5800.205078125,
+      "maxElevationMeters": 4011.4248046875
     },
     {
       "id": "capecod",
@@ -42,8 +42,40 @@
       "height": 2400,
       "binUrl": "/regional/capecod-dem-u16.bin",
       "webpUrl": "/regional/capecod-dem.webp",
-      "minElevationMeters": -285.8948974609375,
-      "maxElevationMeters": 97.74481964111328
+      "minElevationMeters": -286.0087890625,
+      "maxElevationMeters": 97.7548828125
+    },
+    {
+      "id": "grand-canyon",
+      "name": "Grand Canyon",
+      "bounds": {
+        "minLon": -112.5,
+        "maxLon": -111.5,
+        "minLat": 35.9,
+        "maxLat": 36.5
+      },
+      "width": 900,
+      "height": 540,
+      "binUrl": "/regional/dem-grand-canyon-30m.bin",
+      "webpUrl": "/regional/dem-grand-canyon-30m.webp",
+      "minElevationMeters": 605.63623046875,
+      "maxElevationMeters": 2805.953857421875
+    },
+    {
+      "id": "fuji",
+      "name": "Mount Fuji",
+      "bounds": {
+        "minLon": 138.5,
+        "maxLon": 139.0,
+        "minLat": 35.2,
+        "maxLat": 35.5
+      },
+      "width": 900,
+      "height": 540,
+      "binUrl": "/regional/dem-fuji-30m.bin",
+      "webpUrl": "/regional/dem-fuji-30m.webp",
+      "minElevationMeters": 51.855995178222656,
+      "maxElevationMeters": 3756.53369140625
     }
   ]
 }

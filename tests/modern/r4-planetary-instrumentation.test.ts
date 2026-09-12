@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import childProcess from 'child_process';
 
 /**
  * Requirement R4: Live Planetary Instrumentation & Automation
@@ -14,6 +15,69 @@ describe('Requirement R4: Live Planetary Instrumentation & Automation', () => {
   const projectRoot = path.resolve(__dirname, '../..');
   const gfsWindPath = path.join(projectRoot, 'public/data/gfs-wind-latest.bin');
   const starlinkPath = path.join(projectRoot, 'public/data/tle-starlink.json');
+
+  const originalFetch = globalThis.fetch;
+  let execSyncSpy: any;
+
+  beforeAll(() => {
+    // 1. Mock child_process.execSync to prevent live NOMADS network queries via Python during hermetic testing (Rule 64)
+    execSyncSpy = vi.spyOn(childProcess, 'execSync').mockImplementation(((cmd: string, options?: any) => {
+      if (typeof cmd === 'string' && cmd.includes('fetch-real-gfs.py')) {
+        throw new Error('Hermetic mock: live NOAA NOMADS network access blocked in test environment');
+      }
+      return childProcess.execSync(cmd, options);
+    }) as any);
+
+    // 2. Mock globalThis.fetch to prevent unhandled socket connections to 127.0.0.1:3000 or external APIs (Rule 64)
+    globalThis.fetch = vi.fn().mockImplementation(async (input: any) => {
+      const url = typeof input === 'string' ? input : input?.url || '';
+
+      // Intercept local assets and localhost / 127.0.0.1:3000 requests to read hermetically from filesystem
+      if (
+        url.includes('127.0.0.1') ||
+        url.includes('localhost') ||
+        url.startsWith('/') ||
+        url.includes('public/data') ||
+        url.includes('gfs-wind') ||
+        url.includes('tle-starlink')
+      ) {
+        const cleanPath = url.replace(/^https?:\/\/[^/]+/, '');
+        const relPath = cleanPath.replace(/^\/+/, '');
+        const candidatePaths = [
+          path.join(projectRoot, 'public', relPath),
+          path.join(projectRoot, 'public/data', relPath),
+          path.join(projectRoot, relPath),
+          cleanPath,
+        ];
+
+        for (const cand of candidatePaths) {
+          if (fs.existsSync(cand) && !fs.statSync(cand).isDirectory()) {
+            const data = fs.readFileSync(cand);
+            return new Response(data, {
+              status: 200,
+              headers: {
+                'Content-Type': cand.endsWith('.json') ? 'application/json' : 'application/octet-stream',
+              },
+            });
+          }
+        }
+
+        if (url.includes('127.0.0.1') || url.includes('localhost')) {
+          return new Response('Not Found', { status: 404, statusText: 'Not Found' });
+        }
+      }
+
+      // Block all external network calls hermetically (RainViewer, CelesTrak, NOMADS)
+      throw new Error(`Hermetic mock: network access blocked to ${url}`);
+    });
+  });
+
+  afterAll(() => {
+    globalThis.fetch = originalFetch;
+    if (execSyncSpy) {
+      execSyncSpy.mockRestore();
+    }
+  });
 
   // --------------------------------------------------------------------------
   // Feature F34: NOAA GFS Wind Binary Layout & Advection Invariants

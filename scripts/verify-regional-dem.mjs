@@ -137,7 +137,67 @@ async function run() {
   await page.screenshot({ path: capeCyan });
   console.log(`✓ Saved Cape Cod Cyanotype: ${capeCyan}`);
 
-  // 5. Deactivation Test: Zoom out to global view (radius = 16.0)
+  // 5. Litmus Test Location 3: Grand Canyon (36.06°N, 112.14°W)
+  console.log('\n--- Litmus Test 3: Grand Canyon Fluvial Incision ---');
+  await page.evaluate(() => {
+    window.__INDICATRIX_CAMERA__.lookAtCoordinates(-112.14, 36.06, 5.25);
+  });
+
+  await page.waitForTimeout(4000);
+
+  const activeRegionGrandCanyon = await page.evaluate(() => {
+    return (window.__INDICATRIX_ENGINE__?.getActiveRegionalDEM?.()) ||
+           (window.__INDICATRIX_WEBGPU_ENGINE__?.getActiveRegionalDEM?.()) || null;
+  });
+  console.log(`Active Regional DEM for Grand Canyon: ${activeRegionGrandCanyon}`);
+
+  const gcCyan = 'screenshots/regional/grand-canyon-cyanotype.png';
+  await page.screenshot({ path: gcCyan });
+  console.log(`✓ Saved Grand Canyon Cyanotype: ${gcCyan}`);
+
+  await page.keyboard.press('t'); // Marie Tharp
+  await page.waitForTimeout(1500);
+  const gcTharp = 'screenshots/regional/grand-canyon-tharp.png';
+  await page.screenshot({ path: gcTharp });
+  console.log(`✓ Saved Grand Canyon Marie Tharp: ${gcTharp}`);
+
+  await page.keyboard.press('t'); // Cream Rag
+  await page.waitForTimeout(1500);
+  const gcCream = 'screenshots/regional/grand-canyon-cream-rag.png';
+  await page.screenshot({ path: gcCream });
+  console.log(`✓ Saved Grand Canyon Cream Rag: ${gcCream}`);
+
+  // 6. Litmus Test Location 4: Mount Fuji (35.36°N, 138.73°E)
+  console.log('\n--- Litmus Test 4: Mount Fuji Volcanic Stratigraphy ---');
+  await page.evaluate(() => {
+    window.__INDICATRIX_CAMERA__.lookAtCoordinates(138.73, 35.36, 5.25);
+  });
+
+  await page.waitForTimeout(4000);
+
+  const activeRegionFuji = await page.evaluate(() => {
+    return (window.__INDICATRIX_ENGINE__?.getActiveRegionalDEM?.()) ||
+           (window.__INDICATRIX_WEBGPU_ENGINE__?.getActiveRegionalDEM?.()) || null;
+  });
+  console.log(`Active Regional DEM for Mount Fuji: ${activeRegionFuji}`);
+
+  const fujiCream = 'screenshots/regional/fuji-cream-rag.png';
+  await page.screenshot({ path: fujiCream });
+  console.log(`✓ Saved Mount Fuji Cream Rag: ${fujiCream}`);
+
+  await page.keyboard.press('t'); // Cyanotype
+  await page.waitForTimeout(1500);
+  const fujiCyan = 'screenshots/regional/fuji-cyanotype.png';
+  await page.screenshot({ path: fujiCyan });
+  console.log(`✓ Saved Mount Fuji Cyanotype: ${fujiCyan}`);
+
+  await page.keyboard.press('t'); // Marie Tharp
+  await page.waitForTimeout(1500);
+  const fujiTharp = 'screenshots/regional/fuji-tharp.png';
+  await page.screenshot({ path: fujiTharp });
+  console.log(`✓ Saved Mount Fuji Marie Tharp: ${fujiTharp}`);
+
+  // 7. Deactivation Test: Zoom out to global view (radius = 16.0)
   console.log('\n--- VRAM Release & Deactivation Test: Zooming Out ---');
   await page.evaluate(() => {
     window.__INDICATRIX_CAMERA__.lookAtCoordinates(0, 0, 16.0);

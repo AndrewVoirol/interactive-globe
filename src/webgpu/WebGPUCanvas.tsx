@@ -23,7 +23,12 @@ import {
   evaluatePointMorph,
 } from '../core/GlobeOverlay';
 import { TrajectoryCameraController, Waypoint3D } from '../core/camera/TrajectoryCameraController';
-import { HAWAII_WAYPOINTS, CAPE_COD_WAYPOINTS } from '../core/camera/litmusWaypoints';
+import {
+  HAWAII_WAYPOINTS,
+  CAPE_COD_WAYPOINTS,
+  GRAND_CANYON_WAYPOINTS,
+  FUJI_WAYPOINTS,
+} from '../core/camera/litmusWaypoints';
 
 export interface BathymetricSounding {
   name: string;
@@ -126,8 +131,8 @@ export interface WebGPUCanvasProps {
   onGpuProfilerReport?: (report: any) => void;
   isolatedStratum?: number | null;
   isDemoMode?: boolean;
-  demoSequence?: 'hawaii' | 'cape-cod';
-  onDemoModeChange?: (active: boolean, sequence?: 'hawaii' | 'cape-cod') => void;
+  demoSequence?: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji';
+  onDemoModeChange?: (active: boolean, sequence?: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji') => void;
   showClouds?: boolean;
   showCloudLow?: boolean;
   showCloudMid?: boolean;
@@ -140,6 +145,13 @@ export interface WebGPUCanvasProps {
   onShadowIntensityChange?: (v: number) => void;
   verticalScaleMode?: number;
   rainShadowFeedback?: number;
+  pluvialGamma?: number;
+  weatherOpticalMode?: number;
+  timelineMinutes?: number;
+  scrubTau?: number;
+  weatherTau?: number;
+  thermodynamicGating?: boolean;
+  onThermodynamicGatingChange?: (v: boolean) => void;
   onShowCloudsChange?: (v: boolean) => void;
   onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
 }
@@ -203,6 +215,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   onShadowIntensityChange,
   verticalScaleMode = 0,
   rainShadowFeedback = 0.0,
+  pluvialGamma = 0.0,
+  weatherOpticalMode = 0,
+  timelineMinutes = 0,
+  scrubTau = 0,
+  weatherTau = 0,
+  thermodynamicGating = true,
   onShowCloudsChange,
   onTogglePlanetaryLayer,
 }) => {
@@ -351,6 +369,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     shadowIntensity,
     verticalScaleMode,
     rainShadowFeedback,
+    pluvialGamma,
+    weatherOpticalMode,
+    timelineMinutes,
+    scrubTau,
+    weatherTau,
+    thermodynamicGating,
   });
   useEffect(() => {
     stateRef.current = {
@@ -381,8 +405,38 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       shadowIntensity,
       verticalScaleMode,
       rainShadowFeedback,
+      pluvialGamma,
+      weatherOpticalMode,
+      timelineMinutes,
+      scrubTau,
+      weatherTau,
+      thermodynamicGating,
     };
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating]);
+
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.setLclGating(thermodynamicGating);
+    }
+  }, [thermodynamicGating]);
+
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.setWeatherOpticalMode(weatherOpticalMode);
+    }
+  }, [weatherOpticalMode]);
+
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.setTimelineMinutes(timelineMinutes ?? 0);
+    }
+  }, [timelineMinutes]);
+
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.scrubTau = scrubTau ?? weatherTau ?? 0;
+    }
+  }, [scrubTau, weatherTau]);
 
   const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange, onAtmosphericScaleChange, onShadowIntensityChange, onShowCloudsChange, onTogglePlanetaryLayer });
   useEffect(() => {
@@ -393,7 +447,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   useEffect(() => {
     const trajectory = trajectoryControllerRef.current;
     trajectory.setMode('dolly-cinematic');
-    const waypoints = demoSequence === 'cape-cod' ? CAPE_COD_WAYPOINTS : HAWAII_WAYPOINTS;
+    const waypoints =
+      demoSequence === 'cape-cod'
+        ? CAPE_COD_WAYPOINTS
+        : demoSequence === 'grand-canyon'
+        ? GRAND_CANYON_WAYPOINTS
+        : demoSequence === 'fuji'
+        ? FUJI_WAYPOINTS
+        : HAWAII_WAYPOINTS;
     trajectory.setWaypoints(waypoints, 8.0, false);
     trajectory.setIsPlaying(isDemoMode);
   }, [demoSequence]);
@@ -431,6 +492,32 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     );
     if (hasJetStream) {
       engine.loadJetStreamTexture('/data/gfs-jetstream-latest.bin').catch(() => {});
+    }
+    const hasRadar = !!dataLayers?.find(
+      (l) => (l.id === 'live-doppler-radar' || l.type === 'Doppler Radar Mosaic') && l.visible
+    );
+    if (hasRadar) {
+      import('../core/data/LiveRadarDataSource').then(({ LiveRadarDataSource }) => {
+        let radarDS = (window as any).__INDICATRIX_LIVE_RADAR_DATA_SOURCE__;
+        if (!radarDS || radarDS.disposed) {
+          radarDS = new LiveRadarDataSource({ autoLoad: true });
+          (window as any).__INDICATRIX_LIVE_RADAR_DATA_SOURCE__ = radarDS;
+        }
+        const dev = engine.getDevice();
+        if (dev) {
+          let ring = (window as any).__INDICATRIX_RADAR_RING_BUFFER__;
+          if (!ring || ring.disposed) {
+            ring = radarDS.createRingBuffer(dev);
+            (window as any).__INDICATRIX_RADAR_RING_BUFFER__ = ring;
+          }
+          if (engine.precipRingBuffer !== ring) {
+            engine.setPrecipitationRingBuffer(ring);
+          }
+          radarDS.uploadToRingBuffer();
+        }
+      }).catch((err) => {
+        console.warn('[WebGPUCanvas] Failed to initialize live Doppler radar:', err);
+      });
     }
     const hasCrane = !!dataLayers?.find(
       (l) => (l.id === 'origami-crane-companion' || l.id === 'origami-crane') && l.visible
@@ -797,10 +884,18 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     };
     (window as any).__INDICATRIX_WEBGPU_ENGINE__ = engineRef.current;
     (window as any).__INDICATRIX_TRAJECTORY__ = {
-      startDemo: (seq: 'hawaii' | 'cape-cod' = 'hawaii', duration = 8.0) => {
+      startDemo: (seq: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji' = 'hawaii', duration = 8.0) => {
         const trajectory = trajectoryControllerRef.current;
         trajectory.setMode('dolly-cinematic');
-        trajectory.setWaypoints(seq === 'cape-cod' ? CAPE_COD_WAYPOINTS : HAWAII_WAYPOINTS, duration, false);
+        const waypoints =
+          seq === 'cape-cod'
+            ? CAPE_COD_WAYPOINTS
+            : seq === 'grand-canyon'
+            ? GRAND_CANYON_WAYPOINTS
+            : seq === 'fuji'
+            ? FUJI_WAYPOINTS
+            : HAWAII_WAYPOINTS;
+        trajectory.setWaypoints(waypoints, duration, false);
         trajectory.setIsPlaying(true);
         callbacksRef.current.onDemoModeChange?.(true, seq);
       },
@@ -808,7 +903,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         trajectoryControllerRef.current.setIsPlaying(false);
         callbacksRef.current.onDemoModeChange?.(false);
       },
-      toggleDemo: (seq?: 'hawaii' | 'cape-cod') => {
+      toggleDemo: (seq?: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji') => {
         if (stateRef.current.isDemoMode) {
           trajectoryControllerRef.current.setIsPlaying(false);
           callbacksRef.current.onDemoModeChange?.(false);
@@ -816,7 +911,15 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           const s = seq ?? stateRef.current.demoSequence;
           const trajectory = trajectoryControllerRef.current;
           trajectory.setMode('dolly-cinematic');
-          trajectory.setWaypoints(s === 'cape-cod' ? CAPE_COD_WAYPOINTS : HAWAII_WAYPOINTS, 8.0, false);
+          const waypoints =
+            s === 'cape-cod'
+              ? CAPE_COD_WAYPOINTS
+              : s === 'grand-canyon'
+              ? GRAND_CANYON_WAYPOINTS
+              : s === 'fuji'
+              ? FUJI_WAYPOINTS
+              : HAWAII_WAYPOINTS;
+          trajectory.setWaypoints(waypoints, 8.0, false);
           trajectory.setIsPlaying(true);
           callbacksRef.current.onDemoModeChange?.(true, s);
         }
@@ -828,6 +931,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       waypoints: {
         hawaii: HAWAII_WAYPOINTS,
         capeCod: CAPE_COD_WAYPOINTS,
+        grandCanyon: GRAND_CANYON_WAYPOINTS,
+        fuji: FUJI_WAYPOINTS,
       },
     };
     if ((window as any).__INDICATRIX_ENGINE__) {
@@ -1561,6 +1666,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           shadowIntensity: stateRef.current.shadowIntensity,
           verticalScaleMode: stateRef.current.verticalScaleMode,
           rainShadowFeedback: stateRef.current.rainShadowFeedback,
+          pluvialGamma: stateRef.current.pluvialGamma,
+          weatherOpticalMode: stateRef.current.weatherOpticalMode,
+          timelineMinutes: stateRef.current.timelineMinutes,
+          scrubTau: stateRef.current.scrubTau,
+          weatherTau: stateRef.current.weatherTau,
+          tau: stateRef.current.scrubTau,
+          thermodynamicGating: stateRef.current.thermodynamicGating,
+          lclGating: stateRef.current.thermodynamicGating,
           vortexStrength: curVortexStrength,
           fractureIntensity: curFractureIntensity,
           seaLevel,

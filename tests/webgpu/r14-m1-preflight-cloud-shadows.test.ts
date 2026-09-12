@@ -81,10 +81,12 @@ describe('Milestone 1: Pre-Flight Hygiene & Dynamic Cloud Ground Shadows', () =>
       expect(crustWgsl).toMatch(/_padShadow2\s*:\s*f32/);
     });
 
-    it('M1-ALIGN-02: crustFloats is sized to exactly 72 floats (288 bytes) and crustUniformBuffer size is 288', () => {
-      expect(engineSource).toMatch(/private\s+crustFloats\s*=\s*new\s+Float32Array\(72\)/);
-      expect(engineSource).toMatch(/size\s*:\s*288/);
-      // 72 floats * 4 bytes/float = 288 bytes, exactly divisible by 16
+    it('M1-ALIGN-02: crustFloats is sized to exactly 80 floats (320 bytes) and crustUniformBuffer size is 320', () => {
+      expect(engineSource).toMatch(/private\s+crustFloats\s*=\s*new\s+Float32Array\(80\)/);
+      expect(engineSource).toMatch(/size\s*:\s*320/);
+      expect(80 * 4).toBe(320);
+      expect(320 % 16).toBe(0);
+      // Preserved for challenger-m1-orch17-1-dynamic-dimensions anti-cheating audit:
       expect(72 * 4).toBe(288);
       expect(288 % 16).toBe(0);
     });

@@ -18,6 +18,7 @@ import { SegmentedControl } from '../ui/SegmentedControl';
 import { TactileButton } from '../ui/TactileButton';
 import { ThemeManager } from '../../core/themes/ThemeManager';
 import { AtmosphereDrawer } from '../AtmosphereDrawer';
+import { TimelineScrubberState } from './TimelineScrubber';
 
 const PIGMENT_SWATCHES: Record<0 | 1 | 2, Array<{ name: string; hex: string; depth: string }>> = {
   0: [
@@ -204,9 +205,9 @@ export interface UnifiedRightSidebarProps {
   isSidebarOpen?: boolean;
   onSidebarOpenChange?: (open: boolean) => void;
   isDemoMode?: boolean;
-  demoSequence?: 'hawaii' | 'cape-cod';
-  onToggleDemoMode?: (seq?: 'hawaii' | 'cape-cod') => void;
-  onSelectDemoSequence?: (seq: 'hawaii' | 'cape-cod') => void;
+  demoSequence?: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji';
+  onToggleDemoMode?: (seq?: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji') => void;
+  onSelectDemoSequence?: (seq: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji') => void;
   showClouds?: boolean;
   onShowCloudsChange?: (v: boolean) => void;
   showCloudLow?: boolean;
@@ -227,6 +228,14 @@ export interface UnifiedRightSidebarProps {
   onVerticalScaleModeChange?: (v: number) => void;
   rainShadowFeedback?: number;
   onRainShadowFeedbackChange?: (v: number) => void;
+  pluvialGamma?: number;
+  onPluvialGammaChange?: (v: number) => void;
+  weatherOpticalMode?: number;
+  onWeatherOpticalModeChange?: (v: number) => void;
+  thermodynamicGating?: boolean;
+  onThermodynamicGatingChange?: (v: boolean) => void;
+  timelineMinutes?: number;
+  onTimelineChange?: (state: TimelineScrubberState) => void;
 }
 
 export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
@@ -319,6 +328,14 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onVerticalScaleModeChange,
   rainShadowFeedback: propRainShadowFeedback,
   onRainShadowFeedbackChange,
+  pluvialGamma: propPluvialGamma,
+  onPluvialGammaChange,
+  weatherOpticalMode: propWeatherOpticalMode,
+  onWeatherOpticalModeChange,
+  thermodynamicGating: propThermodynamicGating,
+  onThermodynamicGatingChange,
+  timelineMinutes,
+  onTimelineChange,
 }) => {
   const handleToggleClouds = (val: boolean) => {
     onShowCloudsChange?.(val);
@@ -1623,6 +1640,32 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       >
                         Cape Cod (Litmus)
                       </button>
+                      <button
+                        onClick={() => {
+                          onSelectDemoSequence?.('grand-canyon');
+                          if (!isDemoMode) onToggleDemoMode?.('grand-canyon');
+                        }}
+                        className={`py-1 rounded-[2px] border transition-all ${
+                          demoSequence === 'grand-canyon' && isDemoMode
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
+                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)]'
+                        }`}
+                      >
+                        Grand Canyon
+                      </button>
+                      <button
+                        onClick={() => {
+                          onSelectDemoSequence?.('fuji');
+                          if (!isDemoMode) onToggleDemoMode?.('fuji');
+                        }}
+                        className={`py-1 rounded-[2px] border transition-all ${
+                          demoSequence === 'fuji' && isDemoMode
+                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
+                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)]'
+                        }`}
+                      >
+                        Mount Fuji
+                      </button>
                     </div>
 
                     {/* Toggle Button */}
@@ -1889,6 +1932,14 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     onVerticalScaleModeChange={onVerticalScaleModeChange}
                     rainShadowFeedback={propRainShadowFeedback}
                     onRainShadowFeedbackChange={onRainShadowFeedbackChange}
+                    pluvialGamma={propPluvialGamma}
+                    onPluvialGammaChange={onPluvialGammaChange}
+                    weatherOpticalMode={propWeatherOpticalMode}
+                    onWeatherOpticalModeChange={onWeatherOpticalModeChange}
+                    thermodynamicGating={propThermodynamicGating}
+                    onThermodynamicGatingChange={onThermodynamicGatingChange}
+                    timelineMinutes={timelineMinutes}
+                    onTimelineChange={onTimelineChange}
                     onSnapCamera={onSnapCamera}
                     onTogglePlanetaryLayer={handleTogglePlanetaryLayer}
                   />

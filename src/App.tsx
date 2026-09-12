@@ -3,6 +3,7 @@ import { SimulationMode, LoadedDataInfo } from './types';
 import { DataLayerRenderStyle } from './core/data/DataLayerCatalog';
 import { TelemetryHUD } from './components/hud/TelemetryHUD';
 import { NavigationDock } from './components/hud/NavigationDock';
+import type { TimelineScrubberState } from './components/hud/TimelineScrubber';
 import { useEngineState } from './hooks/useEngineState';
 import { useCameraKinematics } from './hooks/useCameraKinematics';
 import { registerDevToolsAPI } from './core/DevToolsAPI';
@@ -90,6 +91,54 @@ export default function App() {
   const [shadowIntensity, setShadowIntensity] = useState<number>(0.45);
   const [verticalScaleMode, setVerticalScaleMode] = useState<number>(0);
   const [rainShadowFeedback, setRainShadowFeedback] = useState<number>(0.0);
+  const [pluvialGamma, setPluvialGamma] = useState<number>(0.0);
+  const [weatherOpticalMode, setWeatherOpticalMode] = useState<number>(0);
+  const [timelineMinutes, setTimelineMinutes] = useState<number>(0);
+  const [scrubTau, setScrubTau] = useState<number>(0);
+  const [thermodynamicGating, setThermodynamicGating] = useState<boolean>(true);
+
+  const handleTimelineChange = useCallback((state: TimelineScrubberState) => {
+    setTimelineMinutes(state.absoluteMinutes);
+    setScrubTau(state.tau);
+    if (typeof window !== 'undefined') {
+      const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+      if (engine && typeof engine.updateAtmosphereUniforms === 'function') {
+        engine.updateAtmosphereUniforms({
+          weatherTimeMinutes: state.absoluteMinutes,
+          weatherTau: state.tau,
+          scrubTau: state.tau,
+          tau: state.tau,
+        });
+      }
+
+      // Live Doppler Radar nowcasting dispatch in radar zone (-60m to 0m)
+      if (state.isRadarZone || state.absoluteMinutes < 0) {
+        const radarDS = (window as any).__INDICATRIX_LIVE_RADAR_DATA_SOURCE__;
+        if (radarDS && !radarDS.disposed) {
+          radarDS.setAbsoluteMinutes(state.absoluteMinutes);
+          const radarRing = (window as any).__INDICATRIX_RADAR_RING_BUFFER__;
+          if (radarRing && !radarRing.disposed && engine && engine.precipRingBuffer !== radarRing) {
+            engine.setPrecipitationRingBuffer(radarRing);
+          }
+          radarDS.uploadToRingBuffer();
+        }
+      }
+
+      // Google DeepMind WeatherNext 3 prognostic forecast dispatch in forecast zone (0m to +48h)
+      if (state.isForecastZone || state.absoluteMinutes >= 0) {
+        const wnRing = (window as any).__INDICATRIX_WEATHERNEXT_RING_BUFFER__;
+        if (wnRing && !wnRing.disposed && engine && engine.precipRingBuffer !== wnRing) {
+          engine.setPrecipitationRingBuffer(wnRing);
+        }
+        const weatherNextDS =
+          (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ ||
+          (window as any).__INDICATRIX_WEATHERNEXT_SOURCE__;
+        if (weatherNextDS && !weatherNextDS.disposed && typeof weatherNextDS.setTime === 'function') {
+          weatherNextDS.setTime(state.bracketHour, state.tau);
+        }
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -118,6 +167,32 @@ export default function App() {
           const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
           if (typeof v !== 'number' || !Number.isFinite(v)) return prev;
           return Math.max(0.0, Math.min(1.0, v));
+        });
+      };
+      (window as any).__INDICATRIX_SET_PLUVIAL_GAMMA__ = (valOrFn: any) => {
+        setPluvialGamma((prev) => {
+          const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+          if (typeof v !== 'number' || !Number.isFinite(v)) return prev;
+          return Math.max(0.0, Math.min(2.0, v));
+        });
+      };
+      (window as any).__INDICATRIX_SET_WEATHER_OPTICAL_MODE__ = (valOrFn: any) => {
+        setWeatherOpticalMode((prev) => {
+          const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+          if (typeof v !== 'number' || !Number.isFinite(v)) return prev;
+          return Math.floor(v) === 1 ? 1 : 0;
+        });
+      };
+      (window as any).__INDICATRIX_SET_TIMELINE_MINUTES__ = (valOrFn: any) => {
+        setTimelineMinutes((prev) => {
+          const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+          if (typeof v !== 'number' || !Number.isFinite(v)) return prev;
+          const clamped = Math.max(-60, Math.min(2880, v));
+          const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+          if (engine && typeof engine.setTimelineMinutes === 'function') {
+            engine.setTimelineMinutes(clamped);
+          }
+          return clamped;
         });
       };
     }
@@ -149,18 +224,18 @@ export default function App() {
   const audioEngineRef = useRef<ProceduralAudioEngine>(new ProceduralAudioEngine(true));
 
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
-  const [demoSequence, setDemoSequence] = useState<'hawaii' | 'cape-cod'>('hawaii');
+  const [demoSequence, setDemoSequence] = useState<'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji'>('hawaii');
 
-  const toggleDemoMode = useCallback((seq?: 'hawaii' | 'cape-cod') => {
+  const toggleDemoMode = useCallback((seq?: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji') => {
     if (seq) setDemoSequence(seq);
     setIsDemoMode((prev) => !prev);
   }, []);
 
-  const selectDemoSequence = useCallback((seq: 'hawaii' | 'cape-cod') => {
+  const selectDemoSequence = useCallback((seq: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji') => {
     setDemoSequence(seq);
   }, []);
 
-  const handleDemoModeChange = useCallback((active: boolean, seq?: 'hawaii' | 'cape-cod') => {
+  const handleDemoModeChange = useCallback((active: boolean, seq?: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji') => {
     if (seq) setDemoSequence(seq);
     setIsDemoMode(active);
   }, []);
@@ -528,6 +603,12 @@ export default function App() {
                 onShadowIntensityChange={setShadowIntensity}
                 verticalScaleMode={verticalScaleMode}
                 rainShadowFeedback={rainShadowFeedback}
+                pluvialGamma={pluvialGamma}
+                weatherOpticalMode={weatherOpticalMode}
+                timelineMinutes={timelineMinutes}
+                scrubTau={scrubTau}
+                weatherTau={scrubTau}
+                thermodynamicGating={thermodynamicGating}
                 onShowCloudsChange={setShowClouds}
               />
             </React.Suspense>
@@ -644,6 +725,14 @@ export default function App() {
           onVerticalScaleModeChange={setVerticalScaleMode}
           rainShadowFeedback={rainShadowFeedback}
           onRainShadowFeedbackChange={setRainShadowFeedback}
+          pluvialGamma={pluvialGamma}
+          onPluvialGammaChange={setPluvialGamma}
+          weatherOpticalMode={weatherOpticalMode}
+          onWeatherOpticalModeChange={setWeatherOpticalMode}
+          timelineMinutes={timelineMinutes}
+          onTimelineChange={handleTimelineChange}
+          thermodynamicGating={thermodynamicGating}
+          onThermodynamicGatingChange={setThermodynamicGating}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}

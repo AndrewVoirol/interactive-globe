@@ -32,6 +32,8 @@ import { loadNodeAssetBuffer, loadNodeAssetText } from '../utils/nodeAssetLoader
 import { OrigamiCraneFlightSolver, CraneState } from '../core/physics/OrigamiCraneFlightSolver';
 import { VectorFieldDataSource } from '../core/data/VectorFieldDataSource';
 import { ThemeManager, PhysicalMediumProperties } from '../core/themes';
+import { getSolarPosition, SolarPosition } from '../core/astronomy/SolarEphemeris';
+import { TemporalTextureRingBuffer } from './TemporalTextureRingBuffer';
 
 export interface WebGPUInitConfig {
   canvas: HTMLCanvasElement;
@@ -100,8 +102,24 @@ export interface WebGPUFrameParams {
   atmosphericScale?: number;
   verticalScaleMode?: number;
   rainShadowFeedback?: number;
+  pluvialGamma?: number;
+  weatherOpticalMode?: number;
+  thermodynamicGating?: boolean;
+  lclGating?: boolean;
+  timelineMinutes?: number;
+  weatherTimeMinutes?: number;
+  weatherTau?: number;
+  scrubTau?: number;
+  tau?: number;
+  advection?: boolean;
+  enableAdvection?: boolean;
   mediumProperties?: PhysicalMediumProperties;
+  solarTimestamp?: number;
   elevationSampler?: (lon: number, lat: number) => { elevationMeters: number; gradEast: number; gradNorth: number };
+  alpha?: number;
+  unfurlProgress?: number;
+  width?: number;
+  height?: number;
 }
 
 export interface CloudDimensions {
@@ -120,6 +138,7 @@ export interface CloudOptions {
   showMid: boolean;
   showHigh: boolean;
 }
+
 
 export class WebGPUEngine {
   private adapter: GPUAdapter | null = null;
@@ -176,7 +195,8 @@ export class WebGPUEngine {
   public crustVertexBuffer: GPUBuffer | null = null;
   public crustIndexBuffer: GPUBuffer | null = null;
   public crustIndexCount: number = 0;
-  private crustFloats = new Float32Array(72);
+  // SimUniforms: 320 bytes (80 floats), 16-byte aligned (Invariant §20)
+  private crustFloats = new Float32Array(80);
   private crustUints = new Uint32Array(this.crustFloats.buffer);
   private crustHydrospherePipeline!: GPURenderPipeline;
   private crustBindGroupLayout!: GPUBindGroupLayout;
@@ -199,8 +219,144 @@ export class WebGPUEngine {
   }
   public verticalScaleMode: number = 0; // 0 = Linear Legacy, 1 = Symmetrical Dual-Log
   public rainShadowFeedback: number = 0.0; // 0.0 = Off, 0.0..1.0 = Dynamic Coupling Strength
+
+  private _pluvialGamma: number = 0.0;
+  public get pluvialGamma(): number {
+    return this._pluvialGamma;
+  }
+  public set pluvialGamma(val: number) {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
+    this._pluvialGamma = Math.max(0.0, Math.min(2.0, val));
+  }
+  public setPluvialGamma(gamma: number): void {
+    this.pluvialGamma = gamma;
+  }
+  public getPluvialGamma(): number {
+    return this._pluvialGamma;
+  }
+
+  private _weatherOpticalMode: number = 0;
+  public get weatherOpticalMode(): number {
+    return this._weatherOpticalMode;
+  }
+  public set weatherOpticalMode(val: number) {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
+    this._weatherOpticalMode = Math.floor(val);
+  }
+  public setWeatherOpticalMode(mode: number): void {
+    this.weatherOpticalMode = mode;
+  }
+  public getWeatherOpticalMode(): number {
+    return this._weatherOpticalMode;
+  }
+
+  private _timelineMinutes: number = 0;
+  public get timelineMinutes(): number {
+    return this._timelineMinutes;
+  }
+  public set timelineMinutes(val: number) {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
+    this._timelineMinutes = val;
+  }
+  public setTimelineMinutes(minutes: number): void {
+    this.timelineMinutes = minutes;
+  }
+  public getTimelineMinutes(): number {
+    return this._timelineMinutes;
+  }
+
+  private _weatherTau: number = 0.0;
+  public get weatherTau(): number {
+    return this._weatherTau;
+  }
+  public set weatherTau(val: number) {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
+    this._weatherTau = Math.max(0.0, Math.min(1.0, val));
+  }
+  public setWeatherTau(tau: number): void {
+    this.weatherTau = tau;
+  }
+  public getWeatherTau(): number {
+    return this._weatherTau;
+  }
+  public get scrubTau(): number {
+    return this._weatherTau;
+  }
+  public set scrubTau(val: number) {
+    this.weatherTau = val;
+  }
+
+  private _advectionEnabled: boolean = false;
+  public get advectionEnabled(): boolean {
+    return this._advectionEnabled;
+  }
+  public set advectionEnabled(val: boolean) {
+    this._advectionEnabled = Boolean(val);
+  }
+
+  public updateAtmosphereUniforms(params: {
+    weatherTimeMinutes?: number;
+    weatherTau?: number;
+    scrubTau?: number;
+    tau?: number;
+    advection?: boolean;
+    enableAdvection?: boolean;
+  }): void {
+    if (params.weatherTimeMinutes !== undefined) {
+      this.setTimelineMinutes(params.weatherTimeMinutes);
+    }
+    const t = params.scrubTau ?? params.tau ?? params.weatherTau;
+    if (t !== undefined) {
+      this.setWeatherTau(t);
+    }
+    const adv = params.advection ?? params.enableAdvection;
+    if (adv !== undefined) {
+      this._advectionEnabled = Boolean(adv);
+    }
+  }
+
   private dummyCloudTexture: GPUTexture | null = null;
   private dummyCloudTextureView: GPUTextureView | null = null;
+  private dummyPrecipTexture: GPUTexture | null = null;
+  private dummyPrecipTextureView: GPUTextureView | null = null;
+  private dummyPrecipSampler: GPUSampler | null = null;
+  public precipTexture: GPUTexture | null = null;
+  public precipTextureView: GPUTextureView | null = null;
+  public precipSampler: GPUSampler | null = null;
+  public precipRingBuffer: TemporalTextureRingBuffer | null = null;
+  private crustPrecipBindGroups: [GPUBindGroup, GPUBindGroup, GPUBindGroup] | null = null;
+
+  private dummyTempTexture: GPUTexture | null = null;
+  private dummyTempTextureView: GPUTextureView | null = null;
+  public tempTexture: GPUTexture | null = null;
+  public tempTextureView: GPUTextureView | null = null;
+
+  private dummyDewpointTexture: GPUTexture | null = null;
+  private dummyDewpointTextureView: GPUTextureView | null = null;
+  public dewpointTexture: GPUTexture | null = null;
+  public dewpointTextureView: GPUTextureView | null = null;
+
+  private dummyWindTexture: GPUTexture | null = null;
+  private dummyWindTextureView: GPUTextureView | null = null;
+
+  private _lclGating: boolean = true;
+  public get lclGating(): boolean {
+    return this._lclGating;
+  }
+  public set lclGating(val: boolean) {
+    this._lclGating = !!val;
+  }
+  public setLclGating(enabled: boolean): void {
+    this.lclGating = enabled;
+  }
+  public getLclGating(): boolean {
+    return this._lclGating;
+  }
+
+  public currentSolarPosition: SolarPosition | null = null;
+  public get currentSolar(): SolarPosition | null {
+    return this.currentSolarPosition;
+  }
 
   // High-Resolution Regional DEM Overlay Pipeline
   public regionalDEMTextures = new Map<string, {
@@ -959,9 +1115,9 @@ export class WebGPUEngine {
       this.loadVectorData('/geo-vectors.bin').catch(() => {});
     }
 
-    // 3. Lithosphere Crust & Hydrosphere Uniform Buffer (288 bytes, 16-byte aligned) (M1-T3, STAGE 2)
+    // 3. Lithosphere Crust & Hydrosphere Uniform Buffer (320 bytes, 16-byte aligned) (M1-T3, STAGE 2)
     this.crustUniformBuffer = this.device.createBuffer({
-      size: 288,
+      size: 320,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -998,6 +1154,15 @@ export class WebGPUEngine {
     this.dummyCloudTextureView = this.dummyCloudTexture.createView({
       label: 'dummy_cloud_texture_view',
     });
+    this.ensurePrecipCrustTexture();
+    this.ensureTempTexture();
+    this.ensureDewpointTexture();
+    this.ensureWindTexture();
+
+    if (typeof window !== 'undefined' && typeof fetch !== 'undefined' && !isTestEnv) {
+      this.loadTemperatureTexture('/data/weathernext/temp-00.bin').catch(() => {});
+      this.loadDewpointTexture('/data/weathernext/dewpoint-00.bin').catch(() => {});
+    }
 
     // 4. Dual-Surface Lithosphere Crust & Liquid Hydrosphere 3D Sphere Grid Buffers
     // Test environment uses lightweight 128x256; live production engine uses 512x1024 (1M triangles)
@@ -1442,6 +1607,16 @@ export class WebGPUEngine {
         : this.dummyCloudTextureView;
       const cloudSampler = this.cloudSampler || this.demSampler;
 
+      this.ensurePrecipCrustTexture();
+      this.ensureTempTexture();
+      this.ensureDewpointTexture();
+      this.ensureWindTexture();
+      const precipView = this.precipTextureView || this.dummyPrecipTextureView;
+      const precipSampler = this.precipSampler || this.dummyPrecipSampler || this.demSampler;
+      const tempView = this.tempTextureView || this.dummyTempTextureView;
+      const dewpointView = this.dewpointTextureView || this.dummyDewpointTextureView;
+      const windView = this.windTextureView || this.dummyWindTextureView;
+
       this.crustBindGroup = this.device.createBindGroup({
         label: 'crust_hydrosphere_bind_group',
         layout: this.crustBindGroupLayout,
@@ -1455,8 +1630,18 @@ export class WebGPUEngine {
           { binding: 6, resource: { buffer: regBuffer } },
           { binding: 7, resource: cloudView },
           { binding: 8, resource: cloudSampler },
+          { binding: 9, resource: precipView! },
+          { binding: 10, resource: precipSampler! },
+          { binding: 11, resource: tempView! },
+          { binding: 12, resource: dewpointView! },
+          { binding: 13, resource: precipView! },
+          { binding: 14, resource: windView! },
         ],
       });
+
+      if (this.precipRingBuffer && !this.precipRingBuffer.disposed) {
+        this.setPrecipitationRingBuffer(this.precipRingBuffer);
+      }
     }
 
     // Atmospheric Wind BindGroups (update with new DEM view)
@@ -3211,6 +3396,12 @@ export class WebGPUEngine {
         { binding: 6, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
         { binding: 7, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
         { binding: 8, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+        { binding: 9, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 10, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+        { binding: 11, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 12, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 13, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 14, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
       ],
     });
 
@@ -3925,6 +4116,48 @@ export class WebGPUEngine {
       this.crustFloats[70] = 2.5;             // u_cloudAltitudeKm
       this.crustUints[71] = params.verticalScaleMode !== undefined ? params.verticalScaleMode : this.verticalScaleMode;
 
+      // SimUniforms: Atmospheric Pluvial Coupling & Weather Optical Mode (floats 72..75, offset 288..304)
+      const rawPluvial = params.pluvialGamma !== undefined ? params.pluvialGamma : this._pluvialGamma;
+      const validPluvial = (typeof rawPluvial === 'number' && Number.isFinite(rawPluvial))
+        ? Math.max(0.0, Math.min(2.0, rawPluvial))
+        : 0.0;
+      const rawMode = params.weatherOpticalMode !== undefined ? params.weatherOpticalMode : this._weatherOpticalMode;
+      const validMode = (typeof rawMode === 'number' && Number.isFinite(rawMode))
+        ? Math.floor(rawMode)
+        : 0;
+
+      if (params.timelineMinutes !== undefined) {
+        this.timelineMinutes = params.timelineMinutes;
+      } else if (params.weatherTimeMinutes !== undefined) {
+        this.timelineMinutes = params.weatherTimeMinutes;
+      }
+      const scrubVal = params.scrubTau ?? params.tau ?? params.weatherTau;
+      if (scrubVal !== undefined) {
+        this.weatherTau = scrubVal;
+      }
+
+      if (params.solarTimestamp !== undefined) {
+        this.currentSolarPosition = getSolarPosition(params.solarTimestamp);
+      }
+      this.crustFloats[72] = validPluvial;
+      this.crustUints[73] = validMode;
+      this.crustFloats[74] = 0.0;
+      this.crustFloats[75] = 0.0;
+      const rawLclGating = params.thermodynamicGating !== undefined
+        ? params.thermodynamicGating
+        : (params.lclGating !== undefined ? params.lclGating : this._lclGating);
+      const isLclGating = typeof rawLclGating === 'boolean' ? rawLclGating : !!rawLclGating;
+      // u_lclBypass: f32 (float 74, offset 296) - 0.0 = active LCL condensation gating, 1.0 = bypass LCL gating (Rule 72)
+      this.crustFloats[74] = isLclGating ? 0.0 : 1.0;
+      this.crustFloats[76] = this._weatherTau;
+      const isAdvection = params.advection !== undefined
+        ? Boolean(params.advection)
+        : (params.enableAdvection !== undefined ? Boolean(params.enableAdvection) : this._advectionEnabled);
+      // u_advectionActive: f32 (float 77, offset 308) - 1.0 = semi-Lagrangian advection active, 0.0 = raw precipitation (Rule 72)
+      this.crustFloats[77] = isAdvection ? 1.0 : 0.0;
+      this.crustFloats[78] = 0.0;
+      this.crustFloats[79] = 0.0;
+
       this.device.queue.writeBuffer(this.crustUniformBuffer, 0, cf.buffer);
     }
 
@@ -4048,6 +4281,26 @@ export class WebGPUEngine {
     }
   }
 
+  /**
+   * Evaluates whether precipitation rendering / simulation is active for the current frame.
+   * Precipitation is active if pluvialGamma > 0, weatherOpticalMode > 0, precipTexture is bound,
+   * or a non-disposed precipRingBuffer is attached.
+   */
+  public isPrecipActive(params: Partial<WebGPUFrameParams> = {}): boolean {
+    const pGamma = params.pluvialGamma !== undefined ? params.pluvialGamma : this._pluvialGamma;
+    const isPluvialActive = typeof pGamma === 'number' && Number.isFinite(pGamma) && pGamma > 0;
+
+    const wMode = params.weatherOpticalMode !== undefined ? params.weatherOpticalMode : this._weatherOpticalMode;
+    const isModeActive = typeof wMode === 'number' && Number.isFinite(wMode) && Math.floor(wMode) > 0;
+
+    return (
+      isPluvialActive ||
+      isModeActive ||
+      this.precipTexture !== null ||
+      (this.precipRingBuffer !== null && !this.precipRingBuffer.disposed)
+    );
+  }
+
   public render(params: WebGPUFrameParams): void {
     if (!this.isInitialized) return;
 
@@ -4065,8 +4318,17 @@ export class WebGPUEngine {
       this.updateDepthTexture(canvasWidth, canvasHeight);
     }
 
-    // 1. Ensure cartographic buffers if relief, vectors, cloud shadows, or atmosphere are active
-    if (params.reliefActive || params.showRelief || params.showVectors || params.showClouds || params.showAtmosphere) {
+    // 1. Ensure cartographic buffers if relief, vectors, cloud shadows, atmosphere, or pluvial/precipitation are active
+    const isPrecipActive = this.isPrecipActive(params);
+
+    if (
+      params.reliefActive ||
+      params.showRelief ||
+      params.showVectors ||
+      params.showClouds ||
+      params.showAtmosphere ||
+      isPrecipActive
+    ) {
       this.ensureCartographicBuffers();
     }
 
@@ -4162,7 +4424,10 @@ export class WebGPUEngine {
       this.crustIndexCount > 0
     ) {
       renderPass.setPipeline(this.crustHydrospherePipeline);
-      renderPass.setBindGroup(0, this.crustBindGroup);
+      const crustBg = (this.precipRingBuffer && !this.precipRingBuffer.disposed && this.crustPrecipBindGroups)
+        ? this.crustPrecipBindGroups[this.precipRingBuffer.getActivePhysicalIndex(0)]
+        : this.crustBindGroup;
+      renderPass.setBindGroup(0, crustBg);
       renderPass.setVertexBuffer(0, this.crustVertexBuffer);
       renderPass.setIndexBuffer(this.crustIndexBuffer, 'uint32');
       const indexCountToDraw = (params.renderStyle === 'architectural' || params.renderStyle === 'photoreal')
@@ -4332,6 +4597,386 @@ export class WebGPUEngine {
     };
     if (options.enabled !== undefined) {
       this.cloudEnabled = options.enabled;
+    }
+  }
+
+  public ensurePrecipCrustTexture(): GPUTextureView | void {
+    if (!this.dummyPrecipTextureView && this.device) {
+      this.dummyPrecipTexture = this.device.createTexture({
+        label: 'dummy_precip_texture',
+        size: [1, 1, 1],
+        format: 'r16float',
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+      });
+      const dummyPrecipPix = new Uint16Array([0]);
+      this.device.queue.writeTexture(
+        { texture: this.dummyPrecipTexture },
+        dummyPrecipPix,
+        { bytesPerRow: 256, rowsPerImage: 1 },
+        [1, 1, 1]
+      );
+      this.dummyPrecipTextureView = this.dummyPrecipTexture.createView({
+        label: 'dummy_precip_texture_view',
+      });
+    }
+
+    if (!this.dummyPrecipSampler && this.device) {
+      this.dummyPrecipSampler = this.device.createSampler({
+        label: 'dummy_precip_sampler',
+        minFilter: 'linear',
+        magFilter: 'linear',
+      });
+    }
+
+    if (this.precipRingBuffer && !this.precipRingBuffer.disposed) {
+      this.precipTextureView = this.precipRingBuffer.getTextureView(1);
+    } else {
+      if (this.precipRingBuffer && this.precipRingBuffer.disposed) {
+        this.precipTextureView = null;
+      }
+      if (!this.precipTextureView && this.precipTexture) {
+        this.precipTextureView = this.precipTexture.createView({
+          label: 'crust_precip_texture_view',
+        });
+      }
+    }
+
+    return this.precipTextureView || this.dummyPrecipTextureView!;
+  }
+
+  public ensureWindTexture(): GPUTextureView {
+    if (!this.dummyWindTextureView && this.device) {
+      this.dummyWindTexture = this.device.createTexture({
+        label: 'dummy_wind_texture',
+        size: [1, 1, 1],
+        format: 'rg16float',
+        usage: (typeof GPUTextureUsage !== 'undefined'
+          ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
+          : (4 | 8)),
+      });
+      // 1x1 rg16float returns [0.0, 0.0]
+      const dummyWindPix = new Uint16Array([encodeFloat16(0.0), encodeFloat16(0.0)]);
+      this.device.queue.writeTexture(
+        { texture: this.dummyWindTexture },
+        dummyWindPix,
+        { bytesPerRow: 256, rowsPerImage: 1 },
+        [1, 1, 1]
+      );
+      this.dummyWindTextureView = this.dummyWindTexture.createView({
+        label: 'dummy_wind_texture_view',
+      });
+    }
+    return this.windTextureView || this.dummyWindTextureView!;
+  }
+
+  public ensureTempTexture(): GPUTextureView {
+    if (!this.dummyTempTextureView && this.device) {
+      this.dummyTempTexture = this.device.createTexture({
+        label: 'dummy_temp_texture',
+        size: [1, 1, 1],
+        format: 'r16float',
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+      });
+      // Default: 15.0°C
+      const dummyTempPix = new Uint16Array([encodeFloat16(15.0)]);
+      this.device.queue.writeTexture(
+        { texture: this.dummyTempTexture },
+        dummyTempPix,
+        { bytesPerRow: 256, rowsPerImage: 1 },
+        [1, 1, 1]
+      );
+      this.dummyTempTextureView = this.dummyTempTexture.createView({
+        label: 'dummy_temp_texture_view',
+      });
+    }
+
+    if (!this.tempTextureView && this.tempTexture) {
+      this.tempTextureView = this.tempTexture.createView({
+        label: 'crust_temp_texture_view',
+      });
+    }
+
+    return this.tempTextureView || this.dummyTempTextureView!;
+  }
+
+  public ensureDewpointTexture(): GPUTextureView {
+    if (!this.dummyDewpointTextureView && this.device) {
+      this.dummyDewpointTexture = this.device.createTexture({
+        label: 'dummy_dewpoint_texture',
+        size: [1, 1, 1],
+        format: 'r16float',
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+      });
+      // Default: 10.0°C (LCL ≈ 125 * (15 - 10) = 625m)
+      const dummyDewpointPix = new Uint16Array([encodeFloat16(10.0)]);
+      this.device.queue.writeTexture(
+        { texture: this.dummyDewpointTexture },
+        dummyDewpointPix,
+        { bytesPerRow: 256, rowsPerImage: 1 },
+        [1, 1, 1]
+      );
+      this.dummyDewpointTextureView = this.dummyDewpointTexture.createView({
+        label: 'dummy_dewpoint_texture_view',
+      });
+    }
+
+    if (!this.dewpointTextureView && this.dewpointTexture) {
+      this.dewpointTextureView = this.dewpointTexture.createView({
+        label: 'crust_dewpoint_texture_view',
+      });
+    }
+
+    return this.dewpointTextureView || this.dummyDewpointTextureView!;
+  }
+
+  public async loadTemperatureTexture(
+    urlOrBuffer: string | ArrayBuffer = '/data/weathernext/temp-00.bin'
+  ): Promise<void> {
+    if (!this.device || !this.isInitialized) return;
+
+    let buffer: ArrayBuffer | null = null;
+    if (urlOrBuffer instanceof ArrayBuffer) {
+      buffer = urlOrBuffer;
+    } else if (typeof fetch !== 'undefined') {
+      try {
+        const res = await fetch(urlOrBuffer);
+        if (res.ok) {
+          buffer = await res.arrayBuffer();
+        }
+      } catch {
+        // Fallback below
+      }
+    }
+
+    if (!buffer && typeof process !== 'undefined' && process.versions?.node) {
+      try {
+        buffer = await loadNodeAssetBuffer(
+          typeof urlOrBuffer === 'string' ? urlOrBuffer : 'public/data/weathernext/temp-00.bin'
+        );
+      } catch {
+        // Not found
+      }
+    }
+
+    if (!buffer) return;
+
+    const bytesPerTexel = 2; // Float16
+    let texW = 3600;
+    let texH = 1801;
+    if (buffer.byteLength === 1440 * 721 * bytesPerTexel) {
+      texW = 1440;
+      texH = 721;
+    } else if (buffer.byteLength === 360 * 181 * bytesPerTexel) {
+      texW = 360;
+      texH = 181;
+    } else if (buffer.byteLength !== 3600 * 1801 * bytesPerTexel) {
+      texW = Math.max(1, Math.round(Math.sqrt(buffer.byteLength / (2 * bytesPerTexel))));
+      texH = Math.max(1, Math.floor(buffer.byteLength / (texW * bytesPerTexel)));
+    }
+
+    const rowBytesRaw = texW * bytesPerTexel;
+    const bytesPerRow = Math.ceil(rowBytesRaw / 256) * 256;
+    const totalPadded = bytesPerRow * texH;
+    const padded = new Uint8Array(totalPadded);
+    const srcU8 = new Uint8Array(buffer);
+
+    for (let r = 0; r < texH; r++) {
+      const srcOff = r * rowBytesRaw;
+      const dstOff = r * bytesPerRow;
+      padded.set(srcU8.subarray(srcOff, srcOff + rowBytesRaw), dstOff);
+    }
+
+    this.tempTexture?.destroy();
+    this.tempTexture = this.device.createTexture({
+      label: 'weathernext_temperature_texture',
+      size: [texW, texH, 1],
+      format: 'r16float',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    this.device.queue.writeTexture(
+      { texture: this.tempTexture },
+      padded,
+      { bytesPerRow, rowsPerImage: texH },
+      [texW, texH, 1]
+    );
+    this.tempTextureView = this.tempTexture.createView({
+      label: 'weathernext_temperature_texture_view',
+    });
+
+    this.updateDEMBindGroups();
+  }
+
+  public async loadDewpointTexture(
+    urlOrBuffer: string | ArrayBuffer = '/data/weathernext/dewpoint-00.bin'
+  ): Promise<void> {
+    if (!this.device || !this.isInitialized) return;
+
+    let buffer: ArrayBuffer | null = null;
+    if (urlOrBuffer instanceof ArrayBuffer) {
+      buffer = urlOrBuffer;
+    } else if (typeof fetch !== 'undefined') {
+      try {
+        const res = await fetch(urlOrBuffer);
+        if (res.ok) {
+          buffer = await res.arrayBuffer();
+        }
+      } catch {
+        // Fallback below
+      }
+    }
+
+    if (!buffer && typeof process !== 'undefined' && process.versions?.node) {
+      try {
+        buffer = await loadNodeAssetBuffer(
+          typeof urlOrBuffer === 'string' ? urlOrBuffer : 'public/data/weathernext/dewpoint-00.bin'
+        );
+      } catch {
+        // Not found
+      }
+    }
+
+    if (!buffer) return;
+
+    const bytesPerTexel = 2; // Float16
+    let texW = 3600;
+    let texH = 1801;
+    if (buffer.byteLength === 1440 * 721 * bytesPerTexel) {
+      texW = 1440;
+      texH = 721;
+    } else if (buffer.byteLength === 360 * 181 * bytesPerTexel) {
+      texW = 360;
+      texH = 181;
+    } else if (buffer.byteLength !== 3600 * 1801 * bytesPerTexel) {
+      texW = Math.max(1, Math.round(Math.sqrt(buffer.byteLength / (2 * bytesPerTexel))));
+      texH = Math.max(1, Math.floor(buffer.byteLength / (texW * bytesPerTexel)));
+    }
+
+    const rowBytesRaw = texW * bytesPerTexel;
+    const bytesPerRow = Math.ceil(rowBytesRaw / 256) * 256;
+    const totalPadded = bytesPerRow * texH;
+    const padded = new Uint8Array(totalPadded);
+    const srcU8 = new Uint8Array(buffer);
+
+    for (let r = 0; r < texH; r++) {
+      const srcOff = r * rowBytesRaw;
+      const dstOff = r * bytesPerRow;
+      padded.set(srcU8.subarray(srcOff, srcOff + rowBytesRaw), dstOff);
+    }
+
+    this.dewpointTexture?.destroy();
+    this.dewpointTexture = this.device.createTexture({
+      label: 'weathernext_dewpoint_texture',
+      size: [texW, texH, 1],
+      format: 'r16float',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    this.device.queue.writeTexture(
+      { texture: this.dewpointTexture },
+      padded,
+      { bytesPerRow, rowsPerImage: texH },
+      [texW, texH, 1]
+    );
+    this.dewpointTextureView = this.dewpointTexture.createView({
+      label: 'weathernext_dewpoint_texture_view',
+    });
+
+    this.updateDEMBindGroups();
+  }
+
+  public setPrecipitationRingBuffer(ring: TemporalTextureRingBuffer | null): void {
+    this.precipRingBuffer = ring;
+    if (!ring || ring.disposed) {
+      this.crustPrecipBindGroups = null;
+      this.precipTextureView = null;
+      this._advectionEnabled = false;
+      return;
+    }
+
+    this._advectionEnabled = true;
+    this.ensurePrecipCrustTexture();
+    this.ensureTempTexture();
+    this.ensureDewpointTexture();
+    this.ensureWindTexture();
+
+    if (this.device && this.crustBindGroupLayout && this.crustUniformBuffer && this.orbitalTextureView && this.orbitalSampler) {
+      const regView = this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || this.demTextureView);
+      const regBuffer = (this.activeRegionalDEM && this.regionalUniformBuffer)
+        ? this.regionalUniformBuffer
+        : (this.reliefUniformBuffer || this.crustUniformBuffer);
+      const cloudView = this.cloudTextures?.low
+        ? this.cloudTextures.low.createView({ label: 'crust_cloud_texture_view' })
+        : this.dummyCloudTextureView;
+      const cloudSampler = this.cloudSampler || this.demSampler;
+      const precipSampler = this.precipSampler || this.dummyPrecipSampler || this.demSampler;
+      const tempView = this.tempTextureView || this.dummyTempTextureView;
+      const dewpointView = this.dewpointTextureView || this.dummyDewpointTextureView;
+      const windView = this.windTextureView || this.dummyWindTextureView;
+
+      this.crustPrecipBindGroups = [
+        this.device.createBindGroup({
+          label: 'crust_precip_slot_0_bind_group',
+          layout: this.crustBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.crustUniformBuffer } },
+            { binding: 1, resource: this.demTextureView },
+            { binding: 2, resource: this.demSampler },
+            { binding: 3, resource: this.orbitalTextureView },
+            { binding: 4, resource: this.orbitalSampler },
+            { binding: 5, resource: regView },
+            { binding: 6, resource: { buffer: regBuffer } },
+            { binding: 7, resource: cloudView },
+            { binding: 8, resource: cloudSampler },
+            { binding: 9, resource: ring.getPhysicalTextureView(0) },
+            { binding: 10, resource: precipSampler! },
+            { binding: 11, resource: tempView! },
+            { binding: 12, resource: dewpointView! },
+            { binding: 13, resource: ring.getPhysicalTextureView(1) },
+            { binding: 14, resource: windView! },
+          ],
+        }),
+        this.device.createBindGroup({
+          label: 'crust_precip_slot_1_bind_group',
+          layout: this.crustBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.crustUniformBuffer } },
+            { binding: 1, resource: this.demTextureView },
+            { binding: 2, resource: this.demSampler },
+            { binding: 3, resource: this.orbitalTextureView },
+            { binding: 4, resource: this.orbitalSampler },
+            { binding: 5, resource: regView },
+            { binding: 6, resource: { buffer: regBuffer } },
+            { binding: 7, resource: cloudView },
+            { binding: 8, resource: cloudSampler },
+            { binding: 9, resource: ring.getPhysicalTextureView(1) },
+            { binding: 10, resource: precipSampler! },
+            { binding: 11, resource: tempView! },
+            { binding: 12, resource: dewpointView! },
+            { binding: 13, resource: ring.getPhysicalTextureView(2) },
+            { binding: 14, resource: windView! },
+          ],
+        }),
+        this.device.createBindGroup({
+          label: 'crust_precip_slot_2_bind_group',
+          layout: this.crustBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.crustUniformBuffer } },
+            { binding: 1, resource: this.demTextureView },
+            { binding: 2, resource: this.demSampler },
+            { binding: 3, resource: this.orbitalTextureView },
+            { binding: 4, resource: this.orbitalSampler },
+            { binding: 5, resource: regView },
+            { binding: 6, resource: { buffer: regBuffer } },
+            { binding: 7, resource: cloudView },
+            { binding: 8, resource: cloudSampler },
+            { binding: 9, resource: ring.getPhysicalTextureView(2) },
+            { binding: 10, resource: precipSampler! },
+            { binding: 11, resource: tempView! },
+            { binding: 12, resource: dewpointView! },
+            { binding: 13, resource: ring.getPhysicalTextureView(0) },
+            { binding: 14, resource: windView! },
+          ],
+        }),
+      ];
     }
   }
 
@@ -5071,6 +5716,35 @@ export class WebGPUEngine {
     this.dummyCloudTexture?.destroy();
     this.dummyCloudTexture = null;
     this.dummyCloudTextureView = null;
+
+    this.dummyPrecipTexture?.destroy();
+    this.dummyPrecipTexture = null;
+    this.dummyPrecipTextureView = null;
+    this.dummyPrecipSampler = null;
+    this.precipTexture = null;
+    this.precipTextureView = null;
+    this.precipSampler = null;
+    this.precipRingBuffer?.dispose();
+    this.precipRingBuffer = null;
+    this.crustPrecipBindGroups = null;
+
+    this.dummyTempTexture?.destroy();
+    this.dummyTempTexture = null;
+    this.dummyTempTextureView = null;
+    this.tempTexture?.destroy();
+    this.tempTexture = null;
+    this.tempTextureView = null;
+
+    this.dummyDewpointTexture?.destroy();
+    this.dummyDewpointTexture = null;
+    this.dummyDewpointTextureView = null;
+    this.dewpointTexture?.destroy();
+    this.dewpointTexture = null;
+    this.dewpointTextureView = null;
+
+    this.dummyWindTexture?.destroy();
+    this.dummyWindTexture = null;
+    this.dummyWindTextureView = null;
 
     this.atmosphereUniformBuffer?.destroy();
     this.atmosphereUniformBuffer = null;

@@ -1,0 +1,65 @@
+{
+  "source": "Google DeepMind WeatherNext 3",
+  "model": "weathernext_3_0_0_statistics",
+  "dataset": "gs://weathernext3_statistics_spatial/weathernext_3_0_0_statistics/zarr/2026_to_present/",
+  "forecastInitTimestamp": "2026-09-12T04:00:00Z",
+  "forecastRunCycle": "20260911_21hr_01_preds",
+  "ingestedAtUTC": "2026-09-12T04:17:20.960426+00:00",
+  "billingProject": "antigravity-agent-1765655548",
+  "gridDimensions": {
+    "width": 3600,
+    "height": 1801,
+    "lonPoints": 3600,
+    "latPoints": 1801,
+    "resolutionDeg": 0.1,
+    "latMin": -90.0,
+    "latMax": 90.0,
+    "lonMin": -180.0,
+    "lonMax": 179.9
+  },
+  "timeHorizon": {
+    "startHour": 0,
+    "endHour": 2,
+    "stepHours": 1,
+    "totalHours": 3
+  },
+  "validPredictionHours": [
+    0,
+    1,
+    2
+  ],
+  "variables": [
+    "total_precipitation_1hr_mean"
+  ],
+  "variableMetadata": {
+    "total_precipitation_1hr_mean": {
+      "longName": "Accumulated Precipitation Rate",
+      "units": "kg/m^2",
+      "canonicalMin": 0.0,
+      "canonicalMax": 50.0
+    }
+  },
+  "textureEncoding": {
+    "format": "r16float",
+    "bytesPerTexel": 2,
+    "rawRowBytes": 7200,
+    "paddedRowBytes": 7424,
+    "paddingBytesPerRow": 224,
+    "isPrePadded": true,
+    "sliceByteLength": 12967200,
+    "paddedSliceByteLength": 13370624
+  },
+  "filePattern": "/data/weathernext/{variable}-{hour}.bin",
+  "provenance": {
+    "sourceBucket": "gs://weathernext3_statistics_spatial/weathernext_3_0_0_statistics/zarr/2026_to_present/20260911_21hr_01_preds/predictions.zarr",
+    "chunkShape": [
+      1,
+      1801,
+      3600
+    ],
+    "sourceDtype": "float32",
+    "outputDtype": "float16",
+    "latitudeOrientation": "row_0_north_inverted",
+    "longitudeOrientation": "col_0_antimeridian_rolled_1800"
+  }
+}
