@@ -220,6 +220,7 @@ fn computeLiftedAltitude(lonRad: f32, latRad: f32, vel: vec2<f32>, isJet: bool) 
     let dynamicExp = mix(1.0, 1.8, orbitT) * (max(0.5, sim.u_peakExponent) / 1.4);
     
     let poleDist = abs(clamp(0.5 - latRad / PI, 0.001, 0.999) - 0.5) * 2.0;
+    let poleAtten = 1.0 - smoothstep(0.85, 0.98, poleDist);
     var terrainDisp = 0.0;
     let dispScale = sim.u_displacementScale * 2.8;
     if (sim.u_verticalScaleMode == 1u) {

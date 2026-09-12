@@ -9,7 +9,7 @@ import { Vector3, Vector4, Matrix4, PerspectiveCamera, Vec3Tuple, slerpVec3 } fr
 import { WebGPUEngine } from './WebGPUEngine';
 import { CursorTracker } from '../utils/raycast';
 import { useCursorTracker } from '../core/CursorContext';
-import { DataLayerItem } from '../components/hud/TelemetryHUD';
+import { DataLayerItem, PrognosticModelBackend } from '../components/hud/TelemetryHUD';
 
 import { GeodesicOverlayMode, ResolutionTier } from '../types';
 import { WhimsicalEffectsManager } from '../core/effects/WhimsicalEffectsManager';
@@ -154,6 +154,7 @@ export interface WebGPUCanvasProps {
   onThermodynamicGatingChange?: (v: boolean) => void;
   onShowCloudsChange?: (v: boolean) => void;
   onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
+  prognosticModel?: PrognosticModelBackend;
 }
 
 interface RegionalManifestEntry {
@@ -223,6 +224,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   thermodynamicGating = true,
   onShowCloudsChange,
   onTogglePlanetaryLayer,
+  prognosticModel = 'weathernext3',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -519,6 +521,46 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         console.warn('[WebGPUCanvas] Failed to initialize live Doppler radar:', err);
       });
     }
+    const hasWeatherNext =
+      (prognosticModel === 'weathernext3' ||
+        prognosticModel === 'google-weathernext3' ||
+        prognosticModel === 'weathernext') &&
+      !!dataLayers?.find(
+        (l) =>
+          (l.id === 'google-weathernext3' ||
+            l.id === 'weathernext' ||
+            l.type === '0.1° (10km) AI') &&
+          l.visible
+      );
+    if (hasWeatherNext) {
+      import('../core/data/WeatherNextDataSource').then(({ WeatherNextDataSource }) => {
+        import('./TemporalTextureRingBuffer').then(({ TemporalTextureRingBuffer }) => {
+          const dev = engine.getDevice();
+          if (dev) {
+            let wnRing = (window as any).__INDICATRIX_WEATHERNEXT_RING_BUFFER__;
+            if (!wnRing || wnRing.disposed || wnRing.width !== 3600) {
+              wnRing = new TemporalTextureRingBuffer(dev, 3600, 1801, 'r16float');
+              (window as any).__INDICATRIX_WEATHERNEXT_RING_BUFFER__ = wnRing;
+            }
+            if (engine.precipRingBuffer !== wnRing) {
+              engine.setPrecipitationRingBuffer(wnRing);
+            }
+            let weatherNextDS =
+              (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ ||
+              (window as any).__INDICATRIX_WEATHERNEXT_SOURCE__;
+            if (!weatherNextDS || weatherNextDS.disposed) {
+              weatherNextDS = new WeatherNextDataSource({ ringBuffer: wnRing });
+              (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ = weatherNextDS;
+              weatherNextDS.seekHour(0).catch((err: any) => {
+                console.warn('[WeatherNext] Initial seekHour(0) error:', err);
+              });
+            }
+          }
+        });
+      }).catch((err) => {
+        console.warn('[WebGPUCanvas] Failed to initialize WeatherNext 3:', err);
+      });
+    }
     const hasCrane = !!dataLayers?.find(
       (l) => (l.id === 'origami-crane-companion' || l.id === 'origami-crane') && l.visible
     );
@@ -537,7 +579,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     if (hasPhotoreal && !engine.isOrbitalTexturesLoaded()) {
       engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
     }
-  }, [dataLayers]);
+  }, [dataLayers, prognosticModel]);
 
   const focusCrane = useCallback(() => {
     const engine = engineRef.current;

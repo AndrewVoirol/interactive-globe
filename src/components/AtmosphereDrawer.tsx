@@ -133,34 +133,8 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const handlePrognosticModelChange = (model: PrognosticModelBackend) => {
     setInternalPrognosticModel(model);
     onPrognosticModelChange?.(model);
-    if (typeof window !== 'undefined') {
-      if ((window as any).__INDICATRIX_SET_PROGNOSTIC_MODEL__) {
-        (window as any).__INDICATRIX_SET_PROGNOSTIC_MODEL__(model);
-      }
-      if (model === 'weathernext' || model === 'weathernext3' || model === 'google-weathernext3') {
-        const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__;
-        if (engine && engine.device && !(window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__) {
-          import('../core/data/WeatherNextDataSource').then(({ WeatherNextDataSource }) => {
-            import('../webgpu/TemporalTextureRingBuffer').then(({ TemporalTextureRingBuffer }) => {
-              try {
-                let ring = engine.precipRingBuffer;
-                if (!ring || ring.disposed || ring.width !== 3600) {
-                  ring = new TemporalTextureRingBuffer(engine.device, 3600, 1801, 'r16float');
-                  engine.setPrecipitationRingBuffer(ring);
-                }
-                (window as any).__INDICATRIX_WEATHERNEXT_RING_BUFFER__ = ring;
-                const ds = new WeatherNextDataSource({ ringBuffer: ring });
-                (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ = ds;
-                ds.seekHour(0).catch((err: any) => {
-                  console.warn('[WeatherNext] Initial seekHour(0) error:', err);
-                });
-              } catch (e) {
-                console.warn('[AtmosphereDrawer] Failed to initialize WeatherNextDataSource:', e);
-              }
-            });
-          });
-        }
-      }
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_PROGNOSTIC_MODEL__) {
+      (window as any).__INDICATRIX_SET_PROGNOSTIC_MODEL__(model);
     }
   };
 

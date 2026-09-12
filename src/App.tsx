@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { SimulationMode, LoadedDataInfo } from './types';
-import { DataLayerRenderStyle } from './core/data/DataLayerCatalog';
-import { TelemetryHUD } from './components/hud/TelemetryHUD';
+import { DataLayerRenderStyle, getPresetById } from './core/data/DataLayerCatalog';
+import { TelemetryHUD, type PrognosticModelBackend } from './components/hud/TelemetryHUD';
 import { NavigationDock } from './components/hud/NavigationDock';
-import type { TimelineScrubberState } from './components/hud/TimelineScrubber';
+import { TimelineScrubber, type TimelineScrubberState } from './components/hud/TimelineScrubber';
 import { useEngineState } from './hooks/useEngineState';
 import { useCameraKinematics } from './hooks/useCameraKinematics';
 import { registerDevToolsAPI } from './core/DevToolsAPI';
@@ -96,6 +96,7 @@ export default function App() {
   const [timelineMinutes, setTimelineMinutes] = useState<number>(0);
   const [scrubTau, setScrubTau] = useState<number>(0);
   const [thermodynamicGating, setThermodynamicGating] = useState<boolean>(true);
+  const [prognosticModel, setPrognosticModel] = useState<PrognosticModelBackend>('weathernext3');
 
   const handleTimelineChange = useCallback((state: TimelineScrubberState) => {
     setTimelineMinutes(state.absoluteMinutes);
@@ -278,6 +279,46 @@ export default function App() {
     handleReorderDataLayer,
     handleSelectRenderStyle,
   } = useGlobeLayerManager();
+
+  const isWeatherActive = useMemo(() => {
+    return dataLayers.some(
+      (l) =>
+        l.visible &&
+        (l.id === 'google-weathernext3' ||
+          l.id === 'live-doppler-radar' ||
+          l.id === 'noaa-gfs-wind' ||
+          l.id === 'noaa-gfs-jetstream' ||
+          l.id === 'atmospheric-clouds')
+    );
+  }, [dataLayers]);
+
+  const handlePrognosticModelChange = useCallback(
+    (model: PrognosticModelBackend) => {
+      setPrognosticModel(model);
+      if (model === 'weathernext3' || model === 'google-weathernext3' || model === 'weathernext') {
+        const exists = dataLayers.find((l) => l.id === 'google-weathernext3');
+        if (exists && !exists.visible) {
+          handleToggleDataLayer('google-weathernext3');
+        } else if (!exists) {
+          const preset = getPresetById('google-weathernext3');
+          if (preset) {
+            handleAddDataLayer({
+              id: preset.id,
+              name: preset.name,
+              category: preset.category,
+              type: preset.type,
+              details: preset.details,
+              visible: true,
+              url: preset.url,
+              opacity: preset.defaultOpacity,
+              blendMode: preset.defaultBlendMode,
+            });
+          }
+        }
+      }
+    },
+    [dataLayers, handleToggleDataLayer, handleAddDataLayer]
+  );
 
   const handleSelectRenderStyleWithVectorAuto = useCallback(
     (style: DataLayerRenderStyle) => {
@@ -610,6 +651,8 @@ export default function App() {
                 weatherTau={scrubTau}
                 thermodynamicGating={thermodynamicGating}
                 onShowCloudsChange={setShowClouds}
+                prognosticModel={prognosticModel}
+                onTogglePlanetaryLayer={(id) => handleToggleDataLayer(id)}
               />
             </React.Suspense>
           ) : (
@@ -733,6 +776,8 @@ export default function App() {
           onTimelineChange={handleTimelineChange}
           thermodynamicGating={thermodynamicGating}
           onThermodynamicGatingChange={setThermodynamicGating}
+          prognosticModel={prognosticModel}
+          onPrognosticModelChange={handlePrognosticModelChange}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}
@@ -751,6 +796,20 @@ export default function App() {
           theme={theme}
           mode={mode}
         />
+
+        {/* Persistent Bottom Weather & Atmospheric Timeline Bar */}
+        {isWeatherActive && !isZenMode && (
+          <div
+            className={`fixed bottom-[116px] left-1/2 -translate-x-1/2 z-20 pointer-events-auto max-w-xl w-[calc(100%-3rem)] transition-all duration-300 shadow-2xl ${
+              isSidebarOpen ? 'md:left-[calc(50%-12rem)]' : ''
+            }`}
+          >
+            <TimelineScrubber
+              value={timelineMinutes}
+              onTimeChange={handleTimelineChange}
+            />
+          </div>
+        )}
 
         {/* Zen Mode Translucent Cartographic Anchor Pill */}
         {isZenMode && (

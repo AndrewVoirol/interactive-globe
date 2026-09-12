@@ -7,13 +7,13 @@
 
 import React from 'react';
 import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo, ResolutionTier } from '../../types';
-import { UnifiedRightSidebar } from './UnifiedRightSidebar';
+import { UnifiedRightSidebar, PrognosticModelBackend } from './UnifiedRightSidebar';
 import { DataLayerToastNotification, ToastMessage } from './DataLayerToastNotification';
 import { DataLayerItem } from './DataLayersDrawer';
 import { BlendModeType, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
 import { TimelineScrubberState } from './TimelineScrubber';
 
-export type { DataLayerItem, ToastMessage, LoadedDataInfo, ResolutionTier };
+export type { DataLayerItem, ToastMessage, LoadedDataInfo, ResolutionTier, PrognosticModelBackend };
 
 export interface TelemetryHUDProps {
   isZenMode: boolean;
@@ -111,6 +111,8 @@ export interface TelemetryHUDProps {
   onWeatherOpticalModeChange?: (v: number) => void;
   thermodynamicGating?: boolean;
   onThermodynamicGatingChange?: (v: boolean) => void;
+  prognosticModel?: PrognosticModelBackend;
+  onPrognosticModelChange?: (model: PrognosticModelBackend) => void;
   timelineMinutes?: number;
   onTimelineChange?: (state: TimelineScrubberState) => void;
 }
@@ -214,6 +216,8 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onWeatherOpticalModeChange={props.onWeatherOpticalModeChange}
         thermodynamicGating={props.thermodynamicGating}
         onThermodynamicGatingChange={props.onThermodynamicGatingChange}
+        prognosticModel={props.prognosticModel}
+        onPrognosticModelChange={props.onPrognosticModelChange}
         timelineMinutes={props.timelineMinutes}
         onTimelineChange={props.onTimelineChange}
       />

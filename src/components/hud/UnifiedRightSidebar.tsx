@@ -17,7 +17,8 @@ import { VernierSlider } from '../ui/VernierSlider';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { TactileButton } from '../ui/TactileButton';
 import { ThemeManager } from '../../core/themes/ThemeManager';
-import { AtmosphereDrawer } from '../AtmosphereDrawer';
+import { AtmosphereDrawer, PrognosticModelBackend } from '../AtmosphereDrawer';
+export type { PrognosticModelBackend };
 import { TimelineScrubberState } from './TimelineScrubber';
 
 const PIGMENT_SWATCHES: Record<0 | 1 | 2, Array<{ name: string; hex: string; depth: string }>> = {
@@ -234,6 +235,8 @@ export interface UnifiedRightSidebarProps {
   onWeatherOpticalModeChange?: (v: number) => void;
   thermodynamicGating?: boolean;
   onThermodynamicGatingChange?: (v: boolean) => void;
+  prognosticModel?: PrognosticModelBackend;
+  onPrognosticModelChange?: (model: PrognosticModelBackend) => void;
   timelineMinutes?: number;
   onTimelineChange?: (state: TimelineScrubberState) => void;
 }
@@ -263,6 +266,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onModeChange,
   cursorPhysicsEnabled,
   onCursorPhysicsToggle,
+  prognosticModel,
+  onPrognosticModelChange,
   activeOverlay,
   onOverlayChange,
   showLandmarks,
@@ -1938,6 +1943,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     onWeatherOpticalModeChange={onWeatherOpticalModeChange}
                     thermodynamicGating={propThermodynamicGating}
                     onThermodynamicGatingChange={onThermodynamicGatingChange}
+                    prognosticModel={prognosticModel}
+                    onPrognosticModelChange={onPrognosticModelChange}
                     timelineMinutes={timelineMinutes}
                     onTimelineChange={onTimelineChange}
                     onSnapCamera={onSnapCamera}

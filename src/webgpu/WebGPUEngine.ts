@@ -3111,23 +3111,6 @@ export class WebGPUEngine {
     }
   }
 
-  public renderWindRibbons(passEncoder: GPURenderPassEncoder): void {
-    if (
-      !this.windRibbonPipeline ||
-      !this.windRibbonBindGroups ||
-      !this.quadCornerBuffer
-    )
-      return;
-
-    const activeBg = this.windRibbonBindGroups[(this.windStep + 1) % 2];
-    if (!activeBg) return;
-
-    passEncoder.setPipeline(this.windRibbonPipeline);
-    passEncoder.setBindGroup(0, activeBg);
-    passEncoder.setVertexBuffer(0, this.quadCornerBuffer);
-    passEncoder.draw(4, this.windParticleCount * 3, 0, 0);
-  }
-
   public renderOrigamiCrane(
     passEncoder: GPURenderPassEncoder,
     _params: WebGPUFrameParams
