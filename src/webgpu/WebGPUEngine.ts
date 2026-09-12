@@ -1281,6 +1281,12 @@ export class WebGPUEngine {
       initialWindData[idx + 2] = alt;
       initialWindData[idx + 3] = age;
 
+      // vel
+      initialWindData[idx + 4] = 0.0;
+      initialWindData[idx + 5] = 0.0;
+      initialWindData[idx + 6] = 0.0;
+      initialWindData[idx + 7] = 0.0;
+
       const r = 5.0 + alt;
       const x = r * Math.cos(lat) * Math.sin(lon);
       const y = r * Math.sin(lat);
@@ -2564,8 +2570,13 @@ export class WebGPUEngine {
             const p01 = curData[i01 + c];
             const p11 = curData[i11 + c];
             const mean = (p00 + p10 + p01 + p11) * 0.25;
-            const maxVal = Math.max(p00, p10, p01, p11);
-            nextData[dstIdx + c] = Math.min(255, Math.round(0.4 * mean + 0.6 * maxVal));
+            if (c === 2) {
+              // Channel B: Binary Land Mask - majority voting threshold to prevent ocean bleed
+              nextData[dstIdx + c] = mean >= 128 ? 255 : 0;
+            } else {
+              // Channels R (land elev), G (depth), A (global elev): pure arithmetic mean preserving gradients
+              nextData[dstIdx + c] = Math.min(255, Math.round(mean));
+            }
           }
         }
       }
@@ -2613,8 +2624,13 @@ export class WebGPUEngine {
             const p01 = curData[i01 + c];
             const p11 = curData[i11 + c];
             const mean = (p00 + p10 + p01 + p11) * 0.25;
-            const maxVal = Math.max(p00, p10, p01, p11);
-            nextData[dstIdx + c] = Math.min(65535, Math.round(0.4 * mean + 0.6 * maxVal));
+            if (c === 2) {
+              // Channel B: Binary Land Mask - majority voting threshold to prevent ocean bleed
+              nextData[dstIdx + c] = mean >= 32768 ? 65535 : 0;
+            } else {
+              // Channels R (land elev), G (depth), A (global elev): pure arithmetic mean preserving gradients
+              nextData[dstIdx + c] = Math.min(65535, Math.round(mean));
+            }
           }
         }
       }
@@ -4194,7 +4210,7 @@ export class WebGPUEngine {
         ? Math.max(0.0, Math.min(0.59999996, rawShadow))
         : (cloudsActive && Number.isFinite(this.shadowIntensity) ? Math.min(0.59999996, this.shadowIntensity) : 0.0);
       const baseDrift = params.cloudDriftSpeed ?? this.cloudOptions?.driftSpeed ?? 1.2;
-      this.crustFloats[69] = 0.6 * baseDrift; // u_cloudDriftRate
+      this.crustFloats[69] = 5.0 * baseDrift; // u_cloudDriftRate
       this.crustFloats[70] = 2.5;             // u_cloudAltitudeKm
       this.crustUints[71] = params.verticalScaleMode !== undefined ? params.verticalScaleMode : this.verticalScaleMode;
 
@@ -5106,53 +5122,66 @@ export class WebGPUEngine {
     }
   }
 
-  public ensureCloudBuffers(): void {
-    if (!this.device || this.cloudBuffersInitialized) return;
+  public ensureCloudBuffers(width: number = 1440, height: number = 721): void {
+    if (!this.device) return;
 
-    this.cloudUniformBuffers = [
-      this.device.createBuffer({ label: 'cloud_uniform_low', size: 288, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
-      this.device.createBuffer({ label: 'cloud_uniform_mid', size: 288, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
-      this.device.createBuffer({ label: 'cloud_uniform_high', size: 288, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
-    ];
-    this.cloudStagingBuffer = this.device.createBuffer({
-      label: 'cloud_staging',
-      size: 2214912,
-      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-    });
+    if (!this.cloudUniformBuffers) {
+      this.cloudUniformBuffers = [
+        this.device.createBuffer({ label: 'cloud_uniform_low', size: 288, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
+        this.device.createBuffer({ label: 'cloud_uniform_mid', size: 288, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
+        this.device.createBuffer({ label: 'cloud_uniform_high', size: 288, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }),
+      ];
+    }
+    
+    if (!this.cloudStagingBuffer) {
+      this.cloudStagingBuffer = this.device.createBuffer({
+        label: 'cloud_staging',
+        size: 13370624, // Fits 3600x1801 WeatherNext pre-padded
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      });
+    }
 
-    const sphereMesh = this.generateSphereGrid(128, 256);
-    this.cloudSphereVertexBuffer = this.device.createBuffer({
-      label: 'cloud_sphere_vertex_buffer',
-      size: sphereMesh.vertices.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(this.cloudSphereVertexBuffer, 0, sphereMesh.vertices.buffer);
+    if (!this.cloudSphereVertexBuffer) {
+      const sphereMesh = this.generateSphereGrid(128, 256);
+      this.cloudSphereVertexBuffer = this.device.createBuffer({
+        label: 'cloud_sphere_vertex_buffer',
+        size: sphereMesh.vertices.byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      });
+      this.device.queue.writeBuffer(this.cloudSphereVertexBuffer, 0, sphereMesh.vertices.buffer);
 
-    this.cloudSphereIndexBuffer = this.device.createBuffer({
-      label: 'cloud_sphere_index_buffer',
-      size: sphereMesh.indices.byteLength,
-      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(this.cloudSphereIndexBuffer, 0, sphereMesh.indices.buffer);
-    this.cloudIndexCount = sphereMesh.indices.length;
+      this.cloudSphereIndexBuffer = this.device.createBuffer({
+        label: 'cloud_sphere_index_buffer',
+        size: sphereMesh.indices.byteLength,
+        usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+      });
+      this.device.queue.writeBuffer(this.cloudSphereIndexBuffer, 0, sphereMesh.indices.buffer);
+      this.cloudIndexCount = sphereMesh.indices.length;
+    }
 
-    if (!this.cloudTextures.low) {
+    let texturesNeedRecreation = !this.cloudTextures.low || this.cloudTextures.low.width !== width || this.cloudTextures.low.height !== height;
+
+    if (texturesNeedRecreation) {
+      if (this.cloudTextures.low) this.cloudTextures.low.destroy();
+      if (this.cloudTextures.mid) this.cloudTextures.mid.destroy();
+      if (this.cloudTextures.high) this.cloudTextures.high.destroy();
+      
       this.cloudTextures = {
         low: this.device.createTexture({
           label: 'cloud_texture_low',
-          size: [1440, 721, 1],
+          size: [width, height, 1],
           format: 'r16float',
           usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
         }),
         mid: this.device.createTexture({
           label: 'cloud_texture_mid',
-          size: [1440, 721, 1],
+          size: [width, height, 1],
           format: 'r16float',
           usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
         }),
         high: this.device.createTexture({
           label: 'cloud_texture_high',
-          size: [1440, 721, 1],
+          size: [width, height, 1],
           format: 'r16float',
           usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
         }),
@@ -5168,8 +5197,10 @@ export class WebGPUEngine {
     }
 
     this.cloudBuffersInitialized = true;
-    this.updateCloudBindGroups();
-    this.updateDEMBindGroups();
+    if (texturesNeedRecreation) {
+      this.updateCloudBindGroups();
+      this.updateDEMBindGroups();
+    }
   }
 
   public updateCloudBindGroups(): void {
@@ -5256,29 +5287,34 @@ export class WebGPUEngine {
 
   public setCloudData(
     layer: 'low' | 'mid' | 'high',
-    data: Uint8Array | ArrayBufferView | ArrayBuffer
+    data: Uint8Array | ArrayBufferView | ArrayBuffer,
+    width: number = 1440,
+    height: number = 721
   ): void {
     if (!this.device || !this.isInitialized) return;
-    this.ensureCloudBuffers();
+    this.ensureCloudBuffers(width, height);
 
     const rawBytes = data instanceof Uint8Array
       ? data
       : ArrayBuffer.isView(data)
       ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
       : new Uint8Array(data);
-    const width = 1440;
-    const height = 721;
     const bytesPerPixel = 2; // Float16
-    const rawRowBytes = width * bytesPerPixel; // 2880
-    const paddedRowBytes = Math.ceil(rawRowBytes / 256) * 256; // 3072 (Invariant §40)
-    const totalPaddedSize = paddedRowBytes * height; // 2214912
+    const rawRowBytes = width * bytesPerPixel; 
+    const paddedRowBytes = Math.ceil(rawRowBytes / 256) * 256; 
+    const totalPaddedSize = paddedRowBytes * height; 
 
-    const paddedBytes = new Uint8Array(totalPaddedSize);
-    for (let row = 0; row < height; row++) {
-      const srcOffset = row * rawRowBytes;
-      const dstOffset = row * paddedRowBytes;
-      const srcRow = rawBytes.subarray(srcOffset, Math.min(rawBytes.length, srcOffset + rawRowBytes));
-      paddedBytes.set(srcRow, dstOffset);
+    let paddedBytes: Uint8Array;
+    if (rawBytes.length === totalPaddedSize) {
+      paddedBytes = rawBytes;
+    } else {
+      paddedBytes = new Uint8Array(totalPaddedSize);
+      for (let row = 0; row < height; row++) {
+        const srcOffset = row * rawRowBytes;
+        const dstOffset = row * paddedRowBytes;
+        const srcRow = rawBytes.subarray(srcOffset, Math.min(rawBytes.length, srcOffset + rawRowBytes));
+        paddedBytes.set(srcRow, dstOffset);
+      }
     }
 
     if (this.cloudStagingBuffer) {
@@ -5315,13 +5351,15 @@ export class WebGPUEngine {
 
   public async loadCloudData(
     layer: 'low' | 'mid' | 'high',
-    urlOrData?: string | Uint8Array | ArrayBuffer
+    urlOrData?: string | Uint8Array | ArrayBuffer,
+    width: number = 1440,
+    height: number = 721
   ): Promise<void> {
     if (!this.device || !this.isInitialized) return;
-    this.ensureCloudBuffers();
+    this.ensureCloudBuffers(width, height);
 
     if (urlOrData instanceof Uint8Array || urlOrData instanceof ArrayBuffer) {
-      this.setCloudData(layer, urlOrData);
+      this.setCloudData(layer, urlOrData, width, height);
       return;
     }
 
@@ -5339,18 +5377,40 @@ export class WebGPUEngine {
     }
 
     if (buffer) {
-      this.setCloudData(layer, buffer);
+      this.setCloudData(layer, buffer, width, height);
     } else {
+      this.ensureCloudBuffers(1440, 721);
       const procBuf = this.generateProceduralCloudBuffer(layer);
-      this.setCloudData(layer, procBuf);
+      this.setCloudData(layer, procBuf, 1440, 721);
     }
   }
 
-  public async loadAllCloudLayers(): Promise<void> {
+  public async loadAllCloudLayers(isWeatherNext: boolean = false): Promise<void> {
+    if (isWeatherNext) {
+      try {
+        await Promise.all([
+          this.loadCloudData('low', '/data/weathernext/low_cloud_cover_mean-0.bin', 3600, 1801),
+          this.loadCloudData('mid', '/data/weathernext/medium_cloud_cover_mean-0.bin', 3600, 1801),
+          this.loadCloudData('high', '/data/weathernext/high_cloud_cover_mean-0.bin', 3600, 1801),
+        ]);
+        return;
+      } catch (e) {
+        console.warn('WeatherNext cloud layers failed to load, falling back to GFS');
+      }
+    }
+    
     await Promise.all([
       this.loadCloudData('low'),
       this.loadCloudData('mid'),
       this.loadCloudData('high'),
+    ]);
+  }
+
+  public async loadWeatherNextCloudLayers(hour: number): Promise<void> {
+    await Promise.all([
+      this.loadCloudData('low', `/data/weathernext/low_cloud_cover_mean-${hour}.bin`, 3600, 1801),
+      this.loadCloudData('mid', `/data/weathernext/medium_cloud_cover_mean-${hour}.bin`, 3600, 1801),
+      this.loadCloudData('high', `/data/weathernext/high_cloud_cover_mean-${hour}.bin`, 3600, 1801),
     ]);
   }
 
@@ -5412,9 +5472,9 @@ export class WebGPUEngine {
     f[10] = vpW > 0 ? 1.0 / vpW : 0.0;
     f[11] = vpH > 0 ? 1.0 / vpH : 0.0;
 
-    f[12] = 0.6; // lowDrift
-    f[13] = 1.0; // midDrift
-    f[14] = 1.8; // highDrift
+    f[12] = 5.0; // lowDrift
+    f[13] = 15.0; // midDrift
+    f[14] = 40.0; // highDrift
     f[15] = baseDrift; // baseDriftSpeed
 
     f[16] = 0.0010; // low standoff

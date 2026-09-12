@@ -198,7 +198,7 @@ describe('Adversarial Challenger Suite: Milestone 4 WebGPU Engine Cloud Integrat
 
       const stagingBuffer = (engine as any).cloudStagingBuffer as MockGPUBuffer;
       expect(stagingBuffer).toBeDefined();
-      expect(stagingBuffer.size).toBe(2214912);
+      expect(stagingBuffer.size).toBe(13370624);
 
       const bufferCountAfterEnsure = device.buffers.length;
 

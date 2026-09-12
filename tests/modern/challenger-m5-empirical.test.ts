@@ -55,7 +55,7 @@ describe('Challenger M5 Empirical Adversarial Verification', () => {
   // Domain 1: Boundary Clamping & Edge Case Probing on Mutators
   // --------------------------------------------------------------------------
   describe('Domain 1: Boundary Clamping and Edge Cases on State Mutators', () => {
-    it('1.1 cloudDriftSpeed clamps -10.0 strictly to 0.0 and +10.0 strictly to 3.0 via individual setter', async () => {
+    it('1.1 cloudDriftSpeed clamps -10.0 strictly to 0.0 and +2500.0 strictly to 2000.0 via individual setter', async () => {
       const state = await mountEngineState();
 
       await act(async () => {
@@ -64,12 +64,12 @@ describe('Challenger M5 Empirical Adversarial Verification', () => {
       expect(latestEngineState!.cloudDriftSpeed).toBe(0.0);
 
       await act(async () => {
-        latestEngineState!.setCloudDriftSpeed(10.0);
+        latestEngineState!.setCloudDriftSpeed(2500.0);
       });
-      expect(latestEngineState!.cloudDriftSpeed).toBe(3.0);
+      expect(latestEngineState!.cloudDriftSpeed).toBe(2000.0);
     });
 
-    it('1.2 cloudDriftSpeed clamps -10.0 strictly to 0.0 and +10.0 strictly to 3.0 via batch setCloudOptions', async () => {
+    it('1.2 cloudDriftSpeed clamps -10.0 strictly to 0.0 and +2500.0 strictly to 2000.0 via batch setCloudOptions', async () => {
       const state = await mountEngineState();
 
       await act(async () => {
@@ -78,9 +78,9 @@ describe('Challenger M5 Empirical Adversarial Verification', () => {
       expect(latestEngineState!.cloudDriftSpeed).toBe(0.0);
 
       await act(async () => {
-        latestEngineState!.setCloudOptions({ cloudDriftSpeed: 10.0 });
+        latestEngineState!.setCloudOptions({ cloudDriftSpeed: 2500.0 });
       });
-      expect(latestEngineState!.cloudDriftSpeed).toBe(3.0);
+      expect(latestEngineState!.cloudDriftSpeed).toBe(2000.0);
     });
 
     it('1.3 cloudOpacity clamps -5.0 strictly to 0.1 and +5.0 strictly to 1.0 via individual setter', async () => {

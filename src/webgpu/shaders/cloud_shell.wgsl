@@ -311,7 +311,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         driftSpeed = cloud.u_cloudDrift.z; // High 1.8x
     }
 
-    let driftOffset = cloud.u_time * driftSpeed * cloud.u_cloudDrift.w;
+    // Physical zonal wind rates in UV units/second (at equator)
+    // Multiply by time-lapse factor (u_cloudDrift.w) for visual acceleration
+    const EARTH_CIRCUMFERENCE_M: f32 = 40075000.0;
+    let physicalRate = driftSpeed / EARTH_CIRCUMFERENCE_M;
+    let driftOffset = cloud.u_time * physicalRate * cloud.u_cloudDrift.w;
     let driftedU = fract(in.uv.x + driftOffset);
     let sampleUV = vec2<f32>(driftedU, in.uv.y);
 

@@ -162,7 +162,7 @@ describe('Milestone 4: WebGPU Engine Cloud Integration Suite', () => {
 
       const stagingBuffer = (engine as any).cloudStagingBuffer;
       expect(stagingBuffer).toBeDefined();
-      expect(stagingBuffer.size).toBe(2214912);
+      expect(stagingBuffer.size).toBe(13370624);
 
       // Textures: 3 r16float cloud textures allocated
       expect(engine.cloudTextures.low).toBeDefined();
@@ -344,9 +344,9 @@ describe('Milestone 4: WebGPU Engine Cloud Integration Suite', () => {
       expect(u32[2]).toBe(1);          // u_theme (1 = Cream Rag)
 
       // Floats 12..15: u_cloudDrift
-      expect(f32[12]).toBeCloseTo(0.6); // lowDrift
-      expect(f32[13]).toBeCloseTo(1.0); // midDrift
-      expect(f32[14]).toBeCloseTo(1.8); // highDrift
+      expect(f32[12]).toBeCloseTo(5.0); // lowDrift
+      expect(f32[13]).toBeCloseTo(15.0); // midDrift
+      expect(f32[14]).toBeCloseTo(40.0); // highDrift
       expect(f32[15]).toBeCloseTo(1.2); // baseDriftSpeed
 
       // Floats 16..19: u_layerStandoff

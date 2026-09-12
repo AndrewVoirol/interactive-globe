@@ -708,7 +708,9 @@ fn computeCloudShadowOffset(uv: vec2<f32>, sunAzimuthDeg: f32, sunAltitudeDeg: f
 }
 
 fn sampleCloudShadowFactor(uv: vec2<f32>, shadowOffset: vec2<f32>, intensity: f32) -> f32 {
-    let driftOffset = sim.u_time * sim.u_cloudDriftRate;
+    const EARTH_CIRCUMFERENCE_M: f32 = 40075000.0;
+    let physicalRate = sim.u_cloudDriftRate / EARTH_CIRCUMFERENCE_M;
+    let driftOffset = sim.u_time * physicalRate;
     let centerUV = vec2<f32>(fract(uv.x + driftOffset + shadowOffset.x), clamp(uv.y + shadowOffset.y, 0.001, 0.999));
     let cosLat = max(0.15, cos((uv.y - 0.5) * 3.141592653589793));
 
@@ -848,12 +850,15 @@ fn mapSphericalGeodesicUV(
     windVelMps: vec2<f32>,
     deltaTSeconds: f32
 ) -> vec2<f32> {
-    let phi_a = (0.5 - arrivalUV.y) * PI_F32;
-    let cos_phi_a = cos(phi_a);
-    let sin_phi_a = sin(phi_a);
     let lam_p = windVelMps.x * (INV_EARTH_RADIUS_M * deltaTSeconds);
     let phi_p = windVelMps.y * (INV_EARTH_RADIUS_M * deltaTSeconds);
     let sigma_sq = lam_p * lam_p + phi_p * phi_p;
+    if (sigma_sq < 1e-12) {
+        return arrivalUV;
+    }
+    let phi_a = (0.5 - arrivalUV.y) * PI_F32;
+    let cos_phi_a = cos(phi_a);
+    let sin_phi_a = sin(phi_a);
     let sigma = sqrt(sigma_sq);
     let sinc = select(1.0 - sigma_sq * 0.16666667, sin(sigma) / max(sigma, 1e-7), sigma > 1e-4);
     let cos_sigma = cos(sigma);
@@ -875,8 +880,9 @@ fn sampleAdvectedPrecipitationField(
     windVelMps: vec2<f32>,
     tau: f32
 ) -> f32 {
-    let uv0 = mapSphericalGeodesicUV(arrivalUV, -windVelMps, tau * 3600.0);
-    let uv1 = mapSphericalGeodesicUV(arrivalUV, windVelMps, (1.0 - tau) * 3600.0);
+    let advectionMultiplier = sim.u_advectionActive;
+    let uv0 = mapSphericalGeodesicUV(arrivalUV, -windVelMps, tau * 3600.0 * advectionMultiplier);
+    let uv1 = mapSphericalGeodesicUV(arrivalUV, windVelMps, (1.0 - tau) * 3600.0 * advectionMultiplier);
     let sample0 = textureSampleLevel(u_precipTexture, u_precipSampler, uv0, 0.0).r;
     let sample1 = textureSampleLevel(u_precipNextTexture, u_precipSampler, uv1, 0.0).r;
     return mix(sample0, sample1, tau);
@@ -899,7 +905,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let demDims = textureDimensions(u_demTexture);
     let texSize = vec2<f32>(f32(demDims.x), f32(demDims.y));
     let deltaMax2 = max(dot(duv_dx * texSize, duv_dx * texSize), dot(duv_dy * texSize, duv_dy * texSize));
-    let mipLOD = clamp(0.5 * log2(max(deltaMax2, 1e-4)), 0.0, 13.0);
+    let mipLOD = clamp(0.5 * log2(max(deltaMax2, 1e-4)) * 0.08, 0.0, 0.5);
 
     let mipStep = exp2(floor(mipLOD));
     let tsGlobal = (vec2<f32>(1.0, 1.0) / max(texSize, vec2<f32>(1.0, 1.0))) * max(1.0, mipStep);
@@ -1047,8 +1053,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let hU = select(-finalDemU.g * 0.25, finalDemU.r, finalDemU.b > 0.45);
     let hD = select(-finalDemD.g * 0.25, finalDemD.r, finalDemD.b > 0.45);
 
-    // Controlled displacement scale: eliminates harsh 120x normal blowout while retaining crisp relief
-    let dispScale = sim.u_displacementScale * 16.0 + 1.0;
+    // Controlled displacement scale: calibrated for crisp Eduard Imhof Swiss relief hillshading
+    let dispScale = sim.u_displacementScale * 45.0 + 1.0;
     let dHx = (hR - hL) * 0.5 * dispScale * slopeScale;
     let dHy = (hD - hU) * 0.5 * dispScale * slopeScale;
 

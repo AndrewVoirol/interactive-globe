@@ -314,7 +314,7 @@ describe('Milestone 1: Pre-Flight Hygiene & Dynamic Cloud Ground Shadows', () =>
     });
 
     it('M1-SYNC-02: crust_hydrosphere.wgsl evaluates driftOffset from sim.u_time * sim.u_cloudDriftRate', () => {
-      expect(crustWgsl).toMatch(/let\s+driftOffset\s*=\s*sim\.u_time\s*\*\s*sim\.u_cloudDriftRate\s*;/);
+      expect(crustWgsl).toMatch(/let\s+driftOffset\s*=\s*sim\.u_time\s*\*\s*physicalRate\s*;/);
       expect(crustWgsl).toMatch(/fract\(uv\.x\s*\+\s*driftOffset\s*\+\s*shadowOffset\.x\)/);
     });
 
@@ -326,7 +326,7 @@ describe('Milestone 1: Pre-Flight Hygiene & Dynamic Cloud Ground Shadows', () =>
 
     it('M1-SYNC-04: WebGPUEngine masks shadow intensity to 0.0 when clouds are toggled off', () => {
       expect(engineSource).toMatch(/const\s+cloudsActive\s*=\s*\(params\.showClouds\s*!==\s*false\)\s*&&\s*\(this\.cloudEnabled\s*!==\s*false\);/);
-      expect(engineSource).toMatch(/this\.crustFloats\[69\]\s*=\s*0\.6\s*\*\s*baseDrift\s*;/);
+      expect(engineSource).toMatch(/this\.crustFloats\[69\]\s*=\s*5\.0\s*\*\s*baseDrift\s*;/);
       expect(engineSource).toMatch(/this\.crustFloats\[70\]\s*=\s*2\.5\s*;/);
     });
   });

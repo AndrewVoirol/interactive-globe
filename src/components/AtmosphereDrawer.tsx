@@ -105,7 +105,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const [internalShowCloudLow, setInternalShowCloudLow] = useState<boolean>(true);
   const [internalShowCloudMid, setInternalShowCloudMid] = useState<boolean>(true);
   const [internalShowCloudHigh, setInternalShowCloudHigh] = useState<boolean>(true);
-  const [internalCloudDriftSpeed, setInternalCloudDriftSpeed] = useState<number>(1.0);
+  const [internalCloudDriftSpeed, setInternalCloudDriftSpeed] = useState<number>(500);
   const [internalCloudOpacity, setInternalCloudOpacity] = useState<number>(0.8);
   const [internalAtmosphericScale, setInternalAtmosphericScale] = useState<number>(3.5);
   const [internalShadowIntensity, setInternalShadowIntensity] = useState<number>(0.45);
@@ -208,7 +208,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   };
 
   const handleCloudDriftChange = (val: number) => {
-    const clamped = Math.max(0.0, Math.min(3.0, val));
+    const clamped = Math.max(0, Math.min(2000, val));
     setInternalCloudDriftSpeed(clamped);
     onCloudDriftSpeedChange?.(clamped);
     if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
@@ -460,13 +460,13 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
           {/* Cloud Drift Speed Vernier Slider */}
           <VernierSlider
             id="sidebar-cloud-drift"
-            label="Drift Speed"
-            sublabel="Atmospheric Advection"
+            label="Time-Lapse"
+            sublabel="Drift Multiplier"
             value={curCloudDriftSpeed}
-            min={0.0}
-            max={3.0}
-            step={0.1}
-            readout={`${curCloudDriftSpeed.toFixed(1)}x`}
+            min={0}
+            max={2000}
+            step={10}
+            readout={`${Math.round(curCloudDriftSpeed)}×`}
             onChange={handleCloudDriftChange}
           />
 

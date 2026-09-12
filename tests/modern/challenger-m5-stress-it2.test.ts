@@ -264,8 +264,8 @@ describe('Challenger M5 Iteration 2: Non-Finite Hardening & Stress Verification'
         }
 
         // Must respect bounds
-        if (currentSpeed < 0.0 || currentSpeed > 3.0) {
-          throw new Error(`Monte Carlo iteration ${i} violated drift bounds [0.0, 3.0]: ${currentSpeed}`);
+        if (currentSpeed < 0.0 || currentSpeed > 2000.0) {
+          throw new Error(`Monte Carlo iteration ${i} violated drift bounds [0.0, 2000.0]: ${currentSpeed}`);
         }
         if (currentOpacity < 0.1 || currentOpacity > 1.0) {
           throw new Error(`Monte Carlo iteration ${i} violated opacity bounds [0.1, 1.0]: ${currentOpacity}`);
@@ -283,7 +283,7 @@ describe('Challenger M5 Iteration 2: Non-Finite Hardening & Stress Verification'
           const batchSpeed = latestEngineState!.cloudDriftSpeed;
           const batchOpacity = latestEngineState!.cloudOpacity;
 
-          if (!Number.isFinite(batchSpeed) || batchSpeed < 0.0 || batchSpeed > 3.0) {
+          if (!Number.isFinite(batchSpeed) || batchSpeed < 0.0 || batchSpeed > 2000.0) {
             throw new Error(`Batch Monte Carlo iteration ${i} failed cloudDriftSpeed: ${batchSpeed}`);
           }
           if (!Number.isFinite(batchOpacity) || batchOpacity < 0.1 || batchOpacity > 1.0) {
@@ -357,7 +357,7 @@ describe('Challenger M5 Iteration 2: Non-Finite Hardening & Stress Verification'
 
     it('4.1 verifies HUD readouts never render NaNx or NaN% under normal and non-finite prop conditions', async () => {
       const props = createSidebarProps({
-        cloudDriftSpeed: 1.5,
+        cloudDriftSpeed: 500,
         cloudOpacity: 0.8,
       });
 
@@ -366,7 +366,7 @@ describe('Challenger M5 Iteration 2: Non-Finite Hardening & Stress Verification'
       });
 
       // Find readouts
-      expect(container.textContent).toContain('1.5x');
+      expect(container.textContent).toContain('500×');
       expect(container.textContent).toContain('80%');
       expect(container.textContent).not.toContain('NaNx');
       expect(container.textContent).not.toContain('NaN%');

@@ -93,7 +93,7 @@ describe('R13 Milestone 5: Atmospheric Cloud Strata HUD Controls & React State I
     onShowCloudMidChange: vi.fn(),
     showCloudHigh: true,
     onShowCloudHighChange: vi.fn(),
-    cloudDriftSpeed: 1.0,
+    cloudDriftSpeed: 500,
     onCloudDriftSpeedChange: vi.fn(),
     cloudOpacity: 0.8,
     onCloudOpacityChange: vi.fn(),
@@ -111,7 +111,7 @@ describe('R13 Milestone 5: Atmospheric Cloud Strata HUD Controls & React State I
       expect(state.showCloudLow).toBe(true);
       expect(state.showCloudMid).toBe(true);
       expect(state.showCloudHigh).toBe(true);
-      expect(state.cloudDriftSpeed).toBe(1.0);
+      expect(state.cloudDriftSpeed).toBe(500);
       expect(state.cloudOpacity).toBe(0.8);
     });
 
@@ -153,9 +153,9 @@ describe('R13 Milestone 5: Atmospheric Cloud Strata HUD Controls & React State I
 
       // Boundary clamp high
       await act(async () => {
-        latestEngineState!.setCloudDriftSpeed(4.5);
+        latestEngineState!.setCloudDriftSpeed(2500);
       });
-      expect(latestEngineState!.cloudDriftSpeed).toBe(3.0);
+      expect(latestEngineState!.cloudDriftSpeed).toBe(2000);
 
       // Boundary clamp low
       await act(async () => {
@@ -209,11 +209,11 @@ describe('R13 Milestone 5: Atmospheric Cloud Strata HUD Controls & React State I
       // Test boundary handling via setCloudOptions
       await act(async () => {
         latestEngineState!.setCloudOptions({
-          cloudDriftSpeed: 9.9,
+          cloudDriftSpeed: 2500,
           cloudOpacity: -0.5,
         });
       });
-      expect(latestEngineState!.cloudDriftSpeed).toBe(3.0);
+      expect(latestEngineState!.cloudDriftSpeed).toBe(2000);
       expect(latestEngineState!.cloudOpacity).toBe(0.1);
     });
 
@@ -478,7 +478,7 @@ describe('R13 Milestone 5: Atmospheric Cloud Strata HUD Controls & React State I
         root.render(
           React.createElement(UnifiedRightSidebar, createSidebarProps({
             showClouds: true,
-            cloudDriftSpeed: 1.5,
+            cloudDriftSpeed: 500,
             cloudOpacity: 0.75,
             onCloudDriftSpeedChange,
             onCloudOpacityChange,
@@ -492,11 +492,11 @@ describe('R13 Milestone 5: Atmospheric Cloud Strata HUD Controls & React State I
       expect(driftSlider).not.toBeNull();
       expect(opacitySlider).not.toBeNull();
 
-      expect(driftSlider.value).toBe('1.5');
+      expect(driftSlider.value).toBe('500');
       expect(opacitySlider.value).toBe('0.75');
 
       // Verify readouts in DOM
-      expect(container.textContent).toContain('1.5x');
+      expect(container.textContent).toContain('500×');
       expect(container.textContent).toContain('75%');
 
       // Helper to trigger input/change events in React 18 / happy-dom
@@ -613,7 +613,7 @@ describe('R13 Milestone 5: Atmospheric Cloud Strata HUD Controls & React State I
         root.render(
           React.createElement(UnifiedRightSidebar, createSidebarProps({
             showClouds: true,
-            cloudDriftSpeed: 1.0,
+            cloudDriftSpeed: 500,
             cloudOpacity: 0.8,
             onCloudDriftSpeedChange,
             onCloudOpacityChange,

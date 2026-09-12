@@ -60,7 +60,7 @@ export function useEngineState() {
   const [showCloudLow, setShowCloudLowState] = useState<boolean>(true);
   const [showCloudMid, setShowCloudMidState] = useState<boolean>(true);
   const [showCloudHigh, setShowCloudHighState] = useState<boolean>(true);
-  const [cloudDriftSpeed, setCloudDriftSpeedState] = useState<number>(1.0);
+  const [cloudDriftSpeed, setCloudDriftSpeedState] = useState<number>(500);
   const [cloudOpacity, setCloudOpacityState] = useState<number>(0.8);
 
   const setShowClouds = (v: boolean | ((prev: boolean) => boolean)) => {
@@ -79,7 +79,7 @@ export function useEngineState() {
     setCloudDriftSpeedState((prev) => {
       const val = typeof v === 'function' ? v(prev) : v;
       if (typeof val !== 'number' || !Number.isFinite(val)) return prev;
-      return Math.max(0.0, Math.min(3.0, val));
+      return Math.max(0, Math.min(2000, val));
     });
   };
   const setCloudOpacity = (v: number | ((prev: number) => number)) => {
@@ -105,7 +105,7 @@ export function useEngineState() {
     if (options.showCloudMid !== undefined) setShowCloudMidState(options.showCloudMid);
     if (options.showCloudHigh !== undefined) setShowCloudHighState(options.showCloudHigh);
     if (options.cloudDriftSpeed !== undefined && typeof options.cloudDriftSpeed === 'number' && Number.isFinite(options.cloudDriftSpeed)) {
-      setCloudDriftSpeedState(Math.max(0.0, Math.min(3.0, options.cloudDriftSpeed)));
+      setCloudDriftSpeedState(Math.max(0, Math.min(2000, options.cloudDriftSpeed)));
     }
     if (options.cloudOpacity !== undefined && typeof options.cloudOpacity === 'number' && Number.isFinite(options.cloudOpacity)) {
       setCloudOpacityState(Math.max(0.1, Math.min(1.0, options.cloudOpacity)));

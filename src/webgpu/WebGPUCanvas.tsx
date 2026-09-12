@@ -496,10 +496,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {
           engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
         });
+        engine.loadAllCloudLayers(true).catch(() => {});
       } else {
         engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+        engine.loadAllCloudLayers(false).catch(() => {});
       }
-      engine.loadAllCloudLayers().catch(() => {});
     }
     const hasJetStream = !!dataLayers?.find(
       (l) => (l.id === 'noaa-gfs-jetstream' || l.id === 'gfs-jetstream') && l.visible
