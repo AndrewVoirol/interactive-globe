@@ -1048,7 +1048,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let oceanDepth = finalDemC.g;
 
     let onLand = isLand > 0.45;
-    let hC = select(-oceanDepth * 0.25, landElev, onLand);
+    // True physical bathymetric elevation scale matching land elevation:
+    // land: [0 .. +8848m] -> [0.0 .. 1.0]
+    // ocean: [0 .. -10924m] -> [0.0 .. -1.2346]
+    let bathyElev = -oceanDepth * (10924.0 / 8848.0);
+    let hC = select(bathyElev, landElev, onLand);
 
     // Domain-aware one-sided finite differences: clamp cross-boundary taps to hC
     let hasR = select(finalDemR.b <= 0.45, finalDemR.b > 0.45, onLand);
@@ -1056,10 +1060,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let hasU = select(finalDemU.b <= 0.45, finalDemU.b > 0.45, onLand);
     let hasD = select(finalDemD.b <= 0.45, finalDemD.b > 0.45, onLand);
 
-    let rawHR = select(-finalDemR.g * 0.25, finalDemR.r, onLand);
-    let rawHL = select(-finalDemL.g * 0.25, finalDemL.r, onLand);
-    let rawHU = select(-finalDemU.g * 0.25, finalDemU.r, onLand);
-    let rawHD = select(-finalDemD.g * 0.25, finalDemD.r, onLand);
+    let rawHR = select(-finalDemR.g * (10924.0 / 8848.0), finalDemR.r, onLand);
+    let rawHL = select(-finalDemL.g * (10924.0 / 8848.0), finalDemL.r, onLand);
+    let rawHU = select(-finalDemU.g * (10924.0 / 8848.0), finalDemU.r, onLand);
+    let rawHD = select(-finalDemD.g * (10924.0 / 8848.0), finalDemD.r, onLand);
 
     let effHR = select(hC, rawHR, hasR);
     let effHL = select(hC, rawHL, hasL);
@@ -1125,7 +1129,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     var cLowland: vec3<f32>;
     var cPlateau: vec3<f32>;
     var cFlank: vec3<f32>;
-    var cAlpine: vec3<f32>;
+    var cMontane: vec3<f32>;
     var cSummit: vec3<f32>;
 
     if (sim.u_theme == 2u) {
@@ -1136,7 +1140,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         cLowland    = vec3<f32>(0.20, 0.32, 0.46); // Washed Cerulean #4F79A3
         cPlateau    = vec3<f32>(0.28, 0.42, 0.58);
         cFlank      = vec3<f32>(0.42, 0.58, 0.74);
-        cAlpine     = vec3<f32>(0.62, 0.75, 0.88);
+        cMontane    = vec3<f32>(0.52, 0.64, 0.76); // Washed Slate High Plateau
         cSummit     = vec3<f32>(0.92, 0.94, 0.96); // Chalk Ruling Pen #E8EDF2
     } else if (sim.u_theme == 1u) {
         // Cream Rag Paper (Eduard Imhof Swiss Alpine Relief)
@@ -1146,7 +1150,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         cLowland    = vec3<f32>(0.81, 0.71, 0.53); // Dune Ochre #CFB588
         cPlateau    = vec3<f32>(0.74, 0.63, 0.48); // Warm Steppe Ochre #BDA17A
         cFlank      = vec3<f32>(0.58, 0.44, 0.35); // Soft Umber Foothill #947059
-        cAlpine     = vec3<f32>(0.64, 0.58, 0.52); // Alpine Massif Limestone #A39485
+        cMontane    = vec3<f32>(0.66, 0.56, 0.43); // Montane Steppe / Tibetan Plateau #A88E6E
         cSummit     = vec3<f32>(0.98, 0.97, 0.95); // Glacial White #FDFCFA
     } else {
         // Marie Tharp Physiographic (Dark Abyssal Trench to Parchment Land)
@@ -1156,7 +1160,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         cLowland    = vec3<f32>(0.80, 0.71, 0.57); // Parchment Land #CBB692
         cPlateau    = vec3<f32>(0.72, 0.64, 0.52);
         cFlank      = vec3<f32>(0.60, 0.52, 0.42);
-        cAlpine     = vec3<f32>(0.50, 0.45, 0.40);
+        cMontane    = vec3<f32>(0.68, 0.60, 0.48); // Archival Parchment Steppe
         cSummit     = vec3<f32>(0.96, 0.93, 0.88); // Alpine Ridge #F4EDE1
     }
 
@@ -1168,17 +1172,21 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let skyIndirect = 0.40 + 0.60 * max(0.0, perturbedN.y * 0.5 + 0.5);
 
     // Eduard Imhof Swiss Hypsometric Tinting with Physical Elevation Metre Ramps
-    // Calibrated continuous transitions: lowlands (0..400m), piedmont (400..1200m),
-    // mountain flanks (1200..2400m), alpine crags (2400..3800m), glacial peaks (>3800m).
+    // Calibrated continuous transitions: lowlands (0..400m), piedmont/foothills (400..1400m),
+    // mountain flanks (1400..3200m), montane steppe / high plateau (3200..5200m),
+    // glacial summits & alpine ridges (>5200m).
     let hMeters = clamp(landElev * 8848.0, 0.0, 8848.0);
     let t0 = smoothstep(150.0, 650.0, hMeters);
     let t1 = smoothstep(650.0, 1600.0, hMeters);
-    let t2 = smoothstep(1600.0, 2800.0, hMeters);
-    let t3 = smoothstep(2800.0, 4200.0, hMeters);
-    let cRamp = mix(mix(mix(mix(cLowland, cPlateau, t0), cFlank, t1), cAlpine, t2), cSummit, t3);
+    let t2 = smoothstep(1600.0, 3200.0, hMeters);
+    let t3 = smoothstep(5200.0, 6800.0, hMeters);
+    let cRamp = mix(mix(mix(mix(cLowland, cPlateau, t0), cFlank, t1), cMontane, t2), cSummit, t3);
 
     // Aerial Perspective & Illumination Combine
     var landIllum: vec3<f32>;
+    let lowlandWeight = 1.0 - smoothstep(30.0, 600.0, hMeters);
+    let lowlandMicroShade = (kRidge - kValley) * 0.40 * lowlandWeight;
+
     if (sim.u_theme == 1u) {
         // Eduard Imhof Dual-Temperature Vector Illumination:
         // Warm golden ochre on NW 315° direct illuminated slopes vs cool violet-umber on SE 135° shadowed slopes
@@ -1187,7 +1195,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let sunWeight = clamp(NdotL1 * 1.4 * shadowFactor, 0.0, 1.0);
         let directComponent = cWarmDirect * (sunDirect * 0.90 + ridgeEnhance * 0.8 * shadowFactor);
         let shadowComponent = cCoolShadow * (skyIndirect * creviceAO);
-        let lowlandLift = (1.0 - smoothstep(30.0, 600.0, hMeters)) * 0.18;
+        let lowlandLift = lowlandWeight * 0.14 * (1.0 + lowlandMicroShade);
         landIllum = mix(shadowComponent, directComponent, sunWeight) + cWarmDirect * lowlandLift;
     } else if (sim.u_theme == 2u) {
         // Prussian Cyanotype: Actinic Monochromatic Photochemical Illumination
@@ -1204,6 +1212,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let skyHaze = mix(cCoolHaze, cWarmSun, clamp(NdotL1 * 1.5 * shadowFactor, 0.0, 1.0));
         landIllum = (cSunLight * (sunDirect * 0.85 + ridgeEnhance * shadowFactor) + cSkyAmbient * (skyIndirect * creviceAO)) * skyHaze;
     }
+    landIllum = landIllum * (1.0 + lowlandMicroShade * 0.30);
     let tintedLand = cRamp * landIllum;
     let alpineElevWeight = smoothstep(500.0, 1800.0, hMeters);
     let effectiveRockWeight = rockWeight * select(1.0, alpineElevWeight, sim.u_theme == 1u);
@@ -1471,7 +1480,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // ====================================================================
 
             let normDepth = clamp(oceanDepth, 0.0, 1.0);
+            let bathyDepthM = normDepth * 10924.0;
             var cBathyShelf: vec3<f32>;
+            var cBathySlope: vec3<f32>;
             var cBathyAbyss: vec3<f32>;
             var cBathyTrench: vec3<f32>;
             var cBathyRidge: vec3<f32>;
@@ -1479,32 +1490,39 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             if (sim.u_theme == 2u) {
                 // Prussian Cyanotype: Architectural drafting wash in cerulean & ferroprussiate indigo
                 cBathyShelf  = vec3<f32>(0.16, 0.30, 0.46); // Drafting cobalt #294D75
-                cBathyAbyss  = vec3<f32>(0.08, 0.17, 0.26); // Prussian indigo #162B42
-                cBathyTrench = vec3<f32>(0.05, 0.09, 0.14); // Deep exposed prussiate #0E1824
+                cBathySlope  = vec3<f32>(0.11, 0.22, 0.35); // Pelagic slope cerulean-indigo
+                cBathyAbyss  = vec3<f32>(0.07, 0.15, 0.24); // Prussian indigo #162B42
+                cBathyTrench = vec3<f32>(0.03, 0.07, 0.12); // Deep exposed prussiate #0E1824
                 cBathyRidge  = vec3<f32>(0.91, 0.93, 0.96); // Chalk ruling pen crest #E8EDF2
             } else if (sim.u_theme == 1u) {
-                // Cream Cotton Rag: Eduard Imhof tiered watercolor shelves (inner celadon, outer shelf break, marine indigo)
+                // Cream Cotton Rag: Eduard Imhof tiered watercolor shelves (inner celadon, outer shelf break, pelagic slope, marine indigo, hadal trench)
                 let cShorelineWash = vec3<f32>(0.68, 0.76, 0.72); // Delicate coastal estuarine wash
                 let cInnerBase = vec3<f32>(0.56, 0.68, 0.62); // Luminous shelf celadon #77998B
                 let cInnerShelf = mix(cShorelineWash, cInnerBase, smoothstep(0.0002, 0.004, normDepth));
                 let cOuterShelf = vec3<f32>(0.42, 0.55, 0.56); // Mineral celadon-lapis wash
                 let shelfTier = smoothstep(0.004, 0.018, normDepth);
                 cBathyShelf  = mix(cInnerShelf, cOuterShelf, shelfTier);
-                cBathyAbyss  = vec3<f32>(0.24, 0.35, 0.46); // Soft marine indigo #263B52
-                cBathyTrench = vec3<f32>(0.14, 0.20, 0.26); // Trench umber
+                cBathySlope  = vec3<f32>(0.32, 0.44, 0.52); // Continental slope mineral lapis wash
+                cBathyAbyss  = vec3<f32>(0.22, 0.32, 0.44); // Soft marine indigo #263B52
+                cBathyTrench = vec3<f32>(0.12, 0.17, 0.24); // Trench umber-indigo
                 cBathyRidge  = vec3<f32>(0.88, 0.84, 0.78); // Warm bleached parchment
             } else {
-                // Marie Tharp: High-contrast turquoise continental shelf & abyssal basalt
+                // Marie Tharp: High-contrast turquoise continental shelf, pelagic slope & abyssal basalt
                 cBathyShelf  = vec3<f32>(0.14, 0.47, 0.54); // Coastal turquoise #23778A
-                cBathyAbyss  = vec3<f32>(0.05, 0.08, 0.12); // Abyssal plain basalt #0F171F
-                cBathyTrench = vec3<f32>(0.02, 0.03, 0.06); // Deep trench abyss
+                cBathySlope  = vec3<f32>(0.08, 0.22, 0.28); // Oceanic teal-navy continental slope
+                cBathyAbyss  = vec3<f32>(0.04, 0.07, 0.11); // Abyssal plain basalt #0F171F
+                cBathyTrench = vec3<f32>(0.015, 0.025, 0.05); // Deep hadal trench abyss
                 cBathyRidge  = vec3<f32>(0.85, 0.80, 0.72); // Mid-Atlantic rift ridge parchment
             }
 
+            let b0 = smoothstep(0.004, 0.022, normDepth);  // Shelf (0-200m) to Slope (200-2500m)
+            let b1 = smoothstep(0.022, 0.228, normDepth);  // Slope to Abyssal Plain (2500-5500m)
+            let b2 = smoothstep(0.228, 0.503, normDepth);  // Abyss to Hadal Trench (>5500m)
+
             var cBathy = mix(
-                mix(cBathyShelf, cBathyAbyss, smoothstep(0.005, 0.15, normDepth)),
-                cBathyTrench,
-                smoothstep(0.35, 0.85, normDepth)
+                mix(cBathyShelf, cBathySlope, b0),
+                mix(cBathyAbyss, cBathyTrench, b2),
+                b1
             );
 
             if (sim.u_theme == 2u) {
@@ -1519,8 +1537,17 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 cBathy = mix(cBathy, vec3<f32>(0.03, 0.06, 0.10), clamp(bCrystal * bCrystalWeight, 0.0, 0.35));
             }
 
-            // Mid-ocean ridge crest highlight
-            cBathy = mix(cBathy, cBathyRidge, kRidge * 0.45);
+            // Mid-ocean ridge depth gate: highlights mid-ocean rift systems (1,400m - 4,000m)
+            // without speckling abyssal plains (>4,800m) or shallow coastal shelves (<1,200m)
+            let ridgeDepthGate = smoothstep(1200.0, 2000.0, bathyDepthM) * (1.0 - smoothstep(3800.0, 4800.0, bathyDepthM));
+
+            // Mid-ocean ridge crest highlight gated by authentic ridge depth
+            cBathy = mix(cBathy, cBathyRidge, kRidge * 0.45 * ridgeDepthGate);
+
+            // Trench crevice ink absorption: deep hadal chasms (>5,500m) absorb dark archival ink in concave troughs (kValley)
+            let trenchChasmWeight = clamp(kValley * 1.5 * smoothstep(4500.0, 6500.0, bathyDepthM), 0.0, 1.0);
+            let cTrenchInk = cBathyTrench * 0.65;
+            cBathy = mix(cBathy, cTrenchInk, trenchChasmWeight * 0.85);
 
             // Marie Tharp (Theme 0): Bruce Heezen & Marie Tharp Physiographic Pen-and-Ink Stippling
             // Modulated by bathymetric slope gradient and u_mediumProperties.w (stippleDensity)
@@ -1550,11 +1577,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 let cStippleInk = vec3<f32>(0.03, 0.05, 0.07);
                 cBathy = mix(cBathy, cStippleInk, dotMask * 0.70);
 
-                // Mid-ocean ridge crests and rift valleys: concentrated transform fault hatching
+                // Mid-ocean ridge crests: concentrated transform fault hatching (decoupled from kValley)
                 let uRidgeStrike = dot(vec2<f32>(input.uv.x * cosLat, input.uv.y) * 950.0, strikeDir);
                 let ridgeHatchWave = smoothstep(0.38, 0.94, sin(uRidgeStrike * 1.65));
-                let ridgeHatchStrength = ridgeHatchWave * (kRidge * 1.6 + kValley * 0.75);
-                let ridgeHatch = clamp(ridgeHatchStrength, 0.0, 1.0);
+                let ridgeHatchStrength = ridgeHatchWave * (kRidge * 1.6);
+                let ridgeHatch = clamp(ridgeHatchStrength * ridgeDepthGate, 0.0, 1.0);
                 cBathy = mix(cBathy, cBathyRidge, ridgeHatch * 0.60);
             } else if (sim.u_theme == 1u) {
                 // Cream Rag: Subtractive paper tooth and ink absorption into cotton rag ground
@@ -1580,6 +1607,14 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 let cActinicDirect = vec3<f32>(0.92, 0.96, 1.00);
                 let cActinicShadow = vec3<f32>(0.18, 0.28, 0.42);
                 bathyIllum = cActinicDirect * (sunDirect * 0.80 + ridgeEnhance * 0.8 * shadowFactor) + cActinicShadow * (skyIndirect * creviceAO);
+            } else if (sim.u_theme == 1u) {
+                // Cream Cotton Rag: Eduard Imhof warm sunlit relief with cool violet-umber shadow
+                let cWarmDirect = vec3<f32>(1.10, 1.02, 0.90);
+                let cCoolShadow = vec3<f32>(0.36, 0.32, 0.42);
+                let sunWeight = clamp(sunDirect * 1.4, 0.0, 1.0);
+                let directComp = cWarmDirect * (sunDirect * 0.85 + ridgeEnhance * 0.8 * shadowFactor);
+                let shadowComp = cCoolShadow * (skyIndirect * creviceAO);
+                bathyIllum = mix(shadowComp, directComp, sunWeight);
             } else {
                 bathyIllum = cSunLight * (sunDirect * 0.80 + ridgeEnhance * 0.8 * shadowFactor) + cSkyAmbient * (skyIndirect * creviceAO);
             }
@@ -1620,34 +1655,46 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // ====================================================================
         let normDepth = clamp(oceanDepth, 0.0, 1.0);
         var cOceanShelf: vec3<f32>;
+        var cOceanSlope: vec3<f32>;
         var cOceanDeep: vec3<f32>;
         var cOceanTrench: vec3<f32>;
 
         if (sim.u_theme == 2u) {
             cOceanShelf  = vec3<f32>(0.20, 0.36, 0.54);
-            cOceanDeep   = vec3<f32>(0.08, 0.16, 0.26);
-            cOceanTrench = vec3<f32>(0.04, 0.08, 0.14);
+            cOceanSlope  = vec3<f32>(0.13, 0.24, 0.38);
+            cOceanDeep   = vec3<f32>(0.07, 0.15, 0.25);
+            cOceanTrench = vec3<f32>(0.03, 0.07, 0.12);
         } else if (sim.u_theme == 1u) {
             let cInnerShelf = vec3<f32>(0.58, 0.70, 0.64);
             let cOuterShelf = vec3<f32>(0.44, 0.56, 0.58);
             let shelfTier = smoothstep(0.004, 0.018, normDepth);
             cOceanShelf  = mix(cInnerShelf, cOuterShelf, shelfTier);
-            cOceanDeep   = vec3<f32>(0.26, 0.38, 0.48);
-            cOceanTrench = vec3<f32>(0.15, 0.22, 0.30);
+            cOceanSlope  = vec3<f32>(0.34, 0.46, 0.52);
+            cOceanDeep   = vec3<f32>(0.24, 0.35, 0.46);
+            cOceanTrench = vec3<f32>(0.13, 0.19, 0.26);
         } else {
-            cOceanShelf  = vec3<f32>(0.03, 0.14, 0.24);
-            cOceanDeep   = vec3<f32>(0.015, 0.05, 0.11);
-            cOceanTrench = vec3<f32>(0.006, 0.015, 0.035);
+            cOceanShelf  = vec3<f32>(0.04, 0.18, 0.28);
+            cOceanSlope  = vec3<f32>(0.025, 0.10, 0.18);
+            cOceanDeep   = vec3<f32>(0.012, 0.045, 0.09);
+            cOceanTrench = vec3<f32>(0.005, 0.012, 0.03);
         }
 
         let reefInfluence = 1.0 - smoothstep(0.001, 0.025, normDepth);
         let shelfReefBed = mix(cOceanShelf, select(vec3<f32>(0.94, 0.92, 0.86), ALBEDO_CARBONATE_REEF * 0.85, isDark), reefInfluence);
+
+        let ob0 = smoothstep(0.004, 0.022, normDepth);
+        let ob1 = smoothstep(0.022, 0.228, normDepth);
+        let ob2 = smoothstep(0.228, 0.503, normDepth);
         let cBathy = mix(
-            mix(shelfReefBed, cOceanDeep, smoothstep(0.005, 0.12, normDepth)),
-            cOceanTrench,
-            smoothstep(0.35, 0.85, normDepth)
+            mix(shelfReefBed, cOceanSlope, ob0),
+            mix(cOceanDeep, cOceanTrench, ob2),
+            ob1
         );
-        let bathyIllum = cSunLight * (sunDirect * 0.75) + cSkyAmbient * (skyIndirect * creviceAO * 0.8);
+
+        // Submerged bathymetric relief hillshading through water column
+        let bathySunDirect = max(0.0, NdotL1) * shadowFactor;
+        let bathyReliefWeight = 0.85 * (1.0 - smoothstep(0.02, 0.40, normDepth) * 0.40);
+        let bathyIllum = (cSunLight * (bathySunDirect * 0.80 + ridgeEnhance * 0.75 * shadowFactor) + cSkyAmbient * (skyIndirect * creviceAO)) * bathyReliefWeight;
         finalCrust = mix(cBathy * bathyIllum, finalLand, smoothstep(0.32, 0.68, isLand));
     }
 
@@ -1655,13 +1702,13 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     if (sim.u_isolatedStratum >= -0.5) {
         let targetStratum = u32(round(sim.u_isolatedStratum));
         var currentStratum = 2u;
-        if (input.elevation < -4000.0) {
+        if (input.elevation < -5500.0) {
             currentStratum = 0u; // Abyssal Trench
         } else if (input.elevation < -200.0) {
             currentStratum = 1u; // Continental Shelf Break / Mid-Ocean Ridge
         } else if (input.elevation < 500.0) {
             currentStratum = 2u; // Continental Shelf & Coastal Lowlands
-        } else if (input.elevation < 2500.0) {
+        } else if (input.elevation < 5200.0) {
             currentStratum = 3u; // Steppe / Montane Plateaus
         } else {
             currentStratum = 4u; // Glacial Summits & Alpine Ridges

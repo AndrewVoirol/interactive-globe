@@ -613,21 +613,39 @@ export class WebGPUEngine {
       maxAnisotropy: 4,
     });
 
-    // Default 2x2 placeholder texture (rgba8unorm)
+    // Default 2x2 placeholder texture (rgba16float)
     this.demTexture = this.device.createTexture({
       size: [2, 2, 1],
-      format: 'rgba8unorm',
+      format: 'rgba16float',
       usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
     });
     // [R=landElev, G=oceanDepth, B=landFraction, A=signedElevation]
-    const placeholderTexels = new Uint8Array([
-      0, 128, 0, 128,   0, 128, 0, 128,
-      0, 128, 0, 128,   0, 128, 0, 128,
-    ]);
+    // 2x2 texels padded to 256 bytesPerRow (128 Uint16 per row, 256 Uint16 total)
+    const placeholderTexels = new Uint16Array(256);
+    const zeroF16 = U16_TO_F16_LUT[0];
+    const halfF16 = U16_TO_F16_LUT[32768];
+    // Row 0: Texel (0,0) and (1,0)
+    placeholderTexels[0] = zeroF16;
+    placeholderTexels[1] = halfF16;
+    placeholderTexels[2] = zeroF16;
+    placeholderTexels[3] = halfF16;
+    placeholderTexels[4] = zeroF16;
+    placeholderTexels[5] = halfF16;
+    placeholderTexels[6] = zeroF16;
+    placeholderTexels[7] = halfF16;
+    // Row 1: Texel (0,1) and (1,1) at offset 128
+    placeholderTexels[128] = zeroF16;
+    placeholderTexels[129] = halfF16;
+    placeholderTexels[130] = zeroF16;
+    placeholderTexels[131] = halfF16;
+    placeholderTexels[132] = zeroF16;
+    placeholderTexels[133] = halfF16;
+    placeholderTexels[134] = zeroF16;
+    placeholderTexels[135] = halfF16;
     this.device.queue.writeTexture(
       { texture: this.demTexture },
       placeholderTexels,
-      { bytesPerRow: 8, rowsPerImage: 2 },
+      { bytesPerRow: 256, rowsPerImage: 2 },
       [2, 2, 1]
     );
     this.demTextureView = this.demTexture.createView();
@@ -3218,6 +3236,10 @@ export class WebGPUEngine {
     lonDeg: number,
     latDeg: number
   ): { elevationMeters: number; gradEast: number; gradNorth: number } {
+    if (isNaN(lonDeg) || isNaN(latDeg) || !isFinite(lonDeg) || !isFinite(latDeg)) {
+      return { elevationMeters: 0, gradEast: 0, gradNorth: 0 };
+    }
+
     if (this.cpuDEMData) {
       const u = (((lonDeg + 180.0) / 360.0) % 1.0 + 1.0) % 1.0;
       const v = Math.min(0.999, Math.max(0.001, 0.5 - latDeg / 180.0));
@@ -3240,11 +3262,14 @@ export class WebGPUEngine {
         const clampY = Math.min(H - 1, Math.max(0, y));
         const idx = (clampY * W + wrapX) * 4;
         const r = this.cpuDEMData![idx];
+        const g = this.cpuDEMData![idx + 1];
         const b = this.cpuDEMData![idx + 2];
         const isU16 = this.cpuDEMData instanceof Uint16Array;
         const maxVal = isU16 ? 65535 : 255;
         const isLand = b > maxVal * 0.45;
-        return isLand ? (r / maxVal) * 8848.0 : 0.0;
+        const oceanM = - (g / maxVal) * 10924.0;
+        const landM = (r / maxVal) * 8848.0;
+        return isLand ? landM : oceanM;
       };
 
       const hCenter = sampleAt(px, py);

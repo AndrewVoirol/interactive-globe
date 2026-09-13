@@ -86,11 +86,12 @@ fn fs_swiss_relief(in: VertexOutput) -> @location(0) vec4<f32> {
     
     // Effective physical elevation for gradient calculation
     // Continents: positive land elevation. Oceans: smooth submerged gradient.
-    let hC = select(-oceanDepth * 0.25, landElev, isLand > 0.45);
-    let hR = select(-demR.g * 0.25, demR.r, demR.b > 0.45);
-    let hL = select(-demL.g * 0.25, demL.r, demL.b > 0.45);
-    let hU = select(-demU.g * 0.25, demU.r, demU.b > 0.45);
-    let hD = select(-demD.g * 0.25, demD.r, demD.b > 0.45);
+    let bathyScale = 10924.0 / 8848.0;
+    let hC = select(-oceanDepth * bathyScale, landElev, isLand > 0.45);
+    let hR = select(-demR.g * bathyScale, demR.r, demR.b > 0.45);
+    let hL = select(-demL.g * bathyScale, demL.r, demL.b > 0.45);
+    let hU = select(-demU.g * bathyScale, demU.r, demU.b > 0.45);
+    let hD = select(-demD.g * bathyScale, demD.r, demD.b > 0.45);
     
     // Analytical Gradient & Surface Normal
     let dHx = (hR - hL) * 0.5 * (params.u_displacementScale * 75.0 + 1.0);
