@@ -227,9 +227,9 @@ fn computeHydrosphereShading(
     let rippleUv = uvCoord * 450.0;
     let ripples = evaluateMicroRipples(rippleUv, uniforms.u_time);
 
-    // Tangent frame construction
-    let upVec = select(vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), abs(baseNormal.y) > 0.95);
-    let tangentX = normalize(cross(upVec, baseNormal));
+    // Continuous orthonormal tangent frame on sphere
+    let lambda = (uvCoord.x - 0.5) * (2.0 * 3.14159265359);
+    let tangentX = vec3<f32>(cos(lambda), 0.0, -sin(lambda));
     let tangentY = cross(baseNormal, tangentX);
 
     // Perturbed water surface normal

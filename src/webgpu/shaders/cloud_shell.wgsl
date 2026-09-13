@@ -82,7 +82,7 @@ struct VertexOutput {
 };
 
 fn getRegionalBlendWeight(uv: vec2<f32>) -> f32 {
-    if (u_regionalOverlay.u_regionalActive == 0u) {
+    if (u_regionalOverlay.u_regionalActive != 1u) {
         return 0.0;
     }
 
@@ -91,6 +91,13 @@ fn getRegionalBlendWeight(uv: vec2<f32>) -> f32 {
     let minLat = bounds.y;
     let maxLon = bounds.z;
     let maxLat = bounds.w;
+
+    // Strict bounds validation: require non-inverted valid geographic coordinates
+    if (minLon >= maxLon || minLat >= maxLat ||
+        minLat < -90.0 || maxLat > 90.0 ||
+        minLon < -180.0 || maxLon > 180.0) {
+        return 0.0;
+    }
 
     let lon = uv.x * 360.0 - 180.0;
     let lat = 90.0 - uv.y * 180.0;
@@ -362,12 +369,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Stratum coupling attenuates vertical influence at higher layers
     let stratumCoupling = select(1.0, select(0.50, 0.15, layerIdx == 2u), layerIdx >= 1u);
 
-    // Additive condensation & leeward rain shadow dissolution (RFC Mechanic 4)
-    // Naturally dissolves clouds on leeward slopes (w < 0 -> tanh < 0)
-    // and condenses clouds over windward peaks even when background cloud fraction is zero.
+    // Polar attenuation to prevent coordinate singularity distortion & radial starburst pinwheels near poles (Invariant §18)
+    let poleDist = abs(in.uv.y - 0.5) * 2.0;
+    let poleAtten = 1.0 - smoothstep(0.82, 0.96, poleDist);
+    let cosLatPolar = max(0.0, cos(latRad));
+    let polarLonAtten = smoothstep(0.01, 0.25, cosLatPolar);
+
     let liftTerm = select(wOrographic * 50.0, ((elevEast - elevWest) / 8848.0) * 10.0, length(windVel) < 1e-4);
     let orographicLift = 0.35 * tanh(0.05 * liftTerm) * stratumCoupling;
-    let condensedCloud = clamp(rawCloud + orographicLift, 0.0, 1.0);
+    let effOrographicLift = orographicLift * poleAtten * polarLonAtten;
+    let condensedCloud = clamp((rawCloud + effOrographicLift) * poleAtten, 0.0, 1.0);
 
     // Backward compatibility deltaH variables
     let deltaH = (elevEast - elevWest) / 8848.0;

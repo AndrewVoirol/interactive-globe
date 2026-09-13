@@ -228,7 +228,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         // Archival mineral celadon / lapis watercolor wash with subtle paper tooth absorption
         let mineralCeladon = vec3<f32>(0.30, 0.46, 0.44); // mineral green wash
         let mineralLapis = vec3<f32>(0.24, 0.36, 0.46);   // washed lapis lazuli glaze
-        let toothCoord = in.uv * 600.0;
+        let cosLatAtm = max(0.05, cos((in.uv.y - 0.5) * PI));
+        let toothCoord = vec2<f32>(in.uv.x * cosLatAtm, in.uv.y) * 600.0;
         let toothFactor = 1.0 - (hash12(toothCoord) - 0.5) * (atmosphere.u_mediumProperties.w * 0.25);
 
         let washColor = mix(mineralCeladon, mineralLapis, clamp(opticalDepth * 0.5, 0.0, 1.0));

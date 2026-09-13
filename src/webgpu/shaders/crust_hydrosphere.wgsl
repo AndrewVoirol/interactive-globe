@@ -320,9 +320,13 @@ fn computeHydrosphereShading(
     let rippleUv = uvCoord * 450.0;
     let ripples = evaluateMicroRipples(rippleUv, uniforms.u_time);
 
-    let upVec = select(vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), abs(baseNormal.y) > 0.95);
-    let tangentX = normalize(cross(upVec, baseNormal));
-    let tangentY = cross(baseNormal, tangentX);
+    let lambda = (uvCoord.x - 0.5) * (2.0 * PI);
+    let sphereTangentX = vec3<f32>(cos(lambda), 0.0, -sin(lambda));
+    let sphereTangentY = cross(baseNormal, sphereTangentX);
+    let flatTangentX = vec3<f32>(1.0, 0.0, 0.0);
+    let flatTangentY = vec3<f32>(0.0, 1.0, 0.0);
+    let tangentX = normalize(mix(sphereTangentX, flatTangentX, sim.u_unfurl));
+    let tangentY = normalize(mix(sphereTangentY, flatTangentY, sim.u_unfurl));
 
     let perturbedNormal = normalize(
         baseNormal + 
@@ -549,7 +553,7 @@ fn decodeElevation(texColor: vec4<f32>) -> f32 {
 }
 
 fn getRegionalBlendWeight(uv: vec2<f32>) -> f32 {
-    if (u_regionalOverlay.u_regionalActive == 0u) {
+    if (u_regionalOverlay.u_regionalActive != 1u) {
         return 0.0;
     }
 
@@ -558,6 +562,13 @@ fn getRegionalBlendWeight(uv: vec2<f32>) -> f32 {
     let minLat = bounds.y;
     let maxLon = bounds.z;
     let maxLat = bounds.w;
+
+    // Strict bounds validation: require non-inverted valid geographic coordinates
+    if (minLon >= maxLon || minLat >= maxLat ||
+        minLat < -90.0 || maxLat > 90.0 ||
+        minLon < -180.0 || maxLon > 180.0) {
+        return 0.0;
+    }
 
     let lon = uv.x * 360.0 - 180.0;
     let lat = 90.0 - uv.y * 180.0;
@@ -1039,9 +1050,16 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     // Lithosphere Crust Pass with Eduard Imhof Swiss Relief Shading
     let n0 = normalize(input.normal);
-    let upVec = select(vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), abs(n0.y) > 0.95);
-    let tangentX = normalize(cross(upVec, n0));
-    let tangentY = cross(n0, tangentX);
+
+    // Continuous orthonormal tangent frame on sphere & planar manifold
+    // Eliminates the discontinuous abs(n0.y) > 0.95 step at latitude 71.8° and polar starburst spokes
+    let lambda = (input.uv.x - 0.5) * (2.0 * PI);
+    let sphereTangentX = vec3<f32>(cos(lambda), 0.0, -sin(lambda));
+    let sphereTangentY = cross(n0, sphereTangentX);
+    let flatTangentX = vec3<f32>(1.0, 0.0, 0.0);
+    let flatTangentY = vec3<f32>(0.0, 1.0, 0.0);
+    let tangentX = normalize(mix(sphereTangentX, flatTangentX, sim.u_unfurl));
+    let tangentY = normalize(mix(sphereTangentY, flatTangentY, sim.u_unfurl));
 
     let isLand = finalDemC.b;
     let landElev = finalDemC.r;
@@ -1077,18 +1095,29 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     // Controlled displacement scale: calibrated for crisp Eduard Imhof Swiss relief hillshading
     let dispScale = sim.u_displacementScale * 45.0 + 1.0;
+    // Polar displacement and gradient attenuation near singularities (lat > 76.5°)
+    // Smoothly attenuates finite difference spikes, Laplacian explosion, and tangential spinning near poles
+    // Exact match with vertex shader poleAtten (0.85 to 0.98)
+    let fragPoleDist = abs(input.uv.y - 0.5) * 2.0;
+    let fragPoleAtten = 1.0 - smoothstep(0.85, 0.98, fragPoleDist);
+    let cosLatPolar = max(0.0, cos((input.uv.y - 0.5) * PI));
+    let polarLonAtten = smoothstep(0.01, 0.25, cosLatPolar);
+
     let scaleX = select(select(0.0, 1.0, hasR || hasL), 0.5, hasR && hasL);
     let scaleY = select(select(0.0, 1.0, hasU || hasD), 0.5, hasU && hasD);
     let dHx = (effHR - effHL) * scaleX * dispScale * slopeScale;
     let dHy = (effHD - effHU) * scaleY * dispScale * slopeScale;
+    let effDHx = dHx * polarLonAtten;
+    let effDHy = dHy * polarLonAtten;
 
-    // Perturbed surface normal in 3D world space
-    let perturbedN = normalize(n0 - tangentX * dHx - tangentY * dHy);
+    // Perturbed surface normal in 3D world space with polar attenuation
+    let perturbedN = normalize(n0 - (tangentX * effDHx + tangentY * effDHy) * fragPoleAtten);
 
     // Discrete Laplacian Curvature evaluated strictly on domain-aware effective elevations
     let laplacian = ((effHR + effHL + effHU + effHD) - 4.0 * hC) * slopeScale;
-    let kRidge  = clamp(-laplacian * 45.0, 0.0, 1.0);
-    let kValley = clamp(laplacian * 45.0, 0.0, 1.0);
+    let effLaplacian = laplacian * fragPoleAtten * polarLonAtten;
+    let kRidge  = clamp(-effLaplacian * 45.0, 0.0, 1.0);
+    let kValley = clamp(effLaplacian * 45.0, 0.0, 1.0);
 
     // Multidirectional Oblique Solar Illumination controlled dynamically by u_sunAzimuth & u_sunAltitude
     let L1_view = computeSunLightDir(sim.u_sunAzimuth, sim.u_sunAltitude);
@@ -1113,7 +1142,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // Procedural Rock Strata and Joints Hachuring with isotropic metric latitude scaling
     let cosLat = max(0.1, cos((input.uv.y - 0.5) * PI));
     let metricUv = vec2<f32>(input.uv.x * cosLat, input.uv.y) * 800.0;
-    let gradDir = normalize(vec2<f32>(dHx, dHy) + vec2<f32>(1e-6, 1e-6));
+    let gradDir = normalize(vec2<f32>(effDHx, effDHy) + vec2<f32>(1e-6, 1e-6));
     let strikeDir = vec2<f32>(-gradDir.y, gradDir.x);
     let uFall   = dot(metricUv, gradDir);
     let uStrike = dot(metricUv, strikeDir);
@@ -1223,7 +1252,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // ========================================================================
     if (sim.u_theme == 0u) {
         // --- THEME 0: MARIE THARP / HEINRICH BERANN (Physiographic Pen-and-Ink & Gouache on Illustration Board) ---
-        let landSlope = length(vec2<f32>(dHx, dHy));
+        let landSlope = length(vec2<f32>(effDHx, effDHy));
         let cGouacheParchment = vec3<f32>(0.96, 0.93, 0.88); // Alpine Ridge #F4EDE1
         let cInkTharp = vec3<f32>(0.18, 0.14, 0.11); // Archival bone-sepia drafting ink #2E241C
         let cParchmentInk = vec3<f32>(0.80, 0.71, 0.57); // Warm parchment ink tone #CBB692
@@ -1274,7 +1303,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let cellRng = hashPaper2D(cellId * 2.83 + vec2<f32>(11.7, 23.4));
         let hasDot = cellRng < dotProb;
         let dotRadius = mix(0.10, 0.22, clamp(landSlope * 3.2, 0.0, 1.0));
-        let dotMask = select(0.0, 1.0 - smoothstep(dotRadius - 0.04, dotRadius + 0.04, distToDot), hasDot);
+        let dotMask = select(0.0, 1.0 - smoothstep(dotRadius - 0.04, dotRadius + 0.04, distToDot), hasDot) * fragPoleAtten;
         let stippleTone = mix(cParchmentInk * 0.40, cInkTharp, smoothstep(0.05, 0.25, landSlope));
         finalLand = mix(finalLand, stippleTone, dotMask * 0.40 * sim.u_mediumProperties.w);
 
@@ -1330,7 +1359,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let capillaryBleed = fiberTooth * (sim.u_mediumProperties.x * 0.35);
         let kSepia = vec3<f32>(1.45, 1.72, 2.15); // Sepia spectral absorption
         let shadowDepth = clamp(1.0 - diffuseTotal, 0.0, 1.0);
-        let slopeGrip = smoothstep(0.04, 0.25, length(vec2<f32>(dHx, dHy)));
+        let slopeGrip = smoothstep(0.04, 0.25, length(vec2<f32>(effDHx, effDHy)));
         let inkDensity = clamp(shadowDepth * slopeGrip * 0.45, 0.0, 0.60);
         let cPaperBase = vec3<f32>(0.953, 0.925, 0.878); // Arches 300gsm Cream Rag #F3ECE0
         let intaglioAbsorbed = cPaperBase * exp(-kSepia * (inkDensity * (1.0 + capillaryBleed)));
@@ -1363,7 +1392,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // Mid-elevation transition boundary darkening along exposure gradient
         let washEdgeBand = 1.0 - abs(landExposure - 0.48) * 3.6;
         let washEdge = pow(clamp(washEdgeBand, 0.0, 1.0), 2.2);
-        let slopeFactor = smoothstep(0.04, 0.28, length(vec2<f32>(dHx, dHy)));
+        let slopeFactor = smoothstep(0.04, 0.28, length(vec2<f32>(effDHx, effDHy)));
         let cWashEdgeIndigo = vec3<f32>(0.08, 0.15, 0.25); // Rinse solution boundary concentration
         finalLand = mix(finalLand, cWashEdgeIndigo, washEdge * slopeFactor * 0.30);
 
@@ -1549,36 +1578,37 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             let cTrenchInk = cBathyTrench * 0.65;
             cBathy = mix(cBathy, cTrenchInk, trenchChasmWeight * 0.85);
 
+            let safeCosLat = max(0.08, cosLat);
+
             // Marie Tharp (Theme 0): Bruce Heezen & Marie Tharp Physiographic Pen-and-Ink Stippling
             // Modulated by bathymetric slope gradient and u_mediumProperties.w (stippleDensity)
             if (sim.u_theme == 0u) {
-                let bathySlope = length(vec2<f32>(dHx, dHy));
+                let bathySlope = length(vec2<f32>(effDHx, effDHy));
                 let stippleFreq = 1400.0 * max(0.1, sim.u_mediumProperties.w);
-                let stippleCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * stippleFreq;
+                let stippleCoord = vec2<f32>(input.uv.x * safeCosLat, input.uv.y) * stippleFreq;
                 let cellId = floor(stippleCoord);
                 let cellFract = fract(stippleCoord);
 
-                // Jittered stipple dot within lattice cell
-                let dotCenter = vec2<f32>(
-                    hashPaper2D(cellId + vec2<f32>(1.0, 7.0)),
-                    hashPaper2D(cellId + vec2<f32>(13.0, 41.0))
-                ) * 0.6 + vec2<f32>(0.2);
-                let distToDot = length(cellFract - dotCenter);
-
-                // Dot density increases with bathymetric slope gradient on abyssal plains and continental rises
-                let dotProb = clamp(0.18 + bathySlope * 3.8, 0.08, 0.92);
-                let cellRng = hashPaper2D(cellId * 3.17 + vec2<f32>(19.3, 7.1));
+                let dotProb = smoothstep(0.02, 0.35, bathySlope) * (sim.u_mediumProperties.w * 0.85);
+                let cellRng = hashPaper2D(cellId * 3.17 + vec2<f32>(43.1, 89.3));
                 let hasDot = cellRng < dotProb;
+
+                let jitter = (vec2<f32>(
+                    hashPaper2D(cellId * 1.73 + vec2<f32>(13.3, 71.9)),
+                    hashPaper2D(cellId * 2.41 + vec2<f32>(97.1, 31.7))
+                ) - 0.50) * 0.65;
+                let dotCenter = vec2<f32>(0.5, 0.5) + jitter;
+                let distToDot = length(cellFract - dotCenter);
 
                 // Dot radius slightly larger on steeper slopes
                 let dotRadius = mix(0.11, 0.24, clamp(bathySlope * 3.2, 0.0, 1.0));
-                let dotMask = select(0.0, 1.0 - smoothstep(dotRadius - 0.04, dotRadius + 0.04, distToDot), hasDot);
+                let dotMask = select(0.0, 1.0 - smoothstep(dotRadius - 0.04, dotRadius + 0.04, distToDot), hasDot) * fragPoleAtten;
 
                 let cStippleInk = vec3<f32>(0.03, 0.05, 0.07);
                 cBathy = mix(cBathy, cStippleInk, dotMask * 0.70);
 
                 // Mid-ocean ridge crests: concentrated transform fault hatching (decoupled from kValley)
-                let uRidgeStrike = dot(vec2<f32>(input.uv.x * cosLat, input.uv.y) * 950.0, strikeDir);
+                let uRidgeStrike = dot(vec2<f32>(input.uv.x * safeCosLat, input.uv.y) * 950.0, strikeDir);
                 let ridgeHatchWave = smoothstep(0.38, 0.94, sin(uRidgeStrike * 1.65));
                 let ridgeHatchStrength = ridgeHatchWave * (kRidge * 1.6);
                 let ridgeHatch = clamp(ridgeHatchStrength * ridgeDepthGate, 0.0, 1.0);
@@ -1591,7 +1621,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             } else if (sim.u_theme == 2u) {
                 // Prussian Cyanotype: Structured blueprint linen weave tooth on bathymetric ground
                 let linenFreq = 1400.0 * max(0.1, sim.u_mediumProperties.y);
-                let linenCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * linenFreq;
+                let linenCoord = vec2<f32>(input.uv.x * safeCosLat, input.uv.y) * linenFreq;
                 let warp = cos(linenCoord.x * 3.14159265);
                 let weft = cos(linenCoord.y * 3.14159265);
                 let cellCoord = floor(linenCoord);

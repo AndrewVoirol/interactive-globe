@@ -72,7 +72,7 @@ fn hash21(p: f32) -> vec2<f32> {
 }
 
 fn getRegionalBlendWeight(uv: vec2<f32>) -> f32 {
-    if (u_regionalOverlay.u_regionalActive == 0u) {
+    if (u_regionalOverlay.u_regionalActive != 1u) {
         return 0.0;
     }
 
@@ -81,6 +81,13 @@ fn getRegionalBlendWeight(uv: vec2<f32>) -> f32 {
     let minLat = bounds.y;
     let maxLon = bounds.z;
     let maxLat = bounds.w;
+
+    // Strict bounds validation: require non-inverted valid geographic coordinates
+    if (minLon >= maxLon || minLat >= maxLat ||
+        minLat < -90.0 || maxLat > 90.0 ||
+        minLon < -180.0 || maxLon > 180.0) {
+        return 0.0;
+    }
 
     let lon = uv.x * 360.0 - 180.0;
     let lat = 90.0 - uv.y * 180.0;

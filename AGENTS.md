@@ -756,6 +756,27 @@ Always consult the following master specifications before proposing or making an
 - **Multi-Stratum Classification Synchronization Invariant**:
   Any secondary stratum classification system (such as hypsometric stratum isolation or HUD pigment pans) must maintain exact boundary synchronization with the fragment shader hypsometric ramp ($d < -5,500\text{m}$ for Hadal Trench, $h < 5,200\text{m}$ for Montane Plateau, $h \ge 5,200\text{m}$ for Glacial Summits).
 
+## 99. Spherical Polar Singularity Attenuation & Continuous Orthonormal Tangent Frame Invariants
+- **Continuous Spherical Orthonormal Tangent Basis**:
+  In all WebGPU shaders computing tangent-space perturbations, micro-ripples, or slope vectors on spherical manifolds (`hydrosphere_optics.wgsl`, `crust_hydrosphere.wgsl`), tangent frames must NEVER evaluate discontinuous threshold steps (e.g. `abs(n0.y) > 0.95`).
+  Threshold basis swaps produce artificial concentric circular rings across terrain at $\arcsin(0.95) \approx 71.8^\circ\text{N/S}$. Shaders must construct continuous analytical spherical tangent frames:
+  $$\lambda = (u - 0.5) \cdot 2\pi, \quad \mathbf{t}_x = \begin{pmatrix} \cos\lambda \\ 0 \\ -\sin\lambda \end{pmatrix}, \quad \mathbf{t}_y = \mathbf{n} \times \mathbf{t}_x$$
+- **Metric Polar Singularity Attenuation**:
+  When computing horizontal field derivatives, orographic lift ($w = \mathbf{u}_h \cdot \nabla h$), or procedurally stippled lattices divided by spherical metric distance ($\Delta x = 2 R_E \cos\phi \Delta \lambda$), the metric denominator collapses as $\cos\phi \to 0$ at the poles ($\phi \to \pm 90^\circ$).
+  Unattenuated division amplifies discrete longitudinal differences into violent alternating positive/negative spikes, generating radial starburst pinwheels centered at the poles. Shaders MUST enforce dual polar protection:
+  1. A safe cosine floor: `safeCosLat = max(0.08, cosLat)`.
+  2. Metric latitude and polar distance attenuation gates:
+     $$\text{poleDist} = 2 |\text{uv}_y - 0.5|, \quad \text{poleAtten} = 1.0 - \operatorname{smoothstep}(0.82, 0.96, \text{poleDist})$$
+     $$\text{polarLonAtten} = \operatorname{smoothstep}(0.01, 0.25, \cos\phi)$$
+     applied directly to derivative products ($dHx, dHy$), orographic lift, and procedural dot masks.
 
-
-
+## 100. Multi-Layer Planetary Defect Disaggregation & Binary Asset Integrity Verification
+- **Multi-Layer Defect Disaggregation Protocol**:
+  When investigating visible banding, stripes, seams, or bounding box artifacts across planetary globes, agents must disaggregate symptoms into four isolated layers before modifying shaders:
+  1. *Layer 1 (Raw Asset Integrity)*: Verify source binary raster files (`.bin`, `.lut`) for corrupted scanlines, zeroed-out byte rows, or unexpected byte sizes against Git LFS checksums. Never assume a horizontal line across a globe is a shader UV coordinate or wrapping bug.
+  2. *Layer 2 (Mathematical Singularity)*: Check for metric division by $\cos\phi$ or polar radius convergence.
+  3. *Layer 3 (Basis Discontinuity)*: Check for threshold branches (`if (abs(n.y) > thresh)`) in normal and tangent calculations.
+  4. *Layer 4 (Uniform State & Dynamic Inset Bleed)*: Verify that uninitialized bounding boxes (`u_regionalOverlay`) or inactive overlays enforce strict validation gates (`u_regionalActive == 1u` and valid non-inverted geographic coordinates).
+- **Auxiliary GPU Buffer Lazy Allocation Contract**:
+  Auxiliary subsystems and regional insets (e.g. `regionalDemBuffer`) must NEVER be eagerly allocated during core engine initialization (`ensureCartographicBuffers()`).
+  Eager allocation violates the strict 12-buffer startup contract (Invariant #20) and triggers adversarial stress test failures (`C2-STRESS-02`, `C2-STRESS-08`). Auxiliary buffers must allocate strictly on first dynamic activation (`setRegionalDEM()`).

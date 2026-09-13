@@ -1050,6 +1050,19 @@ export class WebGPUEngine {
     };
   }
 
+  public ensureRegionalBuffer(): GPUBuffer {
+    if (!this.regionalUniformBuffer && this.device) {
+      this.regionalUniformBuffer = this.device.createBuffer({
+        label: 'regional_overlay_uniform_buffer',
+        size: 64,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      });
+      const zeroData = new Float32Array(16);
+      this.device.queue.writeBuffer(this.regionalUniformBuffer, 0, zeroData);
+    }
+    return this.regionalUniformBuffer!;
+  }
+
   public ensureCartographicBuffers(): void {
     if (!this.device || this.cartographicBuffersInitialized) return;
     this.cartographicBuffersInitialized = true;
@@ -1059,6 +1072,7 @@ export class WebGPUEngine {
       size: 64,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
+    this.device.queue.writeBuffer(this.reliefUniformBuffer, 0, new Float32Array(16));
 
     // 2. Vector Line Ribbon Buffers & Quad Geometry (32 bytes) (M1-T4)
     // Static quad corner buffer: [0,-1], [0,1], [1,-1], [1,1] (32 bytes)
@@ -1368,7 +1382,7 @@ export class WebGPUEngine {
       const regView = this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || this.demTextureView);
       const regBuffer = (this.activeRegionalDEM && this.regionalUniformBuffer)
         ? this.regionalUniformBuffer
-        : (this.regionalUniformBuffer || this.reliefUniformBuffer || this.crustUniformBuffer || this.windUniformBuffer);
+        : (this.regionalUniformBuffer || this.reliefUniformBuffer || this.windUniformBuffer || this.simUniformBuffer);
 
       const windComputeBindGroupLayout = this.device.createBindGroupLayout({
         label: 'wind_compute_bind_group_layout',
@@ -1589,7 +1603,7 @@ export class WebGPUEngine {
     const regView = this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || this.demTextureView);
     const regBuffer = (this.activeRegionalDEM && this.regionalUniformBuffer)
       ? this.regionalUniformBuffer
-      : (this.reliefUniformBuffer || this.crustUniformBuffer);
+      : (this.regionalUniformBuffer || this.reliefUniformBuffer || this.simUniformBuffer);
     
     // Vector Ribbon BindGroup
     if (this.ribbonBindGroupLayout && this.ribbonUniformBuffer) {
@@ -2453,26 +2467,20 @@ export class WebGPUEngine {
         height: entry.height,
         id: entry.id,
       };
-      if (!this.regionalUniformBuffer) {
-        this.regionalUniformBuffer = this.device.createBuffer({
-          label: 'regional_overlay_uniform_buffer',
-          size: 64,
-          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-        });
-      }
+      const regBuf = this.ensureRegionalBuffer();
       const data = new Float32Array(16);
       data[0] = entry.bounds.minLon;
       data[1] = entry.bounds.minLat;
       data[2] = entry.bounds.maxLon;
       data[3] = entry.bounds.maxLat;
       const u32View = new Uint32Array(data.buffer);
-      u32View[12] = 1;
-      this.device.queue.writeBuffer(this.regionalUniformBuffer, 0, data);
+      u32View[12] = 1; // u_regionalActive = 1
+      this.device.queue.writeBuffer(regBuf, 0, data);
     } else {
       this.activeRegionalDEM = null;
       if (this.regionalUniformBuffer) {
-        this.regionalUniformBuffer.destroy();
-        this.regionalUniformBuffer = null;
+        const data = new Float32Array(16); // all zeros, u_regionalActive = 0
+        this.device.queue.writeBuffer(this.regionalUniformBuffer, 0, data);
       }
     }
     this.updateDEMBindGroups();
@@ -2488,8 +2496,8 @@ export class WebGPUEngine {
       if (this.activeRegionalDEM && this.activeRegionalDEM.id === id) {
         this.activeRegionalDEM = null;
         if (this.regionalUniformBuffer) {
-          this.regionalUniformBuffer.destroy();
-          this.regionalUniformBuffer = null;
+          const data = new Float32Array(16);
+          this.device.queue.writeBuffer(this.regionalUniformBuffer, 0, data);
         }
       }
       try {
@@ -4008,6 +4016,10 @@ export class WebGPUEngine {
       rf[9] = params.ambientOcclusion !== undefined ? params.ambientOcclusion : 0.50;
       rf[10] = 0.40; // aerial perspective
       ru[11] = params.theme !== undefined ? params.theme : 0;
+      ru[12] = 0; // u_regionalActive: guaranteed 0 when reliefUniformBuffer is used as fallback
+      ru[13] = 0;
+      ru[14] = 0;
+      ru[15] = 0;
       this.device.queue.writeBuffer(this.reliefUniformBuffer, 0, rf.buffer);
     }
 
@@ -5021,7 +5033,7 @@ export class WebGPUEngine {
       const regView = this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || this.demTextureView);
       const regBuffer = (this.activeRegionalDEM && this.regionalUniformBuffer)
         ? this.regionalUniformBuffer
-        : (this.reliefUniformBuffer || this.crustUniformBuffer);
+        : (this.regionalUniformBuffer || this.reliefUniformBuffer || this.simUniformBuffer);
       const cloudView = this.cloudTextures?.low
         ? this.cloudTextures.low.createView({ label: 'crust_cloud_texture_view' })
         : this.dummyCloudTextureView;
@@ -5207,7 +5219,7 @@ export class WebGPUEngine {
     const regView = this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || demView);
     const regBuffer = (this.activeRegionalDEM && this.regionalUniformBuffer)
       ? this.regionalUniformBuffer
-      : (this.regionalUniformBuffer || this.reliefUniformBuffer || this.crustUniformBuffer || this.cloudUniformBuffers[0]);
+      : (this.regionalUniformBuffer || this.reliefUniformBuffer || this.cloudUniformBuffers[0] || this.simUniformBuffer);
 
     const windView = this.windTextureView || demView;
     const windSamp = this.windSampler || this.demSampler || sampler;

@@ -93,14 +93,19 @@ fn fs_swiss_relief(in: VertexOutput) -> @location(0) vec4<f32> {
     let hU = select(-demU.g * bathyScale, demU.r, demU.b > 0.45);
     let hD = select(-demD.g * bathyScale, demD.r, demD.b > 0.45);
     
-    // Analytical Gradient & Surface Normal
-    let dHx = (hR - hL) * 0.5 * (params.u_displacementScale * 75.0 + 1.0);
-    let dHy = (hU - hD) * 0.5 * (params.u_displacementScale * 75.0 + 1.0);
+    // Analytical Gradient & Surface Normal with Polar Attenuation
+    let fragPoleDist = abs(uv.y - 0.5) * 2.0;
+    let fragPoleAtten = 1.0 - smoothstep(0.85, 0.98, fragPoleDist);
+    let cosLat = max(0.0, cos((uv.y - 0.5) * 3.14159265359));
+    let polarLonAtten = smoothstep(0.01, 0.25, cosLat);
+
+    let dHx = (hR - hL) * 0.5 * (params.u_displacementScale * 75.0 + 1.0) * fragPoleAtten * polarLonAtten;
+    let dHy = (hU - hD) * 0.5 * (params.u_displacementScale * 75.0 + 1.0) * fragPoleAtten * polarLonAtten;
     let surfaceNormal = normalize(vec3<f32>(-dHx, -dHy, 1.0));
     
     // Discrete Laplacian Curvature
     // Negative = Convex Ridge Crest; Positive = Concave Valley Bottom
-    let laplacian = (hR + hL + hU + hD) - 4.0 * hC;
+    let laplacian = ((hR + hL + hU + hD) - 4.0 * hC) * fragPoleAtten * polarLonAtten;
     let kRidge  = clamp(-laplacian * 45.0, 0.0, 1.0);
     let kValley = clamp(laplacian * 45.0, 0.0, 1.0);
     

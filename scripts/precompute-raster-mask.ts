@@ -60,7 +60,11 @@ async function run() {
       if (!ring.length) continue;
       ctx.moveTo((ring[0][0] + 180) / 360 * width, (90 - ring[0][1]) / 180 * height);
       for (let i = 1; i < ring.length; i++) {
-        ctx.lineTo((ring[i][0] + 180) / 360 * width, (90 - ring[i][1]) / 180 * height);
+        if (Math.abs(ring[i][0] - ring[i - 1][0]) > 180.0) {
+          ctx.moveTo((ring[i][0] + 180) / 360 * width, (90 - ring[i][1]) / 180 * height);
+        } else {
+          ctx.lineTo((ring[i][0] + 180) / 360 * width, (90 - ring[i][1]) / 180 * height);
+        }
       }
       ctx.closePath();
     }
@@ -76,7 +80,11 @@ async function run() {
     if (!seg.length) continue;
     ctx.moveTo((seg[0][0] + 180) / 360 * width, (90 - seg[0][1]) / 180 * height);
     for (let i = 1; i < seg.length; i++) {
-      ctx.lineTo((seg[i][0] + 180) / 360 * width, (90 - seg[i][1]) / 180 * height);
+      if (Math.abs(seg[i][0] - seg[i - 1][0]) > 180.0) {
+        ctx.moveTo((seg[i][0] + 180) / 360 * width, (90 - seg[i][1]) / 180 * height);
+      } else {
+        ctx.lineTo((seg[i][0] + 180) / 360 * width, (90 - seg[i][1]) / 180 * height);
+      }
     }
   }
   ctx.stroke();
@@ -97,10 +105,6 @@ async function run() {
   }
 
   const demU16 = new Uint16Array(demBuf.buffer, demBuf.byteOffset, demBuf.byteLength / 2);
-  const U16_SEA_LEVEL = Math.round((10924.0 / 19772.0) * 65535.0); // 36208
-
-  let harmonizedLand = 0;
-  let harmonizedOcean = 0;
 
   for (let y = 0; y < height; y++) {
     const rowOffset = y * width * 4;
@@ -111,29 +115,10 @@ async function run() {
       const maskByte = maskImg[pixelIdx * 4]; // 0..255
       const maskU16 = Math.round((maskByte / 255.0) * 65535.0);
 
-      // Re-pack Channel B (Channel 2)
+      // Re-pack Channel B only (Channel 2: land/sea mask). Do NOT overwrite pristine ETOPO 2022 elevation channels (R, G, A).
       demU16[idx + 2] = maskU16;
-
-      // Harmonize elevation signs across shoreline seam
-      const isLand = maskByte > 127; // B > 0.5
-      const currentA = demU16[idx + 3];
-
-      if (isLand && currentA < U16_SEA_LEVEL) {
-        // Land pixel with negative elevation: harmonize to at least sea level (0m)
-        demU16[idx + 3] = U16_SEA_LEVEL;
-        demU16[idx + 1] = 0; // ocean depth = 0 on land
-        harmonizedLand++;
-      } else if (!isLand && currentA > U16_SEA_LEVEL) {
-        // Ocean pixel with positive elevation: harmonize to at most sea level (0m)
-        demU16[idx + 3] = U16_SEA_LEVEL;
-        demU16[idx + 0] = 0; // land elevation = 0 in ocean
-        harmonizedOcean++;
-      }
     }
   }
-
-  console.log(`  ✓ Harmonized ${harmonizedLand.toLocaleString()} sub-zero land pixels to sea level`);
-  console.log(`  ✓ Harmonized ${harmonizedOcean.toLocaleString()} supra-zero ocean pixels to sea level`);
 
   // Write re-packed binary file
   fs.writeFileSync(demPath, Buffer.from(demU16.buffer, demU16.byteOffset, demU16.byteLength));
