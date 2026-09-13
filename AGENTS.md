@@ -728,5 +728,34 @@ Always consult the following master specifications before proposing or making an
   2. A dedicated, non-compounding verification test suite or metric that proves positive, measurable impact for that stage alone.
   3. Live visual or telemetry confirmation before proceeding to subsequent stages.
 
+## 97. Physical Bathymetric Gradient Parity, Depth-Gated Ridge Highlighting & Hadal Trench Ink Absorption
+- **Prohibition of Ocean Depth Slope Compression (`* 0.25`)**:
+  In all terrain and relief shaders (`crust_hydrosphere.wgsl`, `swiss_relief_shading.wgsl`), bathymetric central differences must evaluate the true physical ratio matching land elevation scale:
+  $$h_{\text{ocean}} = -\text{oceanDepth} \cdot \left(\frac{10924.0}{8848.0}\right) \approx -1.2346 \cdot \text{oceanDepth}$$
+  Applying arbitrary reduction factors (e.g. `* 0.25`) to ocean depths or gradients is strictly prohibited, as it crushes continental slopes, seamounts, and hadal trenches by 75%, making ocean basins flat and shadowless.
+- **Prohibition of Concave Valley Ridge Hatching**:
+  Ridge hatching in ocean basins must be driven strictly by convex ridges ($k_{\text{ridge}} = \operatorname{clamp}(-\nabla^2 h \cdot 45.0, 0.0, 1.0)$). Mixing concave valley curvature ($k_{\text{valley}}$) into ridge hatching (`ridgeHatchStrength`) is prohibited, as it paints bleached white parchment lines into the bottom of deep ocean trenches.
+- **Mid-Ocean Ridge Depth Gating ($1,200\text{m} - 4,800\text{m}$)**:
+  Mid-ocean rift ridge highlights (`cBathyRidge`) must be gated by authentic ocean depth:
+  $$\text{gate}_{\text{ridge}} = \operatorname{smoothstep}(1200, 2000, d) \cdot (1.0 - \operatorname{smoothstep}(3800, 4800, d))$$
+  preventing spurious white salt-and-pepper noise across flat abyssal plains ($> 4,800\text{m}$) and hadal trenches ($> 5,500\text{m}$).
+- **Hadal Trench Crevice Ink Absorption**:
+  In deep hadal trenches ($d > 4,500\text{m}$), concave trough curvature ($k_{\text{valley}}$) must drive progressive ink absorption into dark archival pigment (midnight indigo in Cream Rag, abyssal basalt in Marie Tharp, exposed ferroprussiate in Prussian Cyanotype):
+  $$w_{\text{trench}} = \operatorname{clamp}(k_{\text{valley}} \cdot 1.5 \cdot \operatorname{smoothstep}(4500, 6500, d), 0.0, 1.0), \quad c_{\text{bathy}} = \operatorname{mix}(c_{\text{bathy}}, c_{\text{trenchInk}}, w_{\text{trench}} \cdot 0.85)$$
+  rendering trenches as authentic, deeply shadowed tectonic chasms.
+
+## 98. High-Altitude Montane Plateau Hypsometry & Glacial Summit Elevation Bounds
+- **Prohibition of Low-Altitude Glacial Summit Whiteout ($h < 5,200\text{m}$)**:
+  In hypsometric color ramps, permanent glacial summit white (`cSummit`) must NEVER activate at mid-range elevations ($h \le 4,200\text{m}$). Setting glacial transitions below $5,000\text{m}$ smothers high arid plateaus (the $2.5\text{M km}^2$ Tibetan Plateau, the Andean Altiplano) in chalk white snow, obliterating interior mountain ridges, valleys, and river networks (Brahmaputra, Yangtze, Indus).
+- **Dedicated Montane Steppe / High Plateau Band ($3,200\text{m} - 5,200\text{m}$)**:
+  Hypsometric ramps must include a dedicated Montane Steppe / High Plateau band (`cMontane`) between mountain flanks and glaciated summits:
+  - Piedmont / Foothills: $400 - 1,400\text{m}$
+  - Mountain Flanks: $1,400 - 3,200\text{m}$
+  - Montane Steppe / High Plateau: $3,200 - 5,200\text{m}$ (`#A88E6E` Warm Dry Steppe in Cream Rag, Washed Slate in Prussian, Archival Steppe in Tharp)
+  - Glacial Summits & Alpine Ridges: $> 5,200\text{m}$ ($\operatorname{smoothstep}(5200, 6800, h)$)
+- **Multi-Stratum Classification Synchronization Invariant**:
+  Any secondary stratum classification system (such as hypsometric stratum isolation or HUD pigment pans) must maintain exact boundary synchronization with the fragment shader hypsometric ramp ($d < -5,500\text{m}$ for Hadal Trench, $h < 5,200\text{m}$ for Montane Plateau, $h \ge 5,200\text{m}$ for Glacial Summits).
+
+
 
 
