@@ -1047,11 +1047,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let landElev = finalDemC.r;
     let oceanDepth = finalDemC.g;
 
-    let hC = select(-oceanDepth * 0.25, landElev, isLand > 0.45);
-    let hR = select(-finalDemR.g * 0.25, finalDemR.r, finalDemR.b > 0.45);
-    let hL = select(-finalDemL.g * 0.25, finalDemL.r, finalDemL.b > 0.45);
-    let hU = select(-finalDemU.g * 0.25, finalDemU.r, finalDemU.b > 0.45);
-    let hD = select(-finalDemD.g * 0.25, finalDemD.r, finalDemD.b > 0.45);
+    let onLand = isLand > 0.45;
+    let hC = select(-oceanDepth * 0.25, landElev, onLand);
+    let hR = select(select(0.0, -finalDemR.g * 0.25, finalDemR.b <= 0.45), select(0.0, finalDemR.r, finalDemR.b > 0.45), onLand);
+    let hL = select(select(0.0, -finalDemL.g * 0.25, finalDemL.b <= 0.45), select(0.0, finalDemL.r, finalDemL.b > 0.45), onLand);
+    let hU = select(select(0.0, -finalDemU.g * 0.25, finalDemU.b <= 0.45), select(0.0, finalDemU.r, finalDemU.b > 0.45), onLand);
+    let hD = select(select(0.0, -finalDemD.g * 0.25, finalDemD.b <= 0.45), select(0.0, finalDemD.r, finalDemD.b > 0.45), onLand);
 
     // Controlled displacement scale: calibrated for crisp Eduard Imhof Swiss relief hillshading
     let dispScale = sim.u_displacementScale * 45.0 + 1.0;
@@ -1120,13 +1121,13 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         cSummit     = vec3<f32>(0.92, 0.94, 0.96); // Chalk Ruling Pen #E8EDF2
     } else if (sim.u_theme == 1u) {
         // Cream Rag Paper (Eduard Imhof Swiss Alpine Relief)
-        cRockDark   = vec3<f32>(0.22, 0.19, 0.16);
-        cRockLit    = vec3<f32>(0.55, 0.48, 0.40);
-        cSkyAmbient = vec3<f32>(0.28, 0.32, 0.38);
+        cRockDark   = vec3<f32>(0.48, 0.43, 0.38); // Warm alpine limestone shadow #7A6E61
+        cRockLit    = vec3<f32>(0.72, 0.67, 0.58); // Sunlit limestone crags #B8AB94
+        cSkyAmbient = vec3<f32>(0.38, 0.40, 0.44);
         cLowland    = vec3<f32>(0.81, 0.71, 0.53); // Dune Ochre #CFB588
-        cPlateau    = vec3<f32>(0.74, 0.60, 0.44);
-        cFlank      = vec3<f32>(0.62, 0.43, 0.31); // Umber Foothill #9E6D50
-        cAlpine     = vec3<f32>(0.48, 0.42, 0.38);
+        cPlateau    = vec3<f32>(0.74, 0.63, 0.48); // Warm Steppe Ochre #BDA17A
+        cFlank      = vec3<f32>(0.58, 0.44, 0.35); // Soft Umber Foothill #947059
+        cAlpine     = vec3<f32>(0.64, 0.58, 0.52); // Alpine Massif Limestone #A39485
         cSummit     = vec3<f32>(0.98, 0.97, 0.95); // Glacial White #FDFCFA
     } else {
         // Marie Tharp Physiographic (Dark Abyssal Trench to Parchment Land)
@@ -1147,14 +1148,14 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let sunDirect = max(0.0, NdotL1) * shadowFactor;
     let skyIndirect = 0.40 + 0.60 * max(0.0, perturbedN.y * 0.5 + 0.5);
 
-    // Eduard Imhof Swiss Hypsometric Tinting with Power-Curve Distribution
-    // pow(landElev, 0.38) distributes 0..1500m across the first 50% of the color ramp
-    let tElev = pow(clamp(landElev, 0.0, 1.0), 0.38);
-
-    let t0 = smoothstep(0.00, 0.28, tElev);
-    let t1 = smoothstep(0.28, 0.55, tElev);
-    let t2 = smoothstep(0.55, 0.80, tElev);
-    let t3 = smoothstep(0.80, 0.96, tElev);
+    // Eduard Imhof Swiss Hypsometric Tinting with Physical Elevation Metre Ramps
+    // Calibrated continuous transitions: lowlands (0..400m), piedmont (400..1200m),
+    // mountain flanks (1200..2400m), alpine crags (2400..3800m), glacial peaks (>3800m).
+    let hMeters = clamp(landElev * 8848.0, 0.0, 8848.0);
+    let t0 = smoothstep(150.0, 650.0, hMeters);
+    let t1 = smoothstep(650.0, 1600.0, hMeters);
+    let t2 = smoothstep(1600.0, 2800.0, hMeters);
+    let t3 = smoothstep(2800.0, 4200.0, hMeters);
     let cRamp = mix(mix(mix(mix(cLowland, cPlateau, t0), cFlank, t1), cAlpine, t2), cSummit, t3);
 
     // Aerial Perspective & Illumination Combine
@@ -1167,7 +1168,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let sunWeight = clamp(NdotL1 * 1.4 * shadowFactor, 0.0, 1.0);
         let directComponent = cWarmDirect * (sunDirect * 0.90 + ridgeEnhance * 0.8 * shadowFactor);
         let shadowComponent = cCoolShadow * (skyIndirect * creviceAO);
-        landIllum = mix(shadowComponent, directComponent, sunWeight);
+        let lowlandLift = (1.0 - smoothstep(30.0, 600.0, hMeters)) * 0.18;
+        landIllum = mix(shadowComponent, directComponent, sunWeight) + cWarmDirect * lowlandLift;
     } else if (sim.u_theme == 2u) {
         // Prussian Cyanotype: Actinic Monochromatic Photochemical Illumination
         // STRICTLY MONOCHROMATIC — pure cool actinic blueprint lighting, zero warm/yellow sun component
@@ -1184,7 +1186,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         landIllum = (cSunLight * (sunDirect * 0.85 + ridgeEnhance * shadowFactor) + cSkyAmbient * (skyIndirect * creviceAO)) * skyHaze;
     }
     let tintedLand = cRamp * landIllum;
-    var finalLand = mix(tintedLand, cRockShaded, rockWeight);
+    let alpineElevWeight = smoothstep(500.0, 1800.0, hMeters);
+    let effectiveRockWeight = rockWeight * select(1.0, alpineElevWeight, sim.u_theme == 1u);
+    var finalLand = mix(tintedLand, cRockShaded, effectiveRockWeight);
 
     // ========================================================================
     // STAGE 2 PHYSICAL MEDIUM AS INK: CONTINENTAL CRUST SHADING
@@ -1288,7 +1292,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             let hatchCoverage = 1.0 - smoothstep(strokeHalfW - 0.03, strokeHalfW + 0.03, distToHatch);
             // Intermittent engraved cuts along the fall line
             let strokeCut = step(0.20, fract(uFall * 0.42));
-            let lehmannStroke = hatchCoverage * strokeCut * slopeIntensity;
+            let lehmannAlpine = smoothstep(400.0, 1400.0, hMeters);
+            let lehmannStroke = hatchCoverage * strokeCut * slopeIntensity * lehmannAlpine;
             let cCopperplateSepia = vec3<f32>(0.22, 0.19, 0.16); // Archival sepia-charcoal ink #38302A
             finalLand = mix(finalLand, cCopperplateSepia, lehmannStroke * 0.75);
         }
@@ -1296,11 +1301,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // 3. Subtractive Kubelka-Munk intaglio ink absorption with capillary micro-bleed into fibers
         let capillaryBleed = fiberTooth * (sim.u_mediumProperties.x * 0.35);
         let kSepia = vec3<f32>(1.45, 1.72, 2.15); // Sepia spectral absorption
-        let surfaceLuma = dot(finalLand, vec3<f32>(0.299, 0.587, 0.114));
-        let inkDensity = clamp(1.0 - surfaceLuma, 0.0, 1.0);
+        let shadowDepth = clamp(1.0 - diffuseTotal, 0.0, 1.0);
+        let slopeGrip = smoothstep(0.04, 0.25, length(vec2<f32>(dHx, dHy)));
+        let inkDensity = clamp(shadowDepth * slopeGrip * 0.45, 0.0, 0.60);
         let cPaperBase = vec3<f32>(0.953, 0.925, 0.878); // Arches 300gsm Cream Rag #F3ECE0
         let intaglioAbsorbed = cPaperBase * exp(-kSepia * (inkDensity * (1.0 + capillaryBleed)));
-        finalLand = mix(finalLand, intaglioAbsorbed, clamp(sim.u_mediumProperties.x * 0.60, 0.0, 0.90));
+        finalLand = mix(finalLand, intaglioAbsorbed, clamp(sim.u_mediumProperties.x * 0.40, 0.0, 0.70));
     } else if (sim.u_theme == 2u) {
         // --- THEME 2: PRUSSIAN CYANOTYPE (1842 John Herschel Photochemical Model) ---
         // Actinic exposure model: elevation inversion with sensitometric curve E = (1.0 - elevNorm)^exposureGamma
@@ -1460,7 +1466,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 cBathyRidge  = vec3<f32>(0.91, 0.93, 0.96); // Chalk ruling pen crest #E8EDF2
             } else if (sim.u_theme == 1u) {
                 // Cream Cotton Rag: Eduard Imhof tiered watercolor shelves (inner celadon, outer shelf break, marine indigo)
-                let cInnerShelf = vec3<f32>(0.56, 0.68, 0.62); // Luminous shelf celadon #77998B
+                let cShorelineWash = vec3<f32>(0.68, 0.76, 0.72); // Delicate coastal estuarine wash
+                let cInnerBase = vec3<f32>(0.56, 0.68, 0.62); // Luminous shelf celadon #77998B
+                let cInnerShelf = mix(cShorelineWash, cInnerBase, smoothstep(0.0002, 0.004, normDepth));
                 let cOuterShelf = vec3<f32>(0.42, 0.55, 0.56); // Mineral celadon-lapis wash
                 let shelfTier = smoothstep(0.004, 0.018, normDepth);
                 cBathyShelf  = mix(cInnerShelf, cOuterShelf, shelfTier);

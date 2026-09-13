@@ -119,4 +119,97 @@ describe('R16: Crust Crispness & High-FPS Performance Backstop Suite', () => {
       expect(crustSrc).toContain('let precipAdvectedField = sampleAdvectedPrecipitationField(input.uv, windForAdvection.xy, scrubTau);');
     });
   });
+
+  // --------------------------------------------------------------------------
+  // Suite 6: Vector Coastline Crispness & Anti-Aliasing Invariants
+  // --------------------------------------------------------------------------
+  describe('6. Vector Coastline Crispness & Anti-Aliasing Invariants', () => {
+    const vectorSrc = fs.readFileSync(path.resolve(__dirname, '../../src/webgpu/shaders/vector_ribbon.wgsl'), 'utf8');
+
+    it('R16-VEC-01: verifies Theme 1 uses deep archival sepia-charcoal ink with high drafting opacity', () => {
+      expect(vectorSrc).toContain('strokeColor = vec3<f32>(0.15, 0.12, 0.10);');
+      expect(vectorSrc).toContain('nominalAlpha = 0.88;');
+    });
+
+    it('R16-VEC-02: verifies stroke half-width reaches 0.65px CSS close-up with 0.65px feathering', () => {
+      expect(vectorSrc).toContain('let targetHalfWidthCss = mix(0.65, 0.225, orbitT);');
+      expect(vectorSrc).toContain('let featherPhys = 0.65 * limbTaper;');
+    });
+
+    it('R16-VEC-03: verifies WebGPUEngine updates ribbon uniform buffer with distance-scaled stroke width', () => {
+      expect(engineSrc).toContain('const strokeWidthPx = 1.30 + (0.45 - 1.30) * orbitT;');
+      expect(engineSrc).toContain('ribF[22] = strokeWidthPx * 0.5;');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Suite 7: Hypsometric Tinting Continuity & Lowland Blotching Elimination
+  // --------------------------------------------------------------------------
+  describe('7. Hypsometric Tinting Continuity & Lowland Blotching Elimination', () => {
+    it('R16-TINT-01: verifies physical elevation meter ramps replace infinite-derivative pow-curve', () => {
+      expect(crustSrc).not.toContain('pow(clamp(landElev, 0.0, 1.0), 0.38)');
+      expect(crustSrc).toContain('let hMeters = clamp(landElev * 8848.0, 0.0, 8848.0);');
+      expect(crustSrc).toContain('let t0 = smoothstep(150.0, 650.0, hMeters);');
+      expect(crustSrc).toContain('let t1 = smoothstep(650.0, 1600.0, hMeters);');
+    });
+
+    it('R16-TINT-02: verifies Theme 1 palette provides continuous gradient without dark brown plateau blotches', () => {
+      expect(crustSrc).toContain('cLowland    = vec3<f32>(0.81, 0.71, 0.53); // Dune Ochre #CFB588');
+      expect(crustSrc).toContain('cPlateau    = vec3<f32>(0.74, 0.63, 0.48); // Warm Steppe Ochre #BDA17A');
+      expect(crustSrc).toContain('cFlank      = vec3<f32>(0.58, 0.44, 0.35); // Soft Umber Foothill #947059');
+    });
+
+    it('R16-TINT-03: verifies lowlands (0..300m) maintain luminance delta < 0.12, preventing polygonal camo blotches', () => {
+      // Simulate WGSL color calculation at 0m, 100m, 200m, 300m
+      const cLowland = [0.81, 0.71, 0.53];
+      const cPlateau = [0.74, 0.63, 0.48];
+      const smoothstep = (e0: number, e1: number, x: number) => {
+        const t = Math.min(Math.max((x - e0) / (e1 - e0), 0.0), 1.0);
+        return t * t * (3.0 - 2.0 * t);
+      };
+      const lum = (rgb: number[]) => 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+
+      const lum0 = lum(cLowland);
+      for (let h = 0; h <= 300; h += 25) {
+        const t0 = smoothstep(150, 650, h);
+        const rgb = [
+          cLowland[0] * (1 - t0) + cPlateau[0] * t0,
+          cLowland[1] * (1 - t0) + cPlateau[1] * t0,
+          cLowland[2] * (1 - t0) + cPlateau[2] * t0,
+        ];
+        const deltaLum = Math.abs(lum(rgb) - lum0);
+        expect(deltaLum).toBeLessThan(0.05); // Barely noticeable smooth watercolor gradation, zero abrupt brown cutout
+      }
+    });
+
+    it('R16-TINT-04: verifies Direction A coastal shelf includes delicate estuarine wash', () => {
+      expect(crustSrc).toContain('let cShorelineWash = vec3<f32>(0.68, 0.76, 0.72); // Delicate coastal estuarine wash');
+      expect(crustSrc).toContain('let cInnerShelf = mix(cShorelineWash, cInnerBase, smoothstep(0.0002, 0.004, normDepth));');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Suite 8: Regional DEM Insets 16-bit Precision & Memory Alignment Invariants
+  // --------------------------------------------------------------------------
+  describe('8. Regional DEM Insets 16-bit Precision & Alignment Invariants', () => {
+    const regionalDemMethodMatch = engineSrc.match(/loadRegionalDEMTexture\s*\([\s\S]*?public setActiveRegionalDEM/);
+    const regionalDemSrc = regionalDemMethodMatch ? regionalDemMethodMatch[0] : '';
+
+    it('R16-REG-01: verifies loadRegionalDEMTexture preserves full rgba16float precision without 8-bit down-quantization', () => {
+      // Must NOT bit-shift uint16 data (u16[i] >> 8) which destroys sub-meter coastal topography
+      expect(regionalDemSrc).not.toMatch(/u16\[i\]\s*>>\s*8/);
+      expect(regionalDemSrc).toMatch(/format:\s*'rgba16float'/);
+    });
+
+    it('R16-REG-02: verifies loadRegionalDEMTexture calculates 8 bytes per pixel (w * 8) and enforces 256-byte alignment', () => {
+      expect(regionalDemSrc).toContain('const unpaddedRowBytes = w * 8;');
+      expect(regionalDemSrc).toContain('const paddedRowBytes = Math.ceil(unpaddedRowBytes / 256) * 256;');
+      expect(regionalDemSrc).toContain('const paddedF16 = new Uint16Array((paddedRowBytes / 2) * h);');
+    });
+
+    it('R16-REG-03: verifies dummyRegionalTexture format is rgba16float for pipeline binding parity', () => {
+      expect(engineSrc).toMatch(/label:\s*'dummy_regional_dem_texture'[\s\S]*?format:\s*'rgba16float'/);
+    });
+  });
 });
+

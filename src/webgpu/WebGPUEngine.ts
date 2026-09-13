@@ -139,6 +139,13 @@ export interface CloudOptions {
   showHigh: boolean;
 }
 
+const U16_TO_F16_LUT = (() => {
+  const lut = new Uint16Array(65536);
+  for (let i = 0; i < 65536; i++) {
+    lut[i] = encodeFloat16(i / 65535.0);
+  }
+  return lut;
+})();
 
 export class WebGPUEngine {
   private adapter: GPUAdapter | null = null;
@@ -1122,17 +1129,18 @@ export class WebGPUEngine {
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    // 1x1 Fallback dummy regional DEM texture view for binding slot 5
+
+    // 1x1 Fallback dummy regional DEM texture view for binding slot 5 (rgba16float filterable)
     this.dummyRegionalTexture = this.device.createTexture({
       label: 'dummy_regional_dem_texture',
       size: [1, 1, 1],
-      format: 'rgba8unorm',
+      format: 'rgba16float',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
-    const dummyPix = new Uint8Array([0, 0, 0, 142]);
+    const dummyPix = new Uint16Array([0, 0, 0, U16_TO_F16_LUT[36240]]);
     this.device.queue.writeTexture(
       { texture: this.dummyRegionalTexture },
-      dummyPix,
+      dummyPix.buffer,
       { bytesPerRow: 256, rowsPerImage: 1 },
       [1, 1, 1]
     );
@@ -2363,32 +2371,34 @@ export class WebGPUEngine {
 
       if (isU16) {
         const u16 = new Uint16Array(buffer);
-        const unpaddedRowBytes = w * 4;
+        const unpaddedRowBytes = w * 8; // 4 channels * 2 bytes per float16 = 8 bytes per pixel
         const paddedRowBytes = Math.ceil(unpaddedRowBytes / 256) * 256;
-        let dataToWrite: Uint8Array;
+        let dataToWrite: ArrayBufferView;
         if (paddedRowBytes === unpaddedRowBytes) {
-          const u8 = new Uint8Array(w * h * 4);
-          for (let i = 0; i < u8.length; i++) {
-            u8[i] = u16[i] >> 8;
+          const f16 = new Uint16Array(w * h * 4);
+          for (let i = 0; i < u16.length; i++) {
+            f16[i] = U16_TO_F16_LUT[u16[i]];
           }
-          dataToWrite = u8;
+          dataToWrite = f16;
         } else {
-          const padded = new Uint8Array(paddedRowBytes * h);
+          const paddedF16 = new Uint16Array((paddedRowBytes / 2) * h);
+          const u16PerRow = w * 4;
+          const paddedU16PerRow = paddedRowBytes / 2;
           for (let y = 0; y < h; y++) {
-            const srcRowOffset = y * w * 4;
-            const dstRowOffset = y * paddedRowBytes;
-            for (let x = 0; x < unpaddedRowBytes; x++) {
-              padded[dstRowOffset + x] = u16[srcRowOffset + x] >> 8;
+            const srcRow = y * u16PerRow;
+            const dstRow = y * paddedU16PerRow;
+            for (let x = 0; x < u16PerRow; x++) {
+              paddedF16[dstRow + x] = U16_TO_F16_LUT[u16[srcRow + x]];
             }
           }
-          dataToWrite = padded;
+          dataToWrite = paddedF16;
         }
 
         const texture = this.device.createTexture({
           label: `regional_dem_${id}`,
           size: [w, h, 1],
           mipLevelCount: 1,
-          format: 'rgba8unorm',
+          format: 'rgba16float',
           usage: (typeof GPUTextureUsage !== 'undefined'
             ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
             : (4 | 8)),
@@ -4095,14 +4105,14 @@ export class WebGPUEngine {
           )
         : 15.0;
       const orbitT = Math.max(0.0, Math.min(1.0, (camDist - 8.0) / (25.0 - 8.0)));
-      const strokeWidthPx = 0.75 + (0.35 - 0.75) * orbitT;
+      const strokeWidthPx = 1.30 + (0.45 - 1.30) * orbitT;
       ribF[22] = strokeWidthPx * 0.5; // u_halfWidthPx (nominal hairline half-width in CSS pixels)
 
       ribF[23] = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1.0 : 1.0, 3.0); // u_dpr
       ribF[24] = 0.1; // u_nearPlane
       ribF[25] = params.peakExponent !== undefined ? params.peakExponent : 1.4; // u_peakExponent
       ribF[26] = params.seaLevel !== undefined ? params.seaLevel : 0.0;         // u_seaLevel
-      ribF[27] = 0.0; // padding
+      ribF[27] = (params.verticalScaleMode !== undefined ? params.verticalScaleMode : this.verticalScaleMode) === 1 ? 1.0 : 0.0; // u_pad2 / verticalScaleMode
 
       // u_viewMatrix (offset 112 = 28 floats)
       params.camera?.matrixWorldInverse?.toArray(ribF, 28);

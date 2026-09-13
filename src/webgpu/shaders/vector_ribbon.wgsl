@@ -276,15 +276,25 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
     var normalDisplacement: f32 = 0.0;
     let dispScale = sim.u_displacementScale * 2.8;
 
-    if (elevMeters >= 0.0) {
-        let normH = elevMeters / 8848.0;
-        let camDist = length(sim.u_cameraPos.xyz);
-        let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
-        let dynamicExp = mix(1.0, 1.8, orbitT) * (max(0.5, sim.u_peakExponent) / 1.4);
-        normalDisplacement = pow(normH, max(0.5, dynamicExp)) * dispScale * poleAtten;
+    if (sim.u_pad2 > 0.5) {
+        if (elevMeters >= 0.0) {
+            let logNormH = log(1.0 + elevMeters / 1200.0) / log(1.0 + 8848.0 / 1200.0);
+            normalDisplacement = logNormH * dispScale * poleAtten;
+        } else {
+            let logNormD = log(1.0 + (-elevMeters) / 1500.0) / log(1.0 + 10924.0 / 1500.0);
+            normalDisplacement = -logNormD * (dispScale * 0.65) * poleAtten;
+        }
     } else {
-        let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
-        normalDisplacement = -pow(normD, 0.85) * (dispScale * 0.65) * poleAtten;
+        if (elevMeters >= 0.0) {
+            let normH = elevMeters / 8848.0;
+            let camDist = length(sim.u_cameraPos.xyz);
+            let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
+            let dynamicExp = mix(1.0, 1.8, orbitT) * (max(0.5, sim.u_peakExponent) / 1.4);
+            normalDisplacement = pow(normH, max(0.5, dynamicExp)) * dispScale * poleAtten;
+        } else {
+            let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
+            normalDisplacement = -pow(normD, 0.85) * (dispScale * 0.65) * poleAtten;
+        }
     }
 
     // Eliminated 0.025 normal standoff: set standoff = 0.0 to conform directly to terrain surface without floating spikes
@@ -378,19 +388,19 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let widthScale = select(1.0, 0.58, in.posA_3d.w < 0.75);
 
     // Camera-distance adaptive stroke scaling:
-    // 0.35px physical/CSS stroke scaling at planetary orbit (camDist >= 25.0)
-    // 0.75px zoomed in (camDist <= 8.0)
+    // 0.45px physical/CSS stroke scaling at planetary orbit (camDist >= 25.0)
+    // 1.30px zoomed in (camDist <= 8.0)
     let camDist = length(sim.u_cameraPos.xyz);
     let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
-    let targetHalfWidthCss = mix(0.375, 0.175, orbitT); // 0.75px -> 0.35px full stroke width
+    let targetHalfWidthCss = mix(0.65, 0.225, orbitT); // 1.30px -> 0.45px full stroke width
     let effectiveHalfWidthCss = select(targetHalfWidthCss, sim.u_halfWidthPx, sim.u_halfWidthPx > 0.001);
 
     // Smooth limb horizon width taper: prevent ribbons from extruding past the planetary silhouette
     let limbTaper = select(1.0, smoothstep(0.0, 0.08, max(0.0, facingEnd)), sphereFactor > 0.5);
 
     let nominalHalfWidthPhys = effectiveHalfWidthCss * sim.u_dpr * widthScale;
-    let geomHalfWidthPhys = max(nominalHalfWidthPhys, 0.20) * limbTaper;
-    let featherPhys = 1.0 * limbTaper;
+    let geomHalfWidthPhys = max(nominalHalfWidthPhys, 0.25) * limbTaper;
+    let featherPhys = 0.65 * limbTaper;
     let totalRadiusPhys = geomHalfWidthPhys + featherPhys;
 
     // Cap extension ratio for round caps
@@ -508,12 +518,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         // Theme 1: Light Monochrome Architectural / Swiss Relief (Cream Rag)
         if (in.pointType < 0.75) {
             // Hydrology: Washed mineral lapis/celadon glaze
-            strokeColor = vec3<f32>(0.26, 0.42, 0.54);
-            nominalAlpha = 0.45;
+            strokeColor = vec3<f32>(0.24, 0.38, 0.50);
+            nominalAlpha = 0.50;
         } else {
-            // Coastlines: Archival bistre / sepia-charcoal technical drafting ink (#38302A)
-            strokeColor = vec3<f32>(0.22, 0.19, 0.16);
-            nominalAlpha = 0.58;
+            // Coastlines: Archival bistre / sepia-charcoal technical drafting ink (#261E18)
+            strokeColor = vec3<f32>(0.15, 0.12, 0.10);
+            nominalAlpha = 0.88;
         }
     }
 
