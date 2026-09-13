@@ -90,7 +90,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     var clipA = sim.u_projectionMatrix * sim.u_viewMatrix * vec4<f32>(ptA.xyz, 1.0);
     var clipB = sim.u_projectionMatrix * sim.u_viewMatrix * vec4<f32>(ptB.xyz, 1.0);
 
-    let nearGuard = max(sim.u_nearPlane, 0.05);
+    let nearGuard = max(sim.u_nearPlane, 0.00002);
     let wA_ok = clipA.w >= nearGuard;
     let wB_ok = clipB.w >= nearGuard;
 

@@ -1235,3 +1235,138 @@ Deliverable requirement: At completion, produce an explicit summary and a specif
 - [ ] Live Chrome DevTools MCP verification confirms clean relief shading over Grand Canyon and Mount Fuji across themes.
 - [ ] Explicit follow-up prompt for subsequent tasks or remediation provided in final report.
 </USER_REQUEST>
+
+
+## 2026-09-13T17:18:28Z
+
+<USER_REQUEST>
+# Teamwork Project Prompt — Draft
+
+> Status: Launched
+> Goal: Craft prompt → get user approval → delegate to teamwork_preview
+> Requested team: Sentinel & Pipeline Lead, Compute & Shader Specialist, Camera & Telemetry Specialist, Independent Victory Auditor
+
+Transform the Indicatrix Engine's cloud subsystem from 2D concentric geometric shells into a true-depth volumetric tropospheric raymarcher rendering stratified cloud layers, valley inversions, and mountain peaks piercing cloud decks, driven by Google DeepMind WeatherNext 3 prognostic data (0.1° resolution) and verified against canonical litmus locations.
+
+Working directory: /Users/andrewvoirol/Antigravity/Projects/ais-interactive-globe-to-map
+Integrity mode: development
+
+---
+
+## Architectural & Mathematical Invariants
+
+1. **WebGPU Depth Buffer Format & Binding Contract**:
+   - WebGPU forbids `GPUTextureUsage.TEXTURE_BINDING` on `depth24plus`.
+   - Update `this.depthTexture` in `src/webgpu/WebGPUEngine.ts` to `format: 'depth32float'` with `usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING`.
+   - Synchronize all Pass 1 pipeline descriptors (`crust`, `ribbons`, `lines`, `contours`, `crane`) to `depthStencil: { format: 'depth32float', ... }` to prevent WebGPU pipeline validation mismatches.
+   - Pass 1 (`mainRenderPass`) must preserve `depthStencilAttachment.depthStoreOp: 'store'` so the depth buffer remains valid in GPU VRAM for subsequent passes.
+
+2. **Camera Descent Floor & Dynamic Near-Plane Unlocking**:
+   - In `src/webgpu/WebGPUCanvas.tsx:1526`, replace the hardcoded orbit radius clamp (`radius >= 5.08`, 101.9 km altitude) with a terrain-coupled ground clearance safety floor: $h_{\text{floor}} = 5.0 + h_{\text{DEM}} + 0.0001$ (~127m AGL floor).
+   - In `src/webgpu/WebGPUCanvas.tsx:284`, dynamically modulate `camera.near` with camera altitude (from 0.1 at orbital altitude down to 0.00005 [~63m] in the troposphere) to prevent near-plane planetary crust clipping while preserving 32-bit logarithmic depth precision.
+
+3. **Multi-Pass Render Sequence & Buffer Discipline**:
+   - **Pass 1 (`mainRenderPass`)**: Crust, ocean, terrain relief, vector lines, and crane render to swapchain texture + `depth32float` depth attachment (`loadOp: 'clear'`, `storeOp: 'store'`, `depthStoreOp: 'store'`).
+   - **Pass 2 (`volumetricCloudPass`)**: Dedicated render pass with color `loadOp: 'load'` (blending into Pass 1 pixels), binding `depth32float` as `texture_depth_2d` and `sampler` (or explicit `textureLoad`). Raymarches the tropospheric interval $[t_{\text{start}}, \min(t_{\text{exit}}, t_{\text{terrain}})]$.
+   - **Pass 3 (`overlayPass`)**: Vector labels, neatlines, verniers, and UI overlays.
+   - Maintain Invariant §20: 16-byte WGSL struct alignment for any expanded or new uniform buffers; zero dynamic reallocation during frame execution.
+
+4. **Existing Ground Shadows Preservation**:
+   - Do NOT rewrite ground shadows. `src/webgpu/shaders/crust_hydrosphere.wgsl:695-752` already implements dynamic 4-tap Poisson disk ground shadows. Hook integrated volumetric cloud density directly into this existing pass.
+
+5. **WeatherNext 3 Multi-Layer Ingestion & Psychrometric Coupling**:
+   - Hourly slices are staged in `public/data/weathernext/`: `low_cloud_cover_mean-{0..11}.bin`, `medium_cloud_cover_mean-{0..11}.bin`, `high_cloud_cover_mean-{0..11}.bin` (3600×1801 Float16 with 256-byte row pitch padding).
+   - Update `src/core/data/WeatherNextDataSource.ts` to stream and expose all three discrete cloud cover layers into the 3-slot WebGPU texture ring buffer.
+   - Couple base cloud height to surface psychrometrics via lifting condensation level ($h_{\text{base}} = 125.0 \cdot (T_{2\text{m}} - T_{d,2\text{m}})$).
+
+6. **3D Micro-Noise Volume Synthesis**:
+   - Author `src/webgpu/shaders/cloud_noise_compute.wgsl` synthesizing a $128 \times 128 \times 128$ `rgba8unorm` 3D texture in GPU memory on engine boot (<8ms, 0 MB download).
+   - Red channel: low-frequency billowy Perlin-Worley. Green, Blue, Alpha channels: 3 octaves of high-frequency Worley erosion.
+
+7. **WGSL Uniform Control Flow & Explicit LOD Invariant (Invariant §3)**:
+   - In `volumetric_cloud.wgsl`, all texture lookups must strictly obey WebGPU uniform control flow: use `textureSampleLevel(..., 0.0)` or `textureLoad(depthTexture, coord, 0)` to guarantee zero fatal driver-level gradient compilation errors.
+
+8. **Multi-Medium Historical Inking Parity (Invariant §24 & §28)**:
+   - Uniform-buffer-driven dynamic switching across all 3 active mediums without pipeline recompilation:
+     - Theme 0 (Marie Tharp 1977): Warm white billows with lithographic physiographic stippling.
+     - Theme 1 (Cream Rag): Absorbent cotton paper wash modulated by `u_paper_tooth`.
+     - Theme 2 (Prussian Cyanotype 1842): Actinic solarized blueprint highlights with Prussian cyan shadows.
+
+---
+
+## Sub-Agent Team Structure & Staged Execution
+
+- **Sentinel & Pipeline Lead**: Manages depth pass format alignment (`depth32float`), render pass sequencing (Pass 1 $\to$ Pass 2 $\to$ Pass 3), 16-byte uniform packing, and invariant enforcement.
+- **Compute & Shader Specialist**: Authors `cloud_noise_compute.wgsl` and `volumetric_cloud.wgsl` (dual-lobe Henyey-Greenstein phase function $g_1 = 0.82, g_2 = -0.25$, 1-tap sun crevice shadowing, Invariant §3 uniform control flow).
+- **Camera & Telemetry Specialist**: Manages camera clearance envelope ($h_{\text{floor}}$), dynamic near-plane modulation in `WebGPUCanvas.tsx`, and canonical HUD bookmarks (Mount Rainier and Haleakala).
+- **Independent Victory Auditor**: Executes clean-context Phase A/B/C verification (Invariant §17), runs test suites, and confirms exact benchmark image counts in `screenshots/` (Invariant §27).
+
+---
+
+## Sequential Gated Milestones & Verification Checkpoints (Invariant §13)
+
+### Milestone 1: Camera Unlock & Depth Pipeline Alignment
+- Reconfigure `this.depthTexture` to `depth32float` (`RENDER_ATTACHMENT | TEXTURE_BINDING`).
+- Align all Pass 1 depthStencil states (`crust`, `ribbons`, `lines`, `contours`, `crane`).
+- Relax `WebGPUCanvas.tsx` orbit radius clamp to terrain-following floor ($5.0 + h_{\text{DEM}} + 0.0001$).
+- Dynamically modulate `camera.near` with altitude ($0.1 \to 0.00005$).
+- **Milestone 1 Verification**: Boot dev server; navigate Chrome DevTools MCP at Puget Sound. Verify smooth descent from orbit down to $\le 4,000\text{m}$ without geometry clipping or depth rejections. Save capture to `screenshots/m1_camera_descent.png`.
+
+### Milestone 2: 3D Perlin-Worley Compute Generator
+- Author `cloud_noise_compute.wgsl` and allocate 3D `GPUTexture` (`dimension: '3d'`).
+- Dispatch single compute pass on engine boot.
+- **Milestone 2 Verification**: Browser verification of the generated 3D volume noise slices. Confirm billow base and erosion octaves without GPU stalls. Save capture to `screenshots/m2_noise_volume.png`.
+
+### Milestone 3: Volumetric Raymarch Pass & Depth Occlusion
+- Author `volumetric_cloud.wgsl` and integrate Pass 2 into `WebGPUEngine.ts`.
+- Reconstruct world position from `texture_depth_2d` and inverse view-projection matrix $\mathbf{M}_{\text{inv}} = (P \cdot V)^{-1}$.
+- Clamp raymarch distance to $t_{\text{terrain}}$ and integrate optical depth using Beer-Lambert law ($T = \exp(-\sigma_t \Delta s)$).
+- Stream multi-layer WeatherNext 3 cloud data (`low`, `medium`, `high`) and couple base height to LCL psychrometrics.
+- Hook volumetric cloud density into existing 4-tap Poisson ground shadows in `crust_hydrosphere.wgsl`.
+- **Milestone 3 Verification**: Jump camera to **Mount Rainier Bookmark** ($46.8529^\circ\text{N}, 121.7604^\circ\text{W}$, altitude $3,800\text{m}$). Verify Puget Sound marine stratus fills the basin while Rainier's $4,392\text{m}$ glaciated peak cleanly pierces into sunlight without depth artifacts. Save capture to `screenshots/m3_rainier_inversion.png`.
+
+### Milestone 4: Dual-Phase Optical Scattering & Archival Inking
+- Implement dual-lobe Henyey-Greenstein phase function ($g_1 = 0.82, g_2 = -0.25$) for forward Mie "silver lining" glare.
+- Implement 1-tap sun raymarch for self-shadowed crevices.
+- Implement period-accurate inking across all 3 themes (Marie Tharp, Cream Rag, Prussian Cyanotype) via uniform buffer updates with zero shader recompilations (Invariant §24 & §28).
+- **Milestone 4 Verification**: Jump camera to **Haleakala Sunset Bookmark** ($20.7097^\circ\text{N}, 156.2533^\circ\text{W}$, altitude $3,100\text{m}$, sun altitude $+7.5^\circ$). Verify golden rim-lighting on cloud billows with indigo diffuse shadows across all 3 themes. Save captures to `screenshots/m4_haleakala_tharp.png`, `screenshots/m4_haleakala_cream.png`, `screenshots/m4_haleakala_cyanotype.png`.
+
+---
+
+## Acceptance Criteria
+
+### Depth Pipeline & Camera Motion
+- [ ] `WebGPUEngine.ts` initializes `depthTexture` with `format: 'depth32float'` and `usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING`.
+- [ ] Pass 1 depthStencil states (`crust`, `ribbons`, `lines`, `contours`, `crane`) use `depth32float` with zero WebGPU validation errors.
+- [ ] Camera altitude smoothly descends below 5.08 down to tropospheric altitudes ($\le 4,000\text{m}$) without planetary crust near-plane clipping.
+- [ ] Benchmark capture `screenshots/m1_camera_descent.png` verifies Puget Sound descent.
+
+### 3D Noise Compute Generation
+- [ ] `cloud_noise_compute.wgsl` dispatches once on startup and generates a $128^3$ `rgba8unorm` 3D texture without console errors (<8ms).
+- [ ] Channel distribution matches spec: Red contains Perlin-Worley billows; Green, Blue, Alpha contain 3 octaves of Worley erosion.
+- [ ] Benchmark capture `screenshots/m2_noise_volume.png` verifies noise volume generation.
+
+### WeatherNext 3 Data Integration
+- [ ] `WeatherNextDataSource.ts` loads and ring-buffers low, medium, and high cloud slices.
+- [ ] Base cloud deck height couples dynamically to LCL psychrometrics ($h_{\text{base}} = 125.0 \cdot (T_{2\text{m}} - T_{d,2\text{m}})$).
+- [ ] Existing 4-tap Poisson ground shadows in `crust_hydrosphere.wgsl:695-752` receive volumetric cloud density without regression.
+
+### Volumetric Raymarching & Depth Occlusion
+- [ ] Pass 2 samples `texture_depth_2d` and terminates raymarching at $t_{\text{terrain}}$, preventing clouds from rendering beneath the planetary crust.
+- [ ] All WGSL texture sampling in `volumetric_cloud.wgsl` uses explicit LOD (`textureSampleLevel` / `textureLoad`) obeying Invariant §3 uniform control flow.
+- [ ] At Mount Rainier bookmark ($46.8529^\circ\text{N}, 121.7604^\circ\text{W}$, altitude $3,800\text{m}$), Puget Sound marine stratus fills the basin while the $4,392\text{m}$ summit pierces into sunlight.
+- [ ] Benchmark capture `screenshots/m3_rainier_inversion.png` verifies terrain occlusion.
+
+### Optical Scattering & Multi-Medium Archival Inks
+- [ ] Dual-lobe Henyey-Greenstein scattering ($g_1 = 0.82, g_2 = -0.25$) creates forward Mie silver lining glare near the solar disk.
+- [ ] 1-tap solar raymarch generates crevice self-shadowing.
+- [ ] Theme switching across Marie Tharp, Cream Rag, and Prussian Cyanotype maintains distinctive historical inking without shader recompilation (Invariant §24 & §28).
+- [ ] At Haleakala sunset bookmark ($20.7097^\circ\text{N}, 156.2533^\circ\text{W}$, sun altitude $+7.5^\circ$), cloud decks display golden rim-lighting and deep diffuse shadowing across all 3 mediums.
+- [ ] Benchmark captures `screenshots/m4_haleakala_tharp.png`, `screenshots/m4_haleakala_cream.png`, `screenshots/m4_haleakala_cyanotype.png` recorded.
+
+### Independent Verification & Test Integrity
+- [ ] `npm test` passes 100% across all unit and mathematical invariant suites (2,597+ tests).
+- [ ] `npx tsc --noEmit` completes with 0 type errors.
+- [ ] Canonical captures saved to `screenshots/` covering all milestone checkpoints (minimum 6 litmus images).
+- [ ] Live Chrome DevTools console logs show zero WGSL compilation rejections or unhandled exceptions.
+</USER_REQUEST>

@@ -19,39 +19,9 @@
  * - Invariant §20: 16-byte WGSL struct alignment discipline
  */
 
-/**
- * Computes the Lifting Condensation Level (LCL) in meters.
- * Air parcel temperature T and dewpoint T_d in Celsius (°C).
- * If T < T_d (super-saturated / dewpoint depression negative), clamps to 0.0m.
- */
-export function computeLCL(tempC: number, dewpointC: number): number {
-  return 125.0 * Math.max(tempC - dewpointC, 0.0);
-}
+import { computeLCL, computeLCLGate } from '../math/volumetricMath';
 
-/**
- * Evaluates the smooth thermodynamic LCL gate factor [0.0, 1.0].
- * smoothstep(lclMeters - 200.0, lclMeters, elevMeters)
- *
- * @param elevMeters Crust surface elevation in meters
- * @param lclMeters Lifting Condensation Level in meters
- * @param enabled Whether thermodynamic gating is active (default: true). When false, returns 1.0.
- */
-export function computeLCLGate(
-  elevMeters: number,
-  lclMeters: number,
-  enabled: boolean = true
-): number {
-  if (!enabled) {
-    return 1.0;
-  }
-  const edge0 = lclMeters - 200.0;
-  const edge1 = lclMeters;
-  if (edge1 <= edge0) {
-    return elevMeters >= edge1 ? 1.0 : 0.0;
-  }
-  const t = Math.max(0.0, Math.min(1.0, (elevMeters - edge0) / (edge1 - edge0)));
-  return t * t * (3.0 - 2.0 * t); // smoothstep
-}
+export { computeLCL, computeLCLGate };
 
 /**
  * Modulates raw precipitation rate by the thermodynamic LCL gate.

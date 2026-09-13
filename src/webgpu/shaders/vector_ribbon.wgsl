@@ -343,7 +343,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     var clipA = sim.u_projectionMatrix * viewPosA;
     var clipB = sim.u_projectionMatrix * viewPosB;
 
-    let nearGuard = max(sim.u_nearPlane, 0.05);
+    let nearGuard = max(sim.u_nearPlane, 0.00002);
 
     // 3. Analytical Near-Plane Guard (w_c >= nearGuard)
     let wA_ok = clipA.w >= nearGuard;

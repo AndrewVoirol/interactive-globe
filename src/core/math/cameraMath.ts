@@ -838,3 +838,91 @@ export function slerpVec3(
 
   return [res.x, res.y, res.z];
 }
+
+// ============================================================================
+// Camera Near-Plane Modulation & Geodetic Ground Clearance Safety
+// Invariant §2 (Ground Floor & Near-Plane) & Invariant §46 (Zero-Duplication Pure Math)
+// ============================================================================
+
+export const EARTH_RADIUS_UNITS = 5.0;
+export const EARTH_RADIUS_METERS = 6371000.0;
+export const EVEREST_MAX_ELEVATION_METERS = 8848.0;
+export const DEFAULT_DISPLACEMENT_SCALE = 0.08;
+export const RELIEF_DISPLACEMENT_MULTIPLIER = 2.8;
+export const MIN_AGL_SAFETY_MARGIN_UNITS = 0.0001; // ~127.42m AGL safety buffer
+export const MIN_NEAR_PLANE = 0.00005; // ~63.7m near plane in troposphere
+export const MAX_NEAR_PLANE = 0.1; // Standard orbital near plane
+export const TROPOSPHERIC_ALTITUDE_THRESHOLD = 0.004; // ~5,096m altitude
+export const ORBITAL_ALTITUDE_THRESHOLD = 1.0; // ~1,274,200m altitude
+
+/**
+ * Computes dynamic camera near-plane distance based on geocentric camera radius.
+ * Smoothly transitions from orbital near-plane (0.1) at altitudes >= 1.0 down to
+ * tropospheric near-plane (0.00005) at altitudes <= 0.004.
+ *
+ * @param camRadius - Geocentric camera radius in world units (crust sphere R0 = 5.0)
+ * @returns Near clipping plane distance in world units [0.00005, 0.1]
+ */
+export function computeDynamicNearPlane(camRadius: number): number {
+  const altitude = Math.max(MIN_AGL_SAFETY_MARGIN_UNITS, camRadius - EARTH_RADIUS_UNITS);
+  const tAlt = Math.max(
+    0,
+    Math.min(1, (altitude - TROPOSPHERIC_ALTITUDE_THRESHOLD) / (ORBITAL_ALTITUDE_THRESHOLD - TROPOSPHERIC_ALTITUDE_THRESHOLD))
+  );
+  return MIN_NEAR_PLANE + (MAX_NEAR_PLANE - MIN_NEAR_PLANE) * tAlt;
+}
+
+export interface GroundClearanceDetails {
+  h_floor: number;
+  trueElevUnits: number;
+  dispUnits: number;
+  h_DEM: number;
+}
+export type GroundClearanceFloorDetails = GroundClearanceDetails;
+
+/**
+ * Detailed ground clearance evaluation returning intermediate components
+ * alongside the final safe orbit floor (~127m AGL buffer).
+ *
+ * @param elevationMeters - Surface elevation in meters above sea level (clamped >= 0)
+ * @param displacementScale - Normal terrain displacement multiplier (default 0.08)
+ * @param _reliefActive - Optional legacy flag for backward compatibility
+ * @returns Breakdown including h_floor, trueElevUnits, dispUnits, and h_DEM
+ */
+export function computeGroundClearanceFloorDetails(
+  elevationMeters: number,
+  displacementScale: number = DEFAULT_DISPLACEMENT_SCALE,
+  _reliefActive?: boolean
+): GroundClearanceDetails {
+  const elevM = Math.max(0, elevationMeters);
+  const trueElevUnits = (elevM / EARTH_RADIUS_METERS) * EARTH_RADIUS_UNITS;
+  const dispScale = displacementScale * RELIEF_DISPLACEMENT_MULTIPLIER;
+  const normH = Math.min(1.0, elevM / EVEREST_MAX_ELEVATION_METERS);
+  const dispUnits = Math.pow(normH, 1.0) * dispScale;
+  const h_DEM = Math.max(trueElevUnits, dispUnits);
+  const h_floor = EARTH_RADIUS_UNITS + h_DEM + MIN_AGL_SAFETY_MARGIN_UNITS;
+  return { h_floor, trueElevUnits, dispUnits, h_DEM };
+}
+
+// Aliases for compatibility
+export const evaluateGroundClearanceFloorDetails = computeGroundClearanceFloorDetails;
+export const computeGroundClearanceDetails = computeGroundClearanceFloorDetails;
+
+/**
+ * Computes terrain-following ground clearance safety floor (~127m AGL floor).
+ * Guarantees that camera radius is clamped strictly above the highest of either
+ * the true physical geoid crust or the exaggerated 3D displacement mountain summits.
+ *
+ * @param elevationMeters - Surface elevation in meters above sea level (clamped >= 0)
+ * @param displacementScale - Normal terrain displacement multiplier (default 0.08)
+ * @param _reliefActive - Optional legacy flag for backward compatibility
+ * @returns Minimum safe camera radius in world units
+ */
+export function computeGroundClearanceFloor(
+  elevationMeters: number,
+  displacementScale: number = DEFAULT_DISPLACEMENT_SCALE,
+  _reliefActive?: boolean
+): number {
+  return computeGroundClearanceFloorDetails(elevationMeters, displacementScale, _reliefActive).h_floor;
+}
+
