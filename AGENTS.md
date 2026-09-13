@@ -780,3 +780,26 @@ Always consult the following master specifications before proposing or making an
 - **Auxiliary GPU Buffer Lazy Allocation Contract**:
   Auxiliary subsystems and regional insets (e.g. `regionalDemBuffer`) must NEVER be eagerly allocated during core engine initialization (`ensureCartographicBuffers()`).
   Eager allocation violates the strict 12-buffer startup contract (Invariant #20) and triggers adversarial stress test failures (`C2-STRESS-02`, `C2-STRESS-08`). Auxiliary buffers must allocate strictly on first dynamic activation (`setRegionalDEM()`).
+
+## 101. Prohibition of Speculative Feature-Creep Toggles & Single-Path Execution Invariant
+- **Prohibition of Multi-Path Production Code Clutter**:
+  When evaluating architectural choices or algorithmic alternatives during design and pre-planning, agents must NEVER propose polluting production code with speculative runtime toggles, redundant fallback matrices, or multi-branch abstractions (`if (mode == A) ... else if (mode == B) ...`).
+- **Single Opinionated Architectural Runway**:
+  Production engine features must implement the single, highest-fidelity, mathematically sound path (e.g. full continuous raymarching with hardware depth capping and 3D Perlin-Worley GPU noise). Architectural forks belong exclusively to development evaluation checkpoints, not permanent baggage in the engine's codebase.
+
+## 102. Human-in-the-Loop Browser Checkpoints & Landmark Inspection Protocol
+- **Prohibition of Abstract Text-Only Milestone Approval**:
+  Major visual, volumetric, or shader milestones must NEVER be certified based solely on theoretical prose descriptions or command-line compilation checks.
+- **The Live Browser Checkpoint Contract**:
+  At each milestone gate transition, agents must:
+  1. Ensure the dev server is active and error-free.
+  2. Use Chrome DevTools MCP to navigate the live browser directly to a canonical visual landmark (e.g. Mount Rainier at $46.85^\circ\text{N}, 121.76^\circ\text{W}$ for continental valley inversions; Haleakala Summit at $20.71^\circ\text{N}, 156.25^\circ\text{W}$ for marine trade-wind undercast).
+  3. Capture the live browser viewport and present the visual result to the user for direct feedback: *"Here is how the phenomenon renders right now at location X. What do you think before we proceed to milestone Y?"*
+  4. Tune physical parameters (density, forward scatter, LCL cutoff) interactively on the live screen prior to advancing.
+
+## 103. Generative UI Card Invariant for Multi-Faceted Architectural Reviews
+- **Prohibition of Wide Text-Wrapping ASCII Matrices**:
+  In planning and review sessions, emitting wide multi-column ASCII or plain-text markdown tables (`+----+----+----+`) that exceed chat viewport widths is prohibited. Line wrapping renders tabular data illegible and induces severe cognitive friction.
+- **Mandatory Generative UI Cards for Complex Roadmaps**:
+  Whenever presenting multi-milestone roadmaps, architectural trade-offs, or visual comparisons, agents must author a self-contained, responsive Generative UI HTML card (`generative_ui` skill) utilizing semantic CSS variables (`bg-[var(--card)]`, `text-[var(--foreground)]`, `border-[var(--border)]`) and embed it directly via `<agent-embed>`.
+
