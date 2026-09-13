@@ -655,7 +655,7 @@ describe('Milestone 1: WebGPU Shader & Ingestion Pipelines', () => {
         // Ingest sample 16MB ArrayBuffer
         const mockBuffer = new ArrayBuffer(16777216);
         await engine.loadDEMTexture(mockBuffer);
-        expect(engine.getDEMTexture()?.format).toBe('rgba16unorm');
+        expect(engine.getDEMTexture()?.format).toBe('rgba16float');
 
         engine.dispose();
         expect(engine.initialized).toBe(false);

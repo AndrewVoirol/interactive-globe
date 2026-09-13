@@ -245,7 +245,7 @@ describe('Challenger 2: WebGPU Runtime & Stress Verification Suite', () => {
   // Test Domain 3: DEM Ingestion Robustness & Fallback Fuzzing
   // =========================================================================
   describe('3. DEM Ingestion Robustness, Memory Reuse & Fallback Fuzzing', () => {
-    it('C2-STRESS-04: ingests valid 16MB 16-bit DEM buffer and sets rgba16unorm format', async () => {
+    it('C2-STRESS-04: ingests valid 16MB 16-bit DEM buffer and sets rgba16float format', async () => {
       const engine = new WebGPUEngine();
       const config = createEngineConfig(100, 10);
       await engine.initialize(config);
@@ -255,14 +255,14 @@ describe('Challenger 2: WebGPU Runtime & Stress Verification Suite', () => {
 
       const texture = engine.getDEMTexture();
       expect(texture).toBeDefined();
-      expect(texture?.format).toBe('rgba16unorm');
+      expect(texture?.format).toBe('rgba16float');
       expect(texture?.width).toBe(2048);
       expect(texture?.height).toBe(1024);
 
       engine.dispose();
     });
 
-    it('C2-STRESS-04b: ingests 256MB 16-bit 8K DEM buffer and sets rgba16unorm format with 8192x4096 dimensions', async () => {
+    it('C2-STRESS-04b: ingests 256MB 16-bit 8K DEM buffer and sets rgba16float format with 8192x4096 dimensions', async () => {
       const engine = new WebGPUEngine();
       const config = createEngineConfig(100, 10);
       await engine.initialize(config);
@@ -272,7 +272,7 @@ describe('Challenger 2: WebGPU Runtime & Stress Verification Suite', () => {
 
       const texture = engine.getDEMTexture();
       expect(texture).toBeDefined();
-      expect(texture?.format).toBe('rgba16unorm');
+      expect(texture?.format).toBe('rgba16float');
       expect(texture?.width).toBe(8192);
       expect(texture?.height).toBe(4096);
       expect(engine.demWidth).toBe(8192);

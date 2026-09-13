@@ -13,6 +13,7 @@
     "precompute:contours-ts": "npx tsx scripts/precompute-contours.ts",
     "precompute:vectors": "npx tsx scripts/precompute-vectors.ts",
     "precompute:vectors-10m": "npx tsx scripts/precompute-vectors-10m.ts",
+    "precompute:raster-mask": "npx tsx scripts/precompute-raster-mask.ts",
     "precompute:overture-vectors": "npx tsx scripts/precompute-overture-vectors.ts",
     "refresh:planetary": "npx tsx scripts/refresh-planetary-data.ts",
     "refresh:wind": "npx tsx scripts/fetch-or-generate-gfs-wind.ts",

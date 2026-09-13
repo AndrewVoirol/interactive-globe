@@ -2102,111 +2102,53 @@ export class WebGPUEngine {
 
       const oldTexture = this.demTexture;
       if (isU16) {
-        // Full-range 16-bit uint16 texture (RGBA16Unorm format for high-precision elevation)
+        // Full-range 16-bit uint16 texture encoded to rgba16float for sub-meter vertical precision
         const u16 = new Uint16Array(urlOrBuffer);
-        let loaded = false;
-        if (typeof (this.device as any).pushErrorScope === 'function') {
-          // Real browser environment: verify if rgba16unorm can be sampled with linear filtering
-          try {
-            this.device.pushErrorScope('validation');
-            const testTex = this.device.createTexture({
-              size: [1, 1, 1],
-              format: 'rgba16unorm',
-              usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
-            });
-            const testBgl = this.device.createBindGroupLayout({
-              entries: [{
-                binding: 0,
-                visibility: GPUShaderStage.FRAGMENT,
-                texture: { sampleType: 'float' },
-              }],
-            });
-            this.device.createBindGroup({
-              layout: testBgl,
-              entries: [{ binding: 0, resource: testTex.createView() }],
-            });
-            testTex.destroy();
-            const validationErr = await this.device.popErrorScope();
-            if (!validationErr) {
-              const mips16 = this.generateMipsRGBA16(u16, width, height);
-              const newTexture = this.device.createTexture({
-                size: [width, height, 1],
-                mipLevelCount: mips16.length,
-                format: 'rgba16unorm',
-                usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
-              });
-              for (let level = 0; level < mips16.length; level++) {
-                const m = mips16[level];
-                this.device.queue.writeTexture(
-                  { texture: newTexture, mipLevel: level },
-                  m.data,
-                  { bytesPerRow: m.width * 8, rowsPerImage: m.height },
-                  [m.width, m.height, 1]
-                );
+        const mips16 = this.generateMipsRGBA16(u16, width, height);
+        const newTexture = this.device.createTexture({
+          size: [width, height, 1],
+          mipLevelCount: mips16.length,
+          format: 'rgba16float',
+          usage: (typeof GPUTextureUsage !== 'undefined'
+            ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
+            : (4 | 8)),
+        });
+
+        for (let level = 0; level < mips16.length; level++) {
+          const m = mips16[level];
+          const rawRowBytes = m.width * 8;
+          const paddedRowBytes = Math.ceil(rawRowBytes / 256) * 256;
+
+          let writeData: Uint16Array;
+          if (paddedRowBytes === rawRowBytes) {
+            writeData = new Uint16Array(m.data.length);
+            for (let i = 0; i < m.data.length; i++) {
+              writeData[i] = U16_TO_F16_LUT[m.data[i]];
+            }
+          } else {
+            const rowElements = paddedRowBytes / 2;
+            writeData = new Uint16Array(rowElements * m.height);
+            for (let y = 0; y < m.height; y++) {
+              const srcOffset = y * m.width * 4;
+              const dstOffset = y * rowElements;
+              for (let x = 0; x < m.width * 4; x++) {
+                writeData[dstOffset + x] = U16_TO_F16_LUT[m.data[srcOffset + x]];
               }
-              this.demTexture = newTexture;
-              this.demTextureView = this.demTexture.createView();
-              this.updateDEMBindGroups();
-              if (oldTexture) oldTexture.destroy();
-              loaded = true;
             }
-          } catch {
-            loaded = false;
           }
-        } else {
-          // Mock test environment (Vitest)
-          try {
-            const mips16 = this.generateMipsRGBA16(u16, width, height);
-            const newTexture = this.device.createTexture({
-              size: [width, height, 1],
-              mipLevelCount: mips16.length,
-              format: 'rgba16unorm',
-              usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
-            });
-            for (let level = 0; level < mips16.length; level++) {
-              const m = mips16[level];
-              this.device.queue.writeTexture(
-                { texture: newTexture, mipLevel: level },
-                m.data,
-                { bytesPerRow: m.width * 8, rowsPerImage: m.height },
-                [m.width, m.height, 1]
-              );
-            }
-            this.demTexture = newTexture;
-            this.demTextureView = this.demTexture.createView();
-            this.updateDEMBindGroups();
-            if (oldTexture) oldTexture.destroy();
-            loaded = true;
-          } catch {}
+
+          this.device.queue.writeTexture(
+            { texture: newTexture, mipLevel: level },
+            writeData,
+            { bytesPerRow: paddedRowBytes, rowsPerImage: m.height },
+            [m.width, m.height, 1]
+          );
         }
 
-        if (!loaded) {
-          // Graceful downsample 16-bit uint16 to 8-bit rgba8unorm if tier1 is unavailable
-          const u8 = new Uint8Array(width * height * 4);
-          for (let i = 0; i < u16.length; i++) {
-            u8[i] = u16[i] >> 8;
-          }
-          const mips8 = this.generateMipsRGBA8(u8, width, height);
-          const newTexture = this.device.createTexture({
-            size: [width, height, 1],
-            mipLevelCount: mips8.length,
-            format: 'rgba8unorm',
-            usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
-          });
-          for (let level = 0; level < mips8.length; level++) {
-            const m = mips8[level];
-            this.device.queue.writeTexture(
-              { texture: newTexture, mipLevel: level },
-              m.data,
-              { bytesPerRow: m.width * 4, rowsPerImage: m.height },
-              [m.width, m.height, 1]
-            );
-          }
-          this.demTexture = newTexture;
-          this.demTextureView = this.demTexture.createView();
-          this.updateDEMBindGroups();
-          if (oldTexture) oldTexture.destroy();
-        }
+        this.demTexture = newTexture;
+        this.demTextureView = this.demTexture.createView();
+        this.updateDEMBindGroups();
+        if (oldTexture) oldTexture.destroy();
       } else if (byteLength > 0) {
         // Fallback 8-bit texture ingestion or test mock buffer
         const u8 = new Uint8Array(urlOrBuffer);

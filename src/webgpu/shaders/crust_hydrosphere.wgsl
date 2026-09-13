@@ -1049,21 +1049,40 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     let onLand = isLand > 0.45;
     let hC = select(-oceanDepth * 0.25, landElev, onLand);
-    let hR = select(select(0.0, -finalDemR.g * 0.25, finalDemR.b <= 0.45), select(0.0, finalDemR.r, finalDemR.b > 0.45), onLand);
-    let hL = select(select(0.0, -finalDemL.g * 0.25, finalDemL.b <= 0.45), select(0.0, finalDemL.r, finalDemL.b > 0.45), onLand);
-    let hU = select(select(0.0, -finalDemU.g * 0.25, finalDemU.b <= 0.45), select(0.0, finalDemU.r, finalDemU.b > 0.45), onLand);
-    let hD = select(select(0.0, -finalDemD.g * 0.25, finalDemD.b <= 0.45), select(0.0, finalDemD.r, finalDemD.b > 0.45), onLand);
+
+    // Domain-aware one-sided finite differences: clamp cross-boundary taps to hC
+    let hasR = select(finalDemR.b <= 0.45, finalDemR.b > 0.45, onLand);
+    let hasL = select(finalDemL.b <= 0.45, finalDemL.b > 0.45, onLand);
+    let hasU = select(finalDemU.b <= 0.45, finalDemU.b > 0.45, onLand);
+    let hasD = select(finalDemD.b <= 0.45, finalDemD.b > 0.45, onLand);
+
+    let rawHR = select(-finalDemR.g * 0.25, finalDemR.r, onLand);
+    let rawHL = select(-finalDemL.g * 0.25, finalDemL.r, onLand);
+    let rawHU = select(-finalDemU.g * 0.25, finalDemU.r, onLand);
+    let rawHD = select(-finalDemD.g * 0.25, finalDemD.r, onLand);
+
+    let effHR = select(hC, rawHR, hasR);
+    let effHL = select(hC, rawHL, hasL);
+    let effHU = select(hC, rawHU, hasU);
+    let effHD = select(hC, rawHD, hasD);
+
+    let hR = effHR;
+    let hL = effHL;
+    let hU = effHU;
+    let hD = effHD;
 
     // Controlled displacement scale: calibrated for crisp Eduard Imhof Swiss relief hillshading
     let dispScale = sim.u_displacementScale * 45.0 + 1.0;
-    let dHx = (hR - hL) * 0.5 * dispScale * slopeScale;
-    let dHy = (hD - hU) * 0.5 * dispScale * slopeScale;
+    let scaleX = select(select(0.0, 1.0, hasR || hasL), 0.5, hasR && hasL);
+    let scaleY = select(select(0.0, 1.0, hasU || hasD), 0.5, hasU && hasD);
+    let dHx = (effHR - effHL) * scaleX * dispScale * slopeScale;
+    let dHy = (effHD - effHU) * scaleY * dispScale * slopeScale;
 
     // Perturbed surface normal in 3D world space
     let perturbedN = normalize(n0 - tangentX * dHx - tangentY * dHy);
 
-    // Discrete Laplacian Curvature
-    let laplacian = ((hR + hL + hU + hD) - 4.0 * hC) * slopeScale;
+    // Discrete Laplacian Curvature evaluated strictly on domain-aware effective elevations
+    let laplacian = ((effHR + effHL + effHU + effHD) - 4.0 * hC) * slopeScale;
     let kRidge  = clamp(-laplacian * 45.0, 0.0, 1.0);
     let kValley = clamp(laplacian * 45.0, 0.0, 1.0);
 
@@ -1360,7 +1379,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // coastline widths (55-60% ratio: 1.98px vs 3.40px maximum, tapering
     // down to 0.40px hairline headwaters in alpine terrain).
     // ------------------------------------------------------------------------
-    if (isLand > 0.45) {
+    let shoreWaterwayGate = smoothstep(0.40, 0.60, isLand);
+    if (shoreWaterwayGate > 0.001) {
         // 1. Geomorphic Elevation Descent & Catchment Drainage Accumulation
         let normElev = clamp(landElev, 0.0, 1.0);
         let descentAccum = pow(1.0 - normElev, 1.6);
@@ -1405,7 +1425,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // Cliff attenuation: in sheer vertical rock cliffs (>35°), water forms narrow chutes
         let cliffDampen = 1.0 - rockWeight * 0.35;
 
-        let waterwayGlaze = channelCoverage * valleyGate * cliffDampen;
+        let waterwayGlaze = channelCoverage * valleyGate * cliffDampen * shoreWaterwayGate;
 
         if (waterwayGlaze > 0.001) {
             var cWaterway: vec3<f32>;
@@ -1449,9 +1469,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // No dark void! Ocean basins are rendered as architectural bathymetry
         // with mid-ocean ridges, seamounts, and trenches in sculpted mineral slate.
         // ====================================================================
-        if (isLand > 0.45) {
-            finalCrust = finalLand;
-        } else {
+
             let normDepth = clamp(oceanDepth, 0.0, 1.0);
             var cBathyShelf: vec3<f32>;
             var cBathyAbyss: vec3<f32>;
@@ -1565,8 +1583,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             } else {
                 bathyIllum = cSunLight * (sunDirect * 0.80 + ridgeEnhance * 0.8 * shadowFactor) + cSkyAmbient * (skyIndirect * creviceAO);
             }
-            finalCrust = mix(cBathy * bathyIllum, cRockShaded, rockWeight * 0.4);
-        }
+        let shelfDepthMeters = normDepth * 10924.0;
+        let bathyRockGate = smoothstep(200.0, 1000.0, shelfDepthMeters);
+        let cBathyComposite = mix(cBathy * bathyIllum, cRockShaded, rockWeight * 0.4 * bathyRockGate);
+
+        let shoreCoverage = smoothstep(0.35, 0.65, isLand);
+        finalCrust = mix(cBathyComposite, finalLand, shoreCoverage);
     } else if (sim.u_renderStyle == 2u) {
         // ====================================================================
         // OPTION C: NASA BLUE MARBLE ORBITAL PHOTOREALISM & CELESTIAL TERMINATOR
@@ -1709,7 +1731,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         if (sim.u_theme == 1u) {
             // --- THEME 1 (Cream Rag): Eduard Imhof Swiss Topographic Analytical Contours ---
             // Generates copperplate sepia contours on land, fading on steep slopes where Lehmann hachures dominate
-            if (isLand > 0.45 && landElev >= 0.0) {
+            let shoreContourFade = smoothstep(0.35, 0.65, isLand);
+            if (shoreContourFade > 0.001 && landElev >= 0.0) {
                 let normLand = clamp(landElev, 0.0, 1.0);
                 let creamFreq = mix(32.0, 64.0, orbitZoom);
                 let elevIndex = normLand * creamFreq;
@@ -1738,7 +1761,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 let moireGuardMajor = 1.0 - smoothstep(0.35, 0.85, dElevPx * 0.20);
 
                 let cCopperplateSepia = vec3<f32>(0.22, 0.19, 0.16); // Archival sepia-charcoal ink #38302A
-                let contourAlpha = (isMinor * 0.25 * moireGuard + isMajor * 0.35 * moireGuardMajor) * hachureFade;
+                let contourAlpha = (isMinor * 0.25 * moireGuard + isMajor * 0.35 * moireGuardMajor) * hachureFade * shoreContourFade;
                 finalCrust = mix(finalCrust, cCopperplateSepia, clamp(contourAlpha, 0.0, 0.65));
             }
         } else if (sim.u_theme == 2u) {
@@ -1762,6 +1785,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             // --- THEME 0 (Marie Tharp): Oceanographic Isobaths on Continental Shelf & Abyssal Plain ---
             // Land has NO contours per physiographic tradition; ocean basins feature major 1000m isobaths
             if (isLand <= 0.45) {
+                let shoreIsobathFade = 1.0 - smoothstep(0.35, 0.65, isLand);
                 let normDepth = clamp(oceanDepth, 0.0, 1.0);
                 let depthMeters = normDepth * 10924.0;
                 let isobathFreq = depthMeters / 1000.0; // 1000m depth contours
@@ -1780,7 +1804,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 let moireGuard = 1.0 - smoothstep(0.35, 0.85, dDepthPx);
                 let cMarineTurquoise = vec3<f32>(0.20, 0.58, 0.65); // Thin marine turquoise drafting ink #3394A6
                 let netIsobath = max(isIsobath, isShelfIsobath * 0.70);
-                finalCrust = mix(finalCrust, cMarineTurquoise, netIsobath * moireGuard * 0.45);
+                finalCrust = mix(finalCrust, cMarineTurquoise, netIsobath * moireGuard * 0.45 * shoreIsobathFade);
             }
         }
     }
