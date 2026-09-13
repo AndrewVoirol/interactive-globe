@@ -668,7 +668,7 @@ Always consult the following master specifications before proposing or making an
   Line segments traversing steep elevation gradients ($\Delta \text{elev} > 30\text{m}$ over $d > 0.02^\circ$) must be bilinearly sampled against the local ETOPO 2022 DEM base and subdivided to ensure sub-kilometer conformance to mountain relief. Douglas-Peucker simplification tolerances must be calibrated to fit within the target binary budget ($[35.0, 42.0]\text{ MB}$ for `public/geo-vectors.bin`) with zero antimeridian, Mercator, or Dymaxion net cut violations.
 
 ## 91. Aspect-Ratio Preserved Regional DEM Insets & Sub-Tile Spatial Conformance
-- **Aspect-Ratio Conservation in 4-Channel `rgba16unorm`**:
+- **Aspect-Ratio Conservation in 4-Channel `rgba16float`**:
   Regional DEM insets (e.g. USGS 3DEP for Grand Canyon, Copernicus GLO-30 for Mount Fuji) must size their raster dimensions ($W \times H$) to match the exact geographic aspect ratio ($\Delta \lambda / \Delta \phi$) of their bounding box (e.g. $900 \times 540$ for $1.0^\circ \times 0.6^\circ$ or $0.5^\circ \times 0.3^\circ$), preventing non-square pixel squashing or spatial stretching.
 - **Sub-Tile Spatial Slicing for Overlapping COGs**:
   When source elevation COGs (e.g., $1^\circ \times 1^\circ$ tiles) overlap regional bounding box edges, the ingestion pipeline must slice source sub-arrays prior to bilinear resampling (`tile_sub = data[src_r_start:src_r_end, src_c_start:src_c_end]`), ensuring pixel-perfect spatial alignment and zero distortion against the crust geoid.
@@ -682,4 +682,31 @@ Always consult the following master specifications before proposing or making an
   During long-running multi-agent swarm operations (`/teamwork-preview`), the supervising orchestrator or parent agent must provide high-signal progress updates to the user at regular intervals (every ~5 minutes or at every milestone gate transition). Updates must concisely state: active workers, current gating status, recent verification results (file size, test pass rates, errors), and next planned steps, preventing prolonged radio silence.
 - **Mandatory Copy-Pasteable Follow-Up Prompt Contract**:
   Every `/teamwork-preview` completion report or major milestone handoff must conclude with an explicit, copy-pasteable follow-up prompt detailing logical next-phase enhancements, progressive optimizations (e.g., multi-resolution LOD streaming, additional transport linework, cinematic camera tours), or remaining remediation tasks.
+
+## 93. WebGPU Regional DEM 16-Bit Texture Precision, 256-Byte Row Pitch & Slope-Gripped Ink Extinction
+- **Mandatory `rgba16float` for Filterable Regional DEM Textures**:
+  WebGPU explicitly classifies `rgba16unorm` as `unfilterable-float`. Binding an `rgba16unorm` texture to a bind group layout expecting `sampleType: 'float'` triggers fatal driver-level WebGPU validation errors. All regional high-resolution DEM textures and fallback dummy textures MUST be created with `format: 'rgba16float'`, which natively supports linear filtering and bilinear interpolation in the fragment shader.
+- **Hardware Row-Pitch 256-Byte Alignment**:
+  In `device.queue.writeTexture`, the `bytesPerRow` parameter must be an integer multiple of 256 bytes. When loading 16-bit half-float textures (8 bytes per texel for RGBA16F), buffer allocations must compute:
+  $$\text{paddedRowBytes} = \lceil(W \times 8) / 256\rceil \times 256$$
+  allocating a padded array (`Uint16Array((paddedRowBytes / 2) * H)`) and transferring each row with exact stride to prevent GPU memory corruption or sheared textures.
+- **Prohibition of 8-Bit Down-Quantization (`u16 >> 8`)**:
+  Converting 16-bit DEM data by bit-shifting (`u16[i] >> 8`) discards sub-meter coastal topography and produces severe step-stair contour banding. Conversions MUST use a 65,536-entry precomputed lookup table (`U16_TO_F16_LUT`) populated via IEEE-754 half-float encoder (`encodeFloat16`), preserving sub-millimeter precision near sea level.
+- **Slope-Gripped Intaglio Ink Extinction**:
+  In physical medium simulation, ink extinction must NEVER be driven by global inverted luminance (`1.0 - surfaceLuma`), which darkens flat plateaus and plains. Ink density must be gated by surface slope/gradient magnitude:
+  $$\text{slopeGrip} = \operatorname{smoothstep}(0.04, 0.25, \|\nabla h\|), \quad \text{inkDensity} = \text{shadowDepth} \cdot \text{slopeGrip} \cdot 0.45$$
+  ensuring ink accumulates exclusively in steep rock crevices, valley troughs, and shadow edges while lowlands remain luminous watercolor washes.
+- **Eduard Imhof Alpine Limestone Pigment Invariant**:
+  Theme 1 (Cream Rag) alpine rock shading must use warm limestone and sunlit crag pigments (`cRockDark = vec3(0.48, 0.43, 0.38)`, `cRockLit = vec3(0.72, 0.67, 0.58)`). Pitch black or dark charcoal asphalt colors on high summits and volcanic peaks are strictly prohibited.
+
+## 94. Multi-Location Litmus Breadth & Pre-Flight Checkpoint Discipline
+- **Multi-Geomorphic Archetype Verification Contract**:
+  No cartographic, terrain, or shader refactor may be certified solely on a single regional landmark (e.g. Cape Cod). Verification MUST validate across at least 4 distinct geomorphic archetypes:
+  1. *Coastal Flatland / Sandy Spit*: Cape Cod ($42^\circ\text{N}, 70^\circ\text{W}$, radius 6.2) — verifying fine peninsula resolution, estuarine channels, and shelf breaks.
+  2. *Volcanic Summit / Caldera*: Hawaii ($19.65^\circ\text{N}, 155.55^\circ\text{W}$, radius 6.1) — verifying separate Mauna Kea/Mauna Loa peaks, summit contours, and zero charcoal holes.
+  3. *Tectonic Plateau / Canyon Relief*: Grand Canyon ($36.06^\circ\text{N}, 112.14^\circ\text{W}$, radius 5.8) — verifying horizontal strata hachuring and Colorado River trough nesting.
+  4. *Stratovolcano / Archipelagic Trench*: Mount Fuji ($35.36^\circ\text{N}, 138.73^\circ\text{E}$, radius 5.8) — verifying symmetrical volcanic cone, Japanese trench depth, and coastline hairlines.
+- **Pre-Flight Git Commit & Push Safeguard**:
+  Prior to launching complex refactoring passes, large-scale shader modifications, or heavy browser benchmark suites, agents must proactively stage, commit, and push verified working state to remote `origin main`. This ensures that intermediate progress is preserved against local crashes, memory exhaustion, or test suite hangs.
+
 
