@@ -709,4 +709,24 @@ Always consult the following master specifications before proposing or making an
 - **Pre-Flight Git Commit & Push Safeguard**:
   Prior to launching complex refactoring passes, large-scale shader modifications, or heavy browser benchmark suites, agents must proactively stage, commit, and push verified working state to remote `origin main`. This ensures that intermediate progress is preserved against local crashes, memory exhaustion, or test suite hangs.
 
+## 95. Global Base DEM 16-Bit Float Ingestion, Domain-Aware Coastal Normal Clamping & Sub-Pixel Vector-Raster Parity
+- **Universal `rgba16float` Base DEM Ingestion**:
+  WebGPU classifies `rgba16unorm` as `unfilterable-float`. Binding `rgba16unorm` to linear samplers triggers fatal validation errors. All base DEM textures (`earth-etopo2022-dem-u16.bin`, 8192×4096, 256MB) MUST be ingested as `rgba16float` using `U16_TO_F16_LUT` and 256-byte GPU row-pitch alignment (`Math.ceil((width * 8) / 256) * 256`). Bit-shifting down-quantization (`u16 >> 8`) is strictly prohibited, as it collapses elevation resolution from sub-meter to ~77.5m discrete steps.
+- **Domain-Aware Coastal One-Sided Finite Differences & Curvature Decoupling**:
+  In `crust_hydrosphere.wgsl`, central differences for normal vectors and discrete Laplacian curvature ($\nabla^2 h$) must NEVER compute un-clamped differences across the coastline seam ($h_C \ge 0$ vs $h_N < 0$). Cross-boundary neighbor elevations must be clamped to the center tap's elevation (`effHR = select(centerElev, hR, sameDomain)`). This prevents artificial slope spikes, eliminates false crevice AO grooves (`creviceAO`) and false valley concavity (`kValley`) on flat shorelines, while preserving genuine coastal cliffs (Dover, Hawaii, Big Sur).
+- **Continuous Hermite Shoreline Blending**:
+  Substrate compositing between land architectural relief and bathymetric ocean washes must use continuous Hermite interpolation (`smoothstep(0.35, 0.65, isLand)`). Hard binary branching (`if (isLand > 0.45)`) is prohibited. In-shader waterway confluences and graticule isolines must smoothly attenuate across the land/sea transition.
+- **Sub-Pixel Vector-Raster Alignment Parity**:
+  Channel B of `earth-etopo2022-dem-u16.bin` must be rasterized directly from the identical 1:10m Natural Earth vector dataset as `public/geo-vectors.bin` (`scripts/precompute-raster-mask.ts`). Across all 890,000 vector coastline vertices, the sampled raster mask must maintain mean $B = 0.50 \pm 0.03$, $\ge 97\%$ within $[0.25, 0.75]$, and maximum Hausdorff distance $\le 0.50\text{px}$.
+
+## 96. Anti-Compounding Staged Verification Protocol for Multi-System Defects
+- **Prohibition of Compound Multi-System Fixes**:
+  When an artifact is caused by multiple interacting pipeline stages (ingestion down-quantization, shader differential math, blending thresholds, asset misalignment), agents must NEVER apply simultaneous, unverified multi-variable fixes. Downstream tweaks must not mask upstream data loss.
+- **Mandatory Non-Compounding Staged Gating**:
+  Remediation must be organized into sequential, isolated stages. Each stage must define:
+  1. An isolated physical/mathematical change.
+  2. A dedicated, non-compounding verification test suite or metric that proves positive, measurable impact for that stage alone.
+  3. Live visual or telemetry confirmation before proceeding to subsequent stages.
+
+
 
