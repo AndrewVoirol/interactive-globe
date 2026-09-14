@@ -916,7 +916,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TODO: Easter Egg Pass - Re-integrate Air Dancer (Wacky Wavy Inflatable Tube Man) as a subtle hidden easter egg */}
+        {/* Cartographic Easter Egg Pass: Air Dancer excised per archival design ethos */}
       </div>
     </CursorProvider>
   );

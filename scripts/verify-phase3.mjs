@@ -41,8 +41,10 @@ async function run() {
     errors.push(err.toString());
   });
 
-  console.log('Navigating to http://localhost:5173 ...');
-  await page.goto('http://localhost:5173', { waitUntil: 'networkidle' });
+  const port = process.env.PORT || 3000;
+  const url = `http://localhost:${port}`;
+  console.log(`Navigating to ${url} ...`);
+  await page.goto(url, { waitUntil: 'networkidle' });
 
   await page.waitForSelector('canvas', { timeout: 15000 });
   await page.waitForTimeout(3000);

@@ -41,8 +41,10 @@ async function run() {
     errors.push(err.toString());
   });
 
-  console.log('Navigating to http://localhost:5173 ...');
-  await page.goto('http://localhost:5173', { waitUntil: 'networkidle' });
+  const port = process.env.PORT || 3000;
+  const url = `http://localhost:${port}`;
+  console.log(`Navigating to ${url} ...`);
+  await page.goto(url, { waitUntil: 'networkidle' });
 
   // Wait for canvas and engine
   await page.waitForSelector('canvas', { timeout: 15000 });
@@ -100,8 +102,22 @@ async function run() {
   await page.screenshot({ path: path.join(screenshotsDir, 'theme-2-cyanotype.png') });
   console.log('Captured Theme 2: Prussian Cyanotype');
 
-  // Test Morphing Mode 1: Linear Unfurl
-  console.log('Testing Mode 1: Linear Unfurl');
+  // Test Morphing Mode 1: Linear Unfurl (Linear Dilation is index 0)
+  console.log('Testing Mode 1: Linear Unfurl (index 0)');
+  await page.evaluate(() => {
+    if (window.__INDICATRIX_ENGINE__?.setMode) {
+      window.__INDICATRIX_ENGINE__.setMode(0);
+      window.__INDICATRIX_ENGINE__.setAlpha(0.5);
+    } else if (window.setMode) {
+      window.setMode(0);
+      window.setAlpha(0.5);
+    }
+  });
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: path.join(screenshotsDir, 'mode-1-unfurl-half.png') });
+
+  // Test Morphing Mode 2: Cylinder Unroll (index 1)
+  console.log('Testing Mode 2: Cylinder Unroll (index 1)');
   await page.evaluate(() => {
     if (window.__INDICATRIX_ENGINE__?.setMode) {
       window.__INDICATRIX_ENGINE__.setMode(1);
@@ -112,7 +128,7 @@ async function run() {
     }
   });
   await page.waitForTimeout(1000);
-  await page.screenshot({ path: path.join(screenshotsDir, 'mode-1-unfurl-half.png') });
+  await page.screenshot({ path: path.join(screenshotsDir, 'mode-2-cylinder-unroll.png') });
 
   // Test Morphing Mode 4: Fluid Advection (mode index 3 in 0-indexed modes)
   console.log('Testing Mode 4: Fluid Advection');
