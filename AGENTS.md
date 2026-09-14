@@ -803,3 +803,41 @@ Always consult the following master specifications before proposing or making an
 - **Mandatory Generative UI Cards for Complex Roadmaps**:
   Whenever presenting multi-milestone roadmaps, architectural trade-offs, or visual comparisons, agents must author a self-contained, responsive Generative UI HTML card (`generative_ui` skill) utilizing semantic CSS variables (`bg-[var(--card)]`, `text-[var(--foreground)]`, `border-[var(--border)]`) and embed it directly via `<agent-embed>`.
 
+## 104. WebGPU Depth Buffer Coordinate Space & Direct [0, 1] NDC Z Unprojection Invariant
+- **WebGPU Direct Depth Range Invariant**:
+  Unlike OpenGL clip space ($z \in [-1, 1]$), WebGPU normalized device coordinates enforce $z_{\text{ndc}} \in [0.0, 1.0]$. Values sampled from a `depth32float` depth attachment (`textureLoad(u_depthTexture, coords, 0)`) are direct WebGPU NDC Z coordinates.
+- **Strict Reconstruction Contract**:
+  In all fragment shaders reconstructing view-space or world-space positions from depth:
+  ```wgsl
+  // CORRECT (WebGPU):
+  let ndcZ = depthVal;
+  let clipSurface = vec4<f32>(ndcX, ndcY, ndcZ, 1.0);
+  let viewPosH = camera.u_invProjectionMatrix * clipSurface;
+  let worldPos = camera.u_invViewMatrix * vec4<f32>(viewPosH.xyz / max(1e-6, abs(viewPosH.w)), 1.0);
+  ```
+- **Strict Prohibition of OpenGL Mapping**:
+  Applying `depthVal * 2.0 - 1.0` in WebGPU shaders is strictly prohibited. It erroneously maps surface depth into the near field, collapsing raymarch intervals ($t_{\text{terrain}} \le t_{\text{start}}$) and discarding 100% of volumetric fragments across the globe.
+
+## 105. Physical Phase Function Irradiance Conservation & 4π Solar Flux Scaling
+- **Spherical Phase Normalization**:
+  In radiative transfer and volumetric participating media, normalized scattering phase functions (such as dual-lobe Henyey-Greenstein $p(\cos\theta)$ or Rayleigh) integrate to unity over the sphere ($\int_{4\pi} p \, d\Omega = 1$), carrying an implicit factor of $\frac{1}{4\pi} \approx 0.079577$.
+- **Incident Solar Irradiance Multiplier**:
+  When calculating direct single-scattering radiance ($S_{\text{direct}}$), shaders must preserve the incident solar flux integral:
+  $$\text{phaseTerm} = p(\cos\theta) \cdot 4\pi$$
+  Omission of the $4\pi$ solid-angle multiplier collapses direct solar illumination to $< 3\%$ of physical intensity, rendering illuminated cloud decks as pitch-black or sepia smoke.
+
+## 106. The Anti-Hallucination Visual QA Gate & Quantitative Layer Audit Protocol
+- **Prohibition of File-Size-Only Victory Certification**:
+  Visual verification scripts and test runners must NEVER declare a visual feature complete or verified based solely on output image file sizes (e.g. `fileSize > 50 KB`) or non-zero exit codes. High-frequency bare DEM relief or cast shadows produce large file sizes that easily spoof naive tests.
+- **Quantitative Non-Zero Phenomenon Verification**:
+  Before certifying atmospheric, pluvial, or particle subsystems:
+  1. *Global View Litmus*: Verification captures must include the default global view (`lookAtCoordinates(0, 20, 14)`), where planetary coverage is unmistakable, rather than solely extreme oblique closeups where terrain can be confused for clouds.
+  2. *Live Pixel / Transmittance Assertions*: The test harness must probe runtime WebGPU buffers or canvas pixel data to assert that optical depth is non-zero ($\tau > 0$) and fragment alpha is non-zero ($\alpha > 0.05$) across populated regions.
+
+## 107. Data Ingestion Decoupling from Ancillary Feature Flags
+- **Prohibition of Coupled Ingestion Trees**:
+  Primary atmospheric, hydrographic, and cartographic data layers (DEMs, GFS/WeatherNext cloud strata, radar loops) must NEVER be conditionally loaded inside secondary or unrelated feature toggles (e.g. nesting `loadAllCloudLayers` inside `if (hasWind)`).
+- **Independent Ingestion Contract**:
+  Every volumetric or vector data layer must evaluate its own independent visibility trigger (`if (showClouds)` or `if (layer.visible)`), guaranteeing immediate data hydration regardless of which ancillary instruments or winds are active.
+
+
