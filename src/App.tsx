@@ -89,7 +89,7 @@ export default function App() {
   // Atmospheric Controls & Stratification State (Milestone 4 & Physical Strata)
   const [atmosphericScale, setAtmosphericScale] = useState<number>(3.5);
   const [shadowIntensity, setShadowIntensity] = useState<number>(0.45);
-  const [verticalScaleMode, setVerticalScaleMode] = useState<number>(0);
+  const [verticalScaleMode, setVerticalScaleMode] = useState<number>(1);
   const [rainShadowFeedback, setRainShadowFeedback] = useState<number>(0.0);
   const [pluvialGamma, setPluvialGamma] = useState<number>(0.0);
   const [weatherOpticalMode, setWeatherOpticalMode] = useState<number>(0);
@@ -716,6 +716,7 @@ export default function App() {
                 onDataLoaded={handleDataLoaded}
                 onError={handleWebGPUError}
                 onCoordsChange={handleCoordsChange}
+                onResolutionChange={setResolution}
                 isDemoMode={isDemoMode}
                 demoSequence={demoSequence}
                 onDemoModeChange={handleDemoModeChange}

@@ -16,7 +16,7 @@ export interface HypsometricReliefCurveProps {
 }
 
 export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
-  displacementScale = 0.08,
+  displacementScale = 0.055,
   peakExponent = 1.4,
   onDisplacementChange = () => {},
   onPeakExponentChange = () => {},

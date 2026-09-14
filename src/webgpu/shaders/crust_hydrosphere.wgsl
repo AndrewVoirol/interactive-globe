@@ -622,8 +622,9 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     output.uv = input.uv;
     output.surfaceType = input.surfaceType;
 
-    // Sample DEM with seamless Regional High-Resolution Compositing
-    let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, input.uv, 0.0);
+    // Footprint-aware DEM sampling matching the vertex grid spacing:
+    // Prevents Nyquist sub-pixel sampling spikes while preserving bold 3D massif relief
+    let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, input.uv, 2.0);
     let demSample = sampleRegionalComposite(input.uv, demSampleGlobal, 0.0);
     let elevMeters = decodeElevation(demSample);
     output.elevation = elevMeters;
@@ -677,6 +678,14 @@ fn vs_main(input: VertexInput) -> VertexOutput {
                 normalDisplacement = -pow(normD, 0.85) * (dispScale * 0.65) * poleAtten;
             }
         }
+    }
+
+    // Invariant §10: Horizon Tangent Attenuation for negative bathymetric displacement
+    // Prevents jagged inward stepped notches against the planetary neatline disc
+    let viewDir = normalize(sim.u_cameraPos.xyz - basePos);
+    let limbAtten = smoothstep(0.02, 0.18, max(0.0, dot(baseNormal, viewDir)));
+    if (normalDisplacement < 0.0) {
+        normalDisplacement = normalDisplacement * limbAtten;
     }
 
     let worldP = basePos + baseNormal * normalDisplacement;
@@ -1116,7 +1125,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // Discrete Laplacian Curvature evaluated strictly on domain-aware effective elevations
     let laplacian = ((effHR + effHL + effHU + effHD) - 4.0 * hC) * slopeScale;
     let effLaplacian = laplacian * fragPoleAtten * polarLonAtten;
-    let kRidge  = clamp(-effLaplacian * 45.0, 0.0, 1.0);
+    let kRidge  = clamp(-effLaplacian * 25.0, 0.0, 1.0);
     let kValley = clamp(effLaplacian * 45.0, 0.0, 1.0);
 
     // Multidirectional Oblique Solar Illumination controlled dynamically by u_sunAzimuth & u_sunAltitude
@@ -1130,7 +1139,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     var diffuseTotal = 0.08 + (0.72 * NdotL1) * shadowFactor + 0.20 * NdotL2;
 
     // Ridge Crest Contrast Enhancement & Valley Crevice AO (modulated by u_ambientOcclusion)
-    let ridgeEnhance = (NdotL1 - 0.5) * kRidge * 0.45;
+    let ridgeEnhance = (NdotL1 - 0.5) * kRidge * 0.22;
     diffuseTotal = clamp(diffuseTotal + ridgeEnhance * shadowFactor, 0.04, 1.40);
     let creviceAO = 1.0 - kValley * (0.85 * sim.u_ambientOcclusion);
     diffuseTotal = diffuseTotal * creviceAO;
@@ -1150,7 +1159,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let strata2 = sin(uStrike * 2.10 + 0.8);
     let strataTotal = strata1 * 0.6 + strata2 * 0.4;
     let joint1 = sin(uFall * 1.40 + strataTotal * 1.2);
-    let hachurePattern = clamp(0.80 + 0.20 * (joint1 * 0.65 + strataTotal * 0.35), 0.0, 1.0);
+    let hachurePattern = clamp(0.90 + 0.10 * (joint1 * 0.65 + strataTotal * 0.35), 0.0, 1.0);
 
     var cRockDark: vec3<f32>;
     var cRockLit: vec3<f32>;

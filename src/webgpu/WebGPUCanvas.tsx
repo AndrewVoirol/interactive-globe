@@ -122,6 +122,7 @@ export interface WebGPUCanvasProps {
   }) => void;
   onError?: (err: Error) => void;
   onCoordsChange?: (latDeg: number, lonDeg: number) => void;
+  onResolutionChange?: (r: ResolutionTier) => void;
   cursorPhysicsEnabled?: boolean;
   isZenMode?: boolean;
   isSidebarOpen?: boolean;
@@ -193,6 +194,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   onDataLoaded,
   onError,
   onCoordsChange,
+  onResolutionChange,
   cursorPhysicsEnabled = false,
   isZenMode = false,
   isSidebarOpen = true,
@@ -215,7 +217,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   onAtmosphericScaleChange,
   shadowIntensity = 0.45,
   onShadowIntensityChange,
-  verticalScaleMode = 0,
+  verticalScaleMode = 1,
   rainShadowFeedback = 0.0,
   pluvialGamma = 0.0,
   weatherOpticalMode = 0,
@@ -248,6 +250,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     duration: number;
   } | null>(null);
   const loadedBinRef = useRef<string | null>(null);
+  const activeLodTierRef = useRef<ResolutionTier>(resolution);
+  const lastLodSwitchTimeRef = useRef<number>(0);
   const loadedDataInfoRef = useRef<{ pointCount: number; lineCount: number; baseVramBytes: number } | null>(null);
   const sharedCursorTracker = useCursorTracker();
   const cursorTrackerRef = useRef<CursorTracker>(sharedCursorTracker);
@@ -381,6 +385,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     scrubTau,
     weatherTau,
     thermodynamicGating,
+    resolution,
   });
   useEffect(() => {
     stateRef.current = {
@@ -417,8 +422,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       scrubTau,
       weatherTau,
       thermodynamicGating,
+      resolution,
     };
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, resolution]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -444,10 +450,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     }
   }, [scrubTau, weatherTau]);
 
-  const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange, onAtmosphericScaleChange, onShadowIntensityChange, onShowCloudsChange, onTogglePlanetaryLayer });
+  const callbacksRef = useRef({ onFpsUpdate, onDataLoaded, onError, onCoordsChange, onResolutionChange, onGpuProfilerReport, onDemoModeChange, onAtmosphericScaleChange, onShadowIntensityChange, onShowCloudsChange, onTogglePlanetaryLayer });
   useEffect(() => {
-    callbacksRef.current = { onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange, onAtmosphericScaleChange, onShadowIntensityChange, onShowCloudsChange, onTogglePlanetaryLayer };
-  }, [onFpsUpdate, onDataLoaded, onError, onCoordsChange, onGpuProfilerReport, onDemoModeChange, onAtmosphericScaleChange, onShadowIntensityChange, onShowCloudsChange, onTogglePlanetaryLayer]);
+    callbacksRef.current = { onFpsUpdate, onDataLoaded, onError, onCoordsChange, onResolutionChange, onGpuProfilerReport, onDemoModeChange, onAtmosphericScaleChange, onShadowIntensityChange, onShowCloudsChange, onTogglePlanetaryLayer };
+  }, [onFpsUpdate, onDataLoaded, onError, onCoordsChange, onResolutionChange, onGpuProfilerReport, onDemoModeChange, onAtmosphericScaleChange, onShadowIntensityChange, onShowCloudsChange, onTogglePlanetaryLayer]);
 
   // Synchronize Trajectory Controller with demo mode and active sequence
   useEffect(() => {
@@ -640,7 +646,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       const liveProps = typeof window !== 'undefined'
         ? ((window as any).__INDICATRIX_LIVE_UNIFORMS__ || (window as any).__INDICATRIX_LIVE_PROPS__)
         : null;
-      dispScale = liveProps?.displacementScale ?? 0.08;
+      dispScale = liveProps?.displacementScale ?? 0.055;
     }
     return computeGroundClearanceFloor(elevM, dispScale);
   }, []);
@@ -1556,6 +1562,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     // the underlying point dataset (/geo-mesh-1m.bin) is already loaded in GPU memory.
     // Retessellate the dual-surface lithosphere and hydrosphere sphere grid dynamically on GPU.
     if (engineRef.current.initialized && loadedBinRef.current === binFile) {
+      activeLodTierRef.current = resolution;
       const tStart = performance.now();
       const sphereInfo = engineRef.current.rebuildSphereMesh(tier.lat, tier.lon);
       const tessellationMs = Math.max(1, Math.round(performance.now() - tStart));
@@ -2053,7 +2060,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
         const liveOverrides = typeof window !== 'undefined' ? (window as any).__INDICATRIX_LIVE_UNIFORMS__ : null;
 
-        const displacementScale = liveOverrides?.displacementScale ?? activeDataLayer?.displacementScale ?? 0.08;
+        const displacementScale = liveOverrides?.displacementScale ?? activeDataLayer?.displacementScale ?? 0.055;
         const hillshadeIntensity = liveOverrides?.hillshadeIntensity ?? activeDataLayer?.hillshadeIntensity ?? 1.0;
         const reliefActive = activeDataLayer ? (
           activeDataLayer.category === 'topo' ||
@@ -2093,6 +2100,49 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         if (Math.abs(camera.near - targetNear) > 1e-7) {
           camera.near = targetNear;
           camera.updateProjectionMatrix();
+        }
+
+        // Camera-Adaptive Dynamic Mesh LOD:
+        // Automatically adapt the sphere grid resolution based on camera altitude
+        // when using the standard dataset (/geo-mesh-1m.bin) and resolution is '1M' (default auto).
+        if (
+          engine.initialized &&
+          loadedBinRef.current === '/geo-mesh-1m.bin' &&
+          stateRef.current.resolution === '1M'
+        ) {
+          const now = performance.now();
+          if (now - lastLodSwitchTimeRef.current > 350) {
+            const currentLod = activeLodTierRef.current;
+            let targetLod: ResolutionTier = currentLod;
+
+            if (currentLod === '1M') {
+              if (camDist < 10.5) targetLod = '3M';
+            } else if (currentLod === '3M') {
+              if (camDist < 7.5) targetLod = '4M';
+              else if (camDist > 12.0) targetLod = '1M';
+            } else if (currentLod === '4M') {
+              if (camDist > 8.5) targetLod = '3M';
+            }
+
+            if (targetLod !== currentLod) {
+              activeLodTierRef.current = targetLod;
+              lastLodSwitchTimeRef.current = now;
+              const targetCfg = TIER_CONFIG[targetLod];
+              if (targetCfg) {
+                const sphereInfo = engine.rebuildSphereMesh(targetCfg.lat, targetCfg.lon);
+                const baseBytes = loadedDataInfoRef.current?.baseVramBytes || 0;
+                const totalVramMb = parseFloat(((baseBytes + sphereInfo.memoryBytes) / (1024 * 1024)).toFixed(2));
+                callbacksRef.current.onDataLoaded?.({
+                  pointCount: loadedDataInfoRef.current?.pointCount || sphereInfo.vertexCount,
+                  lineCount: loadedDataInfoRef.current?.lineCount || sphereInfo.triangleCount,
+                  format: `WebGPU (Adaptive LOD: ${targetLod})`,
+                  loadTimeMs: Math.max(1, Math.round(performance.now() - now)),
+                  vramMb: totalVramMb,
+                });
+                callbacksRef.current.onResolutionChange?.(targetLod);
+              }
+            }
+          }
         }
 
         // Supply matrixWorld (V^-1) and projectionMatrixInverse (P^-1) for volumetric raymarching

@@ -3953,7 +3953,7 @@ export class WebGPUEngine {
     const cloudFloats = new Float32Array(40);
 
     // Shell Radii (dynamically scaled with DEM relief displacement to prevent mountain discard)
-    const dispScale = ((params as any).displacementScale ?? 0.08) * 2.8;
+    const dispScale = ((params as any).displacementScale ?? 0.055) * 2.8;
     const tropoThickness = 0.012 + dispScale * 1.5;
     const rInner = 5.0;
     const rOuter = rInner + tropoThickness;
@@ -4711,7 +4711,7 @@ export class WebGPUEngine {
       rf[1] = params.sunAltitude !== undefined ? params.sunAltitude : 45.0;
       rf[2] = (params.sunAzimuth !== undefined ? params.sunAzimuth : 315.0) - 90.0;
       rf[3] = (params.sunAltitude !== undefined ? params.sunAltitude : 45.0) * 0.65;
-      rf[4] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
+      rf[4] = params.displacementScale !== undefined ? params.displacementScale : 0.055;
       rf[5] = params.hillshadeIntensity !== undefined ? params.hillshadeIntensity : 1.0;
       const curDemW = this.demWidth > 0 ? this.demWidth : WebGPUEngine.DEFAULT_DEM_WIDTH;
       const curDemH = this.demHeight > 0 ? this.demHeight : WebGPUEngine.DEFAULT_DEM_HEIGHT;
@@ -4775,7 +4775,7 @@ export class WebGPUEngine {
       }
 
       ribF[20] = params.cursorActive ? 1.0 : 0.0;
-      ribF[21] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
+      ribF[21] = params.displacementScale !== undefined ? params.displacementScale : 0.055;
 
       // Camera-distance-adaptive stroke scaling:
       // 0.35px physical/CSS stroke scaling at planetary orbit (camDist >= 25.0)
@@ -4856,7 +4856,7 @@ export class WebGPUEngine {
       }
 
       cf[20] = params.cursorActive ? 1.0 : 0.0;
-      cf[21] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
+      cf[21] = params.displacementScale !== undefined ? params.displacementScale : 0.055;
       cf[22] = params.seaLevel !== undefined ? params.seaLevel : 0.0;
       cf[23] = params.theme === 1
         ? (params.paperTooth !== undefined ? params.paperTooth : 0.40)
@@ -4969,7 +4969,7 @@ export class WebGPUEngine {
       windU[5] = this.windSpeedMultiplier;
       windU[6] = showSurf;
       windU[7] = showJet;
-      windU[8] = params.displacementScale !== undefined ? params.displacementScale : 0.08;
+      windU[8] = params.displacementScale !== undefined ? params.displacementScale : 0.055;
       windU[9] = params.peakExponent !== undefined ? params.peakExponent : 1.4;
       windU32[10] = params.verticalScaleMode !== undefined ? params.verticalScaleMode : this.verticalScaleMode;
       windU[11] = 0.0;

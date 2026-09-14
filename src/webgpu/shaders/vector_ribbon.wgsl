@@ -272,7 +272,7 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
     // Topographic Elevation Coupling from ETOPO 2022 DEM (Synchronized with crust_hydrosphere.wgsl)
     // Note: v = 0.0 is North Pole (+PI/2), v = 1.0 is South Pole (-PI/2)
     let demUv = vec2<f32>((lambda + PI) / (2.0 * PI), 0.5 - phi / PI);
-    let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, demUv, 0.0);
+    let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, demUv, 2.0);
     let demSample = sampleRegionalComposite(demUv, demSampleGlobal, 0.0);
 
     let poleDist = abs(demUv.y - 0.5) * 2.0;
@@ -302,6 +302,13 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
             let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
             normalDisplacement = -pow(normD, 0.85) * (dispScale * 0.65) * poleAtten;
         }
+    }
+
+    // Invariant §10: Horizon Tangent Attenuation for negative bathymetric displacement
+    let viewDir = normalize(sim.u_cameraPos.xyz - out.pos);
+    let limbAtten = smoothstep(0.02, 0.18, max(0.0, dot(out.normal, viewDir)));
+    if (normalDisplacement < 0.0) {
+        normalDisplacement = normalDisplacement * limbAtten;
     }
 
     // Eliminated 0.025 normal standoff: set standoff = 0.0 to conform directly to terrain surface without floating spikes

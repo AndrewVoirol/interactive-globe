@@ -102,7 +102,7 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg',
     defaultOpacity: 0.90,
     defaultBlendMode: 0,
-    defaultDisplacementScale: 0.08,
+    defaultDisplacementScale: 0.055,
     renderStyle: 'photoreal',
     attribution: 'NASA Earth Observatory / EOSDIS GIBS',
     legend: {
@@ -140,7 +140,7 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     defaultOpacity: 0.90,
     defaultBlendMode: 0,
-    defaultDisplacementScale: 0.08,
+    defaultDisplacementScale: 0.055,
     attribution: 'Esri, Maxar, Earthstar Geographics',
     legend: {
       colorStops: ['#0f172a', '#1e3a8a', '#166534', '#a16207', '#f8fafc'],
@@ -158,7 +158,7 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
     defaultOpacity: 0.85,
     defaultBlendMode: 0,
-    defaultDisplacementScale: 0.08,
+    defaultDisplacementScale: 0.055,
     attribution: 'GEBCO, NOAA, Esri, DeLorme',
     legend: {
       colorStops: ['#020617', '#0f172a', '#1e293b', '#0369a1', '#38bdf8'],
@@ -176,7 +176,7 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
     defaultOpacity: 0.80,
     defaultBlendMode: 0,
-    defaultDisplacementScale: 0.08,
+    defaultDisplacementScale: 0.055,
     attribution: 'U.S. Geological Survey / The National Map',
     legend: {
       colorStops: ['#0284c7', '#86efac', '#fef08a', '#f97316', '#b91c1c'],
@@ -194,7 +194,7 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_CityLights_2012/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg',
     defaultOpacity: 0.90,
     defaultBlendMode: 1, // Additive for glowing city lights
-    defaultDisplacementScale: 0.08,
+    defaultDisplacementScale: 0.055,
     attribution: 'NASA Earth Observatory / VIIRS / NOAA',
     legend: {
       colorStops: ['#000000', '#7c2d12', '#d97706', '#fef08a', '#ffffff'],
@@ -212,7 +212,7 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     url: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',
     defaultOpacity: 0.85,
     defaultBlendMode: 0,
-    defaultDisplacementScale: 0.08,
+    defaultDisplacementScale: 0.055,
     attribution: 'OpenStreetMap contributors, SRTM',
     legend: {
       colorStops: ['#0284c7', '#22c55e', '#eab308', '#9a3412', '#78716c'],
