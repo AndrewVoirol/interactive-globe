@@ -15,9 +15,9 @@ import WebGPUFallback from './components/canvas/WebGPUFallback';
 import { TactileButton } from './components/ui/TactileButton';
 
 export { KinematicCameraController } from './components/canvas/KinematicCameraController';
-
 const WebGPUCanvas = React.lazy(() => import('./webgpu/WebGPUCanvas'));
-const AirDancerScene = React.lazy(() => import('./components/tubeman/AirDancerScene').then((m) => ({ default: m.AirDancerScene })));
+
+
 
 const RADIUS = 5.0;
 
@@ -318,10 +318,6 @@ export default function App() {
   }, []);
 
   const [isAudioMuted, setIsAudioMuted] = useState(true);
-  const [isAirDancerMode, setIsAirDancerMode] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.location.search.includes('tubeman') || window.location.hash.includes('tubeman');
-  });
   const prevAlphaRef = useRef(alpha);
 
   const handleAudioMuteToggle = useCallback(() => {
@@ -503,8 +499,6 @@ export default function App() {
         setTheme((t) => (((t + 1) % 3) as any));
       } else if (e.key === 'v' || e.key === 'V') {
         setShowVectors((s) => !s);
-      } else if (e.key === 'w' || e.key === 'W') {
-        setIsAirDancerMode((prev) => !prev);
       } else if (e.key === 'b' || e.key === 'B') {
         // Standalone WebGPU instrument: WebGL2 backend is retired
         // setBackend((b) => (b === 'webgpu' ? 'webgl2' : 'webgpu'))
@@ -922,26 +916,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TODO: Easter Egg Pass - Re-integrate Air Dancer (Wacky Wavy Inflatable Tube Man) as a subtle hidden easter egg (e.g. secret key sequence or hidden cartouche click) */}
-
-        {/* Wacky Wavy Inflatable Tube Man ("Air Dancer") Dealership Experience */}
-        {isAirDancerMode && (
-          <React.Suspense fallback={
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black text-white font-mono text-sm">
-              <span className="animate-spin mr-2">🎈</span> Inflating Tube Man...
-            </div>
-          }>
-            <AirDancerScene onClose={() => {
-              setIsAirDancerMode(false);
-              if (typeof window !== 'undefined' && (window.location.search.includes('tubeman') || window.location.hash.includes('tubeman'))) {
-                const url = new URL(window.location.href);
-                url.searchParams.delete('tubeman');
-                url.hash = '';
-                window.history.replaceState({}, '', url.toString());
-              }
-            }} />
-          </React.Suspense>
-        )}
+        {/* TODO: subtle cartographic easter egg pass (air dancer removed for archival precision) */}
       </div>
     </CursorProvider>
   );

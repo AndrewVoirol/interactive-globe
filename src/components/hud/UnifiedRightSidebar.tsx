@@ -20,6 +20,7 @@ import { ThemeManager } from '../../core/themes/ThemeManager';
 import { AtmosphereDrawer, PrognosticModelBackend } from '../AtmosphereDrawer';
 export type { PrognosticModelBackend };
 import { TimelineScrubber, type TimelineScrubberState } from './TimelineScrubber';
+import { CuratorsColophon } from './CuratorsColophon';
 
 const PIGMENT_SWATCHES: Record<0 | 1 | 2, Array<{ name: string; hex: string; depth: string }>> = {
   0: [
@@ -402,7 +403,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   const [catalogFilter, setCatalogFilter] = useState<'all' | 'topo' | 'vectors' | 'satellite'>('all');
   const catalogSheetRef = useRef<HTMLDivElement>(null);
 
-  type SidebarPlate = 'all' | 'survey' | 'scene' | 'paradigms' | 'planetary' | 'layers';
+  type SidebarPlate = 'all' | 'medium' | 'terrain' | 'weather' | 'projection' | 'survey' | 'scene' | 'paradigms' | 'planetary' | 'layers';
   const [activePlate, setActivePlate] = useState<SidebarPlate>('all');
 
   const isLight = theme === 1;
@@ -535,6 +536,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   // Planetary instrumentation layer state
   const noaaLayer = dataLayers.find((l) => l.id === 'noaa-gfs-wind');
   const isNoaaActive = noaaLayer ? noaaLayer.visible : false;
+
+  const radarLayer = dataLayers.find((l) => l.id === 'live-doppler-radar');
+  const isRadarActive = radarLayer ? radarLayer.visible : false;
 
   const starlinkLayer = dataLayers.find((l) => l.id === 'starlink-iss-orbits');
   const isStarlinkActive = starlinkLayer ? starlinkLayer.visible : false;
@@ -865,18 +869,17 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               {(
                 [
                   { id: 'all', label: 'ALL' },
-                  { id: 'survey', label: 'SURVEY' },
-                  { id: 'scene', label: 'SCENE' },
-                  { id: 'paradigms', label: 'PARADIGMS' },
-                  { id: 'planetary', label: 'PLANETARY' },
-                  { id: 'layers', label: 'LAYERS' },
+                  { id: 'medium', label: 'MEDIUM' },
+                  { id: 'terrain', label: 'TERRAIN' },
+                  { id: 'weather', label: 'WEATHER' },
+                  { id: 'projection', label: 'PROJECTION' },
                 ] as const
               ).map((tab) => {
                 const isActive = activePlate === tab.id;
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActivePlate(tab.id)}
+                    onClick={() => setActivePlate(tab.id as SidebarPlate)}
                     className={`px-1.5 py-1 rounded-[2px] font-bold transition-all border shrink-0 cursor-pointer ${
                       isActive
                         ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
@@ -892,9 +895,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
             {/* Main Body (Expandable) */}
             <div className="mt-2.5 space-y-3 overflow-y-auto pr-1 flex-1 min-h-0 scroll-fade-mask pt-1 pb-3">
               {/* ================================================================= */}
-              {/* PLATE 1: SURVEY & ARCHIVAL PHYSICAL MEDIUM                        */}
+              {/* PLATE 1: PHYSICAL MEDIUM & MATERIAL CALIBRATION                   */}
               {/* ================================================================= */}
-              {(activePlate === 'all' || activePlate === 'survey') && (
+              {(activePlate === 'all' || activePlate === 'medium' || activePlate === 'survey') && (
                 <div className="space-y-2.5">
                   {/* Archival Physical Medium & Mineral Swatch Ramp */}
                   <div
@@ -1162,9 +1165,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               )}
 
               {/* ================================================================= */}
-              {/* PLATE 2: DEDICATED DIRECT SCENE CONTROLS (WebGPU Uniforms)         */}
+              {/* PLATE 2: TERRAIN SHADING & HYDROLOGICAL RELIEF                    */}
               {/* ================================================================= */}
-              {(activePlate === 'all' || activePlate === 'scene') && (
+              {(activePlate === 'all' || activePlate === 'terrain' || activePlate === 'scene') && (
                 <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
                   <div className="flex items-center justify-between text-micro font-semibold uppercase tracking-wider">
                     <span className="flex items-center gap-1.5">
@@ -1251,9 +1254,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               )}
 
               {/* ================================================================= */}
-              {/* PLATE 3: MORPH PARADIGMS, PHYSICS & OVERLAYS                      */}
+              {/* PLATE 3: CONTINUOUS PROJECTION & MANIFOLD DEFORMATION             */}
               {/* ================================================================= */}
-              {(activePlate === 'all' || activePlate === 'paradigms') && (
+              {(activePlate === 'all' || activePlate === 'projection' || activePlate === 'paradigms') && (
                 <div className="space-y-2.5">
                   {/* Morph Paradigms (Modes 0–4) */}
                   <div className="space-y-1.5">
@@ -1295,10 +1298,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               }`}
                             />
                             <span className="text-[var(--theme-text-accent)]">
-                              {mode === 0 && '1: LINEAR DILATION'}
+                              {mode === 0 && '1: LINEAR DILATION (HERO)'}
                               {mode === 1 && '2: CYLINDER UNROLL'}
                               {mode === 2 && '3: GRIFFITH RUPTURE'}
-                              {mode === 3 && '4: FLUID VORTEX'}
+                              {mode === 3 && '4: FLUID VORTEX (HERO)'}
                               {mode === 4 && '5: DYMAXION NET'}
                             </span>
                           </div>
@@ -1323,10 +1326,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       {/* Vernier Detent Quick-Index Pips (Linear, Scroll, Fracture, Fluid, Dymaxion) */}
                       <div className="grid grid-cols-5 gap-1 mt-1.5 pt-1.5 border-t border-[var(--theme-card-border)]">
                         {([
-                          { id: 0, label: 'Linear', title: 'Mode 1: Linear Dilation (Press 1)' },
+                          { id: 0, label: 'Linear ★', title: 'Mode 1: Linear Dilation (Hero Paradigm · Press 1)' },
                           { id: 1, label: 'Scroll', title: 'Mode 2: Cylinder Unroll / Scroll (Press 2)' },
                           { id: 2, label: 'Fracture', title: 'Mode 3: Griffith Rupture / Fracture (Press 3)' },
-                          { id: 3, label: 'Fluid', title: 'Mode 4: Fluid Vortex Advection (Press 4)' },
+                          { id: 3, label: 'Fluid ★', title: 'Mode 4: Fluid Vortex Advection (Hero Paradigm · Press 4)' },
                           { id: 4, label: 'Dymaxion', title: 'Mode 5: Fuller Dymaxion Net (Press 5)' },
                         ] as const).map((m) => {
                           const isSel = mode === m.id;
@@ -1723,13 +1726,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               )}
 
               {/* ========================================================================= */}
-              {/* Plate 4: Planetary Instrumentation & Base Lattice                          */}
+              {/* PLATE 4: ATMOSPHERIC & PLANETARY INSTRUMENTATION                          */}
               {/* ========================================================================= */}
-              {(activePlate === 'all' || activePlate === 'planetary') && (
+              {(activePlate === 'all' || activePlate === 'weather' || activePlate === 'planetary') && (
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-1.5 pb-1 border-b border-[var(--theme-card-border)]">
                     <span className="text-body font-mono tracking-widest font-semibold uppercase text-[var(--theme-text-muted)]">
-                      PLATE IV • PLANETARY INSTRUMENTATION
+                      PLATE IV • ATMOSPHERIC & PLANETARY INSTRUMENTATION
                     </span>
                   </div>
 
@@ -1762,8 +1765,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     </div>
                   </div>
 
-                  {/* Planetary Instrumentation: Dedicated Live Synced Toggles */}
-                  <div className="p-2 rounded-[3px] border space-y-1.5 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)]">
+                  {/* Planetary Instrumentation Switch Board */}
+                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
                     <div className="flex items-center justify-between text-nano font-bold uppercase tracking-wider text-[var(--theme-text-muted)]">
                       <span>Planetary Instrumentation</span>
                       <span className="flex items-center gap-1 font-mono text-[var(--theme-status-sage)]">
@@ -1802,6 +1805,39 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
                         }`}>
                           {isWnModel ? 'DeepMind AI' : 'Physics Model'}
+                        </span>
+                      </button>
+
+                      {/* Live Doppler Radar Toggle */}
+                      <button
+                        onClick={() => handleTogglePlanetaryLayer('live-doppler-radar')}
+                        className={`min-h-[38px] p-1.5 px-2 rounded-[2px] border transition-all text-left flex items-center justify-between gap-2 cursor-pointer ${
+                          isRadarActive
+                            ? theme === 1
+                              ? 'border-[#2b6b88]/60 bg-[#2b6b88]/15 text-[#1a4457] shadow-sm ring-1 ring-[#2b6b88]/40'
+                              : theme === 2
+                              ? 'border-[#4a729e]/80 bg-[#254263]/40 text-[#e8edf2] shadow-sm ring-1 ring-[#4a729e]/50'
+                              : 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200 shadow-[0_0_8px_rgba(10,185,129,0.25)] ring-1 ring-emerald-400/40'
+                            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                        }`}
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-bold text-nano truncate">
+                            Live Doppler Radar
+                          </span>
+                          <span className="text-nano text-[var(--theme-text-muted)] truncate opacity-75">
+                            RainViewer Global (10m loop)
+                          </span>
+                        </div>
+                        <span className={`flex items-center gap-1 text-nano font-bold px-1.5 py-0.5 rounded-[2px] border shrink-0 ${
+                          theme === 1
+                            ? 'bg-[#2b6b88]/20 text-[#1a4457] border-[#2b6b88]/40'
+                            : theme === 2
+                            ? 'bg-[#3b5d82]/40 text-[#d8e6f3] border-[#4a729e]/50'
+                            : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        }`}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          Live 10m
                         </span>
                       </button>
 
@@ -1976,13 +2012,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               )}
 
               {/* ========================================================================= */}
-              {/* Plate 5: Cartographic Datasets & Layer Stack                              */}
+              {/* PLATE 5: CARTOGRAPHIC DATASETS & PROVENANCE                               */}
               {/* ========================================================================= */}
-              {(activePlate === 'all' || activePlate === 'layers') && (
+              {(activePlate === 'all' || activePlate === 'medium' || activePlate === 'layers') && (
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-1.5 pb-1 border-b border-[var(--theme-card-border)]">
                     <span className="text-body font-mono tracking-widest font-semibold uppercase text-[var(--theme-text-muted)]">
-                      PLATE V • CARTOGRAPHIC DATASETS & LAYERS
+                      PLATE V • CARTOGRAPHIC DATASETS & PROVENANCE
                     </span>
                   </div>
 
@@ -2447,6 +2483,21 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* ========================================================================= */}
+              {/* CURATOR'S COLOPHON / CARTOGRAPHIC PROVENANCE LEDGER                       */}
+              {/* ========================================================================= */}
+              {(activePlate === 'all' || activePlate === 'medium' || activePlate === 'layers') && (
+                <div className="pt-1">
+                  <CuratorsColophon
+                    theme={theme}
+                    mode={mode}
+                    alpha={alpha}
+                    isWeatherActive={Boolean(propShowClouds || isNoaaActive)}
+                    isRadarActive={isRadarActive}
+                  />
+                </div>
+              )}
 
               {/* Parchment Scroll Tension Weight & Curl Lip Bar */}
               <div
