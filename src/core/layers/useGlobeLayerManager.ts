@@ -26,7 +26,7 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
         url: '/earth-elevation-dem.webp',
         opacity: 0.95,
         blendMode: 0,
-        displacementScale: 0.14,
+        displacementScale: 0.10,
         renderStyle: 'architectural',
         ambientOcclusion: 0.65,
         seaLevelOffset: 0,

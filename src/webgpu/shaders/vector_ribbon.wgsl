@@ -167,13 +167,14 @@ struct DeformedVertex {
     normal: vec3<f32>,
 };
 
-fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>) -> DeformedVertex {
+fn evaluateManifold(pos3D_raw: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>, pointType: f32) -> DeformedVertex {
     var out: DeformedVertex;
     let clampedUnfurl = clamp(sim.u_unfurl, 0.0, 1.0);
     let ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
-    let pos2D = vec3<f32>(target2D.x, target2D.y, 0.015);
+    let pos2D = vec3<f32>(target2D.x, target2D.y, 0.0);
 
-    let curR = max(length(pos3D), 0.001);
+    let pos3D = normalize(pos3D_raw) * 5.0;
+    let curR = 5.0;
     let lambda = atan2(pos3D.x, pos3D.z);
     let phi = asin(clamp(pos3D.y / curR, -0.9998, 0.9998));
 
@@ -253,11 +254,11 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
         let silkDrape = surfaceNormal * silkWave;
 
         let advectionOffset = naturalVel * (liquefaction * 1.55) + silkDrape + (vortexVelocity + wakeAdvection) * (sim.u_cursorActive * 0.25);
-        out.pos = basePos + advectionOffset + surfaceNormal * 0.015;
+        out.pos = basePos + advectionOffset;
         out.normal = mix(normalize(unElevatedSphere + silkDrape * 0.5), vec3<f32>(0.0, 0.0, 1.0), ease);
     } else if (sim.u_mode == 4u) {
         // Mode 4: Fuller Dymaxion Polyhedral Net
-        let dymaxionPos2D = vec3<f32>(dymaxion2D.x, dymaxion2D.y, 0.015);
+        let dymaxionPos2D = vec3<f32>(dymaxion2D.x, dymaxion2D.y, 0.0);
         let arch = sin(PI * clampedUnfurl) * 0.45;
         let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
         out.pos = mix(pos3D, dymaxionPos2D, ease) + sphereNorm * arch;
@@ -272,8 +273,8 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
     // Topographic Elevation Coupling from ETOPO 2022 DEM (Synchronized with crust_hydrosphere.wgsl)
     // Note: v = 0.0 is North Pole (+PI/2), v = 1.0 is South Pole (-PI/2)
     let demUv = vec2<f32>((lambda + PI) / (2.0 * PI), 0.5 - phi / PI);
-    let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, demUv, 2.0);
-    let demSample = sampleRegionalComposite(demUv, demSampleGlobal, 0.0);
+    let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, demUv, 3.0);
+    let demSample = sampleRegionalComposite(demUv, demSampleGlobal, 1.0);
 
     let poleDist = abs(demUv.y - 0.5) * 2.0;
     let poleAtten = 1.0 - smoothstep(0.85, 0.98, poleDist);
@@ -283,24 +284,32 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
     var normalDisplacement: f32 = 0.0;
     let dispScale = sim.u_displacementScale * 2.8;
 
-    if (sim.u_pad2 > 0.5) {
-        if (elevMeters >= 0.0) {
-            let logNormH = log(1.0 + elevMeters / 1200.0) / log(1.0 + 8848.0 / 1200.0);
-            normalDisplacement = logNormH * dispScale * poleAtten;
-        } else {
-            let logNormD = log(1.0 + (-elevMeters) / 1500.0) / log(1.0 + 10924.0 / 1500.0);
-            normalDisplacement = -logNormD * (dispScale * 0.65) * poleAtten;
-        }
+    if (pointType >= 0.75) {
+        // Coastlines are mathematically defined at sea level (h = 0.0).
+        // Clamping to 0.0 guarantees zero vertical tearing between adjacent vertices along coastal shores
+        normalDisplacement = 0.0;
     } else {
-        if (elevMeters >= 0.0) {
-            let normH = elevMeters / 8848.0;
-            let camDist = length(sim.u_cameraPos.xyz);
-            let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
-            let dynamicExp = mix(1.0, 1.8, orbitT) * (max(0.5, sim.u_peakExponent) / 1.4);
-            normalDisplacement = pow(normH, max(0.5, dynamicExp)) * dispScale * poleAtten;
+        if (sim.u_pad2 > 0.5) {
+            if (elevMeters >= 0.0) {
+                let logNormH = log(1.0 + elevMeters / 1200.0) / log(1.0 + 8848.0 / 1200.0);
+                normalDisplacement = logNormH * dispScale * poleAtten;
+            } else {
+                let logNormD = log(1.0 + (-elevMeters) / 1500.0) / log(1.0 + 10924.0 / 1500.0);
+                normalDisplacement = -logNormD * (dispScale * 0.65) * poleAtten;
+            }
         } else {
-            let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
-            normalDisplacement = -pow(normD, 0.85) * (dispScale * 0.65) * poleAtten;
+            if (elevMeters >= 0.0) {
+                let normH = elevMeters / 8848.0;
+                let camDist = length(sim.u_cameraPos.xyz);
+                let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
+                let dynamicExp = clamp(mix(0.95, 1.25, orbitT) * (sim.u_peakExponent / 1.4), 0.85, 1.30);
+                let shapedH = (1.0 - exp(-2.2 * normH)) / (1.0 - exp(-2.2));
+                normalDisplacement = pow(shapedH, dynamicExp) * dispScale * poleAtten;
+            } else {
+                let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
+                let shelfD = normD / (1.0 + 1.5 * (1.0 - normD));
+                normalDisplacement = -shelfD * (dispScale * 0.65) * poleAtten;
+            }
         }
     }
 
@@ -326,8 +335,8 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
 
     // 1. Manifold Deformations
-    let defA = evaluateManifold(in.posA_3d.xyz, in.posA_target2d.xy, in.posA_target2d.zw);
-    let defB = evaluateManifold(in.posB_3d.xyz, in.posB_target2d.xy, in.posB_target2d.zw);
+    let defA = evaluateManifold(in.posA_3d.xyz, in.posA_target2d.xy, in.posA_target2d.zw, in.posA_3d.w);
+    let defB = evaluateManifold(in.posB_3d.xyz, in.posB_target2d.xy, in.posB_target2d.zw, in.posB_3d.w);
 
     // Compute view-space positions, normals, and horizon facing for both endpoints
     let viewPosA = sim.u_viewMatrix * vec4<f32>(defA.pos, 1.0);
@@ -429,9 +438,10 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let lateralOffset = in.corner.y * totalRadiusPhys * normal;
 
     // Flush termination for near-plane clipped endpoints (zero longitudinal cap offset)
+    let longScale = smoothstep(0.1, 1.0, lenPx);
     let longOffsetA = select(-totalRadiusPhys * tangent, vec2<f32>(0.0), !wA_ok);
     let longOffsetB = select( totalRadiusPhys * tangent, vec2<f32>(0.0), !wB_ok);
-    let longitudinalOffset = select(longOffsetA, longOffsetB, isEndB);
+    let longitudinalOffset = select(longOffsetA, longOffsetB, isEndB) * longScale;
     let totalOffsetPx = lateralOffset + longitudinalOffset;
 
     // 7. Depth-Invariant Clip Offset Reconstruction (Offset * w_c)

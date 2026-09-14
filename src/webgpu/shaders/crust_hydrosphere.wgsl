@@ -624,8 +624,8 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 
     // Footprint-aware DEM sampling matching the vertex grid spacing:
     // Prevents Nyquist sub-pixel sampling spikes while preserving bold 3D massif relief
-    let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, input.uv, 2.0);
-    let demSample = sampleRegionalComposite(input.uv, demSampleGlobal, 0.0);
+    let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, input.uv, 3.0);
+    let demSample = sampleRegionalComposite(input.uv, demSampleGlobal, 1.0);
     let elevMeters = decodeElevation(demSample);
     output.elevation = elevMeters;
 
@@ -671,11 +671,15 @@ fn vs_main(input: VertexInput) -> VertexOutput {
                 let normH = elevMeters / 8848.0;
                 let camDist = length(sim.u_cameraPos.xyz);
                 let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
-                let dynamicExp = mix(1.0, 1.8, orbitT) * (max(0.5, sim.u_peakExponent) / 1.4);
-                normalDisplacement = pow(normH, max(0.5, dynamicExp)) * dispScale * poleAtten;
+                let dynamicExp = clamp(mix(0.95, 1.25, orbitT) * (sim.u_peakExponent / 1.4), 0.85, 1.30);
+                // Soft summit saturation: rounds off extreme single-pixel needles into broad geomorphic crests
+                let shapedH = (1.0 - exp(-2.2 * normH)) / (1.0 - exp(-2.2));
+                normalDisplacement = pow(shapedH, dynamicExp) * dispScale * poleAtten;
             } else {
                 let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
-                normalDisplacement = -pow(normD, 0.85) * (dispScale * 0.65) * poleAtten;
+                // Continuous finite-slope continental shelf: eliminates vertical shear cliff at shoreline
+                let shelfD = normD / (1.0 + 1.5 * (1.0 - normD));
+                normalDisplacement = -shelfD * (dispScale * 0.65) * poleAtten;
             }
         }
     }
