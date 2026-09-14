@@ -394,7 +394,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let theme = u32(cloud.u_mediumParams.x);
     let pal = getMediumPalette(theme);
 
-    let sigmaT = cloud.u_opticalParams.x * pal.inkDensityFactor * 12.0;
+    let sigmaT = cloud.u_opticalParams.x * pal.inkDensityFactor;
     let albedo = cloud.u_opticalParams.y;
 
     var accumLight = vec3<f32>(0.0);
@@ -425,7 +425,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let directLight = pal.sunColor * (sunT * phaseTerm);
             let midLight = pal.midColor * ((1.0 - sunT) * 0.55);
             let ao = clamp(1.0 - (0.50 * shadowDensity + 0.30 * density) * 0.75, 0.25, 1.0);
-            let S = (directLight + midLight + pal.ambientColor * ao) * (sigmaT * albedo * density);
+            let stepOpacity = 1.0 - stepT;
+            let S = (directLight + midLight + pal.ambientColor * ao) * (albedo * stepOpacity / max(0.00001, stepSize));
 
             // Front-to-Back Radiative Transfer Accumulation
             accumLight += accumTransmittance * S * stepSize;

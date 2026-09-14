@@ -839,7 +839,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           if (typeof engineRef.current.setVolumetricCloudsEnabled === 'function') {
             engineRef.current.setVolumetricCloudsEnabled(true);
           }
-          engineRef.current.loadAllCloudLayers(true).catch(() => {});
+          const useWn = (options as any)?.useWeatherNext ?? false;
+          engineRef.current.loadAllCloudLayers(useWn).catch(() => {});
         }
 
         (window as any).__INDICATRIX_CAMERA__.setObliqueView(lonDeg, latDeg, altitudeRadius, pitchDeg, headingDeg);
@@ -897,7 +898,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           if (typeof engineRef.current.setVolumetricCloudsEnabled === 'function') {
             engineRef.current.setVolumetricCloudsEnabled(true);
           }
-          engineRef.current.loadAllCloudLayers(true).catch(() => {});
+          const useWn = (options as any)?.useWeatherNext ?? false;
+          engineRef.current.loadAllCloudLayers(useWn).catch(() => {});
         }
 
         (window as any).__INDICATRIX_CAMERA__.setObliqueView(lonDeg, latDeg, altitudeRadius, pitchDeg, headingDeg);

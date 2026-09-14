@@ -3952,10 +3952,16 @@ export class WebGPUEngine {
     // 2. Cloud Uniforms (40 floats = 160 bytes)
     const cloudFloats = new Float32Array(40);
 
-    // Shell Radii
-    cloudFloats[0] = 5.0;     // rInner
-    cloudFloats[1] = 5.012;   // rOuter
-    cloudFloats[2] = 0.012;   // deltaR
+    // Shell Radii (dynamically scaled with DEM relief displacement to prevent mountain discard)
+    const dispScale = ((params as any).displacementScale ?? 0.08) * 2.8;
+    const tropoThickness = 0.012 + dispScale * 1.5;
+    const rInner = 5.0;
+    const rOuter = rInner + tropoThickness;
+    const deltaR = tropoThickness;
+
+    cloudFloats[0] = rInner;     // rInner
+    cloudFloats[1] = rOuter;   // rOuter
+    cloudFloats[2] = deltaR;   // deltaR
     cloudFloats[3] = 0.0;
 
     // Sun Direction
@@ -4012,8 +4018,8 @@ export class WebGPUEngine {
     cloudFloats[22] = 0.35;
     cloudFloats[23] = (this.cloudOptions.driftSpeed ?? 1.0) * 0.002;
 
-    // Optical Params
-    cloudFloats[24] = 120.0;
+    // Optical Params (base extinction calibrated for analytic step opacity)
+    cloudFloats[24] = 6.0;
     cloudFloats[25] = 0.96;
     cloudFloats[26] = 0.82;
     cloudFloats[27] = -0.25;
@@ -5897,6 +5903,7 @@ export class WebGPUEngine {
     if (texturesNeedRecreation) {
       this.updateCloudBindGroups();
       this.updateDEMBindGroups();
+      this.updateVolumetricCloudBindGroup();
     }
   }
 
@@ -6040,6 +6047,7 @@ export class WebGPUEngine {
         if (layer === 'low') {
           this.updateDEMBindGroups();
         }
+        this.updateVolumetricCloudBindGroup();
       } catch (err) {
         console.error('Failed to write cloud texture:', err);
       }
