@@ -103,8 +103,8 @@ export default function App() {
   const handlePrognosticVariableChange = useCallback((variable: string) => {
     setPrognosticVariable(variable);
     const weatherNextDS =
-      (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ ||
-      (window as any).__INDICATRIX_WEATHERNEXT_SOURCE__;
+      window.__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ ||
+      window.__INDICATRIX_WEATHERNEXT_SOURCE__;
     if (weatherNextDS && !weatherNextDS.disposed && typeof weatherNextDS.setActiveVariable === 'function') {
       weatherNextDS.setActiveVariable(variable).catch((err: any) => {
         console.warn('[WeatherNext] setActiveVariable error:', err);
@@ -112,7 +112,7 @@ export default function App() {
     }
 
     if (typeof window !== 'undefined') {
-      const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+      const engine = window.__INDICATRIX_WEBGPU_ENGINE__ || window.__ENGINE;
       if (engine && typeof engine.loadWindTexture === 'function') {
         const currentHour = weatherNextDS?.getCurrentHour?.() ?? 0;
         const clampedHour = Math.min(23, Math.max(0, currentHour));
@@ -130,7 +130,7 @@ export default function App() {
     setTimelineMinutes(state.absoluteMinutes);
     setScrubTau(state.tau);
     if (typeof window !== 'undefined') {
-      const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+      const engine = window.__INDICATRIX_WEBGPU_ENGINE__ || window.__ENGINE;
       if (engine && typeof engine.updateAtmosphereUniforms === 'function') {
         engine.updateAtmosphereUniforms({
           weatherTimeMinutes: state.absoluteMinutes,
@@ -142,10 +142,10 @@ export default function App() {
 
       // Live Doppler Radar nowcasting dispatch in radar zone (-60m to 0m)
       if (state.isRadarZone || state.absoluteMinutes < 0) {
-        const radarDS = (window as any).__INDICATRIX_LIVE_RADAR_DATA_SOURCE__;
+        const radarDS = window.__INDICATRIX_LIVE_RADAR_DATA_SOURCE__;
         if (radarDS && !radarDS.disposed) {
           radarDS.setAbsoluteMinutes(state.absoluteMinutes);
-          const radarRing = (window as any).__INDICATRIX_RADAR_RING_BUFFER__;
+          const radarRing = window.__INDICATRIX_RADAR_RING_BUFFER__;
           if (radarRing && !radarRing.disposed && engine && engine.precipRingBuffer !== radarRing) {
             engine.setPrecipitationRingBuffer(radarRing);
           }
@@ -155,13 +155,13 @@ export default function App() {
 
       // Google DeepMind WeatherNext 3 prognostic forecast dispatch in forecast zone (0m to +48h)
       if (state.isForecastZone || state.absoluteMinutes >= 0) {
-        const wnRing = (window as any).__INDICATRIX_WEATHERNEXT_RING_BUFFER__;
+        const wnRing = window.__INDICATRIX_WEATHERNEXT_RING_BUFFER__;
         if (wnRing && !wnRing.disposed && engine && engine.precipRingBuffer !== wnRing) {
           engine.setPrecipitationRingBuffer(wnRing);
         }
         const weatherNextDS =
-          (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ ||
-          (window as any).__INDICATRIX_WEATHERNEXT_SOURCE__;
+          window.__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ ||
+          window.__INDICATRIX_WEATHERNEXT_SOURCE__;
         if (weatherNextDS && !weatherNextDS.disposed && typeof weatherNextDS.setTime === 'function') {
           weatherNextDS.setTime(state.bracketHour, state.tau);
         }
@@ -183,63 +183,63 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as any).__INDICATRIX_SET_ATMOSPHERIC_SCALE__ = (valOrFn: any) => {
+      window.__INDICATRIX_SET_ATMOSPHERIC_SCALE__ = (valOrFn: any) => {
         setAtmosphericScale((prev) => {
           const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
           if (typeof v !== 'number' || !Number.isFinite(v)) return prev;
           return Math.max(1.0, Math.min(12.0, v));
         });
       };
-      (window as any).__INDICATRIX_SET_SHADOW_INTENSITY__ = (valOrFn: any) => {
+      window.__INDICATRIX_SET_SHADOW_INTENSITY__ = (valOrFn: any) => {
         setShadowIntensity((prev) => {
           const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
           if (typeof v !== 'number' || !Number.isFinite(v)) return prev;
           return Math.max(0.0, Math.min(0.60, v));
         });
       };
-      (window as any).__INDICATRIX_SET_VERTICAL_SCALE_MODE__ = (valOrFn: any) => {
+      window.__INDICATRIX_SET_VERTICAL_SCALE_MODE__ = (valOrFn: any) => {
         setVerticalScaleMode((prev) => {
           const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
           return v === 1 ? 1 : 0;
         });
       };
-      (window as any).__INDICATRIX_SET_RAIN_SHADOW_FEEDBACK__ = (valOrFn: any) => {
+      window.__INDICATRIX_SET_RAIN_SHADOW_FEEDBACK__ = (valOrFn: any) => {
         setRainShadowFeedback((prev) => {
           const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
           if (typeof v !== 'number' || !Number.isFinite(v)) return prev;
           return Math.max(0.0, Math.min(1.0, v));
         });
       };
-      (window as any).__INDICATRIX_SET_PLUVIAL_GAMMA__ = (valOrFn: any) => {
+      window.__INDICATRIX_SET_PLUVIAL_GAMMA__ = (valOrFn: any) => {
         setPluvialGamma((prev) => {
           const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
           if (typeof v !== 'number' || !Number.isFinite(v)) return prev;
           return Math.max(0.0, Math.min(2.0, v));
         });
       };
-      (window as any).__INDICATRIX_SET_WEATHER_OPTICAL_MODE__ = (valOrFn: any) => {
+      window.__INDICATRIX_SET_WEATHER_OPTICAL_MODE__ = (valOrFn: any) => {
         setWeatherOpticalMode((prev) => {
           const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
           if (typeof v !== 'number' || !Number.isFinite(v)) return prev;
           return Math.floor(v) === 1 ? 1 : 0;
         });
       };
-      (window as any).__INDICATRIX_SET_TIMELINE_MINUTES__ = (valOrFn: any) => {
+      window.__INDICATRIX_SET_TIMELINE_MINUTES__ = (valOrFn: any) => {
         setTimelineMinutes((prev) => {
           const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
           if (typeof v !== 'number' || !Number.isFinite(v)) return prev;
           const clamped = Math.max(-60, Math.min(2880, v));
-          const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+          const engine = window.__INDICATRIX_WEBGPU_ENGINE__ || window.__ENGINE;
           if (engine && typeof engine.setTimelineMinutes === 'function') {
             engine.setTimelineMinutes(clamped);
           }
           return clamped;
         });
       };
-      (window as any).__INDICATRIX_SET_PROGNOSTIC_VARIABLE__ = (variable: string) => {
+      window.__INDICATRIX_SET_PROGNOSTIC_VARIABLE__ = (variable: string) => {
         handlePrognosticVariableChange(variable);
       };
-      (window as any).__INDICATRIX_SET_PROGNOSTIC_MODEL__ = (model: PrognosticModelBackend) => {
+      window.__INDICATRIX_SET_PROGNOSTIC_MODEL__ = (model: PrognosticModelBackend) => {
         handlePrognosticModelChange(model);
       };
 
@@ -247,12 +247,12 @@ export default function App() {
         configurable: true,
         get: () => {
           const ds =
-            (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ ||
-            (window as any).__INDICATRIX_WEATHERNEXT_SOURCE__;
-          const ring = (window as any).__INDICATRIX_WEATHERNEXT_RING_BUFFER__;
-          const radarDS = (window as any).__INDICATRIX_LIVE_RADAR_DATA_SOURCE__;
-          const radarRing = (window as any).__INDICATRIX_RADAR_RING_BUFFER__;
-          const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+            window.__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ ||
+            window.__INDICATRIX_WEATHERNEXT_SOURCE__;
+          const ring = window.__INDICATRIX_WEATHERNEXT_RING_BUFFER__;
+          const radarDS = window.__INDICATRIX_LIVE_RADAR_DATA_SOURCE__;
+          const radarRing = window.__INDICATRIX_RADAR_RING_BUFFER__;
+          const engine = window.__INDICATRIX_WEBGPU_ENGINE__ || window.__ENGINE;
           return {
             prognosticModel,
             prognosticVariable,
@@ -390,7 +390,7 @@ export default function App() {
       }
 
       if (typeof window !== 'undefined') {
-        const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+        const engine = window.__INDICATRIX_WEBGPU_ENGINE__ || window.__ENGINE;
         if (engine && typeof engine.loadWindTexture === 'function') {
           if (model === 'weathernext3' || model === 'google-weathernext3' || model === 'weathernext') {
             engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {});
@@ -496,7 +496,7 @@ export default function App() {
       } else if (e.key === 'h' || e.key === 'H') {
         setIsZenMode((z) => !z);
       } else if (e.key === 't' || e.key === 'T') {
-        setTheme((t) => (((t + 1) % 3) as any));
+        setTheme((t) => (((t + 1) % 3) as 0 | 1 | 2));
       } else if (e.key === 'v' || e.key === 'V') {
         setShowVectors((s) => !s);
       } else if (e.key === 'b' || e.key === 'B') {
@@ -566,12 +566,12 @@ export default function App() {
       if (view === 'horizon') {
         setShowClouds(true);
         setAtmosphericScale((s) => (s <= 1.05 ? 6.0 : Math.max(s, 6.0)));
-        if (typeof window !== 'undefined' && (window as any).__INDICATRIX_CAMERA__?.snapHorizonCrossSection) {
-          (window as any).__INDICATRIX_CAMERA__.snapHorizonCrossSection(1.6);
+        if (typeof window !== 'undefined' && window.__INDICATRIX_CAMERA__?.snapHorizonCrossSection) {
+          window.__INDICATRIX_CAMERA__.snapHorizonCrossSection(1.6);
         }
         return;
       }
-      snapCamera(view as any);
+      snapCamera(view);
     },
     [snapCamera, setShowClouds, setAtmosphericScale]
   );
@@ -764,7 +764,7 @@ export default function App() {
           isZenMode={isZenMode}
           onZenToggle={() => setIsZenMode(true)}
           theme={theme}
-          onThemeToggle={() => setTheme((t) => (((t + 1) % 3) as any))}
+          onThemeToggle={() => setTheme((t) => (((t + 1) % 3) as 0 | 1 | 2))}
           onSelectThemeMode={(m) => setTheme(m)}
           showSoundings={showSoundings}
           onSoundingsToggle={() => setShowSoundings((s) => !s)}
@@ -916,7 +916,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TODO: subtle cartographic easter egg pass (air dancer removed for archival precision) */}
+        {/* TODO: Easter Egg Pass - Re-integrate Air Dancer (Wacky Wavy Inflatable Tube Man) as a subtle hidden easter egg */}
       </div>
     </CursorProvider>
   );

@@ -617,7 +617,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       {/* ========================================================================= */}
       <div className="fixed top-5 right-5 z-30 pointer-events-auto max-w-sm w-96 font-mono select-none transition-all duration-500 origin-top ease-out">
         <div
-          className={`rounded-[3px] border shadow-2xl p-3 text-micro flex flex-col sidebar-spring-transition relative scroll-curl-lip ${
+          className={`rounded-[3px] border shadow-2xl p-3 text-micro flex flex-col sidebar-spring-transition relative scroll-curl-lip font-telemetry ${
             isSidebarOpen ? 'max-h-[calc(100vh-2.5rem)]' : 'max-h-[82px] overflow-hidden'
           } ${
             theme === 1
@@ -626,9 +626,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               ? 'paper-cyanotype border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#071320]/80'
               : 'paper-tharp border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#080d12]/80'
           }`}
-          style={{
-            fontFamily: 'var(--theme-font-telemetry)',
-          }}
         >
           {/* --------------------------------------------------------------------- */}
           {/* Row 1: Engine Controls & System Status Bar                            */}
@@ -906,12 +903,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   >
                     <div className="flex items-center justify-between text-micro font-semibold uppercase tracking-wider relative z-10">
                       <span className="flex items-center gap-1.5">
-                        <span
-                          className="w-2 h-2 rounded-full"
-                          style={{
-                            backgroundColor: theme === 0 ? '#C5A059' : theme === 1 ? '#8C4820' : '#A5D5FF',
-                          }}
-                        />
+                        <span className="w-2 h-2 rounded-full bg-[var(--theme-text-accent)]" />
                         <span className="text-[var(--theme-text-primary)]">
                           Physical Medium
                         </span>

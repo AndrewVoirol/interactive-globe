@@ -311,6 +311,10 @@ html, body, #root {
   font-feature-settings: 'tnum' on, 'zero' on;
 }
 
+.font-telemetry {
+  font-family: var(--theme-font-telemetry, 'IBM Plex Mono', monospace);
+}
+
 /* Restrained Atmospheric Backgrounds (Macro Space) */
 .paper-cyanotype {
   background-color: #101c2b;

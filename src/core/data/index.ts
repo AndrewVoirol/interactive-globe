@@ -7,3 +7,4 @@ export * from './TLETrajectoryDataSource';
 export * from './CustomUserDataSource';
 export * from './DataLayerCatalog';
 export * from './LiveRadarDataSource';
+export * from './WeatherNextDataSource';

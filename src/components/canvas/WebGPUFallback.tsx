@@ -42,7 +42,6 @@ export const WebGPUFallback: React.FC<WebGPUFallbackProps> = ({
               ? 'text-[#8C4820]/40'
               : 'text-cyan-500/40'
           }`}
-          style={{ animation: 'spin 20s linear infinite' }}
           fill="none"
           stroke="currentColor"
           strokeWidth="1.2"

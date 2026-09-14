@@ -60,8 +60,7 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
           : theme === 2
           ? 'bg-[#0E1E2E]/90 border-[#2A4B6E] text-[#B0D2F0]'
           : 'bg-[#0F171F]/90 border-[#22384A] text-[#C5A059]'
-      } ${className}`}
-      style={{ fontFamily: 'var(--theme-font-telemetry, monospace)' }}
+      } font-telemetry ${className}`}
     >
       {/* Colophon Header */}
       <div className="flex items-center justify-between border-b pb-1.5 mb-2 border-current/20">

@@ -130,7 +130,7 @@ export const DataLayerToastNotification: React.FC<DataLayerToastNotificationProp
                       background: toast.type === 'success'
                         ? 'linear-gradient(to bottom, var(--theme-status-sage), var(--theme-text-accent))'
                         : toast.type === 'warning'
-                        ? 'linear-gradient(to bottom, var(--theme-status-amber), #c86d51)'
+                        ? 'linear-gradient(to bottom, var(--theme-status-amber), var(--theme-text-accent))'
                         : 'linear-gradient(to bottom, var(--theme-status-slate), var(--theme-pulse-indicator))'
                     }}
                   />
