@@ -8,7 +8,6 @@ import { useEngineState } from './hooks/useEngineState';
 import { useCameraKinematics } from './hooks/useCameraKinematics';
 import { registerDevToolsAPI } from './core/DevToolsAPI';
 import { CursorProvider } from './core/CursorContext';
-import { ProceduralAudioEngine } from './core/audio/ProceduralAudioEngine';
 import { useGlobeLayerManager } from './core/layers/useGlobeLayerManager';
 import { KinematicCameraController } from './components/canvas/KinematicCameraController';
 import WebGPUFallback from './components/canvas/WebGPUFallback';
@@ -298,7 +297,6 @@ export default function App() {
       if (mouseIdleTimeoutRef.current) clearTimeout(mouseIdleTimeoutRef.current);
     };
   }, [isZenMode]);
-  const audioEngineRef = useRef<ProceduralAudioEngine>(new ProceduralAudioEngine(true));
 
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [demoSequence, setDemoSequence] = useState<'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji'>('hawaii');
@@ -316,21 +314,6 @@ export default function App() {
     if (seq) setDemoSequence(seq);
     setIsDemoMode(active);
   }, []);
-
-  const [isAudioMuted, setIsAudioMuted] = useState(true);
-  const prevAlphaRef = useRef(alpha);
-
-  const handleAudioMuteToggle = useCallback(() => {
-    setIsAudioMuted((prev) => {
-      const next = !prev;
-      audioEngineRef.current.setMute(next);
-      return next;
-    });
-  }, []);
-
-  useEffect(() => {
-    audioEngineRef.current.setMute(isAudioMuted);
-  }, [isAudioMuted]);
 
   const {
     dataLayers,
@@ -422,36 +405,6 @@ export default function App() {
     );
     return (active?.renderStyle as 'architectural' | 'hybrid' | 'photoreal') ?? null;
   }, [dataLayers]);
-
-  // Mode-Specific Audio Synthesis Triggering
-  useEffect(() => {
-    const prevAlpha = prevAlphaRef.current;
-    prevAlphaRef.current = alpha;
-
-    // Mode 2: Acoustic Rupture at alpha = 0.18
-    if (mode === 2 && prevAlpha < 0.18 && alpha >= 0.18) {
-      audioEngineRef.current.triggerRupture(fractureIntensity);
-    }
-
-    // Mode 3: Fluid Flow Synthesizer modulated by morph speed & vortex strength
-    if (mode === 3) {
-      const alphaVelocity = Math.abs(alpha - prevAlpha) * 60;
-      const flowMag = Math.max(isPlaying ? 0.8 : 0.0, alphaVelocity) * fluidVortexStrength;
-      audioEngineRef.current.updateFlowVelocity(flowMag);
-    } else {
-      audioEngineRef.current.updateFlowVelocity(0);
-    }
-
-    // Mode 4: 20-Facet Dymaxion Chimes on facet boundaries
-    if (mode === 4) {
-      const step = 1 / 20;
-      const prevStep = Math.floor(prevAlpha / step);
-      const currStep = Math.floor(alpha / step);
-      if (currStep !== prevStep && currStep >= 0 && currStep < 20) {
-        audioEngineRef.current.triggerChime(currStep);
-      }
-    }
-  }, [alpha, mode, isPlaying, fractureIntensity, fluidVortexStrength]);
 
   useEffect(() => {
     registerDevToolsAPI(engineState);
@@ -704,7 +657,6 @@ export default function App() {
                 vortexStrength={fluidVortexStrength}
                 fractureIntensity={fractureIntensity}
                 isZenMode={isZenMode}
-                audioEngine={audioEngineRef.current}
                 onGpuProfilerReport={setGpuReport}
                 onFpsUpdate={handleFpsUpdate}
                 onDataLoaded={handleDataLoaded}
@@ -798,8 +750,6 @@ export default function App() {
           mapScaleStr={mapScaleStr}
           dataInfo={dataInfo}
           onSnapCamera={handleSnapCamera}
-          isAudioMuted={isAudioMuted}
-          onAudioMuteToggle={handleAudioMuteToggle}
           dataLayers={dataLayers}
           toasts={toasts}
           onDismissToast={dismissToast}

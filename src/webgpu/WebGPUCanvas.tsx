@@ -15,7 +15,6 @@ import { DataLayerItem, PrognosticModelBackend } from '../components/hud/Telemet
 import { GeodesicOverlayMode, ResolutionTier } from '../types';
 import { WhimsicalEffectsManager } from '../core/effects/WhimsicalEffectsManager';
 import { ManifoldPinchController } from '../core/interactions/ManifoldPinchController';
-import { ProceduralAudioEngine } from '../core/audio/ProceduralAudioEngine';
 import {
   GEODESIC_ARCS,
   LANDMARK_ANCHORS,
@@ -129,7 +128,6 @@ export interface WebGPUCanvasProps {
   startTime?: number;
   vortexStrength?: number;
   fractureIntensity?: number;
-  audioEngine?: ProceduralAudioEngine;
   onGpuProfilerReport?: (report: any) => void;
   isolatedStratum?: number | null;
   isDemoMode?: boolean;
@@ -201,7 +199,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   startTime,
   vortexStrength = 1.0,
   fractureIntensity = 1.0,
-  audioEngine,
   onGpuProfilerReport,
   isolatedStratum,
   isDemoMode = false,
@@ -264,15 +261,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
   // Whimsical Effects & Signature Manifold Pinch Controllers
   const whimsicalManagerRef = useRef<WhimsicalEffectsManager>(new WhimsicalEffectsManager());
-  const pinchControllerRef = useRef<ManifoldPinchController>(new ManifoldPinchController(audioEngine));
+  const pinchControllerRef = useRef<ManifoldPinchController>(new ManifoldPinchController());
   const isPinchingRef = useRef<boolean>(false);
   const currentHitPosRef = useRef<Vector3>(new Vector3(0, 0, 5));
-
-  useEffect(() => {
-    if (audioEngine) {
-      pinchControllerRef.current.setAudioEngine(audioEngine);
-    }
-  }, [audioEngine]);
 
   // Pre-sampled cartographic overlay data
   const sampledArcSegmentsRef = useRef<Array<{ category: string; color: string; segments: { lon: number; lat: number }[] }>>([]);

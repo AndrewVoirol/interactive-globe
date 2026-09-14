@@ -154,16 +154,16 @@ describe('Suite 2: Multi-Medium Parity & Premultiplied Alpha (Invariant §5 & §
     expect(atmosphereShaderSource).toContain('else if (atmosphere.u_theme == 2u)');
   });
 
-  it('ATM-MED-02: Theme 0 (Marie Tharp 1977) uses luminous Rayleigh/Mie blue-to-black scatter envelope', () => {
-    expect(atmosphereShaderSource).toContain('deepIndigo = vec3<f32>(0.12, 0.16, 0.23);');
-    expect(atmosphereShaderSource).toContain('ceruleanGlow = vec3<f32>(0.28, 0.62, 0.92);');
-    expect(atmosphereShaderSource).toContain('rimHighlight = vec3<f32>(0.72, 0.88, 1.00);');
+  it('ATM-MED-02: Theme 0 (Marie Tharp 1977) uses warm ochre-sepia atmospheric wash', () => {
+    expect(atmosphereShaderSource).toContain('warmOchre = vec3<f32>(0.45, 0.35, 0.25);');
+    expect(atmosphereShaderSource).toContain('parchmentGlow = vec3<f32>(0.65, 0.55, 0.40);');
+    expect(atmosphereShaderSource).toContain('rimWarm = vec3<f32>(0.75, 0.65, 0.50);');
   });
 
-  it('ATM-MED-03: Theme 1 (Cream Rag) satisfies Invariant §5 (zero additive blowout against #F3ECE0)', () => {
-    // Archival mineral celadon and lapis watercolor wash with paper tooth
-    expect(atmosphereShaderSource).toContain('mineralCeladon = vec3<f32>(0.30, 0.46, 0.44);');
-    expect(atmosphereShaderSource).toContain('mineralLapis = vec3<f32>(0.24, 0.36, 0.46);');
+  it('ATM-MED-03: Theme 1 (Cream Rag) satisfies Invariant §5 with warm sepia wash (zero additive blowout against #F3ECE0)', () => {
+    // Archival warm sepia watercolor wash with paper tooth
+    expect(atmosphereShaderSource).toContain('warmSepia = vec3<f32>(0.42, 0.36, 0.28);');
+    expect(atmosphereShaderSource).toContain('creamWash = vec3<f32>(0.52, 0.44, 0.35);');
     expect(atmosphereShaderSource).toContain('toothFactor');
     expect(atmosphereShaderSource).toContain('atmosphere.u_mediumProperties.w');
 

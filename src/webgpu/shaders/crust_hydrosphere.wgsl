@@ -1900,10 +1900,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     // Atmospheric limb darkening in light mode to define globe silhouette against white canvas
-    if (sim.u_theme == 1u && sim.u_unfurl < 0.6) {
+    if (sim.u_theme == 1u) {
         let NdotV = clamp(dot(n0, V), 0.0, 1.0);
         let limbFactor = pow(1.0 - NdotV, 3.0);
-        finalCrust = finalCrust * (1.0 - limbFactor * 0.35 * (1.0 - sim.u_unfurl));
+        let unfurlFade = 1.0 - smoothstep(0.3, 0.8, sim.u_unfurl);
+        finalCrust = finalCrust * (1.0 - limbFactor * 0.35 * unfurlFade);
     }
 
     // ========================================================================

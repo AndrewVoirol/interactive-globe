@@ -8,15 +8,13 @@ import { ResolutionTier } from '../../types';
 
 export interface SystemStatusPillProps {
   fps: number;
-  backend: 'webgl2' | 'webgpu';
-  onBackendChange: (b: 'webgl2' | 'webgpu') => void;
+  backend?: 'webgl2' | 'webgpu';
+  onBackendChange?: (b: 'webgl2' | 'webgpu') => void;
   hasWebGPU: boolean;
   resolution: ResolutionTier;
   onResolutionChange: (r: ResolutionTier) => void;
   theme: 0 | 1 | 2;
   onThemeToggle: () => void;
-  isAudioMuted?: boolean;
-  onAudioMuteToggle?: () => void;
   particleNodes?: '1.05M' | '4.19M' | number;
   isHighDensityNodes?: boolean;
 }
@@ -39,8 +37,6 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
   onResolutionChange,
   theme,
   onThemeToggle,
-  isAudioMuted = true,
-  onAudioMuteToggle,
   particleNodes,
   isHighDensityNodes,
 }) => {
@@ -131,34 +127,6 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
             </button>
           ))}
         </div>
-
-        {/* Audio Mute Switch */}
-        {onAudioMuteToggle && (
-          <button
-            onClick={onAudioMuteToggle}
-            title={isAudioMuted ? 'Unmute Web Audio Synthesizer' : 'Mute Web Audio Synthesizer'}
-            className={`p-1.5 rounded-lg border transition-all flex items-center ${
-              !isAudioMuted
-                ? isLight
-                  ? 'border-emerald-400 bg-emerald-50 text-emerald-800'
-                  : 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
-                : isLight
-                ? 'border-zinc-300 bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white'
-            }`}
-          >
-            {!isAudioMuted ? (
-              <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.314M11 5L6 9H2v6h4l5 4V5z" />
-              </svg>
-            ) : (
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-              </svg>
-            )}
-          </button>
-        )}
 
         {/* Theme Switch */}
         <button

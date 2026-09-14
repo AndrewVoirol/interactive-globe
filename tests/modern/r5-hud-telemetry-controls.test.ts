@@ -47,8 +47,6 @@ describe('Requirement R5: Complete Frontend HUD & UI/UX Integration', () => {
       onResolutionChange: vi.fn(),
       theme: 0,
       onThemeToggle: vi.fn(),
-      isAudioMuted: true,
-      onAudioMuteToggle: vi.fn(),
       ...overrides,
     });
 

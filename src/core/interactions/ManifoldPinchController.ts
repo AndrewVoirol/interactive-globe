@@ -8,8 +8,6 @@
  * Conforms strictly to design-language.md Section 6.
  */
 
-import { ProceduralAudioEngine } from '../audio/ProceduralAudioEngine';
-
 export type PinchFSMState = 'IDLE' | 'HOVER_PROBE' | 'PINCH_ENGAGED' | 'RELEASE_REBOUND';
 
 export interface ManifoldPinchState {
@@ -36,17 +34,7 @@ export class ManifoldPinchController {
   private readonly dampedFrequencyOmegaD: number = 28.0; // rad/s
   private readonly sigmaPinch: number = 0.64; // Gaussian influence radius
 
-  private audioEngine: ProceduralAudioEngine | null = null;
-
-  constructor(audioEngine?: ProceduralAudioEngine) {
-    if (audioEngine) {
-      this.audioEngine = audioEngine;
-    }
-  }
-
-  public setAudioEngine(engine: ProceduralAudioEngine): void {
-    this.audioEngine = engine;
-  }
+  constructor() {}
 
   public getState(): ManifoldPinchState {
     const strainEnergy = 0.5 * this.springStiffnessK * this.pinchDepth * this.pinchDepth;
@@ -123,11 +111,6 @@ export class ManifoldPinchController {
       this.initialPinchDepth = this.pinchDepth;
       this.reboundTimeSeconds = 0;
       this.transitionTo('RELEASE_REBOUND');
-
-      // Trigger resonant audio ping
-      if (this.audioEngine) {
-        this.audioEngine.triggerRebound(this.initialPinchDepth);
-      }
     }
   }
 

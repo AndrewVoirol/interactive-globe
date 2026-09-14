@@ -50,8 +50,6 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
     mapScaleStr: '1:50M',
     dataInfo: defaultDataInfo,
     onSnapCamera: vi.fn(),
-    isAudioMuted: true,
-    onAudioMuteToggle: vi.fn(),
     dataLayers: [
       {
         id: 'natural-earth-bathy',
@@ -106,11 +104,10 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
     expect(container.textContent).toContain('59');
     expect(container.textContent).toContain('FPS');
 
-    // Check backend toggle button
+    // Check backend toggle button is excised
     const buttons = Array.from(container.querySelectorAll('button'));
-    const backendBtn = buttons.find(b => b.textContent?.includes('WebGL2') || b.textContent?.includes('WebGPU'));
-    expect(backendBtn).toBeDefined();
-    expect(backendBtn?.textContent).toContain('WebGL2');
+    const backendBtn = buttons.find(b => b.textContent?.includes('WebGL2') || b.textContent?.includes('WebGPU ⇄'));
+    expect(backendBtn).toBeUndefined();
 
     // Check resolution buttons
     const res100kBtn = buttons.find(b => b.textContent?.includes('100K') || b.textContent?.includes('100k'));
@@ -146,7 +143,7 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
     expect(dymaxionBtn).toBeDefined();
   });
 
-  it('DOM-HUD-04: triggers onBackendChange callback when user clicks backend switch button', async () => {
+  it('DOM-HUD-04: verifies backend switch button is excised from UnifiedRightSidebar', async () => {
     const onBackendChange = vi.fn();
     const props = createProps({
       backend: 'webgl2',
@@ -159,14 +156,9 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
     });
 
     const buttons = Array.from(container.querySelectorAll('button'));
-    const backendBtn = buttons.find(b => b.textContent?.includes('WebGL2'));
-    expect(backendBtn).toBeDefined();
-
-    await act(async () => {
-      backendBtn?.click();
-    });
-
-    expect(onBackendChange).toHaveBeenCalledWith('webgpu');
+    const backendBtn = buttons.find(b => b.textContent?.includes('WebGL2') || b.textContent?.includes('WebGPU ⇄'));
+    expect(backendBtn).toBeUndefined();
+    expect(onBackendChange).not.toHaveBeenCalled();
   });
 
   it('DOM-HUD-05: triggers onResolutionChange callback when user clicks 1M button', async () => {
@@ -260,11 +252,8 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
     expect(container.textContent).toContain('120');
   });
 
-  it('DOM-HUD-09: renders DataLayersDrawer with configured layer titles and handles mute toggle', async () => {
-    const onAudioMuteToggle = vi.fn();
+  it('DOM-HUD-09: renders DataLayersDrawer with configured layer titles and verifies audio mute button is excised', async () => {
     const props = createProps({
-      isAudioMuted: false,
-      onAudioMuteToggle,
       dataLayers: [
         {
           id: 'test-layer-1',
@@ -282,15 +271,10 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
       root.render(<TelemetryHUD {...props} />);
     });
 
-    // Verify audio mute button is clickable
+    // Verify audio mute button is excised
     const buttons = Array.from(container.querySelectorAll('button'));
     const muteBtn = buttons.find(b => b.title?.toLowerCase().includes('mute') || b.title?.toLowerCase().includes('audio'));
-    if (muteBtn) {
-      await act(async () => {
-        muteBtn.click();
-      });
-      expect(onAudioMuteToggle).toHaveBeenCalled();
-    }
+    expect(muteBtn).toBeUndefined();
   });
 
   it('DOM-HUD-10: unified sidebar displays both Topology and Datasets simultaneously', async () => {

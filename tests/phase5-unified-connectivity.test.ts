@@ -7,7 +7,6 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { DATA_LAYER_CATALOG, getPresetById } from '../src/core/data/DataLayerCatalog';
-import { ProceduralAudioEngine } from '../src/core/audio/ProceduralAudioEngine';
 import { ManifoldPinchController } from '../src/core/interactions/ManifoldPinchController';
 
 describe('Phase 5: Unified Architectural Connectivity & Hardware Parity', () => {
@@ -129,35 +128,26 @@ describe('Phase 5: Unified Architectural Connectivity & Hardware Parity', () => 
   });
 
   // ==========================================================================
-  // 4. Audio Engine Integration
+  // 4. Audio Engine Decommissioning & Pinch Mechanics
   // ==========================================================================
-  describe('4. Audio Engine Integration & Rebound Mechanics', () => {
-    it('CON-13: ProceduralAudioEngine provides triggerRebound, triggerRupture, and updateFlowVelocity', () => {
-      const audio = new ProceduralAudioEngine(true);
-      expect(typeof audio.triggerRebound).toBe('function');
-      expect(typeof audio.triggerRupture).toBe('function');
-      expect(typeof audio.updateFlowVelocity).toBe('function');
+  describe('4. Audio Engine Decommissioning & Pinch Mechanics', () => {
+    it('CON-13: ProceduralAudioEngine is decommissioned and unmounted from codebase', () => {
+      const audioDirExists = fs.existsSync(path.join(projectRoot, 'src/core/audio'));
+      expect(audioDirExists).toBe(false);
     });
 
-    it('CON-14: ManifoldPinchController triggers audioEngine.triggerRebound upon pointer release', () => {
-      const audio = new ProceduralAudioEngine(true);
-      let reboundCalledWith: number | null = null;
-      audio.triggerRebound = (depth: number) => {
-        reboundCalledWith = depth;
-      };
-
-      const controller = new ManifoldPinchController(audio);
+    it('CON-14: ManifoldPinchController executes spring-damper dynamics without audio overhead', () => {
+      const controller = new ManifoldPinchController();
       controller.onPointerEnter();
       controller.onPointerDown(0, 0, 5, 0.85);
       expect(controller.getState().fsmState).toBe('PINCH_ENGAGED');
 
       controller.onPointerUp();
       expect(controller.getState().fsmState).toBe('RELEASE_REBOUND');
-      expect(reboundCalledWith).toBeCloseTo(0.85, 2);
     });
 
-    it('CON-15: App.tsx routes flow velocity audio modulated by fluidVortexStrength during Mode 3', () => {
-      expect(appCode).toContain('audioEngineRef.current.updateFlowVelocity(flowMag)');
+    it('CON-15: App.tsx has excised all audio synthesizer trigger routines', () => {
+      expect(appCode).not.toContain('audioEngineRef.current');
       expect(appCode).toContain('fluidVortexStrength');
     });
   });

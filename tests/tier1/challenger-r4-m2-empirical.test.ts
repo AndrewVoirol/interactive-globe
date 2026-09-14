@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import * as THREE from 'three';
-import { ProceduralAudioEngine } from '../../src/core/audio/ProceduralAudioEngine';
 
 describe('Challenger 1 (Round 4 / Milestone 2): WebGL2 Visual & Functional Bug Fixes Empirical Suite', () => {
   const projectRoot = path.resolve(__dirname, '../..');
@@ -402,42 +401,31 @@ describe('Challenger 1 (Round 4 / Milestone 2): WebGL2 Visual & Functional Bug F
   // =========================================================================
   // Requirement 5: Audio Mute State on Initial Mount
   // =========================================================================
-  describe('5. Audio Mute State Synchronization on Initial Mount', () => {
-    it('EMP-M2-T21: verifies isAudioMuted state is initialized to true in App.tsx', () => {
-      expect(appTsx).toContain('const [isAudioMuted, setIsAudioMuted] = useState(true);');
+  describe('5. Audio Decommissioning & Zero-Overhead Verification', () => {
+    it('EMP-M2-T21: verifies audio engine is completely unmounted from src/core/audio', () => {
+      const audioPath = path.join(projectRoot, 'src/core/audio');
+      expect(fs.existsSync(audioPath)).toBe(false);
     });
 
-    it('EMP-M2-T22: verifies audioEngineRef.current.setMute(isAudioMuted) is executed via useEffect', () => {
-      expect(appTsx).toMatch(/useEffect\(\(\)\s*=>\s*\{[\s\S]*?audioEngineRef\.current\.setMute\(isAudioMuted\);[\s\S]*?\},?\s*\[isAudioMuted\]\);/);
+    it('EMP-M2-T22: verifies App.tsx does not contain audioEngineRef or ProceduralAudioEngine', () => {
+      expect(appTsx).not.toContain('audioEngineRef');
+      expect(appTsx).not.toContain('ProceduralAudioEngine');
     });
 
-    it('EMP-M2-T23: verifies TelemetryHUD receives isAudioMuted and onAudioMuteToggle', () => {
-      expect(appTsx).toContain('isAudioMuted={isAudioMuted}');
-      expect(appTsx).toContain('onAudioMuteToggle={handleAudioMuteToggle}');
+    it('EMP-M2-T23: verifies TelemetryHUD does not receive audio mute props', () => {
+      expect(appTsx).not.toContain('isAudioMuted={isAudioMuted}');
+      expect(appTsx).not.toContain('onAudioMuteToggle={handleAudioMuteToggle}');
     });
 
-    it('EMP-M2-T24: verifies ProceduralAudioEngine suppresses all audio synthesis when isMuted = true', () => {
-      const engine = new ProceduralAudioEngine(true);
-      expect(engine.getIsMuted()).toBe(true);
-
-      // Verify methods execute safely with zero audio output when muted
-      expect(() => engine.triggerRupture(1.0)).not.toThrow();
-      expect(() => engine.triggerChime(0)).not.toThrow();
-      expect(() => engine.triggerChime(4)).not.toThrow();
-      expect(() => engine.updateFlowVelocity(0.5)).not.toThrow();
-      expect(() => engine.triggerRebound(1.0)).not.toThrow();
+    it('EMP-M2-T24: verifies WebGPUCanvas does not accept audioEngine prop', () => {
+      expect(webgpuCanvasTsx).not.toContain('audioEngine?: ProceduralAudioEngine');
+      expect(webgpuCanvasTsx).not.toContain('new ManifoldPinchController(audioEngine)');
     });
 
-    it('EMP-M2-T25: verifies setMute state transitions toggle isMuted accurately', () => {
-      const engine = new ProceduralAudioEngine();
-      engine.setMute(true);
-      expect(engine.getIsMuted()).toBe(true);
-
-      engine.setMute(false);
-      expect(engine.getIsMuted()).toBe(false);
-
-      engine.setMute(true);
-      expect(engine.getIsMuted()).toBe(true);
+    it('EMP-M2-T25: verifies WebGL2 backend switcher toggle button is excised from UnifiedRightSidebar', () => {
+      const sidebarPath = path.join(projectRoot, 'src/components/hud/UnifiedRightSidebar.tsx');
+      const sidebarCode = fs.readFileSync(sidebarPath, 'utf8');
+      expect(sidebarCode).not.toContain("onBackendChange(backend === 'webgpu' ? 'webgl2' : 'webgpu')");
     });
   });
 

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { isWebGPUSupported } from '../webgpu/support';
 import { ThemeManager, ThemePalette, ThemeMode, ArchivalMediumId } from '../core/themes';
-import { ProceduralAudioEngine } from '../core/audio';
 
 import { LoadedDataInfo, SimulationMode, GeodesicOverlayMode, ResolutionTier } from '../types';
 
@@ -47,13 +46,6 @@ export function useEngineState() {
   const [fractureIntensity, setFractureIntensity] = useState<number>(1.0);
   const [fluidVortexStrength, setFluidVortexStrength] = useState<number>(1.0);
   const [gpuReport, setGpuReport] = useState<any>(null);
-
-  // Phase 4 Managers
-  const audioEngineRef = useRef<ProceduralAudioEngine | null>(null);
-
-  if (!audioEngineRef.current) {
-    audioEngineRef.current = new ProceduralAudioEngine(true);
-  }
 
   // Atmospheric Cloud Strata State (Milestone 5)
   const [showClouds, setShowCloudsState] = useState<boolean>(true);
@@ -246,7 +238,6 @@ export function useEngineState() {
     fluidVortexStrength, setFluidVortexStrength,
     gpuReport, setGpuReport,
     dataInfo, setDataInfo,
-    audioEngine: audioEngineRef.current,
     showClouds, setShowClouds,
     showCloudLow, setShowCloudLow,
     showCloudMid, setShowCloudMid,

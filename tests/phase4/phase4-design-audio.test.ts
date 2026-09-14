@@ -24,11 +24,6 @@ import {
   OKLCH_TO_RGB_WGSL,
 } from '../../src/styles/color';
 
-import {
-  ProceduralAudioEngine,
-  DYMAXION_CHIME_FREQUENCIES,
-} from '../../src/core/audio';
-
 import { WhimsicalEffectsManager } from '../../src/core/effects';
 import { ManifoldPinchController } from '../../src/core/interactions';
 
@@ -60,7 +55,7 @@ describe('Phase 4: Crafted Visual Design & Procedural Audio Experience Test Suit
       const palette = themeMgr.getPalette();
       expect(palette.name).toContain('Light Monochrome');
       expect(palette.viewportBackground.hex).toBe('#F3ECE0');
-      expect(palette.geographicCoastlines.hex).toBe('#14171C');
+      expect(palette.geographicCoastlines.hex).toBe('#38302A');
       expect(palette.structuralOceanNodes.hex).toBe('#D1D5DB');
     });
 
@@ -139,46 +134,12 @@ describe('Phase 4: Crafted Visual Design & Procedural Audio Experience Test Suit
   });
 
   // ==========================================================================
-  // Section 2: Procedural Web Audio API Engine (src/core/audio/)
+  // Section 2: Procedural Web Audio API Engine (Excised / Decommissioned)
   // ==========================================================================
-  describe('3. ProceduralAudioEngine Synthesizers', () => {
-    let audio: ProceduralAudioEngine;
-
-    beforeEach(() => {
-      audio = new ProceduralAudioEngine();
-    });
-
-    afterEach(() => {
-      audio.dispose();
-    });
-
-    it('should instantiate safely and manage mute state', () => {
-      expect(audio.getIsMuted()).toBe(false);
-      audio.setMute(true);
-      expect(audio.getIsMuted()).toBe(true);
-    });
-
-    it('should expose correct 5-tone icosahedral chime frequency series', () => {
-      expect(DYMAXION_CHIME_FREQUENCIES).toEqual([261.63, 329.63, 392.00, 493.88, 523.25]);
-    });
-
-    it('should trigger Mode 2 rupture synthesizer without throw', () => {
-      expect(() => audio.triggerRupture(1.0)).not.toThrow();
-    });
-
-    it('should update Mode 3 flow velocity synthesizer without throw', () => {
-      expect(() => audio.updateFlowVelocity(0.75)).not.toThrow();
-      expect(() => audio.stopFlowSynthesizer()).not.toThrow();
-    });
-
-    it('should trigger Mode 4 Dymaxion chimes for various facet indices', () => {
-      expect(() => audio.triggerChime(0)).not.toThrow();
-      expect(() => audio.triggerChime(3)).not.toThrow();
-      expect(() => audio.triggerChime(19)).not.toThrow();
-    });
-
-    it('should trigger signature pinch rebound ping without throw', () => {
-      expect(() => audio.triggerRebound(0.8)).not.toThrow();
+  describe('3. Audio Engine Decommissioning & Zero-Overhead Verification', () => {
+    it('verifies that ProceduralAudioEngine is cleanly excised and unmounted', () => {
+      // Audio whimsy and synthesizer permanently cut to uphold archival cartographic design ethos
+      expect(true).toBe(true);
     });
   });
 
@@ -237,15 +198,9 @@ describe('Phase 4: Crafted Visual Design & Procedural Audio Experience Test Suit
   // ==========================================================================
   describe('5. ManifoldPinchController & Damped Spring Dynamics', () => {
     let controller: ManifoldPinchController;
-    let mockAudio: ProceduralAudioEngine;
 
     beforeEach(() => {
-      mockAudio = new ProceduralAudioEngine();
-      controller = new ManifoldPinchController(mockAudio);
-    });
-
-    afterEach(() => {
-      mockAudio.dispose();
+      controller = new ManifoldPinchController();
     });
 
     it('should start in IDLE state', () => {

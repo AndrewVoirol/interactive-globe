@@ -210,29 +210,26 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var finalAlpha: f32;
 
     if (atmosphere.u_theme == 0u) {
-        // Theme 0 (Marie Tharp 1977): Luminous Rayleigh/Mie blue-to-black scatter envelope
-        // Base dark marine indigo (#1E293B) to cerulean blue highlight
-        let deepIndigo = vec3<f32>(0.12, 0.16, 0.23);
-        let ceruleanGlow = vec3<f32>(0.28, 0.62, 0.92);
-        let rimHighlight = vec3<f32>(0.72, 0.88, 1.00);
+        // Theme 0 (Marie Tharp 1977): Warm ochre-sepia atmospheric wash
+        let warmOchre = vec3<f32>(0.45, 0.35, 0.25);     // earthy warm base
+        let parchmentGlow = vec3<f32>(0.65, 0.55, 0.40);  // warm parchment highlight
+        let rimWarm = vec3<f32>(0.75, 0.65, 0.50);         // subtle warm rim
 
-        let scatterGrad = mix(deepIndigo, ceruleanGlow, clamp(opticalDepth * 0.6, 0.0, 1.0));
-        scatterColor = mix(scatterGrad, rimHighlight, clamp(phase * 0.25 * select(0.3, 1.0, isLimb), 0.0, 1.0));
+        let scatterGrad = mix(warmOchre, parchmentGlow, clamp(opticalDepth * 0.6, 0.0, 1.0));
+        scatterColor = mix(scatterGrad, rimWarm, clamp(phase * 0.15 * select(0.2, 0.6, isLimb), 0.0, 1.0));
 
-        let baseAlpha = select(0.30, 0.70, isLimb) * clamp(opticalDepth * 0.5, 0.0, 1.0);
-        finalAlpha = clamp(baseAlpha * dayFactor * limbAtten * unfurlAtten, 0.0, 0.85);
+        let baseAlpha = select(0.10, 0.30, isLimb) * clamp(opticalDepth * 0.4, 0.0, 1.0);
+        finalAlpha = clamp(baseAlpha * dayFactor * limbAtten * unfurlAtten, 0.0, 0.40);
 
     } else if (atmosphere.u_theme == 1u) {
-        // Theme 1 (Cream Rag): Cotton rag paper substrate (#F3ECE0)
-        // CRITICAL INVARIANT §5: Zero additive blowout against #F3ECE0
-        // Archival mineral celadon / lapis watercolor wash with subtle paper tooth absorption
-        let mineralCeladon = vec3<f32>(0.30, 0.46, 0.44); // mineral green wash
-        let mineralLapis = vec3<f32>(0.24, 0.36, 0.46);   // washed lapis lazuli glaze
+        // Theme 1 (Cream Rag): Warm sepia watercolor atmospheric wash
+        let warmSepia = vec3<f32>(0.42, 0.36, 0.28);      // sepia ink wash
+        let creamWash = vec3<f32>(0.52, 0.44, 0.35);       // cream paper tint
         let cosLatAtm = max(0.05, cos((in.uv.y - 0.5) * PI));
         let toothCoord = vec2<f32>(in.uv.x * cosLatAtm, in.uv.y) * 600.0;
         let toothFactor = 1.0 - (hash12(toothCoord) - 0.5) * (atmosphere.u_mediumProperties.w * 0.25);
 
-        let washColor = mix(mineralCeladon, mineralLapis, clamp(opticalDepth * 0.5, 0.0, 1.0));
+        let washColor = mix(warmSepia, creamWash, clamp(opticalDepth * 0.5, 0.0, 1.0));
         scatterColor = washColor * toothFactor;
 
         // Subtle archival pigment wash: low opacity (0.10 - 0.32) avoids white blowout

@@ -200,9 +200,9 @@ describe('Milestone 1 Empirical Stress-Test: Dead Code Surgery & Clean Up', () =
       expect(state.dataInfo).toBeDefined();
       expect(state.dataInfo.pointCount).toBeGreaterThan(0);
       expect(typeof state.setDataInfo).toBe('function');
-      expect(state.audioEngine).toBeDefined();
 
       // Pruned properties must be undefined
+      expect(state.audioEngine).toBeUndefined();
       expect(state.whimsicalEffects).toBeUndefined();
       expect(state.pinchController).toBeUndefined();
     });

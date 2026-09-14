@@ -53,8 +53,6 @@ export interface TelemetryHUDProps {
   mapScaleStr: string;
   dataInfo: LoadedDataInfo;
   onSnapCamera: (v: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => void;
-  isAudioMuted?: boolean;
-  onAudioMuteToggle?: () => void;
   dataLayers?: DataLayerItem[];
   toasts?: ToastMessage[];
   onDismissToast?: (id: string) => void;
@@ -163,8 +161,6 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         mapScaleStr={props.mapScaleStr}
         dataInfo={props.dataInfo}
         onSnapCamera={props.onSnapCamera}
-        isAudioMuted={props.isAudioMuted}
-        onAudioMuteToggle={props.onAudioMuteToggle}
         dataLayers={props.dataLayers}
         onAddDataLayer={props.onAddDataLayer}
         onToggleDataLayer={props.onToggleDataLayer}

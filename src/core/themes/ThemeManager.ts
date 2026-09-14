@@ -329,8 +329,8 @@ export const LIGHT_MONOCHROME_THEME: ThemePalette = {
     alpha: 1.0,
   },
   geographicCoastlines: {
-    hex: '#14171C',
-    rgb: [20 / 255, 23 / 255, 28 / 255],
+    hex: '#38302A',
+    rgb: [56 / 255, 48 / 255, 42 / 255],
     alpha: 0.95,
   },
   structuralOceanNodes: {
@@ -388,7 +388,7 @@ export const PRUSSIAN_CYANOTYPE_UI_TOKENS: UIThemeTokens = {
 
   statusSage: '#4FA3E3',
   statusSlate: '#6B94BD',
-  statusAmber: '#E2C37E',
+  statusAmber: '#7BA8C4',
 
   switchTrackBg: '#0D1724',
   switchTrackBorder: '#263C54',

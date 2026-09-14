@@ -180,8 +180,6 @@ export interface UnifiedRightSidebarProps {
   mapScaleStr: string;
   dataInfo?: LoadedDataInfo;
   onSnapCamera: (v: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => void;
-  isAudioMuted?: boolean;
-  onAudioMuteToggle?: () => void;
   dataLayers?: DataLayerItem[];
   onAddDataLayer?: (layer: DataLayerItem) => void;
   onToggleDataLayer?: (id: string) => void;
@@ -288,8 +286,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   mapScaleStr,
   dataInfo,
   onSnapCamera,
-  isAudioMuted = true,
-  onAudioMuteToggle,
   dataLayers = [],
   onAddDataLayer,
   onToggleDataLayer,
@@ -660,32 +656,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 <span className="text-nano font-normal opacity-60">FPS</span>
               </div>
 
-              {/* Backend Toggle (WebGL2 vs WebGPU) */}
-              <button
-                onClick={() => onBackendChange(backend === 'webgpu' ? 'webgl2' : 'webgpu')}
-                disabled={!hasWebGPU && backend === 'webgl2'}
-                title={
-                  !hasWebGPU
-                    ? 'WebGPU not available on this hardware'
-                    : backend === 'webgpu'
-                    ? 'Active Engine: WebGPU WGSL Compute'
-                    : 'Active Engine: WebGL2 Fallback'
-                }
-                className={`cursor-pointer px-2 py-1 rounded-[2px] text-micro font-bold border transition-all flex items-center gap-1.5 shrink-0 ${
-                  backend === 'webgpu'
-                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
-                    : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-control-hover-border)]'
-                }`}
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    backend === 'webgpu' ? 'bg-[var(--theme-text-accent)]' : 'bg-[var(--theme-status-sage)]'
-                  }`}
-                ></span>
-                <span>{backend === 'webgpu' ? 'WebGPU' : 'WebGL2'}</span>
-                <span className="text-nano opacity-60 font-normal">⇄</span>
-              </button>
-
               {/* Grid Resolution Switch */}
               <div className="flex items-center rounded-[2px] p-0.5 border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] shrink-0 gap-0.5">
                 <button
@@ -716,7 +686,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     title={`${resolution.toUpperCase()} Volumetric Nodes (Active)`}
                     className={`cursor-pointer px-1.5 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
                       resolution === '16M'
-                        ? 'bg-[var(--theme-status-amber)] text-black font-semibold shadow-sm'
+                        ? theme === 2
+                          ? 'bg-[#7BA8C4] text-[#0C1520] font-semibold shadow-sm'
+                          : 'bg-[var(--theme-status-amber)] text-black font-semibold shadow-sm'
                         : 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm'
                     }`}
                   >
@@ -726,36 +698,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               </div>
             </div>
 
-            {/* Right Controls: Audio & Theme Toggles */}
+            {/* Right Controls: Theme Toggle */}
             <div className="flex items-center gap-1.5 shrink-0">
-              {/* Audio Synthesizer Mute/Unmute */}
-              {onAudioMuteToggle && (
-                <button
-                  onClick={onAudioMuteToggle}
-                  title={
-                    isAudioMuted
-                      ? 'Web Audio Synthesizer: Muted (Click to Unmute)'
-                      : 'Web Audio Synthesizer: Active (Click to Mute)'
-                  }
-                  className={`cursor-pointer p-1.5 rounded-[2px] border transition-all flex items-center shrink-0 ${
-                    !isAudioMuted
-                      ? 'border-[var(--theme-status-sage)] bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)] ring-1 ring-[var(--theme-status-sage)]/40 shadow-sm'
-                      : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
-                  }`}
-                >
-                  {!isAudioMuted ? (
-                    <svg className="w-3.5 h-3.5 text-[var(--theme-status-sage)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.314M11 5L6 9H2v6h4l5 4V5z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                    </svg>
-                  )}
-                </button>
-              )}
-
               {/* Archival Physical Medium Cycle (Tharp / Cream / Cyanotype) */}
               <button
                 onClick={onThemeToggle}
@@ -1464,9 +1408,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           activeOverlay === 'migration'
                             ? theme === 1
                               ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] shadow-sm font-semibold ring-1 ring-[#7D4700]/40'
+                              : theme === 2
+                              ? 'bg-sky-700/35 text-sky-200 border-sky-400/80 shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/60 font-semibold'
                               : 'bg-amber-500/35 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.4)] ring-1 ring-amber-400/60 font-semibold'
                             : theme === 1
                             ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#7D4700] hover:border-[#7D4700]/40 bg-[var(--theme-control-bg)]'
+                            : theme === 2
+                            ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-sky-300 hover:border-sky-400/50 bg-[var(--theme-control-bg)]'
                             : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-amber-500 hover:border-amber-400/50 bg-[var(--theme-control-bg)]'
                         }`}
                       >
@@ -1523,6 +1471,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         showVectors
                           ? theme === 1
                             ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414] shadow-sm font-semibold ring-1 ring-[#8C4820]/40'
+                            : theme === 2
+                            ? 'bg-sky-700/35 text-sky-200 border-sky-400/80 shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/60 font-semibold'
                             : 'bg-amber-500/35 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.4)] ring-1 ring-amber-400/60 font-semibold'
                           : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                       }`}
@@ -1532,6 +1482,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           showVectors
                             ? theme === 1
                               ? 'bg-[#FDFCF9]'
+                              : theme === 2
+                              ? 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.8)]'
                               : 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]'
                             : theme === 1 ? 'bg-[#b8ad98]' : 'bg-zinc-500/60'
                         }`}
@@ -1904,7 +1856,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             ? theme === 1
                               ? 'border-[#96641e]/60 bg-[#96641e]/15 text-[#52350c] shadow-sm ring-1 ring-[#96641e]/40'
                               : theme === 2
-                              ? 'border-[#8c7a52]/80 bg-[#3a3528]/40 text-[#f0e8d0] shadow-sm ring-1 ring-[#8c7a52]/50'
+                              ? 'border-[#4a6a8c]/80 bg-[#1a2838]/40 text-[#c8d8e8] shadow-sm ring-1 ring-[#4a6a8c]/50'
                               : 'border-amber-500/60 bg-amber-500/20 text-amber-200 shadow-[0_0_8px_rgba(245,158,11,0.25)] ring-1 ring-amber-400/40'
                             : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                         }`}
@@ -1922,7 +1874,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             theme === 1
                               ? 'bg-[#96641e]/20 text-[#52350c] border-[#96641e]/40'
                               : theme === 2
-                              ? 'bg-[#5c4e30]/40 text-[#f5ebd2] border-[#8c7a52]/50'
+                              ? 'bg-[#1a2838]/80 text-[#c8d8e8] border-[#4a6a8c]/50'
                               : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                           }`}>
                             {isCraneActive && craneTelemetry

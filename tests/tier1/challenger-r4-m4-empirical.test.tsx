@@ -70,8 +70,6 @@ describe('Empirical Challenger R4-M4: Test Quality & Behavioral Integrity Verifi
       mapScaleStr: '1:50M',
       dataInfo: baseDataInfo,
       onSnapCamera: vi.fn(),
-      isAudioMuted: true,
-      onAudioMuteToggle: vi.fn(),
       dataLayers: [],
       toasts: [],
       onDismissToast: vi.fn(),
@@ -195,7 +193,6 @@ describe('Empirical Challenger R4-M4: Test Quality & Behavioral Integrity Verifi
       const onModeChange = vi.fn();
       const onLayerModeChange = vi.fn();
       const onSnapCamera = vi.fn();
-      const onAudioMuteToggle = vi.fn();
       const onZenToggle = vi.fn();
 
       const props = makeProps({
@@ -211,7 +208,6 @@ describe('Empirical Challenger R4-M4: Test Quality & Behavioral Integrity Verifi
         onModeChange,
         onLayerModeChange,
         onSnapCamera,
-        onAudioMuteToggle,
         onZenToggle,
       });
 
@@ -221,13 +217,9 @@ describe('Empirical Challenger R4-M4: Test Quality & Behavioral Integrity Verifi
 
       const buttons = Array.from(container.querySelectorAll('button'));
 
-      // 1. Backend toggle
-      const backendBtn = buttons.find(b => b.textContent?.includes('WebGL2'));
-      expect(backendBtn).toBeDefined();
-      await act(async () => {
-        backendBtn?.click();
-      });
-      expect(onBackendChange).toHaveBeenCalledWith('webgpu');
+      // 1. Backend toggle (excised per retirement of WebGL2 backend)
+      const backendBtn = buttons.find(b => b.textContent?.includes('WebGL2') || b.textContent?.includes('WebGPU ⇄'));
+      expect(backendBtn).toBeUndefined();
 
       // 2. Resolution toggle to 1M
       const res1MBtn = buttons.find(b => b.textContent?.includes('1M'));
@@ -260,14 +252,9 @@ describe('Empirical Challenger R4-M4: Test Quality & Behavioral Integrity Verifi
         }
       }
 
-      // 5. Audio Mute button
+      // 5. Audio Mute button (excised per retirement of audio synthesizer)
       const audioBtn = buttons.find(b => b.title?.toLowerCase().includes('mute') || b.title?.toLowerCase().includes('audio'));
-      if (audioBtn) {
-        await act(async () => {
-          audioBtn.click();
-        });
-        expect(onAudioMuteToggle).toHaveBeenCalled();
-      }
+      expect(audioBtn).toBeUndefined();
     });
 
     it('CH1-M4-05: verifies Zen mode toggle and suppression contract', async () => {

@@ -212,9 +212,9 @@ describe('Milestone M2: Visual & Functional Bug Fixes Verification', () => {
   // =========================================================================
   // 10. Task 10: Audio Mute Sync
   // =========================================================================
-  describe('Task 10: Audio Engine Initial Mute Synchronization', () => {
-    it('synchronizes audio mute state in App.tsx on mount and state changes', () => {
-      expect(appCode).toContain('audioEngineRef.current.setMute(isAudioMuted);');
+  describe('Task 10: Audio Engine Excised from App.tsx', () => {
+    it('verifies audio engine and synthesizer routines are excised from App.tsx', () => {
+      expect(appCode).not.toContain('audioEngineRef');
     });
   });
 

@@ -131,7 +131,7 @@ describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety',
 
       expect(indexCss).toMatch(/\[data-theme=["']tharp["']\][\s\S]*?--theme-status-amber:\s*#F59E0B/i);
       expect(indexCss).toMatch(/\[data-theme=["']cream["']\][\s\S]*?--theme-status-amber:\s*#7D4700/i);
-      expect(indexCss).toMatch(/\[data-theme=["']cyanotype["']\][\s\S]*?--theme-status-amber:\s*#E2C37E/i);
+      expect(indexCss).toMatch(/\[data-theme=["']cyanotype["']\][\s\S]*?--theme-status-amber:\s*#7BA8C4/i);
     });
 
     it('exposes status tokens in ThemeManager UIThemeTokens and registers CSS properties', () => {

@@ -51,8 +51,6 @@ describe('Adversarial Challenger M5: HUD State, Telemetry, and Resolution Switch
     onResolutionChange: vi.fn(),
     theme: 0,
     onThemeToggle: vi.fn(),
-    isAudioMuted: true,
-    onAudioMuteToggle: vi.fn(),
     ...overrides,
   });
 
