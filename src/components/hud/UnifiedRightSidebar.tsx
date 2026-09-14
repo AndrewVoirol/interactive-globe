@@ -1817,7 +1817,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               ? 'border-[#2b6b88]/60 bg-[#2b6b88]/15 text-[#1a4457] shadow-sm ring-1 ring-[#2b6b88]/40'
                               : theme === 2
                               ? 'border-[#4a729e]/80 bg-[#254263]/40 text-[#e8edf2] shadow-sm ring-1 ring-[#4a729e]/50'
-                              : 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200 shadow-[0_0_8px_rgba(10,185,129,0.25)] ring-1 ring-emerald-400/40'
+                              : 'border-[var(--theme-status-sage)]/60 bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] shadow-[0_0_8px_var(--theme-status-sage)] ring-1 ring-[var(--theme-status-sage)]/40'
                             : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
                         }`}
                       >
@@ -1834,9 +1834,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             ? 'bg-[#2b6b88]/20 text-[#1a4457] border-[#2b6b88]/40'
                             : theme === 2
                             ? 'bg-[#3b5d82]/40 text-[#d8e6f3] border-[#4a729e]/50'
-                            : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                            : 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40'
                         }`}>
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-status-sage)] animate-pulse" />
                           Live 10m
                         </span>
                       </button>

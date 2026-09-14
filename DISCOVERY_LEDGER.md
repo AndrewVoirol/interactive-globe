@@ -77,3 +77,39 @@
   - `src/components/hud/UnifiedRightSidebar.tsx`
   - `src/components/hud/NavigationDock.tsx`
   - `src/components/hud/TelemetryHUD.tsx`
+
+---
+
+## 4. Current Execution Status (Updated 2026-09-14)
+
+### Completed Milestones
+1. **Air Dancer Purge (Zero-Hesitation Scope Cut)**:
+   - Deleted `AirDancerScene.tsx`, `AirDancerSim.ts`, `AirDancerAudio.ts`, and associated unit tests.
+   - Cleared `App.tsx` imports, key listeners ('w'), and state. Preserved archival design-system comment.
+2. **Sidebar Re-Architecture (5 Curated Plates)**:
+   - Replaced chaotic plates with 5 structured tabs: `[ALL]`, `[MEDIUM]`, `[TERRAIN]`, `[WEATHER]`, `[PROJECTION]`.
+   - Added dedicated `Live Doppler Radar` control with active RainViewer sync indicators.
+   - Mode 1 (Linear Unfurl) and Mode 4 (Fluid Advection) designated as primary hero projections.
+3. **Curator's Colophon Embedded**:
+   - Created `CuratorsColophon.tsx` displaying complete authoritative provenance:
+     - ETOPO 2022 15 arc-sec 16-bit DEM (-10,924m to +8,848m)
+     - DeepMind WeatherNext 3 (0.1° / 10km) & NOAA GFS (10m winds)
+     - RainViewer Global Radar Mosaic (10-minute cadence)
+     - Natural Earth 1:10M Coplanar Vectors
+     - WebGPU 120 FPS Compute Pipeline
+   - Embedded directly into the sidebar with dynamic material calibration across all 3 archival mediums.
+4. **Permanent Invariants 108–113 Codified**:
+   - Codified Museum-Grade Zero-Whimsy Invariant (108).
+   - Scale-Coupled Troposphere Ceiling Invariant (109).
+   - Concrete Visual Comps in Discovery Invariant (110).
+   - Zero-Lingering Server Discipline (111).
+   - Full Data Provenance & Curator Colophon (112).
+   - Cross-Session Discovery Ledger & Parameter Retention (113).
+
+### Active Priority Roadmap
+1. **Visual Style Noise Stripping & Medium Clarification**:
+   - Refactor `crust_hydrosphere.wgsl` for all 3 mediums (Cream Rag Swiss relief, Marie Tharp bathymetry, Prussian Cyanotype blueprint).
+   - Remove muddying overlaps; restore crisp, high-contrast medium identities.
+2. **Artisanal Weather Overlays ("Holy Shit" Experience)**:
+   - Harmonize live weather and Doppler radar layers with the physical medium inking profiles (e.g. pencil-stippled storm cells, blueprint isobars).
+

@@ -840,4 +840,56 @@ Always consult the following master specifications before proposing or making an
 - **Independent Ingestion Contract**:
   Every volumetric or vector data layer must evaluate its own independent visibility trigger (`if (showClouds)` or `if (layer.visible)`), guaranteeing immediate data hydration regardless of which ancillary instruments or winds are active.
 
+## 108. Archival Museum-Grade Discipline & Zero-Whimsy Invariant
+- **Prohibition of Novelty Gimmicks & Toy Physics**:
+  The Indicatrix Engine simulates physical archival drafting sheets (1910 Swiss Federal Topography, 1977 Marie Tharp Physiographic Chart, 1842 Sir John Herschel Cyanotype Blueprint) resting on a physical map board. Novelty animations, inflatable tube men ("Air Dancer"), toy physics, and video-game neon particles are strictly prohibited from the production runtime, HUD, and camera loops.
+- **Museum & Library Presentation Contract**:
+  Every instrument, vernier slider, button, and typography element must reflect the precision and restraint of archival museum instruments (e.g., Swiss Federal Topography, Lamont-Doherty Geological Observatory, Royal Geographic Society).
+
+## 109. Dynamic Tropospheric Elevation Shell & Multi-Scale Coupling Invariant
+- **Prohibition of Static Altitude Troposphere Ceilings**:
+  Volumetric cloud raymarching shells must NEVER enforce a static outer radius ($r_{\text{outer}} = 5.012$) while terrain elevation displacement is dynamic. Under geomorphic relief exaggeration ($28\times$), mountain summits (Rainier, Fuji, Himalayas) protrude above the atmosphere roof, causing $t_{\text{terrain}} \le t_{\text{start}}$ and discarding 100% of clouds over mountain ranges.
+- **Dynamic Scale-Coupled Troposphere**:
+  Tropospheric outer shell radius, cloud deck limits, and orographic lifting fields must scale dynamically with terrain displacement:
+  $$r_{\text{outer}} = r_{\text{base}} + \Delta r_{\text{tropo}} + \text{displacementScale} \times 1.5$$
+  ensuring alpine inversions, ridge undercast, and mountain wave clouds wrap naturally around elevated summits without clipping or void cutouts.
+
+## 110. Concrete Visual Comps & Mockups in Design Discovery
+- **Prohibition of Abstract Text-Wrapping Discovery Decks**:
+  During design discovery, style reviews, and `/grill-me` sessions, agents must NEVER present wide, unstyled text tables or generic HTML wireframe decks that fail to show actual visual rendering.
+- **Mandatory Visual Comps & Rendered Previews**:
+  When soliciting user direction on visual identity, color palettes, or rendering styles, agents must provide concrete visual assets:
+  1. High-fidelity offscreen WebGPU testbed captures, OR
+  2. Targeted generative visual mockups (`generate_image`) illustrating the exact lighting, ink absorption, and paper texture being proposed,
+  allowing the user to evaluate tangible aesthetics rather than abstract code parameters.
+
+## 111. Zero-Lingering Server Discipline & Port Lifecycle Audit
+- **Prohibition of Orphaned Background Dev Servers**:
+  Leaving Vite dev servers, node processes, or WebGPU render contexts active across conversation boundaries or before ending a session is strictly prohibited. Lingering servers leak WebGPU swapchains, exhaust local memory, and cause port collisions (e.g. drifting from 3000 to 5173 to 5174).
+- **Mandatory Pre-Flight & Post-Flight Port Audit**:
+  Before ending any session, after running browser tests, or prior to a reboot/sleep:
+  1. Kill all spawned dev server background tasks (`manage_task kill`).
+  2. Execute `lsof -i :3000 -i :5173` to verify that listening ports are completely released.
+
+## 112. Full Data Provenance & Curator Colophon Contract
+- **Prohibition of Undocumented Mystery Data**:
+  Rendering visual layers (elevation, bathymetry, winds, radar, orbits) without explicit, readable attribution in the user interface is prohibited. A human reviewer or multimodal model inspecting any viewport screenshot must be able to verify exactly what data is displayed and its authoritative source.
+- **Active Curator's Colophon**:
+  The interface must embed an active Curator's Colophon component (`CuratorsColophon.tsx`) that dynamically reports:
+  - Crust & DEM: NOAA NCEI ETOPO 2022 (15 arc-sec / 16-bit DEM, -10,924m to +8,848m)
+  - Atmospheric Model: Google DeepMind WeatherNext 3 (0.1° / 10km) & NOAA GFS (10m winds)
+  - Live Doppler Radar: RainViewer Real-time Global Mosaic (10-minute cadence)
+  - Vectors: Natural Earth 1:10M High-Resolution Linework (Coplanar zero-standoff)
+  - Pipeline: WebGPU Compute & Hardware Depth Bias (@ 120 FPS)
+  - Active Medium Material & Physical Calibration (GSM, Mylar µm, or Diazo Plate).
+
+## 113. Cross-Session Discovery Ledger & Parameter Retention Protocol
+- **Prohibition of Cross-Session Memory Amnesia**:
+  Agents starting a new sprint or conversation must never discard prior architectural calibrations or re-introduce previously eliminated anti-patterns.
+- **The Living Discovery Ledger (`DISCOVERY_LEDGER.md`)**:
+  All major architectural decisions, discarded approaches, calibrated parameter baselines (such as `displacementScale = 0.10`, Symmetrical Dual-Log hypsometry, Beer-Lambert step opacity), and active priority roadmaps must be recorded in `DISCOVERY_LEDGER.md`.
+- **Pre-Task Ledger Check**:
+  At the start of any new session or feature pass, the agent MUST read `DISCOVERY_LEDGER.md` before planning or implementing changes.
+
+
 
