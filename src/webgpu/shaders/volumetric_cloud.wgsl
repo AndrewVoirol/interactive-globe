@@ -149,7 +149,8 @@ fn intersectTroposphericShell(
 
 // Reconstruct World Position from Depth Value and Camera Matrices
 fn reconstructWorldPosition(ndcX: f32, ndcY: f32, depthVal: f32) -> vec3<f32> {
-    let ndcZ = depthVal * 2.0 - 1.0;
+    // In WebGPU with Three.js projection, depthVal in depth32float is the direct NDC Z
+    let ndcZ = depthVal;
     let clipSurface = vec4<f32>(ndcX, ndcY, ndcZ, 1.0);
     let viewPosH = camera.u_invProjectionMatrix * clipSurface;
     let worldPosH = camera.u_invViewMatrix * vec4<f32>(viewPosH.xyz / max(1e-6, abs(viewPosH.w)), 1.0);
@@ -274,27 +275,27 @@ fn getMediumPalette(theme: u32) -> CloudMediumPalette {
     var pal: CloudMediumPalette;
     if (theme == 0u) {
         // Theme 0: Marie Tharp (1977) Physiographic Chart
-        pal.sunColor = vec3<f32>(1.00, 0.96, 0.91);     // Warm lithographic sunlit cream
-        pal.midColor = vec3<f32>(0.72, 0.78, 0.84);     // Pale ocean-illuminated parchment glaze
-        pal.ambientColor = vec3<f32>(0.12, 0.20, 0.32); // Deep oceanic indigo shadow (#1E293B)
+        pal.sunColor = vec3<f32>(1.00, 0.98, 0.95);     // Warm lithographic sunlit cream
+        pal.midColor = vec3<f32>(0.84, 0.88, 0.92);     // Pale ocean-illuminated parchment glaze
+        pal.ambientColor = vec3<f32>(0.32, 0.40, 0.50); // Deep oceanic indigo shadow (#1E293B)
         pal.inkDensityFactor = 1.0;
     } else if (theme == 1u) {
         // Theme 1: Cream Rag (310 GSM Cotton Rag)
-        pal.sunColor = vec3<f32>(0.98, 0.94, 0.88);     // Soft warm absorbent ivory wash
-        pal.midColor = vec3<f32>(0.64, 0.58, 0.50);     // Raw umber watercolor glaze
-        pal.ambientColor = vec3<f32>(0.22, 0.19, 0.16); // Archival sepia-charcoal ink wash (#38302A)
+        pal.sunColor = vec3<f32>(0.98, 0.96, 0.92);     // Soft warm absorbent ivory wash
+        pal.midColor = vec3<f32>(0.86, 0.82, 0.76);     // Raw umber watercolor glaze
+        pal.ambientColor = vec3<f32>(0.50, 0.46, 0.40); // Archival sepia-charcoal ink wash (#38302A)
         pal.inkDensityFactor = 0.92;
     } else if (theme == 2u) {
         // Theme 2: Prussian Cyanotype (1842 Blueprint)
-        pal.sunColor = vec3<f32>(0.88, 0.96, 1.00);     // Actinic solarized blueprint highlight
-        pal.midColor = vec3<f32>(0.31, 0.48, 0.64);     // Washed architectural cerulean wash (#4F79A3)
-        pal.ambientColor = vec3<f32>(0.00, 0.19, 0.33); // Deep Prussian blue / ferric ferrocyanide (#003153)
+        pal.sunColor = vec3<f32>(0.92, 0.97, 1.00);     // Actinic solarized blueprint highlight
+        pal.midColor = vec3<f32>(0.55, 0.70, 0.82);     // Washed architectural cerulean wash (#4F79A3)
+        pal.ambientColor = vec3<f32>(0.18, 0.32, 0.48); // Deep Prussian blue / ferric ferrocyanide (#003153)
         pal.inkDensityFactor = 1.15;
     } else {
         // Defensive fallback defaulting to Theme 0 without collapsing themes (Invariant §28)
-        pal.sunColor = vec3<f32>(1.00, 0.96, 0.91);
-        pal.midColor = vec3<f32>(0.72, 0.78, 0.84);
-        pal.ambientColor = vec3<f32>(0.12, 0.20, 0.32);
+        pal.sunColor = vec3<f32>(1.00, 0.98, 0.95);
+        pal.midColor = vec3<f32>(0.84, 0.88, 0.92);
+        pal.ambientColor = vec3<f32>(0.32, 0.40, 0.50);
         pal.inkDensityFactor = 1.0;
     }
 
@@ -419,10 +420,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let sunT = shadowRes.transmittance;
             let shadowDensity = shadowRes.density;
 
-            // In-Scattering Light
-            let directLight = pal.sunColor * (sunT * phase);
-            let midLight = pal.midColor * ((1.0 - sunT) * 0.40);
-            let ao = clamp(1.0 - (0.60 * shadowDensity + 0.40 * density) * 0.85, 0.12, 1.0);
+            // In-Scattering Light with physical 4*pi scaling and multiple scattering
+            let phaseTerm = max(0.28, phase * (4.0 * PI));
+            let directLight = pal.sunColor * (sunT * phaseTerm);
+            let midLight = pal.midColor * ((1.0 - sunT) * 0.55);
+            let ao = clamp(1.0 - (0.50 * shadowDensity + 0.30 * density) * 0.75, 0.25, 1.0);
             let S = (directLight + midLight + pal.ambientColor * ao) * (sigmaT * albedo * density);
 
             // Front-to-Back Radiative Transfer Accumulation

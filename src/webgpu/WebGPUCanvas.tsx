@@ -492,6 +492,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       prognosticModel === 'google-weathernext3' ||
       prognosticModel === 'weathernext';
 
+    if (showClouds) {
+      engine.loadAllCloudLayers(isWnModel).catch(() => {});
+    }
+
     const hasWind = !!dataLayers?.find(
       (l) => (l.id === 'noaa-gfs-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
     );
@@ -500,10 +504,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {
           engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
         });
-        engine.loadAllCloudLayers(true).catch(() => {});
       } else {
         engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
-        engine.loadAllCloudLayers(false).catch(() => {});
       }
     }
     const hasJetStream = !!dataLayers?.find(
@@ -595,7 +597,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     if (hasPhotoreal && !engine.isOrbitalTexturesLoaded()) {
       engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
     }
-  }, [dataLayers, prognosticModel]);
+  }, [dataLayers, prognosticModel, showClouds]);
 
   const focusCrane = useCallback(() => {
     const engine = engineRef.current;
@@ -800,6 +802,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         altitudeRadius?: number;
         pitchDeg?: number;
         headingDeg?: number;
+        theme?: number;
         duration?: number;
       }) => {
         const lonDeg = options?.lonDeg ?? -121.7604;
@@ -807,6 +810,38 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const altitudeRadius = options?.altitudeRadius ?? 5.00298; // ~3,800m altitude (R ≈ 5.00298)
         const pitchDeg = options?.pitchDeg ?? 75.0; // Oblique ≈ 75°
         const headingDeg = options?.headingDeg ?? 145.0; // Looking toward Mount Rainier summit
+
+        if (typeof window !== 'undefined') {
+          (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {
+            ...((window as any).__INDICATRIX_LIVE_UNIFORMS__ || {}),
+            showClouds: true,
+            volumetricClouds: true,
+            showCloudLow: true,
+            showCloudMid: true,
+            showCloudHigh: true,
+          };
+          if (options?.theme !== undefined) {
+            (window as any).__INDICATRIX_LIVE_UNIFORMS__.theme = options.theme;
+            if (typeof (window as any).__INDICATRIX_THEME__?.setThemeIndex === 'function') {
+              (window as any).__INDICATRIX_THEME__.setThemeIndex(options.theme);
+            }
+            if (typeof (window as any).setTheme === 'function') {
+              (window as any).setTheme(options.theme);
+            }
+          }
+          if ((window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+            (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showClouds: true });
+          }
+        }
+        callbacksRef.current.onShowCloudsChange?.(true);
+
+        if (engineRef.current) {
+          if (typeof engineRef.current.setVolumetricCloudsEnabled === 'function') {
+            engineRef.current.setVolumetricCloudsEnabled(true);
+          }
+          engineRef.current.loadAllCloudLayers(true).catch(() => {});
+        }
+
         (window as any).__INDICATRIX_CAMERA__.setObliqueView(lonDeg, latDeg, altitudeRadius, pitchDeg, headingDeg);
       },
       snapHaleakalaSunset: (options?: {
