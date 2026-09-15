@@ -100,3 +100,9 @@ For detailed technical rules in specific domains, consult the appropriate skill:
 - **Data pipeline**: `.agents/skills/data-pipeline/SKILL.md` — Zarr ingestion, ring buffers, DEM resolution, Web Mercator reprojection, Float16 encoding, row pitch alignment.
 - **HUD layout**: `.agents/skills/hud-layout/SKILL.md` — Cascading offsets, responsive breakpoints, drawer partitioning, accessibility, chronometric scrubbers.
 - **Test integrity**: `.agents/skills/adversarial-challenger-protocol/SKILL.md` — Anti-cheating, test import integrity, defect injection, Monte Carlo fuzzing.
+
+## 21. Source-Text-Scanning Test Fragility
+Many test suites in this project use `fs.readFileSync` to read `.tsx` source files and check for specific strings (`expect(content).toContain('...')`). These are NOT runtime DOM tests — they are static source code scanners. Any refactor that moves controls, labels, or CSS classes between files WILL break these tests even when functionality is preserved. When planning a structural refactor:
+- **Pre-flight**: Grep the test directory for `readFileSync` to identify all source-scanning tests that reference files being refactored.
+- **Budget test harmonization**: Plan for a test update pass after the refactor lands. Don't expect refactored code to pass these tests without updating the scanned file paths or expected strings.
+- **Never add synthetic comments**: If a source-scanning test expects a string that moved to a different file, update the test to scan the correct file — never add dead comments to satisfy the old assertion.

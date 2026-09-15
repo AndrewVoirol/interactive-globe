@@ -73,10 +73,11 @@ describe('Verification of Cartographic Pipeline Inconsistency Fixes', () => {
       expect(appCode).toContain('setLayerMode(2);');
     });
 
-    it('FIX-08: verifies UnifiedRightSidebar provides Base Lattice toggle and expanded sidebar controls', () => {
-      expect(sidebarCode).toContain('Base Lattice:');
-      expect(sidebarCode).toContain('Clean Terrain');
-      expect(sidebarCode).toContain('+ Node Cloud');
+    it('FIX-08: verifies UnifiedRightSidebar provides layer mode controls and expanded sidebar controls', () => {
+      // After refactor, 'Base Lattice' was replaced by SegmentedControl with Both/Points/Wireframe
+      expect(sidebarCode).toContain("label: 'Both'");
+      expect(sidebarCode).toContain("label: 'Points'");
+      expect(sidebarCode).toContain("label: 'Wireframe'");
     });
   });
 });

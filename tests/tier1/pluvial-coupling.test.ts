@@ -27,6 +27,9 @@ describe('Stage 2: Precipitation Texture Binding & Pluvial Valley Swelling', () 
   const drawerPath = path.resolve(__dirname, '../../src/components/AtmosphereDrawer.tsx');
   const drawerSrc = fs.readFileSync(drawerPath, 'utf8');
 
+  const orographicPath = path.resolve(__dirname, '../../src/components/hud/instruments/OrographicMoistureProfile.tsx');
+  const orographicSrc = fs.readFileSync(orographicPath, 'utf8');
+
   describe('1. WGSL Bindings & SimUniforms Struct Alignment', () => {
     it('declares bindings 9 and 10 in crust_hydrosphere.wgsl', () => {
       expect(shaderSrc).toMatch(/@group\(0\)\s*@binding\(9\)\s*var\s*u_precipTexture\s*:\s*texture_2d<f32>;/);
@@ -141,11 +144,16 @@ describe('Stage 2: Precipitation Texture Binding & Pluvial Valley Swelling', () 
 
   describe('4. AtmosphereDrawer UI Component Integration', () => {
     it('defines Pluvial Coupling VernierSlider with id sidebar-pluvial-coupling and [0.0, 2.0] range', () => {
-      expect(drawerSrc).toContain('id="sidebar-pluvial-coupling"');
-      expect(drawerSrc).toContain('label="Pluvial Coupling"');
-      expect(drawerSrc).toContain('min={0.0}');
-      expect(drawerSrc).toContain('max={2.0}');
-      expect(drawerSrc).toContain('step={0.1}');
+      // AtmosphereDrawer mounts OrographicMoistureProfile with pluvialGamma prop
+      expect(drawerSrc).toContain('<OrographicMoistureProfile');
+      expect(drawerSrc).toContain('pluvialGamma={curPluvialGamma}');
+
+      // OrographicMoistureProfile defines Pluvial Coupling VernierSlider with exact prop bounds
+      expect(orographicSrc).toContain('id="sidebar-pluvial-coupling"');
+      expect(orographicSrc).toContain('label="Pluvial Coupling"');
+      expect(orographicSrc).toContain('min={0.0}');
+      expect(orographicSrc).toContain('max={2.0}');
+      expect(orographicSrc).toContain('step={0.1}');
     });
 
     it('wires pluvialGamma prop and handler through AtmosphereDrawer', () => {

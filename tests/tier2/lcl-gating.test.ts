@@ -400,12 +400,16 @@ describe('Tier 2: Lifting Condensation Level (LCL) Thermodynamics', () => {
   describe('AtmosphereDrawer UI Component Integration', () => {
     const drawerPath = path.resolve(__dirname, '../../src/components/AtmosphereDrawer.tsx');
     const drawerSrc = fs.readFileSync(drawerPath, 'utf8');
+    const orographicPath = path.resolve(__dirname, '../../src/components/hud/instruments/OrographicMoistureProfile.tsx');
+    const orographicSrc = fs.readFileSync(orographicPath, 'utf8');
 
     it('renders Thermodynamic Gating section with default ON state and IDs', () => {
-      expect(drawerSrc).toContain('Thermodynamic Gating');
-      expect(drawerSrc).toContain('id="sidebar-thermodynamic-gating-on"');
-      expect(drawerSrc).toContain('id="sidebar-thermodynamic-gating-off"');
+      expect(orographicSrc).toContain('Thermodynamic Gating');
+      expect(orographicSrc).toContain('sidebar-thermodynamic-gating-on');
+      expect(orographicSrc).toContain('sidebar-thermodynamic-gating-off');
       expect(drawerSrc).toContain('useState<boolean>(true)');
+      expect(drawerSrc).toContain('<OrographicMoistureProfile');
+      expect(drawerSrc).toContain('thermodynamicGating={curThermodynamicGating}');
     });
 
     it('defines handleThermodynamicGatingChange and dispatches window and engine calls', () => {

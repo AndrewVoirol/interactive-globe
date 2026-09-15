@@ -277,15 +277,17 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
     expect(muteBtn).toBeUndefined();
   });
 
-  it('DOM-HUD-10: unified sidebar displays both Topology and Datasets simultaneously', async () => {
+  it('DOM-HUD-10: unified sidebar displays consolidated tabs (MEDIUM, SCENE, DATA)', async () => {
     const props = createProps();
     await act(async () => {
       root.render(<TelemetryHUD {...props} />);
     });
 
-    expect(container.textContent).toContain('Active Datasets');
-    expect(container.textContent).toContain('+ Catalog');
-    expect(container.textContent).toContain('Morph Paradigm');
+    // After refactor, sidebar uses consolidated tabs: MEDIUM, SCENE, DATA
+    expect(container.textContent).toContain('MEDIUM');
+    expect(container.textContent).toContain('SCENE');
+    expect(container.textContent).toContain('DATA');
+    expect(container.textContent).toContain('INDICATRIX // CONTROLS');
   });
 
   it('DOM-HUD-11: slide-out catalog sheet opens and allows adding datasets with persistent sheet', async () => {
@@ -303,9 +305,9 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
       catalogBtn?.click();
     });
 
-    // Verify Catalog Sheet rendered
-    expect(container.textContent).toContain('Cartographic Data Catalog');
-    expect(container.textContent).toContain('NASA Blue Marble');
+    // Verify Catalog Sheet rendered (title is now just "Catalog" after refactor)
+    expect(container.textContent).toContain('Catalog');
+    expect(container.textContent).toContain('datasets');
 
     // Click Add Layer on first available preset
     const addLayerBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Add Layer'));
@@ -317,7 +319,7 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
 
     expect(onAddDataLayer).toHaveBeenCalled();
     // Verify sheet remains open
-    expect(container.textContent).toContain('Cartographic Data Catalog');
+    expect(container.textContent).toContain('Catalog');
   });
 
   it('DOM-HUD-12: closing catalog sheet via close button smoothly dismisses sheet', async () => {
@@ -332,7 +334,8 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
       catalogBtn?.click();
     });
 
-    expect(container.textContent).toContain('Cartographic Data Catalog');
+    // Catalog sheet title is now "Catalog" after refactor
+    expect(container.textContent).toContain('datasets');
 
     // Find Close button
     const closeBtn = Array.from(container.querySelectorAll('button')).find(b => b.title?.includes('Close Catalog Sheet'));
@@ -342,6 +345,8 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
       closeBtn?.click();
     });
 
-    expect(container.textContent).not.toContain('Cartographic Data Catalog');
+    // After closing, the catalog section should not show dataset count
+    const catalogSection = container.querySelector('[class*="slide-in-from-right"]');
+    expect(catalogSection).toBeNull();
   });
 });

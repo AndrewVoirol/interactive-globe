@@ -6,14 +6,16 @@
 
 import React from 'react';
 
-export interface SegmentOption<T extends string | number> {
+export interface SegmentOption<T extends string | number | boolean> {
   id: T;
   label: string;
   sublabel?: string;
   title?: string;
+  domId?: string;
+  className?: string;
 }
 
-export interface SegmentedControlProps<T extends string | number> {
+export interface SegmentedControlProps<T extends string | number | boolean> {
   options: SegmentOption<T>[];
   value: T;
   onChange: (val: T) => void;
@@ -24,7 +26,7 @@ export interface SegmentedControlProps<T extends string | number> {
   'aria-label'?: string;
 }
 
-export function SegmentedControl<T extends string | number>({
+export function SegmentedControl<T extends string | number | boolean>({
   options,
   value,
   onChange,
@@ -46,8 +48,16 @@ export function SegmentedControl<T extends string | number>({
     }
     if (nextIndex !== index) {
       onChange(options[nextIndex].id);
+      const container = (e.currentTarget as HTMLElement).parentElement;
+      const buttons = container?.querySelectorAll<HTMLButtonElement>('button[role="radio"]');
+      buttons?.[nextIndex]?.focus();
     }
   };
+
+  const isGrid = className?.includes('grid');
+  const baseLayout = isGrid
+    ? (className.includes('inline-grid') ? '' : 'grid')
+    : 'inline-flex items-center';
 
   return (
     <div
@@ -55,7 +65,7 @@ export function SegmentedControl<T extends string | number>({
       role="radiogroup"
       aria-label={ariaLabel}
       aria-disabled={disabled}
-      className={`inline-flex items-center p-0.5 rounded-[2px] border transition-colors bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] gap-0.5 ${
+      className={`${baseLayout} p-0.5 rounded-[2px] border transition-colors bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] gap-0.5 ${
         disabled ? 'opacity-50 pointer-events-none' : ''
       } ${className}`}
     >
@@ -64,6 +74,7 @@ export function SegmentedControl<T extends string | number>({
         return (
           <button
             key={String(opt.id)}
+            id={opt.domId}
             type="button"
             role="radio"
             aria-checked={isSelected}
@@ -77,8 +88,8 @@ export function SegmentedControl<T extends string | number>({
             } ${
               isSelected
                 ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm font-semibold'
-                : 'text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-control-hover-bg)] border border-transparent'
-            }`}
+                : 'bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-control-hover-bg)] border border-transparent'
+            } ${opt.className || ''}`}
           >
             <span className="truncate">{opt.label}</span>
             {opt.sublabel && (

@@ -1370,3 +1370,92 @@ Integrity mode: development
 - [ ] Canonical captures saved to `screenshots/` covering all milestone checkpoints (minimum 6 litmus images).
 - [ ] Live Chrome DevTools console logs show zero WGSL compilation rejections or unhandled exceptions.
 </USER_REQUEST>
+
+## 2026-09-15T05:21:57Z
+
+<USER_REQUEST>
+Refactor the AtmosphereDrawer in the Indicatrix Engine from a flat stack of 17 generic VernierSliders and hand-rolled button grids into domain-specific cartographic instruments matching the existing PolarSunCompass, HypsometricReliefCurve, BathymetricTideGauge, and CurvatureUnfurlSextant pattern. Full 3-theme medium-adaptive SVG artifacts (Cream Rag/Cyanotype/Tharp) from day one. Production quality — this is portfolio work.
+
+Working directory: /Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/atmosphere_visual_controls_audit
+Integrity mode: development
+
+## Requirements
+
+### R1. Primitive Consistency (Stage 0)
+Replace the 5 hand-rolled segmented button grids in `AtmosphereDrawer.tsx` (Vertical Scale Transfer, Thermodynamic Gating, Weather Optical Mode, Prognostic Model, Prognostic Variable) with the existing `SegmentedControl` component from `src/components/ui/SegmentedControl.tsx`. Replace the master cloud deck raw `<button role="switch">` with the existing `TactileSwitch` component from `src/components/ui/TactileSwitch.tsx`. Upgrade any bare `<input type="range">` elements in the drawer and related instruments to `VernierSlider`. All existing functionality, state flow, and window bridge dispatchers must be preserved exactly. No new components — only adopting existing primitives.
+
+### R2. Atmospheric Cross-Section Column Instrument
+Create a new cartographic instrument (`AtmosphericColumnInstrument`) that replaces the tri-altitude layer toggles (LOW/MID/HIGH), Atmospheric Scale VernierSlider, and Cloud Opacity VernierSlider. The instrument must render a vertical atmospheric column cross-section showing cloud strata bands at their calibrated altitude positions (1–2km, 4–6km, 10–12km). Clicking a stratum band toggles that layer. Dragging the top edge of the column controls atmospheric scale (1.0–12.0x). Cloud fill opacity within bands reflects cloud opacity (0.1–1.0). Must include medium-adaptive SVG artifacts for all 3 themes: Cream Rag (Victorian meteorological engravings), Cyanotype (pressure-altitude graph paper), Tharp (acoustic atmospheric sounding traces). Double-click resets to defaults. Full keyboard accessibility via arrow keys. Pointer capture drag. Must dispatch to the same window bridge functions (`__INDICATRIX_SET_CLOUD_OPTIONS__`, `__INDICATRIX_SET_ATMOSPHERIC_SCALE__`) at zero latency.
+
+### R3. Orographic Moisture Profile Instrument
+Create a new cartographic instrument (`OrographicMoistureProfile`) that replaces the Orographic Coupling VernierSlider, Pluvial Coupling VernierSlider, and Thermodynamic Gating segmented toggle. The instrument must render a mountain cross-section showing the orographic precipitation cycle: windward moisture ascent, LCL condensation altitude line, precipitation column, and leeward rain shadow. Dragging the windward cloud mass controls Orographic Coupling (0.0–1.0). Dragging the rain column controls Pluvial Coupling (0.0–2.0). A footer toggle controls Thermodynamic Gating (LCL on/off) — when ON, the LCL line is drawn and clouds form only above it. Medium-adaptive SVG artifacts for all 3 themes. Double-click resets. Keyboard accessible. Pointer capture drag. Same window bridge dispatchers preserved.
+
+### R4. Shadow Intensity and Cloud Drift Speed Controls
+Redesign the Shadow Intensity and Cloud Drift Speed controls as individual visual instruments (not generic VernierSliders) that convey their physical meaning. Shadow Intensity (0.0–0.60) should visualize ground shadow projection. Cloud Drift Speed (0–2000×) should visualize temporal motion. These remain independent controls — not coupled. Each must have medium-adaptive SVG artifacts for all 3 themes, double-click reset, keyboard accessibility, and pointer capture drag.
+
+### R5. Prognostic Model Consolidation
+Consolidate the Prognostic Model selector, Prognostic Variable selector, and WeatherNext Status Telemetry pill into a single self-contained card instrument. The card should use `SegmentedControl` for model and variable selection. Data provenance information (Zarr storage status, forecast lead time) should be integrated into the card rather than dangling as a separate pill. Conditional rendering of WeatherNext-specific controls when that model is selected must be preserved.
+
+## Acceptance Criteria
+
+### Primitive Consistency
+- [ ] Zero hand-rolled segmented button grids remain in `AtmosphereDrawer.tsx` — all use `SegmentedControl`
+- [ ] Master cloud toggle uses `TactileSwitch`, not raw `<button role="switch">`
+- [ ] No bare `<input type="range">` in drawer — all use `VernierSlider`
+- [ ] `role="radiogroup"` and arrow key navigation work on all segmented groups
+- [ ] All existing window bridge dispatchers fire identically to before refactor
+
+### Instrument Visual Quality
+- [ ] Each new instrument follows the established pattern: status header → interactive viewport → footer with reset
+- [ ] Each instrument renders distinct medium-adaptive SVG artifacts across all 3 themes (Cream Rag, Cyanotype, Tharp)
+- [ ] Theme switching via CSS custom properties — no pipeline recompilation
+- [ ] Visual artifacts match the quality standard of existing instruments (PolarSunCompass, HypsometricReliefCurve, BathymetricTideGauge)
+
+### Interaction & Accessibility
+- [ ] All instruments use pointer capture for drag operations beyond window bounds
+- [ ] Double-click resets to scientifically meaningful defaults on every instrument
+- [ ] Arrow key navigation with shift-key coarse stepping on all continuous parameters
+- [ ] `role="slider"` or appropriate ARIA roles on all interactive viewports
+- [ ] `tabIndex={0}` on all focusable instrument viewports
+
+### Functional Parity
+- [ ] All 17 original control parameters remain adjustable — no functionality lost
+- [ ] All window bridge dispatcher functions preserved exactly (`__INDICATRIX_SET_CLOUD_OPTIONS__`, `__INDICATRIX_SET_ATMOSPHERIC_SCALE__`, `__INDICATRIX_SET_SHADOW_INTENSITY__`, etc.)
+- [ ] Controlled/uncontrolled dual-mode prop pattern preserved (internal state with prop override)
+- [ ] Value clamping ranges unchanged from original implementation
+- [ ] AtmosphereDrawer total scroll height does not increase (should decrease)
+
+### Code Quality
+- [ ] TypeScript strict mode — no `any` casts except for window bridge globals
+- [ ] All new instruments have dedicated test coverage extending `tests/phase6-precision-instruments.test.ts`
+- [ ] Medium-adaptive SVG class assertions in `tests/modern/r6-design-system-ergonomics.test.ts`
+- [ ] Project builds successfully with zero TypeScript errors
+- [ ] All existing tests pass
+
+### Design Compliance
+- [ ] Single-border HUD enclosure contract (no nested inner neatlines)
+- [ ] `bg-[var(--theme-card-bg)]` and `border-[var(--theme-card-border)]` on all instrument cards
+- [ ] Monospace tabular numerals (`font-mono tabular-nums`) on all dynamic readouts
+- [ ] Hover glow (`hover:shadow-[0_0_12px_var(--theme-focus-ring)]`) and focus ring on interactive viewports
+
+## Verification Resources
+
+### Existing Test Suites
+- `tests/phase6-precision-instruments.test.ts` — Mathematical invariant contracts for existing instruments
+- `tests/modern/r6-design-system-ergonomics.test.ts` — Medium-adaptive SVG artifact DOM testing
+- `tests/modern/r14-m4-atmosphere-drawer-controls.test.ts` — AtmosphereDrawer unit/integration tests
+- `tests/tier1/tier1-design-system-bugs-and-polish.test.ts` — CSS theme card variable enforcement
+
+### Reference Implementations
+- `src/components/hud/instruments/PolarSunCompass.tsx` — Canonical example of polar drag instrument with medium-adaptive SVG
+- `src/components/hud/instruments/HypsometricReliefCurve.tsx` — Canonical example of 2D Cartesian drag instrument
+- `src/components/hud/instruments/BathymetricTideGauge.tsx` — Canonical example of 1D vertical drag instrument
+- `src/components/ui/SegmentedControl.tsx` — Target primitive for segmented groups
+- `src/components/ui/TactileSwitch.tsx` — Target primitive for master toggle
+
+### Authoritative Design Documents
+- `DESIGN_ETHOS.md` — 16 core design principles, rendering identities, neatline rules
+- `design-language.md` — Color spaces, theme tokens, typography scale, HUD geometry
+- `AGENTS.md` — Project rules including medium identity standards, spatial clearance, single-border contract
+</USER_REQUEST>
+

@@ -46,6 +46,9 @@ describe('Adversarial Challenger: Stage 2 Precipitation Bindings & Coupled Hydro
   const drawerPath = path.resolve(__dirname, '../../src/components/AtmosphereDrawer.tsx');
   const drawerSrc = fs.readFileSync(drawerPath, 'utf8');
 
+  const orographicPath = path.resolve(__dirname, '../../src/components/hud/instruments/OrographicMoistureProfile.tsx');
+  const orographicSrc = fs.readFileSync(orographicPath, 'utf8');
+
   // ==========================================================================
   // Pillar 1: WGSL Uniform Control Flow & AST Auditing (Invariant §3)
   // ==========================================================================
@@ -557,13 +560,19 @@ describe('Adversarial Challenger: Stage 2 Precipitation Bindings & Coupled Hydro
   // ==========================================================================
   describe('Pillar 6: UI Component Plumbing & Window Bridge Verification', () => {
     it('verifies AtmosphereDrawer renders the Pluvial Coupling VernierSlider with exact prop bounds', () => {
-      expect(drawerSrc).toContain('id="sidebar-pluvial-coupling"');
-      expect(drawerSrc).toContain('label="Pluvial Coupling"');
-      expect(drawerSrc).toContain('sublabel="Precipitation Swelling & River Width"');
-      expect(drawerSrc).toContain('min={0.0}');
-      expect(drawerSrc).toContain('max={2.0}');
-      expect(drawerSrc).toContain('step={0.1}');
-      expect(drawerSrc).toContain('readout={`${curPluvialGamma.toFixed(1)}x`}');
+      // AtmosphereDrawer mounts OrographicMoistureProfile with pluvial coupling prop wiring
+      expect(drawerSrc).toContain('<OrographicMoistureProfile');
+      expect(drawerSrc).toContain('pluvialGamma={curPluvialGamma}');
+      expect(drawerSrc).toContain('onPluvialGammaChange={handlePluvialGammaChange}');
+
+      // OrographicMoistureProfile renders the Pluvial Coupling VernierSlider with exact prop bounds
+      expect(orographicSrc).toContain('id="sidebar-pluvial-coupling"');
+      expect(orographicSrc).toContain('label="Pluvial Coupling"');
+      expect(orographicSrc).toContain('sublabel="Precipitation Swelling & River Width"');
+      expect(orographicSrc).toContain('min={0.0}');
+      expect(orographicSrc).toContain('max={2.0}');
+      expect(orographicSrc).toContain('step={0.1}');
+      expect(orographicSrc).toContain('readout={`${pluvialGamma.toFixed(1)}x`}');
     });
 
     it('verifies window bridge callbacks in AtmosphereDrawer handle non-finites and clamp bounds', () => {
