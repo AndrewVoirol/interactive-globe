@@ -140,7 +140,7 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
     });
 
     it('verifies 16M resolution tier button in Cream Rag uses mineral pigment', () => {
-      expect(sidebarContent).toContain("tier === '16M'\n                                ? theme === 1\n                                  ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300]");
+      expect(sidebarContent).toContain("tier === '16M'\n                            ? theme === 1\n                              ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300]");
     });
 
     it('verifies catalog preset category pills in Cream Rag use readable dark mineral pigments on cream paper', () => {

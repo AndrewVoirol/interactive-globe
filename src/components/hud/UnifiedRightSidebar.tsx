@@ -249,8 +249,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   const [catalogFilter, setCatalogFilter] = useState<'all' | 'topo' | 'vectors' | 'satellite'>('all');
   const catalogSheetRef = useRef<HTMLDivElement>(null);
 
-  type SidebarPlate = 'medium' | 'scene' | 'data';
-  const [activePlate, setActivePlate] = useState<SidebarPlate>('medium');
+  type SidebarPlate = 'scene' | 'data';
+  const [activePlate, setActivePlate] = useState<SidebarPlate>('scene');
 
   const isLight = theme === 1;
 
@@ -409,50 +409,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               : 'paper-tharp border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#080d12]/80'
           }`}
         >
-          {/* Row 1: Status & Theme */}
-          <div className="flex items-center justify-between pb-2 border-b border-[var(--theme-panel-header-border)] gap-1.5">
-            <div className="flex items-center gap-1.5 min-w-0">
-              {/* FPS Badge (Colored number only, no dot) */}
-              <div className="flex items-center justify-center gap-1 w-16 shrink-0 px-1.5 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] font-bold text-nano tabular-nums transition-colors">
-                <span
-                  className={`w-5 text-right tabular-nums font-semibold ${
-                    fps >= 100
-                      ? 'text-[var(--theme-text-accent)]'
-                      : fps >= 55
-                      ? 'text-[var(--theme-status-sage)]'
-                      : 'text-[var(--theme-status-amber)]'
-                  }`}
-                >
-                  {fps}
-                </span>
-                <span className="text-nano font-normal opacity-60">FPS</span>
-              </div>
-
-            </div>
-
-            {/* Theme Toggle */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={handleHeaderThemeToggle}
-                aria-label={theme === 0 ? 'Switch to Cream Rag' : theme === 1 ? 'Switch to Prussian Cyanotype' : 'Switch to Marie Tharp'}
-                title={
-                  theme === 0
-                    ? 'Switch to Cream Rag (Press T)'
-                    : theme === 1
-                    ? 'Switch to Prussian Cyanotype (Press T)'
-                    : 'Switch to Marie Tharp (Press T)'
-                }
-                className="cursor-pointer px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-control-hover-border)] text-nano font-mono tracking-tight transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
-              >
-                <span className="font-bold text-nano uppercase tracking-wider text-[var(--theme-text-primary)]">
-                  {theme === 0 ? 'Tharp' : theme === 1 ? 'Cream' : 'Cyanotype'}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* Row 2: Title & Window Controls */}
-          <div className="flex items-center justify-between py-2 border-b border-[var(--theme-panel-header-border)]">
+          {/* Header Row 1: Title & Window Controls */}
+          <div className="flex items-center justify-between pb-2 border-b border-[var(--theme-panel-header-border)]">
             <span className="cartouche-title text-title font-semibold tracking-wider uppercase text-[var(--theme-text-primary)]">
               INDICATRIX // CONTROLS
             </span>
@@ -472,24 +430,67 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   if (!nextState) setIsCatalogOpen(false);
                 }}
                 className="cursor-pointer tactile-btn text-nano font-bold px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-card-border-hover)] transition-all"
-                title={isSidebarOpen ? 'Roll up panel' : 'Unfurl panel'}
+                title={isSidebarOpen ? 'Roll Up' : 'Unfurl'}
               >
                 {isSidebarOpen ? 'Roll Up' : 'Unfurl'}
               </button>
             </div>
           </div>
 
+          {/* Header Row 2: Persistent Medium Substrate Switcher */}
+          <div className="py-2 border-b border-[var(--theme-panel-header-border)] space-y-1.5">
+            <div className="flex items-center justify-between text-micro font-semibold uppercase tracking-wider">
+              <span className="text-[var(--theme-text-primary)]">Medium Substrate</span>
+              <button
+                onClick={handleHeaderThemeToggle}
+                aria-label={theme === 0 ? 'Switch to Cream Rag' : theme === 1 ? 'Switch to Prussian Cyanotype' : 'Switch to Marie Tharp'}
+                title={
+                  theme === 0
+                    ? 'Switch to Cream Rag (Press T)'
+                    : theme === 1
+                    ? 'Switch to Prussian Cyanotype (Press T)'
+                    : 'Switch to Marie Tharp (Press T)'
+                }
+                className="cursor-pointer text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-accent)] hover:border-[var(--theme-control-active-border)] transition-all"
+              >
+                {theme === 0 ? 'Tharp ⇄' : theme === 1 ? 'Cream ⇄' : 'Prussian ⇄'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1">
+              {[
+                { id: 0, title: 'Tharp', sub: 'Physiographic' },
+                { id: 1, title: 'Cream Rag', sub: 'Swiss Relief' },
+                { id: 2, title: 'Prussian', sub: 'Cyanotype' },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => handleSelectMedium(m.id as 0 | 1 | 2)}
+                  aria-pressed={theme === m.id}
+                  className={`tactile-btn group cursor-pointer py-1.5 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-0.5 border transition-all ${
+                    theme === m.id
+                      ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] ring-1 ring-[var(--theme-control-active-ring)] font-semibold shadow-md'
+                      : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-card-border-hover)]'
+                  }`}
+                >
+                  <span className="text-body font-medium tracking-tight">{m.title}</span>
+                  <span className="text-nano uppercase font-medium tracking-tight opacity-75">{m.sub}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Expandable Scroll Drawer */}
           <div
+            id="sidebar-drawer"
             className={`sidebar-spring-transition flex flex-col flex-1 min-h-0 overflow-hidden ${
               isSidebarOpen ? 'opacity-100 max-h-[calc(100vh-8.5rem)] mt-1' : 'opacity-0 max-h-0 pointer-events-none'
             }`}
           >
-            {/* Row 3: 3 Consolidated Tabs */}
-            <div className="flex items-center justify-between py-1.5 border-b border-[var(--theme-panel-header-border)] gap-1 text-nano font-mono uppercase tracking-wider overflow-x-auto scrollbar-none shrink-0">
+            {/* 2 Consolidated Tabs: SCENE and DATA */}
+            <div role="tablist" aria-label="Sidebar Sections" className="flex items-center justify-between py-1.5 border-b border-[var(--theme-panel-header-border)] gap-1 text-nano font-mono uppercase tracking-wider overflow-x-auto scrollbar-none shrink-0">
               {(
                 [
-                  { id: 'medium', label: 'MEDIUM' },
                   { id: 'scene', label: 'SCENE' },
                   { id: 'data', label: 'DATA' },
                 ] as const
@@ -498,6 +499,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 return (
                   <button
                     key={tab.id}
+                    role="tab"
+                    id={`sidebar-tab-${tab.id}`}
+                    aria-selected={isActive}
+                    aria-controls={`sidebar-panel-${tab.id}`}
                     onClick={() => setActivePlate(tab.id)}
                     className={`flex-1 py-1 rounded-[2px] font-bold transition-all border shrink-0 cursor-pointer text-center ${
                       isActive
@@ -513,213 +518,126 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
             {/* Main Content Area */}
             <div className="mt-2.5 space-y-3 overflow-y-auto pr-1 flex-1 min-h-0 scroll-fade-mask pt-1 pb-3">
-              {/* TAB 1: MEDIUM */}
-              <div className={activePlate === 'medium' ? 'space-y-2.5' : 'hidden'}>
-                <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2.5 transition-all shadow-sm">
-                    <div className="flex items-center justify-between text-micro font-semibold uppercase tracking-wider">
-                      <span className="text-[var(--theme-text-primary)]">Medium</span>
-                      <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-accent)]">
-                        {theme === 0 ? 'Tharp' : theme === 1 ? 'Cream' : 'Cyanotype'}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {[
-                        { id: 0, title: 'Tharp', sub: 'Physiographic' },
-                        { id: 1, title: 'Cream Rag', sub: 'Swiss Relief' },
-                        { id: 2, title: 'Prussian', sub: 'Cyanotype' },
-                      ].map((m) => (
-                        <button
-                          key={m.id}
-                          onClick={() => handleSelectMedium(m.id as 0 | 1 | 2)}
-                          className={`tactile-btn group cursor-pointer py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
-                            theme === m.id
-                              ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] ring-1 ring-[var(--theme-control-active-ring)] font-semibold shadow-md'
-                              : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-card-border-hover)]'
-                          }`}
-                        >
-                          <span className="text-body font-medium tracking-tight">{m.title}</span>
-                          <span className="text-nano uppercase font-medium tracking-tight opacity-75">{m.sub}</span>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Elevation Swatches (Simplified, no header, depth label only) */}
-                    <div className="pt-1 border-t border-[var(--theme-card-border)]">
-                      <div className="grid grid-cols-5 gap-1">
-                        {PIGMENT_SWATCHES[theme].map((swatch, idx) => {
-                          const isIsolated = isolatedStratum === idx;
-                          return (
-                            <div
-                              key={idx}
-                              onClick={() => {
-                                const nextStratum = isolatedStratum === idx ? null : idx;
-                                const nextSwatch = nextStratum !== null ? swatch : null;
-                                setIsolatedStratum(nextStratum);
-                                onIsolatedStratumChange?.(nextStratum, nextSwatch);
-                                ThemeManager.getInstance().setIsolatedStratum(nextStratum, nextSwatch);
-
-                                if (primaryLayerId) {
-                                  if (nextStratum === null) {
-                                    handleSelectMedium(theme);
-                                  } else if (idx === 0) {
-                                    onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, -25);
-                                    onWaterClarityChangeDataLayer?.(primaryLayerId, 0.92);
-                                  } else if (idx === 1) {
-                                    onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, -8);
-                                    onWaterClarityChangeDataLayer?.(primaryLayerId, 0.82);
-                                    onAmbientOcclusionChangeDataLayer?.(primaryLayerId, 0.72);
-                                  } else if (idx === 2) {
-                                    onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, 0);
-                                    onWaterClarityChangeDataLayer?.(primaryLayerId, 0.75);
-                                  } else if (idx === 3) {
-                                    onPeakExponentChangeDataLayer?.(primaryLayerId, 1.3);
-                                    onDisplacementScaleChangeDataLayer?.(primaryLayerId, 0.12);
-                                  } else if (idx === 4) {
-                                    onPeakExponentChangeDataLayer?.(primaryLayerId, 2.0);
-                                    onDisplacementScaleChangeDataLayer?.(primaryLayerId, 0.16);
-                                    onAmbientOcclusionChangeDataLayer?.(primaryLayerId, 0.75);
-                                  }
-                                }
-                              }}
-                              className={`pigment-pan p-1 rounded-[2px] border text-center flex flex-col items-center gap-1 transition-all shadow-sm cursor-pointer select-none ${
-                                isIsolated
-                                  ? 'ring-2 ring-[var(--theme-text-accent)] border-[var(--theme-control-active-border)] bg-[var(--theme-control-active-bg)]'
-                                  : 'border-[var(--theme-card-border)] bg-[var(--theme-control-bg)] hover:border-[var(--theme-card-border-hover)]'
-                              }`}
-                              title={`${swatch.depth} (${swatch.hex})`}
-                            >
-                              <div
-                                className="w-full h-3.5 rounded-[1px] border border-black/20 shadow-inner shrink-0"
-                                style={{ backgroundColor: swatch.hex }}
-                              />
-                              <div className="text-nano font-mono opacity-80 uppercase tracking-tighter text-[var(--theme-text-secondary)] shrink-0 truncate w-full text-center">
-                                {swatch.depth}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Style Card */}
-                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
-                    <div className="flex items-center justify-between text-micro font-semibold uppercase tracking-wider">
-                      <span className="text-[var(--theme-text-primary)]">Style</span>
-                      <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-accent)]">
-                        {activeDirection === 'architectural' ? 'A: Relief' : activeDirection === 'hybrid' ? 'B: Depth' : 'C: Orbital'}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <button
-                        onClick={() => onSelectRenderStyle?.('architectural')}
-                        title="Direction A: Architectural Relief"
-                        className={`tactile-btn group cursor-pointer py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
-                          activeDirection === 'architectural'
-                            ? 'bg-[var(--theme-direction-a-bg)] text-[var(--theme-direction-a-text)] border-[var(--theme-direction-a-border)] ring-1 ring-[var(--theme-direction-a-ring)] font-semibold shadow-md'
-                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-direction-a-border)]'
-                        }`}
-                      >
-                        <span className="text-body font-medium tracking-tight">A: Relief</span>
-                        <span className="text-nano uppercase font-medium tracking-tight opacity-75">Architectural</span>
-                      </button>
-
-                      <button
-                        onClick={() => onSelectRenderStyle?.('hybrid')}
-                        title="Direction B: Hydrosphere Depth"
-                        className={`tactile-btn group cursor-pointer py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
-                          activeDirection === 'hybrid'
-                            ? 'bg-[var(--theme-direction-b-bg)] text-[var(--theme-direction-b-text)] border-[var(--theme-direction-b-border)] ring-1 ring-[var(--theme-direction-b-ring)] font-semibold shadow-md'
-                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-direction-b-border)]'
-                        }`}
-                      >
-                        <span className="text-body font-medium tracking-tight">B: Depth</span>
-                        <span className="text-nano uppercase font-medium tracking-tight opacity-75">Hydrosphere</span>
-                      </button>
-
-                      <button
-                        onClick={() => onSelectRenderStyle?.('photoreal')}
-                        title="Direction C: Orbital Photoreal"
-                        className={`tactile-btn group cursor-pointer py-2 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-1 border transition-all ${
-                          activeDirection === 'photoreal'
-                            ? 'bg-[var(--theme-direction-c-bg)] text-[var(--theme-direction-c-text)] border-[var(--theme-direction-c-border)] ring-1 ring-[var(--theme-direction-c-ring)] font-semibold shadow-md'
-                            : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-direction-c-border)]'
-                        }`}
-                      >
-                        <span className="text-body font-medium tracking-tight">C: Orbital</span>
-                        <span className="text-nano uppercase font-medium tracking-tight opacity-75">Photoreal</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Resolution Card */}
-                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
-                    <div className="flex items-center justify-between text-micro font-semibold uppercase tracking-wider">
-                      <span className="text-[var(--theme-text-primary)]">Resolution</span>
-                      <span className="text-nano font-mono font-medium px-1.5 py-0.5 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-accent)]">
-                        {resolutionVramLabel}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-6 gap-1">
-                      {(['100k', '1M', '3M', '4M', '8M', '16M'] as ResolutionTier[]).map((tier) => (
-                        <button
-                          key={tier}
-                          onClick={() => onResolutionChange(tier)}
-                          className={`py-1.5 px-0.5 rounded-[2px] text-center flex flex-col items-center justify-center border transition-all cursor-pointer ${
-                            resolution === tier
-                              ? tier === '16M'
-                                ? theme === 1
-                                  ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] font-semibold shadow-sm'
-                                  : 'bg-amber-500 text-black border-amber-400 font-semibold shadow-sm'
-                                : 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-semibold shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
-                              : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
-                          }`}
-                        >
-                          <span className="text-nano font-semibold">{tier.toUpperCase()}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-              {/* TAB 2: SCENE */}
-              <div className={activePlate === 'scene' ? 'space-y-2.5' : 'hidden'}>
+              {/* TAB 1: SCENE */}
+              <div
+                id="sidebar-panel-scene"
+                role="tabpanel"
+                aria-labelledby="sidebar-tab-scene"
+                className={activePlate === 'scene' ? 'space-y-2.5' : 'hidden'}
+              >
                 <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
-                    <PolarSunCompass
-                      theme={theme}
-                      azimuth={primaryLayer?.sunAzimuth ?? 315}
-                      altitude={primaryLayer?.sunAltitude ?? 45}
-                      onChange={(azimuth, altitude) =>
-                        onHillshadeChangeDataLayer?.(
-                          primaryLayerId,
-                          azimuth,
-                          primaryLayer?.hillshadeIntensity ?? 0.65,
-                          altitude
-                        )
-                      }
-                      isLight={isLight}
-                    />
+                  <PolarSunCompass
+                    theme={theme}
+                    azimuth={primaryLayer?.sunAzimuth ?? 315}
+                    altitude={primaryLayer?.sunAltitude ?? 45}
+                    onChange={(azimuth, altitude) =>
+                      onHillshadeChangeDataLayer?.(
+                        primaryLayerId,
+                        azimuth,
+                        primaryLayer?.hillshadeIntensity ?? 0.65,
+                        altitude
+                      )
+                    }
+                    isLight={isLight}
+                  />
 
-                    <HypsometricReliefCurve
-                      theme={theme}
-                      displacementScale={primaryLayer?.displacementScale ?? 0.08}
-                      peakExponent={primaryLayer?.peakExponent ?? 1.4}
-                      onDisplacementChange={(scale) => onDisplacementScaleChangeDataLayer?.(primaryLayerId, scale)}
-                      onPeakExponentChange={(exponent) => onPeakExponentChangeDataLayer?.(primaryLayerId, exponent)}
-                      isLight={isLight}
-                    />
+                  <HypsometricReliefCurve
+                    theme={theme}
+                    displacementScale={primaryLayer?.displacementScale ?? 0.08}
+                    peakExponent={primaryLayer?.peakExponent ?? 1.4}
+                    onDisplacementChange={(scale) => onDisplacementScaleChangeDataLayer?.(primaryLayerId, scale)}
+                    onPeakExponentChange={(exponent) => onPeakExponentChangeDataLayer?.(primaryLayerId, exponent)}
+                    isLight={isLight}
+                  />
 
-                    <BathymetricTideGauge
-                      theme={theme}
-                      seaLevelOffset={primaryLayer?.seaLevelOffset ?? 0}
-                      waterClarity={primaryLayer?.waterClarity ?? 0.75}
-                      onSeaLevelChange={(offset) => onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, offset)}
-                      onWaterClarityChange={(clarity) => onWaterClarityChangeDataLayer?.(primaryLayerId, clarity)}
-                      isLight={isLight}
-                    />
+                  <BathymetricTideGauge
+                    theme={theme}
+                    seaLevelOffset={primaryLayer?.seaLevelOffset ?? 0}
+                    waterClarity={primaryLayer?.waterClarity ?? 0.75}
+                    onSeaLevelChange={(offset) => onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, offset)}
+                    onWaterClarityChange={(clarity) => onWaterClarityChangeDataLayer?.(primaryLayerId, clarity)}
+                    isLight={isLight}
+                  />
+
+                  {/* Elevation Stratum Filter */}
+                  <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-1">
+                    <div className="flex items-center justify-between text-nano font-medium text-[var(--theme-text-secondary)]">
+                      <span className="uppercase tracking-wider">Hypsometric Strata</span>
+                      {isolatedStratum !== null && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsolatedStratum(null);
+                            onIsolatedStratumChange?.(null, null);
+                            ThemeManager.getInstance().setIsolatedStratum(null, null);
+                            if (primaryLayerId) {
+                              handleSelectMedium(theme);
+                            }
+                          }}
+                          className="cursor-pointer text-nano text-[var(--theme-text-accent)] hover:underline"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-5 gap-1" role="group" aria-label="Hypsometric stratum pigment pans">
+                      {PIGMENT_SWATCHES[theme].map((swatch, idx) => {
+                        const isIsolated = isolatedStratum === idx;
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              const nextStratum = isolatedStratum === idx ? null : idx;
+                              const nextSwatch = nextStratum !== null ? swatch : null;
+                              setIsolatedStratum(nextStratum);
+                              onIsolatedStratumChange?.(nextStratum, nextSwatch);
+                              ThemeManager.getInstance().setIsolatedStratum(nextStratum, nextSwatch);
+
+                              if (primaryLayerId) {
+                                if (nextStratum === null) {
+                                  handleSelectMedium(theme);
+                                } else if (idx === 0) {
+                                  onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, -25);
+                                  onWaterClarityChangeDataLayer?.(primaryLayerId, 0.92);
+                                } else if (idx === 1) {
+                                  onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, -8);
+                                  onWaterClarityChangeDataLayer?.(primaryLayerId, 0.82);
+                                  onAmbientOcclusionChangeDataLayer?.(primaryLayerId, 0.72);
+                                } else if (idx === 2) {
+                                  onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, 0);
+                                  onWaterClarityChangeDataLayer?.(primaryLayerId, 0.75);
+                                } else if (idx === 3) {
+                                  onPeakExponentChangeDataLayer?.(primaryLayerId, 1.3);
+                                  onDisplacementScaleChangeDataLayer?.(primaryLayerId, 0.12);
+                                } else if (idx === 4) {
+                                  onPeakExponentChangeDataLayer?.(primaryLayerId, 2.0);
+                                  onDisplacementScaleChangeDataLayer?.(primaryLayerId, 0.16);
+                                  onAmbientOcclusionChangeDataLayer?.(primaryLayerId, 0.75);
+                                }
+                              }
+                            }}
+                            className={`pigment-pan p-1 rounded-[2px] border text-center flex flex-col items-center gap-1 transition-all shadow-sm cursor-pointer select-none ${
+                              isIsolated
+                                ? 'ring-2 ring-[var(--theme-text-accent)] border-[var(--theme-control-active-border)] bg-[var(--theme-control-active-bg)]'
+                                : 'border-[var(--theme-card-border)] bg-[var(--theme-control-bg)] hover:border-[var(--theme-card-border-hover)]'
+                            }`}
+                            title={`${swatch.depth} (${swatch.hex})`}
+                            aria-label={`Isolate ${swatch.depth} stratum (${swatch.hex})`}
+                            aria-pressed={isIsolated}
+                          >
+                            <div
+                              className="w-full h-3.5 rounded-[1px] border border-black/20 shadow-inner shrink-0"
+                              style={{ backgroundColor: swatch.hex }}
+                            />
+                            <div className="text-nano font-mono opacity-80 uppercase tracking-tighter text-[var(--theme-text-secondary)] shrink-0 truncate w-full text-center">
+                              {swatch.depth}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
                     <div className="pt-1">
                       <VernierSlider
@@ -1052,8 +970,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   )}
                 </div>
 
-              {/* TAB 3: DATA */}
-              <div className={activePlate === 'data' ? 'space-y-2.5' : 'hidden'}>
+              {/* TAB 2: DATA */}
+              <div
+                id="sidebar-panel-data"
+                role="tabpanel"
+                aria-labelledby="sidebar-tab-data"
+                className={activePlate === 'data' ? 'space-y-2.5' : 'hidden'}
+              >
                 <TimelineScrubber
                   value={timelineMinutes}
                   onTimeChange={onTimelineChange}
@@ -1339,37 +1262,94 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               </div>
 
             {/* Telemetry Footer */}
-            <div className="pt-2 border-t border-[var(--theme-card-border)] text-nano grid grid-cols-2 gap-2 tabular-nums text-[var(--theme-text-secondary)] shrink-0">
-              <div>
-                <span className="block text-nano uppercase font-bold tracking-wider opacity-60">
-                  Center Coordinate
-                </span>
-                <span className="font-bold text-[var(--theme-text-primary)]">
-                  {latStr} {lonStr}
-                </span>
+            <div className="pt-2 border-t border-[var(--theme-card-border)] text-nano space-y-2 shrink-0">
+              {/* Compact Resolution Selector */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-nano font-mono">
+                  <span className="uppercase font-bold tracking-wider opacity-60">Resolution</span>
+                  <span className="text-[var(--theme-text-accent)] font-medium">{resolutionVramLabel}</span>
+                </div>
+                <div className="grid grid-cols-6 gap-1">
+                  {(['100k', '1M', '3M', '4M', '8M', '16M'] as ResolutionTier[]).map((tier) => (
+                    <button
+                      key={tier}
+                      onClick={() => onResolutionChange(tier)}
+                      aria-pressed={resolution === tier}
+                      aria-label={`Resolution tier ${tier.toUpperCase()}`}
+                      className={`py-1 px-0.5 rounded-[2px] text-center flex flex-col items-center justify-center border transition-all cursor-pointer font-mono ${
+                        resolution === tier
+                          ? tier === '16M'
+                            ? theme === 1
+                              ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] font-semibold shadow-sm'
+                              : 'bg-amber-500 text-black border-amber-400 font-semibold shadow-sm'
+                            : 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-semibold shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
+                          : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
+                      }`}
+                    >
+                      <span className="text-nano font-semibold">{tier.toUpperCase()}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="text-right">
-                <span className="block text-nano uppercase font-bold tracking-wider opacity-60">
-                  Nominal Scale
-                </span>
-                <span className="font-bold text-[var(--theme-text-primary)]">{mapScaleStr}</span>
+
+              {/* Coordinates & Scale */}
+              <div className="grid grid-cols-2 gap-2 tabular-nums text-[var(--theme-text-secondary)]">
+                <div>
+                  <span className="block text-nano uppercase font-bold tracking-wider opacity-60">
+                    Center Coordinate
+                  </span>
+                  <span className="font-bold text-[var(--theme-text-primary)]">
+                    {latStr} {lonStr}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="block text-nano uppercase font-bold tracking-wider opacity-60">
+                    Nominal Scale
+                  </span>
+                  <span className="font-bold text-[var(--theme-text-primary)]">{mapScaleStr}</span>
+                </div>
               </div>
-              {backend === 'webgpu' && gpuReport && (
-                <div className="col-span-2 pt-1.5 mt-0.5 border-t border-[var(--theme-card-border)] flex flex-col gap-1 text-nano text-[var(--theme-text-secondary)]">
-                  <div className="flex items-center justify-between font-bold">
+
+              {/* GPU Profiler with Embedded FPS Badge */}
+              <div className="pt-1.5 mt-0.5 border-t border-[var(--theme-card-border)] flex flex-col gap-1 text-nano text-[var(--theme-text-secondary)]">
+                <div className="flex items-center justify-between font-bold">
+                  <div className="flex items-center gap-1.5">
                     <span className="text-[var(--theme-status-slate)] flex items-center gap-1">
                       GPU Profiler
                     </span>
-                    <span className="text-[var(--theme-status-sage)] font-mono">Total: {(gpuReport.totalGpuMs ?? 0).toFixed(2)}ms</span>
+                    {/* FPS Badge (Moved from Header) */}
+                    <div
+                      title={`Rendering Frame Rate: ${fps} FPS`}
+                      aria-label={`Rendering Frame Rate: ${fps} FPS`}
+                      className="flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] font-bold text-nano tabular-nums transition-colors"
+                    >
+                      <span
+                        className={`w-5 text-right tabular-nums font-semibold ${
+                          fps >= 100
+                            ? 'text-[var(--theme-text-accent)]'
+                            : fps >= 55
+                            ? 'text-[var(--theme-status-sage)]'
+                            : 'text-[var(--theme-status-amber)]'
+                        }`}
+                      >
+                        {fps}
+                      </span>
+                      <span className="text-nano font-normal opacity-60">FPS</span>
+                    </div>
                   </div>
+                  {backend === 'webgpu' && gpuReport && (
+                    <span className="text-[var(--theme-status-sage)] font-mono">Total: {(gpuReport.totalGpuMs ?? 0).toFixed(2)}ms</span>
+                  )}
+                </div>
+                {backend === 'webgpu' && gpuReport && (
                   <div className="grid grid-cols-4 gap-1 font-mono opacity-80 text-nano">
                     <span>Sim: {(gpuReport.computeMs ?? 0).toFixed(2)}ms</span>
                     <span>Relief: {(gpuReport.reliefMs ?? 0).toFixed(2)}ms</span>
                     <span>Lines: {(gpuReport.linesMs ?? 0).toFixed(2)}ms</span>
                     <span>Contours: {(gpuReport.contoursMs ?? 0).toFixed(2)}ms</span>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>

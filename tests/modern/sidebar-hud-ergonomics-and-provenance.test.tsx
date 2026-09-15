@@ -176,8 +176,8 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
   // 3. UnifiedRightSidebar Navigation & Plates
   // --------------------------------------------------------------------------
   describe('3. UnifiedRightSidebar Ergonomics & Tabs', () => {
-    it('contains DATA in the 3-tab navigation strip and SidebarPlate type', () => {
-      expect(sidebarSource).toContain("type SidebarPlate = 'medium' | 'scene' | 'data'");
+    it('contains DATA in the 2-tab navigation strip and SidebarPlate type', () => {
+      expect(sidebarSource).toContain("type SidebarPlate = 'scene' | 'data'");
       expect(sidebarSource).toMatch(/\{\s*id:\s*'data',\s*label:\s*'DATA'\s*\}/);
     });
 
@@ -280,57 +280,40 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       });
 
       const tabs = Array.from(container.querySelectorAll('button'));
-      const mediumTab = tabs.find((b) => b.textContent?.trim() === 'MEDIUM');
       const sceneTab = tabs.find((b) => b.textContent?.trim() === 'SCENE');
       const dataTab = tabs.find((b) => b.textContent?.trim() === 'DATA');
 
-      expect(mediumTab).not.toBeUndefined();
       expect(sceneTab).not.toBeUndefined();
       expect(dataTab).not.toBeUndefined();
 
-      // Default MEDIUM tab: medium tab is active, medium panel is visible
-      expect(mediumTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
-      expect(sceneTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
+      // Default SCENE tab: scene tab is active, scene panel is visible
+      expect(sceneTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
       expect(dataTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
 
       const panels = container.querySelectorAll('.scroll-fade-mask > div');
-      expect(panels.length).toBe(3);
+      expect(panels.length).toBe(2);
       expect(panels[0].className).not.toContain('hidden');
       expect(panels[1].className).toContain('hidden');
-      expect(panels[2].className).toContain('hidden');
 
-      // Click DATA tab: displays Data plate and hides Medium and Scene plates
+      // Click DATA tab: displays Data plate and hides Scene plate
       await act(async () => {
         dataTab?.click();
       });
 
       expect(dataTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
-      expect(mediumTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
+      expect(sceneTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
       expect(panels[0].className).toContain('hidden');
-      expect(panels[1].className).toContain('hidden');
-      expect(panels[2].className).not.toContain('hidden');
+      expect(panels[1].className).not.toContain('hidden');
 
-      // Click SCENE tab: displays Scene plate and hides Medium and Data plates
+      // Click SCENE tab: displays Scene plate and hides Data plate
       await act(async () => {
         sceneTab?.click();
       });
 
       expect(sceneTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
       expect(dataTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
-      expect(panels[0].className).toContain('hidden');
-      expect(panels[1].className).not.toContain('hidden');
-      expect(panels[2].className).toContain('hidden');
-
-      // Click MEDIUM tab: displays Medium plate and hides Scene and Data plates
-      await act(async () => {
-        mediumTab?.click();
-      });
-
-      expect(mediumTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
-      expect(sceneTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
       expect(panels[0].className).not.toContain('hidden');
       expect(panels[1].className).toContain('hidden');
-      expect(panels[2].className).toContain('hidden');
     });
 
     it('Plate 5 renders Opacity label with correct typography and prunes redundant relief sliders', async () => {

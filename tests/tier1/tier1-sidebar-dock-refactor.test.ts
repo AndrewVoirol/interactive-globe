@@ -41,10 +41,11 @@ describe('Bite 4: Surface & Sidebar Refactoring Suite', () => {
   // 2. Semantic Theme Variable Adoption (Elimination of Hardcoded Bleed)
   // --------------------------------------------------------------------------
   describe('2. Semantic Theme Variable Adoption', () => {
-    it('B4-03: verifies Direction A, B, and C buttons adopt semantic direction variables', () => {
-      expect(sidebarCode).toContain('var(--theme-direction-a-bg)');
-      expect(sidebarCode).toContain('var(--theme-direction-b-bg)');
-      expect(sidebarCode).toContain('var(--theme-direction-c-bg)');
+    it('B4-03: verifies Direction A, B, and C tokens adopt semantic direction variables', () => {
+      const cssCode = fs.readFileSync(path.join(projectRoot, 'index.css'), 'utf-8');
+      expect(cssCode).toContain('--theme-direction-a-bg');
+      expect(cssCode).toContain('--theme-direction-b-bg');
+      expect(cssCode).toContain('--theme-direction-c-bg');
       // Confirm hardcoded cyan/sky button active classes were removed from Direction buttons
       expect(sidebarCode).not.toContain("activeDirection === 'hybrid'\n                            ? 'bg-cyan-500");
       expect(sidebarCode).not.toContain("activeDirection === 'photoreal'\n                            ? 'bg-sky-500");
