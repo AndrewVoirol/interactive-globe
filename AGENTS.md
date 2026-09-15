@@ -66,9 +66,10 @@ When the user reports a visual problem (e.g., "mountains are too spiky"), fix th
 
 When in doubt, present 2-3 parameter options rather than picking one extreme.
 
-## 13. Agent Directory & Server Hygiene
+## 13. Agent Directory, Server & Worktree Hygiene
 - **Clean up agent directories.** After each swarm, archive or delete agent working directories from `.agents/`. Only `skills/` persists.
-- **Kill dev servers.** Before ending any session, kill all spawned dev servers. Run `lsof -i :3000 -i :5173` to verify ports are released.
+- **Kill dev servers.** Before ending any session or removing a worktree, kill all spawned dev servers. Run `lsof -i :3000 -i :5173` to verify ports are released.
+- **Ephemeral Worktrees**: Treat worktrees as temporary execution environments. Always complete the full lifecycle: `Commit -> Merge -> Post-Merge Test Verification -> Kill Dev Server -> Remove Worktree -> Prune`. Never leave uncommitted files or unmerged branches in linked worktrees.
 - **Commit and push.** Before launching complex refactoring, commit and push verified working state.
 
 ## 14. DEM-Coupled Hydrology
