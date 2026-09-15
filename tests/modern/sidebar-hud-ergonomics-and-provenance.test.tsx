@@ -3,7 +3,7 @@
 // File: tests/modern/sidebar-hud-ergonomics-and-provenance.test.tsx
 // Verification suite for:
 // 1. TelemetryHUD forwarding onPaperToothChangeDataLayer
-// 2. CuratorsColophon in compact & full modes with verified data feeds
+// 2. CuratorsColophon provenance rendering
 // 3. UnifiedRightSidebar dedicated DATA tab, Plate 2/3/4/5 ergonomics, pinned footer
 // 4. Header theme toggle synchronization of calibrated relief parameters
 // 5. Excision of 2D canvas cartouche
@@ -133,66 +133,11 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
   // 2. CuratorsColophon Verified Data Feeds
   // --------------------------------------------------------------------------
   describe('2. CuratorsColophon', () => {
-    it('renders high-density verified feed badges in compact mode', async () => {
+    it('renders provenance feeds with data sources', async () => {
       await act(async () => {
         root.render(
           <CuratorsColophon
             theme={1}
-            compact={true}
-            isWeatherActive={true}
-            isRadarActive={true}
-          />
-        );
-      });
-
-      expect(container.textContent).toContain('Provenant Feeds');
-      expect(container.textContent).toContain('LIVE ATTRIBUTION');
-      expect(container.textContent).toContain('ETOPO 2022 (15")');
-      expect(container.textContent).toContain('WeatherNext 3 (0.1°)');
-      expect(container.textContent).toContain('RainViewer Radar');
-      expect(container.textContent).toContain('Natural Earth 10M');
-    });
-
-    it('reactively updates status dot styling based on isWeatherActive and isRadarActive', async () => {
-      await act(async () => {
-        root.render(
-          <CuratorsColophon
-            theme={1}
-            compact={true}
-            isWeatherActive={false}
-            isRadarActive={false}
-          />
-        );
-      });
-
-      const weatherDot = container.querySelector('div[title*="WeatherNext"] span');
-      const radarDot = container.querySelector('div[title*="RainViewer"] span');
-      expect(weatherDot?.className).toContain('opacity-40');
-      expect(radarDot?.className).toContain('opacity-40');
-
-      await act(async () => {
-        root.render(
-          <CuratorsColophon
-            theme={1}
-            compact={true}
-            isWeatherActive={true}
-            isRadarActive={true}
-          />
-        );
-      });
-
-      const activeWeatherDot = container.querySelector('div[title*="WeatherNext"] span');
-      const activeRadarDot = container.querySelector('div[title*="RainViewer"] span');
-      expect(activeWeatherDot?.className).toContain('bg-[var(--theme-status-sage)]');
-      expect(activeRadarDot?.className).toContain('bg-[var(--theme-status-sage)]');
-    });
-
-    it('renders complete archival cartouche ledger in full mode', async () => {
-      await act(async () => {
-        root.render(
-          <CuratorsColophon
-            theme={1}
-            compact={false}
             isWeatherActive={true}
             isRadarActive={true}
           />
@@ -200,12 +145,30 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       });
 
       expect(container.textContent).toContain("Curator's Colophon");
-      expect(container.textContent).toContain('310 GSM Cotton Rag');
-      expect(container.textContent).toContain('Cartographic & Geophysical Provenance:');
-      expect(container.textContent).toContain('NOAA NCEI ETOPO 2022');
-      expect(container.textContent).toContain('Google DeepMind WeatherNext 3');
-      expect(container.textContent).toContain('RainViewer Global Doppler Radar Mosaic');
-      expect(container.textContent).toContain('Natural Earth 1:10M High-Resolution Vectors');
+      expect(container.textContent).toContain('Provenance');
+      expect(container.textContent).toContain('NOAA ETOPO 2022');
+      expect(container.textContent).toContain('WeatherNext 3');
+      expect(container.textContent).toContain('RainViewer Radar');
+      expect(container.textContent).toContain('Natural Earth');
+    });
+
+    it('renders medium and projection state', async () => {
+      await act(async () => {
+        root.render(
+          <CuratorsColophon
+            theme={1}
+            mode={0}
+            alpha={0.5}
+            isWeatherActive={true}
+            isRadarActive={true}
+          />
+        );
+      });
+
+      expect(container.textContent).toContain("Curator's Colophon");
+      expect(container.textContent).toContain('Cotton Rag');
+      expect(container.textContent).toContain('Linear');
+      expect(container.textContent).toContain('Morph');
     });
   });
 
@@ -213,35 +176,28 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
   // 3. UnifiedRightSidebar Navigation & Plates
   // --------------------------------------------------------------------------
   describe('3. UnifiedRightSidebar Ergonomics & Tabs', () => {
-    it('contains DATA in the drafting plate navigation strip and SidebarPlate type', () => {
-      expect(sidebarSource).toContain("type SidebarPlate = 'all' | 'medium' | 'terrain' | 'weather' | 'projection' | 'data'");
+    it('contains DATA in the 3-tab navigation strip and SidebarPlate type', () => {
+      expect(sidebarSource).toContain("type SidebarPlate = 'medium' | 'scene' | 'data'");
       expect(sidebarSource).toMatch(/\{\s*id:\s*'data',\s*label:\s*'DATA'\s*\}/);
     });
 
-    it('anchors Crevice AO: with colon on Plate 2', () => {
-      expect(sidebarSource).toContain('label="Crevice AO:"');
+    it('uses plain "AO" label instead of verbose "Crevice AO:"', () => {
+      expect(sidebarSource).toContain('label="AO"');
+      expect(sidebarSource).not.toContain('label="Crevice AO:"');
     });
 
-    it('does not render duplicate chevron steppers in Plate 3, keeping title banner', () => {
-      expect(sidebarSource).not.toMatch(/<button[^>]*>\s*◀\s*<\/button>/);
-      expect(sidebarSource).not.toMatch(/<button[^>]*>\s*▶\s*<\/button>/);
-      expect(sidebarSource).toContain('Active Paradigm Title Banner & Quick-Index Strip');
+    it('renders projection modes with short labels', () => {
+      expect(sidebarSource).toContain("'Linear'");
+      expect(sidebarSource).toContain("'Scroll'");
+      expect(sidebarSource).toContain("'Fracture'");
+      expect(sidebarSource).toContain("'Fluid'");
+      expect(sidebarSource).toContain("'Dymaxion'");
     });
 
-    it('preserves Base Lattice pill on Plate 4', () => {
-      expect(sidebarSource).toContain('Base Lattice:');
-      expect(sidebarSource).toContain('Clean Terrain');
-      expect(sidebarSource).toContain('+ Node Cloud');
-    });
-
-    it('mounts full CuratorsColophon in Plate 5 and compact CuratorsColophon in pinned footer', () => {
-      // Plate 5 condition decouples from medium
-      expect(sidebarSource).toContain("activePlate === 'data'");
-      expect(sidebarSource).not.toContain("activePlate === 'all' || activePlate === 'medium' || activePlate === 'layers'");
-
-      // Compact pinned footer
-      expect(sidebarSource).toContain('Pinned Footer across all plates');
-      expect(sidebarSource).toContain('compact={true}');
+    it('does not contain removed features (Base Lattice, pinned footer, compact colophon)', () => {
+      expect(sidebarSource).not.toContain('Base Lattice:');
+      expect(sidebarSource).not.toContain('Pinned Footer');
+      expect(sidebarSource).not.toContain('compact={true}');
     });
 
     it('header theme toggle synchronizes calibrated relief parameters', () => {
