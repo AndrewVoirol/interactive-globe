@@ -53,7 +53,7 @@ Dynamic exponent and attenuation curves must match across all shaders.
 ## 10. Swarm Agent Efficiency
 - **No roleplay artifacts.** Subagents must NOT generate `BRIEFING.md`, `DISPATCH.md`, `progress.md`, or similar bureaucratic files. Report results via `send_message`.
 - **Code first, rules second.** Read the actual source code and look at actual screenshots before citing rule numbers.
-- **Trust subagent reports.** Don't re-read every file a subagent already read. Only re-verify if their report contains contradictions.
+- **Trust subagent build verification; independently verify design intent.** Accept build/type-check results from subagents without re-running. But for design-driven refactors (UI audits, language surgery, layout changes), do a full read of modified files after the swarm completes. Grep-based acceptance criteria miss the long tail.
 - **No self-certification.** Implementing agents cannot certify their own completion. An independent auditor must verify with live browser testing.
 
 ## 11. Staged Gating for Multi-Agent Swarms
