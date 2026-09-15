@@ -412,8 +412,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
           {/* Row 1: Status & Theme */}
           <div className="flex items-center justify-between pb-2 border-b border-[var(--theme-panel-header-border)] gap-1.5">
             <div className="flex items-center gap-1.5 min-w-0">
-              {/* Archival Drafting Hairline Divider */}
-              <div className="hidden h-3 w-px bg-[var(--theme-neatline-border)]/40 shrink-0" />
               {/* FPS Badge (Colored number only, no dot) */}
               <div className="flex items-center justify-center gap-1 w-16 shrink-0 px-1.5 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] font-bold text-nano tabular-nums transition-colors">
                 <span
@@ -430,36 +428,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 <span className="text-nano font-normal opacity-60">FPS</span>
               </div>
 
-              {/* Grid Resolution Switch */}
-              <div className="flex items-center rounded-[2px] p-0.5 border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] shrink-0 gap-0.5">
-                {(['100k', '1M'] as ResolutionTier[]).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => onResolutionChange(r)}
-                    className={`cursor-pointer px-1.5 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
-                      resolution === r
-                        ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm'
-                        : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)] hover:bg-[var(--theme-control-hover-bg)]'
-                    }`}
-                  >
-                    {r.toUpperCase()}
-                  </button>
-                ))}
-                {resolution !== '100k' && resolution !== '1M' && (
-                  <button
-                    onClick={() => onResolutionChange(resolution)}
-                    className={`cursor-pointer px-1.5 py-0.5 rounded-[2px] text-nano font-bold transition-all ${
-                      resolution === '16M'
-                        ? theme === 2
-                          ? 'bg-[#7BA8C4] text-[#0C1520] font-semibold shadow-sm'
-                          : 'bg-[var(--theme-status-amber)] text-black font-semibold shadow-sm'
-                        : 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm'
-                    }`}
-                  >
-                    {resolution.toUpperCase()}
-                  </button>
-                )}
-              </div>
             </div>
 
             {/* Theme Toggle */}
@@ -476,7 +444,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 }
                 className="cursor-pointer px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-control-hover-border)] text-nano font-mono tracking-tight transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
               >
-                <span className="w-2 h-2 rounded-full shrink-0 bg-[var(--theme-pulse-indicator)] shadow-[0_0_6px_var(--theme-pulse-indicator)]" />
                 <span className="font-bold text-nano uppercase tracking-wider text-[var(--theme-text-primary)]">
                   {theme === 0 ? 'Tharp' : theme === 1 ? 'Cream' : 'Cyanotype'}
                 </span>
@@ -848,7 +815,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <div className="pt-1">
                         <VernierSlider
                           id="sidebar-fracture-intensity"
-                          label="Fracture Intensity"
+                          label="Fracture"
                           value={fractureIntensity ?? 1.0}
                           min={0.5}
                           max={2.5}
@@ -863,7 +830,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <div className="pt-1">
                         <VernierSlider
                           id="sidebar-vortex-strength"
-                          label="Vortex Swirl Strength"
+                          label="Vortex"
                           value={fluidVortexStrength ?? 1.0}
                           min={0.2}
                           max={3.0}
@@ -1062,7 +1029,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   {showTissot && (
                     <div className="p-2.5 rounded-[2px] border text-micro space-y-1.5 tabular-nums bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
                       <div className="flex justify-between items-center text-nano uppercase tracking-wider font-semibold">
-                        <span>Distortion Tensor</span>
+                        <span>Distortion</span>
                         <span className="text-[var(--theme-status-sage)] font-bold">
                           {mode === 4 ? 'Isomeric (s ≈ 1.04x)' : 'Morphing'}
                         </span>
@@ -1093,7 +1060,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] !p-2.5 rounded-[3px]"
                 />
 
-                {/* Atmospheric Cloud Strata Instrumentation Card */}
+                {/* Atmosphere */}
                 <AtmosphereDrawer
                   className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]"
                   theme={theme}
@@ -1128,10 +1095,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     isRadarActive={isRadarActive}
                   />
 
-                  {/* Active Datasets Header Action */}
+                  {/* Layers */}
                   <div className="flex items-center justify-between">
                     <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
-                      Active Datasets ({dataLayers.length})
+                      Layers ({dataLayers.length})
                     </span>
 
                     <button
@@ -1364,7 +1331,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       })
                     ) : (
                       <div className="p-4 rounded-[2px] border text-micro text-center italic border-[var(--theme-card-border)] text-[var(--theme-text-muted)] bg-[var(--theme-card-bg)]/40">
-                        No active cartographic data layers. Click [+ Catalog] to browse and add datasets.
+                        No active layers. Use + Catalog to add datasets.
                       </div>
                     )}
                   </div>
@@ -1416,9 +1383,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
         >
           <div className="flex items-center justify-between pb-3 border-b border-[var(--theme-panel-border)]">
             <div>
-              <h3 className="text-micro font-semibold uppercase tracking-wider text-[var(--theme-text-primary)]">Cartographic Data Catalog</h3>
+              <h3 className="text-micro font-semibold uppercase tracking-wider text-[var(--theme-text-primary)]">Catalog</h3>
               <span className="text-nano opacity-60 text-[var(--theme-text-muted)]">
-                {DATA_LAYER_CATALOG.length} verified global datasets
+                {DATA_LAYER_CATALOG.length} datasets
               </span>
             </div>
 

@@ -14,7 +14,6 @@ export interface CuratorsColophonProps {
   isWeatherActive?: boolean;
   isRadarActive?: boolean;
   className?: string;
-  compact?: boolean;
 }
 
 export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
