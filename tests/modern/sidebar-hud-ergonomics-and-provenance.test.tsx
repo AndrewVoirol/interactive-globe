@@ -272,42 +272,65 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       ...overrides,
     });
 
-    it('switches between plates in DOM and keeps pinned provenance footer across all tabs', async () => {
+    it('switches between plates in DOM across tabs', async () => {
       const props = createSidebarProps({ theme: 1 });
 
       await act(async () => {
         root.render(<UnifiedRightSidebar {...props} />);
       });
 
-      // Default ALL tab: displays all plates
-      expect(container.textContent).toContain('Hypsometric Pigment Pans');
-      expect(container.textContent).toContain('PLATE V • CARTOGRAPHIC DATASETS & PROVENANCE');
-      expect(container.textContent).toContain('Provenant Feeds');
-
-      // Click DATA tab: displays Plate 5 and hides Plate 1
       const tabs = Array.from(container.querySelectorAll('button'));
+      const mediumTab = tabs.find((b) => b.textContent?.trim() === 'MEDIUM');
+      const sceneTab = tabs.find((b) => b.textContent?.trim() === 'SCENE');
       const dataTab = tabs.find((b) => b.textContent?.trim() === 'DATA');
+
+      expect(mediumTab).not.toBeUndefined();
+      expect(sceneTab).not.toBeUndefined();
       expect(dataTab).not.toBeUndefined();
 
+      // Default MEDIUM tab: medium tab is active, medium panel is visible
+      expect(mediumTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
+      expect(sceneTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
+      expect(dataTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
+
+      const panels = container.querySelectorAll('.scroll-fade-mask > div');
+      expect(panels.length).toBe(3);
+      expect(panels[0].className).not.toContain('hidden');
+      expect(panels[1].className).toContain('hidden');
+      expect(panels[2].className).toContain('hidden');
+
+      // Click DATA tab: displays Data plate and hides Medium and Scene plates
       await act(async () => {
         dataTab?.click();
       });
 
-      expect(container.textContent).toContain('PLATE V • CARTOGRAPHIC DATASETS & PROVENANCE');
-      expect(container.textContent).not.toContain('Hypsometric Pigment Pans');
-      expect(container.textContent).toContain('Provenant Feeds');
+      expect(dataTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
+      expect(mediumTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
+      expect(panels[0].className).toContain('hidden');
+      expect(panels[1].className).toContain('hidden');
+      expect(panels[2].className).not.toContain('hidden');
 
-      // Click MEDIUM tab: displays Plate 1 and hides Plate 5
-      const mediumTab = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'MEDIUM');
-      expect(mediumTab).not.toBeUndefined();
+      // Click SCENE tab: displays Scene plate and hides Medium and Data plates
+      await act(async () => {
+        sceneTab?.click();
+      });
 
+      expect(sceneTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
+      expect(dataTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
+      expect(panels[0].className).toContain('hidden');
+      expect(panels[1].className).not.toContain('hidden');
+      expect(panels[2].className).toContain('hidden');
+
+      // Click MEDIUM tab: displays Medium plate and hides Scene and Data plates
       await act(async () => {
         mediumTab?.click();
       });
 
-      expect(container.textContent).toContain('Hypsometric Pigment Pans');
-      expect(container.textContent).not.toContain('PLATE V • CARTOGRAPHIC DATASETS & PROVENANCE');
-      expect(container.textContent).toContain('Provenant Feeds');
+      expect(mediumTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
+      expect(sceneTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
+      expect(panels[0].className).not.toContain('hidden');
+      expect(panels[1].className).toContain('hidden');
+      expect(panels[2].className).toContain('hidden');
     });
 
     it('Plate 5 renders Opacity label with correct typography and prunes redundant relief sliders', async () => {
@@ -334,11 +357,7 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       // Check Opacity typography
       const opacitySpan = Array.from(container.querySelectorAll('span')).find((s) => s.textContent?.trim() === 'Opacity:');
       expect(opacitySpan).not.toBeUndefined();
-      expect(opacitySpan?.className).toContain('text-[var(--theme-text-primary)]');
-      expect(opacitySpan?.className).toContain('font-bold');
-      expect(opacitySpan?.className).toContain('text-nano');
-      expect(opacitySpan?.className).toContain('uppercase');
-      expect(opacitySpan?.className).toContain('tracking-wider');
+      expect(opacitySpan?.className).toContain('text-[var(--theme-text-secondary)]');
 
       // Check Blend Mode control
       expect(container.textContent).toContain('Norm');

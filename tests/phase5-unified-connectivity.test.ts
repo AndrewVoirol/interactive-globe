@@ -83,14 +83,16 @@ describe('Phase 5: Unified Architectural Connectivity & Hardware Parity', () => 
       expect(geometryLayerCode).toContain('float vortexMult = max(0.01, u_vortexStrength);');
     });
 
-    it('CON-07: UnifiedRightSidebar renders Fracture Intensity slider when mode === 2', () => {
-      expect(sidebarCode).toContain('Fracture Intensity');
+    it('CON-07: UnifiedRightSidebar renders Fracture slider when mode === 2', () => {
+      // After refactor, 'Fracture Intensity' was shortened to VernierSlider label="Fracture"
+      expect(sidebarCode).toContain('label="Fracture"');
       expect(sidebarCode).toContain('mode === 2');
       expect(sidebarCode).toContain('onFractureIntensityChange');
     });
 
-    it('CON-08: UnifiedRightSidebar renders Vortex Swirl Strength slider when mode === 3', () => {
-      expect(sidebarCode).toContain('Vortex Swirl Strength');
+    it('CON-08: UnifiedRightSidebar renders Vortex slider when mode === 3', () => {
+      // After refactor, 'Vortex Swirl Strength' was shortened to VernierSlider label="Vortex"
+      expect(sidebarCode).toContain('label="Vortex"');
       expect(sidebarCode).toContain('mode === 3');
       expect(sidebarCode).toContain('onFluidVortexStrengthChange');
     });

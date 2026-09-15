@@ -5,6 +5,7 @@
 // ============================================================================
 
 import React, { useRef, useCallback } from 'react';
+import { VernierSlider } from '../../ui/VernierSlider';
 
 export interface BathymetricTideGaugeProps {
   seaLevelOffset?: number; // -150m (LGM Ice Age) to +100m (Marine Transgression)
@@ -205,27 +206,19 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         </div>
       </div>
 
-      {/* Optical Water Clarity Absorption Slider with .slider-archival */}
-      <div className="flex items-center justify-between text-nano font-mono mt-1.5 px-0.5">
-        <span className="font-bold flex items-center gap-1 text-[var(--theme-text-accent)]">
-          Beer-Lambert Clarity:
-        </span>
-        <div className="flex items-center gap-2">
-          <input
-            id="tide-gauge-water-clarity"
-            name="waterClarity"
-            type="range"
-            min="0.10"
-            max="1.00"
-            step="0.05"
-            value={waterClarity}
-            onChange={(e) => onWaterClarityChange(parseFloat(e.target.value))}
-            className="w-24 slider-archival cursor-pointer"
-          />
-          <span className="w-8 text-right font-mono font-bold text-nano tabular-nums text-[var(--theme-text-primary)]">
-            {Math.round(waterClarity * 100)}%
-          </span>
-        </div>
+      {/* Optical Water Clarity Absorption Slider upgraded to VernierSlider */}
+      <div className="mt-1.5 pt-1 border-t border-[var(--theme-card-border)]/50">
+        <VernierSlider
+          id="tide-gauge-water-clarity"
+          label="Beer-Lambert Clarity:"
+          value={waterClarity}
+          min={0.10}
+          max={1.00}
+          step={0.05}
+          readout={`${Math.round(waterClarity * 100)}%`}
+          onChange={onWaterClarityChange}
+          showSteppers={true}
+        />
       </div>
     </div>
   );

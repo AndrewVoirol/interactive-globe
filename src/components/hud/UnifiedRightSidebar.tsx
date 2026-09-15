@@ -1060,7 +1060,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] !p-2.5 rounded-[3px]"
                 />
 
-                {/* Atmosphere */}
+                {/* Atmospheric Cloud Strata Instrumentation Card */}
                 <AtmosphereDrawer
                   className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]"
                   theme={theme}

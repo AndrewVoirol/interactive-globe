@@ -14,6 +14,7 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
   const topologyDockPath = path.resolve(__dirname, '../../src/components/hud/TopologyControlDock.tsx');
   const segmentedControlPath = path.resolve(__dirname, '../../src/components/ui/SegmentedControl.tsx');
   const indexCssPath = path.resolve(__dirname, '../../index.css');
+  const atmosphereDrawerPath = path.resolve(__dirname, '../../src/components/AtmosphereDrawer.tsx');
 
   const appContent = fs.readFileSync(appTsxPath, 'utf-8');
   const sidebarContent = fs.readFileSync(sidebarPath, 'utf-8');
@@ -21,6 +22,7 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
   const topologyContent = fs.readFileSync(topologyDockPath, 'utf-8');
   const segmentedContent = fs.readFileSync(segmentedControlPath, 'utf-8');
   const cssContent = fs.readFileSync(indexCssPath, 'utf-8');
+  const atmosphereDrawerContent = fs.readFileSync(atmosphereDrawerPath, 'utf-8');
 
   // --------------------------------------------------------------------------
   // Issue 1: Neatline Coordinate Collisions
@@ -79,13 +81,12 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
       expect(sidebarContent).not.toMatch(/Scroll Tensioned[^\n]*\n[^\n]*\{mapScaleStr\}/);
     });
 
-    it('verifies tension bar supports authentic calibration labels across all three themes', () => {
-      expect(sidebarContent).toContain('Scroll Tensioned • 100% Rag');
-      expect(sidebarContent).toContain('Diazo Plate • Ferroprussiate');
-      expect(sidebarContent).toContain('Sounding Mylar • Marie Tharp');
-      expect(sidebarContent).toContain('310 GSM // CALIBRATED');
-      expect(sidebarContent).toContain('80 GSM // CALIBRATED');
-      expect(sidebarContent).toContain('75 µm // CALIBRATED');
+    it('verifies medium theme selector and scale calibration readouts are present in sidebar', () => {
+      // After refactor, tension bar calibration labels were replaced by medium theme selector
+      // Verify the sidebar contains medium-adaptive elements instead
+      expect(sidebarContent).toContain('Nominal Scale');
+      expect(sidebarContent).toContain('mapScaleStr');
+      expect(sidebarContent).toContain('applyMediumCalibration');
     });
   });
 

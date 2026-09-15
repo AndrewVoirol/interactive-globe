@@ -151,18 +151,19 @@ describe('Tier-1 Bite 5: Theme Harmony, Contrast & Design System Integrity', () 
 
     it('preserves all static contract tokens required by precision instrument and sidebar test suites', () => {
       const contractTokens = [
-        'Crevice AO:',
+        'label="AO"',
         'onAmbientOcclusionChangeDataLayer',
-        'Sea Level:',
-        'Peak Sharp:',
-        'Base Lattice:',
-        'Clean Terrain',
-        '+ Node Cloud',
-        'Fracture Intensity',
-        'Vortex Swirl Strength',
+        'onSeaLevelOffsetChangeDataLayer',
+        'onWaterClarityChangeDataLayer',
+        'onPeakExponentChangeDataLayer',
+        "label: 'Both'",
+        "label: 'Points'",
+        "label: 'Wireframe'",
+        'label="Fracture"',
+        'label="Vortex"',
         'GPU Profiler',
-        'Cartographic Data Catalog',
-        'No active cartographic data layers. Click [+ Catalog] to browse and add datasets.',
+        'Catalog',
+        'No active layers. Use + Catalog to add datasets.',
       ];
 
       for (const token of contractTokens) {

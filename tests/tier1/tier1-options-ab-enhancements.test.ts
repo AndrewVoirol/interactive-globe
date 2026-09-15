@@ -95,21 +95,24 @@ describe('Option A & Option B Cartographic Pipeline Upgrades', () => {
   // 3. HUD Controls & User Interface Verification
   // ==========================================================================
   describe('3. HUD & Sidebar Controls', () => {
-    it('AB-09: verifies UnifiedRightSidebar and DataLayersDrawer render Crevice AO slider for Option A', () => {
-      expect(sidebarCode).toContain('Crevice AO:');
+    it('AB-09: verifies UnifiedRightSidebar and DataLayersDrawer render AO slider for Option A', () => {
+      // After refactor, sidebar uses VernierSlider with label="AO" instead of 'Crevice AO:'
+      expect(sidebarCode).toContain('label="AO"');
       expect(sidebarCode).toContain('onAmbientOcclusionChangeDataLayer');
       expect(drawerCode).toContain('Crevice AO:');
       expect(drawerCode).toContain('onAmbientOcclusionChangeDataLayer');
     });
 
-    it('AB-10: verifies UnifiedRightSidebar and DataLayersDrawer render Sea Level, Clarity, and Peak Sharpness sliders for Option B', () => {
-      expect(sidebarCode).toContain('Sea Level:');
+    it('AB-10: verifies UnifiedRightSidebar delegates Sea Level, Clarity, and Peak Sharpness to instrument components', () => {
+      // After refactor, these controls moved to BathymetricTideGauge and HypsometricReliefCurve
+      // Sidebar delegates via callback props
       expect(sidebarCode).toContain('onSeaLevelOffsetChangeDataLayer');
-      expect(sidebarCode).toContain('Clarity:');
       expect(sidebarCode).toContain('onWaterClarityChangeDataLayer');
-      expect(sidebarCode).toContain('Peak Sharp:');
       expect(sidebarCode).toContain('onPeakExponentChangeDataLayer');
+      expect(sidebarCode).toContain('BathymetricTideGauge');
+      expect(sidebarCode).toContain('HypsometricReliefCurve');
 
+      // DataLayersDrawer still has the inline labels
       expect(drawerCode).toContain('Sea Level:');
       expect(drawerCode).toContain('onSeaLevelOffsetChangeDataLayer');
       expect(drawerCode).toContain('Clarity:');

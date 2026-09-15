@@ -290,7 +290,10 @@ describe('Milestone 3 (R3) - Timeline Scrubber setTime Dispatch & Ring Buffer', 
         );
       });
 
-      const slider = container.querySelector('[role="slider"]');
+      const slider =
+        container.querySelector('[aria-label="Atmospheric Timeline Scrubber"]') ||
+        container.querySelector('[data-testid="timeline-scrubber-track"]') ||
+        container.querySelector('[role="slider"]');
       expect(slider).not.toBeNull();
       if (slider) {
         await act(async () => {

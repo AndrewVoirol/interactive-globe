@@ -643,43 +643,31 @@ describe('Adversarial Challenger M5: HUD State, Telemetry, and Resolution Switch
   // 6. UnifiedRightSidebar: Planetary Layer Rapid Toggle & 'Live Synced' Badges
   // ==========================================================================
   describe('6. UnifiedRightSidebar: Planetary Layer Rapid Toggle & Badge Integrity', () => {
-    it('CHALLENGE-S-01: dispatches onAddDataLayer and onToggleDataLayer for planetary layers in UnifiedRightSidebar', async () => {
+    it('CHALLENGE-S-01: dispatches onAddDataLayer via catalog sheet in UnifiedRightSidebar', async () => {
       const onAddDataLayer = vi.fn();
-      const onToggleDataLayer = vi.fn();
 
       await act(async () => {
         root.render(React.createElement(UnifiedRightSidebar, createSidebarProps({
           dataLayers: [],
           onAddDataLayer,
-          onToggleDataLayer,
+          isCatalogOpen: true,
         })));
       });
 
+      // After refactor, planetary layer buttons moved to DataLayersDrawer
+      // Sidebar now uses Catalog sheet for adding layers
       const buttons = Array.from(container.querySelectorAll('button'));
-      const noaaBtn = buttons.find(b => b.textContent?.includes('NOAA Wind'));
-      const starlinkBtn = buttons.find(b => b.textContent?.includes('Starlink Orbits'));
+      const addBtn = buttons.find(b => b.textContent?.includes('Add Layer'));
+      expect(addBtn).toBeDefined();
 
-      expect(noaaBtn).toBeDefined();
-      expect(starlinkBtn).toBeDefined();
-
-      // Click NOAA Wind -> onAddDataLayer
       await act(async () => {
-        noaaBtn?.click();
+        addBtn?.click();
       });
 
       expect(onAddDataLayer).toHaveBeenCalledTimes(1);
-      expect(onAddDataLayer.mock.calls[0][0].id).toBe('noaa-gfs-wind');
-
-      // Click Starlink -> onAddDataLayer
-      await act(async () => {
-        starlinkBtn?.click();
-      });
-
-      expect(onAddDataLayer).toHaveBeenCalledTimes(2);
-      expect(onAddDataLayer.mock.calls[1][0].id).toBe('starlink-iss-orbits');
     });
 
-    it('CHALLENGE-S-02: stress-tests 100 rapid toggles in UnifiedRightSidebar without desync', async () => {
+    it('CHALLENGE-S-02: stress-tests 100 rapid catalog adds in UnifiedRightSidebar without desync', async () => {
       const StatefulSidebar = () => {
         const [layers, setLayers] = useState<DataLayerItem[]>([]);
 
@@ -695,6 +683,7 @@ describe('Adversarial Challenger M5: HUD State, Telemetry, and Resolution Switch
           dataLayers: layers,
           onAddDataLayer: handleAdd,
           onToggleDataLayer: handleToggle,
+          isCatalogOpen: true,
         }));
       };
 
@@ -702,68 +691,59 @@ describe('Adversarial Challenger M5: HUD State, Telemetry, and Resolution Switch
         root.render(React.createElement(StatefulSidebar));
       });
 
+      // Rapid-click add buttons to stress test
       for (let i = 0; i < 50; i++) {
         const buttons = Array.from(container.querySelectorAll('button'));
-        const noaaBtn = buttons.find(b => b.textContent?.includes('NOAA Wind'));
-        const starlinkBtn = buttons.find(b => b.textContent?.includes('Starlink Orbits'));
+        const addBtn = buttons.find(b => b.textContent?.includes('Add Layer'));
 
-        await act(async () => {
-          noaaBtn?.click();
-        });
-
-        await act(async () => {
-          starlinkBtn?.click();
-        });
+        if (addBtn) {
+          await act(async () => {
+            addBtn.click();
+          });
+        }
       }
 
-      // Verify DOM remains intact with both quick buttons visible
+      // Verify DOM remains intact with catalog visible
       const finalButtons = Array.from(container.querySelectorAll('button'));
-      const finalNoaa = finalButtons.find(b => b.textContent?.includes('NOAA Wind'));
-      const finalStarlink = finalButtons.find(b => b.textContent?.includes('Starlink Orbits'));
-
-      expect(finalNoaa).toBeDefined();
-      expect(finalStarlink).toBeDefined();
-      expect(container.textContent).toContain('Planetary Instrumentation');
+      const catalogClose = finalButtons.find(b => b.title?.includes('Close Catalog'));
+      expect(catalogClose).toBeDefined();
+      expect(container.textContent).toContain('Catalog');
     });
 
-    it('CHALLENGE-S-03: verifies "Live Synced" and "Live" badges across dark and light themes in UnifiedRightSidebar', async () => {
-      const activeStarlink: DataLayerItem = {
-        id: 'starlink-iss-orbits',
-        name: 'CelesTrak Active Starlink & ISS Orbits',
-        category: 'vectors',
-        type: 'vectors',
-        details: 'SGP4 propagated orbital ribbons',
+    it('CHALLENGE-S-03: verifies layer folio strips render across dark and light themes in UnifiedRightSidebar', async () => {
+      const activeLayer: DataLayerItem = {
+        id: 'architectural-topo-relief',
+        name: 'Architectural Topographic Relief',
+        category: 'topo',
+        type: 'topo',
+        details: 'Analytical relief shading',
         visible: true,
-        opacity: 1.0,
+        opacity: 0.95,
+        blendMode: 0,
+        renderStyle: 'architectural',
       };
 
       // Test Dark Theme (theme = 0)
       await act(async () => {
         root.render(React.createElement(UnifiedRightSidebar, createSidebarProps({
           theme: 0,
-          dataLayers: [activeStarlink],
+          dataLayers: [activeLayer],
         })));
       });
 
-      expect(container.textContent).toContain('Planetary Instrumentation');
-      expect(container.textContent).toContain('Live Synced');
-
-      const buttonsDark = Array.from(container.querySelectorAll('button'));
-      const activeStarlinkBtnDark = buttonsDark.find(b => b.textContent?.includes('Starlink Orbits'));
-      expect(activeStarlinkBtnDark?.className).toContain('border-purple-500/60');
-      expect(activeStarlinkBtnDark?.className).toContain('bg-purple-500/20');
-      expect(activeStarlinkBtnDark?.className).toContain('ring-purple-400/40');
+      expect(container.textContent).toContain('Layers');
+      expect(container.textContent).toContain('Architectural Topographic Relief');
 
       // Test Light Theme (theme = 1)
       await act(async () => {
         root.render(React.createElement(UnifiedRightSidebar, createSidebarProps({
           theme: 1,
-          dataLayers: [activeStarlink],
+          dataLayers: [activeLayer],
         })));
       });
 
-      expect(container.textContent).toContain('Planetary Instrumentation');
-      expect(container.textContent).toContain('Live Synced');
+      expect(container.textContent).toContain('Layers');
+      expect(container.textContent).toContain('Architectural Topographic Relief');
     });
   });
 

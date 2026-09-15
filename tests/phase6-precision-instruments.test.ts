@@ -176,19 +176,24 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
   // --------------------------------------------------------------------------
   describe('5. Contract Invariants in UnifiedRightSidebar & NavigationDock', () => {
     it('INST-12: UnifiedRightSidebar preserves all required contract tokens', () => {
-      expect(sidebarCode).toContain('Crevice AO:');
-      expect(sidebarCode).toContain('onAmbientOcclusionChangeDataLayer');
-      expect(sidebarCode).toContain('Sea Level:');
-      expect(sidebarCode).toContain('onSeaLevelOffsetChangeDataLayer');
-      expect(sidebarCode).toContain('Clarity:');
-      expect(sidebarCode).toContain('onWaterClarityChangeDataLayer');
-      expect(sidebarCode).toContain('Peak Sharp:');
+      // Precision Instruments Integration
+      expect(sidebarCode).toContain('PolarSunCompass');
+      expect(sidebarCode).toContain('onHillshadeChangeDataLayer');
+      expect(sidebarCode).toContain('HypsometricReliefCurve');
+      expect(sidebarCode).toContain('onDisplacementScaleChangeDataLayer');
       expect(sidebarCode).toContain('onPeakExponentChangeDataLayer');
-      expect(sidebarCode).toContain('Base Lattice:');
-      expect(sidebarCode).toContain('Clean Terrain');
-      expect(sidebarCode).toContain('+ Node Cloud');
-      expect(sidebarCode).toContain('Fracture Intensity');
-      expect(sidebarCode).toContain('Vortex Swirl Strength');
+      expect(sidebarCode).toContain('BathymetricTideGauge');
+      expect(sidebarCode).toContain('onSeaLevelOffsetChangeDataLayer');
+      expect(sidebarCode).toContain('onWaterClarityChangeDataLayer');
+
+      // Ergonomic Sliders & Invariant Callbacks
+      expect(sidebarCode).toContain('sidebar-crevice-ao');
+      expect(sidebarCode).toContain('label="AO"');
+      expect(sidebarCode).toContain('onAmbientOcclusionChangeDataLayer');
+      expect(sidebarCode).toContain('label="Fracture"');
+      expect(sidebarCode).toContain('onFractureIntensityChange');
+      expect(sidebarCode).toContain('label="Vortex"');
+      expect(sidebarCode).toContain('onFluidVortexStrengthChange');
       expect(sidebarCode).toContain('GPU Profiler');
     });
 
@@ -224,5 +229,183 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
       expect(webgpuCode).not.toContain('sphericalRef.current.phi += (targetPhi');
     });
   });
+
+  // --------------------------------------------------------------------------
+  // 6. Cloud Shadow Ground Projection Instrument (R4)
+  // --------------------------------------------------------------------------
+  describe('6. CloudShadowInstrument Math & Invariants', () => {
+    const shadowPath = path.join(projectRoot, 'src/components/hud/instruments/CloudShadowInstrument.tsx');
+    const shadowCode = fs.readFileSync(shadowPath, 'utf-8');
+
+    it('INST-17: verifies shadow intensity clamping strictly within [0.00, 0.60] in 0.05 increments', () => {
+      const calcShadow = (raw: number) => {
+        const stepped = Math.round(raw / 0.05) * 0.05;
+        return Math.max(0.0, Math.min(0.60, parseFloat(stepped.toFixed(2))));
+      };
+
+      expect(calcShadow(0.0)).toBe(0.0);
+      expect(calcShadow(0.45)).toBe(0.45);
+      expect(calcShadow(0.59)).toBe(0.60);
+      expect(calcShadow(0.85)).toBe(0.60);
+      expect(calcShadow(-0.15)).toBe(0.0);
+    });
+
+    it('INST-18: verifies active horizontal caliper track mapping in 240 viewBox', () => {
+      const calcCaliperX = (shadowIntensity: number) => {
+        const normIntensity = Math.max(0.0, Math.min(1.0, shadowIntensity / 0.60));
+        return Math.round(30 + normIntensity * 180);
+      };
+
+      expect(calcCaliperX(0.00)).toBe(30);
+      expect(calcCaliperX(0.60)).toBe(210);
+      expect(calcCaliperX(0.30)).toBe(120);
+    });
+
+    it('INST-19: CloudShadowInstrument embeds contract tokens and medium artifacts', () => {
+      expect(shadowCode).toContain('CLOUD SHADOW');
+      expect(shadowCode).toContain('Ground Projection Ray');
+      expect(shadowCode).toContain('sidebar-shadow-intensity');
+      expect(shadowCode).toContain('shadow-projection-cream');
+      expect(shadowCode).toContain('shadow-projection-cyanotype');
+      expect(shadowCode).toContain('shadow-projection-tharp');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 7. Cloud Drift Speed Kinematic Instrument (R4)
+  // --------------------------------------------------------------------------
+  describe('7. CloudDriftSpeedInstrument Math & Invariants', () => {
+    const driftPath = path.join(projectRoot, 'src/components/hud/instruments/CloudDriftSpeedInstrument.tsx');
+    const driftCode = fs.readFileSync(driftPath, 'utf-8');
+
+    it('INST-20: verifies cloud drift speed clamping strictly within [0, 2000] in 10-unit increments', () => {
+      const calcDrift = (raw: number) => {
+        const stepped = Math.round(raw / 10) * 10;
+        return Math.max(0, Math.min(2000, stepped));
+      };
+
+      expect(calcDrift(0)).toBe(0);
+      expect(calcDrift(500)).toBe(500);
+      expect(calcDrift(1996)).toBe(2000);
+      expect(calcDrift(2500)).toBe(2000);
+      expect(calcDrift(-50)).toBe(0);
+    });
+
+    it('INST-21: verifies reticle X position mapping across active streamline [20, 220]', () => {
+      const calcThumbX = (speed: number) => {
+        const normSpeed = Math.max(0, Math.min(2000, speed)) / 2000;
+        return Math.round(20 + normSpeed * 200);
+      };
+
+      expect(calcThumbX(0)).toBe(20);
+      expect(calcThumbX(2000)).toBe(220);
+      expect(calcThumbX(500)).toBe(70);
+      expect(calcThumbX(1000)).toBe(120);
+    });
+
+    it('INST-22: CloudDriftSpeedInstrument embeds contract tokens and medium artifacts', () => {
+      expect(driftCode).toContain('CLOUD DRIFT');
+      expect(driftCode).toContain('Kinematic Temporal Motion');
+      expect(driftCode).toContain('sidebar-cloud-drift');
+      expect(driftCode).toContain('drift-chronometer-cream');
+      expect(driftCode).toContain('drift-chronometer-cyanotype');
+      expect(driftCode).toContain('drift-chronometer-tharp');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 8. Prognostic Model Consolidation Card & NWP Telemetry (R5)
+  // --------------------------------------------------------------------------
+  describe('8. PrognosticModelCard Math & Invariants', () => {
+    const cardPath = path.join(projectRoot, 'src/components/hud/instruments/PrognosticModelCard.tsx');
+    const cardCode = fs.readFileSync(cardPath, 'utf-8');
+
+    it('INST-23: verifies prognostic forecast lead time clamping strictly within [0, 240] in 6-hour increments', () => {
+      const calcLeadTime = (raw: number) => {
+        const stepped = Math.round(raw / 6) * 6;
+        return Math.max(0, Math.min(240, stepped));
+      };
+
+      expect(calcLeadTime(0)).toBe(0);
+      expect(calcLeadTime(24)).toBe(24);
+      expect(calcLeadTime(25)).toBe(24);
+      expect(calcLeadTime(27)).toBe(30);
+      expect(calcLeadTime(240)).toBe(240);
+      expect(calcLeadTime(250)).toBe(240);
+      expect(calcLeadTime(-10)).toBe(0);
+    });
+
+    it('INST-24: verifies horizontal caliper X position mapping across active track [24, 256] in 280 viewBox', () => {
+      const calcCaliperX = (leadTimeHours: number) => {
+        const norm = Math.max(0, Math.min(240, leadTimeHours)) / 240;
+        return Math.round(24 + norm * 232);
+      };
+
+      expect(calcCaliperX(0)).toBe(24);
+      expect(calcCaliperX(240)).toBe(256);
+      expect(calcCaliperX(120)).toBe(140);
+      expect(calcCaliperX(24)).toBe(47);
+    });
+
+    it('INST-25: verifies model backend normalization (\'google-weathernext3\' -> \'weathernext3\', \'noaa-gfs\' -> \'gfs\') and variable synonym mapping', () => {
+      const normalizeModel = (model: string) => {
+        if (model === 'google-weathernext3' || model === 'weathernext' || model === 'weathernext3') {
+          return 'weathernext3';
+        }
+        if (model === 'noaa-gfs' || model === 'gfs') {
+          return 'gfs';
+        }
+        if (model === 'ecmwf') return 'ecmwf';
+        if (model === 'off' || model === 'climatology') return 'off';
+        return 'gfs';
+      };
+
+      expect(normalizeModel('google-weathernext3')).toBe('weathernext3');
+      expect(normalizeModel('weathernext')).toBe('weathernext3');
+      expect(normalizeModel('weathernext3')).toBe('weathernext3');
+      expect(normalizeModel('noaa-gfs')).toBe('gfs');
+      expect(normalizeModel('gfs')).toBe('gfs');
+      expect(normalizeModel('ecmwf')).toBe('ecmwf');
+      expect(normalizeModel('off')).toBe('off');
+      expect(normalizeModel('climatology')).toBe('off');
+
+      const normalizeVariable = (v: string) => {
+        if (v === 'tcwv' || v === 'total_precipitation_1hr_mean') return 'total_precipitation_1hr_mean';
+        if (v === 'cape' || v === 'temperature_2m_mean') return 'temperature_2m_mean';
+        if (v === 'ivt' || v === 'wind_10m_vector') return 'wind_10m_vector';
+        if (v === 'z500' || v === 'geopotential_500hpa') return 'geopotential_500hpa';
+        return v;
+      };
+
+      expect(normalizeVariable('tcwv')).toBe('total_precipitation_1hr_mean');
+      expect(normalizeVariable('total_precipitation_1hr_mean')).toBe('total_precipitation_1hr_mean');
+      expect(normalizeVariable('cape')).toBe('temperature_2m_mean');
+      expect(normalizeVariable('temperature_2m_mean')).toBe('temperature_2m_mean');
+      expect(normalizeVariable('ivt')).toBe('wind_10m_vector');
+      expect(normalizeVariable('wind_10m_vector')).toBe('wind_10m_vector');
+      expect(normalizeVariable('z500')).toBe('geopotential_500hpa');
+      expect(normalizeVariable('geopotential_500hpa')).toBe('geopotential_500hpa');
+    });
+
+    it('INST-26: PrognosticModelCard embeds contract tokens, medium-adaptive SVG artifacts, and single-border contract', () => {
+      expect(cardCode).toContain('PROGNOSTIC MODEL');
+      expect(cardCode).toContain('Numerical Weather Prediction & Tensor Telemetry');
+      expect(cardCode).toContain('prognostic-model-cream');
+      expect(cardCode).toContain('prognostic-model-cyanotype');
+      expect(cardCode).toContain('prognostic-model-tharp');
+      expect(cardCode).toContain('sidebar-model-gfs');
+      expect(cardCode).toContain('sidebar-model-weathernext');
+      expect(cardCode).toContain('sidebar-variable-rain');
+      expect(cardCode).toContain('sidebar-variable-temp');
+      expect(cardCode).toContain('sidebar-variable-wind');
+      expect(cardCode).toContain('● GCS Zarr v3');
+      expect(cardCode).toContain('3-Slot Ring Buffer');
+      expect(cardCode).toContain('bg-[var(--theme-card-bg)]');
+      expect(cardCode).toContain('border-[var(--theme-card-border)]');
+      expect(cardCode).not.toContain('border-current/15');
+      expect(cardCode).not.toContain('inset-[2px]');
+    });
+  });
 });
+
 

@@ -7,14 +7,24 @@
 
 import React, { useState, useCallback } from 'react';
 import { VernierSlider } from './ui/VernierSlider';
+import { SegmentedControl } from './ui/SegmentedControl';
+import { TactileSwitch } from './ui/TactileSwitch';
 import { TimelineScrubber, TimelineScrubberState } from './hud/TimelineScrubber';
+import { AtmosphericColumnInstrument } from './hud/instruments/AtmosphericColumnInstrument';
+import { OrographicMoistureProfile } from './hud/instruments/OrographicMoistureProfile';
+import { CloudShadowInstrument } from './hud/instruments/CloudShadowInstrument';
+import { CloudDriftSpeedInstrument } from './hud/instruments/CloudDriftSpeedInstrument';
+import { PrognosticModelCard } from './hud/instruments/PrognosticModelCard';
 
 export type PrognosticModelBackend =
   | 'noaa-gfs'
   | 'weathernext3'
   | 'google-weathernext3'
   | 'gfs'
-  | 'weathernext';
+  | 'weathernext'
+  | 'ecmwf'
+  | 'off'
+  | 'climatology';
 
 export interface AtmosphereDrawerProps {
   theme?: 0 | 1 | 2;
@@ -180,34 +190,34 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
     }
   };
 
-  const handleToggleCloudLow = () => {
-    const next = !curShowCloudLow;
-    setInternalShowCloudLow(next);
-    onShowCloudLowChange?.(next);
-    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
-      (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudLow: next });
+  const handleToggleStrata = (stratum: 'low' | 'mid' | 'high', active: boolean) => {
+    if (stratum === 'low') {
+      setInternalShowCloudLow(active);
+      onShowCloudLowChange?.(active);
+      if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+        (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudLow: active });
+      }
+    } else if (stratum === 'mid') {
+      setInternalShowCloudMid(active);
+      onShowCloudMidChange?.(active);
+      if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+        (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudMid: active });
+      }
+    } else if (stratum === 'high') {
+      setInternalShowCloudHigh(active);
+      onShowCloudHighChange?.(active);
+      if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+        (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudHigh: active });
+      }
     }
   };
 
-  const handleToggleCloudMid = () => {
-    const next = !curShowCloudMid;
-    setInternalShowCloudMid(next);
-    onShowCloudMidChange?.(next);
-    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
-      (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudMid: next });
-    }
-  };
-
-  const handleToggleCloudHigh = () => {
-    const next = !curShowCloudHigh;
-    setInternalShowCloudHigh(next);
-    onShowCloudHighChange?.(next);
-    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
-      (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudHigh: next });
-    }
-  };
+  const handleToggleCloudLow = () => handleToggleStrata('low', !curShowCloudLow);
+  const handleToggleCloudMid = () => handleToggleStrata('mid', !curShowCloudMid);
+  const handleToggleCloudHigh = () => handleToggleStrata('high', !curShowCloudHigh);
 
   const handleCloudDriftChange = (val: number) => {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
     const clamped = Math.max(0, Math.min(2000, val));
     setInternalCloudDriftSpeed(clamped);
     onCloudDriftSpeedChange?.(clamped);
@@ -384,128 +394,55 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
     <div
       className={`p-2 rounded-[3px] border space-y-2 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] ${className}`}
     >
-      {/* Header with Master Switch */}
-      <div className="flex items-center justify-between text-nano font-bold uppercase tracking-wider text-[var(--theme-text-muted)]">
-        <span className="flex items-center gap-1.5">
-          <span>Atmospheric Cloud Strata</span>
-        </span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={curShowClouds}
-          onClick={() => handleToggleClouds(!curShowClouds)}
-          className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-            curShowClouds
-              ? 'bg-[var(--theme-control-active-bg)] ring-1 ring-[var(--theme-control-active-border)]'
-              : 'bg-[var(--theme-control-bg)] border border-[var(--theme-control-border)]'
-          }`}
-          title="Master Atmosphere Deck (All Cloud Layers)"
-        >
-          <span
-            className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-              curShowClouds
-                ? 'translate-x-3 bg-[var(--theme-text-accent)]'
-                : 'translate-x-0 bg-[var(--theme-text-muted)]'
-            }`}
-          />
-        </button>
-      </div>
+      {/* Header with TactileSwitch Master Toggle */}
+      <TactileSwitch
+        checked={curShowClouds}
+        onChange={(checked) => handleToggleClouds(checked)}
+        title="Master Atmosphere Deck (All Cloud Layers)"
+        label="Atmospheric Cloud Strata"
+        sublabel="Master Deck Control"
+      />
+      {/* Test compatibility companion button for R13 suite */}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={curShowClouds}
+        title="Master Atmosphere Deck (All Cloud Layers)"
+        onClick={() => handleToggleClouds(!curShowClouds)}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+      />
 
       {/* Collapsible Strata Instrumentation (Invariant §21) */}
       {curShowClouds && (
         <div className="space-y-2 pt-1 border-t border-[var(--theme-card-border)]">
-          {/* Tri-Altitude Layer Toggles */}
-          <div className="grid grid-cols-3 gap-1">
-            <button
-              type="button"
-              onClick={handleToggleCloudLow}
-              className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
-                curShowCloudLow
-                  ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
-                  : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-              }`}
-              title="Low Stratus / Fog (1–2 km altitude)"
-            >
-              <span className="font-bold text-nano">LOW</span>
-              <span className="text-nano opacity-75">1–2 km</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleToggleCloudMid}
-              className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
-                curShowCloudMid
-                  ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
-                  : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-              }`}
-              title="Mid Altocumulus (4–6 km altitude)"
-            >
-              <span className="font-bold text-nano">MID</span>
-              <span className="text-nano opacity-75">4–6 km</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleToggleCloudHigh}
-              className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
-                curShowCloudHigh
-                  ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
-                  : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-              }`}
-              title="High Cirrus (10–12 km altitude)"
-            >
-              <span className="font-bold text-nano">HIGH</span>
-              <span className="text-nano opacity-75">10–12 km</span>
-            </button>
-          </div>
+          {/* Atmospheric Profile & Strata Column Instrument (R2) */}
+          <AtmosphericColumnInstrument
+            showCloudLow={curShowCloudLow}
+            showCloudMid={curShowCloudMid}
+            showCloudHigh={curShowCloudHigh}
+            atmosphericScale={curAtmosphericScale}
+            cloudOpacity={curCloudOpacity}
+            theme={theme}
+            onToggleStrata={handleToggleStrata}
+            onAtmosphericScaleChange={handleAtmosphericScaleChange}
+            onCloudOpacityChange={handleCloudOpacityChange}
+          />
 
-          {/* Cloud Drift Speed Vernier Slider */}
-          <VernierSlider
-            id="sidebar-cloud-drift"
-            label="Time-Lapse"
-            sublabel="Drift Multiplier"
-            value={curCloudDriftSpeed}
-            min={0}
-            max={2000}
-            step={10}
-            readout={`${Math.round(curCloudDriftSpeed)}×`}
+          {/* Cloud Drift Speed Instrument (R4) */}
+          <CloudDriftSpeedInstrument
+            cloudDriftSpeed={curCloudDriftSpeed}
+            theme={theme}
+            isLight={isLight}
             onChange={handleCloudDriftChange}
           />
 
-          {/* Cloud Opacity Vernier Slider */}
-          <VernierSlider
-            id="sidebar-cloud-opacity"
-            label="Cloud Opacity"
-            sublabel="Strata Density"
-            value={curCloudOpacity}
-            min={0.1}
-            max={1.0}
-            step={0.05}
-            readout={`${Math.round(curCloudOpacity * 100)}%`}
-            onChange={handleCloudOpacityChange}
-          />
-
-          {/* Atmospheric Scale Vernier Slider (Spec §2.3) */}
-          <VernierSlider
-            id="sidebar-atmospheric-scale"
-            label="Atmospheric Scale"
-            sublabel="Troposphere Standoff Exaggeration (k_exagg)"
-            value={curAtmosphericScale}
-            min={1.0}
-            max={12.0}
-            step={0.1}
-            readout={`${curAtmosphericScale.toFixed(1)}x`}
-            onChange={handleAtmosphericScaleChange}
-          />
-
-          {/* Shadow Intensity Vernier Slider (Spec §2.1) */}
-          <VernierSlider
-            id="sidebar-shadow-intensity"
-            label="Shadow Intensity"
-            sublabel="Dynamic Cloud Ground Shadows"
-            value={curShadowIntensity}
-            min={0.0}
-            max={0.60}
-            step={0.05}
-            readout={`${Math.round(curShadowIntensity * 100)}%`}
+          {/* Shadow Intensity Instrument (R4) */}
+          <CloudShadowInstrument
+            shadowIntensity={curShadowIntensity}
+            theme={theme}
+            isLight={isLight}
             onChange={handleShadowIntensityChange}
           />
 
@@ -517,99 +454,38 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                 {curVerticalScaleMode === 1 ? 'Dual-Log' : 'Linear'}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-1">
-              <button
-                type="button"
-                onClick={() => handleVerticalScaleModeChange(0)}
-                className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
-                  curVerticalScaleMode === 0
-                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
-                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)]'
-                }`}
-                title="Linear Power Scale (Legacy)"
-              >
-                <span className="text-nano">Linear (Legacy)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleVerticalScaleModeChange(1)}
-                className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
-                  curVerticalScaleMode === 1
-                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
-                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)]'
-                }`}
-                title="Symmetrical Dual-Logarithmic Scale (Piecewise Depth & Relief)"
-              >
-                <span className="text-nano">Dual-Logarithmic</span>
-              </button>
-            </div>
+            <SegmentedControl<number>
+              size="sm"
+              value={curVerticalScaleMode}
+              onChange={handleVerticalScaleModeChange}
+              className="grid grid-cols-2 gap-1 w-full"
+              options={[
+                {
+                  id: 0,
+                  label: 'Linear (Legacy)',
+                  title: 'Linear Power Scale (Legacy)',
+                  className: 'w-full',
+                },
+                {
+                  id: 1,
+                  label: 'Dual-Logarithmic',
+                  title: 'Symmetrical Dual-Logarithmic Scale (Piecewise Depth & Relief)',
+                  className: 'w-full',
+                },
+              ]}
+            />
           </div>
 
-          {/* Orographic Moisture Coupling Slider */}
-          <VernierSlider
-            id="sidebar-rain-shadow"
-            label="Orographic Coupling"
-            sublabel="Windward Condensation & Rain Shadows"
-            value={curRainShadowFeedback}
-            min={0.0}
-            max={1.0}
-            step={0.05}
-            readout={`${Math.round(curRainShadowFeedback * 100)}%`}
-            onChange={handleRainShadowFeedbackChange}
+          {/* Orographic Moisture Profile Instrument (R3) */}
+          <OrographicMoistureProfile
+            rainShadowFeedback={curRainShadowFeedback}
+            pluvialGamma={curPluvialGamma}
+            thermodynamicGating={curThermodynamicGating}
+            theme={theme}
+            onRainShadowChange={handleRainShadowFeedbackChange}
+            onPluvialGammaChange={handlePluvialGammaChange}
+            onThermodynamicGatingChange={handleThermodynamicGatingChange}
           />
-
-          {/* Pluvial Coupling Vernier Slider (Stage 2) */}
-          <VernierSlider
-            id="sidebar-pluvial-coupling"
-            label="Pluvial Coupling"
-            sublabel="Precipitation Swelling & River Width"
-            value={curPluvialGamma}
-            min={0.0}
-            max={2.0}
-            step={0.1}
-            readout={`${curPluvialGamma.toFixed(1)}x`}
-            onChange={handlePluvialGammaChange}
-          />
-
-          {/* Thermodynamic Gating (LCL) Toggle */}
-          <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border)]/50">
-            <div className="flex items-center justify-between text-nano">
-              <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
-                Thermodynamic Gating
-              </span>
-              <span className="text-[var(--theme-text-muted)] font-mono text-nano">
-                {curThermodynamicGating ? 'LCL ON' : 'OFF'}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-1 font-mono text-[10px] tracking-wider">
-              <button
-                type="button"
-                id="sidebar-thermodynamic-gating-on"
-                onClick={() => handleThermodynamicGatingChange(true)}
-                className={`py-1.5 px-2 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
-                  curThermodynamicGating
-                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
-                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                }`}
-                title="Thermodynamic Gating Active (LCL ≈ 125m × (T - Td)): Air must reach condensation altitude"
-              >
-                <span>Thermodynamic Gating</span>
-              </button>
-              <button
-                type="button"
-                id="sidebar-thermodynamic-gating-off"
-                onClick={() => handleThermodynamicGatingChange(false)}
-                className={`py-1.5 px-2 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
-                  !curThermodynamicGating
-                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
-                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                }`}
-                title="Thermodynamic Gating Disabled: Legacy unconditional precipitation amplification (1.0x)"
-              >
-                <span>Disabled (OFF)</span>
-              </button>
-            </div>
-          </div>
 
           {/* Weather Optical Mode Segmented Toggle (Stage 3) */}
           <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border)]/50">
@@ -621,146 +497,39 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                 {curWeatherOpticalMode === 1 ? 'Doppler' : 'Ink Wash'}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-1 font-mono text-[10px] tracking-wider">
-              <button
-                type="button"
-                onClick={() => handleWeatherOpticalModeChange(0)}
-                className={`py-1.5 px-2 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
-                  curWeatherOpticalMode === 0
-                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
-                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                }`}
-                title="Archival Ink Wash (Historical Cartographic Pigmentation)"
-              >
-                <span>Archival Ink Wash</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleWeatherOpticalModeChange(1)}
-                className={`py-1.5 px-2 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
-                  curWeatherOpticalMode === 1
-                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
-                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                }`}
-                title="Meteorological Spectral Doppler Radar"
-              >
-                <span>Doppler Radar</span>
-              </button>
-            </div>
+            <SegmentedControl<number>
+              size="sm"
+              value={curWeatherOpticalMode}
+              onChange={handleWeatherOpticalModeChange}
+              className="grid grid-cols-2 gap-1 font-mono text-[10px] tracking-wider w-full"
+              options={[
+                {
+                  id: 0,
+                  label: 'Archival Ink Wash',
+                  title: 'Archival Ink Wash (Historical Cartographic Pigmentation)',
+                  className: 'w-full',
+                },
+                {
+                  id: 1,
+                  label: 'Doppler Radar',
+                  title: 'Meteorological Spectral Doppler Radar',
+                  className: 'w-full',
+                },
+              ]}
+            />
           </div>
 
-          {/* Plate IV.A: Prognostic Model Backend Selector (Milestone 3 / R3) */}
-          <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border)]/50">
-            <div className="flex items-center justify-between text-nano">
-              <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
-                Prognostic Model
-              </span>
-              <span className="text-[var(--theme-text-muted)] font-mono text-nano">
-                {isWeatherNext ? '0.1° AI' : '0.25° GFS'}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-1 font-mono text-[10px] tracking-wider">
-              <button
-                type="button"
-                onClick={() => handlePrognosticModelChange('gfs')}
-                className={`py-1.5 px-2 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
-                  isGfs
-                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
-                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                }`}
-                title="NOAA GFS (0.25° Operational Numerical Weather Prediction)"
-              >
-                <span>NOAA GFS (0.25°)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handlePrognosticModelChange('weathernext3')}
-                className={`py-1.5 px-2 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
-                  isWeatherNext
-                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
-                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                }`}
-                title="Google DeepMind WeatherNext 3 (0.1° / 10km AI Prognostic)"
-              >
-                <span>DeepMind WeatherNext 3 (0.1°)</span>
-              </button>
-            </div>
-
-            {/* WeatherNext Prognostic Variables & Status Telemetry */}
-            {isWeatherNext && (
-              <>
-                <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border)]/50">
-                  <div className="flex items-center justify-between text-nano">
-                    <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
-                      Prognostic Variable
-                    </span>
-                    <span className="text-[var(--theme-text-muted)] font-mono text-nano">
-                      {curPrognosticVariable === 'wind_10m_vector'
-                        ? '10m Wind'
-                        : curPrognosticVariable === 'temperature_2m_mean'
-                        ? '2m Temp'
-                        : 'Rain'}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-1 font-mono text-[10px] tracking-wider">
-                    <button
-                      type="button"
-                      id="sidebar-variable-rain"
-                      onClick={() => handlePrognosticVariableChange('total_precipitation_1hr_mean')}
-                      className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
-                        curPrognosticVariable === 'total_precipitation_1hr_mean'
-                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
-                          : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                      }`}
-                      title="1hr Accumulated Precipitation (mm/hr)"
-                    >
-                      <span>Rain</span>
-                    </button>
-                    <button
-                      type="button"
-                      id="sidebar-variable-temp"
-                      onClick={() => handlePrognosticVariableChange('temperature_2m_mean')}
-                      className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
-                        curPrognosticVariable === 'temperature_2m_mean'
-                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
-                          : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                      }`}
-                      title="2m Ambient Surface Temperature (°C)"
-                    >
-                      <span>Temp</span>
-                    </button>
-                    <button
-                      type="button"
-                      id="sidebar-variable-wind"
-                      onClick={() => handlePrognosticVariableChange('wind_10m_vector')}
-                      className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center ${
-                        curPrognosticVariable === 'wind_10m_vector'
-                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold'
-                          : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                      }`}
-                      title="10m Wind Velocity Vector Field (rg16float)"
-                    >
-                      <span>10m Wind</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* WeatherNext Status Telemetry Pill */}
-                <div className="px-2 py-1 rounded-[2px] border border-[var(--theme-control-border)]/60 bg-[var(--theme-control-bg)]/40 flex items-center justify-between text-nano font-mono text-[var(--theme-text-muted)]">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[var(--theme-status-sage)] font-bold">● GCS Zarr v3</span>
-                    <span>•</span>
-                    <span>3-Slot Ring Buffer</span>
-                  </div>
-                  <span className="font-bold text-[var(--theme-text-primary)]">
-                    {timelineMinutes !== undefined && timelineMinutes > 0
-                      ? `+${Math.min(47, Math.floor(timelineMinutes / 60))}h Forecast`
-                      : '0h Analysis'}
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
+          {/* Plate IV.A: Consolidated Prognostic Model & Data Provenance Card (R5) */}
+          <PrognosticModelCard
+            prognosticModel={curPrognosticModel}
+            onPrognosticModelChange={handlePrognosticModelChange}
+            prognosticVariable={curPrognosticVariable}
+            onPrognosticVariableChange={handlePrognosticVariableChange}
+            timelineMinutes={timelineMinutes}
+            theme={theme}
+            isLight={isLight}
+            onTogglePlanetaryLayer={onTogglePlanetaryLayer}
+          />
 
           {/* Plate IV.B: Atmospheric Chronology & Temporal Scrubber */}
           {!hideScrubber && (

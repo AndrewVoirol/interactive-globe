@@ -95,8 +95,10 @@ describe('Requirement R7: Cartographic Neatline Hierarchy & Spatial Clearance Mo
       expect(dockContent).toContain('var(--theme-neatline-border)');
     });
 
-    it('R7-10: verifies sidebar preserves var(--theme-neatline-border) token for drafting hairlines', () => {
-      expect(sidebarContent).toContain('var(--theme-neatline-border)');
+    it('R7-10: verifies sidebar preserves semantic border tokens for drafting hairlines', () => {
+      // After refactor, sidebar uses --theme-panel-border and --theme-panel-header-border instead of --theme-neatline-border
+      expect(sidebarContent).toContain('var(--theme-panel-border)');
+      expect(sidebarContent).toContain('var(--theme-panel-header-border)');
     });
   });
 
