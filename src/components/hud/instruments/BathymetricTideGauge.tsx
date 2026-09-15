@@ -95,7 +95,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
       <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
         <span className="font-bold flex items-center gap-1.5 text-[var(--theme-text-accent)]">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)]"></span>
-          Bathymetric Tide Gauge
+          Sea Level
         </span>
         <div className="flex items-center gap-1 font-mono text-nano">
           <span className="text-[var(--theme-text-secondary)]">Sea Level:</span>

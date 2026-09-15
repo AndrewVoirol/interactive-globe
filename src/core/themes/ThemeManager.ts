@@ -118,7 +118,7 @@ export interface ThemePalette {
   geographicWireframe: ElementThemeSpec;
   structuralWireframe: ElementThemeSpec;
   ui: UIThemeTokens;
-  activePigment?: { name: string; hex: string; depth: string } | null;
+  activePigment?: { name?: string; hex: string; depth: string } | null;
   isolatedStratum?: number | null;
   mediumProperties: PhysicalMediumProperties;
 }
@@ -482,7 +482,7 @@ export class ThemeManager {
   private currentMode: ThemeMode = 0;
   private listeners: Set<ThemeChangeListener> = new Set();
   private isolatedStratum: number | null = null;
-  private activePigment: { name: string; hex: string; depth: string } | null = null;
+  private activePigment: { name?: string; hex: string; depth: string } | null = null;
 
   private constructor(initialMode: ThemeMode = 0) {
     this.currentMode = initialMode;
@@ -516,13 +516,13 @@ export class ThemeManager {
     return this.isolatedStratum;
   }
 
-  public getActivePigment(): { name: string; hex: string; depth: string } | null {
+  public getActivePigment(): { name?: string; hex: string; depth: string } | null {
     return this.activePigment;
   }
 
   public setIsolatedStratum(
     stratum: number | null,
-    swatch?: { name: string; hex: string; depth: string } | null
+    swatch?: { name?: string; hex: string; depth: string } | null
   ): void {
     this.isolatedStratum = stratum;
     this.activePigment = swatch ?? null;
