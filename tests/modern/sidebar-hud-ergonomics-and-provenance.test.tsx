@@ -1,0 +1,431 @@
+// @vitest-environment happy-dom
+// ============================================================================
+// File: tests/modern/sidebar-hud-ergonomics-and-provenance.test.tsx
+// Verification suite for:
+// 1. TelemetryHUD forwarding onPaperToothChangeDataLayer
+// 2. CuratorsColophon in compact & full modes with verified data feeds
+// 3. UnifiedRightSidebar dedicated DATA tab, Plate 2/3/4/5 ergonomics, pinned footer
+// 4. Header theme toggle synchronization of calibrated relief parameters
+// 5. Excision of 2D canvas cartouche
+// ============================================================================
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import React, { act } from 'react';
+import { createRoot, Root } from 'react-dom/client';
+import fs from 'fs';
+import path from 'path';
+import { CuratorsColophon } from '../../src/components/hud/CuratorsColophon';
+import { UnifiedRightSidebar, UnifiedRightSidebarProps } from '../../src/components/hud/UnifiedRightSidebar';
+import { TelemetryHUD, TelemetryHUDProps } from '../../src/components/hud/TelemetryHUD';
+import { DataLayerItem, SimulationMode, GeodesicOverlayMode, LoadedDataInfo } from '../../src/types';
+
+(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+
+describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
+  const projectRoot = path.resolve(__dirname, '../..');
+  const sidebarSource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/UnifiedRightSidebar.tsx'), 'utf-8');
+  const canvasSource = fs.readFileSync(path.join(projectRoot, 'src/webgpu/WebGPUCanvas.tsx'), 'utf-8');
+  const telemetrySource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/TelemetryHUD.tsx'), 'utf-8');
+
+  let container: HTMLDivElement;
+  let root: Root;
+
+  const defaultDataInfo: LoadedDataInfo = {
+    pointCount: 100000,
+    lineCount: 300000,
+    format: 'BIN (Zero-Copy)',
+    loadTimeMs: 12.5,
+    vramMb: 4.57,
+  };
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  // --------------------------------------------------------------------------
+  // 1. TelemetryHUD Prop Forwarding
+  // --------------------------------------------------------------------------
+  describe('1. TelemetryHUD Prop Forwarding', () => {
+    it('verifies TelemetryHUD forwards onPaperToothChangeDataLayer to UnifiedRightSidebar', () => {
+      expect(telemetrySource).toContain('onPaperToothChangeDataLayer={props.onPaperToothChangeDataLayer}');
+    });
+
+    it('DOM: dispatches onPaperToothChangeDataLayer through TelemetryHUD to UnifiedRightSidebar', async () => {
+      const onPaperToothMock = vi.fn();
+      const dummyItem: DataLayerItem = {
+        id: 'hybrid-crust-hydrosphere',
+        name: 'Hybrid Crust Hydrosphere',
+        category: 'topo',
+        type: 'Hypsometric Topography & Bathymetry',
+        details: 'Calibrated DEM',
+        visible: true,
+        opacity: 0.9,
+        blendMode: 0,
+        renderStyle: 'hybrid',
+        displacementScale: 0.12,
+        paperTooth: 0.40,
+      };
+
+      const props: TelemetryHUDProps = {
+        isZenMode: false,
+        onZenToggle: vi.fn(),
+        theme: 1, // Cream Rag
+        onThemeToggle: vi.fn(),
+        backend: 'webgpu',
+        onBackendChange: vi.fn(),
+        hasWebGPU: true,
+        resolution: '1M',
+        onResolutionChange: vi.fn(),
+        layerMode: 0,
+        onLayerModeChange: vi.fn(),
+        mode: 0 as SimulationMode,
+        onModeChange: vi.fn(),
+        cursorPhysicsEnabled: false,
+        onCursorPhysicsToggle: vi.fn(),
+        activeOverlay: 'off' as GeodesicOverlayMode,
+        onOverlayChange: vi.fn(),
+        showLandmarks: false,
+        onLandmarksToggle: vi.fn(),
+        showTissot: false,
+        onTissotToggle: vi.fn(),
+        showVectors: false,
+        onVectorsToggle: vi.fn(),
+        alpha: 0,
+        fps: 120,
+        latStr: "00°00'N",
+        lonStr: "000°00'E",
+        mapScaleStr: "1:50M",
+        dataInfo: defaultDataInfo,
+        onSnapCamera: vi.fn(),
+        dataLayers: [dummyItem],
+        onPaperToothChangeDataLayer: onPaperToothMock,
+      };
+
+      await act(async () => {
+        root.render(<TelemetryHUD {...props} />);
+      });
+
+      const paperToothInput = container.querySelector('#sidebar-paper-tooth') as HTMLInputElement;
+      expect(paperToothInput).not.toBeNull();
+
+      const increaseBtn = container.querySelector('button[title="Increase Paper Tooth"]') as HTMLButtonElement;
+      expect(increaseBtn).not.toBeNull();
+
+      await act(async () => {
+        increaseBtn.click();
+      });
+
+      // Starting from default 0.40 + step 0.05 = 0.45
+      expect(onPaperToothMock).toHaveBeenCalledWith('hybrid-crust-hydrosphere', 0.45);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 2. CuratorsColophon Verified Data Feeds
+  // --------------------------------------------------------------------------
+  describe('2. CuratorsColophon', () => {
+    it('renders high-density verified feed badges in compact mode', async () => {
+      await act(async () => {
+        root.render(
+          <CuratorsColophon
+            theme={1}
+            compact={true}
+            isWeatherActive={true}
+            isRadarActive={true}
+          />
+        );
+      });
+
+      expect(container.textContent).toContain('Provenant Feeds');
+      expect(container.textContent).toContain('LIVE ATTRIBUTION');
+      expect(container.textContent).toContain('ETOPO 2022 (15")');
+      expect(container.textContent).toContain('WeatherNext 3 (0.1°)');
+      expect(container.textContent).toContain('RainViewer Radar');
+      expect(container.textContent).toContain('Natural Earth 10M');
+    });
+
+    it('reactively updates status dot styling based on isWeatherActive and isRadarActive', async () => {
+      await act(async () => {
+        root.render(
+          <CuratorsColophon
+            theme={1}
+            compact={true}
+            isWeatherActive={false}
+            isRadarActive={false}
+          />
+        );
+      });
+
+      const weatherDot = container.querySelector('div[title*="WeatherNext"] span');
+      const radarDot = container.querySelector('div[title*="RainViewer"] span');
+      expect(weatherDot?.className).toContain('opacity-40');
+      expect(radarDot?.className).toContain('opacity-40');
+
+      await act(async () => {
+        root.render(
+          <CuratorsColophon
+            theme={1}
+            compact={true}
+            isWeatherActive={true}
+            isRadarActive={true}
+          />
+        );
+      });
+
+      const activeWeatherDot = container.querySelector('div[title*="WeatherNext"] span');
+      const activeRadarDot = container.querySelector('div[title*="RainViewer"] span');
+      expect(activeWeatherDot?.className).toContain('bg-[var(--theme-status-sage)]');
+      expect(activeRadarDot?.className).toContain('bg-[var(--theme-status-sage)]');
+    });
+
+    it('renders complete archival cartouche ledger in full mode', async () => {
+      await act(async () => {
+        root.render(
+          <CuratorsColophon
+            theme={1}
+            compact={false}
+            isWeatherActive={true}
+            isRadarActive={true}
+          />
+        );
+      });
+
+      expect(container.textContent).toContain("Curator's Colophon");
+      expect(container.textContent).toContain('310 GSM Cotton Rag');
+      expect(container.textContent).toContain('Cartographic & Geophysical Provenance:');
+      expect(container.textContent).toContain('NOAA NCEI ETOPO 2022');
+      expect(container.textContent).toContain('Google DeepMind WeatherNext 3');
+      expect(container.textContent).toContain('RainViewer Global Doppler Radar Mosaic');
+      expect(container.textContent).toContain('Natural Earth 1:10M High-Resolution Vectors');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 3. UnifiedRightSidebar Navigation & Plates
+  // --------------------------------------------------------------------------
+  describe('3. UnifiedRightSidebar Ergonomics & Tabs', () => {
+    it('contains DATA in the drafting plate navigation strip and SidebarPlate type', () => {
+      expect(sidebarSource).toContain("type SidebarPlate = 'all' | 'medium' | 'terrain' | 'weather' | 'projection' | 'data'");
+      expect(sidebarSource).toMatch(/\{\s*id:\s*'data',\s*label:\s*'DATA'\s*\}/);
+    });
+
+    it('anchors Crevice AO: with colon on Plate 2', () => {
+      expect(sidebarSource).toContain('label="Crevice AO:"');
+    });
+
+    it('does not render duplicate chevron steppers in Plate 3, keeping title banner', () => {
+      expect(sidebarSource).not.toMatch(/<button[^>]*>\s*◀\s*<\/button>/);
+      expect(sidebarSource).not.toMatch(/<button[^>]*>\s*▶\s*<\/button>/);
+      expect(sidebarSource).toContain('Active Paradigm Title Banner & Quick-Index Strip');
+    });
+
+    it('preserves Base Lattice pill on Plate 4', () => {
+      expect(sidebarSource).toContain('Base Lattice:');
+      expect(sidebarSource).toContain('Clean Terrain');
+      expect(sidebarSource).toContain('+ Node Cloud');
+    });
+
+    it('mounts full CuratorsColophon in Plate 5 and compact CuratorsColophon in pinned footer', () => {
+      // Plate 5 condition decouples from medium
+      expect(sidebarSource).toContain("activePlate === 'data'");
+      expect(sidebarSource).not.toContain("activePlate === 'all' || activePlate === 'medium' || activePlate === 'layers'");
+
+      // Compact pinned footer
+      expect(sidebarSource).toContain('Pinned Footer across all plates');
+      expect(sidebarSource).toContain('compact={true}');
+    });
+
+    it('header theme toggle synchronizes calibrated relief parameters', () => {
+      expect(sidebarSource).toContain('onClick={handleHeaderThemeToggle}');
+      expect(sidebarSource).toContain('applyMediumCalibration(nextTheme)');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 4. 2D Canvas Cartouche Permanent Excision
+  // --------------------------------------------------------------------------
+  describe('4. 2D Canvas Cartouche Permanent Excision', () => {
+    it('verifies 2D canvas cartouche drawing is completely removed from WebGPUCanvas', () => {
+      expect(canvasSource).not.toContain('TYPUS ORBIS TERRARUM');
+      expect(canvasSource).not.toMatch(/cy\s*=\s*h\s*-\s*92/);
+      expect(canvasSource).not.toMatch(/ch\s*=\s*72/);
+      expect(canvasSource).not.toContain('curShowCartouche');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 5. Interactive Behavior Verification
+  // --------------------------------------------------------------------------
+  describe('5. Interactive Theme Calibration & Sidebar Execution', () => {
+    const dummyLayer: DataLayerItem = {
+      id: 'hybrid-crust-hydrosphere',
+      name: 'Hybrid Crust Hydrosphere',
+      category: 'topo',
+      type: 'Hypsometric Topography & Bathymetry',
+      details: 'Calibrated DEM',
+      visible: true,
+      opacity: 0.9,
+      blendMode: 0,
+      renderStyle: 'hybrid',
+      displacementScale: 0.12,
+    };
+
+    const createSidebarProps = (overrides: Partial<UnifiedRightSidebarProps> = {}): UnifiedRightSidebarProps => ({
+      isZenMode: false,
+      onZenToggle: vi.fn(),
+      theme: 0,
+      onThemeToggle: vi.fn(),
+      backend: 'webgpu',
+      onBackendChange: vi.fn(),
+      hasWebGPU: true,
+      resolution: '1M',
+      onResolutionChange: vi.fn(),
+      layerMode: 0,
+      onLayerModeChange: vi.fn(),
+      mode: 0,
+      onModeChange: vi.fn(),
+      cursorPhysicsEnabled: false,
+      onCursorPhysicsToggle: vi.fn(),
+      activeOverlay: 'off',
+      onOverlayChange: vi.fn(),
+      showLandmarks: false,
+      onLandmarksToggle: vi.fn(),
+      showTissot: false,
+      onTissotToggle: vi.fn(),
+      showVectors: false,
+      onVectorsToggle: vi.fn(),
+      alpha: 0,
+      fps: 120,
+      latStr: "00°00'N",
+      lonStr: "000°00'E",
+      mapScaleStr: "1:50M",
+      onSnapCamera: vi.fn(),
+      dataLayers: [dummyLayer],
+      onAddDataLayer: vi.fn(),
+      onToggleDataLayer: vi.fn(),
+      onRemoveDataLayer: vi.fn(),
+      ...overrides,
+    });
+
+    it('switches between plates in DOM and keeps pinned provenance footer across all tabs', async () => {
+      const props = createSidebarProps({ theme: 1 });
+
+      await act(async () => {
+        root.render(<UnifiedRightSidebar {...props} />);
+      });
+
+      // Default ALL tab: displays all plates
+      expect(container.textContent).toContain('Hypsometric Pigment Pans');
+      expect(container.textContent).toContain('PLATE V • CARTOGRAPHIC DATASETS & PROVENANCE');
+      expect(container.textContent).toContain('Provenant Feeds');
+
+      // Click DATA tab: displays Plate 5 and hides Plate 1
+      const tabs = Array.from(container.querySelectorAll('button'));
+      const dataTab = tabs.find((b) => b.textContent?.trim() === 'DATA');
+      expect(dataTab).not.toBeUndefined();
+
+      await act(async () => {
+        dataTab?.click();
+      });
+
+      expect(container.textContent).toContain('PLATE V • CARTOGRAPHIC DATASETS & PROVENANCE');
+      expect(container.textContent).not.toContain('Hypsometric Pigment Pans');
+      expect(container.textContent).toContain('Provenant Feeds');
+
+      // Click MEDIUM tab: displays Plate 1 and hides Plate 5
+      const mediumTab = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'MEDIUM');
+      expect(mediumTab).not.toBeUndefined();
+
+      await act(async () => {
+        mediumTab?.click();
+      });
+
+      expect(container.textContent).toContain('Hypsometric Pigment Pans');
+      expect(container.textContent).not.toContain('PLATE V • CARTOGRAPHIC DATASETS & PROVENANCE');
+      expect(container.textContent).toContain('Provenant Feeds');
+    });
+
+    it('Plate 5 renders Opacity label with correct typography and prunes redundant relief sliders', async () => {
+      const props = createSidebarProps({ theme: 1 });
+
+      await act(async () => {
+        root.render(<UnifiedRightSidebar {...props} />);
+      });
+
+      // Switch to DATA tab
+      const dataTab = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'DATA');
+      await act(async () => {
+        dataTab?.click();
+      });
+
+      // Find the layer accordion expand chevron
+      const chevronBtn = container.querySelector('button[aria-expanded="false"]') as HTMLButtonElement;
+      expect(chevronBtn).not.toBeNull();
+
+      await act(async () => {
+        chevronBtn.click();
+      });
+
+      // Check Opacity typography
+      const opacitySpan = Array.from(container.querySelectorAll('span')).find((s) => s.textContent?.trim() === 'Opacity:');
+      expect(opacitySpan).not.toBeUndefined();
+      expect(opacitySpan?.className).toContain('text-[var(--theme-text-primary)]');
+      expect(opacitySpan?.className).toContain('font-bold');
+      expect(opacitySpan?.className).toContain('text-nano');
+      expect(opacitySpan?.className).toContain('uppercase');
+      expect(opacitySpan?.className).toContain('tracking-wider');
+
+      // Check Blend Mode control
+      expect(container.textContent).toContain('Norm');
+      expect(container.textContent).toContain('Add');
+      expect(container.textContent).toContain('Mult');
+      expect(container.textContent).toContain('Scrn');
+
+      // Check that redundant per-layer sliders are pruned from the layer folio
+      expect(container.querySelector('input[name*="layerSeaLevel"]')).toBeNull();
+      expect(container.querySelector('input[name*="layerClarity"]')).toBeNull();
+      expect(container.querySelector('input[name*="layerPeakSharp"]')).toBeNull();
+    });
+
+    it('executes handleHeaderThemeToggle and dispatches calibrated params', async () => {
+      const onThemeToggleMock = vi.fn();
+      const onHillshadeMock = vi.fn();
+      const onDisplacementMock = vi.fn();
+      const onPeakExponentMock = vi.fn();
+
+      const defaultProps = createSidebarProps({
+        theme: 0,
+        onThemeToggle: onThemeToggleMock,
+        onHillshadeChangeDataLayer: onHillshadeMock,
+        onDisplacementScaleChangeDataLayer: onDisplacementMock,
+        onPeakExponentChangeDataLayer: onPeakExponentMock,
+      });
+
+      await act(async () => {
+        root.render(<UnifiedRightSidebar {...defaultProps} />);
+      });
+
+      const themeBtn = container.querySelector('button[title*="Switch to Cream Rag"]') as HTMLButtonElement;
+      expect(themeBtn).not.toBeNull();
+
+      await act(async () => {
+        themeBtn.click();
+      });
+
+      expect(onThemeToggleMock).toHaveBeenCalledTimes(1);
+      // Switching from theme 0 to nextTheme 1 applies Cream Rag calibrated relief
+      expect(onHillshadeMock).toHaveBeenCalledWith('hybrid-crust-hydrosphere', 315, 0.7, 45);
+      expect(onDisplacementMock).toHaveBeenCalledWith('hybrid-crust-hydrosphere', 0.14);
+      expect(onPeakExponentMock).toHaveBeenCalledWith('hybrid-crust-hydrosphere', 1.6);
+    });
+  });
+});

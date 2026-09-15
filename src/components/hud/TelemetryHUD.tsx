@@ -173,6 +173,7 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onWaterClarityChangeDataLayer={props.onWaterClarityChangeDataLayer}
         onPeakExponentChangeDataLayer={props.onPeakExponentChangeDataLayer}
         onAmbientOcclusionChangeDataLayer={props.onAmbientOcclusionChangeDataLayer}
+        onPaperToothChangeDataLayer={props.onPaperToothChangeDataLayer}
         onReorderDataLayer={props.onReorderDataLayer}
         onSelectRenderStyle={props.onSelectRenderStyle}
         fractureIntensity={props.fractureIntensity}

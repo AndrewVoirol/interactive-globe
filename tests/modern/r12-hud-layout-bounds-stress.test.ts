@@ -711,9 +711,9 @@ describe('R12: HUD Layout Geometry & Boundary Challenger Stress Suite', () => {
       expect(sidebarSrc).toContain('2xl:max-h-[calc(100vh-8.5rem)]');
     });
 
-    it('S3-07: WebGPUCanvas.tsx renders Cartouche at cy = h - 92 with height 72', () => {
-      expect(canvasSrc).toMatch(/cy\s*=\s*h\s*-\s*92/);
-      expect(canvasSrc).toMatch(/ch\s*=\s*72/);
+    it('S3-07: WebGPUCanvas.tsx verifies 2D canvas Cartouche has been excised in favor of DOM CuratorsColophon', () => {
+      expect(canvasSrc).not.toContain('TYPUS ORBIS TERRARUM');
+      expect(canvasSrc).not.toMatch(/cy\s*=\s*h\s*-\s*92/);
     });
   });
 

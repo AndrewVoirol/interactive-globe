@@ -1790,7 +1790,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         theme: curTheme,
         showSoundings: curShowSoundings,
         showTriangulation: curShowTriangulation,
-        showCartouche: curShowCartouche,
         showVectors: curShowVectors,
         activeOverlay: curActiveOverlay,
         showLandmarks: curShowLandmarks,
@@ -2519,79 +2518,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                     ctx.fillText(bm.id, bx + 5, by - 3);
                   }
                 });
-              }
-
-              // 6. Archival Title Cartouche (Dedicated space in bottom-left)
-              if (curShowCartouche) {
-                const cx = 20;
-                const cy = h - 92;
-                const cw = 236;
-                const ch = 72;
-
-                // Background plate
-                ctx.fillStyle =
-                  curTheme === 1
-                    ? 'rgba(252, 249, 242, 0.94)'
-                    : curTheme === 2
-                    ? 'rgba(12, 25, 41, 0.88)'
-                    : 'rgba(9, 15, 24, 0.88)';
-                ctx.fillRect(cx, cy, cw, ch);
-
-                // Outer border
-                ctx.strokeStyle =
-                  curTheme === 1
-                    ? 'rgba(168, 120, 80, 0.8)'
-                    : curTheme === 2
-                    ? 'rgba(79, 163, 227, 0.7)'
-                    : 'rgba(0, 229, 255, 0.6)';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(cx, cy, cw, ch);
-
-                // Typography inside Cartouche
-                const titleColor = curTheme === 1 ? '#2c221e' : curTheme === 2 ? '#cbe1f7' : '#e0f2fe';
-                const subColor = curTheme === 1 ? '#735f52' : curTheme === 2 ? '#78a6d4' : '#67e8f9';
-                const metaColor = curTheme === 1 ? '#8a776a' : curTheme === 2 ? '#597fa6' : '#38bdf8';
-
-                ctx.font = 'bold 10px Cinzel, serif';
-                ctx.fillStyle = titleColor;
-                const titleText =
-                  curTheme === 1
-                    ? 'TYPUS ORBIS TERRARUM'
-                    : curTheme === 2
-                    ? 'ORBIS TERRARUM // BLUEPRINT'
-                    : 'PHYSIOGRAPHIC WORLD OCEAN';
-                ctx.fillText(titleText, cx + 12, cy + 20);
-
-                ctx.font = '8px Newsreader, serif';
-                ctx.fillStyle = subColor;
-                const subText =
-                  curTheme === 1
-                    ? 'Eduard Imhof Relief • 100% Cotton Rag'
-                    : curTheme === 2
-                    ? 'Ferroprussiate Survey Draft • Cyanotype'
-                    : 'Marie Tharp & Bruce Heezen Survey (1977)';
-                ctx.fillText(subText, cx + 12, cy + 36);
-
-                // Divider line
-                ctx.strokeStyle =
-                  curTheme === 1
-                    ? 'rgba(168, 120, 80, 0.25)'
-                    : curTheme === 2
-                    ? 'rgba(79, 163, 227, 0.25)'
-                    : 'rgba(0, 229, 255, 0.2)';
-                ctx.beginPath();
-                ctx.moveTo(cx + 12, cy + 44);
-                ctx.lineTo(cx + cw - 12, cy + 44);
-                ctx.stroke();
-
-                // Scale ratio and projection format
-                ctx.font = '8px "IBM Plex Mono", monospace';
-                ctx.fillStyle = metaColor;
-                const ratioText = curUnfurl < 0.05 ? 'SCALE: 1:127,420,000' : `UNFURL: ${(curUnfurl * 100).toFixed(1)}%`;
-                const seriesText = curTheme === 1 ? 'SWISS FED. TOPO' : curTheme === 2 ? 'HYDROGRAPHIC SER.' : 'LAMONT-DOHERTY';
-                ctx.fillText(ratioText, cx + 12, cy + 58);
-                const seriesMetrics = ctx.measureText(seriesText);
-                ctx.fillText(seriesText, cx + cw - 12 - seriesMetrics.width, cy + 58);
               }
 
               ctx.restore();

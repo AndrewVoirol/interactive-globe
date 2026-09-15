@@ -399,7 +399,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   const [catalogFilter, setCatalogFilter] = useState<'all' | 'topo' | 'vectors' | 'satellite'>('all');
   const catalogSheetRef = useRef<HTMLDivElement>(null);
 
-  type SidebarPlate = 'all' | 'medium' | 'terrain' | 'weather' | 'projection' | 'survey' | 'scene' | 'paradigms' | 'planetary' | 'layers';
+  type SidebarPlate = 'all' | 'medium' | 'terrain' | 'weather' | 'projection' | 'data' | 'survey' | 'scene' | 'paradigms' | 'planetary' | 'layers';
   const [activePlate, setActivePlate] = useState<SidebarPlate>('all');
 
   const isLight = theme === 1;
@@ -410,6 +410,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
   // Dynamic Tissot Indicatrix Distortion Tensor Computation (Section 1.1)
   const parsedLat = useMemo(() => {
+    if (!latStr) return 0;
     const match = latStr.match(/(\d+)°(?:(\d+)')?([NS])?/);
     if (!match) return 0;
     const deg = parseFloat(match[1]) + (match[2] ? parseFloat(match[2]) / 60 : 0);
@@ -482,13 +483,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   const primaryLayerId =
     primaryLayer?.id || (activeDirection === 'hybrid' ? 'hybrid-crust-hydrosphere' : 'architectural-topo-relief');
 
-  // Auto-tune optimal cartographic settings when switching physical mediums
-  const handleSelectMedium = (targetMode: 0 | 1 | 2) => {
-    if (onSelectThemeMode) {
-      onSelectThemeMode(targetMode);
-    } else {
-      if (theme !== targetMode) onThemeToggle();
-    }
+  // Synchronize calibrated relief parameters per physical medium
+  const applyMediumCalibration = (targetMode: 0 | 1 | 2) => {
     if (primaryLayerId) {
       if (targetMode === 1) {
         // Cream Cotton Rag (Swiss Alpine Relief: Imhof NW sweetspot & razor arêtes)
@@ -517,6 +513,23 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
         onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, 0);
       }
     }
+  };
+
+  // Auto-tune optimal cartographic settings when switching physical mediums
+  const handleSelectMedium = (targetMode: 0 | 1 | 2) => {
+    if (onSelectThemeMode) {
+      onSelectThemeMode(targetMode);
+    } else {
+      if (theme !== targetMode) onThemeToggle();
+    }
+    applyMediumCalibration(targetMode);
+  };
+
+  // Header theme cycle: toggle medium and synchronize calibrated relief parameters
+  const handleHeaderThemeToggle = () => {
+    const nextTheme = ((theme + 1) % 3) as 0 | 1 | 2;
+    onThemeToggle();
+    applyMediumCalibration(nextTheme);
   };
 
   // Auto-close catalog if user presses Escape
@@ -702,7 +715,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
             <div className="flex items-center gap-1.5 shrink-0">
               {/* Archival Physical Medium Cycle (Tharp / Cream / Cyanotype) */}
               <button
-                onClick={onThemeToggle}
+                onClick={handleHeaderThemeToggle}
                 aria-label={theme === 0 ? 'Switch to Cream Rag Theme' : theme === 1 ? 'Switch to Prussian Cyanotype Theme' : 'Switch to Marie Tharp Theme'}
                 title={
                   theme === 0
@@ -814,6 +827,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   { id: 'terrain', label: 'TERRAIN' },
                   { id: 'weather', label: 'WEATHER' },
                   { id: 'projection', label: 'PROJECTION' },
+                  { id: 'data', label: 'DATA' },
                 ] as const
               ).map((tab) => {
                 const isActive = activePlate === tab.id;
@@ -1156,7 +1170,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     <div className="pt-1">
                       <VernierSliderWithStepper
                         id="sidebar-crevice-ao"
-                        label="Crevice AO"
+                        label="Crevice AO:"
                         sublabel="Ambient Occlusion"
                         value={primaryLayer?.ambientOcclusion ?? 0.65}
                         min={0.0}
@@ -1203,60 +1217,42 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <span className="text-nano font-mono opacity-60 text-[var(--theme-text-muted)]">Active: Mode {mode + 1}</span>
                     </div>
 
-                    {/* Compact Rotary Vernier Stepper for Paradigms 0-4 */}
+                    {/* Active Paradigm Title Banner & Quick-Index Strip */}
                     <div className="p-1.5 rounded-[2px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] text-[var(--theme-text-primary)] shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <button
-                          onClick={() => onModeChange(((mode + 4) % 5) as SimulationMode)}
-                          title="Previous Simulation Paradigm (or press 1-5)"
-                          className="tactile-btn cursor-pointer px-2.5 py-1 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-micro font-bold"
-                        >
-                          ◀
-                        </button>
-
-                        <div className="flex flex-col items-center flex-1 px-2 min-w-0">
-                          <div className="flex items-center gap-1.5 font-bold text-micro tracking-wider truncate">
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                mode === 0
-                                  ? theme === 1
-                                    ? 'bg-[#7D4700]'
-                                    : 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]'
-                                  : mode === 1
-                                  ? 'bg-[var(--theme-status-sage)] shadow-[0_0_6px_var(--theme-status-sage)]'
-                                  : mode === 2
-                                  ? 'bg-[var(--theme-pulse-indicator)] shadow-[0_0_6px_var(--theme-pulse-indicator)]'
-                                  : mode === 3
-                                  ? theme === 1
-                                    ? 'bg-[#1A4457]'
-                                    : 'bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,0.8)]'
-                                  : 'bg-[var(--theme-status-sage)] shadow-[0_0_6px_var(--theme-status-sage)]'
-                              }`}
-                            />
-                            <span className="text-[var(--theme-text-accent)]">
-                              {mode === 0 && '1: LINEAR DILATION (HERO)'}
-                              {mode === 1 && '2: CYLINDER UNROLL'}
-                              {mode === 2 && '3: GRIFFITH RUPTURE'}
-                              {mode === 3 && '4: FLUID VORTEX (HERO)'}
-                              {mode === 4 && '5: DYMAXION NET'}
-                            </span>
-                          </div>
-                          <span className="text-nano opacity-60 font-mono truncate text-[var(--theme-text-secondary)]">
-                            {mode === 0 && 'Spherical-to-Planar Linear Mix · [Key 1]'}
-                            {mode === 1 && 'Mercator Longitudinal Seam Unroll · [Key 2]'}
-                            {mode === 2 && 'Antimeridian LEFM Fracture · [Key 3]'}
-                            {mode === 3 && 'Navier-Stokes Hydrodynamic Advection · [Key 4]'}
-                            {mode === 4 && 'Fuller 20-Facet Icosahedral Net · [Key 5]'}
+                      <div className="flex flex-col items-center px-1 min-w-0 py-0.5">
+                        <div className="flex items-center gap-1.5 font-bold text-micro tracking-wider truncate">
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                              mode === 0
+                                ? theme === 1
+                                  ? 'bg-[#7D4700]'
+                                  : 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]'
+                                : mode === 1
+                                ? 'bg-[var(--theme-status-sage)] shadow-[0_0_6px_var(--theme-status-sage)]'
+                                : mode === 2
+                                ? 'bg-[var(--theme-pulse-indicator)] shadow-[0_0_6px_var(--theme-pulse-indicator)]'
+                                : mode === 3
+                                ? theme === 1
+                                  ? 'bg-[#1A4457]'
+                                  : 'bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,0.8)]'
+                                : 'bg-[var(--theme-status-sage)] shadow-[0_0_6px_var(--theme-status-sage)]'
+                            }`}
+                          />
+                          <span className="text-[var(--theme-text-accent)]">
+                            {mode === 0 && '1: LINEAR DILATION (HERO)'}
+                            {mode === 1 && '2: CYLINDER UNROLL'}
+                            {mode === 2 && '3: GRIFFITH RUPTURE'}
+                            {mode === 3 && '4: FLUID VORTEX (HERO)'}
+                            {mode === 4 && '5: DYMAXION NET'}
                           </span>
                         </div>
-
-                        <button
-                          onClick={() => onModeChange(((mode + 1) % 5) as SimulationMode)}
-                          title="Next Simulation Paradigm (or press 1-5)"
-                          className="tactile-btn cursor-pointer px-2.5 py-1 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-micro font-bold"
-                        >
-                          ▶
-                        </button>
+                        <span className="text-nano opacity-60 font-mono truncate text-[var(--theme-text-secondary)]">
+                          {mode === 0 && 'Spherical-to-Planar Linear Mix · [Key 1]'}
+                          {mode === 1 && 'Mercator Longitudinal Seam Unroll · [Key 2]'}
+                          {mode === 2 && 'Antimeridian LEFM Fracture · [Key 3]'}
+                          {mode === 3 && 'Navier-Stokes Hydrodynamic Advection · [Key 4]'}
+                          {mode === 4 && 'Fuller 20-Facet Icosahedral Net · [Key 5]'}
+                        </span>
                       </div>
 
                       {/* Vernier Detent Quick-Index Pips (Linear, Scroll, Fracture, Fluid, Dymaxion) */}
@@ -1958,13 +1954,23 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               {/* ========================================================================= */}
               {/* PLATE 5: CARTOGRAPHIC DATASETS & PROVENANCE                               */}
               {/* ========================================================================= */}
-              {(activePlate === 'all' || activePlate === 'medium' || activePlate === 'layers') && (
+              {(activePlate === 'all' || activePlate === 'data' || activePlate === 'layers') && (
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-1.5 pb-1 border-b border-[var(--theme-card-border)]">
                     <span className="text-body font-mono tracking-widest font-semibold uppercase text-[var(--theme-text-muted)]">
                       PLATE V • CARTOGRAPHIC DATASETS & PROVENANCE
                     </span>
                   </div>
+
+                  {/* Full Curator's Colophon Mounted Prominently at Top of Plate 5 */}
+                  <CuratorsColophon
+                    theme={theme}
+                    mode={mode}
+                    alpha={alpha}
+                    isWeatherActive={Boolean(propShowClouds || isNoaaActive)}
+                    isRadarActive={isRadarActive}
+                    compact={false}
+                  />
 
                   {/* Data Layers Header Action */}
                   <div className="flex items-center justify-between">
@@ -2171,7 +2177,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   {/* Opacity & Blend Controls */}
                                   <div className="grid grid-cols-2 gap-2 text-nano pt-1.5 items-center">
                                     <div className="flex items-center gap-1.5">
-                                      <span className="text-[var(--theme-text-muted)] font-semibold">Opacity:</span>
+                                      <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">Opacity:</span>
                                       <input
                                         id={`sidebar-opacity-${layer.id}`}
                                         name={`opacity-${layer.id}`}
@@ -2204,164 +2210,36 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                     </div>
                                   </div>
 
-                                {/* Terrain 3D Relief & Sun Azimuth (for Topo / Satellite / Ocean) */}
-                                {(layer.category === 'topo' ||
-                                  layer.category === 'satellite' ||
-                                  layer.category === 'ocean' ||
-                                  !!layer.renderStyle ||
-                                  layer.elevationEncoding) && (
-                                  <div className="space-y-1.5 pt-1.5 border-t border-white/10 text-micro">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">
-                                        3D Relief:
-                                      </span>
-                                      <input
-                                        id={`sidebar-relief-${layer.id}`}
-                                        name={`displacementScale-${layer.id}`}
-                                        type="range"
-                                        min="0"
-                                        max="0.50"
-                                        step="0.01"
-                                        value={layer.displacementScale ?? preset?.defaultDisplacementScale ?? 0.08}
-                                        onChange={(e) =>
-                                          onDisplacementScaleChangeDataLayer?.(layer.id, parseFloat(e.target.value))
-                                        }
-                                        className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
-                                      />
-                                      <span className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums">
-                                        {(layer.displacementScale ?? preset?.defaultDisplacementScale ?? 0.08).toFixed(2)}
-                                      </span>
-                                    </div>
-
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">
-                                        Sun Azimuth:
-                                      </span>
-                                      <input
-                                        id={`sidebar-azimuth-${layer.id}`}
-                                        name={`sunAzimuth-${layer.id}`}
-                                        type="range"
-                                        min="0"
-                                        max="360"
-                                        step="5"
-                                        value={layer.sunAzimuth ?? 315}
-                                        onChange={(e) =>
-                                          onHillshadeChangeDataLayer?.(
-                                            layer.id,
-                                            parseFloat(e.target.value),
-                                            layer.hillshadeIntensity ?? 0.65
-                                          )
-                                        }
-                                        className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
-                                      />
-                                      <span className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums">
-                                        {Math.round(layer.sunAzimuth ?? 315)}°
-                                      </span>
-                                    </div>
-
-                                    {/* Direction A: Valley Crevice Ambient Occlusion & Antialiased Contours */}
-                                    {(layer.renderStyle === 'architectural' || layer.id === 'architectural-topo-relief') && (
-                                      <div className="pt-1.5 border-t border-white/10 space-y-1">
-                                        <div className="flex items-center gap-1.5">
-                                          <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">
-                                            Crevice AO:
-                                          </span>
-                                          <input
-                                            id={`sidebar-layer-ao-${layer.id}`}
-                                            name={`layerAo-${layer.id}`}
-                                            type="range"
-                                            min="0"
-                                            max="1"
-                                            step="0.05"
-                                            value={layer.ambientOcclusion ?? 0.65}
-                                            onChange={(e) =>
-                                              onAmbientOcclusionChangeDataLayer?.(layer.id, parseFloat(e.target.value))
-                                            }
-                                            className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
-                                          />
-                                          <span className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums">
-                                            {Math.round((layer.ambientOcclusion ?? 0.65) * 100)}%
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-nano font-mono text-[var(--theme-text-muted)]">
-                                          <span>Contour Filter:</span>
-                                          <span className="font-bold text-[var(--theme-text-primary)]">fwidth() Anti-Aliased</span>
-                                        </div>
+                                  {/* Direction A: Valley Crevice Ambient Occlusion & Antialiased Contours */}
+                                  {(layer.renderStyle === 'architectural' || layer.id === 'architectural-topo-relief') && (
+                                    <div className="pt-1.5 border-t border-white/10 space-y-1 text-micro">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">
+                                          Crevice AO:
+                                        </span>
+                                        <input
+                                          id={`sidebar-layer-ao-${layer.id}`}
+                                          name={`layerAo-${layer.id}`}
+                                          type="range"
+                                          min="0"
+                                          max="1"
+                                          step="0.05"
+                                          value={layer.ambientOcclusion ?? 0.65}
+                                          onChange={(e) =>
+                                            onAmbientOcclusionChangeDataLayer?.(layer.id, parseFloat(e.target.value))
+                                          }
+                                          className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
+                                        />
+                                        <span className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums">
+                                          {Math.round((layer.ambientOcclusion ?? 0.65) * 100)}%
+                                        </span>
                                       </div>
-                                    )}
-
-                                    {/* Direction B: Hydrosphere Depth, Sea Level, Clarity & Peak Exaggeration */}
-                                    {(layer.renderStyle === 'hybrid' || layer.id === 'hybrid-crust-hydrosphere') && (
-                                      <div className="pt-1.5 border-t border-white/10 space-y-1.5">
-                                        <div className="flex items-center gap-1.5">
-                                          <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">
-                                            Sea Level:
-                                          </span>
-                                          <input
-                                            id={`sidebar-layer-sealevel-${layer.id}`}
-                                            name={`layerSeaLevel-${layer.id}`}
-                                            type="range"
-                                            min="-150"
-                                            max="100"
-                                            step="5"
-                                            value={layer.seaLevelOffset ?? 0}
-                                            onChange={(e) =>
-                                              onSeaLevelOffsetChangeDataLayer?.(layer.id, parseFloat(e.target.value))
-                                            }
-                                            className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
-                                          />
-                                          <span className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums">
-                                            {(layer.seaLevelOffset ?? 0) > 0 ? `+${layer.seaLevelOffset}m` : `${layer.seaLevelOffset ?? 0}m`}
-                                          </span>
-                                        </div>
-
-                                        <div className="flex items-center gap-1.5">
-                                          <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">
-                                            Clarity:
-                                          </span>
-                                          <input
-                                            id={`sidebar-layer-clarity-${layer.id}`}
-                                            name={`layerClarity-${layer.id}`}
-                                            type="range"
-                                            min="0.10"
-                                            max="1.00"
-                                            step="0.05"
-                                            value={layer.waterClarity ?? 0.75}
-                                            onChange={(e) =>
-                                              onWaterClarityChangeDataLayer?.(layer.id, parseFloat(e.target.value))
-                                            }
-                                            className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
-                                          />
-                                          <span className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums">
-                                            {Math.round((layer.waterClarity ?? 0.75) * 100)}%
-                                          </span>
-                                        </div>
-
-                                        <div className="flex items-center gap-1.5">
-                                          <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">
-                                            Peak Sharp:
-                                          </span>
-                                          <input
-                                            id={`sidebar-layer-peaksharp-${layer.id}`}
-                                            name={`layerPeakSharp-${layer.id}`}
-                                            type="range"
-                                            min="1.0"
-                                            max="2.0"
-                                            step="0.1"
-                                            value={layer.peakExponent ?? 1.4}
-                                            onChange={(e) =>
-                                              onPeakExponentChangeDataLayer?.(layer.id, parseFloat(e.target.value))
-                                            }
-                                            className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
-                                          />
-                                          <span className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums">
-                                            {(layer.peakExponent ?? 1.4).toFixed(1)}x
-                                          </span>
-                                        </div>
+                                      <div className="flex items-center justify-between text-nano font-mono text-[var(--theme-text-muted)]">
+                                        <span>Contour Filter:</span>
+                                        <span className="font-bold text-[var(--theme-text-primary)]">fwidth() Anti-Aliased</span>
                                       </div>
-                                    )}
-                                  </div>
-                                )}
+                                    </div>
+                                  )}
 
                                   {/* Color Legend Bar */}
                                   {legend && (
@@ -2428,24 +2306,22 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 </div>
               </div>
 
-              {/* ========================================================================= */}
-              {/* CURATOR'S COLOPHON / CARTOGRAPHIC PROVENANCE LEDGER                       */}
-              {/* ========================================================================= */}
-              {(activePlate === 'all' || activePlate === 'medium' || activePlate === 'layers') && (
-                <div className="pt-1">
-                  <CuratorsColophon
-                    theme={theme}
-                    mode={mode}
-                    alpha={alpha}
-                    isWeatherActive={Boolean(propShowClouds || isNoaaActive)}
-                    isRadarActive={isRadarActive}
-                  />
-                </div>
-              )}
+            </div>
+
+            {/* Pinned Footer across all plates: Compact Provenance Strip & Tension Weight */}
+            <div className="shrink-0 pt-1.5 space-y-1.5 border-t border-[var(--theme-panel-header-border)]">
+              <CuratorsColophon
+                theme={theme}
+                mode={mode}
+                alpha={alpha}
+                isWeatherActive={Boolean(propShowClouds || isNoaaActive)}
+                isRadarActive={isRadarActive}
+                compact={true}
+              />
 
               {/* Parchment Scroll Tension Weight & Curl Lip Bar */}
               <div
-                className="mt-2 py-1 px-2.5 rounded-[2px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] text-[var(--theme-text-secondary)] flex items-center justify-between text-nano font-mono tracking-wider uppercase select-none shrink-0"
+                className="py-1 px-2.5 rounded-[2px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] text-[var(--theme-text-secondary)] flex items-center justify-between text-nano font-mono tracking-wider uppercase select-none shrink-0"
               >
                 <span className="flex items-center gap-1">
                   <span className="w-1 h-1 rounded-full bg-current opacity-60" />
@@ -2465,7 +2341,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     : '75 µm // CALIBRATED'}
                 </span>
               </div>
-          </div>
+            </div>
         </div>
       </div>
 

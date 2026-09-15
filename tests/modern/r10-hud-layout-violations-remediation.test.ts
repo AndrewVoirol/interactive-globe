@@ -25,9 +25,9 @@ describe('Stage 2 Cartography: Remediation of 9 Known HUD Layout Violations', ()
   // Violation 1: Cartouche-to-Aside Gap = 20px
   // --------------------------------------------------------------------------
   describe('Violation 1: Cartouche-to-Aside Vertical Clearance Gutter', () => {
-    it('V1-01: verifies Cartouche top edge is at h - 92px in WebGPUCanvas', () => {
-      expect(canvasContent).toMatch(/cy\s*=\s*h\s*-\s*92/);
-      expect(canvasContent).toMatch(/ch\s*=\s*72/);
+    it('V1-01: verifies 2D canvas cartouche has been permanently excised in favor of DOM CuratorsColophon', () => {
+      expect(canvasContent).not.toContain('TYPUS ORBIS TERRARUM');
+      expect(canvasContent).not.toMatch(/cy\s*=\s*h\s*-\s*92/);
     });
 
     it('V1-02: verifies Aside shifts to bottom-[112px] when showCartouche is true', () => {
