@@ -319,13 +319,13 @@ export const LIGHT_MONOCHROME_THEME: ThemePalette = {
     alpha: 1.0,
   },
   hudSurface: {
-    hex: '#FFFFFF',
-    rgb: [1.0, 1.0, 1.0],
-    alpha: 0.85,
+    hex: '#FCF9F2',
+    rgb: [252 / 255, 249 / 255, 242 / 255],
+    alpha: 0.94,
   },
   hudBorder: {
-    hex: '#E2E8F0',
-    rgb: [226 / 255, 232 / 255, 240 / 255],
+    hex: '#CFC4AF',
+    rgb: [207 / 255, 196 / 255, 175 / 255],
     alpha: 1.0,
   },
   geographicCoastlines: {
@@ -447,8 +447,8 @@ export const PRUSSIAN_CYANOTYPE_THEME: ThemePalette = {
     alpha: 0.65,
   },
   geographicCoastlines: {
-    hex: '#FFFFFF',
-    rgb: [1.0, 1.0, 1.0],
+    hex: '#E8EDF2',
+    rgb: [232 / 255, 237 / 255, 242 / 255],
     alpha: 0.98,
   },
   structuralOceanNodes: {
@@ -471,7 +471,7 @@ export const PRUSSIAN_CYANOTYPE_THEME: ThemePalette = {
     inkAbsorption: 0.40,
     fiberDensity: 0.80,
     exposureGamma: 1.85,
-    stippleDensity: 0.0,
+    stippleDensity: 0.75,
   },
 };
 

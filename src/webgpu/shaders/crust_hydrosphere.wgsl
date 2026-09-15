@@ -1176,17 +1176,17 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     if (sim.u_theme == 2u) {
         // Prussian Cyanotype (Ferroprussiate Monochromatic Wash)
-        cRockDark   = vec3<f32>(0.08, 0.14, 0.22);
+        cRockDark   = vec3<f32>(0.06, 0.12, 0.20);
         cRockLit    = vec3<f32>(0.32, 0.45, 0.58);
         cSkyAmbient = vec3<f32>(0.14, 0.22, 0.32);
-        cLowland    = vec3<f32>(0.20, 0.32, 0.46); // Washed Cerulean #4F79A3
-        cPlateau    = vec3<f32>(0.28, 0.42, 0.58);
-        cFlank      = vec3<f32>(0.42, 0.58, 0.74);
+        cLowland    = vec3<f32>(0.09, 0.16, 0.25); // Deep Prussian Ground #172940
+        cPlateau    = vec3<f32>(0.18, 0.28, 0.42);
+        cFlank      = vec3<f32>(0.34, 0.48, 0.64);
         cMontane    = vec3<f32>(0.52, 0.64, 0.76); // Washed Slate High Plateau
         cSummit     = vec3<f32>(0.92, 0.94, 0.96); // Chalk Ruling Pen #E8EDF2
     } else if (sim.u_theme == 1u) {
         // Cream Rag Paper (Eduard Imhof Swiss Alpine Relief)
-        cRockDark   = vec3<f32>(0.48, 0.43, 0.38); // Warm alpine limestone shadow #7A6E61
+        cRockDark   = vec3<f32>(0.36, 0.32, 0.28); // Warm alpine limestone shadow #5C5247
         cRockLit    = vec3<f32>(0.72, 0.67, 0.58); // Sunlit limestone crags #B8AB94
         cSkyAmbient = vec3<f32>(0.38, 0.40, 0.44);
         cLowland    = vec3<f32>(0.81, 0.71, 0.53); // Dune Ochre #CFB588
@@ -1196,8 +1196,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         cSummit     = vec3<f32>(0.98, 0.97, 0.95); // Glacial White #FDFCFA
     } else {
         // Marie Tharp Physiographic (Dark Abyssal Trench to Parchment Land)
-        cRockDark   = vec3<f32>(0.12, 0.10, 0.09);
-        cRockLit    = vec3<f32>(0.48, 0.38, 0.32);
+        cRockDark   = vec3<f32>(0.05, 0.08, 0.12); // Deep oceanic basalt crevice
+        cRockLit    = vec3<f32>(0.32, 0.36, 0.40); // Mineral basalt illuminated
         cSkyAmbient = vec3<f32>(0.14, 0.18, 0.24);
         cLowland    = vec3<f32>(0.80, 0.71, 0.57); // Parchment Land #CBB692
         cPlateau    = vec3<f32>(0.72, 0.64, 0.52);
@@ -1232,12 +1232,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     if (sim.u_theme == 1u) {
         // Eduard Imhof Dual-Temperature Vector Illumination:
         // Warm golden ochre on NW 315° direct illuminated slopes vs cool violet-umber on SE 135° shadowed slopes
-        let cWarmDirect = vec3<f32>(1.12, 1.02, 0.88);
-        let cCoolShadow = vec3<f32>(0.38, 0.32, 0.44);
-        let sunWeight = clamp(NdotL1 * 1.4 * shadowFactor, 0.0, 1.0);
+        let cWarmDirect = vec3<f32>(1.14, 1.06, 0.94);
+        let cCoolShadow = vec3<f32>(0.35, 0.36, 0.45);
+        let sunWeight = smoothstep(0.04, 0.68, NdotL1 * shadowFactor);
         let directComponent = cWarmDirect * (sunDirect * 0.90 + ridgeEnhance * 0.8 * shadowFactor);
         let shadowComponent = cCoolShadow * (skyIndirect * creviceAO);
-        let lowlandLift = lowlandWeight * 0.14 * (1.0 + lowlandMicroShade);
+        let lowlandLift = lowlandWeight * 0.12 * (1.0 + lowlandMicroShade);
         landIllum = mix(shadowComponent, directComponent, sunWeight) + cWarmDirect * lowlandLift;
     } else if (sim.u_theme == 2u) {
         // Prussian Cyanotype: Actinic Monochromatic Photochemical Illumination
@@ -1376,19 +1376,23 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let inkDensity = clamp(shadowDepth * slopeGrip * 0.45, 0.0, 0.60);
         let cPaperBase = vec3<f32>(0.953, 0.925, 0.878); // Arches 300gsm Cream Rag #F3ECE0
         let intaglioAbsorbed = cPaperBase * exp(-kSepia * (inkDensity * (1.0 + capillaryBleed)));
-        finalLand = mix(finalLand, intaglioAbsorbed, clamp(sim.u_mediumProperties.x * 0.40, 0.0, 0.70));
+        let inkBlend = clamp(inkDensity * 1.5 * sim.u_mediumProperties.x, 0.0, 0.70);
+        finalLand = mix(finalLand, intaglioAbsorbed, inkBlend);
     } else if (sim.u_theme == 2u) {
         // --- THEME 2: PRUSSIAN CYANOTYPE (1842 John Herschel Photochemical Model) ---
         // Actinic exposure model: elevation inversion with sensitometric curve E = (1.0 - elevNorm)^exposureGamma
         let normLandElev = clamp(landElev, 0.0, 1.0);
         let landExposure = pow(clamp(1.0 - normLandElev, 0.0, 1.0), max(0.1, sim.u_mediumProperties.z));
         let cChalkRulingPen = vec3<f32>(0.91, 0.93, 0.96); // Unexposed summit resist #E8EDF2
-        let cWashedCerulean = vec3<f32>(0.16, 0.30, 0.46); // Lowland blueprint wash #294D75
+        let cWashedCerulean = vec3<f32>(0.09, 0.16, 0.25); // Lowland blueprint wash #172940
         let developedCyanotype = mix(cChalkRulingPen, cWashedCerulean, smoothstep(0.04, 0.80, landExposure));
 
+        // Precision technical blueprint relief: modulate sensitized emulsion with actinic directional illumination
+        let cyanShaded = developedCyanotype * landIllum;
+
         // Summits, sharp ridges, and crests wash out to crisp ruling-pen chalk linework (#E8EDF2)
-        let unexposedResist = smoothstep(0.68, 0.98, normLandElev) + kRidge * 0.45;
-        finalLand = mix(developedCyanotype * (diffuseTotal * 0.5 + 0.5), cChalkRulingPen, clamp(unexposedResist, 0.0, 0.95));
+        let unexposedResist = smoothstep(0.65, 0.98, normLandElev) + kRidge * 0.50;
+        finalLand = mix(cyanShaded, cChalkRulingPen, clamp(unexposedResist, 0.0, 0.95));
 
         // 1. Prussian Blue Crystal Precipitation Noise (colloidal ferroprussiate micro-crystals)
         // High-frequency crystalline granularity in deep exposure regions — NOT smooth gradients
@@ -1531,10 +1535,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
             if (sim.u_theme == 2u) {
                 // Prussian Cyanotype: Architectural drafting wash in cerulean & ferroprussiate indigo
-                cBathyShelf  = vec3<f32>(0.16, 0.30, 0.46); // Drafting cobalt #294D75
+                cBathyShelf  = vec3<f32>(0.20, 0.36, 0.52); // Drafting cobalt #294D75
                 cBathySlope  = vec3<f32>(0.11, 0.22, 0.35); // Pelagic slope cerulean-indigo
-                cBathyAbyss  = vec3<f32>(0.07, 0.15, 0.24); // Prussian indigo #162B42
-                cBathyTrench = vec3<f32>(0.03, 0.07, 0.12); // Deep exposed prussiate #0E1824
+                cBathyAbyss  = vec3<f32>(0.06, 0.13, 0.22); // Prussian indigo #162B42
+                cBathyTrench = vec3<f32>(0.02, 0.05, 0.09); // Deep exposed prussiate #0E1824
                 cBathyRidge  = vec3<f32>(0.91, 0.93, 0.96); // Chalk ruling pen crest #E8EDF2
             } else if (sim.u_theme == 1u) {
                 // Cream Cotton Rag: Eduard Imhof tiered watercolor shelves (inner celadon, outer shelf break, pelagic slope, marine indigo, hadal trench)
@@ -1550,11 +1554,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 cBathyRidge  = vec3<f32>(0.88, 0.84, 0.78); // Warm bleached parchment
             } else {
                 // Marie Tharp: High-contrast turquoise continental shelf, pelagic slope & abyssal basalt
-                cBathyShelf  = vec3<f32>(0.14, 0.47, 0.54); // Coastal turquoise #23778A
+                cBathyShelf  = vec3<f32>(0.12, 0.48, 0.55); // Coastal turquoise #23778A
                 cBathySlope  = vec3<f32>(0.08, 0.22, 0.28); // Oceanic teal-navy continental slope
-                cBathyAbyss  = vec3<f32>(0.04, 0.07, 0.11); // Abyssal plain basalt #0F171F
-                cBathyTrench = vec3<f32>(0.015, 0.025, 0.05); // Deep hadal trench abyss
-                cBathyRidge  = vec3<f32>(0.85, 0.80, 0.72); // Mid-Atlantic rift ridge parchment
+                cBathyAbyss  = vec3<f32>(0.035, 0.065, 0.105); // Abyssal plain basalt #0F171F
+                cBathyTrench = vec3<f32>(0.010, 0.018, 0.038); // Deep hadal trench abyss
+                cBathyRidge  = vec3<f32>(0.54, 0.50, 0.42); // Mid-Atlantic rift ridge parchment
             }
 
             let b0 = smoothstep(0.004, 0.022, normDepth);  // Shelf (0-200m) to Slope (200-2500m)
@@ -1602,7 +1606,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 let cellId = floor(stippleCoord);
                 let cellFract = fract(stippleCoord);
 
-                let dotProb = smoothstep(0.02, 0.35, bathySlope) * (sim.u_mediumProperties.w * 0.85);
+                // Authentic Tharp abyssal plain stippling: sediment dot pattern on abyssal plains and slopes
+                let abyssalPlainFactor = smoothstep(0.10, 0.35, normDepth);
+                let slopeFactor = smoothstep(0.02, 0.30, bathySlope);
+                let dotProb = (abyssalPlainFactor * 0.25 + slopeFactor * 0.55) * (sim.u_mediumProperties.w * 0.85);
                 let cellRng = hashPaper2D(cellId * 3.17 + vec2<f32>(43.1, 89.3));
                 let hasDot = cellRng < dotProb;
 
@@ -1642,6 +1649,22 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 let weaveGrid = (warp - weft) * isWarpOver * 0.30 + (warp * weft) * 0.12;
                 let bLinenTooth = (weaveGrid + (hashPaper2D(linenCoord * 0.5) - 0.5) * 0.35) * (sim.u_roughness * 0.50);
                 cBathy = clamp(cBathy * (1.0 + bLinenTooth), vec3<f32>(0.0), vec3<f32>(1.0));
+
+                // 1842 Technical Blueprint Bathymetric Stippling on continental slope and shelf break
+                if (sim.u_mediumProperties.w > 0.1) {
+                    let bathySlope = length(vec2<f32>(effDHx, effDHy));
+                    let stippleFreq = 1800.0 * sim.u_mediumProperties.w;
+                    let stippleCoord = vec2<f32>(input.uv.x * safeCosLat, input.uv.y) * stippleFreq;
+                    let cellId = floor(stippleCoord);
+                    let cellFract = fract(stippleCoord);
+                    let dotProb = smoothstep(0.015, 0.30, bathySlope) * (sim.u_mediumProperties.w * 0.70);
+                    let cellRng = hashPaper2D(cellId * 2.71 + vec2<f32>(19.4, 53.2));
+                    let hasDot = cellRng < dotProb;
+                    let distToDot = length(cellFract - vec2<f32>(0.5));
+                    let dotMask = select(0.0, 1.0 - smoothstep(0.10, 0.22, distToDot), hasDot) * fragPoleAtten;
+                    let cChalkDot = vec3<f32>(0.91, 0.93, 0.96); // Chalk ruling pen sounding dot
+                    cBathy = mix(cBathy, cChalkDot, dotMask * 0.65);
+                }
             }
 
             var bathyIllum: vec3<f32>;

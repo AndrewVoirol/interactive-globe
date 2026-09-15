@@ -146,14 +146,14 @@ fn fs_swiss_relief(in: VertexOutput) -> @location(0) vec4<f32> {
     let isDark = params.u_theme == 0u;
     let isCyan = params.u_theme == 2u;
 
-    let cLowland   = select(select(vec3<f32>(0.81, 0.71, 0.53), vec3<f32>(0.80, 0.71, 0.57), isDark), vec3<f32>(0.20, 0.32, 0.46), isCyan);
-    let cMidland   = select(select(vec3<f32>(0.62, 0.43, 0.31), vec3<f32>(0.65, 0.58, 0.48), isDark), vec3<f32>(0.34, 0.48, 0.64), isCyan);
-    let cAlpine    = select(select(vec3<f32>(0.44, 0.40, 0.36), vec3<f32>(0.50, 0.45, 0.40), isDark), vec3<f32>(0.56, 0.68, 0.82), isCyan);
+    let cLowland   = select(select(vec3<f32>(0.91, 0.88, 0.81), vec3<f32>(0.80, 0.71, 0.57), isDark), vec3<f32>(0.09, 0.16, 0.25), isCyan);
+    let cMidland   = select(select(vec3<f32>(0.78, 0.68, 0.54), vec3<f32>(0.72, 0.64, 0.52), isDark), vec3<f32>(0.18, 0.28, 0.42), isCyan);
+    let cAlpine    = select(select(vec3<f32>(0.66, 0.56, 0.43), vec3<f32>(0.68, 0.60, 0.48), isDark), vec3<f32>(0.52, 0.64, 0.76), isCyan);
     let cSummit    = select(select(vec3<f32>(0.98, 0.97, 0.95), vec3<f32>(0.96, 0.93, 0.88), isDark), vec3<f32>(0.92, 0.94, 0.96), isCyan);
-    let cRockDark  = select(select(vec3<f32>(0.22, 0.19, 0.16), vec3<f32>(0.12, 0.10, 0.09), isDark), vec3<f32>(0.08, 0.14, 0.22), isCyan);
-    let cRockLit   = select(select(vec3<f32>(0.55, 0.48, 0.40), vec3<f32>(0.48, 0.38, 0.32), isDark), vec3<f32>(0.32, 0.45, 0.58), isCyan);
-    let cOceanDeep = select(select(vec3<f32>(0.15, 0.23, 0.32), vec3<f32>(0.06, 0.09, 0.12), isDark), vec3<f32>(0.05, 0.09, 0.14), isCyan);
-    let cOceanShelf= select(select(vec3<f32>(0.47, 0.60, 0.55), vec3<f32>(0.23, 0.47, 0.54), isDark), vec3<f32>(0.16, 0.30, 0.46), isCyan);
+    let cRockDark  = select(select(vec3<f32>(0.36, 0.32, 0.28), vec3<f32>(0.24, 0.18, 0.14), isDark), vec3<f32>(0.06, 0.12, 0.20), isCyan);
+    let cRockLit   = select(select(vec3<f32>(0.72, 0.67, 0.58), vec3<f32>(0.55, 0.46, 0.36), isDark), vec3<f32>(0.32, 0.45, 0.58), isCyan);
+    let cOceanDeep = select(select(vec3<f32>(0.20, 0.28, 0.38), vec3<f32>(0.035, 0.065, 0.11), isDark), vec3<f32>(0.05, 0.09, 0.14), isCyan);
+    let cOceanShelf= select(select(vec3<f32>(0.52, 0.66, 0.60), vec3<f32>(0.12, 0.48, 0.55), isDark), vec3<f32>(0.20, 0.36, 0.52), isCyan);
     
     // Branchless altitude color ramp via linear smoothstep blends
     let tLow = smoothstep(0.0, 0.35, tElev);
@@ -163,8 +163,9 @@ fn fs_swiss_relief(in: VertexOutput) -> @location(0) vec4<f32> {
     
     // Aerial Perspective Tinting:
     // Sunlit faces receive warm golden warmth; shadowed valleys receive cool blue-gray haze
-    let cWarmSun = vec3<f32>(1.04, 0.98, 0.88);
-    let cCoolHaze = vec3<f32>(0.84, 0.90, 1.06);
+    // Monochromatic actinic illumination for Prussian Cyanotype (zero warm contamination)
+    let cWarmSun = select(vec3<f32>(1.04, 0.98, 0.88), vec3<f32>(0.96, 0.98, 1.02), isCyan);
+    let cCoolHaze = select(vec3<f32>(0.84, 0.90, 1.06), vec3<f32>(0.18, 0.32, 0.48), isCyan);
     
     let sunLitFactor = clamp(NdotL1 * 1.5, 0.0, 1.0);
     let skyHaze = mix(cCoolHaze, cWarmSun, sunLitFactor);
