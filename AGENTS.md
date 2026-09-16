@@ -28,6 +28,8 @@ No shader, geometry, or thematic refactor is complete based solely on compilatio
 - **Test all 3 mediums**: No visual verification may pass based on captures of a single theme.
 - **Live browser verification**: Use Chrome DevTools MCP (`take_screenshot`, `list_console_messages`) to confirm zero runtime errors and correct visual output.
 - **Show real content**: A large screenshot file (> 50KB) is NOT proof of feature implementation. If a feature is claimed to be implemented, the screenshot must show that feature clearly visible.
+- **No Uniform Placebos (End-to-End Shader Execution)**: Verifying that a React control updates component state or packs a float into `SimUniforms` is completely insufficient. The implementing agent must verify that the target fragment/vertex shader actually consumes that uniform in its **active, default execution path** without early `discard` statements, hardcoded masks, or bypassed branches. If a uniform is uploaded but discarded in the default view, it is a placebo.
+- **Dual-State Visual Contrast**: For interactive parameters (e.g. Sea Level ±100m, Solar Angle, or Water Clarity), visual verification must capture before/after states at opposing parameter bounds and demonstrate an observable pixel delta on the canvas.
 
 ## 6. Cartographic Framing & HUD Layout
 - **10px Spatial Clearance Moat**: All floating HUD instruments align to a 20px grid axis. The distance from neatline to panel edge is a strict 10px moat.
@@ -107,3 +109,10 @@ Many test suites in this project use `fs.readFileSync` to read `.tsx` source fil
 - **Pre-flight**: Grep the test directory for `readFileSync` to identify all source-scanning tests that reference files being refactored.
 - **Budget test harmonization**: Plan for a test update pass after the refactor lands. Don't expect refactored code to pass these tests without updating the scanned file paths or expected strings.
 - **Never add synthetic comments**: If a source-scanning test expects a string that moved to a different file, update the test to scan the correct file — never add dead comments to satisfy the old assertion.
+- **Shader Source-Scanning Regex Collisions**: Several test suites use regular expressions (e.g. `/else\s+if\s*\(\s*sim\.u_renderStyle\s*==\s*2u\s*\)/`) to assert that specific texture passes exist in shaders. Introducing new branching conditions with identical syntax higher up in the shader causes greedy regex matches to hit the wrong block and fail tests. When branching on uniform properties in shaders, prefer `select(fallback, active, condition)` or unique condition forms to prevent regex collisions.
+
+## 22. Experimental & Diagnostic Staging (Beta Tray)
+Internal physics tuning levers, shader diagnostics, and uncalibrated tactile controls (such as procedural paper tooth sliders, raw friction multipliers, or cursor physics ripples) must not clutter primary instrument cards.
+- **Beta Tray Containment**: Place experimental or developer-facing controls in a dedicated, collapsible `[BETA]` tray at the bottom of the relevant tab.
+- **Aesthetic Status Tagging**: Controls active only in specific themes must explicitly display a status tag (e.g. `(Cream Rag only)`) when inactive, rather than silently disabling with zero explanation.
+- **Retirement to Constants**: Once physical parameters are calibrated and validated in shader code, remove the UI slider completely and hardcode the optimal constant into WGSL. Do not expose internal engine plumbing to users permanently.
