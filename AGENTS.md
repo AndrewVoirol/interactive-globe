@@ -110,9 +110,16 @@ Many test suites in this project use `fs.readFileSync` to read `.tsx` source fil
 - **Budget test harmonization**: Plan for a test update pass after the refactor lands. Don't expect refactored code to pass these tests without updating the scanned file paths or expected strings.
 - **Never add synthetic comments**: If a source-scanning test expects a string that moved to a different file, update the test to scan the correct file — never add dead comments to satisfy the old assertion.
 - **Shader Source-Scanning Regex Collisions**: Several test suites use regular expressions (e.g. `/else\s+if\s*\(\s*sim\.u_renderStyle\s*==\s*2u\s*\)/`) to assert that specific texture passes exist in shaders. Introducing new branching conditions with identical syntax higher up in the shader causes greedy regex matches to hit the wrong block and fail tests. When branching on uniform properties in shaders, prefer `select(fallback, active, condition)` or unique condition forms to prevent regex collisions.
+- **Comprehensive Pre-Flight Token Grepping**: Before modifying or removing any DOM element, label, or layout class, grep `tests/` for literal class names, string labels, and element tags in a single pass. Harmonize all affected test files simultaneously alongside the component edits, avoiding the slow "edit -> test fail -> edit -> test fail" loop.
 
 ## 22. Experimental & Diagnostic Staging (Beta Tray)
 Internal physics tuning levers, shader diagnostics, and uncalibrated tactile controls (such as procedural paper tooth sliders, raw friction multipliers, or cursor physics ripples) must not clutter primary instrument cards.
 - **Beta Tray Containment**: Place experimental or developer-facing controls in a dedicated, collapsible `[BETA]` tray at the bottom of the relevant tab.
 - **Aesthetic Status Tagging**: Controls active only in specific themes must explicitly display a status tag (e.g. `(Cream Rag only)`) when inactive, rather than silently disabling with zero explanation.
 - **Retirement to Constants**: Once physical parameters are calibrated and validated in shader code, remove the UI slider completely and hardcode the optimal constant into WGSL. Do not expose internal engine plumbing to users permanently.
+
+## 23. Fast-Path Iterative Test Scoping (Targeted vitest vs. Full Suite Gating)
+The project test suite contains over 210 test files and 3,100+ tests, including intensive Monte Carlo DEM elevation decoders and uniform stress suites that take 35–45 seconds per run.
+- **Targeted Iteration**: During active development, refactoring, or paper-cut fixes, NEVER run `npm test` (full suite) repeatedly. Run only the specific test files associated with the modified components: `npx vitest run tests/path/to/target.test.ts`.
+- **Final Gating Only**: Reserve full `npm test` runs strictly for the final verification gate before pushing or reporting task completion.
+- **Fast Filter Pattern**: When testing multiple related suites, pass them together in a single command (`npx vitest run test1.ts test2.ts`) rather than running individual suites serially or triggering the entire repo.
