@@ -14,6 +14,7 @@ import { BathymetricTideGauge } from './instruments/BathymetricTideGauge';
 import { TactileSwitch } from '../ui/TactileSwitch';
 import { VernierSlider } from '../ui/VernierSlider';
 import { SegmentedControl } from '../ui/SegmentedControl';
+import { TactileSelect } from '../ui/TactileSelect';
 import { ThemeManager } from '../../core/themes/ThemeManager';
 import { AtmosphereDrawer, PrognosticModelBackend } from '../AtmosphereDrawer';
 export type { PrognosticModelBackend };
@@ -64,6 +65,7 @@ export interface UnifiedRightSidebarProps {
   latStr: string;
   lonStr: string;
   mapScaleStr: string;
+  cameraPosition?: [number, number, number];
   dataInfo?: LoadedDataInfo;
   onSnapCamera: (v: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => void;
   dataLayers?: DataLayerItem[];
@@ -154,6 +156,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   latStr,
   lonStr,
   mapScaleStr,
+  cameraPosition,
   dataInfo,
   onSnapCamera,
   dataLayers = [],
@@ -251,8 +254,37 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
   type SidebarPlate = 'scene' | 'data';
   const [activePlate, setActivePlate] = useState<SidebarPlate>('scene');
+  const [isBetaOpen, setIsBetaOpen] = useState(true);
+  const [activeSnap, setActiveSnap] = useState<'equator' | 'pole' | 'seam' | 'isometric' | 'horizon' | null>(null);
 
   const isLight = theme === 1;
+
+  const attitudeReadout = useMemo(() => {
+    const pos = cameraPosition || [0, 0, 15];
+    const [x, y, z] = pos;
+    const r = Math.sqrt(x * x + y * y + z * z);
+    const alt = r > 0.001 ? r.toFixed(1) : '15.0';
+    let pitch = (Math.asin(Math.max(-1, Math.min(1, y / (r || 1)))) * (180 / Math.PI)).toFixed(1);
+    if (pitch === '-0.0') pitch = '0.0';
+    let yaw = (Math.atan2(x, z) * (180 / Math.PI)).toFixed(1);
+    if (yaw === '-0.0') yaw = '0.0';
+    return `PITCH: ${pitch}° · YAW: ${yaw}° · ALT: ${alt} R`;
+  }, [cameraPosition]);
+
+  const PROJECTION_MODES = [
+    { id: 0, roman: 'I', label: 'Linear' },
+    { id: 1, roman: 'II', label: 'Scroll' },
+    { id: 2, roman: 'III', label: 'Fracture' },
+    { id: 3, roman: 'IV', label: 'Fluid' },
+    { id: 4, roman: 'V', label: 'Dymaxion' },
+  ] as const;
+
+  const DEMO_PRESETS = [
+    { id: 'hawaii', label: 'Hawaii', coordinates: "19°49'N 155°28'W", description: 'Volcanic hotspot & ocean trench' },
+    { id: 'cape-cod', label: 'Cape Cod', coordinates: "41°54'N 70°03'W", description: 'Coastal spit & moraine barrier' },
+    { id: 'grand-canyon', label: 'Grand Canyon', coordinates: "36°06'N 112°06'W", description: 'Riparian orogeny & canyon incision' },
+    { id: 'fuji', label: 'Mount Fuji', coordinates: "35°21'N 138°43'E", description: 'Stratovolcano & caldera relief' },
+  ] as const;
 
   const activeDirection: DataLayerRenderStyle =
     dataLayers.find((l) => l.visible && l.renderStyle)?.renderStyle ?? 'architectural';
@@ -642,7 +674,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     <div className="pt-1">
                       <VernierSlider
                         id="sidebar-crevice-ao"
-                        label="AO"
+                        label="Crevice Depth"
+                        sublabel="Darkens concave ravines and canyon floors via DEM surface curvature"
+                        tooltip="Darkens concave ravines and canyon floors via DEM surface curvature"
                         value={primaryLayer?.ambientOcclusion ?? 0.65}
                         min={0.0}
                         max={1.0}
@@ -651,22 +685,48 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         onChange={(v) => onAmbientOcclusionChangeDataLayer?.(primaryLayerId, v)}
                       />
                     </div>
+                  </div>
 
-                    <div className={`pt-1 transition-opacity ${theme === 1 ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-                      <VernierSlider
-                        id="sidebar-paper-tooth"
-                        label="Paper Tooth"
-                        value={primaryLayer?.paperTooth ?? 0.40}
-                        min={0.0}
-                        max={1.0}
-                        step={0.05}
-                        readout={`${Math.round((primaryLayer?.paperTooth ?? 0.40) * 100)}%`}
-                        onChange={(v) => onPaperToothChangeDataLayer?.(primaryLayerId, v)}
-                      />
+                  {/* 1. Manifold Strata Station */}
+                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+                        Manifold Strata
+                      </div>
+                      <span className="text-nano font-mono opacity-60 text-[var(--theme-text-muted)]">
+                        {layerMode === 0 ? '0 · Composite' : layerMode === 1 ? '1 · Stipple' : '2 · Lattice'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+                      {([
+                        { id: 0, label: 'Composite', glyph: '⛶', title: '0: Composite — Combined stipple nodes and wireframe lattice' },
+                        { id: 1, label: 'Stipple', glyph: '•', title: '1: Stipple — Discrete point sounding matrix only' },
+                        { id: 2, label: 'Lattice', glyph: '◇', title: '2: Lattice — Triangulated Delaunay wireframe mesh only' },
+                      ] as const).map((s) => {
+                        const isActive = layerMode === s.id;
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => onLayerModeChange(s.id as 0 | 1 | 2)}
+                            title={s.title}
+                            aria-pressed={isActive}
+                            className={`tactile-btn cursor-pointer py-1.5 px-1 rounded-[2px] text-nano font-mono uppercase tracking-tight text-center border transition-all flex flex-col items-center gap-0.5 ${
+                              isActive
+                                ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-bold shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
+                                : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                            }`}
+                          >
+                            <span className="text-micro leading-none opacity-70" aria-hidden="true">{s.glyph}</span>
+                            <span className="truncate w-full">{s.label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* Projection Card */}
+                  {/* 2. Projection Manifold Station with Archival Parchment Strip */}
                   <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
                     <div className="flex items-center justify-between">
                       <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
@@ -675,57 +735,37 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <span className="text-nano font-mono opacity-60 text-[var(--theme-text-muted)]">Mode {mode + 1}</span>
                     </div>
 
-                    <div className="p-1.5 rounded-[2px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] text-[var(--theme-text-primary)] shadow-sm">
-                      <div className="flex items-center justify-center px-1 py-0.5 font-bold text-micro tracking-wider truncate text-[var(--theme-text-accent)]">
-                        {mode === 0 && 'Linear'}
-                        {mode === 1 && 'Scroll'}
-                        {mode === 2 && 'Fracture'}
-                        {mode === 3 && 'Fluid'}
-                        {mode === 4 && 'Dymaxion'}
-                      </div>
-
-                      <div className="grid grid-cols-5 gap-1 mt-1.5 pt-1.5 border-t border-[var(--theme-card-border)]">
-                        {([
-                          { id: 0, label: 'Linear' },
-                          { id: 1, label: 'Scroll' },
-                          { id: 2, label: 'Fracture' },
-                          { id: 3, label: 'Fluid' },
-                          { id: 4, label: 'Dymaxion' },
-                        ] as const).map((m) => (
-                          <button
-                            key={m.id}
-                            onClick={() => onModeChange(m.id as SimulationMode)}
-                            className={`tactile-btn cursor-pointer py-1 rounded-[2px] text-nano font-mono uppercase tracking-tight text-center border transition-all ${
-                              mode === m.id
-                                ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-bold shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
-                                : 'border-transparent text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
-                            }`}
-                          >
-                            {m.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Layer Mode & Cursor Physics */}
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                      <SegmentedControl
-                        size="sm"
-                        value={layerMode}
-                        onChange={(val) => onLayerModeChange(val as 0 | 1 | 2)}
-                        options={[
-                          { id: 0, label: 'Both', title: 'Display points and wireframe' },
-                          { id: 1, label: 'Points', title: 'Points only' },
-                          { id: 2, label: 'Wireframe', title: 'Wireframe only' },
-                        ]}
+                    {/* Archival Parchment Strip for 5 Modes */}
+                    <div className="relative p-0.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] shadow-inner overflow-hidden select-none">
+                      <div
+                        className="absolute top-0.5 bottom-0.5 rounded-[2px] transition-all duration-300 ease-out pointer-events-none bg-[var(--theme-control-active-bg)] border border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)]"
+                        style={{
+                          left: `calc(${mode * 20}% + 2px)`,
+                          width: `calc(20% - 4px)`,
+                        }}
                       />
-                      <div className="flex-1 min-w-0">
-                        <TactileSwitch
-                          checked={cursorPhysicsEnabled}
-                          onChange={() => onCursorPhysicsToggle(!cursorPhysicsEnabled)}
-                          title="Toggle cursor physics"
-                          label="Cursor Physics"
-                        />
+
+                      <div className="relative grid grid-cols-5 z-10">
+                        {PROJECTION_MODES.map((m) => {
+                          const isActive = mode === m.id;
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => onModeChange(m.id as SimulationMode)}
+                              aria-pressed={isActive}
+                              className={`tactile-btn cursor-pointer py-1.5 px-0.5 rounded-[2px] text-nano font-mono uppercase tracking-tight text-center transition-all ${
+                                isActive
+                                  ? 'text-[var(--theme-control-active-text)] font-bold'
+                                  : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)]'
+                              }`}
+                              title={`${m.roman} · ${m.label} Projection`}
+                            >
+                              <span className="opacity-60 block text-nano">{m.roman}</span>
+                              <span className="truncate block font-semibold">{m.label}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -758,216 +798,209 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         />
                       </div>
                     )}
+
+                    {/* Distortion Indicatrix (Tissot) Docked Directly in Projection Card */}
+                    <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                            Distortion Indicatrix
+                          </span>
+                          <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+                            Tissot deformation ellipses
+                          </span>
+                        </div>
+                        <TactileSwitch
+                          checked={showTissot}
+                          onChange={onTissotToggle}
+                          title="Toggle Tissot Distortion Indicatrix Ellipses"
+                          label={showTissot ? 'Active' : 'Off'}
+                        />
+                      </div>
+
+                      {showTissot && (
+                        <div className="p-2 rounded-[2px] border text-micro space-y-1.5 tabular-nums bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
+                          <div className="flex justify-between items-center text-nano uppercase tracking-wider font-semibold">
+                            <span>Distortion Metric</span>
+                            <span className="text-[var(--theme-status-sage)] font-bold">
+                              {mode === 4 ? 'Isomeric (s ≈ 1.04x)' : 'Morphing'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-1.5 text-nano font-mono">
+                            <div>
+                              <span className="text-[var(--theme-text-muted)] block truncate text-nano uppercase">Eq. Area:</span>
+                              <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.eqArea}x</span>
+                            </div>
+                            <div>
+                              <span className="text-[var(--theme-text-muted)] block truncate text-nano uppercase">Local ({latStr.trim()}):</span>
+                              <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.localArea}x</span>
+                            </div>
+                            <div>
+                              <span className="text-[var(--theme-text-muted)] block truncate text-nano uppercase">Polar Dilation:</span>
+                              <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.polarStr}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Overlays */}
+                  {/* 3. Spatial Vantage & Cinematics Station */}
                   <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
                     <div className="flex items-center justify-between">
-                      <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
-                        Overlays
+                      <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+                        Spatial Vantage & Cinematics
+                      </div>
+                      <span className="text-nano font-mono opacity-60 text-[var(--theme-text-muted)]">
+                        Kinematics
                       </span>
-                      <span className="text-nano font-mono text-[var(--theme-text-muted)] opacity-80">
-                        {activeOverlay === 'off' ? 'Off' : activeOverlay}
-                      </span>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-1">
-                      <button
-                        onClick={() => onOverlayChange('off')}
-                        className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
-                          activeOverlay === 'off'
-                            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold'
-                            : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] bg-[var(--theme-control-bg)]'
-                        }`}
-                      >
-                        Off
-                      </button>
-                      <button
-                        onClick={() => onOverlayChange('antipodes')}
-                        title="Antipodal Geodesic Connectors"
-                        className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
-                          activeOverlay === 'antipodes'
-                            ? theme === 1
-                              ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414] shadow-sm font-semibold ring-1 ring-[#8C4820]/40'
-                              : 'bg-rose-500/35 text-rose-200 border-rose-400/80 shadow-[0_0_10px_rgba(244,63,94,0.4)] ring-1 ring-rose-400/60 font-semibold'
-                            : theme === 1
-                            ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#8C4820] hover:border-[#8C4820]/40 bg-[var(--theme-control-bg)]'
-                            : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-rose-500 hover:border-rose-400/50 bg-[var(--theme-control-bg)]'
-                        }`}
-                      >
-                        Antipodes
-                      </button>
-                      <button
-                        onClick={() => onOverlayChange('conveyor')}
-                        title="Global Oceanic Conveyor Belt"
-                        className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
-                          activeOverlay === 'conveyor'
-                            ? theme === 1
-                              ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A] shadow-sm font-semibold ring-1 ring-[#1A4457]/40'
-                              : 'bg-sky-500/35 text-sky-200 border-sky-400/80 shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/60 font-semibold'
-                            : theme === 1
-                            ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#1A4457] hover:border-[#1A4457]/40 bg-[var(--theme-control-bg)]'
-                            : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-sky-500 hover:border-sky-400/50 bg-[var(--theme-control-bg)]'
-                        }`}
-                      >
-                        Conveyor
-                      </button>
-                      <button
-                        onClick={() => onOverlayChange('migration')}
-                        title="Great Circle Migration"
-                        className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
-                          activeOverlay === 'migration'
-                            ? theme === 1
-                              ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] shadow-sm font-semibold ring-1 ring-[#7D4700]/40'
-                              : 'bg-amber-500/35 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.4)] ring-1 ring-amber-400/60 font-semibold'
-                            : theme === 1
-                            ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#7D4700] hover:border-[#7D4700]/40 bg-[var(--theme-control-bg)]'
-                            : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-amber-500 hover:border-amber-400/50 bg-[var(--theme-control-bg)]'
-                        }`}
-                      >
-                        Migration
-                      </button>
+                    {/* Attitude Readout: Monospace coordinate strip */}
+                    <div className="px-2 py-1 rounded-[2px] bg-[var(--theme-control-bg)] border border-[var(--theme-control-border)] text-nano font-mono tracking-wider text-center text-[var(--theme-text-accent)] tabular-nums font-semibold">
+                      {attitudeReadout}
                     </div>
 
-                    {/* Landmarks, Tissot, Vectors */}
-                    <div className="grid grid-cols-3 gap-1.5 pt-1">
-                      {[
-                        { label: 'Landmarks', active: showLandmarks, toggle: onLandmarksToggle },
-                        { label: 'Tissot', active: showTissot, toggle: onTissotToggle },
-                      ].map((f) => (
-                        <button
-                          key={f.label}
-                          onClick={f.toggle}
-                          className={`py-1.5 px-1 rounded-[2px] text-micro font-bold border transition-all text-center cursor-pointer ${
-                            f.active
-                              ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold'
-                              : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                          }`}
-                        >
-                          {f.label}
-                        </button>
-                      ))}
-                      <button
-                        onClick={onVectorsToggle}
-                        title="Toggle Vector Coastlines & Rivers (Press V)"
-                        className={`py-1.5 px-1 rounded-[2px] text-micro font-bold border transition-all text-center cursor-pointer ${
-                          showVectors
-                          ? theme === 1
-                            ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414] shadow-sm font-semibold ring-1 ring-[#8C4820]/40'
-                            : theme === 2
-                            ? 'bg-sky-700/35 text-sky-200 border-sky-400/80 shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/60 font-semibold'
-                            : 'bg-amber-500/35 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.4)] ring-1 ring-amber-400/60 font-semibold'
-                          : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                        }`}
-                      >
-                        Vectors (V)
-                      </button>
-                    </div>
-
-                    {/* Soundings, Triangulation, Cartouche */}
-                    <div className="space-y-1.5 pt-1.5 border-t border-white/10">
-                      <TactileSwitch
-                        checked={showSoundings}
-                        onChange={onSoundingsToggle}
-                        title="Toggle Soundings"
-                        label="Soundings"
-                      />
-                      <TactileSwitch
-                        checked={showTriangulation}
-                        onChange={onTriangulationToggle}
-                        title="Toggle Triangulation"
-                        label="Triangulation"
-                      />
-                      <TactileSwitch
-                        checked={showCartouche}
-                        onChange={onCartoucheToggle}
-                        title="Toggle Cartouche"
-                        label="Cartouche"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Camera */}
-                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-1.5 transition-all shadow-sm">
-                    <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
-                      Camera
-                    </div>
-                    <div className="grid grid-cols-4 gap-1 text-nano font-bold">
-                      {(['equator', 'pole', 'seam', 'isometric'] as const).map((snapKey) => {
-                        const labels = {
-                          equator: 'Equator',
-                          pole: 'Pole',
-                          seam: 'Seam',
-                          isometric: 'Isometric',
-                        };
+                    {/* 5 Presets with Cartographic Glyphs & Active State Highlighting */}
+                    <div className="grid grid-cols-5 gap-1 text-nano font-bold">
+                      {([
+                        { key: 'equator', label: 'Equator', glyph: '⊝' },
+                        { key: 'pole', label: 'Pole', glyph: '⊙' },
+                        { key: 'seam', label: 'Seam', glyph: '⦶' },
+                        { key: 'isometric', label: 'Iso', glyph: '◬' },
+                        { key: 'horizon', label: 'Horizon', glyph: '☵' },
+                      ] as const).map((snap) => {
+                        const isSnapActive = activeSnap === snap.key;
                         return (
                           <button
-                            key={snapKey}
-                            onClick={() => onSnapCamera(snapKey)}
-                            className="py-1 rounded-[2px] border transition-all cursor-pointer border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] hover:bg-[var(--theme-card-bg)]"
+                            key={snap.key}
+                            type="button"
+                            onClick={() => {
+                              setActiveSnap(snap.key);
+                              onSnapCamera(snap.key);
+                            }}
+                            data-glyph={snap.glyph}
+                            aria-pressed={isSnapActive}
+                            title={`${snap.label} (${snap.glyph})`}
+                            className={`py-1.5 px-0.5 rounded-[2px] border transition-all cursor-pointer text-center truncate select-none flex flex-col items-center justify-center before:content-[attr(data-glyph)] before:block before:text-micro before:leading-none before:opacity-75 before:mb-0.5 ${
+                              isSnapActive
+                                ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold ring-1 ring-[var(--theme-control-active-ring)]'
+                                : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] hover:bg-[var(--theme-card-bg)]'
+                            }`}
                           >
-                            {labels[snapKey]}
+                            <span>{snap.label}</span>
                           </button>
                         );
                       })}
                     </div>
+
+                    {/* Flyover Tour / Demo Mode */}
+                    <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                            Flyover Tour
+                          </span>
+                          <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+                            Cinematic orbital & regional insets
+                          </span>
+                        </div>
+                        <TactileSwitch
+                          checked={Boolean(isDemoMode)}
+                          onChange={() => onToggleDemoMode?.(demoSequence)}
+                          title="Toggle Continuous Cinematics & Regional Insets Tour"
+                          label={isDemoMode ? 'Active' : 'Off'}
+                        />
+                      </div>
+
+                      <TactileSelect
+                        id="sidebar-demo-sequence"
+                        value={demoSequence || 'hawaii'}
+                        ariaLabel="Demo Sequence Preset"
+                        disabled={!isDemoMode}
+                        onChange={(val) => onSelectDemoSequence?.(val as any)}
+                        options={DEMO_PRESETS}
+                      />
+                    </div>
                   </div>
 
-                  {/* Compressed Demo Mode (~32px) */}
-                  <div className="flex items-center gap-1.5 p-1 rounded-[2px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] h-8 shadow-sm">
+                  {/* 4. Vector Ink Station */}
+                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] flex items-center justify-between transition-all shadow-sm">
+                    <div className="flex flex-col">
+                      <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                        Vectors (V)
+                      </span>
+                      <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+                        Coastlines & graticule linework
+                      </span>
+                    </div>
+                    <TactileSwitch
+                      checked={showVectors}
+                      onChange={onVectorsToggle}
+                      title="Toggle Coastline & Boundary Vectors (Press V)"
+                      label={showVectors ? 'Active' : 'Off'}
+                    />
+                  </div>
+
+                  {/* 5. Collapsible Experimental / Beta Section */}
+                  <div className="rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] transition-all shadow-sm overflow-hidden">
                     <button
-                      onClick={() => onToggleDemoMode?.(demoSequence)}
-                      className={`px-2.5 py-1 rounded-[2px] text-nano font-bold uppercase transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
-                        isDemoMode
-                          ? 'bg-rose-900/50 border border-rose-500/60 text-rose-300 shadow-sm'
-                          : 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm'
-                      }`}
+                      type="button"
+                      onClick={() => setIsBetaOpen(!isBetaOpen)}
+                      className="w-full p-2.5 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border)]/15 transition-colors"
                     >
-                      {isDemoMode ? 'Stop' : 'Demo'}
-                    </button>
-                    <select
-                      id="sidebar-demo-sequence"
-                      name="demoSequence"
-                      value={demoSequence}
-                      onChange={(e) => {
-                        const seq = e.target.value as 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji';
-                        onSelectDemoSequence?.(seq);
-                      }}
-                      aria-label="Demo Sequence"
-                      className="flex-1 min-w-0 bg-[var(--theme-control-bg)] border border-[var(--theme-control-border)] text-[var(--theme-text-primary)] text-nano rounded-[2px] px-1.5 py-1 font-mono uppercase cursor-pointer"
-                    >
-                      <option value="hawaii">Hawaii</option>
-                      <option value="cape-cod">Cape Cod</option>
-                      <option value="grand-canyon">Grand Canyon</option>
-                      <option value="fuji">Mount Fuji</option>
-                    </select>
-                  </div>
-
-                  {/* Tissot Distortion Metrics */}
-                  {showTissot && (
-                    <div className="p-2.5 rounded-[2px] border text-micro space-y-1.5 tabular-nums bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
-                      <div className="flex justify-between items-center text-nano uppercase tracking-wider font-semibold">
-                        <span>Distortion</span>
-                        <span className="text-[var(--theme-status-sage)] font-bold">
-                          {mode === 4 ? 'Isomeric (s ≈ 1.04x)' : 'Morphing'}
+                      <div className="flex items-center gap-2">
+                        <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                          BETA
+                        </span>
+                        <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+                          Experimental & Diagnostics
                         </span>
                       </div>
-                      <div className="grid grid-cols-3 gap-1.5 text-nano">
-                        <div>
-                          <span className="text-[var(--theme-text-muted)] block truncate">Eq. Area:</span>
-                          <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.eqArea}x</span>
+                      <span className="text-nano font-mono text-[var(--theme-text-muted)]">
+                        {isBetaOpen ? '▲ Collapse' : '▼ Expand'}
+                      </span>
+                    </button>
+                    {isBetaOpen && (
+                      <div className="p-2.5 pt-0 space-y-3 border-t border-[var(--theme-card-border)]/50 mt-1">
+                        <div className="pt-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex flex-col">
+                              <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                                Cursor Physics
+                              </span>
+                              <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+                                Fluid advection wake & Griffith stress
+                              </span>
+                            </div>
+                            <TactileSwitch
+                              checked={cursorPhysicsEnabled}
+                              onChange={() => onCursorPhysicsToggle(!cursorPhysicsEnabled)}
+                              title="Toggle cursor physics"
+                              label="Cursor Physics"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-[var(--theme-text-muted)] block truncate">Local ({latStr.trim()}):</span>
-                          <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.localArea}x</span>
-                        </div>
-                        <div>
-                          <span className="text-[var(--theme-text-muted)] block truncate">Polar Dilation:</span>
-                          <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.polarStr}</span>
+
+                        <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
+                          <div className={`transition-opacity ${theme === 1 ? 'opacity-100' : 'opacity-70'}`}>
+                            <VernierSlider
+                              id="sidebar-paper-tooth"
+                              label="Paper Grain"
+                              sublabel={theme !== 1 ? '(Cream Rag only)' : 'Simulates physical cellulose fiber roughness of 310 GSM cotton rag paper'}
+                              tooltip="Simulates physical cellulose fiber roughness of 310 GSM cotton rag paper"
+                              value={primaryLayer?.paperTooth ?? 0.40}
+                              min={0.0}
+                              max={1.0}
+                              step={0.05}
+                              readout={`${Math.round((primaryLayer?.paperTooth ?? 0.40) * 100)}%`}
+                              onChange={(v) => onPaperToothChangeDataLayer?.(primaryLayerId, v)}
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
               {/* TAB 2: DATA */}
@@ -1009,6 +1042,108 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   onSnapCamera={onSnapCamera}
                   onTogglePlanetaryLayer={handleTogglePlanetaryLayer}
                 />
+
+                {/* Global Geodesic Feeds Card */}
+                <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2.5 transition-all shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+                      Global Geodesic Feeds
+                    </div>
+                    <span className="text-nano font-mono text-[var(--theme-text-muted)] opacity-80">
+                      {activeOverlay === 'off' ? 'Off' : activeOverlay}
+                    </span>
+                  </div>
+
+                  {/* Thematic Overlays (Antipodes, Conveyor, Migration) */}
+                  <div className="grid grid-cols-4 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onOverlayChange('off')}
+                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
+                        activeOverlay === 'off'
+                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold'
+                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] bg-[var(--theme-control-bg)]'
+                      }`}
+                    >
+                      Off
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onOverlayChange('antipodes')}
+                      title="Antipodal Geodesic Connectors"
+                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
+                        activeOverlay === 'antipodes'
+                          ? theme === 1
+                            ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414] shadow-sm font-semibold ring-1 ring-[#8C4820]/40'
+                            : 'bg-rose-500/35 text-rose-200 border-rose-400/80 shadow-[0_0_10px_rgba(244,63,94,0.4)] ring-1 ring-rose-400/60 font-semibold'
+                          : theme === 1
+                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#8C4820] hover:border-[#8C4820]/40 bg-[var(--theme-control-bg)]'
+                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-rose-500 hover:border-rose-400/50 bg-[var(--theme-control-bg)]'
+                      }`}
+                    >
+                      Antipodes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onOverlayChange('conveyor')}
+                      title="Global Oceanic Conveyor Belt"
+                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
+                        activeOverlay === 'conveyor'
+                          ? theme === 1
+                            ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A] shadow-sm font-semibold ring-1 ring-[#1A4457]/40'
+                            : 'bg-sky-500/35 text-sky-200 border-sky-400/80 shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/60 font-semibold'
+                          : theme === 1
+                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#1A4457] hover:border-[#1A4457]/40 bg-[var(--theme-control-bg)]'
+                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-sky-500 hover:border-sky-400/50 bg-[var(--theme-control-bg)]'
+                      }`}
+                    >
+                      Conveyor
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onOverlayChange('migration')}
+                      title="Great Circle Migration"
+                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
+                        activeOverlay === 'migration'
+                          ? theme === 1
+                            ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] shadow-sm font-semibold ring-1 ring-[#7D4700]/40'
+                            : 'bg-amber-500/35 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.4)] ring-1 ring-amber-400/60 font-semibold'
+                          : theme === 1
+                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#7D4700] hover:border-[#7D4700]/40 bg-[var(--theme-control-bg)]'
+                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-amber-500 hover:border-amber-400/50 bg-[var(--theme-control-bg)]'
+                      }`}
+                    >
+                      Migration
+                    </button>
+                  </div>
+
+                  {/* Geodetic Survey Feeds: Soundings, Triangulation, Landmarks */}
+                  <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-1.5">
+                    <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
+                      Geodetic Survey Feeds
+                    </div>
+                    <div className="space-y-1.5 pt-0.5">
+                      <TactileSwitch
+                        checked={showSoundings}
+                        onChange={onSoundingsToggle}
+                        title="Toggle Soundings"
+                        label="Soundings"
+                      />
+                      <TactileSwitch
+                        checked={showTriangulation}
+                        onChange={onTriangulationToggle}
+                        title="Toggle Triangulation"
+                        label="Triangulation"
+                      />
+                      <TactileSwitch
+                        checked={showLandmarks}
+                        onChange={onLandmarksToggle}
+                        title="Toggle Landmarks"
+                        label="Landmarks"
+                      />
+                    </div>
+                  </div>
+                </div>
 
                   <CuratorsColophon
                     theme={theme}

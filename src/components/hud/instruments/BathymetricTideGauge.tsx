@@ -114,12 +114,44 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
       {/* Interactive Water Column Depth Gauge */}
       <div
         ref={boxRef}
+        tabIndex={0}
+        role="slider"
+        aria-label="Bathymetric Sea Level Gauge"
+        aria-valuemin={-150}
+        aria-valuemax={100}
+        aria-valuenow={seaLevelOffset}
+        aria-valuetext={`${seaLevelOffset > 0 ? '+' : ''}${seaLevelOffset}m`}
+        onKeyDown={(e) => {
+          const step = e.shiftKey ? 25 : 5;
+          if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            onSeaLevelChange(Math.min(100, seaLevelOffset + step));
+          } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+            e.preventDefault();
+            onSeaLevelChange(Math.max(-150, seaLevelOffset - step));
+          } else if (e.key === 'PageUp') {
+            e.preventDefault();
+            onSeaLevelChange(Math.min(100, seaLevelOffset + 20));
+          } else if (e.key === 'PageDown') {
+            e.preventDefault();
+            onSeaLevelChange(Math.max(-150, seaLevelOffset - 20));
+          } else if (e.key === 'Home') {
+            e.preventDefault();
+            onSeaLevelChange(-150);
+          } else if (e.key === 'End') {
+            e.preventDefault();
+            onSeaLevelChange(100);
+          } else if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onSeaLevelChange(0);
+          }
+        }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onDoubleClick={() => onSeaLevelChange(0)}
-        title="Drag waterline caliper vertically to raise/lower sea level (Double-click to reset to 0m)"
-        className={`relative w-full h-20 rounded-[2px] border overflow-hidden cursor-ns-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] ${tokens.boxBg}`}
+        title="Drag waterline caliper vertically to raise/lower sea level (Double-click or Enter to reset to 0m, Arrow keys to nudge)"
+        className={`relative w-full h-20 rounded-[2px] border overflow-hidden cursor-ns-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${tokens.boxBg}`}
       >
         {/* Continental Shelf Silhouette in background */}
         <div className="absolute inset-0 flex items-end opacity-15 pointer-events-none">

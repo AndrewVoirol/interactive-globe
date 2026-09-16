@@ -7,3 +7,4 @@ export * from './TactileSwitch';
 export * from './VernierSlider';
 export * from './SegmentedControl';
 export * from './TactileButton';
+export * from './TactileSelect';

@@ -27,7 +27,7 @@ export interface TopologyControlDockProps {
   latStr: string;
   lonStr: string;
   mapScaleStr: string;
-  onSnapCamera: (v: 'equator' | 'pole' | 'seam' | 'isometric') => void;
+  onSnapCamera: (v: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => void;
   className?: string;
 }
 

@@ -285,9 +285,12 @@ fn evaluateManifold(pos3D_raw: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<
     let dispScale = sim.u_displacementScale * 2.8;
 
     if (pointType >= 0.75) {
-        // Coastlines are mathematically defined at sea level (h = 0.0).
-        // Clamping to 0.0 guarantees zero vertical tearing between adjacent vertices along coastal shores
-        normalDisplacement = 0.0;
+        // Coastlines are mathematically defined at sea level datum.
+        // Clamping to max(0.0, sim.u_seaLevel) ensures negative sea level (exposed continental shelves)
+        // keeps the coastline on the subaerial crust surface rather than sinking 150m underground into rock,
+        // while positive sea level (coastal inundation) conforms to the rising water surface.
+        let coastDatum = max(0.0, sim.u_seaLevel);
+        normalDisplacement = (coastDatum / 8848.0) * dispScale * poleAtten;
     } else {
         if (sim.u_pad2 > 0.5) {
             if (elevMeters >= 0.0) {

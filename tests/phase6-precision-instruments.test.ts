@@ -188,7 +188,7 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
 
       // Ergonomic Sliders & Invariant Callbacks
       expect(sidebarCode).toContain('sidebar-crevice-ao');
-      expect(sidebarCode).toContain('label="AO"');
+      expect(sidebarCode).toContain('label="Crevice Depth"');
       expect(sidebarCode).toContain('onAmbientOcclusionChangeDataLayer');
       expect(sidebarCode).toContain('label="Fracture"');
       expect(sidebarCode).toContain('onFractureIntensityChange');

@@ -694,12 +694,12 @@ describe('R12: HUD Layout Geometry & Boundary Challenger Stress Suite', () => {
       expect(appSrc).toContain("2xl:right-[50.5rem] md:right-[26rem] max-md:hidden' : 'md:right-[26rem] max-md:hidden'");
     });
 
-    it('S3-03: App.tsx dynamically shifts Aside bottom between [112px] and bottom-5', () => {
-      expect(appSrc).toContain("${showCartouche ? 'bottom-[112px]' : 'bottom-5'}");
+    it('S3-03: App.tsx anchors Aside to bottom-5 left-5', () => {
+      expect(appSrc).toContain('bottom-5 left-5');
     });
 
-    it('S3-04: DataLayerToastNotification.tsx dynamically shifts bottom between [170px] and [78px]', () => {
-      expect(toastSrc).toContain("cartoucheVisible ? 'bottom-[170px]' : 'bottom-[78px]'");
+    it('S3-04: DataLayerToastNotification.tsx anchors bottom to [78px]', () => {
+      expect(toastSrc).toContain('bottom-[78px]');
     });
 
     it('S3-05: DataLayerToastNotification.tsx uses valid Tailwind arbitrary value z-[35]', () => {

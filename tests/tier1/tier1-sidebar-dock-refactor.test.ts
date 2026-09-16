@@ -114,15 +114,15 @@ describe('Bite 4: Surface & Sidebar Refactoring Suite', () => {
   describe('5. Contract Invariant Preservation', () => {
     it('B4-10: preserves all required contract tokens in UnifiedRightSidebar and NavigationDock', () => {
       // INST-12 tokens - updated after atmosphere visual controls refactor
-      expect(sidebarCode).toContain('label="AO"');
+      expect(sidebarCode).toContain('label="Crevice Depth"');
       expect(sidebarCode).toContain('onAmbientOcclusionChangeDataLayer');
       expect(sidebarCode).toContain('onSeaLevelOffsetChangeDataLayer');
       expect(sidebarCode).toContain('onWaterClarityChangeDataLayer');
       expect(sidebarCode).toContain('onPeakExponentChangeDataLayer');
-      // Base Lattice replaced by SegmentedControl with Both/Points/Wireframe
-      expect(sidebarCode).toContain("label: 'Both'");
-      expect(sidebarCode).toContain("label: 'Points'");
-      expect(sidebarCode).toContain("label: 'Wireframe'");
+      // Manifold Strata station with Composite/Stipple/Lattice
+      expect(sidebarCode).toContain("label: 'Composite'");
+      expect(sidebarCode).toContain("label: 'Stipple'");
+      expect(sidebarCode).toContain("label: 'Lattice'");
       // Fracture Intensity → Fracture, Vortex Swirl Strength → Vortex (VernierSlider labels)
       expect(sidebarCode).toContain('label="Fracture"');
       expect(sidebarCode).toContain('label="Vortex"');

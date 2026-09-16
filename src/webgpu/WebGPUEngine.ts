@@ -5222,10 +5222,7 @@ export class WebGPUEngine {
       renderPass.setBindGroup(0, crustBg);
       renderPass.setVertexBuffer(0, this.crustVertexBuffer);
       renderPass.setIndexBuffer(this.crustIndexBuffer, 'uint32');
-      const indexCountToDraw = (params.renderStyle === 'architectural' || params.renderStyle === 'photoreal')
-        ? Math.floor(this.crustIndexCount / 2)
-        : this.crustIndexCount;
-      renderPass.drawIndexed(indexCountToDraw);
+      renderPass.drawIndexed(this.crustIndexCount);
     }
 
     // 2. Render Wireframe Lines

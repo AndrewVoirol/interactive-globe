@@ -18,6 +18,9 @@ import { CuratorsColophon } from '../../src/components/hud/CuratorsColophon';
 import { UnifiedRightSidebar, UnifiedRightSidebarProps } from '../../src/components/hud/UnifiedRightSidebar';
 import { TelemetryHUD, TelemetryHUDProps } from '../../src/components/hud/TelemetryHUD';
 import { DataLayerItem, SimulationMode, GeodesicOverlayMode, LoadedDataInfo } from '../../src/types';
+import { useCameraKinematics } from '../../src/hooks/useCameraKinematics';
+import { BathymetricTideGauge } from '../../src/components/hud/instruments/BathymetricTideGauge';
+import { TactileSelect } from '../../src/components/ui/TactileSelect';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -37,6 +40,56 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
     loadTimeMs: 12.5,
     vramMb: 4.57,
   };
+
+  const dummyLayer: DataLayerItem = {
+    id: 'hybrid-crust-hydrosphere',
+    name: 'Hybrid Crust Hydrosphere',
+    category: 'topo',
+    type: 'Hypsometric Topography & Bathymetry',
+    details: 'Calibrated DEM',
+    visible: true,
+    opacity: 0.9,
+    blendMode: 0,
+    renderStyle: 'hybrid',
+    displacementScale: 0.12,
+  };
+
+  const createSidebarProps = (overrides: Partial<UnifiedRightSidebarProps> = {}): UnifiedRightSidebarProps => ({
+    isZenMode: false,
+    onZenToggle: vi.fn(),
+    theme: 0,
+    onThemeToggle: vi.fn(),
+    backend: 'webgpu',
+    onBackendChange: vi.fn(),
+    hasWebGPU: true,
+    resolution: '1M',
+    onResolutionChange: vi.fn(),
+    layerMode: 0,
+    onLayerModeChange: vi.fn(),
+    mode: 0,
+    onModeChange: vi.fn(),
+    cursorPhysicsEnabled: false,
+    onCursorPhysicsToggle: vi.fn(),
+    activeOverlay: 'off',
+    onOverlayChange: vi.fn(),
+    showLandmarks: false,
+    onLandmarksToggle: vi.fn(),
+    showTissot: false,
+    onTissotToggle: vi.fn(),
+    showVectors: false,
+    onVectorsToggle: vi.fn(),
+    alpha: 0,
+    fps: 120,
+    latStr: "00°00'N",
+    lonStr: "000°00'E",
+    mapScaleStr: "1:50M",
+    onSnapCamera: vi.fn(),
+    dataLayers: [dummyLayer],
+    onAddDataLayer: vi.fn(),
+    onToggleDataLayer: vi.fn(),
+    onRemoveDataLayer: vi.fn(),
+    ...overrides,
+  });
 
   beforeEach(() => {
     container = document.createElement('div');
@@ -117,7 +170,7 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       const paperToothInput = container.querySelector('#sidebar-paper-tooth') as HTMLInputElement;
       expect(paperToothInput).not.toBeNull();
 
-      const increaseBtn = container.querySelector('button[title="Increase Paper Tooth"]') as HTMLButtonElement;
+      const increaseBtn = container.querySelector('button[title="Increase Paper Grain"]') as HTMLButtonElement;
       expect(increaseBtn).not.toBeNull();
 
       await act(async () => {
@@ -181,8 +234,8 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       expect(sidebarSource).toMatch(/\{\s*id:\s*'data',\s*label:\s*'DATA'\s*\}/);
     });
 
-    it('uses plain "AO" label instead of verbose "Crevice AO:"', () => {
-      expect(sidebarSource).toContain('label="AO"');
+    it('uses "Crevice Depth" label', () => {
+      expect(sidebarSource).toContain('label="Crevice Depth"');
       expect(sidebarSource).not.toContain('label="Crevice AO:"');
     });
 
@@ -222,55 +275,6 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
   // 5. Interactive Behavior Verification
   // --------------------------------------------------------------------------
   describe('5. Interactive Theme Calibration & Sidebar Execution', () => {
-    const dummyLayer: DataLayerItem = {
-      id: 'hybrid-crust-hydrosphere',
-      name: 'Hybrid Crust Hydrosphere',
-      category: 'topo',
-      type: 'Hypsometric Topography & Bathymetry',
-      details: 'Calibrated DEM',
-      visible: true,
-      opacity: 0.9,
-      blendMode: 0,
-      renderStyle: 'hybrid',
-      displacementScale: 0.12,
-    };
-
-    const createSidebarProps = (overrides: Partial<UnifiedRightSidebarProps> = {}): UnifiedRightSidebarProps => ({
-      isZenMode: false,
-      onZenToggle: vi.fn(),
-      theme: 0,
-      onThemeToggle: vi.fn(),
-      backend: 'webgpu',
-      onBackendChange: vi.fn(),
-      hasWebGPU: true,
-      resolution: '1M',
-      onResolutionChange: vi.fn(),
-      layerMode: 0,
-      onLayerModeChange: vi.fn(),
-      mode: 0,
-      onModeChange: vi.fn(),
-      cursorPhysicsEnabled: false,
-      onCursorPhysicsToggle: vi.fn(),
-      activeOverlay: 'off',
-      onOverlayChange: vi.fn(),
-      showLandmarks: false,
-      onLandmarksToggle: vi.fn(),
-      showTissot: false,
-      onTissotToggle: vi.fn(),
-      showVectors: false,
-      onVectorsToggle: vi.fn(),
-      alpha: 0,
-      fps: 120,
-      latStr: "00°00'N",
-      lonStr: "000°00'E",
-      mapScaleStr: "1:50M",
-      onSnapCamera: vi.fn(),
-      dataLayers: [dummyLayer],
-      onAddDataLayer: vi.fn(),
-      onToggleDataLayer: vi.fn(),
-      onRemoveDataLayer: vi.fn(),
-      ...overrides,
-    });
 
     it('switches between plates in DOM across tabs', async () => {
       const props = createSidebarProps({ theme: 1 });
@@ -384,6 +388,261 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       expect(onHillshadeMock).toHaveBeenCalledWith('hybrid-crust-hydrosphere', 315, 0.7, 45);
       expect(onDisplacementMock).toHaveBeenCalledWith('hybrid-crust-hydrosphere', 0.14);
       expect(onPeakExponentMock).toHaveBeenCalledWith('hybrid-crust-hydrosphere', 1.6);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 6. Stage 2 Camera Snap & BathymetricTideGauge Keyboard Accessibility
+  // --------------------------------------------------------------------------
+  describe('6. Stage 2 Camera Snap & BathymetricTideGauge Keyboard Accessibility', () => {
+    it('verifies UnifiedRightSidebar renders all 5 camera snap buttons including Horizon', async () => {
+      const onSnapMock = vi.fn();
+      const defaultProps = createSidebarProps({
+        onSnapCamera: onSnapMock,
+      });
+
+      await act(async () => {
+        root.render(<UnifiedRightSidebar {...defaultProps} />);
+      });
+
+      const buttons = Array.from(container.querySelectorAll('#sidebar-panel-scene button')).filter((b) =>
+        ['Equator', 'Pole', 'Seam', 'Iso', 'Horizon'].includes(b.textContent?.trim() || '')
+      );
+      expect(buttons.map((b) => b.textContent?.trim())).toEqual(['Equator', 'Pole', 'Seam', 'Iso', 'Horizon']);
+
+      const horizonBtn = buttons.find((b) => b.textContent?.trim() === 'Horizon');
+      expect(horizonBtn).not.toBeUndefined();
+
+      await act(async () => {
+        horizonBtn?.click();
+      });
+      expect(onSnapMock).toHaveBeenCalledWith('horizon');
+    });
+
+    it('verifies useCameraKinematics handles horizon camera view', () => {
+      let resultHook: ReturnType<typeof useCameraKinematics> | null = null;
+      function TestComp() {
+        resultHook = useCameraKinematics();
+        return null;
+      }
+      act(() => {
+        root.render(<TestComp />);
+      });
+
+      expect(resultHook).not.toBeNull();
+      act(() => {
+        resultHook!.snapCamera('horizon');
+      });
+
+      expect(resultHook!.targetCameraPos).toEqual([0.55, 3.66, 3.68]);
+      expect(resultHook!.webgpuCameraPos).toEqual([0.55, 3.66, 3.68]);
+      expect(resultHook!.cameraTarget).toEqual([0, 0, 0]);
+    });
+
+    it('verifies BathymetricTideGauge has accessible role=slider and keyboard navigation', async () => {
+      const onSeaLevelMock = vi.fn();
+      await act(async () => {
+        root.render(
+          <BathymetricTideGauge
+            seaLevelOffset={0}
+            waterClarity={0.75}
+            onSeaLevelChange={onSeaLevelMock}
+            theme={1}
+          />
+        );
+      });
+
+      const slider = container.querySelector('[aria-label="Bathymetric Sea Level Gauge"]') as HTMLElement;
+      expect(slider).not.toBeNull();
+      expect(slider.getAttribute('role')).toBe('slider');
+      expect(slider.getAttribute('tabindex')).toBe('0');
+      expect(slider.getAttribute('aria-valuemin')).toBe('-150');
+      expect(slider.getAttribute('aria-valuemax')).toBe('100');
+      expect(slider.getAttribute('aria-valuenow')).toBe('0');
+
+      // ArrowUp nudges +5m
+      await act(async () => {
+        slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+      });
+      expect(onSeaLevelMock).toHaveBeenCalledWith(5);
+
+      // ArrowRight nudges +5m
+      await act(async () => {
+        slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      });
+      expect(onSeaLevelMock).toHaveBeenCalledWith(5);
+
+      // ArrowDown nudges -5m
+      await act(async () => {
+        slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      });
+      expect(onSeaLevelMock).toHaveBeenCalledWith(-5);
+
+      // ArrowLeft nudges -5m
+      await act(async () => {
+        slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+      });
+      expect(onSeaLevelMock).toHaveBeenCalledWith(-5);
+
+      // PageUp nudges +20m
+      await act(async () => {
+        slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageUp', bubbles: true }));
+      });
+      expect(onSeaLevelMock).toHaveBeenCalledWith(20);
+
+      // PageDown nudges -20m
+      await act(async () => {
+        slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true }));
+      });
+      expect(onSeaLevelMock).toHaveBeenCalledWith(-20);
+
+      // Home sets -150m
+      await act(async () => {
+        slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+      });
+      expect(onSeaLevelMock).toHaveBeenCalledWith(-150);
+
+      // End sets +100m
+      await act(async () => {
+        slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+      });
+      expect(onSeaLevelMock).toHaveBeenCalledWith(100);
+
+      // Enter resets to 0m
+      await act(async () => {
+        slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      });
+      expect(onSeaLevelMock).toHaveBeenCalledWith(0);
+
+      // Space resets to 0m
+      await act(async () => {
+        slider.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+      });
+      expect(onSeaLevelMock).toHaveBeenCalledWith(0);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 7. TactileSelect Component & Demo Mode Integration
+  // --------------------------------------------------------------------------
+  describe('7. TactileSelect Component & Demo Mode Integration', () => {
+    const mockOptions = [
+      { id: 'hawaii', label: 'Hawaii', coordinates: "19°49'N 155°28'W", description: 'Volcanic hotspot' },
+      { id: 'cape-cod', label: 'Cape Cod', coordinates: "41°54'N 70°03'W", description: 'Coastal spit' },
+      { id: 'grand-canyon', label: 'Grand Canyon', coordinates: "36°06'N 112°06'W", description: 'Riparian orogeny' },
+      { id: 'fuji', label: 'Mount Fuji', coordinates: "35°21'N 138°43'E", description: 'Stratovolcano' },
+    ];
+
+    it('renders trigger button with coordinates and ARIA combobox semantics', async () => {
+      const onChangeMock = vi.fn();
+      await act(async () => {
+        root.render(
+          <TactileSelect
+            id="test-tactile-select"
+            value="hawaii"
+            options={mockOptions}
+            onChange={onChangeMock}
+            ariaLabel="Test Select"
+          />
+        );
+      });
+
+      const button = container.querySelector('#test-tactile-select') as HTMLButtonElement;
+      expect(button).not.toBeNull();
+      expect(button.getAttribute('role')).toBe('combobox');
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+      expect(button.getAttribute('aria-haspopup')).toBe('listbox');
+      expect(button.getAttribute('aria-controls')).toBe('test-tactile-select-listbox');
+      expect(button.textContent).toContain('Hawaii');
+      expect(button.textContent).toContain("19°49'N 155°28'W");
+    });
+
+    it('opens popover listbox on click with options and metadata', async () => {
+      const onChangeMock = vi.fn();
+      await act(async () => {
+        root.render(
+          <TactileSelect
+            id="test-tactile-select"
+            value="hawaii"
+            options={mockOptions}
+            onChange={onChangeMock}
+          />
+        );
+      });
+
+      const button = container.querySelector('#test-tactile-select') as HTMLButtonElement;
+      await act(async () => {
+        button.click();
+      });
+
+      expect(button.getAttribute('aria-expanded')).toBe('true');
+      const listbox = container.querySelector('#test-tactile-select-listbox');
+      expect(listbox).not.toBeNull();
+      expect(listbox?.getAttribute('role')).toBe('listbox');
+
+      const optionButtons = Array.from(listbox!.querySelectorAll('[role="option"]'));
+      expect(optionButtons.length).toBe(4);
+      expect(optionButtons[0].getAttribute('aria-selected')).toBe('true');
+      expect(optionButtons[1].getAttribute('aria-selected')).toBe('false');
+
+      // Click option 2
+      await act(async () => {
+        (optionButtons[1] as HTMLElement).click();
+      });
+      expect(onChangeMock).toHaveBeenCalledWith('cape-cod');
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('handles keyboard navigation: ArrowDown, ArrowUp, Home, End, Escape', async () => {
+      const onChangeMock = vi.fn();
+      await act(async () => {
+        root.render(
+          <TactileSelect
+            id="test-tactile-select"
+            value="cape-cod"
+            options={mockOptions}
+            onChange={onChangeMock}
+          />
+        );
+      });
+
+      const trigger = container.querySelector('#test-tactile-select') as HTMLButtonElement;
+
+      // Enter opens
+      await act(async () => {
+        trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      });
+      expect(trigger.getAttribute('aria-expanded')).toBe('true');
+
+      // ArrowDown advances from cape-cod (index 1) to grand-canyon (index 2)
+      await act(async () => {
+        trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      });
+      expect(onChangeMock).toHaveBeenCalledWith('grand-canyon');
+
+      // ArrowUp retreats
+      await act(async () => {
+        trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+      });
+      expect(onChangeMock).toHaveBeenCalledWith('hawaii');
+
+      // Home jumps to first
+      await act(async () => {
+        trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+      });
+      expect(onChangeMock).toHaveBeenCalledWith('hawaii');
+
+      // End jumps to last
+      await act(async () => {
+        trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+      });
+      expect(onChangeMock).toHaveBeenCalledWith('fuji');
+
+      // Escape closes
+      await act(async () => {
+        trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      });
+      expect(trigger.getAttribute('aria-expanded')).toBe('false');
     });
   });
 });

@@ -51,6 +51,7 @@ export interface TelemetryHUDProps {
   latStr: string;
   lonStr: string;
   mapScaleStr: string;
+  cameraPosition?: [number, number, number];
   dataInfo: LoadedDataInfo;
   onSnapCamera: (v: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => void;
   dataLayers?: DataLayerItem[];
@@ -159,6 +160,7 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         latStr={props.latStr}
         lonStr={props.lonStr}
         mapScaleStr={props.mapScaleStr}
+        cameraPosition={props.cameraPosition}
         dataInfo={props.dataInfo}
         onSnapCamera={props.onSnapCamera}
         dataLayers={props.dataLayers}

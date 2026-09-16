@@ -10,6 +10,7 @@ export interface VernierSliderProps {
   id: string;
   label: string;
   sublabel?: string;
+  tooltip?: string;
   value: number;
   min: number;
   max: number;
@@ -27,6 +28,7 @@ export const VernierSlider: React.FC<VernierSliderProps> = ({
   id,
   label,
   sublabel,
+  tooltip,
   value,
   min,
   max,
@@ -55,9 +57,10 @@ export const VernierSlider: React.FC<VernierSliderProps> = ({
     >
       {/* Header: Label, Sublabel & Readout/Steppers */}
       <div className="flex items-center justify-between text-micro">
-        <div className="flex flex-col min-w-0 pr-1">
+        <div className="flex flex-col min-w-0 pr-1" title={tooltip || sublabel}>
           <label
             htmlFor={id}
+            title={tooltip || sublabel}
             className="font-bold uppercase tracking-wider text-[var(--theme-text-primary)] cursor-pointer truncate text-body"
           >
             {label}
