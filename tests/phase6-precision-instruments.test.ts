@@ -197,8 +197,8 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
       expect(sidebarCode).toContain('GPU Profiler');
     });
 
-    it('INST-13: NavigationDock preserves B: Backend shortcut and embeds CurvatureUnfurlSextant', () => {
-      expect(dockCode).toContain('B: Backend');
+    it('INST-13: NavigationDock embeds CurvatureUnfurlSextant and glide kinematics', () => {
+      expect(dockCode).not.toContain('B: Backend');
       expect(dockCode).toContain('CurvatureUnfurlSextant');
       expect(dockCode).toContain('onGlideToAlpha');
     });

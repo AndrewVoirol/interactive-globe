@@ -164,9 +164,9 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
       expect(rawPixelMatches).toBeNull();
     });
 
-    it('verifies bottom-left Nautical Compass Rosette provides interactive tactile theme switching', () => {
-      expect(appContent).toContain('pointer-events-auto cursor-pointer tactile-btn');
-      expect(appContent).toContain('setTheme((t) => (((t + 1) % 3) as any))');
+    it('verifies UnifiedRightSidebar provides interactive tactile theme switching', () => {
+      expect(sidebarContent).toContain('handleHeaderThemeToggle');
+      expect(sidebarContent).toContain('handleSelectMedium');
     });
 
     it('verifies top calibration bar establishes 20px vertical grid axis with bottom-left rosette and cartouche', () => {

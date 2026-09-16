@@ -129,7 +129,7 @@ describe('Bite 4: Surface & Sidebar Refactoring Suite', () => {
       expect(sidebarCode).toContain('GPU Profiler');
 
       // INST-13 tokens
-      expect(dockCode).toContain('B: Backend');
+      expect(dockCode).not.toContain('B: Backend');
       expect(dockCode).toContain('CurvatureUnfurlSextant');
       expect(dockCode).toContain('onGlideToAlpha');
     });

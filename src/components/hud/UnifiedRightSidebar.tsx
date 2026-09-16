@@ -529,7 +529,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       <div className="fixed top-5 right-5 z-30 pointer-events-auto max-w-sm w-96 font-mono select-none transition-all duration-500 origin-top ease-out">
         <div
           className={`rounded-[3px] border shadow-2xl p-3 text-micro flex flex-col sidebar-spring-transition relative scroll-curl-lip font-telemetry ${
-            isSidebarOpen ? 'max-h-[calc(100vh-2.5rem)]' : 'max-h-[82px] overflow-hidden'
+            isSidebarOpen ? 'max-h-[calc(100vh-2.5rem)]' : 'max-h-[144px] overflow-hidden'
           } ${
             theme === 1
               ? 'paper-cream-panel border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#d8cfbc]/40'
@@ -567,7 +567,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
           </div>
 
           {/* Header Row 2: Persistent Medium Substrate Switcher */}
-          <div className="py-2 border-b border-[var(--theme-panel-header-border)] space-y-1.5">
+          <div className={`py-2 space-y-1.5 ${isSidebarOpen ? 'border-b border-[var(--theme-panel-header-border)]' : ''}`}>
             <div className="flex items-center justify-between text-micro font-semibold uppercase tracking-wider">
               <span className="text-[var(--theme-text-primary)]">Medium Substrate</span>
               <button

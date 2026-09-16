@@ -694,8 +694,8 @@ describe('R12: HUD Layout Geometry & Boundary Challenger Stress Suite', () => {
       expect(appSrc).toContain("2xl:right-[50.5rem] md:right-[26rem] max-md:hidden' : 'md:right-[26rem] max-md:hidden'");
     });
 
-    it('S3-03: App.tsx anchors Aside to bottom-5 left-5', () => {
-      expect(appSrc).toContain('bottom-5 left-5');
+    it('S3-03: App.tsx verifies Aside has been excised', () => {
+      expect(appSrc).not.toContain('IMHOF NW ILLUMINATION');
     });
 
     it('S3-04: DataLayerToastNotification.tsx anchors bottom to [78px]', () => {

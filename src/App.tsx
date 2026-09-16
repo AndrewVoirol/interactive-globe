@@ -614,68 +614,7 @@ export default function App() {
 
 
 
-        {!isZenMode && (
-          <aside
-            onClick={() => setTheme((t) => (((t + 1) % 3) as any))}
-            title="Click to Cycle Cartographic Aesthetic Themes (Tharp, Cream Rag, Cyanotype) or press T"
-            className="absolute bottom-5 left-5 z-20 pointer-events-auto cursor-pointer tactile-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-[3px] border backdrop-blur-md transition-all duration-300 text-micro font-mono scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] select-none shadow-md"
-          >
-            {theme === 1 ? (
-              // Cream Rag Paper: 16-point intaglio nautical compass rosette with fleur-de-lis
-              <svg className="w-5 h-5 shrink-0 text-[var(--theme-text-accent)] z-10" viewBox="0 0 100 100" fill="none">
-                <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="1" strokeDasharray="1.5 2.5" opacity="0.6" />
-                <circle cx="50" cy="50" r="42" stroke="currentColor" strokeWidth="0.75" />
-                <polygon points="50,12 53,44 50,50 47,44" fill="currentColor" />
-                <polygon points="50,12 47,44 50,50" fill="currentColor" opacity="0.3" />
-                <polygon points="50,88 47,56 50,50 53,56" fill="currentColor" />
-                <polygon points="50,88 53,56 50,50" fill="currentColor" opacity="0.3" />
-                <polygon points="88,50 56,53 50,50 56,47" fill="currentColor" />
-                <polygon points="88,50 56,47 50,50" fill="currentColor" opacity="0.3" />
-                <polygon points="12,50 44,47 50,50 44,53" fill="currentColor" />
-                <polygon points="12,50 44,53 50,50 44,47" fill="currentColor" opacity="0.3" />
-                <polygon points="77,23 54,46 50,50 52,43" fill="currentColor" opacity="0.7" />
-                <polygon points="23,77 46,54 50,50 48,57" fill="currentColor" opacity="0.7" />
-                <polygon points="77,77 54,54 50,50 57,52" fill="currentColor" opacity="0.7" />
-                <polygon points="23,23 46,46 50,50 43,48" fill="currentColor" opacity="0.7" />
-                <path d="M50 4 C48 8, 44 10, 47 14 C48 11, 50 10, 50 14 C50 10, 52 11, 53 14 C56 10, 52 8, 50 4 Z" fill="currentColor" />
-                <circle cx="50" cy="50" r="3" fill="currentColor" />
-                <text x="50" y="24" textAnchor="middle" fontSize="10" fill="currentColor" fontFamily="Cinzel, serif" fontWeight="bold">N</text>
-              </svg>
-            ) : theme === 2 ? (
-              // Prussian Cyanotype: Architectural CAD drafting protractor & registration crosshairs
-              <svg className="w-5 h-5 shrink-0 text-[var(--theme-text-accent)] z-10" viewBox="0 0 100 100" fill="none" stroke="currentColor">
-                <circle cx="50" cy="50" r="44" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
-                <circle cx="50" cy="50" r="38" strokeWidth="0.75" />
-                <line x1="50" y1="4" x2="50" y2="96" strokeWidth="0.75" />
-                <line x1="4" y1="50" x2="96" y2="50" strokeWidth="0.75" />
-                <line x1="19" y1="19" x2="81" y2="81" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.6" />
-                <line x1="19" y1="81" x2="81" y2="19" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.6" />
-                <circle cx="50" cy="50" r="2" fill="currentColor" strokeWidth="0" />
-                <polygon points="50,10 54,34 50,30 46,34" fill="currentColor" strokeWidth="0" />
-                <text x="50" y="25" textAnchor="middle" fontSize="9" fill="currentColor" strokeWidth="0" fontFamily="IBM Plex Mono, monospace" fontWeight="bold">N</text>
-              </svg>
-            ) : (
-              // Marie Tharp: Acoustic sonar bathymetric sounding cone & depth rings
-              <svg className="w-5 h-5 shrink-0 text-[var(--theme-text-accent)] z-10" viewBox="0 0 100 100" fill="none" stroke="currentColor">
-                <circle cx="50" cy="50" r="44" strokeWidth="0.75" strokeDasharray="2 4" opacity="0.4" />
-                <circle cx="50" cy="50" r="32" strokeWidth="0.75" opacity="0.6" />
-                <circle cx="50" cy="50" r="18" strokeWidth="0.75" opacity="0.8" />
-                <line x1="50" y1="6" x2="50" y2="94" strokeWidth="0.75" opacity="0.5" />
-                <line x1="6" y1="50" x2="94" y2="50" strokeWidth="0.75" opacity="0.5" />
-                <path d="M50 50 L28 12 A 44 44 0 0 1 72 12 Z" fill="currentColor" fillOpacity="0.15" strokeWidth="0.75" />
-                <polygon points="50,10 53,28 50,25 47,28" fill="currentColor" strokeWidth="0" />
-                <circle cx="50" cy="50" r="2" fill="currentColor" strokeWidth="0" />
-                <text x="50" y="22" textAnchor="middle" fontSize="9" fill="currentColor" strokeWidth="0" fontFamily="Cinzel, serif" fontWeight="bold">N</text>
-              </svg>
-            )}
-            <div className="leading-tight z-10">
-              <div className="font-bold tracking-wider">IMHOF NW ILLUMINATION</div>
-              <div className="opacity-70 text-nano">
-                {Math.round(primaryLayer?.sunAzimuth ?? 315)}° Azimuth · {Math.round(primaryLayer?.sunAltitude ?? 45)}° Solar Angle
-              </div>
-            </div>
-          </aside>
-        )}
+
 
         {/* Viewport Canvas (Standalone WebGPU Instrument with SVG Fallback) */}
         <div className="w-full h-full relative">

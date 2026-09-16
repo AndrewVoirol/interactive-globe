@@ -256,10 +256,9 @@ describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety',
   });
 
   describe('Locked-In Decision 9, 10, 11, 12: Era-Specific Nautical Rosette & Scientific Instruments', () => {
-    it('renders medium-adaptive ornate nautical compass rosette in App.tsx', () => {
-      expect(appCode).toContain('16-point intaglio nautical compass rosette');
-      expect(appCode).toContain('Architectural CAD drafting protractor');
-      expect(appCode).toContain('Acoustic sonar bathymetric sounding cone');
+    it('verifies legacy compass rosette aside in App.tsx has been excised in favor of PolarSunCompass', () => {
+      expect(appCode).not.toContain('IMHOF NW ILLUMINATION');
+      expect(compassCode).toContain('compass-rose-cream');
     });
 
     it('renders medium-adaptive artifacts in PolarSunCompass', () => {

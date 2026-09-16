@@ -136,8 +136,8 @@ describe('Vector Overlay & WebGPU Full Physics Parity Verification', () => {
       expect(appCode).toContain("setBackend((b) => (b === 'webgpu' ? 'webgl2' : 'webgpu'))");
     });
 
-    it('VEC-PAR-15: verifies NavigationDock documents B: Backend shortcut', () => {
-      expect(dockCode).toContain('B: Backend');
+    it('VEC-PAR-15: verifies NavigationDock has excised legacy shortcut strip', () => {
+      expect(dockCode).not.toContain('B: Backend');
     });
 
     it('VEC-PAR-16: verifies physics_sim.wgsl rotation matrix matches GLSL column vectors exactly', () => {

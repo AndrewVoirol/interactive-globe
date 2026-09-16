@@ -30,8 +30,8 @@ describe('Stage 2 Cartography: Remediation of 9 Known HUD Layout Violations', ()
       expect(canvasContent).not.toMatch(/cy\s*=\s*h\s*-\s*92/);
     });
 
-    it('V1-02: verifies Aside is anchored to bottom-5 left-5 with 10px neatline moat', () => {
-      expect(appContent).toContain('bottom-5 left-5');
+    it('V1-02: verifies Aside (Imhof NW illumination) has been permanently excised', () => {
+      expect(appContent).not.toContain('IMHOF NW ILLUMINATION');
     });
 
     it('V1-03: mathematically proves exact 20px gutter between Cartouche top and Aside bottom', () => {
@@ -65,9 +65,8 @@ describe('Stage 2 Cartography: Remediation of 9 Known HUD Layout Violations', ()
   // Violation 3: Aside & Toast Dynamic Adaptation When Cartouche Toggled Off
   // --------------------------------------------------------------------------
   describe('Violation 3: Dynamic Adaptive Positioning on Cartouche Toggle', () => {
-    it('V3-01: verifies Aside is at bottom-5 (20px axis = 10px neatline moat)', () => {
-      expect(appContent).toContain('bottom-5 left-5');
-      expect(appContent).toMatch(/aside[\s\S]*?transition-all duration-300/);
+    it('V3-01: verifies Aside is permanently excised from App.tsx', () => {
+      expect(appContent).not.toContain('IMHOF NW ILLUMINATION');
     });
 
     it('V3-02: verifies Toast is at bottom-[78px]', () => {
