@@ -152,6 +152,8 @@ export interface WebGPUCanvasProps {
   weatherTau?: number;
   thermodynamicGating?: boolean;
   onThermodynamicGatingChange?: (v: boolean) => void;
+  showAtmosphere?: boolean;
+  volumetricClouds?: boolean;
   onShowCloudsChange?: (v: boolean) => void;
   onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
   prognosticModel?: PrognosticModelBackend;
@@ -222,6 +224,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   scrubTau = 0,
   weatherTau = 0,
   thermodynamicGating = true,
+  showAtmosphere,
+  volumetricClouds,
   onShowCloudsChange,
   onTogglePlanetaryLayer,
   prognosticModel = 'weathernext3',
@@ -376,6 +380,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     scrubTau,
     weatherTau,
     thermodynamicGating,
+    showAtmosphere,
+    volumetricClouds,
     resolution,
   });
   useEffect(() => {
@@ -413,9 +419,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       scrubTau,
       weatherTau,
       thermodynamicGating,
+      showAtmosphere,
+      volumetricClouds,
       resolution,
     };
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, resolution]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -618,51 +626,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     if (!hasRadar && !hasWeatherNext && engine.precipRingBuffer) {
       engine.setPrecipitationRingBuffer(null);
     }
-    const hasCrane = !!dataLayers?.find(
-      (l) => (l.id === 'origami-crane-companion' || l.id === 'origami-crane') && l.visible
-    );
-    if (hasCrane && !engine.isCraneActive) {
-      const cam = cameraRef.current;
-      const norm = new Vector3().copy(cam.position).normalize();
-      const phi = Math.asin(Math.max(-1.0, Math.min(1.0, norm.y)));
-      const lambda = Math.atan2(norm.x, norm.z);
-      const latDeg = phi * (180 / Math.PI);
-      const lonDeg = ((((lambda * (180 / Math.PI) + 180) % 360) + 360) % 360) - 180;
-      engine.releaseOrigamiCrane(lonDeg, latDeg);
-    } else if (!hasCrane && engine.isCraneActive) {
-      engine.isCraneActive = false;
-      if (typeof engine.deactivateOrigamiCrane === 'function') {
-        engine.deactivateOrigamiCrane();
-      }
-    }
     const hasPhotoreal = !!dataLayers?.find(
       (l) => (l.renderStyle === 'photoreal' || l.id === 'photoreal-satellite-layer') && l.visible
     );
     if (hasPhotoreal && !engine.isOrbitalTexturesLoaded()) {
       engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
     }
-  }, [dataLayers, prognosticModel, showClouds]);
-
-  const focusCrane = useCallback(() => {
-    const engine = engineRef.current;
-    if (!engine) return;
-    const state = engine.getCraneState();
-    if (!state) return;
-    const phi = ((90 - state.lat) * Math.PI) / 180;
-    const theta = (state.lon * Math.PI) / 180;
-    const radius = 11.5;
-    const camX = radius * Math.sin(phi) * Math.sin(theta);
-    const camY = radius * Math.cos(phi);
-    const camZ = radius * Math.sin(phi) * Math.cos(theta);
-    targetCameraPosRef.current = new Vector3(camX, camY, camZ);
-  }, []);
-
-  useEffect(() => {
-    (window as any).__FOCUS_CRANE__ = focusCrane;
-    return () => {
-      delete (window as any).__FOCUS_CRANE__;
-    };
-  }, [focusCrane]);
+  }, [dataLayers, prognosticModel, showClouds, isLoading]);
 
   // WebGPU Device Loss Recovery
   useEffect(() => {
@@ -1597,20 +1567,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
     const onContextMenu = (e: MouseEvent) => e.preventDefault();
 
-    const onDblClick = () => {
-      const hit = currentHitPosRef.current;
-      const len = Math.hypot(hit.x, hit.y, hit.z) || 1.0;
-      const latDeg = Math.asin(Math.max(-1, Math.min(1, hit.y / len))) * (180.0 / Math.PI);
-      const lonDeg = Math.atan2(hit.x, hit.z) * (180.0 / Math.PI);
-      engineRef.current.releaseOrigamiCrane(lonDeg, latDeg);
-    };
-
     const container = containerRef.current || canvas;
 
     container.addEventListener('pointerdown', onPointerDown as EventListener);
     container.addEventListener('pointerenter', onPointerEnter as EventListener);
     container.addEventListener('pointerleave', onPointerLeave as EventListener);
-    container.addEventListener('dblclick', onDblClick as EventListener);
     window.addEventListener('pointermove', onPointerMove as EventListener);
     window.addEventListener('pointerup', onPointerUp as EventListener);
     container.addEventListener('wheel', onWheel as EventListener, { passive: false });
@@ -1620,7 +1581,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       container.removeEventListener('pointerdown', onPointerDown as EventListener);
       container.removeEventListener('pointerenter', onPointerEnter as EventListener);
       container.removeEventListener('pointerleave', onPointerLeave as EventListener);
-      container.removeEventListener('dblclick', onDblClick as EventListener);
       window.removeEventListener('pointermove', onPointerMove as EventListener);
       window.removeEventListener('pointerup', onPointerUp as EventListener);
       container.removeEventListener('wheel', onWheel as EventListener);
@@ -1715,7 +1675,20 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         engine.loadVectorData('/geo-vectors.bin').catch(() => {});
         engine.loadContourMesh('/geo-contour-mesh.bin').catch(() => {});
         engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
-        engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {}); engine.loadAllCloudLayers().catch(() => {});;
+        const isWnModel =
+          prognosticModel === 'weathernext3' ||
+          prognosticModel === 'google-weathernext3' ||
+          prognosticModel === 'weathernext';
+
+        if (isWnModel) {
+          engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {
+            engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+          });
+          engine.loadAllCloudLayers(true).catch(() => {});
+        } else {
+          engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+          engine.loadAllCloudLayers(false).catch(() => {});
+        }
         engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
 
         if (!isMounted) {
@@ -1781,7 +1754,20 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           engine.loadVectorData('/geo-vectors.bin').catch(() => {});
           engine.loadContourMesh('/geo-contour-mesh.bin').catch(() => {});
           engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
-          engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {}); engine.loadAllCloudLayers().catch(() => {});;
+          const isWnModel =
+            prognosticModel === 'weathernext3' ||
+            prognosticModel === 'google-weathernext3' ||
+            prognosticModel === 'weathernext';
+
+          if (isWnModel) {
+            engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {
+              engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+            });
+            engine.loadAllCloudLayers(true).catch(() => {});
+          } else {
+            engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+            engine.loadAllCloudLayers(false).catch(() => {});
+          }
           engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
 
           if (!isMounted) return;
@@ -2169,9 +2155,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const hasJetStream = !!curDataLayers?.find(
           (l) => (l.id === 'noaa-gfs-jetstream' || l.id === 'gfs-jetstream') && l.visible
         );
-        const hasCrane = !!curDataLayers?.find(
-          (l) => (l.id === 'origami-crane-companion' || l.id === 'origami-crane') && l.visible
-        );
 
         // Dynamic near-plane modulation: 0.1 at orbit (alt >= 1.0) -> 0.00005 in troposphere (alt <= 0.004)
         const camDist = camera.position.length();
@@ -2244,6 +2227,19 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             ? cloudLayer.visible
             : stateRef.current.showClouds);
 
+        const atmLayer = curDataLayers?.find(
+          (l) => l.id === 'atmosphere-scatter' || l.id === 'planetary-atmosphere'
+        );
+        const effectiveShowAtmosphere = liveOverrides?.showAtmosphere !== undefined
+          ? liveOverrides.showAtmosphere
+          : (atmLayer !== undefined
+            ? atmLayer.visible
+            : (stateRef.current.showAtmosphere ?? false));
+
+        const effectiveVolumetricClouds = liveOverrides?.volumetricClouds !== undefined
+          ? liveOverrides.volumetricClouds
+          : (stateRef.current.volumetricClouds ?? false);
+
         engine.render({
           unfurl: curUnfurl,
           mode: curMode,
@@ -2269,13 +2265,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           showWind: hasSurfaceWind || hasJetStream,
           showSurfaceWinds: hasSurfaceWind,
           showJetStream: hasJetStream,
-          showCrane: hasCrane,
           showClouds: effectiveShowClouds,
-          volumetricClouds: effectiveShowClouds,
+          volumetricClouds: effectiveVolumetricClouds,
           showCloudLow: liveOverrides?.showCloudLow !== undefined ? liveOverrides.showCloudLow : stateRef.current.showCloudLow,
           showCloudMid: liveOverrides?.showCloudMid !== undefined ? liveOverrides.showCloudMid : stateRef.current.showCloudMid,
           showCloudHigh: liveOverrides?.showCloudHigh !== undefined ? liveOverrides.showCloudHigh : stateRef.current.showCloudHigh,
-          showAtmosphere: effectiveShowClouds,
+          showAtmosphere: effectiveShowAtmosphere,
           cloudDriftSpeed: stateRef.current.cloudDriftSpeed,
           cloudOpacity: stateRef.current.cloudOpacity,
           atmosphericScale: stateRef.current.atmosphericScale,

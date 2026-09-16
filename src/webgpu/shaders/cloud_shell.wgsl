@@ -358,7 +358,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let latRad = (0.5 - in.uv.y) * PI;
     let cosLat = max(0.1, cos(latRad));
     const EARTH_RADIUS: f32 = 6371000.0; // meters
-    let dx = 2.0 * EARTH_RADIUS * cosLat * (dU * TWO_PI);
+    // Taper metric tensor arc length so 1/dx does not blow up at high latitudes
+    let cosLatMetric = max(0.35, cos(latRad));
+    let dx = 2.0 * EARTH_RADIUS * cosLatMetric * (dU * TWO_PI);
     let dy = 2.0 * EARTH_RADIUS * (dV * PI);
     let gradH = vec2<f32>((elevEast - elevWest) / dx, (elevNorth - elevSouth) / dy);
 
@@ -374,10 +376,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let poleAtten = 1.0 - smoothstep(0.82, 0.96, poleDist);
     let cosLatPolar = max(0.0, cos(latRad));
     let polarLonAtten = smoothstep(0.01, 0.25, cosLatPolar);
+    let polarOrographicAtten = smoothstep(0.05, 0.35, cosLatPolar);
 
     let liftTerm = select(wOrographic * 50.0, ((elevEast - elevWest) / 8848.0) * 10.0, length(windVel) < 1e-4);
     let orographicLift = 0.35 * tanh(0.05 * liftTerm) * stratumCoupling;
-    let effOrographicLift = orographicLift * poleAtten * polarLonAtten;
+    let effOrographicLift = orographicLift * poleAtten * polarLonAtten * polarOrographicAtten;
     let condensedCloud = clamp((rawCloud + effOrographicLift) * poleAtten, 0.0, 1.0);
 
     // Backward compatibility deltaH variables

@@ -1,0 +1,71 @@
+{
+  "timestamp": "2026-09-16T19:11:15.516Z",
+  "passAudit": {
+    "volumetricCloudsPipelineExists": true,
+    "volumetricCloudsEnabled": false,
+    "atmosphereScatterPipelineExists": true,
+    "showAtmosphereScatter": true,
+    "windComputePipelineExists": false,
+    "showSurfaceWinds": true,
+    "showJetStream": true,
+    "liveOverrides": null
+  },
+  "results": {
+    "S1-Default": {
+      "sampleCount": 180,
+      "meanDeltaMs": 28.75,
+      "meanFps": 34.8,
+      "minDeltaMs": 8.4,
+      "maxDeltaMs": 274.9,
+      "p50DeltaMs": 25,
+      "p95DeltaMs": 33.4,
+      "p99DeltaMs": 34.8,
+      "over16msCount": 179,
+      "over16msPct": 99.4,
+      "over33msCount": 45,
+      "over33msPct": 25
+    },
+    "S2-CreamRag": {
+      "sampleCount": 180,
+      "meanDeltaMs": 27.45,
+      "meanFps": 36.4,
+      "minDeltaMs": 18.2,
+      "maxDeltaMs": 34.4,
+      "p50DeltaMs": 25,
+      "p95DeltaMs": 33.4,
+      "p99DeltaMs": 34.3,
+      "over16msCount": 180,
+      "over16msPct": 100,
+      "over33msCount": 30,
+      "over33msPct": 16.7
+    },
+    "S3-Cyanotype": {
+      "sampleCount": 180,
+      "meanDeltaMs": 27.27,
+      "meanFps": 36.7,
+      "minDeltaMs": 16.6,
+      "maxDeltaMs": 34.9,
+      "p50DeltaMs": 25,
+      "p95DeltaMs": 33.4,
+      "p99DeltaMs": 33.8,
+      "over16msCount": 179,
+      "over16msPct": 99.4,
+      "over33msCount": 23,
+      "over33msPct": 12.8
+    },
+    "S4-CloseZoom": {
+      "sampleCount": 180,
+      "meanDeltaMs": 31.99,
+      "meanFps": 31.3,
+      "minDeltaMs": 24.7,
+      "maxDeltaMs": 34.9,
+      "p50DeltaMs": 33.3,
+      "p95DeltaMs": 33.7,
+      "p99DeltaMs": 34.9,
+      "over16msCount": 180,
+      "over16msPct": 100,
+      "over33msCount": 84,
+      "over33msPct": 46.7
+    }
+  }
+}

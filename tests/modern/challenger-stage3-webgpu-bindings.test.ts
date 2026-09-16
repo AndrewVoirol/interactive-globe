@@ -269,14 +269,13 @@ describe('CHALLENGER STAGE 3: WebGPU Uniform Control Flow & Pipeline Binding Ver
       expect(device.buffers.length).toBe(5);
     });
 
-    it('CHALLENGE-ALLOC-02: wind and crane buffers remain unallocated until ensureWindBuffers is explicitly triggered', async () => {
+    it('CHALLENGE-ALLOC-02: wind buffers remain unallocated until ensureWindBuffers is explicitly triggered', async () => {
       const config = createEngineConfig(256, 30);
       await engine.initialize(config);
 
       const device = (engine as any).device as MockGPUDevice;
       expect((engine as any).windParticleBuffers).toBeNull();
       expect((engine as any).windUniformBuffer).toBeNull();
-      expect((engine as any).craneUniformBuffer).toBeNull();
       expect(device.buffers.length).toBe(5);
 
       // Trigger wind allocation
@@ -285,14 +284,11 @@ describe('CHALLENGER STAGE 3: WebGPU Uniform Control Flow & Pipeline Binding Ver
 
       const windParticleBuffers = (engine as any).windParticleBuffers;
       const windUniformBuffer = (engine as any).windUniformBuffer;
-      const craneUniformBuffer = (engine as any).craneUniformBuffer;
 
       expect(windParticleBuffers).toBeDefined();
       expect(windParticleBuffers.length).toBe(2);
       expect(windUniformBuffer).toBeDefined();
       expect(windUniformBuffer.size).toBe(64); // 16 * 4 bytes
-      expect(craneUniformBuffer).toBeDefined();
-      expect(craneUniformBuffer.size).toBe(240); // 60 * 4 bytes
     });
   });
 

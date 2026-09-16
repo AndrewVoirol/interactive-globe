@@ -266,7 +266,6 @@ describe('Timeline Scrubber & Toast Notification Integrity', () => {
         'noaa-gfs-clouds',
         'live-doppler-radar',
         'starlink-iss-orbits',
-        'origami-crane-companion',
       ];
 
       for (const id of supportedIds) {

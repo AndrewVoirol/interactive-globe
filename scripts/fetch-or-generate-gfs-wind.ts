@@ -48,7 +48,7 @@ export function generateGFSAtmosphericCirculationGrid(): ArrayBuffer {
         const tradeWave = 1.2 * Math.sin(lonRad * 3.0);
         uMps = -(tradeStrength + tradeWave);
         // Intertropical Convergence Zone (ITCZ) meridional convergence
-        vMps = (latDeg > 0 ? -2.2 : 2.2) * Math.cos(absLat * (Math.PI / 60.0)) + 0.8 * Math.sin(lonRad * 4.0);
+        vMps = -Math.tanh(latDeg / 2.0) * 2.2 * Math.cos(absLat * (Math.PI / 60.0)) + 0.8 * Math.sin(lonRad * 4.0);
       } else if (absLat <= 60.0) {
         // Mid-latitude Westerlies & Jet Stream (30° - 60°): Westerlies (u > 0)
         // Jet stream core peaks between 40° and 50° latitude at 22-32 m/s

@@ -1,0 +1,85 @@
+{
+  "timestamp": "2026-09-16T19:41:15.311Z",
+  "passAudit": {
+    "volumetricCloudsPipelineExists": true,
+    "volumetricCloudsEnabled": false,
+    "atmosphereScatterPipelineExists": true,
+    "showAtmosphereScatter": true,
+    "windComputePipelineExists": false,
+    "showSurfaceWinds": true,
+    "showJetStream": true,
+    "liveOverrides": null
+  },
+  "results": {
+    "S1-Default": {
+      "sampleCount": 180,
+      "meanDeltaMs": 13.62,
+      "meanFps": 73.4,
+      "minDeltaMs": 6.4,
+      "maxDeltaMs": 41.9,
+      "p50DeltaMs": 15.3,
+      "p95DeltaMs": 24.9,
+      "p99DeltaMs": 41.7,
+      "over16msCount": 44,
+      "over16msPct": 24.4,
+      "over33msCount": 5,
+      "over33msPct": 2.8
+    },
+    "S2-CreamRag": {
+      "sampleCount": 180,
+      "meanDeltaMs": 13.47,
+      "meanFps": 74.2,
+      "minDeltaMs": 6.4,
+      "maxDeltaMs": 41.7,
+      "p50DeltaMs": 15.5,
+      "p95DeltaMs": 18.2,
+      "p99DeltaMs": 41.7,
+      "over16msCount": 41,
+      "over16msPct": 22.8,
+      "over33msCount": 5,
+      "over33msPct": 2.8
+    },
+    "S3-Cyanotype": {
+      "sampleCount": 180,
+      "meanDeltaMs": 13.47,
+      "meanFps": 74.2,
+      "minDeltaMs": 6.9,
+      "maxDeltaMs": 41.6,
+      "p50DeltaMs": 16.2,
+      "p95DeltaMs": 17.8,
+      "p99DeltaMs": 33.7,
+      "over16msCount": 43,
+      "over16msPct": 23.9,
+      "over33msCount": 4,
+      "over33msPct": 2.2
+    },
+    "S4-CloseZoom": {
+      "sampleCount": 180,
+      "meanDeltaMs": 17.64,
+      "meanFps": 56.7,
+      "minDeltaMs": 8.2,
+      "maxDeltaMs": 41.7,
+      "p50DeltaMs": 16.7,
+      "p95DeltaMs": 25,
+      "p99DeltaMs": 33.8,
+      "over16msCount": 83,
+      "over16msPct": 46.1,
+      "over33msCount": 6,
+      "over33msPct": 3.3
+    },
+    "S5-CloudsRasterOnly": {
+      "sampleCount": 180,
+      "meanDeltaMs": 15.97,
+      "meanFps": 62.6,
+      "minDeltaMs": 8.2,
+      "maxDeltaMs": 33.6,
+      "p50DeltaMs": 16.6,
+      "p95DeltaMs": 25.1,
+      "p99DeltaMs": 33.5,
+      "over16msCount": 71,
+      "over16msPct": 39.4,
+      "over33msCount": 5,
+      "over33msPct": 2.8
+    }
+  }
+}

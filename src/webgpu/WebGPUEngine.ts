@@ -23,7 +23,6 @@ import demUnpackWGSL from './shaders/dem_unpack.wgsl?raw';
 import windParticlesWGSL from './shaders/wind_particles.wgsl?raw';
 import windRibbonRenderWGSL from './shaders/wind_ribbon_render.wgsl?raw';
 import cloudShellWGSL from './shaders/cloud_shell.wgsl?raw';
-import origamiCraneWGSL from './shaders/origami_crane.wgsl?raw';
 import atmosphereScatterWGSL from './shaders/atmosphere_scatter.wgsl?raw';
 import cloudNoiseComputeWGSL from './shaders/cloud_noise_compute.wgsl?raw';
 import volumetricCloudWGSL from './shaders/volumetric_cloud.wgsl?raw';
@@ -31,7 +30,6 @@ import { GPUProfiler } from './profiling/GPUProfiler';
 import { encodeFloat16 } from '../core/math/float16';
 import { parseTLE, propagateOrbitalPosition } from '../core/math/sgp4';
 import { loadNodeAssetBuffer, loadNodeAssetText } from '../utils/nodeAssetLoader';
-import { OrigamiCraneFlightSolver, CraneState } from '../core/physics/OrigamiCraneFlightSolver';
 import { VectorFieldDataSource } from '../core/data/VectorFieldDataSource';
 import { ThemeManager, PhysicalMediumProperties } from '../core/themes';
 import { getSolarPosition, SolarPosition } from '../core/astronomy/SolarEphemeris';
@@ -74,7 +72,6 @@ export interface WebGPUFrameParams {
   showWind?: boolean;
   showSurfaceWinds?: boolean;
   showJetStream?: boolean;
-  showCrane?: boolean;
   showRelief?: boolean;
   showVectors?: boolean;
   showClouds?: boolean;
@@ -483,6 +480,17 @@ export class WebGPUEngine {
   private cloudIndexCount: number = 0;
   private cloudUniformFloats: Float32Array = new Float32Array(72);
   private cloudUniformU32: Uint32Array = new Uint32Array(this.cloudUniformFloats.buffer);
+  private cloudLayerUniformMirrorsU32: Uint32Array[] = [
+    new Uint32Array(this.cloudLayerUniformMirrors[0].buffer),
+    new Uint32Array(this.cloudLayerUniformMirrors[1].buffer),
+    new Uint32Array(this.cloudLayerUniformMirrors[2].buffer),
+  ];
+  private atmosphereUniformMirror: Float32Array = new Float32Array(72);
+  private atmosphereUniformMirrorU32: Uint32Array = new Uint32Array(this.atmosphereUniformMirror.buffer);
+  private windUniformFloats: Float32Array = new Float32Array(16);
+  private windUniformU32: Uint32Array = new Uint32Array(this.windUniformFloats.buffer);
+  private volumetricCamFloats: Float32Array = new Float32Array(48);
+  private volumetricCloudFloats: Float32Array = new Float32Array(40);
   private cloudSampler: GPUSampler | null = null;
   private cloudEnabled: boolean = true;
   public cloudOptions: CloudOptions = {
@@ -509,13 +517,8 @@ export class WebGPUEngine {
   public defaultTextureWidth: number = 1024 * 4;
   public defaultTextureHeight: number = 1024 * 2;
 
-  // Autonomous Origami Paper Crane Soaring Engine
-  public readonly craneSolver: OrigamiCraneFlightSolver = new OrigamiCraneFlightSolver();
-  public isCraneActive: boolean = false;
-  private craneUniformBuffer: GPUBuffer | null = null;
-  private craneBindGroup: GPUBindGroup | null = null;
-  private cranePipeline: GPURenderPipeline | null = null;
-  private craneUniformFloats: Float32Array = new Float32Array(60);
+  private cloudLayerUpdateFloats: Float32Array = new Float32Array(4);
+  private cloudLayerUpdateU32: Uint32Array = new Uint32Array(this.cloudLayerUpdateFloats.buffer);
 
   private computeBindGroups: [GPUBindGroup, GPUBindGroup] = [null!, null!];
   private renderBindGroup!: GPUBindGroup;
@@ -1397,12 +1400,6 @@ export class WebGPUEngine {
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
 
-      this.craneUniformBuffer = this.device.createBuffer({
-        label: 'crane_uniform_buffer',
-        size: 240,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-      });
-
       this.updateWindBindGroups();
     } catch {}
   }
@@ -1559,65 +1556,6 @@ export class WebGPUEngine {
           ],
         }),
       ];
-
-      // Origami Crane Render Pipeline
-      if (this.craneUniformBuffer) {
-        const craneShaderModule = this.device.createShaderModule({
-          label: 'origami_crane_shader',
-          code: origamiCraneWGSL,
-        });
-
-        const craneBindGroupLayout = this.device.createBindGroupLayout({
-          label: 'crane_bind_group_layout',
-          entries: [
-            { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
-          ],
-        });
-
-        const cranePipelineLayout = this.device.createPipelineLayout({
-          bindGroupLayouts: [craneBindGroupLayout],
-        });
-
-        this.cranePipeline = this.device.createRenderPipeline({
-          label: 'origami_crane_pipeline',
-          layout: cranePipelineLayout,
-          vertex: {
-            module: craneShaderModule,
-            entryPoint: 'vs_main',
-            buffers: [],
-          },
-          fragment: {
-            module: craneShaderModule,
-            entryPoint: 'fs_main',
-            targets: [
-              {
-                format: this.format,
-                blend: {
-                  color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
-                  alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
-                },
-              },
-            ],
-          },
-          depthStencil: {
-            depthWriteEnabled: true,
-            depthCompare: 'always',
-            format: 'depth32float',
-          },
-          primitive: {
-            topology: 'triangle-list',
-            cullMode: 'none',
-          },
-        });
-
-        this.craneBindGroup = this.device.createBindGroup({
-          label: 'crane_bind_group',
-          layout: craneBindGroupLayout,
-          entries: [
-            { binding: 0, resource: { buffer: this.craneUniformBuffer } },
-          ],
-        });
-      }
     } catch {}
   }
 
@@ -3241,45 +3179,10 @@ export class WebGPUEngine {
     }
   }
 
-  public renderOrigamiCrane(
-    passEncoder: GPURenderPassEncoder,
-    _params: WebGPUFrameParams
-  ): void {
-    if (!this.cranePipeline || !this.craneBindGroup || !this.craneUniformBuffer)
-      return;
-
-    // Single 84-vertex draw call: vertices 0..41 render the ground shadow; 42..83 render the origami crane geometry
-    passEncoder.setPipeline(this.cranePipeline);
-    passEncoder.setBindGroup(0, this.craneBindGroup);
-    passEncoder.draw(84, 1, 0, 0);
-  }
-
-  public releaseOrigamiCrane(
-    lon?: number,
-    lat?: number,
-    altMeters?: number
-  ): void {
-    this.ensureWindBuffers();
-    this.isCraneActive = true;
-    if (lon !== undefined && lat !== undefined) {
-      this.craneSolver.reset(lon, lat, altMeters ?? 2500);
-    } else {
-      this.craneSolver.reset(-68.5, -32.5, 2500); // Default: Andes Cordillera wave
-    }
-  }
-
-  public getCraneState(): CraneState {
-    return this.craneSolver.getState();
-  }
-
-  public deactivateOrigamiCrane(): void {
-    this.isCraneActive = false;
-  }
-
   /**
    * Samples terrain elevation and slope gradients on the CPU.
    * Leverages the loaded DEM buffer if available, or a physically grounded
-   * procedural orographic terrain model for real-time crane ridge lift.
+   * procedural orographic terrain model.
    */
   public sampleCPUElevation(
     lonDeg: number,
@@ -3907,7 +3810,7 @@ export class WebGPUEngine {
     if (!this.volumetricCameraUniformBuffer || !this.volumetricCloudUniformBuffer) return;
 
     // 1. Camera Uniforms (48 floats = 192 bytes)
-    const camFloats = new Float32Array(48);
+    const camFloats = this.volumetricCamFloats;
 
     // MatrixWorld (V^-1)
     if ((params as any).camera?.matrixWorld?.elements) {
@@ -3954,7 +3857,7 @@ export class WebGPUEngine {
     this.device.queue.writeBuffer(this.volumetricCameraUniformBuffer, 0, camFloats.buffer);
 
     // 2. Cloud Uniforms (40 floats = 160 bytes)
-    const cloudFloats = new Float32Array(40);
+    const cloudFloats = this.volumetricCloudFloats;
 
     // Shell Radii (dynamically scaled with DEM relief displacement to prevent mountain discard)
     const dispScale = ((params as any).displacementScale ?? 0.055) * 2.8;
@@ -4580,69 +4483,6 @@ export class WebGPUEngine {
     } catch {
       // Mock environment guard
     }
-
-    // 13. Autonomous Origami Paper Crane Pipeline
-    try {
-      if (this.craneUniformBuffer) {
-        const craneShaderModule = this.device.createShaderModule({
-          label: 'origami_crane_shader',
-          code: origamiCraneWGSL,
-        });
-
-        const craneBindGroupLayout = this.device.createBindGroupLayout({
-          label: 'crane_bind_group_layout',
-          entries: [
-            { binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
-          ],
-        });
-
-        const cranePipelineLayout = this.device.createPipelineLayout({
-          bindGroupLayouts: [craneBindGroupLayout],
-        });
-
-        this.cranePipeline = this.device.createRenderPipeline({
-          label: 'origami_crane_pipeline',
-          layout: cranePipelineLayout,
-          vertex: {
-            module: craneShaderModule,
-            entryPoint: 'vs_main',
-            buffers: [],
-          },
-          fragment: {
-            module: craneShaderModule,
-            entryPoint: 'fs_main',
-            targets: [
-              {
-                format: this.format,
-                blend: {
-                  color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
-                  alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
-                },
-              },
-            ],
-          },
-          depthStencil: {
-            depthWriteEnabled: true,
-            depthCompare: 'always',
-            format: 'depth32float',
-          },
-          primitive: {
-            topology: 'triangle-list',
-            cullMode: 'none',
-          },
-        });
-
-        this.craneBindGroup = this.device.createBindGroup({
-          label: 'crane_bind_group',
-          layout: craneBindGroupLayout,
-          entries: [
-            { binding: 0, resource: { buffer: this.craneUniformBuffer } },
-          ],
-        });
-      }
-    } catch {
-      // Mock environment guard
-    }
   }
 
   public updateUniforms(params: WebGPUFrameParams): void {
@@ -4975,18 +4815,21 @@ export class WebGPUEngine {
     // Wind Simulation Uniforms (48 bytes)
     // ------------------------------------------------------------------------
     if (this.windUniformBuffer) {
-      const showSurf = params.showSurfaceWinds !== undefined ? (params.showSurfaceWinds ? 1.0 : 0.0) : (this.showSurfaceWinds ? 1.0 : 0.0);
-      const showJet = params.showJetStream !== undefined ? (params.showJetStream ? 1.0 : 0.0) : (this.showJetStream ? 1.0 : 0.0);
-      const windU = new Float32Array(16);
-      const windU32 = new Uint32Array(windU.buffer);
+      const showWind = params.showWind !== undefined
+        ? params.showWind
+        : Boolean(params.showSurfaceWinds || params.showJetStream);
+      const showSurf = showWind && (params.showSurfaceWinds !== undefined ? Boolean(params.showSurfaceWinds) : this.showSurfaceWinds);
+      const showJet = showWind && (params.showJetStream !== undefined ? Boolean(params.showJetStream) : this.showJetStream);
+      const windU = this.windUniformFloats;
+      const windU32 = this.windUniformU32;
       windU[0] = params.unfurl;
       windU32[1] = params.mode;
       windU[2] = (params.time ?? 0.0) + timelineOffsetSec;
       windU[3] = params.dt;
       windU32[4] = this.windParticleCount;
       windU[5] = this.windSpeedMultiplier;
-      windU[6] = showSurf;
-      windU[7] = showJet;
+      windU[6] = showSurf ? 1.0 : 0.0;
+      windU[7] = showJet ? 1.0 : 0.0;
       windU[8] = params.displacementScale !== undefined ? params.displacementScale : 0.055;
       windU[9] = params.peakExponent !== undefined ? params.peakExponent : 1.4;
       windU32[10] = params.verticalScaleMode !== undefined ? params.verticalScaleMode : this.verticalScaleMode;
@@ -4998,83 +4841,6 @@ export class WebGPUEngine {
         windU[15] = 1.0;
       }
       this.device.queue.writeBuffer(this.windUniformBuffer, 0, windU.buffer);
-    }
-
-    // ------------------------------------------------------------------------
-    // Autonomous Origami Paper Crane Uniforms (240 bytes)
-    // ------------------------------------------------------------------------
-    if ((this.isCraneActive || params.showCrane) && this.craneUniformBuffer) {
-      this.craneSolver.step(
-        {
-          dt: params.dt,
-          unfurl: params.unfurl,
-          mode: params.mode as any,
-          elevationSampler: params.elevationSampler || ((lon, lat) => this.sampleCPUElevation(lon, lat)),
-        },
-        this.windDataSource
-      );
-
-      const cart = this.craneSolver.computeCartographicState(params.unfurl, params.mode as any);
-      const state = this.craneSolver.getState();
-      const cf = this.craneUniformFloats;
-
-      // [0..3]: worldPos (xyz) + wingFlex (w)
-      cf[0] = cart.worldPos[0];
-      cf[1] = cart.worldPos[1];
-      cf[2] = cart.worldPos[2];
-      cf[3] = state.wingFlex;
-
-      // [4..7]: forward (xyz) + airspeed (w)
-      cf[4] = cart.forwardVec[0];
-      cf[5] = cart.forwardVec[1];
-      cf[6] = cart.forwardVec[2];
-      cf[7] = state.airspeed;
-
-      // [8..11]: up (xyz) + variometer (w)
-      cf[8] = cart.upVec[0];
-      cf[9] = cart.upVec[1];
-      cf[10] = cart.upVec[2];
-      cf[11] = state.variometer;
-
-      // [12..15]: right (xyz) + roll (w)
-      cf[12] = cart.rightVec[0];
-      cf[13] = cart.rightVec[1];
-      cf[14] = cart.rightVec[2];
-      cf[15] = state.roll;
-
-      // [16..19]: shadowPos (xyz on terrain/sphere) + altitude (w)
-      const normLen = Math.hypot(cart.worldPos[0], cart.worldPos[1], cart.worldPos[2]) || 1.0;
-      const altScale = 0.00003;
-      const terrainElev = state.terrainElevation ?? 0;
-      const shadowR = this.baseRadius + 0.006 + Math.max(0, terrainElev) * altScale;
-      cf[16] = (cart.worldPos[0] / normLen) * shadowR;
-      cf[17] = (cart.worldPos[1] / normLen) * shadowR;
-      cf[18] = (cart.worldPos[2] / normLen) * shadowR;
-      cf[19] = state.altitude;
-
-      // [20..35]: viewMatrix
-      params.camera?.updateMatrixWorld?.();
-      params.camera?.matrixWorldInverse?.toArray(cf, 20);
-
-      // [36..51]: projectionMatrix
-      params.camera?.projectionMatrix?.toArray(cf, 36);
-
-      // [52..55]: cameraPos
-      if (params.camera?.position) {
-        cf[52] = params.camera.position.x;
-        cf[53] = params.camera.position.y;
-        cf[54] = params.camera.position.z;
-      }
-      cf[55] = 1.0;
-
-      // [56..59]: theme, isShadowPass, unfurl, pad1
-      const cu = new Uint32Array(cf.buffer, cf.byteOffset, 60);
-      cu[56] = params.theme !== undefined ? params.theme : 0;
-      cu[57] = 0;
-      cf[58] = params.unfurl;
-      cf[59] = 0.0;
-
-      this.device.queue.writeBuffer(this.craneUniformBuffer, 0, cf.buffer);
     }
 
     // Cloud Shell Tropospheric & Atmospheric Scatter Uniforms (288 bytes per layer)
@@ -5142,13 +4908,11 @@ export class WebGPUEngine {
       this.ensureCartographicBuffers();
     }
 
-    // 1b. Ensure wind and origami crane buffers lazily on-demand
+    // 1b. Ensure wind buffers lazily on-demand
     if (
       params.showWind ||
       params.showSurfaceWinds ||
-      params.showJetStream ||
-      params.showCrane ||
-      this.isCraneActive
+      params.showJetStream
     ) {
       this.ensureWindBuffers();
     }
@@ -5163,7 +4927,7 @@ export class WebGPUEngine {
       this.ensureAtmosphereScatterBuffers();
     }
 
-    // 2. Update Sim, Relief, Ribbon, Wind, and Crane Uniforms
+    // 2. Update Sim, Relief, Ribbon, and Wind Uniforms
     this.updateUniforms(params);
 
     // 2. Begin Frame Command Encoding
@@ -5179,12 +4943,15 @@ export class WebGPUEngine {
     computePass.dispatchWorkgroups(workgroupCount, 1, 1);
 
     // Pass 1b: Atmospheric Wind Particle Advection Compute Dispatch
-    const showSurf = params.showSurfaceWinds !== undefined ? params.showSurfaceWinds : this.showSurfaceWinds;
-    const showJet = params.showJetStream !== undefined ? params.showJetStream : this.showJetStream;
+    const showWind = params.showWind !== undefined
+      ? params.showWind
+      : Boolean(params.showSurfaceWinds || params.showJetStream);
+    const showSurf = showWind && (params.showSurfaceWinds !== undefined ? params.showSurfaceWinds : this.showSurfaceWinds);
+    const showJet = showWind && (params.showJetStream !== undefined ? params.showJetStream : this.showJetStream);
     if (
       this.windComputePipeline &&
       this.windComputeBindGroups &&
-      params.showWind !== false &&
+      showWind &&
       (showSurf || showJet)
     ) {
       computePass.setPipeline(this.windComputePipeline);
@@ -5287,9 +5054,8 @@ export class WebGPUEngine {
     }
 
     // 3d. Interleaved Atmospheric Wind & Cloud Strata Passes (Milestone 4)
-    const showWind = params.showWind !== false;
-    const finalShowSurf = showWind && (params.showSurfaceWinds !== undefined ? params.showSurfaceWinds : this.showSurfaceWinds);
-    const finalShowJet = showWind && (params.showJetStream !== undefined ? params.showJetStream : this.showJetStream);
+    const finalShowSurf = showSurf;
+    const finalShowJet = showJet;
     const showClouds = params.showClouds !== false && this.cloudEnabled !== false;
     const showCloudLow = showClouds && (params.showCloudLow !== false) && (this.cloudOptions.showLow !== false);
     const showCloudMid = showClouds && (params.showCloudMid !== false) && (this.cloudOptions.showMid !== false);
@@ -5328,16 +5094,6 @@ export class WebGPUEngine {
     // 5b. Planetary Atmospheric Scattering Envelope (RFC §1.3, Phase 6)
     if (showAtmosphere && this.atmosphereScatterPipeline) {
       this.renderAtmosphereScatterPass(renderPass, params);
-    }
-
-    // 3e. Render Autonomous Origami Paper Crane & Ground Shadow
-    if (
-      (this.isCraneActive || params.showCrane) &&
-      this.cranePipeline &&
-      this.craneBindGroup &&
-      this.craneUniformBuffer
-    ) {
-      this.renderOrigamiCrane(renderPass, params);
     }
 
     // 4. Render Point Sprites
@@ -6243,7 +5999,7 @@ export class WebGPUEngine {
     f[35] = params?.paperTooth ?? medium?.stippleDensity ?? 0.5;
 
     // 16-byte alignment uniform block (floats 36..39, offset 144)
-    const cloudU32 = new Uint32Array(this.cloudUniformFloats.buffer);
+    const cloudU32 = this.cloudUniformU32;
     cloudU32[36] = params?.verticalScaleMode !== undefined ? params.verticalScaleMode : this.verticalScaleMode;
     f[37] = params?.rainShadowFeedback !== undefined ? params.rainShadowFeedback : this.rainShadowFeedback;
     f[38] = 0.0;
@@ -6251,16 +6007,13 @@ export class WebGPUEngine {
 
     if (hasClouds && this.cloudUniformBuffers) {
       for (let layerIdx = 0; layerIdx < 3; layerIdx++) {
-        const layerBuffer = new Float32Array(this.cloudUniformFloats);
-        const layerU32 = new Uint32Array(layerBuffer.buffer);
+        const layerBuffer = this.cloudLayerUniformMirrors[layerIdx];
+        const layerU32 = this.cloudLayerUniformMirrorsU32[layerIdx];
+        layerBuffer.set(this.cloudUniformFloats);
         layerU32[24] = layerIdx;
         layerBuffer[25] = peakExponent;
         layerBuffer[26] = atmosphericScale;
         layerBuffer[27] = shadowIntensity;
-
-        if (this.cloudLayerUniformMirrors && this.cloudLayerUniformMirrors[layerIdx]) {
-          this.cloudLayerUniformMirrors[layerIdx].set(layerBuffer);
-        }
 
         try {
           this.device.queue.writeBuffer(
@@ -6276,16 +6029,17 @@ export class WebGPUEngine {
 
     if (this.atmosphereUniformBuffer) {
       try {
-        const atmBuffer = new Float32Array(this.cloudUniformFloats);
-        const atmU32 = new Uint32Array(atmBuffer.buffer);
-        atmU32[24] = 3; // atmosphere limb scatter layer
-        atmBuffer[25] = peakExponent;
-        atmBuffer[26] = atmosphericScale;
-        atmBuffer[27] = shadowIntensity;
+        const atmMirror = this.atmosphereUniformMirror;
+        const atmMirrorU32 = this.atmosphereUniformMirrorU32;
+        atmMirror.set(this.cloudUniformFloats);
+        atmMirrorU32[24] = 3; // atmosphere limb scatter layer
+        atmMirror[25] = peakExponent;
+        atmMirror[26] = atmosphericScale;
+        atmMirror[27] = shadowIntensity;
         this.device.queue.writeBuffer(
           this.atmosphereUniformBuffer,
           0,
-          atmBuffer.buffer,
+          atmMirror.buffer,
           0,
           288
         );
@@ -6300,9 +6054,8 @@ export class WebGPUEngine {
   ): void {
     this.ensureCloudBuffers();
     if (!this.device || !this.cloudUniformBuffers || layerIdx < 0 || layerIdx >= 3) return;
-    const buf = new ArrayBuffer(16);
-    const u32 = new Uint32Array(buf);
-    const f32 = new Float32Array(buf);
+    const u32 = this.cloudLayerUpdateU32;
+    const f32 = this.cloudLayerUpdateFloats;
     u32[0] = layerIdx;
     f32[1] = 1.4; // peakExponent
     const rawScale = atmosphericScale !== undefined ? atmosphericScale : this.atmosphericScale;
@@ -6323,11 +6076,11 @@ export class WebGPUEngine {
 
     const primary = this.getCloudUniformBuffer();
     if (primary) {
-      this.device.queue.writeBuffer(primary, 96, buf, 0, 16);
+      this.device.queue.writeBuffer(primary, 96, f32.buffer, 0, 16);
     }
     const target = this.cloudUniformBuffers[layerIdx];
     if (target && target !== primary) {
-      this.device.queue.writeBuffer(target, 96, buf, 0, 16);
+      this.device.queue.writeBuffer(target, 96, f32.buffer, 0, 16);
     }
   }
 
@@ -6587,14 +6340,10 @@ export class WebGPUEngine {
     }
     this.windUniformBuffer?.destroy();
     this.windUniformBuffer = null;
-    this.craneUniformBuffer?.destroy();
-    this.craneUniformBuffer = null;
     this.windComputePipeline = null;
     this.windComputeBindGroups = null;
     this.windRibbonPipeline = null;
     this.windRibbonBindGroups = null;
-    this.cranePipeline = null;
-    this.craneBindGroup = null;
     this.cpuDEMData = null;
     this.regionalUniformBuffer?.destroy();
     this.regionalUniformBuffer = null;

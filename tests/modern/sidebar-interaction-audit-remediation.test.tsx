@@ -5,7 +5,7 @@
 // 1. Antipodal Geodesic Semicircle Parameterization
 // 2. Camera Easing on Geodesic Feeds (Conveyor, Migration, Antipodes)
 // 3. Volumetric Cloud Layer Coupling (noaa-gfs-clouds)
-// 4. Lifecycle Teardown Hooks (Crane & Radar Ring Buffer)
+// 4. Lifecycle Teardown Hooks (Radar Ring Buffer)
 // 5. Auto-Switch Prognostic Model on Catalog Add
 // 6. Horizon Cross-Section Preset Scaling (6.0x)
 // 7. Curator's Colophon Live Provenance Badges
@@ -235,15 +235,6 @@ describe('Sidebar & Data Tab Engineering Remediations Suite', () => {
   // 4. Lifecycle Teardown Hooks
   // --------------------------------------------------------------------------
   describe('4. Lifecycle Teardown Hooks', () => {
-    it('TEARDOWN-01: WebGPUEngine provides deactivateOrigamiCrane() method', () => {
-      const engine = new WebGPUEngine();
-      (engine as any).isCraneActive = true;
-      expect((engine as any).isCraneActive).toBe(true);
-
-      engine.deactivateOrigamiCrane();
-      expect((engine as any).isCraneActive).toBe(false);
-    });
-
     it('TEARDOWN-02: WebGPUEngine unbinds precipitation ring buffer cleanly', () => {
       const engine = new WebGPUEngine();
       const mockRing = {

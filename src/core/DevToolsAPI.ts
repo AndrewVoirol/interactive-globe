@@ -37,7 +37,6 @@ declare global {
     __INDICATRIX_WEBGPU_ENGINE__?: any;
     __ENGINE?: any;
     __WEBGPU_ENGINE__?: any;
-    __FOCUS_CRANE__?: () => void;
     __WHIMSICAL_MANAGER__?: any;
     __MANIFOLD_PINCH_CONTROLLER__?: any;
     __INDICATRIX_WEATHERNEXT_DATA_SOURCE__?: any;

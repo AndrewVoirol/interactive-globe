@@ -74,7 +74,7 @@ async function verifyAllThemes() {
     console.log(`Confirmed current theme: ${confirmed}`);
   };
 
-  // Helper to toggle wind ribbons and origami crane
+  // Helper to toggle wind ribbons
   console.log('Activating winds and vector overlays...');
   await page.evaluate(() => {
     // Ensure vector overlays are enabled

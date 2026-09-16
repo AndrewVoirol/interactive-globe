@@ -103,22 +103,19 @@ describe('Challenger M1-2: Adversarial Depth Pipeline & Buffer Verification', ()
       ).toBe(0);
     });
 
-    it('CH-M1-02 [All 10 Pass 1 Pipelines]: asserts all 10 render pipelines specify format: depth32float', () => {
-      // 10 distinct Pass 1 render pipelines in WebGPUEngine.ts:
-      // 1. windRibbonPipeline (line ~1476)
-      // 2. cranePipeline [site 1] (line ~1545)
-      // 3. pointsRenderPipeline (line ~3567)
-      // 4. linesRenderPipeline (line ~3600)
-      // 5. swissReliefPipeline (line ~3637)
-      // 6. vectorRibbonPipeline (line ~3690)
-      // 7. crustHydrospherePipeline (line ~3740)
-      // 8. cloudPipeline (line ~3799)
-      // 9. atmosphereScatterPipeline (line ~3844)
-      // 10. cranePipeline [site 2] (line ~3898)
+    it('CH-M1-02 [All 8 Pass 1 Pipelines]: asserts all 8 render pipelines specify format: depth32float', () => {
+      // 8 distinct Pass 1 render pipelines in WebGPUEngine.ts:
+      // 1. windRibbonPipeline
+      // 2. pointsRenderPipeline
+      // 3. linesRenderPipeline
+      // 4. swissReliefPipeline
+      // 5. vectorRibbonPipeline
+      // 6. crustHydrospherePipeline
+      // 7. cloudPipeline
+      // 8. atmosphereScatterPipeline
 
       const pipelineNames = [
         'windRibbonPipeline',
-        'cranePipeline',
         'pointsRenderPipeline',
         'linesRenderPipeline',
         'swissReliefPipeline',
@@ -139,8 +136,8 @@ describe('Challenger M1-2: Adversarial Depth Pipeline & Buffer Verification', ()
       const pipelineCreations = engineSource.match(/createRenderPipeline\s*\(/g) || [];
       expect(
         pipelineCreations.length,
-        'Expected exactly 10 createRenderPipeline calls in WebGPUEngine.ts'
-      ).toBe(10);
+        'Expected exactly 8 createRenderPipeline calls in WebGPUEngine.ts'
+      ).toBe(8);
 
       // Find every depthStencil block across all pipelines
       // Regex matches depthStencil: { ... } blocks
@@ -163,8 +160,8 @@ describe('Challenger M1-2: Adversarial Depth Pipeline & Buffer Verification', ()
 
       expect(
         depthStencilBlocksCount,
-        'All 10 render pipelines must define an active depthStencil descriptor block'
-      ).toBe(10);
+        'All 8 render pipelines must define an active depthStencil descriptor block'
+      ).toBe(8);
     });
 
     it('CH-M1-03 [Texture Creation Usages]: asserts depthTexture creation specifies RENDER_ATTACHMENT and TEXTURE_BINDING', () => {

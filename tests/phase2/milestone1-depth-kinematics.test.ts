@@ -107,12 +107,11 @@ describe('Milestone 1: Camera Unlock & Depth Pipeline Alignment', () => {
 
       // Assert depth32float is present at all pipeline definitions
       const matches = content.match(/format:\s*['"]depth32float['"]/g) || [];
-      // 1 in updateDepthTexture + 10 pipelines = 11 occurrences
-      expect(matches.length).toBe(11);
+      // 1 in updateDepthTexture + 8 pipelines = 9 occurrences
+      expect(matches.length).toBe(9);
 
       // Verify specific pipeline variables exist with depth32float
       expect(content).toContain('windRibbonPipeline');
-      expect(content).toContain('cranePipeline');
       expect(content).toContain('pointsRenderPipeline');
       expect(content).toContain('linesRenderPipeline');
       expect(content).toContain('swissReliefPipeline');

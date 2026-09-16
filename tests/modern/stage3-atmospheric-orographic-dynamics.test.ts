@@ -3,14 +3,11 @@
 // Architecture: STAGE 3 Atmospheric Orographic Dynamics & WebGPU Bindings
 // Description: Behavioral and structural test suite verifying NOAA GFS wind
 //              coupling with 3D DEM elevation gradient, orographic lift deflection,
-//              WGSL uniform control flow, and autonomous origami crane flight.
+//              and WGSL uniform control flow.
 // ============================================================================
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import * as THREE from 'three';
 import { WebGPUEngine, WebGPUInitConfig } from '../../src/webgpu/WebGPUEngine';
-import { VectorFieldDataSource } from '../../src/core/data/VectorFieldDataSource';
-import { OrigamiCraneFlightSolver } from '../../src/core/physics/OrigamiCraneFlightSolver';
 import { MockGPUDevice } from '../helpers/webgpu-mock';
 import windParticlesWGSL from '../../src/webgpu/shaders/wind_particles.wgsl?raw';
 import windRibbonRenderWGSL from '../../src/webgpu/shaders/wind_ribbon_render.wgsl?raw';
@@ -167,7 +164,7 @@ describe('STAGE 3: Atmospheric Orographic Dynamics & WebGPU Bindings', () => {
 
     it('STAGE3-WEBGPU-01: strictly maintains 5-buffer invariant at initialization', () => {
       const device = (engine as any).device as MockGPUDevice;
-      // Exactly 5 core buffers on init; wind and crane buffers must NOT be eagerly allocated
+      // Exactly 5 core buffers on init; wind buffers must NOT be eagerly allocated
       expect(device.buffers.length).toBe(5);
     });
 
@@ -187,7 +184,6 @@ describe('STAGE 3: Atmospheric Orographic Dynamics & WebGPU Bindings', () => {
     it('STAGE3-WEBGPU-03: cleans up all resources cleanly on engine.dispose()', () => {
       const device = (engine as any).device as MockGPUDevice;
       engine.ensureWindBuffers();
-      engine.releaseOrigamiCrane();
 
       expect(device.buffers.length).toBeGreaterThan(5);
       engine.dispose();
@@ -238,59 +234,6 @@ describe('STAGE 3: Atmospheric Orographic Dynamics & WebGPU Bindings', () => {
       expect(ocean.elevationMeters).toBe(0);
       expect(ocean.gradEast).toBe(0);
       expect(ocean.gradNorth).toBe(0);
-    });
-  });
-
-  describe('4. Autonomous Origami Crane Coupled Flight Dynamics', () => {
-    it('STAGE3-CRANE-01: climbs in mountain wave lift when coupled with elevation sampler and wind source', async () => {
-      // Place crane in the Patagonian Andes (-71.0°W, -45.0°S) where strong westerlies blow against mountain barriers
-      const solver = new OrigamiCraneFlightSolver(-71.0, -45.0, 2500);
-      const windSource = new VectorFieldDataSource();
-      await windSource.loadGrid('procedural');
-
-      const initialAlt = solver.getState().altitude;
-
-      // Step flight solver with windward slope gradient (+0.25 East)
-      for (let i = 0; i < 50; i++) {
-        solver.step(
-          {
-            dt: 0.05,
-            unfurl: 0.0,
-            mode: 0,
-            elevationSampler: () => ({
-              elevationMeters: 2200,
-              gradEast: 0.25,
-              gradNorth: 0.02,
-            }),
-          },
-          windSource
-        );
-      }
-
-      const state = solver.getState();
-      expect(state.altitude).toBeGreaterThan(initialAlt);
-      expect(state.variometer).toBeGreaterThan(1.0); // Strong positive climb rate in m/s
-    });
-
-    it('STAGE3-CRANE-02: enforces terrain ground clearance (>= 80m) to prevent mountain clipping', () => {
-      const solver = new OrigamiCraneFlightSolver(-68.5, -32.5, 1000);
-
-      // Attempt to dive toward a 3500m mountain summit
-      for (let i = 0; i < 60; i++) {
-        solver.step({
-          dt: 0.1,
-          unfurl: 0.0,
-          mode: 0,
-          elevationSampler: () => ({
-            elevationMeters: 3500,
-            gradEast: 0.0,
-            gradNorth: 0.0,
-          }),
-        });
-      }
-
-      const state = solver.getState();
-      expect(state.altitude).toBeGreaterThanOrEqual(3580.0); // 3500m summit + 80m clearance
     });
   });
 });

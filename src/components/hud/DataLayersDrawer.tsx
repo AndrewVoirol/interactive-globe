@@ -86,42 +86,8 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
   const jetstreamLayer = dataLayers.find((l) => l.id === 'noaa-gfs-jetstream');
   const isJetstreamActive = jetstreamLayer ? jetstreamLayer.visible : false;
 
-  const craneLayer = dataLayers.find((l) => l.id === 'origami-crane-companion');
-  const isCraneActive = craneLayer ? craneLayer.visible : false;
-
-  const [craneTelemetry, setCraneTelemetry] = useState<{
-    alt: number;
-    clearance: number;
-    speed: number;
-    variometer: number;
-    glideRatio: number;
-  } | null>(null);
-
-  useEffect(() => {
-    if (!isCraneActive) {
-      setCraneTelemetry(null);
-      return;
-    }
-    const interval = setInterval(() => {
-      const engine = (window as any).__WEBGPU_ENGINE__;
-      if (engine && typeof engine.getCraneState === 'function') {
-        const s = engine.getCraneState();
-        if (s) {
-          setCraneTelemetry({
-            alt: Math.round(s.altitude),
-            clearance: Math.round(s.clearance ?? Math.max(80, s.altitude - (s.terrainElevation ?? 0))),
-            speed: Math.round(s.airspeed * 3.6),
-            variometer: Number(s.variometer.toFixed(1)),
-            glideRatio: Number((s.glideRatio ?? 9.5).toFixed(1)),
-          });
-        }
-      }
-    }, 250);
-    return () => clearInterval(interval);
-  }, [isCraneActive]);
-
   const handleTogglePlanetaryLayer = (
-    id: 'noaa-gfs-wind' | 'starlink-iss-orbits' | 'noaa-gfs-jetstream' | 'origami-crane-companion'
+    id: 'noaa-gfs-wind' | 'starlink-iss-orbits' | 'noaa-gfs-jetstream'
   ) => {
     const existing = dataLayers.find((l) => l.id === id);
     if (existing) {
@@ -267,56 +233,6 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                 </span>
               </div>
               <span className="text-nano text-zinc-400 truncate">High-Altitude Core</span>
-            </button>
-
-            {/* Origami Paper Crane Companion Toggle */}
-            <button
-              onClick={() => handleTogglePlanetaryLayer('origami-crane-companion')}
-              className={`p-2 rounded-xl border transition-all text-left flex flex-col justify-between gap-1 ${
-                isCraneActive
-                  ? isLight
-                    ? 'border-[#96641e]/60 bg-[#96641e]/15 text-[#52350c] shadow-sm ring-1 ring-[#96641e]/40'
-                    : 'border-amber-500/60 bg-amber-500/20 text-amber-200 shadow-[0_0_10px_rgba(245,158,11,0.25)]'
-                  : isLight
-                  ? 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100'
-                  : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/5'
-              }`}
-            >
-              <div className="flex items-center justify-between w-full">
-                <span className="font-bold text-micro truncate">Origami Crane</span>
-                <span className={`flex items-center gap-1 text-nano font-mono font-bold px-1.5 py-0.5 rounded border ${
-                  isLight
-                    ? 'bg-[#96641e]/20 text-[#52350c] border-[#96641e]/40'
-                    : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                }`}>
-                  {isCraneActive && craneTelemetry
-                    ? `${craneTelemetry.variometer >= 1.0 ? '▲ ' : ''}${craneTelemetry.variometer >= 0 ? '+' : ''}${craneTelemetry.variometer} m/s`
-                    : 'Soaring'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between w-full text-nano text-zinc-400 font-mono">
-                <span className="truncate">
-                  {isCraneActive && craneTelemetry
-                    ? `${craneTelemetry.alt.toLocaleString()}m • AGL ${craneTelemetry.clearance}m • ${craneTelemetry.speed} km/h`
-                    : 'Ridge Lift Wave'}
-                </span>
-                {isCraneActive && (
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      (window as any).__FOCUS_CRANE__?.();
-                    }}
-                    className={`text-nano px-1.5 py-0.2 rounded font-bold tracking-wider cursor-pointer border ${
-                      isLight
-                        ? 'bg-[#96641e]/25 hover:bg-[#96641e]/40 text-[#422a08] border-[#96641e]/50'
-                        : 'bg-amber-400/20 hover:bg-amber-400/40 text-amber-200 border-amber-400/40'
-                    }`}
-                    title="Focus Camera on Crane"
-                  >
-                    FOCUS
-                  </span>
-                )}
-              </div>
             </button>
           </div>
         </div>

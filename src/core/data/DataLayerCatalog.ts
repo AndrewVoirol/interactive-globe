@@ -319,23 +319,6 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     },
   },
   {
-    id: 'origami-crane-companion',
-    name: 'Autonomous Origami Soaring Crane',
-    category: 'vectors',
-    type: 'companion',
-    details: 'Low-poly folded paper crane hunting ridge lift over 3D mountain relief and thermals',
-    url: '',
-    defaultOpacity: 1.0,
-    defaultBlendMode: 0,
-    attribution: 'Indicatrix Autonomous Flight Dynamics',
-    legend: {
-      colorStops: ['#f8fafc', '#e2e8f0', '#94a3b8', '#38bdf8'],
-      minLabel: 'Glide 10:1',
-      maxLabel: 'Ridge Lift +5 m/s',
-      unit: 'Variometer Telemetry',
-    },
-  },
-  {
     id: 'noaa-gfs-clouds',
     name: 'Atmospheric Cloud Strata (NOAA GFS)',
     category: 'atmospheric-clouds',
