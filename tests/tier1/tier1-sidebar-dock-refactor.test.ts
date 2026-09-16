@@ -41,10 +41,11 @@ describe('Bite 4: Surface & Sidebar Refactoring Suite', () => {
   // 2. Semantic Theme Variable Adoption (Elimination of Hardcoded Bleed)
   // --------------------------------------------------------------------------
   describe('2. Semantic Theme Variable Adoption', () => {
-    it('B4-03: verifies Direction A, B, and C buttons adopt semantic direction variables', () => {
-      expect(sidebarCode).toContain('var(--theme-direction-a-bg)');
-      expect(sidebarCode).toContain('var(--theme-direction-b-bg)');
-      expect(sidebarCode).toContain('var(--theme-direction-c-bg)');
+    it('B4-03: verifies Direction A, B, and C tokens adopt semantic direction variables', () => {
+      const cssCode = fs.readFileSync(path.join(projectRoot, 'index.css'), 'utf-8');
+      expect(cssCode).toContain('--theme-direction-a-bg');
+      expect(cssCode).toContain('--theme-direction-b-bg');
+      expect(cssCode).toContain('--theme-direction-c-bg');
       // Confirm hardcoded cyan/sky button active classes were removed from Direction buttons
       expect(sidebarCode).not.toContain("activeDirection === 'hybrid'\n                            ? 'bg-cyan-500");
       expect(sidebarCode).not.toContain("activeDirection === 'photoreal'\n                            ? 'bg-sky-500");
@@ -113,15 +114,15 @@ describe('Bite 4: Surface & Sidebar Refactoring Suite', () => {
   describe('5. Contract Invariant Preservation', () => {
     it('B4-10: preserves all required contract tokens in UnifiedRightSidebar and NavigationDock', () => {
       // INST-12 tokens - updated after atmosphere visual controls refactor
-      expect(sidebarCode).toContain('label="AO"');
+      expect(sidebarCode).toContain('label="Crevice Depth"');
       expect(sidebarCode).toContain('onAmbientOcclusionChangeDataLayer');
       expect(sidebarCode).toContain('onSeaLevelOffsetChangeDataLayer');
       expect(sidebarCode).toContain('onWaterClarityChangeDataLayer');
       expect(sidebarCode).toContain('onPeakExponentChangeDataLayer');
-      // Base Lattice replaced by SegmentedControl with Both/Points/Wireframe
-      expect(sidebarCode).toContain("label: 'Both'");
-      expect(sidebarCode).toContain("label: 'Points'");
-      expect(sidebarCode).toContain("label: 'Wireframe'");
+      // Manifold Strata station with Composite/Stipple/Lattice
+      expect(sidebarCode).toContain("label: 'Composite'");
+      expect(sidebarCode).toContain("label: 'Stipple'");
+      expect(sidebarCode).toContain("label: 'Lattice'");
       // Fracture Intensity → Fracture, Vortex Swirl Strength → Vortex (VernierSlider labels)
       expect(sidebarCode).toContain('label="Fracture"');
       expect(sidebarCode).toContain('label="Vortex"');

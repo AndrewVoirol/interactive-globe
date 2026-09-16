@@ -274,9 +274,6 @@ export default function App() {
     }
   }, [handlePrognosticVariableChange, prognosticModel, prognosticVariable, timelineMinutes]);
 
-  useEffect(() => {
-    window.dispatchEvent(new CustomEvent('cartouche-visibility-change', { detail: { showCartouche } }));
-  }, [showCartouche]);
 
   useEffect(() => {
     if (!isZenMode) {
@@ -406,6 +403,14 @@ export default function App() {
     return (active?.renderStyle as 'architectural' | 'hybrid' | 'photoreal') ?? null;
   }, [dataLayers]);
 
+  const primaryLayer = useMemo(() => {
+    return (
+      dataLayers.find(
+        (l) => l.visible && (l.renderStyle === 'architectural' || l.renderStyle === 'hybrid' || l.renderStyle === 'photoreal')
+      ) || dataLayers[0]
+    );
+  }, [dataLayers]);
+
   useEffect(() => {
     registerDevToolsAPI(engineState);
   }, [engineState]);
@@ -521,6 +526,8 @@ export default function App() {
         setAtmosphericScale((s) => (s <= 1.05 ? 6.0 : Math.max(s, 6.0)));
         if (typeof window !== 'undefined' && window.__INDICATRIX_CAMERA__?.snapHorizonCrossSection) {
           window.__INDICATRIX_CAMERA__.snapHorizonCrossSection(1.6);
+        } else {
+          snapCamera(view);
         }
         return;
       }
@@ -543,7 +550,7 @@ export default function App() {
           <div className="absolute inset-[2px] border border-current/15" />
           <span className="absolute top-[1px] left-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80">⌜ 00.00°</span>
           <span className={`absolute top-[1px] right-2 ${isSidebarActive ? 'max-md:hidden' : ''} text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌝ 90.00°</span>
-          <span className={`absolute bottom-1 ${showCartouche ? 'left-[268px]' : 'left-2'} text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌞ 180.00°</span>
+          <span className="absolute bottom-1 left-[268px] text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300">⌞ 180.00°</span>
           <span className={`absolute bottom-1 ${isSidebarActive ? (isCatalogOpen ? '2xl:right-[50.5rem] md:right-[26rem] max-md:hidden' : 'md:right-[26rem] max-md:hidden') : ''} right-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌟ 270.00°</span>
         </div>
 
@@ -569,7 +576,7 @@ export default function App() {
           <aside
             onClick={() => setTheme((t) => (((t + 1) % 3) as any))}
             title="Click to Cycle Cartographic Aesthetic Themes (Tharp, Cream Rag, Cyanotype) or press T"
-            className={`absolute ${showCartouche ? 'bottom-[112px]' : 'bottom-5'} left-5 z-20 pointer-events-auto cursor-pointer tactile-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-[3px] border backdrop-blur-md transition-all duration-300 text-micro font-mono scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] select-none shadow-md`}
+            className="absolute bottom-5 left-5 z-20 pointer-events-auto cursor-pointer tactile-btn flex items-center gap-2.5 px-2.5 py-1.5 rounded-[3px] border backdrop-blur-md transition-all duration-300 text-micro font-mono scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] select-none shadow-md"
           >
             {theme === 1 ? (
               // Cream Rag Paper: 16-point intaglio nautical compass rosette with fleur-de-lis
@@ -621,7 +628,9 @@ export default function App() {
             )}
             <div className="leading-tight z-10">
               <div className="font-bold tracking-wider">IMHOF NW ILLUMINATION</div>
-              <div className="opacity-70 text-nano">315° Azimuth · 45° Solar Angle</div>
+              <div className="opacity-70 text-nano">
+                {Math.round(primaryLayer?.sunAzimuth ?? 315)}° Azimuth · {Math.round(primaryLayer?.sunAltitude ?? 45)}° Solar Angle
+              </div>
             </div>
           </aside>
         )}
@@ -749,6 +758,7 @@ export default function App() {
           lonStr={lonStr}
           mapScaleStr={mapScaleStr}
           dataInfo={dataInfo}
+          cameraPosition={webgpuCameraPos}
           onSnapCamera={handleSnapCamera}
           dataLayers={dataLayers}
           toasts={toasts}

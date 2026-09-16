@@ -3,10 +3,10 @@ import { Vec3Tuple } from '../core/math/cameraMath';
 
 export function useCameraKinematics() {
   const [cameraTarget, setCameraTarget] = useState<Vec3Tuple>([0, 0, 0]);
-  const [webgpuCameraPos, setWebgpuCameraPos] = useState<Vec3Tuple | undefined>(undefined);
+  const [webgpuCameraPos, setWebgpuCameraPos] = useState<Vec3Tuple>([0, 0, 15]);
   const [targetCameraPos, setTargetCameraPos] = useState<Vec3Tuple | null>(null);
 
-  const snapCamera = useCallback((view: 'equator' | 'pole' | 'seam' | 'isometric') => {
+  const snapCamera = useCallback((view: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => {
     let pos: Vec3Tuple = [0, 0, 15];
     if (view === 'equator') {
       pos = [0, 0, 15];
@@ -16,6 +16,8 @@ export function useCameraKinematics() {
       pos = [0, 0, -15];
     } else if (view === 'isometric') {
       pos = [10, 8, 12];
+    } else if (view === 'horizon') {
+      pos = [0.55, 3.66, 3.68];
     }
     setTargetCameraPos(pos);
     setWebgpuCameraPos(pos);

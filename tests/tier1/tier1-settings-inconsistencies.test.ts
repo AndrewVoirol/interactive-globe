@@ -74,10 +74,10 @@ describe('Verification of Cartographic Pipeline Inconsistency Fixes', () => {
     });
 
     it('FIX-08: verifies UnifiedRightSidebar provides layer mode controls and expanded sidebar controls', () => {
-      // After refactor, 'Base Lattice' was replaced by SegmentedControl with Both/Points/Wireframe
-      expect(sidebarCode).toContain("label: 'Both'");
-      expect(sidebarCode).toContain("label: 'Points'");
-      expect(sidebarCode).toContain("label: 'Wireframe'");
+      // After refactor, 'Base Lattice' was replaced by Manifold Strata with Composite/Stipple/Lattice
+      expect(sidebarCode).toContain("label: 'Composite'");
+      expect(sidebarCode).toContain("label: 'Stipple'");
+      expect(sidebarCode).toContain("label: 'Lattice'");
     });
   });
 });

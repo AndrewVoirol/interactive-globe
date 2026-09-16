@@ -90,9 +90,9 @@ describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety',
     });
 
     it('uses semantic control tokens for layer mode SegmentedControl buttons', () => {
-      // After refactor, Base Lattice/Clean Terrain/Node Cloud replaced by SegmentedControl
-      expect(sidebarCode).toContain("label: 'Both'");
-      expect(sidebarCode).toContain("label: 'Points'");
+      // After refactor, Base Lattice/Clean Terrain/Node Cloud replaced by Manifold Strata
+      expect(sidebarCode).toContain("label: 'Composite'");
+      expect(sidebarCode).toContain("label: 'Stipple'");
       expect(sidebarCode).toContain("bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)]");
     });
   });
@@ -417,8 +417,8 @@ describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety',
         );
       });
 
-      // Initially collapsed
-      const expandBtn = container.querySelector('button[aria-expanded]') as HTMLButtonElement;
+      // Initially collapsed (Plate 5 folio accordion)
+      const expandBtn = (container.querySelector('.folio-strip button[aria-expanded]') || container.querySelector('button[aria-expanded]')) as HTMLButtonElement;
       expect(expandBtn).toBeDefined();
       expect(expandBtn.getAttribute('aria-expanded')).toBe('false');
       const input = container.querySelector('input[name="layerAo-architectural-topo-relief"]');

@@ -30,8 +30,8 @@ describe('Stage 2 Cartography: Remediation of 9 Known HUD Layout Violations', ()
       expect(canvasContent).not.toMatch(/cy\s*=\s*h\s*-\s*92/);
     });
 
-    it('V1-02: verifies Aside shifts to bottom-[112px] when showCartouche is true', () => {
-      expect(appContent).toContain("${showCartouche ? 'bottom-[112px]' : 'bottom-5'}");
+    it('V1-02: verifies Aside is anchored to bottom-5 left-5 with 10px neatline moat', () => {
+      expect(appContent).toContain('bottom-5 left-5');
     });
 
     it('V1-03: mathematically proves exact 20px gutter between Cartouche top and Aside bottom', () => {
@@ -46,17 +46,17 @@ describe('Stage 2 Cartography: Remediation of 9 Known HUD Layout Violations', ()
   // Violation 2: Aside-to-Toast Gap = 20px
   // --------------------------------------------------------------------------
   describe('Violation 2: Aside-to-Toast Vertical Clearance Gutter', () => {
-    it('V2-01: verifies Toast stack shifts to bottom-[170px] when Cartouche is visible', () => {
-      expect(toastContent).toContain("cartoucheVisible ? 'bottom-[170px]' : 'bottom-[78px]'");
+    it('V2-01: verifies Toast stack is anchored to bottom-[78px]', () => {
+      expect(toastContent).toContain('bottom-[78px]');
     });
 
     it('V2-02: mathematically proves exact 20px gutter between Aside top and Toast bottom', () => {
-      const asideBottom = 112; // px from bottom
+      const asideBottom = 20; // px from bottom (bottom-5)
       const asideHeight = 38; // px outer rendered height
-      const asideTop = asideBottom + asideHeight; // 150px
-      const toastBottom = 170; // px from bottom
+      const asideTop = asideBottom + asideHeight; // 58px
+      const toastBottom = 78; // px from bottom
       const gutter = toastBottom - asideTop;
-      expect(asideTop).toBe(150);
+      expect(asideTop).toBe(58);
       expect(gutter).toBe(20);
     });
   });
@@ -65,13 +65,13 @@ describe('Stage 2 Cartography: Remediation of 9 Known HUD Layout Violations', ()
   // Violation 3: Aside & Toast Dynamic Adaptation When Cartouche Toggled Off
   // --------------------------------------------------------------------------
   describe('Violation 3: Dynamic Adaptive Positioning on Cartouche Toggle', () => {
-    it('V3-01: verifies Aside drops to bottom-5 (20px axis = 10px neatline moat) when showCartouche is false', () => {
-      expect(appContent).toContain("${showCartouche ? 'bottom-[112px]' : 'bottom-5'}");
+    it('V3-01: verifies Aside is at bottom-5 (20px axis = 10px neatline moat)', () => {
+      expect(appContent).toContain('bottom-5 left-5');
       expect(appContent).toMatch(/aside[\s\S]*?transition-all duration-300/);
     });
 
-    it('V3-02: verifies Toast drops to bottom-[78px] when showCartouche is false', () => {
-      expect(toastContent).toContain("cartoucheVisible ? 'bottom-[170px]' : 'bottom-[78px]'");
+    it('V3-02: verifies Toast is at bottom-[78px]', () => {
+      expect(toastContent).toContain('bottom-[78px]');
       expect(toastContent).toContain('transition-all duration-300');
     });
 

@@ -28,42 +28,8 @@ export const DataLayerToastNotification: React.FC<DataLayerToastNotificationProp
 }) => {
   const themeName = theme === 2 ? 'cyanotype' : theme === 1 ? 'cream' : 'tharp';
 
-  const [cartoucheVisible, setCartoucheVisible] = React.useState<boolean>(
-    showCartoucheProp !== undefined ? showCartoucheProp : true
-  );
-
-  useEffect(() => {
-    if (showCartoucheProp !== undefined) {
-      setCartoucheVisible(showCartoucheProp);
-      return;
-    }
-
-    const checkCartouche = () => {
-      const el = document.querySelector('[data-cartouche]');
-      if (el) {
-        setCartoucheVisible(el.getAttribute('data-cartouche') !== 'false');
-      }
-    };
-
-    checkCartouche();
-    const handleEvent = (e: Event) => {
-      const customEvent = e as CustomEvent<{ showCartouche: boolean }>;
-      if (customEvent.detail && typeof customEvent.detail.showCartouche === 'boolean') {
-        setCartoucheVisible(customEvent.detail.showCartouche);
-      } else {
-        checkCartouche();
-      }
-    };
-
-    window.addEventListener('cartouche-visibility-change', handleEvent);
-    const observer = new MutationObserver(checkCartouche);
-    observer.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-cartouche'] });
-
-    return () => {
-      window.removeEventListener('cartouche-visibility-change', handleEvent);
-      observer.disconnect();
-    };
-  }, [showCartoucheProp]);
+  // Cartouche is now permanently anchored as Master Sheet Cartouche at bottom-5 left-5;
+  // Toast stack is permanently anchored at bottom-[78px] maintaining exact 20px clearance gutter.
 
   useEffect(() => {
     if (toasts.length === 0) return;
@@ -82,7 +48,7 @@ export const DataLayerToastNotification: React.FC<DataLayerToastNotificationProp
   if (toasts.length === 0) return null;
 
   return (
-    <div className={`fixed ${cartoucheVisible ? 'bottom-[170px]' : 'bottom-[78px]'} left-5 z-[35] pointer-events-none max-w-xs w-80 font-mono select-none space-y-2 transition-all duration-300`}>
+    <div className="fixed bottom-[78px] left-5 z-[35] pointer-events-none max-w-xs w-80 font-mono select-none space-y-2 transition-all duration-300">
       {toasts.map((toast) => {
         let badgeBg = 'bg-[var(--theme-status-slate)]/20 text-[var(--theme-status-slate)] border-[var(--theme-status-slate)]/40';
         let icon = (

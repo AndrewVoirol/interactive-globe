@@ -277,14 +277,14 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
     expect(muteBtn).toBeUndefined();
   });
 
-  it('DOM-HUD-10: unified sidebar displays consolidated tabs (MEDIUM, SCENE, DATA)', async () => {
+  it('DOM-HUD-10: unified sidebar displays persistent Medium substrate and consolidated tabs (SCENE, DATA)', async () => {
     const props = createProps();
     await act(async () => {
       root.render(<TelemetryHUD {...props} />);
     });
 
-    // After refactor, sidebar uses consolidated tabs: MEDIUM, SCENE, DATA
-    expect(container.textContent).toContain('MEDIUM');
+    // After Proposal A refactor: persistent Medium Substrate header and SCENE, DATA tabs
+    expect(container.textContent).toContain('Medium');
     expect(container.textContent).toContain('SCENE');
     expect(container.textContent).toContain('DATA');
     expect(container.textContent).toContain('INDICATRIX // CONTROLS');

@@ -378,7 +378,7 @@ fn computeHydrosphereShading(
     let sunIllum = cSunLight * (NdotL * 0.85 * shadowFactor + 0.15) + cSkyAmbient * 0.80;
 
     // Jerlov volume radiance: Type I crystal sapphire blue vs Type III emerald green
-    let pelagicRadiance = (props.Rinf * 48.0) * sunIllum;
+    let pelagicRadiance = clamp((props.Rinf * 36.0) * sunIllum, vec3<f32>(0.0), vec3<f32>(0.75));
 
     // Deep abyssal trenches (> 2000m to 10,924m): total extinction deepens into midnight indigo
     let normDepth = clamp(safeDepth / 10924.0, 0.0, 1.0);
@@ -387,7 +387,35 @@ fn computeHydrosphereShading(
 
     // Continuous physical blend from shallow Kubelka-Munk seabed glow to deep Jerlov volume radiance
     let depthBlend = smoothstep(6.0, 65.0, safeDepth);
-    let waterColor = mix(seabedRadiance * 1.35, deepOceanColor, depthBlend);
+    var waterColor = mix(seabedRadiance * 1.35, deepOceanColor, depthBlend);
+
+    // Medium-specific water surface styling:
+    // In Theme 1 (Cream Rag): Archival watercolor wash on cotton rag paper
+    // In Theme 2 (Prussian Cyanotype): Pure photochemical cerulean-to-indigo blueprint wash
+    // In Theme 0 (Marie Tharp): Bruce Heezen & Marie Tharp painted bathymetric wash
+    if (sim.u_theme == 1u) {
+        let cShoreWash = vec3<f32>(0.58, 0.70, 0.64);
+        let cDeepWash  = vec3<f32>(0.24, 0.35, 0.46);
+        let washTone = mix(cShoreWash, cDeepWash, depthBlend) * sunIllum;
+        let fiberFreq = 1800.0 * max(0.1, sim.u_mediumProperties.y);
+        let fiberTooth = (hashPaper2D(uvCoord * fiberFreq) - 0.5) * (sim.u_roughness * 0.35);
+        waterColor = mix(waterColor, washTone * (1.0 + fiberTooth), 0.70);
+    } else if (sim.u_theme == 2u) {
+        let cShallowCyan = vec3<f32>(0.20, 0.36, 0.54);
+        let cDeepIndigo  = vec3<f32>(0.04, 0.09, 0.18);
+        let cyanWash = mix(cShallowCyan, cDeepIndigo, depthBlend) * sunIllum;
+        let linenFreq = 1400.0 * max(0.1, sim.u_mediumProperties.y);
+        let linenTooth = (hashPaper2D(uvCoord * linenFreq) - 0.5) * (sim.u_roughness * 0.30);
+        waterColor = mix(waterColor, cyanWash * (1.0 + linenTooth), 0.65);
+    } else if (sim.u_renderStyle < 2u) {
+        // Theme 0 (Marie Tharp): Bruce Heezen & Marie Tharp / Heinrich Berann painted bathymetric wash
+        let cTharpCoastal = vec3<f32>(0.08, 0.34, 0.42);
+        let cTharpDeep    = vec3<f32>(0.02, 0.06, 0.14);
+        let tharpWash = mix(cTharpCoastal, cTharpDeep, depthBlend) * sunIllum;
+        let boardFreq = 750.0 * max(0.1, sim.u_mediumProperties.y);
+        let boardTooth = (hashPaper2D(uvCoord * boardFreq) - 0.5) * (sim.u_roughness * 0.25);
+        waterColor = mix(waterColor, tharpWash * (1.0 + boardTooth), 0.65);
+    }
 
     let NdotV = max(0.0, dot(perturbedNormal, viewDir));
     const F0_WATER: f32 = 0.0204;
@@ -403,12 +431,32 @@ fn computeHydrosphereShading(
     let isDark = sim.u_theme != 1u;
     let skyReflection = select(vec3<f32>(0.75, 0.85, 0.95), vec3<f32>(0.20, 0.38, 0.55), isDark) * (fresnel * mapFresnelAtten);
     let specAtten = mix(1.0, 0.35, sim.u_unfurl);
-    let finalColor = waterColor * (1.0 - fresnel * 0.4) + skyReflection + vec3<f32>(sunSpecular * fresnel * specAtten * shadowFactor);
 
-    // Dynamic optical transparency: shallow shelves are translucent to seabed below, deep abyss is dense
-    let clarityScale = 0.0012 / max(0.15, sim.u_waterClarity);
-    let depthOpacity = 1.0 - exp(-safeDepth * clarityScale);
-    let waterOpacity = clamp((0.40 + depthOpacity * 0.54 + fresnel * 0.25) * sim.u_layerOpacity, 0.35, 0.96);
+    let photorealSpecular = vec3<f32>(sunSpecular * fresnel * specAtten * shadowFactor);
+    let archivalMatteSpecular = vec3<f32>(0.92, 0.95, 0.98) * (sunSpecular * fresnel * specAtten * shadowFactor * 0.20);
+    let defaultSpecular = select(archivalMatteSpecular, photorealSpecular, sim.u_renderStyle >= 2u);
+
+    var mediumSpecular: vec3<f32>;
+    if (sim.u_theme == 1u) {
+        mediumSpecular = vec3<f32>(0.95, 0.92, 0.85) * (sunSpecular * 0.02 * fresnel);
+    } else if (sim.u_theme == 2u) {
+        mediumSpecular = vec3<f32>(0.85, 0.92, 1.00) * (sunSpecular * fresnel * specAtten * shadowFactor * 0.25);
+    } else {
+        mediumSpecular = defaultSpecular;
+    }
+
+    let finalColor = waterColor * (1.0 - fresnel * 0.4) + skyReflection + mediumSpecular;
+
+    // Dynamic optical transparency modulated by Beer-Lambert clarity (10% to 100%)
+    let clarityNorm = clamp(sim.u_waterClarity, 0.08, 1.0);
+    let kExtinction = 0.0006 / clarityNorm;
+    let depthOpacity = 1.0 - exp(-safeDepth * kExtinction);
+    let turbidityBase = mix(0.68, 0.15, clarityNorm);
+    let waterOpacity = clamp(
+        (turbidityBase + depthOpacity * 0.70 + fresnel * 0.20) * sim.u_layerOpacity,
+        0.18,
+        0.96
+    );
 
     let finalOutput = vec4<f32>(finalColor, waterOpacity);
     return select(vec4<f32>(0.0, 0.0, 0.0, 0.0), finalOutput, isWater);
@@ -1008,15 +1056,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let V = normalize(sim.u_cameraPos.xyz - input.worldPos);
     let N = normalize(input.normal);
 
-    // Liquid Hydrosphere Surface Pass via Jerlov Radiative Transfer & Caustics
     if (input.surfaceType > 0.5) {
-        // Liquid Hydrosphere surface is only active in Direction B (Hydrosphere depth, u_renderStyle == 1u).
-        // In pure Relief (0) and Photoreal Orbital (2), discard Surface 1 to reveal the underlying crust/NASA imagery.
-        if (sim.u_renderStyle != 1u) {
-            discard;
-        }
-
-        let depthMeters = max(0.0, sim.u_seaLevel - input.elevation);
+        let depthMeters = max(0.0, sim.u_seaLevel - elevMeters);
         if (depthMeters <= 0.001) {
             discard;
         }
@@ -1039,7 +1080,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             V,
             sunPrimary,
             input.uv,
-            input.elevation,
+            elevMeters,
             hydroUniforms,
             shadowFactor
         );
@@ -1074,9 +1115,14 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let tangentX = normalize(mix(sphereTangentX, flatTangentX, sim.u_unfurl));
     let tangentY = normalize(mix(sphereTangentY, flatTangentY, sim.u_unfurl));
 
-    let isLand = finalDemC.b;
-    let landElev = finalDemC.r;
-    let oceanDepth = finalDemC.g;
+    let isLandBase = finalDemC.b;
+    let landElevBase = finalDemC.r;
+    let oceanDepthBase = finalDemC.g;
+
+    // Dynamic coastal inundation & shelf exposure coupled to u_seaLevel
+    let isLand = select(isLandBase, smoothstep(sim.u_seaLevel - 4.0, sim.u_seaLevel + 4.0, elevMeters), abs(sim.u_seaLevel) > 0.01);
+    let landElev = select(landElevBase, max(0.0, (elevMeters - sim.u_seaLevel) / 8848.0), abs(sim.u_seaLevel) > 0.01);
+    let oceanDepth = select(oceanDepthBase, max(0.0, (sim.u_seaLevel - elevMeters) / 10924.0), abs(sim.u_seaLevel) > 0.01);
 
     let onLand = isLand > 0.45;
     // True physical bathymetric elevation scale matching land elevation:

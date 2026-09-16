@@ -96,8 +96,8 @@ describe('Option A & Option B Cartographic Pipeline Upgrades', () => {
   // ==========================================================================
   describe('3. HUD & Sidebar Controls', () => {
     it('AB-09: verifies UnifiedRightSidebar and DataLayersDrawer render AO slider for Option A', () => {
-      // After refactor, sidebar uses VernierSlider with label="AO" instead of 'Crevice AO:'
-      expect(sidebarCode).toContain('label="AO"');
+      // After refactor, sidebar uses VernierSlider with label="Crevice Depth" instead of 'Crevice AO:'
+      expect(sidebarCode).toContain('label="Crevice Depth"');
       expect(sidebarCode).toContain('onAmbientOcclusionChangeDataLayer');
       expect(drawerCode).toContain('Crevice AO:');
       expect(drawerCode).toContain('onAmbientOcclusionChangeDataLayer');

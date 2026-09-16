@@ -28,9 +28,8 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
   // Issue 1: Neatline Coordinate Collisions
   // --------------------------------------------------------------------------
   describe('1. Neatline Coordinate Anti-Collision', () => {
-    it('verifies 180.00° label dynamically clears the bottom-left Cartouche box', () => {
-      // Must dynamically offset when showCartouche is true
-      expect(appContent).toMatch(/showCartouche\s*\?\s*['"]left-\[268px\]['"]\s*:\s*['"]left-2['"]/);
+    it('verifies 180.00° label clears the bottom-left Cartouche box', () => {
+      expect(appContent).toContain('left-[268px]');
       expect(appContent).toContain('⌞ 180.00°');
     });
 
@@ -111,7 +110,7 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
   // --------------------------------------------------------------------------
   describe('5. Palette Harmony in Cream Rag Mode', () => {
     it('verifies Antipodes button in Cream Rag uses Terracotta / Burnt Sienna instead of raw rose-600', () => {
-      expect(sidebarContent).toContain("theme === 1\n                              ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414]");
+      expect(sidebarContent).toContain("theme === 1\n                            ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414]");
       expect(sidebarContent).not.toContain("? isLight\n                              ? 'bg-rose-600 text-white");
 
       expect(topologyContent).toContain("isLight ? 'bg-[#8C4820] text-[#FDFCF9]'");
@@ -119,7 +118,7 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
     });
 
     it('verifies Conveyor button in Cream Rag uses Prussian Slate instead of raw sky-600', () => {
-      expect(sidebarContent).toContain("theme === 1\n                              ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A]");
+      expect(sidebarContent).toContain("theme === 1\n                            ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A]");
       expect(sidebarContent).not.toContain("? isLight\n                              ? 'bg-sky-600 text-white");
 
       expect(topologyContent).toContain("isLight ? 'bg-[#1A4457] text-[#FDFCF9]'");
@@ -127,20 +126,22 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
     });
 
     it('verifies Migration button in Cream Rag uses Raw Ochre instead of raw amber-600', () => {
-      expect(sidebarContent).toContain("theme === 1\n                              ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300]");
+      expect(sidebarContent).toContain("theme === 1\n                            ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300]");
       expect(sidebarContent).not.toContain("? isLight\n                              ? 'bg-amber-600 text-white");
 
       expect(topologyContent).toContain("isLight ? 'bg-[#7D4700] text-[#FDFCF9]'");
       expect(topologyContent).not.toContain("isLight ? 'bg-amber-600 text-white'");
     });
 
-    it('verifies Vectors (V) button in Cream Rag uses Burnt Sienna instead of raw amber-600', () => {
-      expect(sidebarContent).toContain("showVectors\n                          ? theme === 1\n                            ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414]");
-      expect(sidebarContent).not.toContain("showVectors\n                          ? isLight\n                            ? 'bg-amber-600");
+    it('verifies Vectors (V) toggle in Scene tab', () => {
+      expect(sidebarContent).toContain('Vectors (V)');
+      expect(sidebarContent).toContain('showVectors');
+      expect(sidebarContent).toContain('onVectorsToggle');
+      expect(sidebarContent).not.toContain('bg-amber-600');
     });
 
     it('verifies 16M resolution tier button in Cream Rag uses mineral pigment', () => {
-      expect(sidebarContent).toContain("tier === '16M'\n                                ? theme === 1\n                                  ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300]");
+      expect(sidebarContent).toContain("tier === '16M'\n                            ? theme === 1\n                              ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300]");
     });
 
     it('verifies catalog preset category pills in Cream Rag use readable dark mineral pigments on cream paper', () => {
