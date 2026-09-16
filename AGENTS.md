@@ -123,3 +123,20 @@ The project test suite contains over 210 test files and 3,100+ tests, including 
 - **Targeted Iteration**: During active development, refactoring, or paper-cut fixes, NEVER run `npm test` (full suite) repeatedly. Run only the specific test files associated with the modified components: `npx vitest run tests/path/to/target.test.ts`.
 - **Final Gating Only**: Reserve full `npm test` runs strictly for the final verification gate before pushing or reporting task completion.
 - **Fast Filter Pattern**: When testing multiple related suites, pass them together in a single command (`npx vitest run test1.ts test2.ts`) rather than running individual suites serially or triggering the entire repo.
+
+## 24. Zero-Zombie Pass Invariant & Independent Pass Gating
+Every secondary render pass, volumetric raymarching pass, or compute dispatch (e.g. wind particle advection, volumetric cloud integration, atmospheric limb scattering, satellite orbit passes) MUST be gated by an explicit, dedicated boolean condition.
+- **No Inverted Fallbacks**: Avoid `const showPass = params.showPass !== false` when the caller may omit the parameter. If omitted, optional passes must default to inactive unless explicitly enabled or verified against an active layer.
+- **Strict Decoupling**: Secondary passes must never piggyback on base layer toggles (e.g. volumetric raymarching must not run unconditionally whenever raster clouds are enabled; atmospheric scattering must not evaluate `showAtmosphere: showClouds`).
+- **Hardware Draw Verification**: Confirm in profiler/tests that disabled passes execute zero `dispatchWorkgroups()` or `draw()` calls and consume zero GPU time.
+
+## 25. React-to-WebGPU Async Boot Synchronization
+React canvas wrapper components interfacing with asynchronous WebGPU engines must guarantee that dynamic data layer synchronization hooks execute after async engine initialization completes.
+- **Readiness in Dependency Arrays**: Any `useEffect` that inspects `engine.initialized` before instantiating ring buffers, loading vector/cloud textures, or streaming neural forecast grids MUST include the component's asynchronous readiness state (e.g. `isLoading`, `isEngineReady`) in its dependency array.
+- **No Startup Race Conditions**: Excluding engine readiness causes the effect to exit early on initial mount when `engine.initialized === false`, leaving the canvas running fallback/placeholder datasets until a user manually interacts with HUD switches.
+
+## 26. Zero-GC Per-Frame Buffer Discipline
+Inside continuous animation loops, `engine.render()`, and `updateUniforms()` callbacks:
+- **Zero Allocations in Frame Loop**: NEVER instantiate `ArrayBuffer`, `Float32Array`, `Uint32Array`, or new typed array slice views (`new Uint32Array(buf, offset, len)`) per frame.
+- **Preallocated Class Instance Mirrors**: Preallocate static typed array mirror buffers on the engine class instance during `initialize()`.
+- **In-Place Mutation**: Update uniform state exclusively by mutating preallocated mirrors via index assignment or `.set()`, and upload to WebGPU using `device.queue.writeBuffer()`.
