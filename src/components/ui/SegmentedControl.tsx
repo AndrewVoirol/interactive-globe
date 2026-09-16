@@ -13,6 +13,7 @@ export interface SegmentOption<T extends string | number | boolean> {
   title?: string;
   domId?: string;
   className?: string;
+  icon?: React.ReactNode;
 }
 
 export interface SegmentedControlProps<T extends string | number | boolean> {
@@ -91,6 +92,7 @@ export function SegmentedControl<T extends string | number | boolean>({
                 : 'bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-control-hover-bg)] border border-transparent'
             } ${opt.className || ''}`}
           >
+            {opt.icon && <span className="mb-0.5 shrink-0 select-none">{opt.icon}</span>}
             <span className="truncate">{opt.label}</span>
             {opt.sublabel && (
               <span className="text-nano opacity-65 uppercase font-mono tracking-tighter">

@@ -507,13 +507,37 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                   id: 0,
                   label: 'Archival Ink Wash',
                   title: 'Archival Ink Wash (Historical Cartographic Pigmentation)',
-                  className: 'w-full',
+                  className: 'w-full py-1',
+                  icon: (
+                    <div
+                      className="w-8 h-2 rounded-[1px] border border-black/20 shadow-2xs"
+                      style={{
+                        background:
+                          theme === 1
+                            ? 'linear-gradient(to right, #FAF7F2, #B3A492, #4A3E31)'
+                            : theme === 2
+                            ? 'linear-gradient(to right, #09131F, #2A4869, #D9E6F2)'
+                            : 'linear-gradient(to right, #182230, #64748B, #F1F5F9)',
+                      }}
+                      title="Archival pigment wash gradient"
+                    />
+                  ),
                 },
                 {
                   id: 1,
                   label: 'Doppler Radar',
                   title: 'Meteorological Spectral Doppler Radar',
-                  className: 'w-full',
+                  className: 'w-full py-1',
+                  icon: (
+                    <div
+                      className="w-8 h-2 rounded-[1px] border border-black/20 shadow-2xs"
+                      style={{
+                        background:
+                          'linear-gradient(to right, #22c55e 0%, #eab308 35%, #ef4444 70%, #a855f7 100%)',
+                      }}
+                      title="Meteorological reflectivity dBZ spectrum"
+                    />
+                  ),
                 },
               ]}
             />

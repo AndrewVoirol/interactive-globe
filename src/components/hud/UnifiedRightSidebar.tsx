@@ -342,6 +342,44 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
     return `${c.verts} · ${sizeStr}`;
   }, [resolution]);
 
+  const getStratumBadge = useCallback(
+    (category?: string) => {
+      const cat = (category || '').toLowerCase();
+      const isTopo = cat.includes('topo') || cat.includes('relief') || cat.includes('elevation');
+      const isOcean = cat.includes('ocean') || cat.includes('hydro') || cat.includes('bathymetry');
+      const isAtmo = cat.includes('atmo') || cat.includes('weather') || cat.includes('cloud') || cat.includes('wind') || cat.includes('radar');
+      const isVect = cat.includes('vector') || cat.includes('boundary') || cat.includes('graticule');
+      const isOrbit = cat.includes('orbit') || cat.includes('satellite') || cat.includes('trajectory');
+
+      if (theme === 1) {
+        // Theme 1 (Cream Rag): Archival intaglio inks
+        if (isTopo) return { border: '#8C4820', bg: 'rgba(140, 72, 32, 0.12)', text: '#8C4820', label: 'TOPO' };
+        if (isOcean) return { border: '#1A4457', bg: 'rgba(26, 68, 87, 0.12)', text: '#1A4457', label: 'HYDRO' };
+        if (isAtmo) return { border: '#2B6B88', bg: 'rgba(43, 107, 136, 0.12)', text: '#1E536B', label: 'ATMO' };
+        if (isVect) return { border: '#7D4700', bg: 'rgba(125, 71, 0, 0.12)', text: '#7D4700', label: 'VECT' };
+        if (isOrbit) return { border: '#5A3E28', bg: 'rgba(90, 62, 40, 0.12)', text: '#5A3E28', label: 'ORBIT' };
+        return { border: '#605A52', bg: 'rgba(96, 90, 82, 0.12)', text: '#605A52', label: 'DATA' };
+      } else if (theme === 2) {
+        // Theme 2 (Prussian Cyanotype): Cold photochemical blues & ice white
+        if (isTopo) return { border: '#5C82A6', bg: 'rgba(92, 130, 166, 0.20)', text: '#B8D0E8', label: 'TOPO' };
+        if (isOcean) return { border: '#3B6B99', bg: 'rgba(59, 107, 153, 0.25)', text: '#9FC2E4', label: 'HYDRO' };
+        if (isAtmo) return { border: '#38BDF8', bg: 'rgba(56, 189, 248, 0.20)', text: '#BAE6FD', label: 'ATMO' };
+        if (isVect) return { border: '#7DD3FC', bg: 'rgba(125, 211, 252, 0.20)', text: '#E0F2FE', label: 'VECT' };
+        if (isOrbit) return { border: '#60A5FA', bg: 'rgba(96, 165, 250, 0.20)', text: '#DBEAFE', label: 'ORBIT' };
+        return { border: '#4A729E', bg: 'rgba(74, 114, 158, 0.20)', text: '#CADDF0', label: 'DATA' };
+      } else {
+        // Theme 0 (Marie Tharp / Cyber): Physiographic earth & ocean tones
+        if (isTopo) return { border: '#C86D51', bg: 'rgba(200, 109, 81, 0.20)', text: '#FDBA74', label: 'TOPO' };
+        if (isOcean) return { border: '#10B981', bg: 'rgba(16, 185, 129, 0.20)', text: '#6EE7B7', label: 'HYDRO' };
+        if (isAtmo) return { border: '#38BDF8', bg: 'rgba(56, 189, 248, 0.20)', text: '#7DD3FC', label: 'ATMO' };
+        if (isVect) return { border: '#F59E0B', bg: 'rgba(245, 158, 11, 0.20)', text: '#FCD34D', label: 'VECT' };
+        if (isOrbit) return { border: '#A855F7', bg: 'rgba(168, 85, 247, 0.20)', text: '#D8B4FE', label: 'ORBIT' };
+        return { border: '#94A3B8', bg: 'rgba(148, 163, 184, 0.20)', text: '#CBD5E1', label: 'DATA' };
+      }
+    },
+    [theme]
+  );
+
   const primaryLayer =
     dataLayers.find(
       (l) => l.visible && (l.renderStyle || l.category === 'topo' || l.category === 'ocean' || l.category === 'topography')
@@ -1108,6 +1146,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         const isPrimaryRaster = isRaster && layer.id === activeRasterId && layer.visible;
                         const isShadowedRaster = isRaster && layer.visible && !isPrimaryRaster;
 
+                        const stratum = getStratumBadge(preset?.category || layer.category);
+
                         return (
                           <div
                             key={layer.id}
@@ -1116,6 +1156,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                 ? 'bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] shadow-sm'
                                 : 'bg-[var(--theme-card-bg)]/50 border-[var(--theme-card-border)]/60 text-[var(--theme-text-muted)] opacity-60'
                             }`}
+                            style={
+                              layer.visible
+                                ? { borderLeftWidth: '3px', borderLeftColor: stratum.border }
+                                : undefined
+                            }
                           >
                             <div className="min-h-[34px] px-2 py-1.5 flex items-start justify-between gap-1.5 select-none">
                               <div className="flex items-start gap-1.5 flex-1 min-w-0">
@@ -1138,12 +1183,34 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
                                 <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
                                   <span
+                                    className="text-nano font-mono font-bold px-1 py-0.2 rounded-[1px] border shrink-0 uppercase tracking-wider select-none"
+                                    style={{
+                                      borderColor: stratum.border,
+                                      backgroundColor: stratum.bg,
+                                      color: stratum.text,
+                                    }}
+                                    title={`Stratum Category: ${preset?.category || layer.category || 'data'}`}
+                                  >
+                                    {stratum.label}
+                                  </span>
+
+                                  <span
                                     className="leading-tight break-words text-nano font-bold cursor-pointer hover:text-[var(--theme-text-accent)]"
                                     title={layer.name}
                                     onClick={() => setExpandedLayerId(isExpanded ? null : layer.id)}
                                   >
                                     {layer.name}
                                   </span>
+
+                                  {legend?.colorStops && legend.colorStops.length > 0 && (
+                                    <div
+                                      className="h-1.5 w-6 rounded-[1px] border border-black/20 shadow-2xs shrink-0 self-center opacity-90 hover:opacity-100 transition-opacity"
+                                      style={{
+                                        background: `linear-gradient(to right, ${legend.colorStops.join(', ')})`,
+                                      }}
+                                      title={`Pigment Preview: ${legend.minLabel || ''} → ${legend.maxLabel || ''} (${legend.unit || ''})`}
+                                    />
+                                  )}
 
                                   {isPrimaryRaster && (
                                     <span className="text-nano font-mono px-1 py-0.2 rounded border bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 font-semibold" title="Active Base Raster rendered on planetary crust">
@@ -1456,18 +1523,24 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         onChange={onSoundingsToggle}
                         title="Toggle Soundings"
                         label="Soundings"
+                        sublabel="Marine bathymetric depth matrix"
+                        indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#10B981'}
                       />
                       <TactileSwitch
                         checked={showTriangulation}
                         onChange={onTriangulationToggle}
                         title="Toggle Triangulation"
                         label="Triangulation"
+                        sublabel="Geodetic Delaunay survey baseline"
+                        indicatorColor={theme === 1 ? '#9C2F2F' : '#F43F5E'}
                       />
                       <TactileSwitch
                         checked={showLandmarks}
                         onChange={onLandmarksToggle}
                         title="Toggle Landmarks"
                         label="Landmarks"
+                        sublabel="Astronomical observatories & promontories"
+                        indicatorColor={theme === 1 ? '#7D4700' : theme === 2 ? '#60A5FA' : '#F59E0B'}
                       />
                     </div>
                   </div>
