@@ -42,4 +42,6 @@ export interface DataLayerItem {
   peakExponent?: number;
   ambientOcclusion?: number;
   paperTooth?: number;
+  unsupported?: boolean;
+  unsupportedReason?: string;
 }

@@ -65,6 +65,7 @@ export interface AtmosphereDrawerProps {
   onHorizonPresetClick?: () => void;
   onSnapCamera?: (snap: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => void;
   onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
+  isRadarActive?: boolean;
   hideScrubber?: boolean;
   className?: string;
 }
@@ -73,6 +74,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   theme = 0,
   isLight = false,
   hideScrubber = false,
+  isRadarActive = false,
   showClouds: propShowClouds,
   onShowCloudsChange,
   showCloudLow: propShowCloudLow,
@@ -373,9 +375,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
     onTogglePlanetaryLayer?.('noaa-gfs-jetstream', true);
 
     // 3. Set atmospheric scale >= 6.0x for clear visual strata separation
-    if (curAtmosphericScale <= 1.05) {
-      handleAtmosphericScaleChange(6.0);
-    }
+    handleAtmosphericScaleChange(Math.max(curAtmosphericScale, 6.0));
 
     // 4. Custom preset callback or snap camera
     if (onHorizonPresetClick) {
@@ -507,13 +507,37 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                   id: 0,
                   label: 'Archival Ink Wash',
                   title: 'Archival Ink Wash (Historical Cartographic Pigmentation)',
-                  className: 'w-full',
+                  className: 'w-full py-1',
+                  icon: (
+                    <div
+                      className="w-8 h-2 rounded-[1px] border border-black/20 shadow-2xs"
+                      style={{
+                        background:
+                          theme === 1
+                            ? 'linear-gradient(to right, #FAF7F2, #B3A492, #4A3E31)'
+                            : theme === 2
+                            ? 'linear-gradient(to right, #09131F, #2A4869, #D9E6F2)'
+                            : 'linear-gradient(to right, #182230, #64748B, #F1F5F9)',
+                      }}
+                      title="Archival pigment wash gradient"
+                    />
+                  ),
                 },
                 {
                   id: 1,
                   label: 'Doppler Radar',
                   title: 'Meteorological Spectral Doppler Radar',
-                  className: 'w-full',
+                  className: 'w-full py-1',
+                  icon: (
+                    <div
+                      className="w-8 h-2 rounded-[1px] border border-black/20 shadow-2xs"
+                      style={{
+                        background:
+                          'linear-gradient(to right, #22c55e 0%, #eab308 35%, #ef4444 70%, #a855f7 100%)',
+                      }}
+                      title="Meteorological reflectivity dBZ spectrum"
+                    />
+                  ),
                 },
               ]}
             />
@@ -542,6 +566,8 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
               <TimelineScrubber
                 value={timelineMinutes}
                 onTimeChange={handleTimelineChange}
+                isRadarActive={isRadarActive}
+                onEnableRadar={onTogglePlanetaryLayer ? () => onTogglePlanetaryLayer('live-doppler-radar', true) : undefined}
               />
             </div>
           )}

@@ -3272,6 +3272,10 @@ export class WebGPUEngine {
     return this.craneSolver.getState();
   }
 
+  public deactivateOrigamiCrane(): void {
+    this.isCraneActive = false;
+  }
+
   /**
    * Samples terrain elevation and slope gradients on the CPU.
    * Leverages the loaded DEM buffer if available, or a physically grounded
@@ -4049,7 +4053,14 @@ export class WebGPUEngine {
     cloudFloats[31] = gamma;
 
     // Sim Control
-    cloudFloats[32] = params.time ?? 0.0;
+    const timelineOffsetSec = (
+      (params.timelineMinutes !== undefined
+        ? params.timelineMinutes
+        : (params.weatherTimeMinutes !== undefined
+          ? params.weatherTimeMinutes
+          : this._timelineMinutes)) ?? 0
+    ) * 60.0;
+    cloudFloats[32] = (params.time ?? 0.0) + timelineOffsetSec;
     cloudFloats[33] = params.unfurl ?? 0.0;
     cloudFloats[34] = params.mode ?? 0.0;
     cloudFloats[35] = 48.0;
@@ -4644,11 +4655,18 @@ export class WebGPUEngine {
       params.renderLayers === 'points' ? 1 : params.renderLayers === 'wireframe' ? 2 : 0
     );
 
+    if (params.timelineMinutes !== undefined) {
+      this._timelineMinutes = params.timelineMinutes;
+    } else if (params.weatherTimeMinutes !== undefined) {
+      this._timelineMinutes = params.weatherTimeMinutes;
+    }
+    const timelineOffsetSec = (this._timelineMinutes ?? 0) * 60.0;
+
     // [0..3]: unfurl, mode, layerMode, time
     simFloats[0] = params.unfurl;
     simUints[1] = params.mode;
     simUints[2] = layerMode;
-    simFloats[3] = params.time;
+    simFloats[3] = (params.time ?? 0.0) + timelineOffsetSec;
 
     // [4..7]: cursorActive, numParticles, theme, vortexStrength
     simFloats[4] = params.cursorActive ? 1.0 : 0.0;
@@ -4737,7 +4755,7 @@ export class WebGPUEngine {
       ribF[0] = params.unfurl;
       ribU[1] = params.mode;
       ribU[2] = params.theme !== undefined ? params.theme : 0;
-      ribF[3] = params.time;
+      ribF[3] = params.time + timelineOffsetSec;
 
       const vpWidth = this.context.canvas?.width || 800;
       const vpHeight = this.context.canvas?.height || 600;
@@ -4817,7 +4835,7 @@ export class WebGPUEngine {
       cf[0] = params.unfurl;
       cu[1] = params.mode;
       cu[2] = params.theme !== undefined ? params.theme : 0;
-      cf[3] = params.time;
+      cf[3] = params.time + timelineOffsetSec;
 
       const vpWidth = this.context.canvas?.width || 800;
       const vpHeight = this.context.canvas?.height || 600;
@@ -4963,7 +4981,7 @@ export class WebGPUEngine {
       const windU32 = new Uint32Array(windU.buffer);
       windU[0] = params.unfurl;
       windU32[1] = params.mode;
-      windU[2] = params.time;
+      windU[2] = (params.time ?? 0.0) + timelineOffsetSec;
       windU[3] = params.dt;
       windU32[4] = this.windParticleCount;
       windU[5] = this.windSpeedMultiplier;
@@ -6125,7 +6143,14 @@ export class WebGPUEngine {
     const unfurl = params?.unfurl ?? 0.0;
     const mode = Math.max(0, Math.floor(params?.mode ?? 0));
     const theme = Math.max(0, Math.min(2, Math.floor(params?.theme ?? 0)));
-    const time = params?.time ?? 0.0;
+    const timelineOffsetSec = (
+      (params?.timelineMinutes !== undefined
+        ? params.timelineMinutes
+        : (params?.weatherTimeMinutes !== undefined
+          ? params.weatherTimeMinutes
+          : this._timelineMinutes)) ?? 0
+    ) * 60.0;
+    const time = (params?.time ?? 0.0) + timelineOffsetSec;
     const dispScale = params?.displacementScale ?? 0.08;
     const baseDrift = params?.cloudDriftSpeed ?? this.cloudOptions?.driftSpeed ?? 1.2;
     const masterOpacity = params?.cloudOpacity ?? this.cloudOptions?.opacity ?? 0.85;

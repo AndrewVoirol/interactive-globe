@@ -1993,5 +1993,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     finalCrust = mix(finalCrust, weatherOverlay.rgb, weatherOverlay.a);
 
-    return vec4<f32>(finalCrust, sim.u_layerOpacity);
+    let finalAlpha = clamp(sim.u_layerOpacity, 0.0, 1.0);
+    return vec4<f32>(finalCrust * finalAlpha, finalAlpha);
 }

@@ -46,6 +46,8 @@ export interface DataLayerPreset {
   peakExponent?: number; // 1.0 to 2.0 power curve for alpine peak sharpness
   ambientOcclusion?: number; // 0.0 to 1.0 valley crevice AO
   autoEnableVectors?: boolean;
+  unsupported?: boolean;
+  unsupportedReason?: string;
 }
 
 export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
@@ -135,11 +137,13 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     name: 'Esri World Satellite Imagery',
     category: 'satellite',
     type: 'Raster XYZ',
-    details: 'High-resolution global orbital & aerial satellite surface photography',
+    details: '[UNSUPPORTED: Requires XYZ Tile Pipeline] High-resolution global orbital & aerial satellite surface photography',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     defaultOpacity: 0.90,
     defaultBlendMode: 0,
     defaultDisplacementScale: 0.055,
+    unsupported: true,
+    unsupportedReason: 'Requires XYZ Tile Pipeline',
     attribution: 'Esri, Maxar, Earthstar Geographics',
     legend: {
       colorStops: ['#0f172a', '#1e3a8a', '#166534', '#a16207', '#f8fafc'],
@@ -153,11 +157,13 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     name: 'Global Ocean Bathymetry & Relief',
     category: 'ocean',
     type: 'Raster XYZ',
-    details: 'GEBCO seafloor topography, continental shelves, and abyssal trenches',
+    details: '[UNSUPPORTED: Requires XYZ Tile Pipeline] GEBCO seafloor topography, continental shelves, and abyssal trenches',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}',
     defaultOpacity: 0.85,
     defaultBlendMode: 0,
     defaultDisplacementScale: 0.055,
+    unsupported: true,
+    unsupportedReason: 'Requires XYZ Tile Pipeline',
     attribution: 'GEBCO, NOAA, Esri, DeLorme',
     legend: {
       colorStops: ['#020617', '#0f172a', '#1e293b', '#0369a1', '#38bdf8'],
@@ -171,11 +177,13 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     name: 'USGS Topographic Map',
     category: 'topo',
     type: 'Raster XYZ',
-    details: 'USGS National Map hypsometric elevation contours & hydrology',
+    details: '[UNSUPPORTED: Requires XYZ Tile Pipeline] USGS National Map hypsometric elevation contours & hydrology',
     url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
     defaultOpacity: 0.80,
     defaultBlendMode: 0,
     defaultDisplacementScale: 0.055,
+    unsupported: true,
+    unsupportedReason: 'Requires XYZ Tile Pipeline',
     attribution: 'U.S. Geological Survey / The National Map',
     legend: {
       colorStops: ['#0284c7', '#86efac', '#fef08a', '#f97316', '#b91c1c'],
@@ -189,11 +197,13 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     name: 'NASA Blue Marble Night Lights',
     category: 'night',
     type: 'WMTS EPSG:3857',
-    details: 'Suomi NPP VIIRS nocturnal anthropogenic illumination & city glows',
+    details: '[UNSUPPORTED: Requires XYZ Tile Pipeline] Suomi NPP VIIRS nocturnal anthropogenic illumination & city glows',
     url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_CityLights_2012/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpg',
     defaultOpacity: 0.90,
     defaultBlendMode: 1, // Additive for glowing city lights
     defaultDisplacementScale: 0.055,
+    unsupported: true,
+    unsupportedReason: 'Requires XYZ Tile Pipeline',
     attribution: 'NASA Earth Observatory / VIIRS / NOAA',
     legend: {
       colorStops: ['#000000', '#7c2d12', '#d97706', '#fef08a', '#ffffff'],
@@ -207,34 +217,19 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
     name: 'OpenTopoMap Topographic Relief',
     category: 'topo',
     type: 'Raster XYZ',
-    details: 'Contour relief, hillshading, and global hypsometric topography',
+    details: '[UNSUPPORTED: Requires XYZ Tile Pipeline] Contour relief, hillshading, and global hypsometric topography',
     url: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',
     defaultOpacity: 0.85,
     defaultBlendMode: 0,
     defaultDisplacementScale: 0.055,
+    unsupported: true,
+    unsupportedReason: 'Requires XYZ Tile Pipeline',
     attribution: 'OpenStreetMap contributors, SRTM',
     legend: {
       colorStops: ['#0284c7', '#22c55e', '#eab308', '#9a3412', '#78716c'],
       minLabel: '-100m',
       maxLabel: '+4,000m',
       unit: 'Relief',
-    },
-  },
-  {
-    id: 'noaa-grib2-wind',
-    name: 'NOAA Global Wind Vectors',
-    category: 'field',
-    type: 'Dynamic Flow Field',
-    details: 'Real-time atmospheric wind velocity field with continuous physical particle advection & velocity ramp',
-    url: '/data/wind-grib2.json',
-    defaultOpacity: 0.90,
-    defaultBlendMode: 1,
-    attribution: 'NOAA NCEP Global Forecast System (GFS)',
-    legend: {
-      colorStops: ['#02a6d9', '#1ad973', '#f2bf1a', '#f24026'],
-      minLabel: '0 m/s Calm',
-      maxLabel: '20+ m/s Gale',
-      unit: 'Wind Velocity',
     },
   },
   {
@@ -401,6 +396,33 @@ export const DATA_LAYER_CATALOG: DataLayerPreset[] = [
   },
 ];
 
+/**
+ * Archived / legacy dataset descriptors retained exclusively for backward-compatibility
+ * and historical test suite resolution. These do not appear in the active UI catalog.
+ */
+export const LEGACY_PRESETS = new Map<string, DataLayerPreset>([
+  [
+    'noaa-grib2-wind',
+    {
+      id: 'noaa-grib2-wind',
+      name: 'NOAA Global Wind Vectors',
+      category: 'field',
+      type: 'Dynamic Flow Field',
+      details: 'Real-time atmospheric wind velocity field with continuous physical particle advection & velocity ramp',
+      url: '/data/wind-grib2.json',
+      defaultOpacity: 0.90,
+      defaultBlendMode: 1,
+      attribution: 'NOAA NCEP Global Forecast System (GFS)',
+      legend: {
+        colorStops: ['#02a6d9', '#1ad973', '#f2bf1a', '#f24026'],
+        minLabel: '0 m/s Calm',
+        maxLabel: '20+ m/s Gale',
+        unit: 'Wind Velocity',
+      },
+    },
+  ],
+]);
+
 export function getPresetById(id: string): DataLayerPreset | undefined {
-  return DATA_LAYER_CATALOG.find((item) => item.id === id);
+  return DATA_LAYER_CATALOG.find((item) => item.id === id) || LEGACY_PRESETS.get(id);
 }

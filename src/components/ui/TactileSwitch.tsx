@@ -15,6 +15,7 @@ export interface TactileSwitchProps {
   disabled?: boolean;
   id?: string;
   className?: string;
+  indicatorColor?: string;
 }
 
 export const TactileSwitch: React.FC<TactileSwitchProps> = ({
@@ -26,6 +27,7 @@ export const TactileSwitch: React.FC<TactileSwitchProps> = ({
   disabled = false,
   id,
   className = '',
+  indicatorColor,
 }) => {
   const handleToggle = () => {
     if (!disabled && onChange) {
@@ -59,15 +61,27 @@ export const TactileSwitch: React.FC<TactileSwitchProps> = ({
           : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-text-primary)]'
       } ${className}`}
     >
-      <div className="flex flex-col min-w-0 pr-2">
-        <span className="font-bold text-body tracking-wide truncate transition-colors">
-          {label}
-        </span>
-        {sublabel && (
-          <span className="text-nano opacity-65 font-mono truncate">
-            {sublabel}
-          </span>
+      <div className="flex items-center gap-2 min-w-0 pr-2">
+        {indicatorColor && (
+          <span
+            className="w-2 h-2 rounded-[1px] border shrink-0 transition-all shadow-2xs"
+            style={{
+              backgroundColor: checked ? indicatorColor : `${indicatorColor}26`,
+              borderColor: indicatorColor,
+              boxShadow: checked ? `0 0 6px ${indicatorColor}55` : 'none',
+            }}
+          />
         )}
+        <div className="flex flex-col min-w-0">
+          <span className="font-bold text-body tracking-wide truncate transition-colors">
+            {label}
+          </span>
+          {sublabel && (
+            <span className="text-nano opacity-65 font-mono truncate">
+              {sublabel}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* 3-Ridge Machined Knurled Slide Track & Thumb */}

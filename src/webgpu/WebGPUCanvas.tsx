@@ -432,8 +432,36 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   useEffect(() => {
     if (engineRef.current) {
       engineRef.current.setTimelineMinutes(timelineMinutes ?? 0);
+      if (typeof engineRef.current.updateAtmosphereUniforms === 'function') {
+        engineRef.current.updateAtmosphereUniforms({
+          weatherTimeMinutes: timelineMinutes ?? 0,
+          weatherTau: scrubTau ?? weatherTau ?? 0,
+          scrubTau: scrubTau ?? weatherTau ?? 0,
+        });
+      }
     }
-  }, [timelineMinutes]);
+    const weatherNextDS =
+      (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ ||
+      (window as any).__INDICATRIX_WEATHERNEXT_SOURCE__;
+    if (weatherNextDS && !weatherNextDS.disposed && typeof weatherNextDS.setTime === 'function') {
+      const clamped = Math.max(-60, Math.min(2880, timelineMinutes ?? 0));
+      if (clamped >= 0) {
+        const totalHours = clamped / 60;
+        const bracketHour = totalHours >= 48 ? 47 : Math.min(47, Math.floor(totalHours));
+        const tau = totalHours >= 48 ? 1.0 : Math.max(0.0, Math.min(1.0, totalHours - bracketHour));
+        weatherNextDS.setTime(bracketHour, tau).catch(() => {});
+      }
+    }
+    const radarDS = (window as any).__INDICATRIX_LIVE_RADAR_DATA_SOURCE__;
+    if (radarDS && !radarDS.disposed && timelineMinutes !== undefined && timelineMinutes < 0) {
+      radarDS.setAbsoluteMinutes(timelineMinutes);
+      const radarRing = (window as any).__INDICATRIX_RADAR_RING_BUFFER__;
+      if (radarRing && !radarRing.disposed && engineRef.current && engineRef.current.precipRingBuffer !== radarRing) {
+        engineRef.current.setPrecipitationRingBuffer(radarRing);
+      }
+      radarDS.uploadToRingBuffer();
+    }
+  }, [timelineMinutes, scrubTau, weatherTau]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -494,7 +522,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     }
 
     const hasWind = !!dataLayers?.find(
-      (l) => (l.id === 'noaa-gfs-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
+      (l) => (l.id === 'noaa-gfs-wind' || l.id === 'noaa-grib2-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
     );
     if (hasWind) {
       if (isWnModel) {
@@ -536,16 +564,22 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       }).catch((err) => {
         console.warn('[WebGPUCanvas] Failed to initialize live Doppler radar:', err);
       });
+    } else {
+      const radarRing = (window as any).__INDICATRIX_RADAR_RING_BUFFER__;
+      if (radarRing && engine.precipRingBuffer === radarRing) {
+        engine.setPrecipitationRingBuffer(null);
+      }
     }
     const hasWeatherNext =
       isWnModel &&
-      !!dataLayers?.find(
-        (l) =>
-          (l.id === 'google-weathernext3' ||
-            l.id === 'weathernext' ||
-            l.type === '0.1° (10km) AI') &&
-          l.visible
-      );
+      (showClouds ||
+        !!dataLayers?.find(
+          (l) =>
+            (l.id === 'google-weathernext3' ||
+              l.id === 'weathernext' ||
+              l.type === '0.1° (10km) AI') &&
+            l.visible
+        ));
     if (hasWeatherNext) {
       engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {});
       import('../core/data/WeatherNextDataSource').then(({ WeatherNextDataSource }) => {
@@ -575,6 +609,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       }).catch((err) => {
         console.warn('[WebGPUCanvas] Failed to initialize WeatherNext 3:', err);
       });
+    } else {
+      const wnRing = (window as any).__INDICATRIX_WEATHERNEXT_RING_BUFFER__;
+      if (wnRing && engine.precipRingBuffer === wnRing && !hasRadar) {
+        engine.setPrecipitationRingBuffer(null);
+      }
+    }
+    if (!hasRadar && !hasWeatherNext && engine.precipRingBuffer) {
+      engine.setPrecipitationRingBuffer(null);
     }
     const hasCrane = !!dataLayers?.find(
       (l) => (l.id === 'origami-crane-companion' || l.id === 'origami-crane') && l.visible
@@ -587,6 +629,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       const latDeg = phi * (180 / Math.PI);
       const lonDeg = ((((lambda * (180 / Math.PI) + 180) % 360) + 360) % 360) - 180;
       engine.releaseOrigamiCrane(lonDeg, latDeg);
+    } else if (!hasCrane && engine.isCraneActive) {
+      engine.isCraneActive = false;
+      if (typeof engine.deactivateOrigamiCrane === 'function') {
+        engine.deactivateOrigamiCrane();
+      }
     }
     const hasPhotoreal = !!dataLayers?.find(
       (l) => (l.renderStyle === 'photoreal' || l.id === 'photoreal-satellite-layer') && l.visible
@@ -722,6 +769,48 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         velocityRef.current.velPanY = 0;
         targetCameraPosRef.current = null;
         updateCameraTransform();
+      },
+      easeToCoordinates: (lonDeg: number, latDeg: number, zoomRadius = 14.0, durationSec = 1.4) => {
+        const phi = ((90 - latDeg) * Math.PI) / 180;
+        const theta = (lonDeg * Math.PI) / 180;
+        const sinPhi = Math.sin(phi);
+        const cosPhi = Math.cos(phi);
+        const sinTheta = Math.sin(theta);
+        const cosTheta = Math.cos(theta);
+
+        const h_floor = getGroundClearanceFloor(lonDeg, latDeg);
+        const safeRadius = Math.max(h_floor, Math.min(zoomRadius, 30.0));
+
+        const camX = safeRadius * sinPhi * sinTheta;
+        const camY = safeRadius * cosPhi;
+        const camZ = safeRadius * sinPhi * cosTheta;
+
+        velocityRef.current.velTheta = 0;
+        velocityRef.current.velPhi = 0;
+        velocityRef.current.velRadius = 0;
+        velocityRef.current.velPanX = 0;
+        velocityRef.current.velPanY = 0;
+        targetCameraPosRef.current = null;
+
+        if (durationSec <= 0) {
+          cameraRef.current.position.set(camX, camY, camZ);
+          targetRef.current.set(0, 0, 0);
+          cameraRef.current.up.set(0, 1, 0);
+          cameraRef.current.lookAt(targetRef.current);
+          cameraRef.current.updateMatrixWorld();
+          cameraTransitionRef.current = null;
+        } else {
+          cameraTransitionRef.current = {
+            startPos: cameraRef.current.position.clone(),
+            endPos: new Vector3(camX, camY, camZ),
+            startTarget: targetRef.current.clone(),
+            endTarget: new Vector3(0, 0, 0),
+            startUp: cameraRef.current.up.clone(),
+            endUp: new Vector3(0, 1, 0),
+            startTime: performance.now(),
+            duration: durationSec * 1000,
+          };
+        }
       },
       setTarget: (x: number, y: number, z: number) => {
         targetRef.current.set(x, y, z);
@@ -2075,7 +2164,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           (l) => l.id === 'usgs-elevation-contours' && l.visible
         );
         const hasSurfaceWind = !!curDataLayers?.find(
-          (l) => (l.id === 'noaa-gfs-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
+          (l) => (l.id === 'noaa-gfs-wind' || l.id === 'noaa-grib2-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
         );
         const hasJetStream = !!curDataLayers?.find(
           (l) => (l.id === 'noaa-gfs-jetstream' || l.id === 'gfs-jetstream') && l.visible
@@ -2148,9 +2237,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         }
         (window as any).__INDICATRIX_CAMERA_OBJECT__ = camera;
 
+        const cloudLayer = curDataLayers?.find((l) => l.id === 'noaa-gfs-clouds');
         const effectiveShowClouds = liveOverrides?.showClouds !== undefined
           ? liveOverrides.showClouds
-          : stateRef.current.showClouds;
+          : (cloudLayer !== undefined
+            ? cloudLayer.visible
+            : stateRef.current.showClouds);
 
         engine.render({
           unfurl: curUnfurl,

@@ -39,7 +39,7 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
 
   const addToast = useCallback((toast: Omit<ToastMessage, 'id'>) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-    setToasts((prev) => [...prev, { ...toast, id }]);
+    setToasts((prev) => [...prev.slice(-4), { ...toast, id }]);
   }, []);
 
   const dismissToast = useCallback((id: string) => {
@@ -49,6 +49,15 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
   // Layers managed dynamically via state
   const handleAddDataLayer = useCallback(
     (layer: DataLayerItem) => {
+      const preset = getPresetById(layer.id);
+      if (preset?.unsupported || (layer as any).unsupported) {
+        addToast({
+          type: 'warning',
+          title: 'Unsupported Dataset',
+          message: `${layer.name} requires XYZ Tile Pyramid Pipeline (unsupported)`,
+        });
+        return;
+      }
       setDataLayers((prev) => {
         if (prev.some((l) => l.id === layer.id)) return prev;
         return [...prev, layer];

@@ -370,12 +370,26 @@ export function sampleGreatCircleGeodesic(
 
   const points: Array<{ lon: number; lat: number }> = [];
 
+  // Antipodal points: precalculate orthogonal tangent normal once to sweep a 180° great circle semicircle
+  // Gram-Schmidt projection against polar axis (or equatorial axis if near poles)
+  let antipodalOrtho: Vector3 | null = null;
+  if (dot < -0.999999) {
+    const ref = Math.abs(v1.y) < 0.99 ? new Vector3(0, 1, 0) : new Vector3(1, 0, 0);
+    antipodalOrtho = new Vector3().copy(ref).addScaledVector(v1, -v1.dot(ref)).normalize();
+  }
+
   for (let i = 0; i <= steps; i++) {
     const u = i / steps;
     let pt: Vector3;
-    if (sinOmega < 1e-6) {
-      // Points are identical or antipodal; linear fallback
-      pt = new Vector3().lerpVectors(v1, v2, u).normalize();
+    if (antipodalOrtho) {
+      const angle = Math.PI * u;
+      pt = new Vector3()
+        .addScaledVector(v1, Math.cos(angle))
+        .addScaledVector(antipodalOrtho, Math.sin(angle))
+        .normalize();
+    } else if (sinOmega < 1e-6) {
+      // Identical/coincident points
+      pt = v1.clone();
     } else {
       const c1 = Math.sin((1 - u) * omega) / sinOmega;
       const c2 = Math.sin(u * omega) / sinOmega;
