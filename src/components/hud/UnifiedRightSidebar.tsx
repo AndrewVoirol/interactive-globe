@@ -1640,7 +1640,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 {backend === 'webgpu' && gpuReport && (
                   <div className="grid grid-cols-4 gap-1 font-mono opacity-80 text-nano">
                     <span>Sim: {(gpuReport.computeMs ?? 0).toFixed(2)}ms</span>
-                    <span>Relief: {(gpuReport.reliefMs ?? 0).toFixed(2)}ms</span>
+                    <span>Render: {(gpuReport.reliefMs ?? 0).toFixed(2)}ms</span>
                     <span>Lines: {(gpuReport.linesMs ?? 0).toFixed(2)}ms</span>
                     <span>Contours: {(gpuReport.contoursMs ?? 0).toFixed(2)}ms</span>
                   </div>

@@ -325,7 +325,7 @@ describe('Milestone 1: Pre-Flight Hygiene & Dynamic Cloud Ground Shadows', () =>
     });
 
     it('M1-SYNC-04: WebGPUEngine masks shadow intensity to 0.0 when clouds are toggled off', () => {
-      expect(engineSource).toMatch(/const\s+cloudsActive\s*=\s*\(params\.showClouds\s*!==\s*false\)\s*&&\s*\(this\.cloudEnabled\s*!==\s*false\);/);
+      expect(engineSource).toMatch(/const\s+cloudsActive\s*=\s*Boolean\(params\.showClouds\)\s*&&\s*\(this\.cloudEnabled\s*!==\s*false\);/);
       expect(engineSource).toMatch(/this\.crustFloats\[69\]\s*=\s*5\.0\s*\*\s*baseDrift\s*;/);
       expect(engineSource).toMatch(/this\.crustFloats\[70\]\s*=\s*2\.5\s*;/);
     });

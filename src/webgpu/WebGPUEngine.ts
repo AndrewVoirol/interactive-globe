@@ -58,6 +58,7 @@ export interface WebGPUFrameParams {
   cursorHitPos?: Vector3 | { x: number; y: number; z: number };
   cursorVel?: Vector4 | Vector3 | { x: number; y: number; z: number; w?: number };
   cursorActive?: boolean;
+  isPlaying?: boolean;
   camera: PerspectiveCamera | {
     position: { x: number; y: number; z: number };
     matrixWorldInverse: { toArray: (arr: Float32Array | number[], offset?: number) => void };
@@ -462,6 +463,11 @@ export class WebGPUEngine {
   private windComputePipeline: GPUComputePipeline | null = null;
   private windComputeBindGroups: [GPUBindGroup, GPUBindGroup] | null = null;
   private windRibbonPipeline: GPURenderPipeline | null = null;
+  private lastSimUnfurl: number = -1;
+  private lastSimMode: number = -1;
+  private lastSimVortex: number = -1;
+  private lastSimFracture: number = -1;
+  private simWarmupFrames: number = 0;
   private windRibbonBindGroups: [GPUBindGroup, GPUBindGroup] | null = null;
   private cloudPipeline: GPURenderPipeline | null = null;
   private cloudBindGroupLayout: GPUBindGroupLayout | null = null;
@@ -3900,9 +3906,9 @@ export class WebGPUEngine {
     cloudFloats[11] = 0.60;
 
     // Layer Densities
-    const lowDens = ((params as any).showCloudLow !== false && this.cloudOptions.showLow !== false) ? 1.0 : 0.0;
-    const midDens = ((params as any).showCloudMid !== false && this.cloudOptions.showMid !== false) ? 0.8 : 0.0;
-    const highDens = ((params as any).showCloudHigh !== false && this.cloudOptions.showHigh !== false) ? 0.4 : 0.0;
+    const lowDens = (Boolean((params as any).showCloudLow ?? this.cloudOptions.showLow)) ? 1.0 : 0.0;
+    const midDens = (Boolean((params as any).showCloudMid ?? this.cloudOptions.showMid)) ? 0.8 : 0.0;
+    const highDens = (Boolean((params as any).showCloudHigh ?? this.cloudOptions.showHigh)) ? 0.4 : 0.0;
     const masterOpacity = (params as any).cloudOpacity !== undefined
       ? (params as any).cloudOpacity
       : (this.cloudOptions.opacity ?? 0.85);
@@ -4754,7 +4760,7 @@ export class WebGPUEngine {
       // Dynamic Cloud Ground Shadows (floats 68..71, offset 272..288) (Spec §2.1, Invariant §20)
       // Contract: this.crustFloats[68] = params.shadowIntensity !== undefined ? params.shadowIntensity : (this.shadowIntensity ?? 0.45);
       // Fallback contract: this.crustFloats[69] = 0.0; this.crustFloats[70] = 0.0; this.crustFloats[71] = 0.0;
-      const cloudsActive = (params.showClouds !== false) && (this.cloudEnabled !== false);
+      const cloudsActive = Boolean(params.showClouds) && (this.cloudEnabled !== false);
       const rawShadow = cloudsActive
         ? (params.shadowIntensity !== undefined ? params.shadowIntensity : this.shadowIntensity)
         : 0.0;
@@ -4845,7 +4851,7 @@ export class WebGPUEngine {
 
     // Cloud Shell Tropospheric & Atmospheric Scatter Uniforms (288 bytes per layer)
     const showAtmosphere = !!(params.showAtmosphere && this.showAtmosphereScatter !== false);
-    const showClouds = (params.showClouds !== false) && (this.cloudEnabled !== false);
+    const showClouds = Boolean(params.showClouds) && (this.cloudEnabled !== false);
     if (showClouds || showAtmosphere) {
       if (params.atmosphericScale !== undefined) {
         this.atmosphericScale = params.atmosphericScale;
@@ -4918,7 +4924,7 @@ export class WebGPUEngine {
     }
 
     // 1c. Ensure cloud buffers lazily on-demand (Milestone 4 / Invariant §20)
-    if ((params.showClouds || params.showCloudLow || params.showCloudMid || params.showCloudHigh) && this.cloudEnabled !== false) {
+    if (Boolean(params.showClouds || params.showCloudLow || params.showCloudMid || params.showCloudHigh) && this.cloudEnabled !== false) {
       this.ensureCloudBuffers();
     }
 
@@ -4934,13 +4940,19 @@ export class WebGPUEngine {
     const commandEncoder = this.device.createCommandEncoder();
 
     // Pass 1: Compute Simulation Pass
-    const computePass = commandEncoder.beginComputePass({
-      timestampWrites: this.profiler?.getComputeTimestampWrites(0),
-    });
-    computePass.setPipeline(this.computePipeline);
-    computePass.setBindGroup(0, this.computeBindGroups[this.currentStep % 2]);
-    const workgroupCount = Math.min(65535, Math.ceil(this.pointCount / 256));
-    computePass.dispatchWorkgroups(workgroupCount, 1, 1);
+    const isUnfurlActive = params.unfurl > 0.0001;
+    const isUnfurlChanged = Math.abs(params.unfurl - this.lastSimUnfurl) > 1e-5;
+    const isModeChanged = params.mode !== this.lastSimMode;
+    const isCursorActive = Boolean(params.cursorActive);
+    const isVortexChanged = params.vortexStrength !== undefined && Math.abs(params.vortexStrength - this.lastSimVortex) > 1e-4;
+    const isFractureChanged = params.fractureIntensity !== undefined && Math.abs(params.fractureIntensity - this.lastSimFracture) > 1e-4;
+
+    const needsParticleCompute =
+      this.simWarmupFrames < 2 ||
+      isUnfurlChanged ||
+      (isUnfurlActive && (params.isPlaying || isVortexChanged || isFractureChanged)) ||
+      isModeChanged ||
+      isCursorActive;
 
     // Pass 1b: Atmospheric Wind Particle Advection Compute Dispatch
     const showWind = params.showWind !== undefined
@@ -4948,18 +4960,39 @@ export class WebGPUEngine {
       : Boolean(params.showSurfaceWinds || params.showJetStream);
     const showSurf = showWind && (params.showSurfaceWinds !== undefined ? params.showSurfaceWinds : this.showSurfaceWinds);
     const showJet = showWind && (params.showJetStream !== undefined ? params.showJetStream : this.showJetStream);
-    if (
+    const hasWindCompute = !!(
       this.windComputePipeline &&
       this.windComputeBindGroups &&
       showWind &&
       (showSurf || showJet)
-    ) {
-      computePass.setPipeline(this.windComputePipeline);
-      computePass.setBindGroup(0, this.windComputeBindGroups[this.windStep % 2]);
-      const windWgCount = Math.min(65535, Math.ceil(this.windParticleCount / 256));
-      computePass.dispatchWorkgroups(windWgCount, 1, 1);
+    );
+
+    if (needsParticleCompute || hasWindCompute) {
+      const computePass = commandEncoder.beginComputePass({
+        timestampWrites: this.profiler?.getComputeTimestampWrites(0),
+      });
+
+      if (needsParticleCompute) {
+        computePass.setPipeline(this.computePipeline);
+        computePass.setBindGroup(0, this.computeBindGroups[this.currentStep % 2]);
+        const workgroupCount = Math.min(65535, Math.ceil(this.pointCount / 256));
+        computePass.dispatchWorkgroups(workgroupCount, 1, 1);
+        this.simWarmupFrames++;
+        this.lastSimUnfurl = params.unfurl;
+        this.lastSimMode = params.mode;
+        this.lastSimVortex = params.vortexStrength ?? 0;
+        this.lastSimFracture = params.fractureIntensity ?? 0;
+      }
+
+      if (hasWindCompute) {
+        computePass.setPipeline(this.windComputePipeline!);
+        computePass.setBindGroup(0, this.windComputeBindGroups![this.windStep % 2]);
+        const windWgCount = Math.min(65535, Math.ceil(this.windParticleCount / 256));
+        computePass.dispatchWorkgroups(windWgCount, 1, 1);
+      }
+
+      computePass.end();
     }
-    computePass.end();
 
     // Pass 2: Consolidated Single Render Pass (TBDR on-chip optimization)
     const outBuffer = this.particleBuffers[(this.currentStep + 1) % 2];
@@ -5056,14 +5089,14 @@ export class WebGPUEngine {
     // 3d. Interleaved Atmospheric Wind & Cloud Strata Passes (Milestone 4)
     const finalShowSurf = showSurf;
     const finalShowJet = showJet;
-    const showClouds = params.showClouds !== false && this.cloudEnabled !== false;
-    const showCloudLow = showClouds && (params.showCloudLow !== false) && (this.cloudOptions.showLow !== false);
-    const showCloudMid = showClouds && (params.showCloudMid !== false) && (this.cloudOptions.showMid !== false);
-    const showCloudHigh = showClouds && (params.showCloudHigh !== false) && (this.cloudOptions.showHigh !== false);
+    const showClouds = Boolean(params.showClouds) && this.cloudEnabled !== false;
+    const showCloudLow = showClouds && (params.showCloudLow !== undefined ? Boolean(params.showCloudLow) : this.cloudOptions.showLow !== false);
+    const showCloudMid = showClouds && (params.showCloudMid !== undefined ? Boolean(params.showCloudMid) : this.cloudOptions.showMid !== false);
+    const showCloudHigh = showClouds && (params.showCloudHigh !== undefined ? Boolean(params.showCloudHigh) : this.cloudOptions.showHigh !== false);
     const showAtmosphere = !!(params.showAtmosphere && this.showAtmosphereScatter !== false);
 
     const useVolumetric = showClouds &&
-      (params.volumetricClouds === true || (params.volumetricClouds !== false && this.volumetricCloudsEnabled)) &&
+      (params.volumetricClouds === true || (Boolean(params.volumetricClouds) && this.volumetricCloudsEnabled)) &&
       !!this.volumetricCloudPipeline;
 
     // 1. Surface Winds

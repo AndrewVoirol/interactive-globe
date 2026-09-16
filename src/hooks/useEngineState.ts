@@ -48,7 +48,7 @@ export function useEngineState() {
   const [gpuReport, setGpuReport] = useState<any>(null);
 
   // Atmospheric Cloud Strata State (Milestone 5)
-  const [showClouds, setShowCloudsState] = useState<boolean>(true);
+  const [showClouds, setShowCloudsState] = useState<boolean>(false);
   const [showCloudLow, setShowCloudLowState] = useState<boolean>(true);
   const [showCloudMid, setShowCloudMidState] = useState<boolean>(true);
   const [showCloudHigh, setShowCloudHighState] = useState<boolean>(true);

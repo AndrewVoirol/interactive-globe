@@ -268,7 +268,7 @@ describe('Requirement R5: Complete Frontend HUD & UI/UX Integration', () => {
 
     it('HUD-T09: verifies WebGPUCanvas wires showSatellites and showStarlink and loads planetary datasets', () => {
       const canvasSrc = fs.readFileSync(path.resolve(__dirname, '../../src/webgpu/WebGPUCanvas.tsx'), 'utf-8');
-      expect(canvasSrc).toContain('showSatellites: !!curDataLayers?.find');
+      expect(canvasSrc).toContain('showSatellites: layerCache.showSatellites');
       expect(canvasSrc).toContain('showStarlink:');
       expect(canvasSrc).toContain("l.id === 'starlink-iss-orbits'");
       expect(canvasSrc).toContain("engine.loadSatelliteTrajectories('/data/tle-starlink.json')");

@@ -326,6 +326,52 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   const telemetryNormRef = useRef(new Vector3());
   const telemetryForwardRef = useRef(new Vector3());
 
+  const computeCachedLayers = (curDataLayers?: any[]) => {
+    const activeDataLayer = curDataLayers?.find(
+      (l) => l.visible && (l.renderStyle || l.category === 'topo' || l.category === 'ocean' || l.category === 'topography' || l.type === 'raster')
+    ) || curDataLayers?.find((l) => l.visible) || null;
+
+    const reliefActive = activeDataLayer ? (
+      activeDataLayer.category === 'topo' ||
+      activeDataLayer.category === 'ocean' ||
+      activeDataLayer.category === 'topography' ||
+      activeDataLayer.type === 'raster' ||
+      activeDataLayer.renderStyle === 'architectural' ||
+      activeDataLayer.renderStyle === 'hybrid' ||
+      activeDataLayer.renderStyle === 'photoreal'
+    ) : false;
+
+    const showContours = !!curDataLayers?.find(
+      (l) => l.id === 'usgs-elevation-contours' && l.visible
+    );
+    const hasSurfaceWind = !!curDataLayers?.find(
+      (l) => (l.id === 'noaa-gfs-wind' || l.id === 'noaa-grib2-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
+    );
+    const hasJetStream = !!curDataLayers?.find(
+      (l) => (l.id === 'noaa-gfs-jetstream' || l.id === 'gfs-jetstream') && l.visible
+    );
+    const showSatellites = !!curDataLayers?.find(
+      (l) => (l.id === 'starlink-iss-orbits' || l.id === 'spacex-satellite-constellation') && l.visible
+    );
+    const cloudLayer = curDataLayers?.find((l) => l.id === 'noaa-gfs-clouds') || null;
+    const atmLayer = curDataLayers?.find(
+      (l) => (l.id === 'atmosphere-scatter' || l.id === 'planetary-atmosphere')
+    ) || null;
+
+    return {
+      activeDataLayer,
+      reliefActive,
+      showContours,
+      hasSurfaceWind,
+      hasJetStream,
+      showSatellites,
+      cloudLayer,
+      atmLayer,
+    };
+  };
+
+  const cachedLayersRef = useRef(computeCachedLayers(dataLayers));
+
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -423,6 +469,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       volumetricClouds,
       resolution,
     };
+    cachedLayersRef.current = computeCachedLayers(dataLayers);
   }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution]);
 
   useEffect(() => {
@@ -2119,23 +2166,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           ? reusableHitPosRef.current
           : cursorUniforms.u_cursorHitPos;
 
-        const activeDataLayer = curDataLayers?.find(
-          (l) => l.visible && (l.renderStyle || l.category === 'topo' || l.category === 'ocean' || l.category === 'topography' || l.type === 'raster')
-        ) || curDataLayers?.find((l) => l.visible);
+        const layerCache = cachedLayersRef.current;
+        const activeDataLayer = layerCache.activeDataLayer;
 
         const liveOverrides = typeof window !== 'undefined' ? (window as any).__INDICATRIX_LIVE_UNIFORMS__ : null;
 
         const displacementScale = liveOverrides?.displacementScale ?? activeDataLayer?.displacementScale ?? 0.055;
         const hillshadeIntensity = liveOverrides?.hillshadeIntensity ?? activeDataLayer?.hillshadeIntensity ?? 1.0;
-        const reliefActive = activeDataLayer ? (
-          activeDataLayer.category === 'topo' ||
-          activeDataLayer.category === 'ocean' ||
-          activeDataLayer.category === 'topography' ||
-          activeDataLayer.type === 'raster' ||
-          activeDataLayer.renderStyle === 'architectural' ||
-          activeDataLayer.renderStyle === 'hybrid' ||
-          activeDataLayer.renderStyle === 'photoreal'
-        ) : false;
+        const reliefActive = activeDataLayer ? layerCache.reliefActive : false;
         const seaLevel = liveOverrides?.seaLevelOffset ?? activeDataLayer?.seaLevelOffset ?? 0.0;
         const sunAzimuth = liveOverrides?.sunAzimuth ?? activeDataLayer?.sunAzimuth ?? 315.0;
         const sunAltitude = liveOverrides?.sunAltitude ?? activeDataLayer?.sunAltitude ?? 45.0;
@@ -2146,15 +2184,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const opacity = activeDataLayer?.opacity ?? 1.0;
         const renderStyle = activeDataLayer?.renderStyle ?? (activeDataLayer?.id === 'hybrid-crust-hydrosphere' ? 'hybrid' : 'architectural');
 
-        const showContours = !!curDataLayers?.find(
-          (l) => l.id === 'usgs-elevation-contours' && l.visible
-        );
-        const hasSurfaceWind = !!curDataLayers?.find(
-          (l) => (l.id === 'noaa-gfs-wind' || l.id === 'noaa-grib2-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
-        );
-        const hasJetStream = !!curDataLayers?.find(
-          (l) => (l.id === 'noaa-gfs-jetstream' || l.id === 'gfs-jetstream') && l.visible
-        );
+        const showContours = layerCache.showContours;
+        const hasSurfaceWind = layerCache.hasSurfaceWind;
+        const hasJetStream = layerCache.hasJetStream;
 
         // Dynamic near-plane modulation: 0.1 at orbit (alt >= 1.0) -> 0.00005 in troposphere (alt <= 0.004)
         const camDist = camera.position.length();
@@ -2220,19 +2252,17 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         }
         (window as any).__INDICATRIX_CAMERA_OBJECT__ = camera;
 
-        const cloudLayer = curDataLayers?.find((l) => l.id === 'noaa-gfs-clouds');
+        const cloudLayer = layerCache.cloudLayer;
         const effectiveShowClouds = liveOverrides?.showClouds !== undefined
           ? liveOverrides.showClouds
-          : (cloudLayer !== undefined
+          : (cloudLayer !== null
             ? cloudLayer.visible
-            : stateRef.current.showClouds);
+            : false);
 
-        const atmLayer = curDataLayers?.find(
-          (l) => l.id === 'atmosphere-scatter' || l.id === 'planetary-atmosphere'
-        );
+        const atmLayer = layerCache.atmLayer;
         const effectiveShowAtmosphere = liveOverrides?.showAtmosphere !== undefined
           ? liveOverrides.showAtmosphere
-          : (atmLayer !== undefined
+          : (atmLayer !== null
             ? atmLayer.visible
             : (stateRef.current.showAtmosphere ?? false));
 
@@ -2260,8 +2290,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           showRelief: reliefActive,
           showVectors: curShowVectors,
           showContours,
-          showSatellites: !!curDataLayers?.find((l) => (l.id === 'starlink-iss-orbits' || l.id === 'spacex-satellite-constellation') && l.visible),
-          showStarlink: !!curDataLayers?.find((l) => (l.id === 'starlink-iss-orbits' || l.id === 'spacex-satellite-constellation') && l.visible),
+          showSatellites: layerCache.showSatellites,
+          showStarlink: layerCache.showSatellites,
           showWind: hasSurfaceWind || hasJetStream,
           showSurfaceWinds: hasSurfaceWind,
           showJetStream: hasJetStream,
