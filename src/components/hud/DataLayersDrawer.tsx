@@ -28,6 +28,8 @@ export interface DataLayerItem {
   peakExponent?: number;
   ambientOcclusion?: number;
   paperTooth?: number;
+  unsupported?: boolean;
+  unsupportedReason?: string;
 }
 
 export interface DataLayersDrawerProps {
@@ -323,134 +325,163 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
         {isDrawerOpen && (
           <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pr-0.5">
             {dataLayers && dataLayers.length > 0 ? (
-              dataLayers.map((layer, idx) => {
-                const preset = getPresetById(layer.id);
-                const legend = preset?.legend;
-                const isFirst = idx === 0;
-                const isLast = idx === dataLayers.length - 1;
+              (() => {
+                const isRasterLayer = (l: DataLayerItem) =>
+                  !!(l.renderStyle || l.category === 'topo' || l.category === 'ocean' || l.category === 'satellite' || l.category === 'night');
+                const activeRasterId = dataLayers.find((l) => l.visible && isRasterLayer(l))?.id;
 
-                return (
-                  <div
-                    key={layer.id}
-                    className={`p-2.5 rounded-xl border flex flex-col gap-2 text-micro transition-all ${
-                      isLight
-                        ? 'bg-zinc-50 border-zinc-200 text-zinc-800'
-                        : 'bg-white/[0.04] border-white/10 text-zinc-200'
-                    }`}
-                  >
-                    {/* Layer Header */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 font-bold truncate max-w-[190px]">
-                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${layer.visible ? 'bg-sky-400 animate-pulse' : 'bg-zinc-500'}`}></span>
-                        <span className="truncate">{layer.name}</span>
-                        {layer.id === 'starlink-iss-orbits' && (
-                          <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse shrink-0">
-                            <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
-                            Live Synced
-                          </span>
-                        )}
-                        {layer.id === 'noaa-gfs-wind' && (
-                          <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)] shrink-0">
-                            Physics Model
-                          </span>
-                        )}
-                        <span className="text-nano font-mono opacity-60 flex-shrink-0">Z:{dataLayers.length - idx}</span>
-                      </div>
-                      {/* Unified Right-Side Control Cluster */}
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button
-                          disabled={isFirst}
-                          onClick={() => onReorderDataLayer?.(layer.id, 'up')}
-                          title="Move Layer Up in Z-Order"
-                          className={`p-1 rounded-lg border transition-all ${
-                            isFirst
-                              ? 'opacity-30 cursor-not-allowed border-white/10 text-zinc-600'
-                              : 'border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white'
-                          }`}
-                        >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" />
-                          </svg>
-                        </button>
-                        <button
-                          disabled={isLast}
-                          onClick={() => onReorderDataLayer?.(layer.id, 'down')}
-                          title="Move Layer Down in Z-Order"
-                          className={`p-1 rounded-lg border transition-all ${
-                            isLast
-                              ? 'opacity-30 cursor-not-allowed border-white/10 text-zinc-600'
-                              : 'border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white'
-                          }`}
-                        >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => onToggleDataLayer?.(layer.id)}
-                          className={`p-1 rounded-lg border transition-all ${
-                            layer.visible
-                              ? isLight
-                                ? 'border-sky-300 bg-sky-100 text-sky-800'
-                                : 'border-sky-500/40 bg-sky-500/25 text-sky-200'
-                              : 'border-white/10 text-zinc-500'
-                          }`}
-                        >
-                          {layer.visible ? (
-                            <svg className="w-3 h-3 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          ) : (
+                return dataLayers.map((layer, idx) => {
+                  const preset = getPresetById(layer.id);
+                  const legend = preset?.legend;
+                  const isFirst = idx === 0;
+                  const isLast = idx === dataLayers.length - 1;
+                  const isRaster = isRasterLayer(layer);
+                  const isPrimaryRaster = isRaster && layer.id === activeRasterId && layer.visible;
+                  const isShadowedRaster = isRaster && layer.visible && !isPrimaryRaster;
+
+                  return (
+                    <div
+                      key={layer.id}
+                      className={`p-2.5 rounded-xl border flex flex-col gap-2 text-micro transition-all ${
+                        isLight
+                          ? 'bg-zinc-50 border-zinc-200 text-zinc-800'
+                          : 'bg-white/[0.04] border-white/10 text-zinc-200'
+                      }`}
+                    >
+                      {/* Layer Header */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 font-bold">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${layer.visible ? 'bg-sky-400 animate-pulse' : 'bg-zinc-500'}`}></span>
+                            <span className="text-micro font-bold break-words leading-tight" title={layer.name}>
+                              {layer.name}
+                            </span>
+                            <span className="text-nano font-mono opacity-60 shrink-0">Z:{dataLayers.length - idx}</span>
+                          </div>
+                          <div className="flex items-center gap-1 flex-wrap pl-3.5">
+                            {isPrimaryRaster && (
+                              <span className="text-nano font-mono px-1.5 py-0.2 rounded border bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-semibold" title="Active Base Raster rendered on planetary crust">
+                                (Active Raster)
+                              </span>
+                            )}
+                            {isShadowedRaster && (
+                              <span className="text-nano font-mono px-1.5 py-0.2 rounded border bg-amber-500/20 text-amber-300 border-amber-500/40" title="This raster dataset is occluded by a higher active raster layer in the Z-order stack">
+                                (Shadowed by higher raster layer)
+                              </span>
+                            )}
+                            {preset?.unsupported && (
+                              <span className="text-nano font-mono px-1.5 py-0.2 rounded border bg-rose-500/20 text-rose-300 border-rose-500/40">
+                                [UNSUPPORTED]
+                              </span>
+                            )}
+                            {layer.id === 'starlink-iss-orbits' && (
+                              <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.2 rounded border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse shrink-0">
+                                <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
+                                Live Synced
+                              </span>
+                            )}
+                            {(layer.id === 'noaa-gfs-wind' || layer.id === 'noaa-grib2-wind') && (
+                              <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.2 rounded border bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)] shrink-0">
+                                Physics Model
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {/* Unified Right-Side Control Cluster */}
+                        <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                          <button
+                            disabled={isFirst}
+                            onClick={() => onReorderDataLayer?.(layer.id, 'up')}
+                            title="Move Layer Up in Z-Order"
+                            className={`p-1 rounded-lg border transition-all ${
+                              isFirst
+                                ? 'opacity-30 cursor-not-allowed border-white/10 text-zinc-600'
+                                : 'border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white'
+                            }`}
+                          >
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.025 10.025 0 0111.122 1.937C20.268 9.057 16.478 12 12 12c-1.18 0-2.304-.2-3.344-.563M3 3l18 18" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" />
                             </svg>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => onRemoveDataLayer?.(layer.id)}
-                          className="p-1 rounded-lg border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 transition-all"
-                        >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                          </button>
+                          <button
+                            disabled={isLast}
+                            onClick={() => onReorderDataLayer?.(layer.id, 'down')}
+                            title="Move Layer Down in Z-Order"
+                            className={`p-1 rounded-lg border transition-all ${
+                              isLast
+                                ? 'opacity-30 cursor-not-allowed border-white/10 text-zinc-600'
+                                : 'border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white'
+                            }`}
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => onToggleDataLayer?.(layer.id)}
+                            className={`p-1 rounded-lg border transition-all ${
+                              layer.visible
+                                ? isLight
+                                  ? 'border-sky-300 bg-sky-100 text-sky-800'
+                                  : 'border-sky-500/40 bg-sky-500/25 text-sky-200'
+                                : 'border-white/10 text-zinc-500'
+                            }`}
+                          >
+                            {layer.visible ? (
+                              <svg className="w-3 h-3 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.025 10.025 0 0111.122 1.937C20.268 9.057 16.478 12 12 12c-1.18 0-2.304-.2-3.344-.563M3 3l18 18" />
+                              </svg>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => onRemoveDataLayer?.(layer.id)}
+                            className="p-1 rounded-lg border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 transition-all"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Opacity & Blend Mode Controls */}
-                    <div className="grid grid-cols-2 gap-2 text-micro">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-zinc-500 font-bold text-nano">Opacity:</span>
-                        <input
-                          id={`drawer-opacity-${layer.id}`}
-                          name={`opacity-${layer.id}`}
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.05"
-                          value={layer.opacity ?? 0.85}
-                          onChange={(e) => onOpacityChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
-                          className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
-                        />
-                        <span className="w-7 text-right font-bold text-nano tabular-nums">{Math.round((layer.opacity ?? 0.85) * 100)}%</span>
-                      </div>
+                      {/* Opacity & Blend Mode Controls */}
+                      <div className="grid grid-cols-2 gap-2 text-micro">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-zinc-500 font-bold text-nano">Opacity:</span>
+                          <input
+                            id={`drawer-opacity-${layer.id}`}
+                            name={`opacity-${layer.id}`}
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={layer.opacity ?? 0.85}
+                            onChange={(e) => onOpacityChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
+                            className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
+                          />
+                          <span className="w-7 text-right font-bold text-nano tabular-nums">{Math.round((layer.opacity ?? 0.85) * 100)}%</span>
+                        </div>
 
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-zinc-500 font-bold text-nano">Blend:</span>
-                        <SegmentedControl<BlendModeType>
-                          size="sm"
-                          value={layer.blendMode ?? preset?.defaultBlendMode ?? 0}
-                          onChange={(val) => onBlendModeChangeDataLayer?.(layer.id, val)}
-                          options={[
-                            { id: 0, label: 'Norm', title: 'Normal Blend' },
-                            { id: 1, label: 'Add', title: 'Additive Blend' },
-                            { id: 2, label: 'Mult', title: 'Multiply Blend' },
-                            { id: 3, label: 'Scrn', title: 'Screen Blend' },
-                          ]}
-                        />
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-zinc-500 font-bold text-nano">Blend:</span>
+                          <SegmentedControl<BlendModeType>
+                            size="sm"
+                            value={layer.blendMode ?? preset?.defaultBlendMode ?? 0}
+                            onChange={(val) => onBlendModeChangeDataLayer?.(layer.id, val)}
+                            options={[
+                              { id: 0, label: 'Norm', title: 'Normal Blend' },
+                              { id: 1, label: 'Add', title: 'Additive Blend' },
+                              { id: 2, label: 'Mult', title: 'Multiply Blend' },
+                              { id: 3, label: 'Scrn', title: 'Screen Blend' },
+                            ]}
+                          />
+                        </div>
                       </div>
-                    </div>
 
                     {/* Terrain 3D Relief & Sun Azimuth Controls for Topo/Raster/Ocean Layers */}
                     {(layer.category === 'topo' || layer.category === 'satellite' || layer.category === 'ocean' || !!layer.renderStyle || !!layer.elevationEncoding) && (
@@ -588,7 +619,8 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                   </div>
                 );
               })
-            ) : (
+            })()
+          ) : (
               <div className={`p-3 rounded-xl border text-micro text-center italic ${isLight ? 'border-zinc-200 text-zinc-400' : 'border-white/10 text-zinc-500'}`}>
                 No active data layers. Click [+ Catalog] to select cartographic datasets.
               </div>
@@ -633,32 +665,39 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-bold text-micro">{preset.name}</span>
+                        {preset.unsupported && (
+                          <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-amber-500/20 text-amber-300 border-amber-500/40">
+                            [UNSUPPORTED: Requires XYZ Tile Pipeline]
+                          </span>
+                        )}
                         {preset.id === 'starlink-iss-orbits' && (
                           <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse">
                             <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
                             Live Synced
                           </span>
                         )}
-                        {preset.id === 'noaa-gfs-wind' && (
+                        {(preset.id === 'noaa-gfs-wind' || preset.id === 'noaa-grib2-wind') && (
                           <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)]">
                             Physics Model
                           </span>
                         )}
                       </div>
-                      <span className="text-nano uppercase font-bold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                      <span className="text-nano uppercase font-bold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 shrink-0">
                         {preset.category}
                       </span>
                     </div>
                     <p className={`text-micro ${isLight ? 'text-zinc-600' : 'text-zinc-400'}`}>
                       {preset.details}
                     </p>
-                    <div className="flex items-center justify-between pt-1 border-t border-white/10 text-nano">
-                      <span className="text-zinc-500 truncate max-w-[220px]">{preset.attribution}</span>
+                    <div className="flex items-center justify-between pt-1 border-t border-white/10 text-nano gap-2">
+                      <span className="text-zinc-500 leading-tight break-words flex-1">{preset.attribution}</span>
                       <button
-                        disabled={isAlreadyAdded}
+                        disabled={isAlreadyAdded || preset.unsupported}
+                        title={preset.unsupported ? 'Requires XYZ Tile Pipeline (Unsupported)' : isAlreadyAdded ? 'Layer already in active stack' : 'Add to active stack'}
                         onClick={() => {
+                          if (preset.unsupported) return;
                           if (onAddDataLayer) {
                             onAddDataLayer({
                               id: preset.id,
@@ -677,12 +716,16 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                           setIsCatalogOpen(false);
                         }}
                         className={`px-3 py-1 rounded-lg text-nano font-bold border transition-all flex items-center gap-1 ${
-                          isAlreadyAdded
+                          preset.unsupported
+                            ? 'opacity-40 cursor-not-allowed bg-zinc-800 text-zinc-400 border-zinc-700'
+                            : isAlreadyAdded
                             ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 cursor-default'
                             : 'bg-sky-500/20 text-sky-200 border-sky-500/40 hover:bg-sky-500/30'
                         }`}
                       >
-                        {isAlreadyAdded ? (
+                        {preset.unsupported ? (
+                          <span>Unsupported</span>
+                        ) : isAlreadyAdded ? (
                           <>
                             <svg className="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />

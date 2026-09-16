@@ -138,6 +138,9 @@ export default function App() {
           tau: state.tau,
         });
       }
+      if (engine && typeof engine.setTimelineMinutes === 'function') {
+        engine.setTimelineMinutes(state.absoluteMinutes);
+      }
 
       // Live Doppler Radar nowcasting dispatch in radar zone (-60m to 0m)
       if (state.isRadarZone || state.absoluteMinutes < 0) {
@@ -315,6 +318,7 @@ export default function App() {
   const {
     dataLayers,
     toasts,
+    addToast,
     dismissToast,
     handleAddDataLayer,
     handleToggleDataLayer,
@@ -331,6 +335,19 @@ export default function App() {
     handleReorderDataLayer,
     handleSelectRenderStyle,
   } = useGlobeLayerManager();
+
+  const handleAddDataLayerWithModelSync = useCallback(
+    (layer: Parameters<typeof handleAddDataLayer>[0]) => {
+      handleAddDataLayer(layer);
+      if (layer.id === 'google-weathernext3' || layer.id === 'weathernext3') {
+        setPrognosticModel('google-weathernext3');
+      }
+      if (layer.id === 'noaa-gfs-clouds') {
+        setShowClouds(true);
+      }
+    },
+    [handleAddDataLayer, setPrognosticModel, setShowClouds]
+  );
 
   const isWeatherActive = useMemo(() => {
     return dataLayers.some(
@@ -500,7 +517,32 @@ export default function App() {
 
   const handleWebGPUError = useCallback((err: Error) => {
     console.warn('WebGPU runtime error:', err);
-  }, []);
+    addToast({
+      type: 'error',
+      title: 'WebGPU Pipeline Error',
+      message: err.message || 'Fatal WebGPU rendering exception',
+    });
+  }, [addToast]);
+
+  useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      const message = typeof reason === 'string' ? reason : reason?.message || String(reason);
+      if (
+        message.toLowerCase().includes('cors') ||
+        message.toLowerCase().includes('failed to fetch') ||
+        message.toLowerCase().includes('networkerror')
+      ) {
+        addToast({
+          type: 'error',
+          title: 'Data Ingestion Warning',
+          message: `Network/CORS error: ${message}`,
+        });
+      }
+    };
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    return () => window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+  }, [addToast]);
 
   const isLight = theme === 1;
 
@@ -763,7 +805,7 @@ export default function App() {
           dataLayers={dataLayers}
           toasts={toasts}
           onDismissToast={dismissToast}
-          onAddDataLayer={handleAddDataLayer}
+          onAddDataLayer={handleAddDataLayerWithModelSync}
           onToggleDataLayer={handleToggleDataLayer}
           onRemoveDataLayer={handleRemoveDataLayer}
           onOpacityChangeDataLayer={handleOpacityChangeDataLayer}

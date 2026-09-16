@@ -20,6 +20,8 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
   theme,
   mode = 0,
   alpha = 0,
+  isWeatherActive = false,
+  isRadarActive = false,
   className = '',
 }) => {
   const mediumName =
@@ -67,27 +69,27 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
       {/* Primary Specimen & Manifold */}
       <div className="space-y-1.5 text-nano leading-tight">
         <div>
-          <span className="opacity-60 block text-[9px] uppercase tracking-wider">Medium:</span>
+          <span className="opacity-60 block text-micro uppercase tracking-wider">Medium:</span>
           <span className="font-semibold text-current">{mediumName}</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2 pt-0.5">
           <div>
-            <span className="opacity-60 block text-[9px] uppercase tracking-wider">State:</span>
+            <span className="opacity-60 block text-micro uppercase tracking-wider">State:</span>
             <span className="font-semibold text-current">{unfurlState}</span>
           </div>
           <div>
-            <span className="opacity-60 block text-[9px] uppercase tracking-wider">Projection:</span>
+            <span className="opacity-60 block text-micro uppercase tracking-wider">Projection:</span>
             <span className="font-semibold text-current">{modeName}</span>
           </div>
         </div>
 
         {/* Data Provenance Ledger */}
         <div className="pt-2 border-t border-current/15 space-y-1">
-          <span className="opacity-60 block text-[9px] uppercase tracking-wider font-bold">
+          <span className="opacity-60 block text-micro uppercase tracking-wider font-bold">
             Provenance
           </span>
-          <ul className="space-y-1 opacity-85 text-[10px] pl-1">
+          <ul className="space-y-1 opacity-85 text-body pl-1">
             <li className="flex items-start gap-1">
               <span className="opacity-50 select-none">•</span>
               <span>
@@ -96,14 +98,30 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
             </li>
             <li className="flex items-start gap-1">
               <span className="opacity-50 select-none">•</span>
-              <span>
+              <span className="flex-1">
                 <strong className="text-current font-semibold">Atmospheric Modeling:</strong> WeatherNext 3 (0.1°) & NOAA GFS (10m winds)
+                {isWeatherActive && (
+                  <span
+                    data-testid="colophon-badge-weathernext"
+                    className="ml-1.5 px-1 py-0.2 rounded text-nano font-mono font-bold tracking-wider uppercase border border-emerald-500/40 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 align-middle inline-block"
+                  >
+                    [WEATHERNEXT: ACTIVE]
+                  </span>
+                )}
               </span>
             </li>
             <li className="flex items-start gap-1">
               <span className="opacity-50 select-none">•</span>
-              <span>
+              <span className="flex-1">
                 <strong className="text-current font-semibold">Precipitation Radar:</strong> RainViewer Radar
+                {isRadarActive && (
+                  <span
+                    data-testid="colophon-badge-radar"
+                    className="ml-1.5 px-1 py-0.2 rounded text-nano font-mono font-bold tracking-wider uppercase border border-emerald-500/40 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 align-middle inline-block"
+                  >
+                    [RADAR: ACTIVE]
+                  </span>
+                )}
               </span>
             </li>
             <li className="flex items-start gap-1">

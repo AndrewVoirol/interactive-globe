@@ -16,6 +16,8 @@ export interface IndicatrixEngineDevTools {
 export interface IndicatrixCameraDevTools {
   snapHorizonCrossSection?: (altitude?: number) => void;
   setObliqueView?: (lonDeg: number, latDeg: number, altitudeRadius: number, pitchDeg: number, headingDeg: number) => void;
+  lookAtCoordinates?: (lonDeg: number, latDeg: number, zoomRadius?: number, target?: [number, number, number]) => void;
+  easeToCoordinates?: (lonDeg: number, latDeg: number, zoomRadius?: number, durationSec?: number) => void;
   [key: string]: any;
 }
 

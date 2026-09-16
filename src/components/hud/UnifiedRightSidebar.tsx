@@ -4,7 +4,7 @@
 // Clean, minimal, scannable HUD dock
 // ============================================================================
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo, ResolutionTier } from '../../types';
 import { DATA_LAYER_CATALOG, BlendModeType, getPresetById, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
 import { DataLayerItem } from './DataLayersDrawer';
@@ -424,6 +424,65 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
   const isNoaaActive = dataLayers.some((l) => l.id === 'noaa-gfs-wind' && l.visible);
   const isRadarActive = dataLayers.some((l) => l.id === 'live-doppler-radar' && l.visible);
+
+  const handleSelectGeodesicFeed = useCallback(
+    (feed: GeodesicOverlayMode) => {
+      onOverlayChange?.(feed);
+      if (typeof window !== 'undefined') {
+        const camDev = (window as any).__INDICATRIX_CAMERA__;
+        if (feed === 'conveyor') {
+          if (camDev?.easeToCoordinates) {
+            camDev.easeToCoordinates(-165, 10, 14.0, 1.4);
+          } else if (camDev?.lookAtCoordinates) {
+            camDev.lookAtCoordinates(-165, 10, 14.0);
+          }
+        } else if (feed === 'migration') {
+          if (camDev?.easeToCoordinates) {
+            camDev.easeToCoordinates(-175, 15, 14.0, 1.4);
+          } else if (camDev?.lookAtCoordinates) {
+            camDev.lookAtCoordinates(-175, 15, 14.0);
+          }
+        } else if (feed === 'antipodes') {
+          if (camDev?.easeToCoordinates) {
+            camDev.easeToCoordinates(-65, 0, 14.0, 1.4);
+          } else if (camDev?.lookAtCoordinates) {
+            camDev.lookAtCoordinates(-65, 0, 14.0);
+          }
+        }
+      }
+    },
+    [onOverlayChange]
+  );
+
+  const handleEnableRadar = useCallback(() => {
+    const existing = dataLayers.find((l) => l.id === 'live-doppler-radar');
+    if (existing) {
+      if (!existing.visible && onToggleDataLayer) {
+        onToggleDataLayer('live-doppler-radar');
+      }
+    } else if (onAddDataLayer) {
+      const preset = getPresetById('live-doppler-radar');
+      if (preset) {
+        onAddDataLayer({
+          id: preset.id,
+          name: preset.name,
+          category: preset.category,
+          type: preset.type,
+          details: preset.details,
+          visible: true,
+          opacity: preset.defaultOpacity,
+          blendMode: preset.defaultBlendMode,
+          displacementScale: preset.defaultDisplacementScale,
+          elevationEncoding: preset.elevationEncoding,
+          sunAzimuth: 315,
+          sunAltitude: 45,
+          hillshadeIntensity: 0.65,
+          url: preset.url,
+          renderStyle: preset.renderStyle,
+        });
+      }
+    }
+  }, [dataLayers, onToggleDataLayer, onAddDataLayer]);
 
   if (isZenMode) return null;
 
@@ -1010,179 +1069,44 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 aria-labelledby="sidebar-tab-data"
                 className={activePlate === 'data' ? 'space-y-2.5' : 'hidden'}
               >
-                <TimelineScrubber
-                  value={timelineMinutes}
-                  onTimeChange={onTimelineChange}
-                  className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] !p-2.5 rounded-[3px]"
-                />
+                {/* Layers Header */}
+                <div className="flex items-center justify-between">
+                  <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
+                    Layers ({dataLayers.length})
+                  </span>
 
-                {/* Atmospheric Cloud Strata Instrumentation Card */}
-                <AtmosphereDrawer
-                  className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]"
-                  theme={theme}
-                  isLight={isLight}
-                  hideScrubber={true}
-                  showClouds={propShowClouds}
-                  onShowCloudsChange={handleToggleClouds}
-                  showCloudLow={propShowCloudLow} onShowCloudLowChange={onShowCloudLowChange}
-                  showCloudMid={propShowCloudMid} onShowCloudMidChange={onShowCloudMidChange}
-                  showCloudHigh={propShowCloudHigh} onShowCloudHighChange={onShowCloudHighChange}
-                  cloudDriftSpeed={propCloudDriftSpeed} onCloudDriftSpeedChange={onCloudDriftSpeedChange}
-                  cloudOpacity={propCloudOpacity} onCloudOpacityChange={onCloudOpacityChange}
-                  atmosphericScale={propAtmosphericScale} onAtmosphericScaleChange={onAtmosphericScaleChange}
-                  shadowIntensity={propShadowIntensity} onShadowIntensityChange={onShadowIntensityChange}
-                  verticalScaleMode={propVerticalScaleMode} onVerticalScaleModeChange={onVerticalScaleModeChange}
-                  rainShadowFeedback={propRainShadowFeedback} onRainShadowFeedbackChange={onRainShadowFeedbackChange}
-                  pluvialGamma={propPluvialGamma} onPluvialGammaChange={onPluvialGammaChange}
-                  weatherOpticalMode={propWeatherOpticalMode} onWeatherOpticalModeChange={onWeatherOpticalModeChange}
-                  thermodynamicGating={propThermodynamicGating} onThermodynamicGatingChange={onThermodynamicGatingChange}
-                  prognosticModel={prognosticModel} onPrognosticModelChange={onPrognosticModelChange}
-                  prognosticVariable={prognosticVariable} onPrognosticVariableChange={onPrognosticVariableChange}
-                  timelineMinutes={timelineMinutes} onTimelineChange={onTimelineChange}
-                  onSnapCamera={onSnapCamera}
-                  onTogglePlanetaryLayer={handleTogglePlanetaryLayer}
-                />
-
-                {/* Global Geodesic Feeds Card */}
-                <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2.5 transition-all shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
-                      Global Geodesic Feeds
-                    </div>
-                    <span className="text-nano font-mono text-[var(--theme-text-muted)] opacity-80">
-                      {activeOverlay === 'off' ? 'Off' : activeOverlay}
-                    </span>
-                  </div>
-
-                  {/* Thematic Overlays (Antipodes, Conveyor, Migration) */}
-                  <div className="grid grid-cols-4 gap-1">
-                    <button
-                      type="button"
-                      onClick={() => onOverlayChange('off')}
-                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
-                        activeOverlay === 'off'
-                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold'
-                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] bg-[var(--theme-control-bg)]'
-                      }`}
-                    >
-                      Off
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onOverlayChange('antipodes')}
-                      title="Antipodal Geodesic Connectors"
-                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
-                        activeOverlay === 'antipodes'
-                          ? theme === 1
-                            ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414] shadow-sm font-semibold ring-1 ring-[#8C4820]/40'
-                            : 'bg-rose-500/35 text-rose-200 border-rose-400/80 shadow-[0_0_10px_rgba(244,63,94,0.4)] ring-1 ring-rose-400/60 font-semibold'
-                          : theme === 1
-                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#8C4820] hover:border-[#8C4820]/40 bg-[var(--theme-control-bg)]'
-                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-rose-500 hover:border-rose-400/50 bg-[var(--theme-control-bg)]'
-                      }`}
-                    >
-                      Antipodes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onOverlayChange('conveyor')}
-                      title="Global Oceanic Conveyor Belt"
-                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
-                        activeOverlay === 'conveyor'
-                          ? theme === 1
-                            ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A] shadow-sm font-semibold ring-1 ring-[#1A4457]/40'
-                            : 'bg-sky-500/35 text-sky-200 border-sky-400/80 shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/60 font-semibold'
-                          : theme === 1
-                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#1A4457] hover:border-[#1A4457]/40 bg-[var(--theme-control-bg)]'
-                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-sky-500 hover:border-sky-400/50 bg-[var(--theme-control-bg)]'
-                      }`}
-                    >
-                      Conveyor
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onOverlayChange('migration')}
-                      title="Great Circle Migration"
-                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
-                        activeOverlay === 'migration'
-                          ? theme === 1
-                            ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] shadow-sm font-semibold ring-1 ring-[#7D4700]/40'
-                            : 'bg-amber-500/35 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.4)] ring-1 ring-amber-400/60 font-semibold'
-                          : theme === 1
-                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#7D4700] hover:border-[#7D4700]/40 bg-[var(--theme-control-bg)]'
-                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-amber-500 hover:border-amber-400/50 bg-[var(--theme-control-bg)]'
-                      }`}
-                    >
-                      Migration
-                    </button>
-                  </div>
-
-                  {/* Geodetic Survey Feeds: Soundings, Triangulation, Landmarks */}
-                  <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-1.5">
-                    <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
-                      Geodetic Survey Feeds
-                    </div>
-                    <div className="space-y-1.5 pt-0.5">
-                      <TactileSwitch
-                        checked={showSoundings}
-                        onChange={onSoundingsToggle}
-                        title="Toggle Soundings"
-                        label="Soundings"
-                      />
-                      <TactileSwitch
-                        checked={showTriangulation}
-                        onChange={onTriangulationToggle}
-                        title="Toggle Triangulation"
-                        label="Triangulation"
-                      />
-                      <TactileSwitch
-                        checked={showLandmarks}
-                        onChange={onLandmarksToggle}
-                        title="Toggle Landmarks"
-                        label="Landmarks"
-                      />
-                    </div>
-                  </div>
+                  <button
+                    onClick={() => setIsCatalogOpen(!isCatalogOpen)}
+                    className={`text-nano font-semibold px-2.5 py-1 rounded-[2px] border transition-all flex items-center gap-1.5 cursor-pointer ${
+                      isCatalogOpen
+                        ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-md font-semibold'
+                        : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>{isCatalogOpen ? 'Close Catalog' : '+ Catalog'}</span>
+                  </button>
                 </div>
 
-                  <CuratorsColophon
-                    theme={theme}
-                    mode={mode}
-                    alpha={alpha}
-                    isWeatherActive={Boolean(propShowClouds || isNoaaActive)}
-                    isRadarActive={isRadarActive}
-                  />
+                {/* Active Layers Stack */}
+                <div className="space-y-2">
+                  {dataLayers && dataLayers.length > 0 ? (
+                    (() => {
+                      const isRasterLayer = (l: DataLayerItem) =>
+                        !!(l.renderStyle || l.category === 'topo' || l.category === 'ocean' || l.category === 'satellite' || l.category === 'night');
+                      const activeRasterId = dataLayers.find((l) => l.visible && isRasterLayer(l))?.id;
 
-                  {/* Layers */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
-                      Layers ({dataLayers.length})
-                    </span>
-
-                    <button
-                      onClick={() => setIsCatalogOpen(!isCatalogOpen)}
-                      className={`text-nano font-semibold px-2.5 py-1 rounded-[2px] border transition-all flex items-center gap-1.5 cursor-pointer ${
-                        isCatalogOpen
-                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-md font-semibold'
-                          : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                      }`}
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-                      </svg>
-                      <span>{isCatalogOpen ? 'Close Catalog' : '+ Catalog'}</span>
-                    </button>
-                  </div>
-
-                  {/* Active Layers Stack */}
-                  <div className="space-y-2">
-                    {dataLayers && dataLayers.length > 0 ? (
-                      dataLayers.map((layer, idx) => {
+                      return dataLayers.map((layer, idx) => {
                         const preset = getPresetById(layer.id);
                         const legend = preset?.legend;
                         const isFirst = idx === 0;
                         const isLast = idx === dataLayers.length - 1;
                         const isExpanded = expandedLayerId === layer.id;
+                        const isRaster = isRasterLayer(layer);
+                        const isPrimaryRaster = isRaster && layer.id === activeRasterId && layer.visible;
+                        const isShadowedRaster = isRaster && layer.visible && !isPrimaryRaster;
 
                         return (
                           <div
@@ -1193,12 +1117,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                 : 'bg-[var(--theme-card-bg)]/50 border-[var(--theme-card-border)]/60 text-[var(--theme-text-muted)] opacity-60'
                             }`}
                           >
-                            <div className="min-h-[34px] px-2 py-1.5 flex items-center justify-between gap-1.5 select-none">
-                              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                            <div className="min-h-[34px] px-2 py-1.5 flex items-start justify-between gap-1.5 select-none">
+                              <div className="flex items-start gap-1.5 flex-1 min-w-0">
                                 <button
                                   type="button"
                                   onClick={() => setExpandedLayerId(isExpanded ? null : layer.id)}
-                                  className="cursor-pointer p-0.5 text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] transition-transform rounded-[1px]"
+                                  className="cursor-pointer p-0.5 pt-1 text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] transition-transform rounded-[1px]"
                                   title={isExpanded ? 'Collapse parameters' : 'Expand parameters'}
                                   aria-expanded={isExpanded}
                                 >
@@ -1212,20 +1136,38 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   </svg>
                                 </button>
 
-                                <span
-                                  className="leading-tight break-words text-nano font-bold truncate cursor-pointer hover:text-[var(--theme-text-accent)]"
-                                  title={layer.name}
-                                  onClick={() => setExpandedLayerId(isExpanded ? null : layer.id)}
-                                >
-                                  {layer.name}
-                                </span>
+                                <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
+                                  <span
+                                    className="leading-tight break-words text-nano font-bold cursor-pointer hover:text-[var(--theme-text-accent)]"
+                                    title={layer.name}
+                                    onClick={() => setExpandedLayerId(isExpanded ? null : layer.id)}
+                                  >
+                                    {layer.name}
+                                  </span>
 
-                                <span className="text-nano font-mono opacity-50 shrink-0">
+                                  {isPrimaryRaster && (
+                                    <span className="text-nano font-mono px-1 py-0.2 rounded border bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 font-semibold" title="Active Base Raster rendered on planetary crust">
+                                      (Active Raster)
+                                    </span>
+                                  )}
+                                  {isShadowedRaster && (
+                                    <span className="text-nano font-mono px-1 py-0.2 rounded border bg-amber-500/20 text-amber-300 border-amber-500/40" title="This raster dataset is occluded by a higher active raster layer in the Z-order stack">
+                                      (Shadowed by higher raster layer)
+                                    </span>
+                                  )}
+                                  {preset?.unsupported && (
+                                    <span className="text-nano font-mono px-1 py-0.2 rounded border bg-rose-500/20 text-rose-300 border-rose-500/40">
+                                      [UNSUPPORTED]
+                                    </span>
+                                  )}
+                                </div>
+
+                                <span className="text-nano font-mono opacity-50 shrink-0 self-start pt-0.5">
                                   Z:{dataLayers.length - idx}
                                 </span>
                               </div>
 
-                              <div className="flex items-center gap-1 shrink-0">
+                              <div className="flex items-center gap-1 shrink-0 pt-0.5">
                                 <button
                                   disabled={isFirst}
                                   onClick={() => onReorderDataLayer?.(layer.id, 'up')}
@@ -1307,39 +1249,37 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               }`}
                               style={{ transitionTimingFunction: 'var(--theme-spring-switch, cubic-bezier(0.34, 1.35, 0.64, 1))' }}
                             >
-                              <div className="grid grid-cols-2 gap-2 text-nano pt-1.5 items-center">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">Opacity:</span>
-                                  <input
-                                    id={`sidebar-opacity-${layer.id}`}
-                                    name={`opacity-${layer.id}`}
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.05"
-                                    value={layer.opacity ?? 0.85}
-                                    onChange={(e) => onOpacityChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
-                                    className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
-                                  />
-                                  <span className="w-7 text-right font-semibold tabular-nums">
-                                    {Math.round((layer.opacity ?? 0.85) * 100)}%
-                                  </span>
-                                </div>
+                              <div className="flex items-center gap-1.5 text-nano pt-1.5">
+                                <span className="text-[var(--theme-text-secondary)] font-bold text-nano uppercase tracking-wider">Opacity:</span>
+                                <input
+                                  id={`sidebar-opacity-${layer.id}`}
+                                  name={`opacity-${layer.id}`}
+                                  type="range"
+                                  min="0"
+                                  max="1"
+                                  step="0.05"
+                                  value={layer.opacity ?? 0.85}
+                                  onChange={(e) => onOpacityChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
+                                  className="flex-1 slider-archival cursor-pointer h-1 rounded-[1px]"
+                                />
+                                <span className="w-8 text-right font-semibold tabular-nums text-[var(--theme-text-primary)]">
+                                  {Math.round((layer.opacity ?? 0.85) * 100)}%
+                                </span>
+                              </div>
 
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="text-[var(--theme-text-muted)] font-semibold text-nano">Blend:</span>
-                                  <SegmentedControl<BlendModeType>
-                                    size="sm"
-                                    value={layer.blendMode ?? preset?.defaultBlendMode ?? 0}
-                                    onChange={(val) => onBlendModeChangeDataLayer?.(layer.id, val)}
-                                    options={[
-                                      { id: 0, label: 'Norm', title: 'Normal Blend' },
-                                      { id: 1, label: 'Add', title: 'Additive Blend' },
-                                      { id: 2, label: 'Mult', title: 'Multiply Blend' },
-                                      { id: 3, label: 'Scrn', title: 'Screen Blend' },
-                                    ]}
-                                  />
-                                </div>
+                              <div className="flex items-center justify-between gap-1 pt-1 text-nano">
+                                <span className="text-[var(--theme-text-secondary)] font-bold text-nano uppercase tracking-wider">Blend:</span>
+                                <SegmentedControl<BlendModeType>
+                                  size="sm"
+                                  value={layer.blendMode ?? preset?.defaultBlendMode ?? 0}
+                                  onChange={(val) => onBlendModeChangeDataLayer?.(layer.id, val)}
+                                  options={[
+                                    { id: 0, label: 'Norm', title: 'Normal Blend' },
+                                    { id: 1, label: 'Add', title: 'Additive Blend' },
+                                    { id: 2, label: 'Mult', title: 'Multiply Blend' },
+                                    { id: 3, label: 'Scrn', title: 'Screen Blend' },
+                                  ]}
+                                />
                               </div>
 
                               {(layer.renderStyle === 'architectural' || layer.id === 'architectural-topo-relief') && (
@@ -1386,15 +1326,163 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             </div>
                           </div>
                         );
-                      })
-                    ) : (
-                      <div className="p-4 rounded-[2px] border text-micro text-center italic border-[var(--theme-card-border)] text-[var(--theme-text-muted)] bg-[var(--theme-card-bg)]/40">
-                        No active layers. Use + Catalog to add datasets.
-                      </div>
-                    )}
+                      });
+                    })()
+                  ) : (
+                    <div className="p-4 rounded-[2px] border text-micro text-center italic border-[var(--theme-card-border)] text-[var(--theme-text-muted)] bg-[var(--theme-card-bg)]/40">
+                      No active layers. Use + Catalog to add datasets.
+                    </div>
+                  )}
+                </div>
+
+                <TimelineScrubber
+                  value={timelineMinutes}
+                  onTimeChange={onTimelineChange}
+                  isRadarActive={isRadarActive}
+                  onEnableRadar={handleEnableRadar}
+                  className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] !p-2.5 rounded-[3px]"
+                />
+
+                {/* Atmospheric Cloud Strata Instrumentation Card */}
+                <AtmosphereDrawer
+                  className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]"
+                  theme={theme}
+                  isLight={isLight}
+                  hideScrubber={true}
+                  isRadarActive={isRadarActive}
+                  showClouds={propShowClouds}
+                  onShowCloudsChange={handleToggleClouds}
+                  showCloudLow={propShowCloudLow} onShowCloudLowChange={onShowCloudLowChange}
+                  showCloudMid={propShowCloudMid} onShowCloudMidChange={onShowCloudMidChange}
+                  showCloudHigh={propShowCloudHigh} onShowCloudHighChange={onShowCloudHighChange}
+                  cloudDriftSpeed={propCloudDriftSpeed} onCloudDriftSpeedChange={onCloudDriftSpeedChange}
+                  cloudOpacity={propCloudOpacity} onCloudOpacityChange={onCloudOpacityChange}
+                  atmosphericScale={propAtmosphericScale} onAtmosphericScaleChange={onAtmosphericScaleChange}
+                  shadowIntensity={propShadowIntensity} onShadowIntensityChange={onShadowIntensityChange}
+                  verticalScaleMode={propVerticalScaleMode} onVerticalScaleModeChange={onVerticalScaleModeChange}
+                  rainShadowFeedback={propRainShadowFeedback} onRainShadowFeedbackChange={onRainShadowFeedbackChange}
+                  pluvialGamma={propPluvialGamma} onPluvialGammaChange={onPluvialGammaChange}
+                  weatherOpticalMode={propWeatherOpticalMode} onWeatherOpticalModeChange={onWeatherOpticalModeChange}
+                  thermodynamicGating={propThermodynamicGating} onThermodynamicGatingChange={onThermodynamicGatingChange}
+                  prognosticModel={prognosticModel} onPrognosticModelChange={onPrognosticModelChange}
+                  prognosticVariable={prognosticVariable} onPrognosticVariableChange={onPrognosticVariableChange}
+                  timelineMinutes={timelineMinutes} onTimelineChange={onTimelineChange}
+                  onSnapCamera={onSnapCamera}
+                  onTogglePlanetaryLayer={handleTogglePlanetaryLayer}
+                />
+
+                {/* Global Geodesic Feeds Card */}
+                <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2.5 transition-all shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+                      Global Geodesic Feeds
+                    </div>
+                    <span className="text-nano font-mono text-[var(--theme-text-muted)] opacity-80">
+                      {activeOverlay === 'off' ? 'Off' : activeOverlay}
+                    </span>
+                  </div>
+
+                  {/* Thematic Overlays (Antipodes, Conveyor, Migration) */}
+                  <div className="grid grid-cols-4 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectGeodesicFeed('off')}
+                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
+                        activeOverlay === 'off'
+                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold'
+                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] bg-[var(--theme-control-bg)]'
+                      }`}
+                    >
+                      Off
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectGeodesicFeed('antipodes')}
+                      title="Antipodal Geodesic Connectors"
+                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
+                        activeOverlay === 'antipodes'
+                          ? theme === 1
+                            ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414] shadow-sm font-semibold ring-1 ring-[#8C4820]/40'
+                            : 'bg-rose-500/35 text-rose-200 border-rose-400/80 shadow-[0_0_10px_rgba(244,63,94,0.4)] ring-1 ring-rose-400/60 font-semibold'
+                          : theme === 1
+                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#8C4820] hover:border-[#8C4820]/40 bg-[var(--theme-control-bg)]'
+                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-rose-500 hover:border-rose-400/50 bg-[var(--theme-control-bg)]'
+                      }`}
+                    >
+                      Antipodes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectGeodesicFeed('conveyor')}
+                      title="Global Oceanic Conveyor Belt"
+                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
+                        activeOverlay === 'conveyor'
+                          ? theme === 1
+                            ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A] shadow-sm font-semibold ring-1 ring-[#1A4457]/40'
+                            : 'bg-sky-500/35 text-sky-200 border-sky-400/80 shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/60 font-semibold'
+                          : theme === 1
+                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#1A4457] hover:border-[#1A4457]/40 bg-[var(--theme-control-bg)]'
+                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-sky-500 hover:border-sky-400/50 bg-[var(--theme-control-bg)]'
+                      }`}
+                    >
+                      Conveyor
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectGeodesicFeed('migration')}
+                      title="Great Circle Migration"
+                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
+                        activeOverlay === 'migration'
+                          ? theme === 1
+                            ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] shadow-sm font-semibold ring-1 ring-[#7D4700]/40'
+                            : 'bg-amber-500/35 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.4)] ring-1 ring-amber-400/60 font-semibold'
+                          : theme === 1
+                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#7D4700] hover:border-[#7D4700]/40 bg-[var(--theme-control-bg)]'
+                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-amber-500 hover:border-amber-400/50 bg-[var(--theme-control-bg)]'
+                      }`}
+                    >
+                      Migration
+                    </button>
+                  </div>
+
+                  {/* Geodetic Survey Feeds: Soundings, Triangulation, Landmarks */}
+                  <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-1.5">
+                    <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
+                      Geodetic Survey Feeds
+                    </div>
+                    <div className="space-y-1.5 pt-0.5">
+                      <TactileSwitch
+                        checked={showSoundings}
+                        onChange={onSoundingsToggle}
+                        title="Toggle Soundings"
+                        label="Soundings"
+                      />
+                      <TactileSwitch
+                        checked={showTriangulation}
+                        onChange={onTriangulationToggle}
+                        title="Toggle Triangulation"
+                        label="Triangulation"
+                      />
+                      <TactileSwitch
+                        checked={showLandmarks}
+                        onChange={onLandmarksToggle}
+                        title="Toggle Landmarks"
+                        label="Landmarks"
+                      />
+                    </div>
                   </div>
                 </div>
+
+                {/* Archival Footer Colophon */}
+                <CuratorsColophon
+                  theme={theme}
+                  mode={mode}
+                  alpha={alpha}
+                  isWeatherActive={Boolean(propShowClouds || isNoaaActive)}
+                  isRadarActive={isRadarActive}
+                />
               </div>
+            </div>
 
             {/* Telemetry Footer */}
             <div className="pt-2 border-t border-[var(--theme-card-border)] text-nano space-y-2 shrink-0">
@@ -1566,9 +1654,16 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-nano flex items-center gap-1.5">
-                      <span>{preset.name}</span>
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-nano flex items-center gap-1.5">
+                        <span>{preset.name}</span>
+                      </span>
+                      {preset.unsupported && (
+                        <span className="flex items-center gap-1 text-nano uppercase font-bold px-1.5 py-0.5 rounded border bg-amber-500/20 text-amber-300 border-amber-500/40">
+                          [UNSUPPORTED: Requires XYZ Tile Pipeline]
+                        </span>
+                      )}
+                    </div>
                     <span
                       className={`text-nano uppercase font-bold px-1.5 py-0.5 rounded-[2px] border ${
                         theme === 1
@@ -1604,14 +1699,16 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     {preset.details}
                   </p>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-white/10 text-micro">
-                    <span className="opacity-60 truncate max-w-[200px]" title={preset.attribution}>
+                  <div className="flex items-center justify-between pt-1 border-t border-white/10 text-micro gap-2">
+                    <span className="opacity-60 text-nano leading-tight break-words flex-1" title={preset.attribution}>
                       {preset.attribution}
                     </span>
 
                     <button
-                      disabled={isAlreadyAdded}
+                      disabled={isAlreadyAdded || preset.unsupported}
+                      title={preset.unsupported ? 'Requires XYZ Tile Pipeline (Unsupported)' : isAlreadyAdded ? 'Layer already added to stack' : 'Add layer to stack'}
                       onClick={() => {
+                        if (preset.unsupported) return;
                         if (onAddDataLayer) {
                           onAddDataLayer({
                             id: preset.id,
@@ -1631,9 +1728,14 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             renderStyle: preset.renderStyle,
                           });
                         }
+                        if (preset.id === 'noaa-gfs-clouds') {
+                          onShowCloudsChange?.(true);
+                        }
                       }}
                       className={`px-3 py-1.5 rounded-[2px] text-nano font-bold border transition-all flex items-center gap-1.5 ${
-                        isAlreadyAdded
+                        preset.unsupported
+                          ? 'opacity-40 cursor-not-allowed bg-zinc-800 text-zinc-400 border-zinc-700'
+                          : isAlreadyAdded
                           ? theme === 1
                             ? 'bg-[#2e6b47]/15 text-[#1b432b] border-[#2e6b47]/30 cursor-default font-semibold'
                             : theme === 2
@@ -1642,7 +1744,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           : 'cursor-pointer bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] hover:border-[var(--theme-card-border-hover)] shadow-sm font-semibold'
                       }`}
                     >
-                      {isAlreadyAdded ? (
+                      {preset.unsupported ? (
+                        <span>Unsupported</span>
+                      ) : isAlreadyAdded ? (
                         <>
                           <svg className="w-3.5 h-3.5 text-[var(--theme-status-sage)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />

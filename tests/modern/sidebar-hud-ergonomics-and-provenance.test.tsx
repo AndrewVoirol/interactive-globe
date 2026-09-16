@@ -414,7 +414,7 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       expect(horizonBtn).not.toBeUndefined();
 
       await act(async () => {
-        horizonBtn?.click();
+        (horizonBtn as HTMLButtonElement)?.click();
       });
       expect(onSnapMock).toHaveBeenCalledWith('horizon');
     });

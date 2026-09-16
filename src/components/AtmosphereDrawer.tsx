@@ -65,6 +65,7 @@ export interface AtmosphereDrawerProps {
   onHorizonPresetClick?: () => void;
   onSnapCamera?: (snap: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => void;
   onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
+  isRadarActive?: boolean;
   hideScrubber?: boolean;
   className?: string;
 }
@@ -73,6 +74,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   theme = 0,
   isLight = false,
   hideScrubber = false,
+  isRadarActive = false,
   showClouds: propShowClouds,
   onShowCloudsChange,
   showCloudLow: propShowCloudLow,
@@ -373,9 +375,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
     onTogglePlanetaryLayer?.('noaa-gfs-jetstream', true);
 
     // 3. Set atmospheric scale >= 6.0x for clear visual strata separation
-    if (curAtmosphericScale <= 1.05) {
-      handleAtmosphericScaleChange(6.0);
-    }
+    handleAtmosphericScaleChange(Math.max(curAtmosphericScale, 6.0));
 
     // 4. Custom preset callback or snap camera
     if (onHorizonPresetClick) {
@@ -542,6 +542,8 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
               <TimelineScrubber
                 value={timelineMinutes}
                 onTimeChange={handleTimelineChange}
+                isRadarActive={isRadarActive}
+                onEnableRadar={onTogglePlanetaryLayer ? () => onTogglePlanetaryLayer('live-doppler-radar', true) : undefined}
               />
             </div>
           )}

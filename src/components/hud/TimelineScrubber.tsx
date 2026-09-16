@@ -25,6 +25,8 @@ export interface TimelineScrubberProps {
   initialPlaying?: boolean;
   initialSpeed?: 1 | 2 | 5 | 10;
   disabled?: boolean;
+  isRadarActive?: boolean;
+  onEnableRadar?: () => void;
 }
 
 // Proportional allocation: 20% of track for -60m..0 (radar), 80% for 0..+48h (forecast)
@@ -123,6 +125,8 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
   initialPlaying = false,
   initialSpeed = 1,
   disabled = false,
+  isRadarActive = false,
+  onEnableRadar,
 }) => {
   const [internalMinutes, setInternalMinutes] = useState<number>(initialMinutes);
   const [isPlaying, setIsPlaying] = useState<boolean>(initialPlaying);
@@ -407,6 +411,30 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
           </button>
         </div>
       </div>
+
+      {/* -------------------------------------------------------------------- */}
+      {/* 1b. Radar Nowcast Feedback Notification Prompt                       */}
+      {/* -------------------------------------------------------------------- */}
+      {currentMinutes < 0 && !isRadarActive && (
+        <div
+          data-testid="radar-nowcast-prompt"
+          className="flex items-center justify-between gap-2 p-2 rounded-[2px] border border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-nano font-mono transition-all shadow-xs"
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 animate-pulse" />
+            <span className="truncate">Doppler radar layer required for past nowcast frames (-60m..0m)</span>
+          </div>
+          {onEnableRadar && (
+            <button
+              type="button"
+              onClick={onEnableRadar}
+              className="px-2 py-0.5 rounded-[1px] bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold border border-amber-600 transition-colors shrink-0 uppercase tracking-wider text-nano cursor-pointer"
+            >
+              Enable Radar
+            </button>
+          )}
+        </div>
+      )}
 
       {/* -------------------------------------------------------------------- */}
       {/* 2. Dual-Zone Horizon Labels Header                                   */}
