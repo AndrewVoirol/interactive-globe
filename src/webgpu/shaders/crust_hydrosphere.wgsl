@@ -70,6 +70,20 @@ struct RegionalOverlayUniforms {
 @group(0) @binding(13) var u_precipNextTexture: texture_2d<f32>;
 @group(0) @binding(14) var u_windTexture: texture_2d<f32>;
 
+struct TerrainShadowUniforms {
+    u_sunAzimuth: f32,             // offset 0  (radians, [0, 2*PI])
+    u_sunAltitude: f32,            // offset 4  (radians, [0, PI/2])
+    u_maxRayDistanceMeters: f32,   // offset 8  (e.g. 50,000.0 m max shadow reach)
+    u_penumbraSoftness: f32,       // offset 12 (penumbra transition coefficient)
+    u_shadowMapDimensions: vec2<u32>, // offset 16 (width, height, e.g. 4096, 2048)
+    u_sampleStepCount: u32,        // offset 24 (steps per ray, e.g. 16 or 32)
+    _pad: u32,                     // offset 28 (16-byte alignment)
+};
+
+@group(1) @binding(0) var<uniform> u_terrainShadow: TerrainShadowUniforms;
+@group(1) @binding(1) var u_terrainShadowTexture: texture_2d<f32>;
+@group(1) @binding(2) var u_terrainShadowSampler: sampler;
+
 struct VertexInput {
     @location(0) position: vec3<f32>, // Base manifold position
     @location(1) uv: vec2<f32>,       // Longitude/Latitude [0, 1]
@@ -1018,6 +1032,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let shadowIntensity = sim.u_shadowIntensity;
     let shadowFactor = sampleCloudShadowFactor(input.uv, shadowOffset, shadowIntensity);
 
+    // Unconditional Directional Terrain Horizon Self-Shadow sampling strictly before dynamic branching/discard (Section 2)
+    let terrainShadowRaw = textureSampleLevel(u_terrainShadowTexture, u_terrainShadowSampler, input.uv, 0.0).r;
+    let terrainShadow = select(1.0, terrainShadowRaw, u_terrainShadow.u_shadowMapDimensions.x > 0u && u_terrainShadow.u_sunAltitude > 0.0);
+
     // 4. Unconditional Precipitation, Next Precipitation, Wind, Temperature & Dewpoint Texture Sampling strictly before dynamic branching/discard (Invariant #3)
     let precipUV = input.uv;
     let precipRateRaw = textureSampleLevel(u_precipTexture, u_precipSampler, precipUV, 0.0).r;
@@ -1186,7 +1204,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let L2_view = computeSunLightDir(sim.u_sunAzimuth - 90.0, sim.u_sunAltitude * 0.65);
 
     let N_view = normalize((sim.u_viewMatrix * vec4<f32>(perturbedN, 0.0)).xyz);
-    let NdotL1 = max(0.0, dot(N_view, L1_view));
+    let NdotL1 = max(0.0, dot(N_view, L1_view)) * terrainShadow;
     let NdotL2 = max(0.0, dot(N_view, L2_view));
 
     var diffuseTotal = 0.08 + (0.72 * NdotL1) * shadowFactor + 0.20 * NdotL2;

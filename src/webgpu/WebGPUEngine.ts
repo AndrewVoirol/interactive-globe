@@ -27,6 +27,7 @@ import cloudNoiseComputeWGSL from './shaders/cloud_noise_compute.wgsl?raw';
 import volumetricCloudWGSL from './shaders/volumetric_cloud.wgsl?raw';
 import substrateMicroReliefWGSL from './shaders/substrate_micro_relief.wgsl?raw';
 import paperCompositionWGSL from './shaders/paper_composition.wgsl?raw';
+import horizonOcclusionWGSL from './shaders/horizon_occlusion.wgsl?raw';
 import { GPUProfiler } from './profiling/GPUProfiler';
 import { encodeFloat16 } from '../core/math/float16';
 import { parseTLE, propagateOrbitalPosition } from '../core/math/sgp4';
@@ -141,6 +142,11 @@ export interface WebGPUFrameParams {
   sheenIntensity?: number;
   absorptionFeathering?: number;
   cameraPitchDeg?: number;
+  terrainShadows?: boolean;
+  showTerrainShadows?: boolean;
+  maxRayDistanceMeters?: number;
+  penumbraSoftness?: number;
+  sampleStepCount?: number;
 }
 
 export type RenderParameters = WebGPUFrameParams;
@@ -572,6 +578,31 @@ export class WebGPUEngine {
   public substrateWidth: number = 0;
   public substrateHeight: number = 0;
   public paperSubstrateEnabled: boolean = false;
+
+  // ==========================================================================
+  // Section 2: Directional Horizon & Canyon Self-Shadowing
+  // ==========================================================================
+  public terrainShadowsEnabled: boolean = false;
+  public terrainShadowMapWidth: number = 2048;
+  public terrainShadowMapHeight: number = 1024;
+  public terrainShadowUniformBuffer: GPUBuffer | null = null;
+  private terrainShadowMirror: ArrayBuffer = new ArrayBuffer(32);
+  public terrainShadowFloats: Float32Array = new Float32Array(this.terrainShadowMirror);
+  public terrainShadowUints: Uint32Array = new Uint32Array(this.terrainShadowMirror);
+
+  public terrainShadowTexture: GPUTexture | null = null;
+  public terrainShadowTextureView: GPUTextureView | null = null;
+  public dummyTerrainShadowTexture: GPUTexture | null = null;
+  public dummyTerrainShadowTextureView: GPUTextureView | null = null;
+  public terrainShadowSampler: GPUSampler | null = null;
+
+  public terrainShadowBindGroupLayout: GPUBindGroupLayout | null = null;
+  public terrainShadowBindGroup: GPUBindGroup | null = null;
+  public terrainShadowDummyBindGroup: GPUBindGroup | null = null;
+
+  public horizonOcclusionBindGroupLayout: GPUBindGroupLayout | null = null;
+  public horizonOcclusionPipeline: GPUComputePipeline | null = null;
+  public horizonOcclusionBindGroup: GPUBindGroup | null = null;
 
   private computeBindGroups: [GPUBindGroup, GPUBindGroup] = [null!, null!];
   private renderBindGroup!: GPUBindGroup;
@@ -1249,6 +1280,10 @@ export class WebGPUEngine {
       this.loadVectorData('/geo-vectors.bin').catch(() => {});
     }
 
+    if (!isTestEnv) {
+      this.ensureTerrainShadowResources();
+    }
+
     // 3. Lithosphere Crust & Hydrosphere Uniform Buffer (320 bytes, 16-byte aligned) (M1-T3, STAGE 2)
     this.crustUniformBuffer = this.device.createBuffer({
       size: 320,
@@ -1723,6 +1758,7 @@ export class WebGPUEngine {
     // Atmospheric Wind BindGroups (update with new DEM view)
     this.updateWindBindGroups();
     this.updateCloudBindGroups();
+    this.updateTerrainShadowBindGroups();
   }
 
   public async loadOrbitalTextures(
@@ -3670,6 +3706,234 @@ export class WebGPUEngine {
   }
 
   // ==========================================================================
+  // Section 2: Directional Horizon & Canyon Self-Shadowing Methods
+  // ==========================================================================
+
+  public ensureTerrainShadowResources(): void {
+    if (!this.device) return;
+
+    try {
+      if (!this.terrainShadowBindGroupLayout) {
+        this.terrainShadowBindGroupLayout = this.device.createBindGroupLayout({
+          label: 'terrain_shadow_bind_group_layout',
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.VERTEX, buffer: { type: 'uniform' } },
+            { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+            { binding: 2, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+          ],
+        });
+      }
+
+      if (!this.terrainShadowUniformBuffer) {
+        this.terrainShadowUniformBuffer = this.device.createBuffer({
+          label: 'terrain_shadow_uniform_buffer',
+          size: 32,
+          usage: typeof GPUBufferUsage !== 'undefined'
+            ? (GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST)
+            : (64 | 8),
+        });
+        this.terrainShadowFloats[0] = (315.0 * Math.PI) / 180.0;
+        this.terrainShadowFloats[1] = (45.0 * Math.PI) / 180.0;
+        this.terrainShadowFloats[2] = 50000.0;
+        this.terrainShadowFloats[3] = 1.5;
+        this.terrainShadowUints[4] = this.terrainShadowMapWidth;
+        this.terrainShadowUints[5] = this.terrainShadowMapHeight;
+        this.terrainShadowUints[6] = 16;
+        this.terrainShadowUints[7] = 0;
+        this.device.queue.writeBuffer(this.terrainShadowUniformBuffer, 0, this.terrainShadowMirror);
+      }
+
+      if (!this.terrainShadowSampler) {
+        this.terrainShadowSampler = this.device.createSampler({
+          label: 'terrain_shadow_sampler',
+          minFilter: 'linear',
+          magFilter: 'linear',
+        });
+      }
+
+      if (!this.dummyTerrainShadowTexture) {
+        this.dummyTerrainShadowTexture = this.device.createTexture({
+          label: 'dummy_terrain_shadow_texture',
+          size: [1, 1, 1],
+          format: 'r8unorm',
+          usage: typeof GPUTextureUsage !== 'undefined'
+            ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
+            : (4 | 2),
+        });
+        const whiteByte = new Uint8Array([255]);
+        this.device.queue.writeTexture(
+          { texture: this.dummyTerrainShadowTexture },
+          whiteByte,
+          { bytesPerRow: 256, rowsPerImage: 1 },
+          [1, 1, 1]
+        );
+        this.dummyTerrainShadowTextureView = this.dummyTerrainShadowTexture.createView({
+          label: 'dummy_terrain_shadow_texture_view',
+        });
+      }
+
+      if (!this.terrainShadowTexture) {
+        this.terrainShadowTexture = this.device.createTexture({
+          label: 'terrain_shadow_map_texture',
+          size: [this.terrainShadowMapWidth, this.terrainShadowMapHeight, 1],
+          format: 'r8unorm',
+          usage: typeof GPUTextureUsage !== 'undefined'
+            ? (GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC)
+            : (8 | 4 | 1),
+        });
+        this.terrainShadowTextureView = this.terrainShadowTexture.createView({
+          label: 'terrain_shadow_map_texture_view',
+        });
+      }
+
+      this.updateTerrainShadowBindGroups();
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  public initTerrainShadowPipelines(): void {
+    if (!this.device) return;
+
+    try {
+      if (!this.horizonOcclusionBindGroupLayout) {
+        this.horizonOcclusionBindGroupLayout = this.device.createBindGroupLayout({
+          label: 'horizon_occlusion_bind_group_layout',
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+            { binding: 1, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float', viewDimension: '2d' } },
+            { binding: 2, visibility: GPUShaderStage.COMPUTE, sampler: { type: 'filtering' } },
+            { binding: 3, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'r8unorm', viewDimension: '2d' } },
+          ],
+        });
+      }
+
+      const horizonOcclusionModule = this.device.createShaderModule({
+        label: 'horizon_occlusion_shader',
+        code: horizonOcclusionWGSL,
+      });
+
+      const horizonOcclusionPipelineLayout = this.device.createPipelineLayout({
+        label: 'horizon_occlusion_pipeline_layout',
+        bindGroupLayouts: [this.horizonOcclusionBindGroupLayout],
+      });
+
+      this.horizonOcclusionPipeline = this.device.createComputePipeline({
+        label: 'horizon_occlusion_compute_pipeline',
+        layout: horizonOcclusionPipelineLayout,
+        compute: {
+          module: horizonOcclusionModule,
+          entryPoint: 'cs_main',
+        },
+      });
+
+      if (this.terrainShadowUniformBuffer) {
+        this.updateTerrainShadowBindGroups();
+      }
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  public updateTerrainShadowBindGroups(): void {
+    if (!this.device || !this.terrainShadowUniformBuffer) return;
+
+    try {
+      const demView = this.demTextureView;
+      const demSampler = this.demSampler || this.terrainShadowSampler;
+
+      // 1. Compute Pass Bind Group
+      if (this.horizonOcclusionBindGroupLayout && this.terrainShadowTextureView && demView && demSampler) {
+        this.horizonOcclusionBindGroup = this.device.createBindGroup({
+          label: 'horizon_occlusion_compute_bind_group',
+          layout: this.horizonOcclusionBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.terrainShadowUniformBuffer } },
+            { binding: 1, resource: demView },
+            { binding: 2, resource: demSampler },
+            { binding: 3, resource: this.terrainShadowTextureView },
+          ],
+        });
+      }
+
+      // 2. Crust Active Shadow Bind Group
+      if (this.terrainShadowBindGroupLayout && this.terrainShadowTextureView && this.terrainShadowSampler) {
+        this.terrainShadowBindGroup = this.device.createBindGroup({
+          label: 'crust_terrain_shadow_bind_group',
+          layout: this.terrainShadowBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.terrainShadowUniformBuffer } },
+            { binding: 1, resource: this.terrainShadowTextureView },
+            { binding: 2, resource: this.terrainShadowSampler },
+          ],
+        });
+      }
+
+      // 3. Crust Dummy Shadow Bind Group (1x1 white texture for unshadowed fallback)
+      if (this.terrainShadowBindGroupLayout && this.dummyTerrainShadowTextureView && this.terrainShadowSampler) {
+        this.terrainShadowDummyBindGroup = this.device.createBindGroup({
+          label: 'crust_terrain_shadow_dummy_bind_group',
+          layout: this.terrainShadowBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.terrainShadowUniformBuffer } },
+            { binding: 1, resource: this.dummyTerrainShadowTextureView },
+            { binding: 2, resource: this.terrainShadowSampler },
+          ],
+        });
+      }
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  public updateTerrainShadowUniforms(params: Partial<WebGPUFrameParams>): void {
+    if (!this.terrainShadowUniformBuffer || !this.device) return;
+
+    const sunAzimuthDeg = params.sunAzimuth !== undefined ? params.sunAzimuth : 315.0;
+    const sunAltitudeDeg = params.sunAltitude !== undefined ? params.sunAltitude : 45.0;
+    const maxRayDist = params.maxRayDistanceMeters !== undefined ? params.maxRayDistanceMeters : 50000.0;
+    const softness = params.penumbraSoftness !== undefined ? params.penumbraSoftness : 1.5;
+    const stepCount = params.sampleStepCount !== undefined ? params.sampleStepCount : 16;
+
+    const azRad = (sunAzimuthDeg * Math.PI) / 180.0;
+    const altRad = (sunAltitudeDeg * Math.PI) / 180.0;
+
+    this.terrainShadowFloats[0] = azRad;
+    this.terrainShadowFloats[1] = altRad;
+    this.terrainShadowFloats[2] = maxRayDist;
+    this.terrainShadowFloats[3] = softness;
+    this.terrainShadowUints[4] = this.terrainShadowMapWidth;
+    this.terrainShadowUints[5] = this.terrainShadowMapHeight;
+    this.terrainShadowUints[6] = stepCount;
+    this.terrainShadowUints[7] = 0;
+
+    this.device.queue.writeBuffer(this.terrainShadowUniformBuffer, 0, this.terrainShadowMirror);
+  }
+
+  public setTerrainShadowsEnabled(enabled: boolean): void {
+    this.terrainShadowsEnabled = enabled;
+    if (enabled && this.device) {
+      this.ensureTerrainShadowResources();
+    }
+  }
+
+  public isTerrainShadowsEnabled(): boolean {
+    return this.terrainShadowsEnabled;
+  }
+
+  public getTerrainShadowTexture(): GPUTexture | null {
+    return this.terrainShadowTexture;
+  }
+
+  public getTerrainShadowTextureView(): GPUTextureView | null {
+    return this.terrainShadowTextureView;
+  }
+
+  public getTerrainShadowUniformBuffer(): GPUBuffer | null {
+    return this.terrainShadowUniformBuffer;
+  }
+
+  // ==========================================================================
   // Milestone 2: 3D Cloud Noise Texture & Slice Readback (Invariant §46, §48)
   // ==========================================================================
 
@@ -4607,8 +4871,18 @@ export class WebGPUEngine {
     });
 
     // 11. Dual-Surface Lithosphere Crust & Hydrosphere Pipeline (M1-T3)
+    if (!this.terrainShadowBindGroupLayout) {
+      this.terrainShadowBindGroupLayout = this.device.createBindGroupLayout({
+        label: 'terrain_shadow_bind_group_layout',
+        entries: [
+          { binding: 0, visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.VERTEX, buffer: { type: 'uniform' } },
+          { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 2, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+        ],
+      });
+    }
     const crustPipelineLayout = this.device.createPipelineLayout({
-      bindGroupLayouts: [this.crustBindGroupLayout],
+      bindGroupLayouts: [this.crustBindGroupLayout, this.terrainShadowBindGroupLayout],
     });
 
     const dualSurfaceLayout: GPUVertexBufferLayout = {
@@ -4764,6 +5038,13 @@ export class WebGPUEngine {
     // 13. Cartographic Intaglio Substrate Micro-Relief & Paper Composition Pipelines (Milestone §6)
     try {
       this.initSubstrateHapticsPipelines();
+    } catch {
+      // Mock environment guard
+    }
+
+    // 14. Directional Horizon & Canyon Self-Shadowing (Section 2)
+    try {
+      this.initTerrainShadowPipelines();
     } catch {
       // Mock environment guard
     }
@@ -5313,8 +5594,19 @@ export class WebGPUEngine {
       this.ensureAtmosphereScatterBuffers();
     }
 
+    // 1e. Ensure directional terrain shadow resources lazily on-demand (Section 2 / Invariant §20)
+    const showTerrainShadows = !isPurity && Boolean(
+      params.terrainShadows !== undefined
+        ? params.terrainShadows
+        : (params.showTerrainShadows !== undefined ? params.showTerrainShadows : this.terrainShadowsEnabled)
+    );
+    if (showTerrainShadows) {
+      this.ensureTerrainShadowResources();
+    }
+
     // 2. Update Sim, Relief, Ribbon, and Wind Uniforms
     this.updateUniforms(params);
+    this.updateTerrainShadowUniforms(params);
 
     // 2. Begin Frame Command Encoding
     const commandEncoder = this.device.createCommandEncoder();
@@ -5347,7 +5639,17 @@ export class WebGPUEngine {
       (showSurf || showJet)
     );
 
-    if (needsParticleCompute || hasWindCompute) {
+    // Pass 1c: Directional Horizon Occlusion & Canyon Self-Shadowing Compute Dispatch (Section 2)
+    if (showTerrainShadows && !this.horizonOcclusionBindGroup && this.demTextureView) {
+      this.updateTerrainShadowBindGroups();
+    }
+
+    const hasHorizonCompute = showTerrainShadows && !!(
+      this.horizonOcclusionPipeline &&
+      this.horizonOcclusionBindGroup
+    );
+
+    if (needsParticleCompute || hasWindCompute || hasHorizonCompute) {
       const computePass = commandEncoder.beginComputePass({
         timestampWrites: this.profiler?.getComputeTimestampWrites(0),
       });
@@ -5369,6 +5671,14 @@ export class WebGPUEngine {
         computePass.setBindGroup(0, this.windComputeBindGroups![this.windStep % 2]);
         const windWgCount = Math.min(65535, Math.ceil(this.windParticleCount / 256));
         computePass.dispatchWorkgroups(windWgCount, 1, 1);
+      }
+
+      if (hasHorizonCompute) {
+        computePass.setPipeline(this.horizonOcclusionPipeline!);
+        computePass.setBindGroup(0, this.horizonOcclusionBindGroup!);
+        const wgX = Math.ceil(this.terrainShadowMapWidth / 16);
+        const wgY = Math.ceil(this.terrainShadowMapHeight / 16);
+        computePass.dispatchWorkgroups(wgX, wgY, 1);
       }
 
       computePass.end();
@@ -5428,6 +5738,14 @@ export class WebGPUEngine {
         ? this.crustPrecipBindGroups[this.precipRingBuffer.getActivePhysicalIndex(0)]
         : this.crustBindGroup;
       renderPass.setBindGroup(0, crustBg);
+      if (this.terrainShadowBindGroupLayout) {
+        const shadowBg = (showTerrainShadows && this.terrainShadowBindGroup)
+          ? this.terrainShadowBindGroup
+          : this.terrainShadowDummyBindGroup;
+        if (shadowBg) {
+          renderPass.setBindGroup(1, shadowBg);
+        }
+      }
       renderPass.setVertexBuffer(0, this.crustVertexBuffer);
       renderPass.setIndexBuffer(this.crustIndexBuffer, 'uint32');
       renderPass.drawIndexed(this.crustIndexCount);
@@ -6915,6 +7233,23 @@ export class WebGPUEngine {
     this.paperCompositionPipeline = null;
     this.paperCompositionBindGroupLayout = null;
     this.paperCompositionBindGroup = null;
+
+    // Section 2: Horizon Occlusion & Terrain Shadows Cleanup
+    this.terrainShadowTexture?.destroy();
+    this.terrainShadowTexture = null;
+    this.terrainShadowTextureView = null;
+    this.dummyTerrainShadowTexture?.destroy();
+    this.dummyTerrainShadowTexture = null;
+    this.dummyTerrainShadowTextureView = null;
+    this.terrainShadowSampler = null;
+    this.terrainShadowUniformBuffer?.destroy();
+    this.terrainShadowUniformBuffer = null;
+    this.horizonOcclusionPipeline = null;
+    this.horizonOcclusionBindGroupLayout = null;
+    this.horizonOcclusionBindGroup = null;
+    this.terrainShadowBindGroupLayout = null;
+    this.terrainShadowBindGroup = null;
+    this.terrainShadowDummyBindGroup = null;
 
     this.device?.destroy?.();
     this.isInitialized = false;

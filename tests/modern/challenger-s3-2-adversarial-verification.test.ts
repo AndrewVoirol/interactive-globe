@@ -62,7 +62,7 @@ describe('Adversarial Challenger: Stage 3 Shader Invariants, Uniform Security, a
         cwd: path.resolve(__dirname, '../..'),
       });
 
-      expect(output).toMatch(/Audit Results: 0 errors, 0 warnings across (14|15|16|17) shaders\./);
+      expect(output).toMatch(/Audit Results: 0 errors, 0 warnings across (14|15|16|17|18) shaders\./);
       expect(output).toContain('PASSED: All shaders satisfy uniform control flow invariants.');
     });
 

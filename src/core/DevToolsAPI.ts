@@ -65,6 +65,7 @@ declare global {
     __INDICATRIX_SET_RADAR_ADVECTION_ENABLED__?: (val: boolean) => void;
     __INDICATRIX_SET_RADAR_DECAY_RATE__?: (val: number) => void;
     __INDICATRIX_SET_RAIN_ATTENUATION__?: (val: number) => void;
+    __INDICATRIX_SET_TERRAIN_SHADOWS__?: (enabled: boolean) => void;
     __INDICATRIX_LIVE_UNIFORMS__?: any;
     __INDICATRIX_LIVE_PROPS__?: any;
     __INDICATRIX_THEME__?: any;

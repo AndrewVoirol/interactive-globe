@@ -1102,6 +1102,57 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
         (window as any).__INDICATRIX_CAMERA__.setObliqueView(lonDeg, latDeg, altitudeRadius, pitchDeg, headingDeg);
       },
+      snapTerrainShadows: (options?: {
+        lonDeg?: number;
+        latDeg?: number;
+        altitudeRadius?: number;
+        pitchDeg?: number;
+        headingDeg?: number;
+        theme?: number;
+        sunAltitude?: number;
+        sunAzimuth?: number;
+        terrainShadows?: boolean;
+        maxRayDistanceMeters?: number;
+        penumbraSoftness?: number;
+      }) => {
+        // Default target: Grand Canyon South Rim (-112.14, 36.06)
+        const lonDeg = options?.lonDeg ?? -112.14;
+        const latDeg = options?.latDeg ?? 36.06;
+        const altitudeRadius = options?.altitudeRadius ?? 5.012; // ~15km altitude for sharp canyon relief
+        const pitchDeg = options?.pitchDeg ?? 64.0;
+        const headingDeg = options?.headingDeg ?? 45.0; // Looking NE across canyon
+        const sunAlt = options?.sunAltitude ?? 15.0;
+        const sunAz = options?.sunAzimuth ?? 120.0;
+        const shadows = options?.terrainShadows !== undefined ? Boolean(options.terrainShadows) : true;
+
+        if (typeof window !== 'undefined') {
+          (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {
+            ...((window as any).__INDICATRIX_LIVE_UNIFORMS__ || {}),
+            terrainShadows: shadows,
+            showTerrainShadows: shadows,
+            sunAltitude: sunAlt,
+            sunAzimuth: sunAz,
+            maxRayDistanceMeters: options?.maxRayDistanceMeters ?? 50000.0,
+            penumbraSoftness: options?.penumbraSoftness ?? 1.5,
+          };
+          if (options?.theme !== undefined) {
+            (window as any).__INDICATRIX_LIVE_UNIFORMS__.theme = options.theme;
+            if (typeof (window as any).__INDICATRIX_THEME__?.setThemeIndex === 'function') {
+              (window as any).__INDICATRIX_THEME__.setThemeIndex(options.theme);
+            }
+            if (typeof (window as any).setTheme === 'function') {
+              (window as any).setTheme(options.theme);
+            }
+          }
+        }
+        if (engineRef.current) {
+          engineRef.current.setTerrainShadowsEnabled(shadows);
+        }
+        (window as any).__INDICATRIX_CAMERA__.setObliqueView(lonDeg, latDeg, altitudeRadius, pitchDeg, headingDeg);
+      },
+      snapGrandCanyon: (options?: any) => {
+        (window as any).__INDICATRIX_CAMERA__.snapTerrainShadows(options);
+      },
       animateToObliqueView: (options?: {
         lonDeg?: number;
         latDeg?: number;
@@ -1587,11 +1638,25 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       unmountDebugOverlay: unmountNoiseDebugOverlay,
     };
 
+    (window as any).__INDICATRIX_SET_TERRAIN_SHADOWS__ = (enabled: boolean) => {
+      if (typeof window !== 'undefined') {
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {
+          ...((window as any).__INDICATRIX_LIVE_UNIFORMS__ || {}),
+          terrainShadows: enabled,
+          showTerrainShadows: enabled,
+        };
+      }
+      if (engineRef.current) {
+        engineRef.current.setTerrainShadowsEnabled(enabled);
+      }
+    };
+
     return () => {
       delete (window as any).__INDICATRIX_CAMERA__;
       delete (window as any).__INDICATRIX_WEBGPU_ENGINE__;
       delete (window as any).__INDICATRIX_TRAJECTORY__;
       delete (window as any).__INDICATRIX_NOISE_DEBUG__;
+      delete (window as any).__INDICATRIX_SET_TERRAIN_SHADOWS__;
       unmountNoiseDebugOverlay();
       if ((window as any).__INDICATRIX_ENGINE__) {
         delete (window as any).__INDICATRIX_ENGINE__.getActiveRegionalDEM;
@@ -2449,8 +2514,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           vortexStrength: curVortexStrength,
           fractureIntensity: curFractureIntensity,
           seaLevel,
-          sunAzimuth,
-          sunAltitude,
+          sunAzimuth: liveOverrides?.sunAzimuth !== undefined ? liveOverrides.sunAzimuth : sunAzimuth,
+          sunAltitude: liveOverrides?.sunAltitude !== undefined ? liveOverrides.sunAltitude : sunAltitude,
           ambientOcclusion,
           waterClarity,
           peakExponent,
@@ -2480,6 +2545,19 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           sheenIntensity: liveOverrides?.sheenIntensity ?? stateRef.current.sheenIntensity,
           absorptionFeathering: liveOverrides?.absorptionFeathering ?? stateRef.current.absorptionFeathering,
           cameraPitchDeg: liveOverrides?.cameraPitchDeg ?? stateRef.current.cameraPitchDeg,
+          terrainShadows: liveOverrides?.terrainShadows !== undefined
+            ? liveOverrides.terrainShadows
+            : (liveOverrides?.showTerrainShadows !== undefined
+              ? liveOverrides.showTerrainShadows
+              : ((stateRef.current as any).terrainShadows ?? false)),
+          showTerrainShadows: liveOverrides?.terrainShadows !== undefined
+            ? liveOverrides.terrainShadows
+            : (liveOverrides?.showTerrainShadows !== undefined
+              ? liveOverrides.showTerrainShadows
+              : ((stateRef.current as any).terrainShadows ?? false)),
+          maxRayDistanceMeters: liveOverrides?.maxRayDistanceMeters ?? (stateRef.current as any).maxRayDistanceMeters,
+          penumbraSoftness: liveOverrides?.penumbraSoftness ?? (stateRef.current as any).penumbraSoftness,
+          sampleStepCount: liveOverrides?.sampleStepCount ?? (stateRef.current as any).sampleStepCount,
         });
 
         // Periodic GPU Profiler sampling (every 250ms)
