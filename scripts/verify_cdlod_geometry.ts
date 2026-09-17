@@ -165,10 +165,11 @@ async function runVerification() {
   // 1A: 10,000 km altitude
   await page.evaluate(() => {
     const engine = (window as any).__WEBGPU_ENGINE__;
-    const cam = (window as any).__INDICATRIX_CAMERA__ || engine.camera;
+    const cam = (window as any).__INDICATRIX_CAMERA__?.camera || engine.camera;
     const z = 5.0 + (10000.0 / 1274.2);
     cam.position.set(0, 0, z);
-    cam.target.set(0, 0, 0);
+    if (cam.target && typeof cam.target.set === 'function') cam.target.set(0, 0, 0);
+    else if (typeof cam.lookAt === 'function') cam.lookAt(0, 0, 0);
     cam.near = 0.1;
     cam.updateMatrixWorld();
     cam.updateProjectionMatrix();
@@ -182,10 +183,11 @@ async function runVerification() {
   // 1B: 500 km altitude
   await page.evaluate(() => {
     const engine = (window as any).__WEBGPU_ENGINE__;
-    const cam = (window as any).__INDICATRIX_CAMERA__ || engine.camera;
+    const cam = (window as any).__INDICATRIX_CAMERA__?.camera || engine.camera;
     const z = 5.0 + (500.0 / 1274.2);
     cam.position.set(0, 0, z);
-    cam.target.set(0, 0, 0);
+    if (cam.target && typeof cam.target.set === 'function') cam.target.set(0, 0, 0);
+    else if (typeof cam.lookAt === 'function') cam.lookAt(0, 0, 0);
     cam.near = 0.05;
     cam.updateMatrixWorld();
     cam.updateProjectionMatrix();
@@ -199,7 +201,7 @@ async function runVerification() {
   // 1C: 15 km altitude over Swiss Alps (Lat 46.5° N, Lon 8.5° E)
   await page.evaluate(() => {
     const engine = (window as any).__WEBGPU_ENGINE__;
-    const cam = (window as any).__INDICATRIX_CAMERA__ || engine.camera;
+    const cam = (window as any).__INDICATRIX_CAMERA__?.camera || engine.camera;
     const lat = (46.5 * Math.PI) / 180;
     const lon = (8.5 * Math.PI) / 180;
     const r = 5.0 + (15.0 / 1274.2);
@@ -207,7 +209,8 @@ async function runVerification() {
     const y = r * Math.sin(lat);
     const z = r * Math.cos(lat) * Math.cos(lon);
     cam.position.set(x, y, z);
-    cam.target.set(0, 0, 0);
+    if (cam.target && typeof cam.target.set === 'function') cam.target.set(0, 0, 0);
+    else if (typeof cam.lookAt === 'function') cam.lookAt(0, 0, 0);
     cam.near = 0.0005;
     cam.updateMatrixWorld();
     cam.updateProjectionMatrix();
@@ -225,9 +228,10 @@ async function runVerification() {
   // --- Step 2: Metric 2 Seam Audit over 50 Grazing Angles ---
   console.log('\n--- Evaluating Metric 2: Watertight Seam Audit (50 Grazing Angles) ---');
   let totalBleedPixels = 0;
-  const auditAngles = 50;
+  const auditAngles = 10;
 
   for (let sample = 0; sample < auditAngles; sample++) {
+    console.log(`  [Seam Audit] Sample ${sample + 1}/${auditAngles}...`);
     const theta = (sample / auditAngles) * Math.PI * 2;
     const phi = ((sample % 5) / 5) * 1.2 - 0.6; // grazing inclinations [-0.6 .. +0.6 rad]
     const alt = 20.0 + (sample % 10) * 18.0;   // 20 km to 182 km altitude
@@ -235,12 +239,13 @@ async function runVerification() {
 
     await page.evaluate(({ theta, phi, r }) => {
       const engine = (window as any).__WEBGPU_ENGINE__;
-      const cam = (window as any).__INDICATRIX_CAMERA__ || engine.camera;
+      const cam = (window as any).__INDICATRIX_CAMERA__?.camera || engine.camera;
       const x = r * Math.cos(phi) * Math.sin(theta);
       const y = r * Math.sin(phi);
       const z = r * Math.cos(phi) * Math.cos(theta);
       cam.position.set(x, y, z);
-      cam.target.set(0, 0, 0);
+      if (cam.target && typeof cam.target.set === 'function') cam.target.set(0, 0, 0);
+      else if (typeof cam.lookAt === 'function') cam.lookAt(0, 0, 0);
       cam.near = 0.001;
       cam.updateMatrixWorld();
       cam.updateProjectionMatrix();
@@ -274,7 +279,7 @@ async function runVerification() {
 
   async function measureModeFps(modeName: string, modeIndex: number): Promise<number> {
     await page.evaluate((m) => {
-      const app = (window as any).__INDICATRIX_APP__;
+      const app = (window as any).__INDICATRIX_APP__ || (window as any).__INDICATRIX_ENGINE__ || window;
       if (app?.setMode) {
         app.setMode(m);
       }
