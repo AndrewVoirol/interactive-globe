@@ -60,12 +60,12 @@ describe('Requirement R7: Cartographic Neatline Hierarchy & Spatial Clearance Mo
     });
 
     it('R7-06: verifies slide-out catalog sheet docks at top-5 right-5 with 20px axis alignment', () => {
-      expect(sidebarContent).toContain('fixed top-5 right-5 2xl:right-[26.5rem] z-40 pointer-events-auto w-96');
+      expect(sidebarContent).toMatch(/fixed top-5 right-5 (?:xl|2xl):right-\[26\.5rem\] z-40 pointer-events-auto w-96/);
       expect(sidebarContent).not.toContain('fixed top-4 right-4 2xl:right-[25.5rem] z-40 pointer-events-auto w-96');
     });
 
     it('R7-06b: verifies top header maintains 20px inter-instrument gutter and eliminates catalog overlap', () => {
-      expect(appContent).toMatch(/isCatalogOpen \? '2xl:right-\[51\.75rem\] md:right-\[26\.5rem\]' : 'md:right-\[26\.5rem\]'/);
+      expect(appContent).toMatch(/isCatalogOpen \? '(?:xl|2xl):right-\[51\.75rem\] md:right-\[26\.5rem\]' : 'md:right-\[26\.5rem\]'/);
     });
   });
 

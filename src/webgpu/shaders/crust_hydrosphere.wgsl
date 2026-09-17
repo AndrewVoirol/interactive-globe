@@ -36,7 +36,7 @@ struct SimUniforms {
     u_pluvial_gamma: f32, // offset 288 (float 72)
     u_weatherOpticalMode: u32, // offset 292 (uint 73)
     u_lclBypass: f32, // offset 296 (float 74)
-    _padPrecip1: f32, // offset 300 (float 75)
+    u_purityMode: f32, // offset 300 (float 75)
     u_scrubTau: f32, // offset 304 (float 76)
     u_advectionActive: f32, // offset 308 (float 77)
     _padScrub1: f32, // offset 312 (float 78)
@@ -1057,6 +1057,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let N = normalize(input.normal);
 
     if (input.surfaceType > 0.5) {
+        if (sim.u_purityMode > 0.5) {
+            discard;
+        }
         let depthMeters = max(0.0, sim.u_seaLevel - elevMeters);
         if (depthMeters <= 0.001) {
             discard;
@@ -1510,7 +1513,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // 3. Self-Tapering Waterway Line Width (Invariant #7: 55-60% of coastline width 3.40px)
         // High alpine headwaters: 0.40px ultra-fine hairline
         // Lowland valley confluences: 1.98px (58.2% of 3.40px)
-        // Preserved for legacy test assertion: let riverWidthPx = mix(0.40, 1.98, descentAccum);
         var riverWidthPx = mix(0.40, 1.98, descentAccum);
         let pluvialFactor = 1.0 + sim.u_pluvial_gamma * sqrt(clamp(precipRate, 0.0, 50.0));
         riverWidthPx = riverWidthPx * pluvialFactor;
@@ -1814,13 +1816,13 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     if (sim.u_isolatedStratum >= -0.5) {
         let targetStratum = u32(round(sim.u_isolatedStratum));
         var currentStratum = 2u;
-        if (input.elevation < -5500.0) {
+        if (elevMeters < -5500.0) {
             currentStratum = 0u; // Abyssal Trench
-        } else if (input.elevation < -200.0) {
+        } else if (elevMeters < -200.0) {
             currentStratum = 1u; // Continental Shelf Break / Mid-Ocean Ridge
-        } else if (input.elevation < 500.0) {
+        } else if (elevMeters < 500.0) {
             currentStratum = 2u; // Continental Shelf & Coastal Lowlands
-        } else if (input.elevation < 5200.0) {
+        } else if (elevMeters < 5200.0) {
             currentStratum = 3u; // Steppe / Montane Plateaus
         } else {
             currentStratum = 4u; // Glacial Summits & Alpine Ridges
@@ -1926,7 +1928,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         } else if (sim.u_theme == 2u) {
             // --- THEME 2 (Prussian Cyanotype): Analytical Chalk Ruling Pen Isoline Contours ---
             // View-dependent frequency and screen-space derivative feathering to eliminate globe-scale Moiré
-            let normElev = clamp((input.elevation + 10924.0) / 19772.0, 0.0, 1.0);
+            let normElev = clamp((elevMeters + 10924.0) / 19772.0, 0.0, 1.0);
             let cyanoFreq = mix(16.0, 44.0, orbitZoom);
             let contourVal = fract(normElev * cyanoFreq);
             let distToLine = min(contourVal, 1.0 - contourVal);

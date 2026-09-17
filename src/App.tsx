@@ -97,6 +97,7 @@ export default function App() {
   const [thermodynamicGating, setThermodynamicGating] = useState<boolean>(true);
   const [prognosticModel, setPrognosticModel] = useState<PrognosticModelBackend>('weathernext3');
   const [prognosticVariable, setPrognosticVariable] = useState<string>('total_precipitation_1hr_mean');
+  const [purityMode, setPurityMode] = useState<boolean>(false);
   const lastWindHourRef = useRef<number>(-1);
 
   const handlePrognosticVariableChange = useCallback((variable: string) => {
@@ -244,6 +245,9 @@ export default function App() {
       window.__INDICATRIX_SET_PROGNOSTIC_MODEL__ = (model: PrognosticModelBackend) => {
         handlePrognosticModelChange(model);
       };
+      (window as any).__INDICATRIX_PURITY_MODE__ = purityMode;
+      (window as any).setPurityMode = setPurityMode;
+      (window as any).__INDICATRIX_SET_PURITY_MODE__ = setPurityMode;
 
       Object.defineProperty(window, '__INDICATRIX_WEATHER_DIAGNOSTICS__', {
         configurable: true,
@@ -276,6 +280,13 @@ export default function App() {
       });
     }
   }, [handlePrognosticVariableChange, prognosticModel, prognosticVariable, timelineMinutes]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__INDICATRIX_PURITY_MODE__ = purityMode;
+      (window as any).setPurityMode = setPurityMode;
+    }
+  }, [purityMode]);
 
 
   useEffect(() => {
@@ -593,12 +604,12 @@ export default function App() {
           <span className="absolute top-[1px] left-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80">⌜ 00.00°</span>
           <span className={`absolute top-[1px] right-2 ${isSidebarActive ? 'max-md:hidden' : ''} text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌝ 90.00°</span>
           <span className="absolute bottom-1 left-[268px] text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300">⌞ 180.00°</span>
-          <span className={`absolute bottom-1 ${isSidebarActive ? (isCatalogOpen ? '2xl:right-[50.5rem] md:right-[26rem] max-md:hidden' : 'md:right-[26rem] max-md:hidden') : ''} right-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌟ 270.00°</span>
+          <span className={`absolute bottom-1 ${isSidebarActive ? (isCatalogOpen ? 'xl:right-[50.5rem] md:right-[26rem] max-md:hidden' : 'md:right-[26rem] max-md:hidden') : ''} right-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌟ 270.00°</span>
         </div>
 
         {/* Top Technical Calibration Bar (Aligned on 20px grid axis with 10px neatline clearance moat) */}
         {!isZenMode && (
-          <header className={`absolute top-5 left-5 right-5 ${isCatalogOpen ? '2xl:right-[51.75rem] md:right-[26.5rem]' : 'md:right-[26.5rem]'} ${isSidebarActive ? 'max-md:hidden' : ''} h-7 flex items-center justify-between gap-4 text-micro font-mono tracking-widest uppercase z-20 pointer-events-none px-3 rounded-[3px] border backdrop-blur-md shadow-sm transition-all duration-300 scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)]`}>
+          <header className={`absolute top-5 left-5 right-5 ${isCatalogOpen ? 'xl:right-[51.75rem] md:right-[26.5rem]' : 'md:right-[26.5rem]'} ${isSidebarActive ? 'max-md:hidden' : ''} h-7 flex items-center justify-between gap-4 text-micro font-mono tracking-widest uppercase z-20 pointer-events-none px-3 rounded-[3px] border backdrop-blur-md shadow-sm transition-all duration-300 scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)]`}>
             <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap z-10 min-w-0 pr-3">
               <span className="min-w-0 font-bold truncate">HYDROGRAPHIC SURVEY<span className="hidden xl:inline"> // CARTOGRAPHIC MATRIX</span></span>
               <span className="hidden lg:inline opacity-40 shrink-0">|</span>
@@ -677,6 +688,7 @@ export default function App() {
                 onShowCloudsChange={setShowClouds}
                 prognosticModel={prognosticModel}
                 onTogglePlanetaryLayer={(id) => handleToggleDataLayer(id)}
+                purityMode={purityMode}
               />
             </React.Suspense>
           ) : (
@@ -803,6 +815,8 @@ export default function App() {
           onPrognosticModelChange={handlePrognosticModelChange}
           prognosticVariable={prognosticVariable}
           onPrognosticVariableChange={handlePrognosticVariableChange}
+          purityMode={purityMode}
+          onPurityModeToggle={() => setPurityMode((p) => !p)}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}

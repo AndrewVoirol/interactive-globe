@@ -181,7 +181,7 @@ fn sampleTerrain(lonRad: f32, latRad: f32) -> TerrainSample {
 // U: 0° (Greenwich) to 360°, V: +90° (North Pole, y=0) to -90° (South Pole, y=180)
 // Spec §2.2: Topographic Barrier Wind Deflection & Kinetic Energy Speed Conservation
 fn sampleVelocity(lonRad: f32, latRad: f32, isJet: bool) -> vec2<f32> {
-    let uCoord = fract(lonRad / TWO_PI);
+    let uCoord = fract(lonRad / TWO_PI + 0.5);
     let vCoord = clamp((PI * 0.5 - latRad) / PI, 0.001, 0.999);
     let uv = vec2<f32>(uCoord, vCoord);
     if (isJet) {
@@ -209,7 +209,6 @@ fn sampleVelocity(lonRad: f32, latRad: f32, isJet: bool) -> vec2<f32> {
             let rawSpeed = length(rawVel);
             let uSteered = uDeflected + 0.25 * steerSign * tContour * rawSpeed;
             let defSpeed = length(uSteered);
-            // Baseline kinetic energy conservation: return select(uDeflected, uDeflected * (rawSpeed / max(defSpeed, 1e-6)), rawSpeed > 1e-5 && defSpeed > 1e-6);
             return select(uSteered, uSteered * (rawSpeed / max(defSpeed, 1e-6)), rawSpeed > 1e-5 && defSpeed > 1e-6);
         }
     }
@@ -224,7 +223,8 @@ fn computeLiftedAltitude(lonRad: f32, latRad: f32, vel: vec2<f32>, isJet: bool) 
     let normH = max(0.0, t.elevation) / 8848.0;
     let camDist = length(sim.u_cameraPos.xyz);
     let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
-    let dynamicExp = mix(1.0, 1.8, orbitT) * (max(0.5, sim.u_peakExponent) / 1.4);
+    let dynamicExp = clamp(mix(0.95, 1.25, orbitT) * (sim.u_peakExponent / 1.4), 0.85, 1.30);
+    let shapedH = (1.0 - exp(-2.2 * normH)) / (1.0 - exp(-2.2));
     
     let poleDist = abs(clamp(0.5 - latRad / PI, 0.001, 0.999) - 0.5) * 2.0;
     let poleAtten = 1.0 - smoothstep(0.85, 0.98, poleDist);
@@ -236,7 +236,7 @@ fn computeLiftedAltitude(lonRad: f32, latRad: f32, vel: vec2<f32>, isJet: bool) 
             terrainDisp = logNormH * dispScale * poleAtten;
         }
     } else {
-        terrainDisp = pow(normH, max(0.5, dynamicExp)) * dispScale * poleAtten;
+        terrainDisp = pow(shapedH, dynamicExp) * dispScale * poleAtten;
     }
     
     // Pitch-adaptive horizon standoff exaggeration for Jet Stream (RFC Mechanic 2)

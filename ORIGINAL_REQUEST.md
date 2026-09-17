@@ -1459,3 +1459,104 @@ Consolidate the Prognostic Model selector, Prognostic Variable selector, and Wea
 - `AGENTS.md` — Project rules including medium identity standards, spatial clearance, single-border contract
 </USER_REQUEST>
 
+## 2026-09-17T01:02:25Z
+
+<USER_REQUEST>
+# Mission: Indicatrix Engine — High-Precision DEM Downstream Coupling, Cloud Fidelity, UX Polish & Performance Hardening
+
+Eliminate DEM coordinate and elevation shaping bottlenecks across all WebGPU shaders, elevate volumetric cloud fidelity with Takram/Wrenninge 2017 multiple scattering while preserving WeatherNext 3 data coupling, implement cursor-relative zoom and diagnostic Purity Mode, decommission dead pipeline assets, audit sidebar controls, and produce rigorous visual delta and strategic next-steps artifacts.
+
+Working directory: `/Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/dem_shader_improvements`
+Integrity mode: `development`
+
+---
+
+## Authoritative References & Core Invariants
+- Master References: `DESIGN_ETHOS.md`, `AGENTS.md` (Rules 3, 4, 5, 8, 12, 18, 21, 23, 24, 26), `docs/FIRST_PRINCIPLES_ATMOSPHERIC_SPEC.md`.
+- Target Hardware: Apple Silicon Metal-3 WebGPU (Dawn Backend).
+- Invariant §3: Unconditional Derivative Evaluation (`fwidth`, `dpdx`, `dpdy` strictly before dynamic branches/discards).
+- Invariant §5: No Uniform Placebos (Every uploaded uniform must be actively consumed in the target shader's default path).
+- Invariant §8: Cross-Pipeline DEM Mathematical Parity (Identical `shapedH` saturation and `dynamicExp` curves across all shaders).
+- Invariant §21: Test Harmonization Discipline — update source-scanning tests simultaneously when modifying shader tokens or pipeline properties.
+- Invariant §23: Fast-Path Iterative vitest scoping (`npx vitest run <target-files>`). Reserve full suite for final gating.
+- Invariant §24: Zero-Zombie Pass Invariant — every secondary pass or pipeline must have dedicated gating and zero unused pipelines.
+- Invariant §26: Zero-GC per-frame buffer discipline — no allocations in animation loops.
+
+---
+
+## Requirements
+
+### R1. Coordinate & Mathematical Parity Gate
+- Correct the 180° longitude phase inversion in `src/webgpu/shaders/wind_particles.wgsl:184` from `fract(lonRad / TWO_PI)` to `fract(lonRad / TWO_PI + 0.5)` so wind particles sample velocity vectors aligned with terrain elevation.
+- Synchronize mathematical peak shaping (`shapedH = (1.0 - exp(-2.2 * normH)) / (1.0 - exp(-2.2))`) and clamped `dynamicExp` ([0.85, 1.30]) across `cloud_shell.wgsl:218-223` and `wind_particles.wgsl:227-239` to match `crust_hydrosphere.wgsl:722-725` (Rule 8 parity).
+- In `crust_hydrosphere.wgsl:1817, 1929`, upgrade Theme 2 isoline contours and hypsometric stratum isolation glaze to evaluate the 8K fragment DEM `elevMeters` instead of blurry vertex-interpolated `input.elevation`.
+
+### R2. Uniform Placebo & Orographic Coupling Gate
+- Wire `u_rainShadowFeedback` in `cloud_shell.wgsl:400-435` to modulate cloud density and optical depth on the lee side of mountain ranges based on orographic vertical velocity $w_{\text{orographic}} = \mathbf{u}_{\text{wind}} \cdot \nabla h$ (Spec §2.2, Rule 5).
+- Wire `cloud.u_shadowIntensity` in `cloud_shell.wgsl:431` (`selfShadow = mix(1.0 - cloud.u_shadowIntensity * 0.5, 1.0, NdotL)`) to resolve the uniform placebo and make the sidebar Shadow Intensity slider functional while preserving the 288-byte uniform struct layout.
+
+### R3. Volumetric Cloud Fidelity (Takram Wrenninge Multi-Scattering)
+- Implement Wrenninge 2017 energy-conserving multiple scattering approximation in `volumetric_cloud.wgsl:403-441`: for each raymarch step with density > 0.002, evaluate 3 octaves where scattering albedo halves and phase converges toward isotropic ($g \rightarrow 0$), transforming dark cloud interiors into bright-white cumulus tops while preserving the medium inking system.
+- Replace the 1-tap `sampleSunShadowTransmittance` call with a 4-step Beer-Lambert integration along the sun vector, accumulating optical depth through the cloud column.
+- Add a second noise frequency pass at 2× base frequency for the low cloud stratum only (`layerHeightEnvelope(hNorm, lowBottom, lowTop, 0.04)`) for billowy cumulus detail.
+- **Constraint**: Cloud macro-density must remain coupled to WeatherNext 3 prognostic textures (`u_cloudLowTexture`, `u_cloudMidTexture`, `u_cloudHighTexture`).
+- **Performance guard**: Total raymarch steps (`maxSteps`) must not exceed 64; use adaptive step sizing (skip empty space with 2× step distance when density < 0.002).
+
+### R4. Camera Interaction UX & Purity Diagnostic Mode
+- Implement cursor-relative zoom in `src/webgpu/WebGPUCanvas.tsx:1607-1613`: read `currentHitPosRef.current`, lerp `targetRef.current` toward cursor hit point on zoom in (`deltaY < 0`), gradually recenter toward `(0, 0, 0)` on zoom out (`deltaY > 0`), and fall back to center zoom when off-globe.
+- Add Purity Mode toggle overlay: when ON, strip atmosphere pass, water surface shading, volumetric cloud pass, cloud shell pass, and wind particle pass (Rule 24). Output clean archival paper substrate + DEM-displaced point cloud / wireframe mesh. Pack `u_purityMode` in `crustFloats[75]` (offset 300).
+
+### R5. Pipeline & Catalog Sanitization Gate
+- Safely decommission zombie `this.swissReliefPipeline` in `WebGPUEngine.ts` while harmonizing source-scanning tests (`challenger-m1-depth-pipeline.test.ts`, `crust-hydrosphere-dual-surface.test.ts`, `milestone1-depth-kinematics.test.ts`, `milestone1-shaders.test.ts`).
+- Synchronize `DATA_LAYER_CATALOG` entries across BOTH `src/core/data/DataLayerCatalog.ts` and `src/core/layers/DataLayerCatalog.ts` to reference `/earth-etopo2022-dem-u16.bin`.
+- Update default URL in `src/core/layers/useGlobeLayerManager.ts` to `/earth-etopo2022-dem-u16.bin`.
+- Remove synthetic comment hack in `wind_particles.wgsl:212` and harmonize `challenger-m2-wind-deflection-adversarial.test.ts:158`.
+
+### R6. UI Integrity & Performance Hardening
+- Complete sidebar control audit across all SCENE and DATA tab instruments in `UnifiedRightSidebar.tsx`. Document status in a `✅ / ⚠️ / ❌` table.
+- Add Purity Mode `TactileSwitch` in the SCENE tab ("Purity · DEM Only") wired end-to-end.
+- Audit responsive layout at 1440×900 and 1920×1080 to eliminate text clipping or label collisions.
+- Measure GPU profiler timings (`GPUProfiler.ts`) to ensure `totalGpuMs` ≤ 16.67ms (≥ 60 FPS) on Apple Silicon. Verify zero typed-array allocations in animation frame loop (Rule 26).
+
+### R7. Adversarial Verification, Before/After Delta & Next Steps
+- **Gate 0 Baseline Captures**: Capture Chrome DevTools MCP screenshots across all 3 archival themes (Marie Tharp, Cream Rag, Cyanotype) at Hawaii litmus location (19.65°N, 155.55°W), sidebar SCENE/DATA tabs, cloud close-up, and baseline FPS/GPU timings *before any source files are modified*.
+- Author `tests/modern/r20-orographic-wind-deflection-coupling.test.ts` and run targeted vitest verification (100% pass rate).
+- Capture identical AFTER screenshots post-implementation.
+- Author `visual_delta_report.md` artifact embedding before/after screenshot pairs side-by-side with observable pixel deltas and performance metrics.
+- Author `next_steps_and_differentiators.md` artifact detailing immediate priorities, performance headroom analysis, and differentiator opportunities.
+
+---
+
+## Acceptance Criteria
+
+### Parity & Mathematical Soundness
+- [ ] `wind_particles.wgsl` samples longitude with `fract(lonRad / TWO_PI + 0.5)`.
+- [ ] Soft-summit saturation formula `(1.0 - exp(-2.2 * normH)) / (1.0 - exp(-2.2))` and clamped `dynamicExp` ([0.85, 1.30]) match exactly across `crust_hydrosphere.wgsl`, `cloud_shell.wgsl`, and `wind_particles.wgsl`.
+- [ ] Theme 2 isolines and hypsometric stratum glaze evaluate fragment `elevMeters` instead of `input.elevation`.
+- [ ] `u_rainShadowFeedback` actively attenuates cloud density and optical depth when $w_{\text{orographic}} < 0$.
+- [ ] `u_shadowIntensity` in `cloud_shell.wgsl` actively scales self-shadowing without breaking the 288-byte uniform struct.
+
+### Cloud Fidelity & Data Coupling
+- [ ] Cumulus cloud tops in `volumetric_cloud.wgsl` appear bright white via Wrenninge multi-scattering octaves rather than dark gray.
+- [ ] 4-tap sun shadow ray integration creates smooth self-shadow gradients across cloud columns.
+- [ ] WeatherNext 3 prognostic cloud fraction textures strictly dictate macro cloud coverage.
+- [ ] Total raymarch steps do not exceed 64 and adaptive step sizing skips empty space (`density < 0.002`).
+
+### Camera & UI Integrity
+- [ ] Zooming in on any off-center terrain feature moves the camera target toward that feature; zooming out recenters toward globe center `(0, 0, 0)`.
+- [ ] Purity Mode toggle strips atmosphere, water, cloud, and wind passes, leaving archival paper substrate + DEM point cloud / wireframe mesh.
+- [ ] 0 dead controls (0 ❌ in sidebar audit table); zero overlapping labels at 1440×900 and 1920×1080.
+- [ ] Zero WebGPU or WGSL errors in browser console.
+
+### Performance & Memory Discipline
+- [ ] GPU profiler `totalGpuMs` ≤ 16.67ms (≥ 60 FPS) at 1080p on Apple Silicon.
+- [ ] Zero `new Float32Array`, `new ArrayBuffer`, or `new Uint32Array` allocations in the continuous render loop (Rule 26).
+
+### Verification & Artifacts
+- [ ] Gate 0 baseline captures completed before code changes.
+- [ ] All targeted vitest suites pass 100%.
+- [ ] `visual_delta_report.md` created with embedded before/after screenshot pairs.
+- [ ] `next_steps_and_differentiators.md` created with ≥ 5 substantive, evidence-grounded recommendations.
+</USER_REQUEST>
+
+

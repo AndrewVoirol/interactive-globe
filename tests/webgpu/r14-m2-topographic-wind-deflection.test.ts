@@ -138,7 +138,7 @@ describe('Milestone 2: Topographic Barrier Wind Deflection', () => {
       expect(sampleVelBody).toContain('let d = dot(rawVel, slopeNormal);');
       expect(sampleVelBody).toContain('let uDeflected = rawVel - 0.75 * d * slopeNormal;');
       // Kinetic energy conservation scaling
-      expect(sampleVelBody).toContain('select(uDeflected, uDeflected * (rawSpeed / max(defSpeed, 1e-6)), rawSpeed > 1e-5 && defSpeed > 1e-6)');
+      expect(sampleVelBody).toContain('select(uSteered, uSteered * (rawSpeed / max(defSpeed, 1e-6)), rawSpeed > 1e-5 && defSpeed > 1e-6)');
     });
   });
 

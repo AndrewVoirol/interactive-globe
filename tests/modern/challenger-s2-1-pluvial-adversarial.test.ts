@@ -401,7 +401,7 @@ describe('Challenger S2-1: Adversarial Pluvial Coupling & WebGPU Atmospheric Str
       { name: 'u_pluvial_gamma', type: 'f32', size: 4, align: 4, expectedOffset: 288 },
       { name: 'u_weatherOpticalMode', type: 'u32', size: 4, align: 4, expectedOffset: 292 },
       { name: 'u_lclBypass', type: 'f32', size: 4, align: 4, expectedOffset: 296 },
-      { name: '_padPrecip1', type: 'f32', size: 4, align: 4, expectedOffset: 300 },
+      { name: '(?:u_purityMode|_padPrecip1)', type: 'f32', size: 4, align: 4, expectedOffset: 300 },
       { name: 'u_scrubTau', type: 'f32', size: 4, align: 4, expectedOffset: 304 },
       { name: 'u_advectionActive', type: 'f32', size: 4, align: 4, expectedOffset: 308 },
       { name: '_padScrub1', type: 'f32', size: 4, align: 4, expectedOffset: 312 },

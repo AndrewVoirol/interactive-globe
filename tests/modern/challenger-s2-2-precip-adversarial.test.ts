@@ -220,7 +220,7 @@ describe('Challenger S2-2: WebGPU Shader Invariants & Fallback Stability', () =>
       // Offset 240..255(16B): u_peakExponent(4), u_layerOpacity(4), u_renderStyle(4), u_isolatedStratum(4)
       // Offset 256..271(16B): u_mediumProperties (vec4<f32>)
       // Offset 272..287(16B): u_shadowIntensity(4), u_cloudDriftRate(4), u_cloudAltitudeKm(4), u_verticalScaleMode(4)
-      // Offset 288..303(16B): u_pluvial_gamma(4), u_weatherOpticalMode(4), _padPrecip0(4), _padPrecip1(4)
+      // Offset 288..303(16B): u_pluvial_gamma(4), u_weatherOpticalMode(4), _padPrecip0(4), u_purityMode(4)
       // Offset 304..319(16B): u_scrubTau(4), _padScrub0(4), _padScrub1(4), _padScrub2(4)
       // Total struct size = 320 bytes.
 
@@ -239,7 +239,7 @@ describe('Challenger S2-2: WebGPU Shader Invariants & Fallback Stability', () =>
       expect(shaderSrc).toContain('u_pluvial_gamma: f32, // offset 288 (float 72)');
       expect(shaderSrc).toContain('u_weatherOpticalMode: u32, // offset 292 (uint 73)');
       expect(shaderSrc).toMatch(/(?:u_lclBypass|_padPrecip0):\s*f32,\s*\/\/\s*offset\s*296/);
-      expect(shaderSrc).toContain('_padPrecip1: f32, // offset 300 (float 75)');
+      expect(shaderSrc).toMatch(/(?:u_purityMode|_padPrecip1):\s*f32,\s*\/\/\s*offset\s*300/);
     });
 
     it('verifies WebGPUEngine crustUniformBuffer allocates exactly 320 bytes with Float32Array(80)', () => {

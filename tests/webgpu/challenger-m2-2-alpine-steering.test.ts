@@ -169,7 +169,7 @@ describe('Challenger Suite: Alpine Massif & Po Valley Steering Benchmark (Invari
       expect(windParticlesWGSL).toContain('let terrain = sampleTerrain(lonRad, latRad);');
       expect(windParticlesWGSL).toContain('let d = dot(rawVel, slopeNormal);');
       expect(windParticlesWGSL).toContain('let uDeflected = rawVel - 0.75 * d * slopeNormal;');
-      expect(windParticlesWGSL).toContain('select(uDeflected, uDeflected * (rawSpeed / max(defSpeed, 1e-6))');
+      expect(windParticlesWGSL).toContain('select(uSteered, uSteered * (rawSpeed / max(defSpeed, 1e-6))');
       expect(windParticlesWGSL).toContain('if (isJet)');
     });
 

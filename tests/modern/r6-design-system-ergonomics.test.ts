@@ -175,7 +175,9 @@ describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety',
     });
 
     it('docks header with dynamic right margin responding to catalog open state', () => {
-      expect(appCode).toMatch(/isCatalogOpen \? '(?:2xl:right-\[51\.75rem\] md:right-\[26\.5rem\]|2xl:right-\[50rem\] md:right-\[25\.5rem\])' : 'md:right-\[(?:26\.5|25\.5)rem\]'/);
+      const appSource = appCode;
+      expect(appSource).toMatch(/(?:(?:xl|2xl):right-\[51\.75rem\]|right-\[calc\(24rem\+5rem\)\])/);
+      expect(appCode).toMatch(/isCatalogOpen \? '(?:(?:xl|2xl):right-\[51\.75rem\] md:right-\[26\.5rem\]|2xl:right-\[50rem\] md:right-\[25\.5rem\])' : 'md:right-\[(?:26\.5|25\.5)rem\]'/);
     });
 
     it('displays WGS84 // EPSG:4326 geodetic surveying metadata in calibration header', () => {

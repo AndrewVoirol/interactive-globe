@@ -178,8 +178,9 @@ fn layerHeightEnvelope(h: f32, hMin: f32, hMax: f32, feather: f32) -> f32 {
     return bottom * top;
 }
 
-// Sample Scalar Cloud Density at Point p in World Space
-fn sampleCloudDensity(p: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
+// Sample Scalar Cloud Density at Point pos in World Space
+fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
+    let p = pos;
     let r = length(p);
     let hNorm = clamp((r - rInner) / deltaR, 0.0, 1.0);
 
@@ -229,7 +230,18 @@ fn sampleCloudDensity(p: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let shapedBase = clamp((macroDensity * 2.2 - noiseCarve * 0.45) / max(0.001, 1.0 - noiseCarve * 0.45), 0.0, 1.0);
     let finalDensity = clamp(shapedBase - (1.0 - shapedBase) * (worleyErosion * erosionStr * 0.5), 0.0, 1.0);
 
-    return finalDensity * cloud.u_layerDensities.w;
+    // Low Cloud Stratum 2x Base Frequency Noise Pass (Billowy Cauliflower Cumulus)
+    var sculptedDensity = finalDensity;
+    let lowEnvelope = layerHeightEnvelope(hNorm, lowBottom, lowTop, 0.04);
+    if (lowEnvelope > 0.01) {
+        let detailCoord = (pos * 2.0) * (noiseFreq / rInner) + vec3<f32>(timeDrift * 0.15, 0.0, timeDrift * 0.08);
+        let detailNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, detailCoord, 0.0);
+        let detailErosion = detailNoise.g * 0.5 + detailNoise.b * 0.3 + detailNoise.a * 0.2;
+        let lowBillow = clamp(finalDensity * 1.25 - detailErosion * 0.30 * billowStr, 0.0, 1.0);
+        sculptedDensity = mix(finalDensity, lowBillow, lowEnvelope);
+    }
+
+    return sculptedDensity * cloud.u_layerDensities.w;
 }
 
 // Dual-Lobe Henyey-Greenstein Phase Function with Numerical Clamping
@@ -251,15 +263,27 @@ struct SunShadowResult {
     density: f32,
 };
 
-// 1-Tap Solar Crevice Shadow Raymarch
-fn sampleSunShadowTransmittance(p: vec3<f32>, sunDir: vec3<f32>, rInner: f32, deltaR: f32) -> SunShadowResult {
-    let shadowStepDist = 0.0006; // ~765m calibrated billow crevasse scale
-    let shadowPos = p + sunDir * shadowStepDist;
-    let shadowDensity = sampleCloudDensity(shadowPos, rInner, deltaR);
-    let opticalDepthSun = shadowDensity * cloud.u_opticalParams.x * shadowStepDist * 4.0;
+// 4-Step Progressive Beer-Lambert Solar Shadow Raymarch
+// Evaluates tau_sun = sum_{k=1}^4 sigma_t * rho(pos + k * stepDist * sunDir) * stepDist
+// Returns SunShadowResult with transmittance = exp(-tau_sun) and averaged crevice density
+fn sampleSunShadowTransmittance(pos: vec3<f32>, sunDir: vec3<f32>, rInner: f32, deltaR: f32) -> SunShadowResult {
+    let stepDist = 0.00045; // ~573m base step along solar ray vector
+    var tauSun: f32 = 0.0;
+    var avgDensity: f32 = 0.0;
+    let sigmaT = cloud.u_opticalParams.x;
+
+    // 4-step Beer-Lambert integration
+    for (var k: i32 = 1; k <= 4; k++) {
+        let stepLen = stepDist * f32(k);
+        let sampleP = pos + sunDir * stepLen;
+        let d = sampleCloudDensity(sampleP, rInner, deltaR);
+        tauSun += sigmaT * d * stepDist;
+        avgDensity += d * 0.25;
+    }
+
     var res: SunShadowResult;
-    res.transmittance = exp(-opticalDepthSun);
-    res.density = shadowDensity;
+    res.transmittance = exp(-tauSun);
+    res.density = avgDensity;
     return res;
 }
 
@@ -381,11 +405,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     // 5. Numerical Integration Setup
-    let maxSteps = i32(cloud.u_simControl.w); // e.g. 48 steps
-    let stepSize = raymarchDist / f32(maxSteps);
+    let maxSteps = min(64, i32(cloud.u_simControl.w)); // Strictly bounded: maxSteps <= 64
+    let baseStepSize = raymarchDist / f32(maxSteps);
+    let stepSize = baseStepSize;
 
     // Sub-step Jitter (Bayer / Screen-space hash to eliminate banding)
-    let jitter = hashScreen(in.position.xy) * stepSize;
+    let jitter = hashScreen(in.position.xy) * baseStepSize;
 
     let sunDir = normalize(cloud.u_sunDirection.xyz);
     let cosTheta = dot(rayDir, sunDir);
@@ -399,11 +424,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     var accumLight = vec3<f32>(0.0);
     var accumTransmittance: f32 = 1.0;
+    var t: f32 = tStart + jitter;
 
-    // 6. Raymarching Numerical Integration Loop
-    for (var i: i32 = 0; i < maxSteps; i++) {
-        let t = tStart + (f32(i) * stepSize) + jitter;
-        if (t >= tExit) {
+    // 6. Raymarching Numerical Integration Loop with Adaptive Step Sizing (maxSteps <= 64)
+    for (var step: i32 = 0; step < 64; step++) {
+        if (t >= tExit || step >= maxSteps) {
             break;
         }
 
@@ -415,14 +440,34 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let stepTau = sigmaT * density * stepSize;
             let stepT = exp(-stepTau);
 
-            // 1-Tap Sun Crevice Shadowing
+            // 4-Step Solar Crevice Shadow Raymarch
             let shadowRes = sampleSunShadowTransmittance(p, sunDir, rInner, deltaR);
             let sunT = shadowRes.transmittance;
             let shadowDensity = shadowRes.density;
 
-            // In-Scattering Light with physical 4*pi scaling and multiple scattering
-            let phaseTerm = max(0.28, phase * (4.0 * PI));
-            let directLight = pal.sunColor * (sunT * phaseTerm);
+            // Wrenninge 2017 3-Octave Multiple Scattering Integration
+            var directLight = vec3<f32>(0.0);
+            var octaveExtinction = 1.0;
+            var octaveWeight = 1.0;
+            var octaveG1 = cloud.u_opticalParams.z;
+            var octaveG2 = cloud.u_opticalParams.w;
+
+            for (var oct: i32 = 0; oct < 3; oct++) {
+                let octSunT = select(0.0, pow(clamp(sunT, 1e-6, 1.0), octaveExtinction), sunT > 1e-6);
+                let curG1 = select(octaveG1, 0.0, oct == 2);
+                let curG2 = select(octaveG2, 0.0, oct == 2);
+                let octPhase = select(dualHenyeyGreenstein(cosTheta, curG1, curG2, 0.70), phase, oct == 0);
+                let octPhaseTerm = max(0.20, octPhase * (4.0 * PI));
+                // Accumulate radiance across octaves: scatterLobe += octaveWeight * phase * transmittance
+                let scatterLobe = octaveWeight * octPhaseTerm * octSunT;
+                directLight += pal.sunColor * scatterLobe;
+
+                octaveExtinction *= 0.5;
+                octaveWeight *= 0.5;
+                octaveG1 *= 0.5;
+                octaveG2 *= 0.5;
+            }
+
             let midLight = pal.midColor * ((1.0 - sunT) * 0.55);
             let ao = clamp(1.0 - (0.50 * shadowDensity + 0.30 * density) * 0.75, 0.25, 1.0);
             let stepOpacity = 1.0 - stepT;
@@ -437,6 +482,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
                 accumTransmittance = 0.0;
                 break;
             }
+
+            t += stepSize;
+        } else {
+            // Adaptive Step Sizing: advance with 2x step distance across empty space (density < 0.002)
+            t += baseStepSize * 2.0;
         }
     }
 

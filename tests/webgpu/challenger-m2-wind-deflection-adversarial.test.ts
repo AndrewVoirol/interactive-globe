@@ -155,7 +155,7 @@ describe('Challenger M2 Adversarial Test Suite: Topographic Barrier Wind Deflect
     it('CHALLENGE-M2-06: Verifies exact 0.75 deflection factor and select-based speed normalization in WGSL', () => {
       expect(windParticlesWGSL).toContain('let uDeflected = rawVel - 0.75 * d * slopeNormal;');
       expect(windParticlesWGSL).toContain(
-        'return select(uDeflected, uDeflected * (rawSpeed / max(defSpeed, 1e-6)), rawSpeed > 1e-5 && defSpeed > 1e-6);'
+        'return select(uSteered, uSteered * (rawSpeed / max(defSpeed, 1e-6)), rawSpeed > 1e-5 && defSpeed > 1e-6);'
       );
     });
   });

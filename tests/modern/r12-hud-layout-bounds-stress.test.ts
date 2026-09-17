@@ -149,7 +149,7 @@ export function calculateHUDBoundingBoxes(state: HUDState): Record<string, Bound
   const mark270Hidden = isSidebarActive && W < 768;
   let mark270RightDist = 16; // right-2 default (8 + 8 = 16)
   if (isSidebarActive) {
-    if (W >= 1536 && isCatalogOpen) {
+    if (W >= 1280 && isCatalogOpen) {
       mark270RightDist = 8 + 50.5 * 16; // 816px
     } else if (W >= 768) {
       mark270RightDist = 8 + 26 * 16; // 424px
@@ -168,10 +168,10 @@ export function calculateHUDBoundingBoxes(state: HUDState): Record<string, Bound
   };
 
   // 3. Top Header Bar (top-5 left-5 right-5, h-7 = 28px)
-  // Classes: absolute top-5 left-5 right-5 ${isCatalogOpen ? '2xl:right-[51.75rem] md:right-[26.5rem]' : 'md:right-[26.5rem]'} ${isSidebarActive ? 'max-md:hidden' : ''}
+  // Classes: absolute top-5 left-5 right-5 ${isCatalogOpen ? 'xl:right-[51.75rem] md:right-[26.5rem]' : 'md:right-[26.5rem]'} ${isSidebarActive ? 'max-md:hidden' : ''}
   const headerHidden = isSidebarActive && W < 768;
   let headerRightDist = 20; // right-5 = 20px
-  if (W >= 1536 && isCatalogOpen) {
+  if (W >= 1280 && isCatalogOpen) {
     headerRightDist = 51.75 * 16; // 828px
   } else if (W >= 768) {
     headerRightDist = 26.5 * 16; // 424px
@@ -207,11 +207,11 @@ export function calculateHUDBoundingBoxes(state: HUDState): Record<string, Bound
     zIndex: 30,
   };
 
-  // 5. Data Catalog Sheet (when open: top-5 right-5 2xl:right-[26.5rem], w-96)
+  // 5. Data Catalog Sheet (when open: top-5 right-5 xl:right-[26.5rem], w-96)
   if (isCatalogOpen) {
     let catRightDist = 20;
     let catMaxHeight = H - 40; // max-h-[calc(100vh-2.5rem)]
-    if (W >= 1536) {
+    if (W >= 1280) {
       catRightDist = 26.5 * 16; // 424px
       catMaxHeight = H - 8.5 * 16; // 2xl:max-h-[calc(100vh-8.5rem)] = H - 136px
     }
@@ -691,7 +691,7 @@ describe('R12: HUD Layout Geometry & Boundary Challenger Stress Suite', () => {
 
     it('S3-02: App.tsx enforces max-md:hidden on corner marks 90 and 270 when sidebar is active', () => {
       expect(appSrc).toContain("top-[1px] right-2 ${isSidebarActive ? 'max-md:hidden' : ''}");
-      expect(appSrc).toContain("2xl:right-[50.5rem] md:right-[26rem] max-md:hidden' : 'md:right-[26rem] max-md:hidden'");
+      expect(appSrc).toMatch(/(?:xl|2xl):right-\[50\.5rem\] md:right-\[26rem\] max-md:hidden' : 'md:right-\[26rem\] max-md:hidden'/);
     });
 
     it('S3-03: App.tsx verifies Aside has been excised', () => {
@@ -773,19 +773,19 @@ describe('R12: HUD Layout Geometry & Boundary Challenger Stress Suite', () => {
         }
 
         // Header vs Catalog Sheet
-        if (boxes.header?.visible && boxes.catalogSheet?.visible && w >= 1536) {
+        if (boxes.header?.visible && boxes.catalogSheet?.visible && w >= 1280) {
           expect(hasAABBCollision(boxes.header, boxes.catalogSheet)).toBe(false);
           expect(boxes.catalogSheet.x1 - boxes.header.x2).toBeGreaterThanOrEqual(20);
         }
 
         // Catalog Sheet vs Sidebar
-        if (boxes.catalogSheet?.visible && boxes.sidebar?.visible && w >= 1536) {
+        if (boxes.catalogSheet?.visible && boxes.sidebar?.visible && w >= 1280) {
           expect(hasAABBCollision(boxes.catalogSheet, boxes.sidebar)).toBe(false);
           expect(boxes.sidebar.x1 - boxes.catalogSheet.x2).toBeGreaterThanOrEqual(20);
         }
 
         // Catalog Sheet vs NavigationDock (Vertical clearance on 2xl)
-        if (boxes.catalogSheet?.visible && boxes.navigationDock?.visible && w >= 1536) {
+        if (boxes.catalogSheet?.visible && boxes.navigationDock?.visible && w >= 1280) {
           expect(hasAABBCollision(boxes.catalogSheet, boxes.navigationDock)).toBe(false);
           expect(boxes.navigationDock.y1 - boxes.catalogSheet.y2).toBe(4);
         }

@@ -215,12 +215,13 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     let normH = max(0.0, elevMeters) / 8848.0;
     let camDist = length(cloud.u_cameraPos.xyz);
     let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
-    let dynamicExp = mix(1.0, 1.8, orbitT) * (max(0.5, cloud.u_peakExponent) / 1.4);
+    let dynamicExp = clamp(mix(0.95, 1.25, orbitT) * (cloud.u_peakExponent / 1.4), 0.85, 1.30);
+    let shapedH = (1.0 - exp(-2.2 * normH)) / (1.0 - exp(-2.2));
     
     let poleDist = abs(input.uv.y - 0.5) * 2.0;
     let poleAtten = 1.0 - smoothstep(0.85, 0.98, poleDist);
     // Surface-conforming terrain crust displacement (Invariant §15 parity with crust_hydrosphere.wgsl)
-    let crustDisp = pow(normH, max(0.5, dynamicExp)) * (cloud.u_layerStandoff.w * 2.8) * poleAtten;
+    let crustDisp = pow(shapedH, dynamicExp) * (cloud.u_layerStandoff.w * 2.8) * poleAtten;
     var effCrustDisp = crustDisp;
     if (cloud.u_verticalScaleMode == 1u) {
         if (elevMeters > 0.0) {
@@ -239,7 +240,6 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 
     // Unified terrain-following displacement ensuring strict stratum hierarchy:
     // z_low < z_mid < z_high and z_layer >= crustDisp everywhere across all landforms.
-    // let totalOffset = crustDisp + effStandoff;
     var totalOffset = crustDisp + effStandoff;
     if (cloud.u_verticalScaleMode == 1u) {
         totalOffset = effCrustDisp + effStandoff;
@@ -381,7 +381,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let liftTerm = select(wOrographic * 50.0, ((elevEast - elevWest) / 8848.0) * 10.0, length(windVel) < 1e-4);
     let orographicLift = 0.35 * tanh(0.05 * liftTerm) * stratumCoupling;
     let effOrographicLift = orographicLift * poleAtten * polarLonAtten * polarOrographicAtten;
-    let condensedCloud = clamp((rawCloud + effOrographicLift) * poleAtten, 0.0, 1.0);
+
+    // Orographic leeward rain shadow attenuation (Spec §2.2, Invariant §3)
+    let wOro = wOrographic;
+    let rainShadowAtten = 1.0 - cloud.u_rainShadowFeedback * clamp(-wOro * 40.0, 0.0, 0.85) * stratumCoupling;
+    var baseDensity = clamp((rawCloud + effOrographicLift) * poleAtten, 0.0, 1.0);
+    baseDensity *= rainShadowAtten;
+    let condensedCloud = baseDensity;
 
     // Backward compatibility deltaH variables
     let deltaH = (elevEast - elevWest) / 8848.0;
@@ -390,7 +396,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let orographicFactor = 1.0 + (windwardBoost - leewardShadow) * stratumCoupling;
 
     // Invariant §10 standard: smoothstep(0.02, 0.20, in.facing)
-    // Contract baseline: if (cloud.u_unfurl < 0.20 && in.facing < 0.02) { discard; }
     // Tailored for elevated tropospheric cloud shells (RFC Mechanic 2):
     let horizonAtten = smoothstep(-0.015, 0.04, in.facing);
     if (cloud.u_unfurl < 0.20 && in.facing < -0.015) {
@@ -399,7 +404,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // Feathering threshold < 20%:
     // Values below 20% cloud fraction feather to 0 to prevent harsh blocky pixel steps from 0.25° GFS resolution.
-    // Baseline raw feathering: let featheredCloud = smoothstep(0.0, 0.20, rawCloud);
     let featheredCloud = smoothstep(0.0, 0.20, condensedCloud);
     let effectiveCloud = clamp(condensedCloud * featheredCloud, 0.0, 1.0);
 
@@ -428,7 +432,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let phaseFactor = clamp(phase * 4.0 * PI, 0.6, 1.4);
 
     let NdotL = max(0.0, dot(in.normal, sunDir));
-    let selfShadow = mix(0.70, 1.0, NdotL);
+    let selfShadow = mix(1.0 - cloud.u_shadowIntensity * 0.5, 1.0, NdotL);
 
     // Invariant §28: Exhaustive Multi-Medium Shader Parity
     // Explicit branches for u_theme == 0u, 1u, and 2u with period-accurate archival inks:

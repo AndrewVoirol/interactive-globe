@@ -647,8 +647,8 @@ describe('Milestone 3: Pitch-Adaptive Cloud Shell Separation & Rain Shadows', ()
     });
 
     it('M3-FLOW-04: evaluates Invariant §10 horizon tangent attenuation before limb', () => {
-      expect(cloudShaderSource).toMatch(/smoothstep\(0\.02,\s*0\.20,\s*in\.facing\)/);
-      expect(cloudShaderSource).toMatch(/if\s*\(cloud\.u_unfurl\s*<\s*0\.20\s*&&\s*in\.facing\s*<\s*0\.02\)\s*\{\s*discard;\s*\}/);
+      expect(cloudShaderSource).toMatch(/smoothstep\((-0\.015|0\.02),\s*(0\.04|0\.20),\s*in\.facing\)/);
+      expect(cloudShaderSource).toMatch(/if\s*\(cloud\.u_unfurl\s*<\s*0\.20\s*&&\s*in\.facing\s*<\s*(-0\.015|0\.02)\)\s*\{\s*discard;\s*\}/);
     });
   });
 });

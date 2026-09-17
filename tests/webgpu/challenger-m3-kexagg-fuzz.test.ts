@@ -367,7 +367,7 @@ describe('Challenger M3: Adversarial k_exagg Monte Carlo & Mathematical Stabilit
       // Must modulate baseStandoff
       expect(cloudShaderSource).toMatch(/let\s+effStandoff\s*=\s*baseStandoff\s*\*\s*k_exagg;/);
       // Must use additive terrain-following displacement
-      expect(cloudShaderSource).toMatch(/let\s+totalOffset\s*=\s*crustDisp\s*\+\s*effStandoff;/);
+      expect(cloudShaderSource).toMatch(/(?:let|var)\s+totalOffset\s*=\s*crustDisp\s*\+\s*effStandoff;/);
       // Obsolete stratum-dampening defect must not exist
       expect(cloudShaderSource).not.toMatch(/terrainDamp/);
     });

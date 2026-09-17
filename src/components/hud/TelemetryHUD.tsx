@@ -116,6 +116,8 @@ export interface TelemetryHUDProps {
   onPrognosticVariableChange?: (variable: string) => void;
   timelineMinutes?: number;
   onTimelineChange?: (state: TimelineScrubberState) => void;
+  purityMode?: boolean;
+  onPurityModeToggle?: () => void;
 }
 
 export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
@@ -223,6 +225,8 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onPrognosticVariableChange={props.onPrognosticVariableChange}
         timelineMinutes={props.timelineMinutes}
         onTimelineChange={props.onTimelineChange}
+        purityMode={props.purityMode}
+        onPurityModeToggle={props.onPurityModeToggle}
       />
 
       {/* Bottom-Left Non-Intrusive Glassmorphic Toast Notification Stack */}

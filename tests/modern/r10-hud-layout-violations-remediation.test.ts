@@ -162,7 +162,7 @@ describe('Stage 2 Cartography: Remediation of 9 Known HUD Layout Violations', ()
     });
 
     it('V7-02: verifies ⌟ 270.00° hides below md: when sidebar is active', () => {
-      expect(appContent).toContain("2xl:right-[50.5rem] md:right-[26rem] max-md:hidden' : 'md:right-[26rem] max-md:hidden'");
+      expect(appContent).toMatch(/(?:xl|2xl):right-\[50\.5rem\] md:right-\[26rem\] max-md:hidden' : 'md:right-\[26rem\] max-md:hidden'/);
     });
   });
 

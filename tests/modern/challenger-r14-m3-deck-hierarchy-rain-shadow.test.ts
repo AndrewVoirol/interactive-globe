@@ -131,17 +131,22 @@ export function evaluate2DOrographicCondensation(
   windVel: [number, number],
   gradH: [number, number],
   rawCloud: number,
-  layerIdx: number
+  layerIdx: number,
+  rainShadowFeedback: number = 0.0
 ): {
   wOrographic: number;
   orographicLift: number;
   condensedCloud: number;
+  rainShadowAtten: number;
 } {
   const wOrographic = windVel[0] * gradH[0] + windVel[1] * gradH[1];
   const stratumCoupling = layerIdx >= 1 ? (layerIdx === 2 ? 0.15 : 0.50) : 1.0;
   const orographicLift = 0.35 * Math.tanh(0.05 * wOrographic * 50.0) * stratumCoupling;
-  const condensedCloud = Math.max(0.0, Math.min(1.0, rawCloud + orographicLift));
-  return { wOrographic, orographicLift, condensedCloud };
+  const wOro = wOrographic;
+  const rainShadowAtten = 1.0 - rainShadowFeedback * Math.max(0.0, Math.min(0.85, -wOro * 40.0)) * stratumCoupling;
+  let baseDensity = Math.max(0.0, Math.min(1.0, rawCloud + orographicLift));
+  baseDensity *= rainShadowAtten;
+  return { wOrographic, orographicLift, condensedCloud: baseDensity, rainShadowAtten };
 }
 
 describe('Challenger Suite M3-IT2: Deck Hierarchy Preservation, Subterranean Clearance & Rain Shadows', () => {
@@ -379,6 +384,24 @@ describe('Challenger Suite M3-IT2: Deck Hierarchy Preservation, Subterranean Cle
       expect(leeward.wOrographic).toBeLessThan(0);
       expect(leeward.condensedCloud).toBeLessThan(0.30);
     });
+
+    it('CHALLENGE-ORO-08: u_rainShadowFeedback dynamically amplifies leeward rain shadow dissolution', () => {
+      // Westerly wind over Alps into Po Valley (wOro < 0)
+      const westerly: [number, number] = [15.0, 0.0];
+      const poSlopeGrad: [number, number] = [-0.06, 0.0]; // descent
+
+      const uncoupled = evaluate2DOrographicCondensation(westerly, poSlopeGrad, 0.35, 0, 0.0);
+      const coupledHalf = evaluate2DOrographicCondensation(westerly, poSlopeGrad, 0.35, 0, 0.5);
+      const coupledMax = evaluate2DOrographicCondensation(westerly, poSlopeGrad, 0.35, 0, 1.0);
+
+      expect(uncoupled.wOrographic).toBeLessThan(0);
+      expect(uncoupled.rainShadowAtten).toBe(1.0);
+      expect(coupledHalf.rainShadowAtten).toBeLessThan(1.0);
+      expect(coupledMax.rainShadowAtten).toBeLessThan(coupledHalf.rainShadowAtten);
+
+      expect(coupledHalf.condensedCloud).toBeLessThan(uncoupled.condensedCloud);
+      expect(coupledMax.condensedCloud).toBeLessThan(coupledHalf.condensedCloud);
+    });
   });
 
   // ==========================================================================
@@ -392,8 +415,8 @@ describe('Challenger Suite M3-IT2: Deck Hierarchy Preservation, Subterranean Cle
     });
 
     it('CHALLENGE-AUDIT-02: Verifies cloud_shell.wgsl executes unified additive terrain following', () => {
-      // Line 220 in cloud_shell.wgsl: let totalOffset = crustDisp + effStandoff;
-      expect(cloudShaderSource).toMatch(/let\s+totalOffset\s*=\s*crustDisp\s*\+\s*effStandoff\s*;/);
+      // Line 220 in cloud_shell.wgsl: var totalOffset = crustDisp + effStandoff;
+      expect(cloudShaderSource).toMatch(/(?:let|var)\s+totalOffset\s*=\s*crustDisp\s*\+\s*effStandoff\s*;/);
     });
 
     it('CHALLENGE-AUDIT-03: Verifies worker test and production engine share identical dispScale = 0.08', () => {
@@ -413,6 +436,18 @@ describe('Challenger Suite M3-IT2: Deck Hierarchy Preservation, Subterranean Cle
     it('CHALLENGE-AUDIT-04: Verifies Invariant §15 DEM decoding parity in cloud_shell.wgsl', () => {
       // demSample.a * 19772.0 - 10924.0
       expect(cloudShaderSource).toMatch(/demSample\.a\s*\*\s*19772\.0\s*-\s*10924\.0/);
+    });
+
+    it('CHALLENGE-AUDIT-05: Verifies active consumption of u_shadowIntensity without uniform placebo', () => {
+      // cloud.u_shadowIntensity must be consumed in selfShadow calculation instead of hardcoded 0.70
+      expect(cloudShaderSource).toContain('let selfShadow = mix(1.0 - cloud.u_shadowIntensity * 0.5, 1.0, NdotL);');
+      expect(cloudShaderSource).not.toContain('let selfShadow = mix(0.70, 1.0, NdotL);');
+    });
+
+    it('CHALLENGE-AUDIT-06: Verifies active consumption of u_rainShadowFeedback in orographic attenuation', () => {
+      // cloud.u_rainShadowFeedback must be consumed in rainShadowAtten and baseDensity
+      expect(cloudShaderSource).toContain('let rainShadowAtten = 1.0 - cloud.u_rainShadowFeedback * clamp(-wOro * 40.0, 0.0, 0.85) * stratumCoupling;');
+      expect(cloudShaderSource).toContain('baseDensity *= rainShadowAtten;');
     });
   });
 });

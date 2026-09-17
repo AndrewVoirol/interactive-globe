@@ -44,7 +44,7 @@ describe('Stage 2: Precipitation Texture Binding & Pluvial Valley Swelling', () 
       expect(shaderSrc).toMatch(/u_pluvial_gamma\s*:\s*f32\s*,\s*\/\/\s*offset\s*288/);
       expect(shaderSrc).toMatch(/u_weatherOpticalMode\s*:\s*u32\s*,\s*\/\/\s*offset\s*292/);
       expect(shaderSrc).toMatch(/(?:u_lclBypass|_padPrecip0)\s*:\s*f32\s*,\s*\/\/\s*offset\s*296/);
-      expect(shaderSrc).toMatch(/_padPrecip1\s*:\s*f32\s*,\s*\/\/\s*offset\s*300/);
+      expect(shaderSrc).toMatch(/(?:u_purityMode|_padPrecip1)\s*:\s*f32\s*,\s*\/\/\s*offset\s*300/);
 
       // Alignment verification: byte offset 288 is multiple of 16
       expect(288 % 16).toBe(0);

@@ -360,8 +360,10 @@ describe('Challenger M1: Adversarial Kinematics & Ground Clearance Stress Harnes
       expect(content).not.toContain('format: "depth24plus"');
 
       // Verify all 8 Pass 1 render pipelines use depth32float
-      const occurrences = (content.match(/format:\s*['"]depth32float['"]/g) || []).length;
-      expect(occurrences).toBe(9);
+      const matches = content.match(/format:\s*['"]depth32float['"]/g) || [];
+      const occurrences = matches.length;
+      expect(occurrences).toBe(8);
+      expect(matches.length).toBe(8);
     });
 
     it('CHALLENGE-M1-15: confirms Pass 1 mainRenderPass retains depthStoreOp: store for Pass 2 volumetric raymarcher', () => {

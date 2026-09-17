@@ -23,7 +23,7 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
         type: 'Monochrome Relief & Isolines',
         details: 'Cartographic Eduard Imhof relief shading, analytical elevation isocontours & bathymetric isobaths matching Theme 0/1',
         visible: true,
-        url: '/earth-elevation-dem.webp',
+        url: '/earth-etopo2022-dem-u16.bin',
         opacity: 0.95,
         blendMode: 0,
         displacementScale: 0.10,

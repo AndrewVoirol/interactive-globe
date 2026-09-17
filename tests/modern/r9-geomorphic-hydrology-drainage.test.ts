@@ -61,7 +61,7 @@ describe('Stage 1 Geomorphic Hydrology Drainage & Invariant Verification', () =>
       expect(ratio).toBeLessThanOrEqual(0.60);
       expect(minRiverWidth).toBeLessThan(1.0); // Hairline headwaters
 
-      expect(shaderSrc).toContain('let riverWidthPx = mix(0.40, 1.98, descentAccum);');
+      expect(shaderSrc).toContain('var riverWidthPx = mix(0.40, 1.98, descentAccum);');
     });
 
     it('HYDRO-04: evaluates continuous self-tapering width from alpine cirques to coastal estuaries', () => {

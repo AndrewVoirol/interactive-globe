@@ -169,7 +169,7 @@ describe('Adversarial Challenger Suite: Cloud Shell WGSL Control Flow & Shader I
     });
 
     it('CHALLENGE-M3-08: Limb discard condition triggers only for globe mode (u_unfurl < 0.20) with back-facing fragments', () => {
-      expect(cloudShellWGSL).toContain('if (cloud.u_unfurl < 0.20 && in.facing < 0.02)');
+      expect(cloudShellWGSL).toContain('if (cloud.u_unfurl < 0.20 && in.facing < -0.015)');
       // Flat map mode (u_unfurl >= 0.20) never triggers limb discard
     });
   });

@@ -287,9 +287,8 @@ describe('Dual-Surface Lithosphere Crust & Liquid Hydrosphere (M1-T3)', () => {
       const matchedDrawIndexed = drawIndexedCalls.find(([count]) => count === expectedCount);
       expect(matchedDrawIndexed).toBeDefined();
 
-      // 3. Verify swissReliefPipeline 2D flat quad draw(4) was NOT called
-      const swissPipeline = (engine as any).swissReliefPipeline;
-      expect(setPipelineCalls).not.toContain(swissPipeline);
+      // 3. Verify swissReliefPipeline has been decommissioned
+      expect((engine as any).swissReliefPipeline).toBeUndefined();
 
       engine.dispose();
     });

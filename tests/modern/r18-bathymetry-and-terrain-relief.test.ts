@@ -308,10 +308,10 @@ describe('R18: Ocean Trenches, Bathymetry & Terrain Relief Remediation', () => {
     });
 
     it('R18-TERRAIN-06: verifies stratum isolation separates montane plateau (h < 5200m) from glacial summit (h >= 5200m)', () => {
-      expect(shaderSrc).toContain('} else if (input.elevation < 5200.0) {');
+      expect(shaderSrc).toContain('} else if (elevMeters < 5200.0) {');
       expect(shaderSrc).toContain('currentStratum = 3u; // Steppe / Montane Plateaus');
       expect(shaderSrc).toContain('currentStratum = 4u; // Glacial Summits & Alpine Ridges');
-      expect(shaderSrc).toContain('if (input.elevation < -5500.0) {');
+      expect(shaderSrc).toContain('if (elevMeters < -5500.0) {');
       expect(shaderSrc).toContain('currentStratum = 0u; // Abyssal Trench');
     });
   });

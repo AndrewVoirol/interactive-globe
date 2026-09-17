@@ -112,6 +112,8 @@ export interface UnifiedRightSidebarProps {
   prognosticModel?: PrognosticModelBackend; onPrognosticModelChange?: (model: PrognosticModelBackend) => void;
   prognosticVariable?: string; onPrognosticVariableChange?: (variable: string) => void;
   timelineMinutes?: number; onTimelineChange?: (state: TimelineScrubberState) => void;
+  purityMode?: boolean;
+  onPurityModeToggle?: () => void;
 }
 
 export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
@@ -201,6 +203,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   weatherOpticalMode: propWeatherOpticalMode, onWeatherOpticalModeChange,
   thermodynamicGating: propThermodynamicGating, onThermodynamicGatingChange,
   timelineMinutes, onTimelineChange,
+  purityMode = false,
+  onPurityModeToggle,
 }) => {
   const handleToggleClouds = (val: boolean) => {
     onShowCloudsChange?.(val);
@@ -1039,6 +1043,30 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     />
                   </div>
 
+                  {/* 4b. Purity Diagnostic Station */}
+                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] flex items-center justify-between transition-all shadow-sm">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                          Purity · DEM Only
+                        </span>
+                        <span className="text-nano font-mono font-bold px-1 py-0.2 rounded-[2px] bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border border-[var(--theme-status-sage)]/30 uppercase">
+                          RAW
+                        </span>
+                      </div>
+                      <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+                        Archival substrate + pure DEM mesh (zero atmosphere/water)
+                      </span>
+                    </div>
+                    <TactileSwitch
+                      checked={Boolean(purityMode)}
+                      onChange={onPurityModeToggle || (() => {})}
+                      title="Toggle Geodetic Purity Diagnostic Mode (Strips water, atmosphere, clouds, and wind)"
+                      label={purityMode ? 'Active' : 'Off'}
+                      indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#10B981'}
+                    />
+                  </div>
+
                   {/* 5. Collapsible Experimental / Beta Section */}
                   <div className="rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] transition-all shadow-sm overflow-hidden">
                     <button
@@ -1639,10 +1667,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                 </div>
                 {backend === 'webgpu' && gpuReport && (
                   <div className="grid grid-cols-4 gap-1 font-mono opacity-80 text-nano">
-                    <span>Sim: {(gpuReport.computeMs ?? 0).toFixed(2)}ms</span>
-                    <span>Render: {(gpuReport.reliefMs ?? 0).toFixed(2)}ms</span>
-                    <span>Lines: {(gpuReport.linesMs ?? 0).toFixed(2)}ms</span>
-                    <span>Contours: {(gpuReport.contoursMs ?? 0).toFixed(2)}ms</span>
+                    <span>Sim: {(gpuReport.computeMs ?? 0).toFixed(1)}ms</span>
+                    <span>Crust: {(gpuReport.reliefMs ?? 0).toFixed(1)}ms</span>
+                    <span>Lines: {(gpuReport.linesMs ?? 0).toFixed(1)}ms</span>
+                    <span>Cont: {(gpuReport.contoursMs ?? 0).toFixed(1)}ms</span>
                   </div>
                 )}
               </div>
@@ -1655,7 +1683,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       {isCatalogOpen && (
         <div
           ref={catalogSheetRef}
-          className="fixed top-5 right-5 2xl:right-[26.5rem] z-40 pointer-events-auto w-96 max-w-[calc(100vw-2.5rem)] 2xl:max-w-[calc(100vw-28rem)] max-h-[calc(100vh-2.5rem)] 2xl:max-h-[calc(100vh-8.5rem)] flex flex-col font-mono select-none rounded-[3px] border backdrop-blur-2xl shadow-2xl p-4 text-micro transition-all duration-300 ease-out animate-in fade-in slide-in-from-right-4 border-[var(--theme-panel-border)] bg-[var(--theme-panel-bg)] text-[var(--theme-text-primary)]"
+          className="fixed top-5 right-5 xl:right-[26.5rem] z-40 pointer-events-auto w-96 max-w-[calc(100vw-2.5rem)] xl:max-w-[calc(100vw-28rem)] max-h-[calc(100vh-2.5rem)] xl:max-h-[calc(100vh-8.5rem)] 2xl:max-h-[calc(100vh-8.5rem)] flex flex-col font-mono select-none rounded-[3px] border backdrop-blur-2xl shadow-2xl p-4 text-micro transition-all duration-300 ease-out animate-in fade-in slide-in-from-right-4 border-[var(--theme-panel-border)] bg-[var(--theme-panel-bg)] text-[var(--theme-text-primary)]"
         >
           <div className="flex items-center justify-between pb-3 border-b border-[var(--theme-panel-border)]">
             <div>

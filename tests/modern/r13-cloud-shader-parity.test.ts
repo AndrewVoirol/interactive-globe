@@ -169,7 +169,7 @@ describe('Milestone 3: Cloud Shell WGSL Shader & Inking (R1, R4 / F28, F29)', ()
     });
 
     it('M3-HORIZON-02: Discards fragments past the planetary limb when in globe mode (u_unfurl < 0.20)', () => {
-      expect(cloudShellWGSL).toContain('if (cloud.u_unfurl < 0.20 && in.facing < 0.02)');
+      expect(cloudShellWGSL).toContain('if (cloud.u_unfurl < 0.20 && in.facing < -0.015)');
     });
   });
 
@@ -257,7 +257,7 @@ describe('Milestone 3: Cloud Shell WGSL Shader & Inking (R1, R4 / F28, F29)', ()
 
     it('M3-MORPH-02: Incorporates orographic terrain lift coupled to DEM elevation', () => {
       expect(cloudShellWGSL).toContain('let normH = max(0.0, elevMeters) / 8848.0;');
-      expect(cloudShellWGSL).toContain('let crustDisp = pow(normH, max(0.5, dynamicExp)) * (cloud.u_layerStandoff.w * 2.8) * poleAtten;');
+      expect(cloudShellWGSL).toContain('let crustDisp = pow(shapedH, dynamicExp) * (cloud.u_layerStandoff.w * 2.8) * poleAtten;');
     });
   });
 
@@ -285,7 +285,7 @@ describe('Milestone 3: Cloud Shell WGSL Shader & Inking (R1, R4 / F28, F29)', ()
 
   describe('9. Feathering Threshold & Altitude-Dependent Opacity (R1)', () => {
     it('M3-FEATHER-01: Values below 20% cloud fraction feather to 0 to prevent blocky 0.25° grid steps', () => {
-      expect(cloudShellWGSL).toContain('let featheredCloud = smoothstep(0.0, 0.20, rawCloud);');
+      expect(cloudShellWGSL).toContain('let featheredCloud = smoothstep(0.0, 0.20, condensedCloud);');
 
       // Behavioral verification of feathering curve:
       // Values <= 0.0 yield 0.0

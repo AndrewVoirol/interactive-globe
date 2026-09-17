@@ -103,22 +103,20 @@ describe('Challenger M1-2: Adversarial Depth Pipeline & Buffer Verification', ()
       ).toBe(0);
     });
 
-    it('CH-M1-02 [All 8 Pass 1 Pipelines]: asserts all 8 render pipelines specify format: depth32float', () => {
-      // 8 distinct Pass 1 render pipelines in WebGPUEngine.ts:
+    it('CH-M1-02 [All 7 Pass 1 Pipelines]: asserts all 7 render pipelines specify format: depth32float', () => {
+      // 7 distinct Pass 1 render pipelines in WebGPUEngine.ts:
       // 1. windRibbonPipeline
       // 2. pointsRenderPipeline
       // 3. linesRenderPipeline
-      // 4. swissReliefPipeline
-      // 5. vectorRibbonPipeline
-      // 6. crustHydrospherePipeline
-      // 7. cloudPipeline
-      // 8. atmosphereScatterPipeline
+      // 4. vectorRibbonPipeline
+      // 5. crustHydrospherePipeline
+      // 6. cloudPipeline
+      // 7. atmosphereScatterPipeline
 
       const pipelineNames = [
         'windRibbonPipeline',
         'pointsRenderPipeline',
         'linesRenderPipeline',
-        'swissReliefPipeline',
         'vectorRibbonPipeline',
         'crustHydrospherePipeline',
         'cloudPipeline',
@@ -136,8 +134,8 @@ describe('Challenger M1-2: Adversarial Depth Pipeline & Buffer Verification', ()
       const pipelineCreations = engineSource.match(/createRenderPipeline\s*\(/g) || [];
       expect(
         pipelineCreations.length,
-        'Expected exactly 8 createRenderPipeline calls in WebGPUEngine.ts'
-      ).toBe(8);
+        'Expected exactly 7 createRenderPipeline calls in WebGPUEngine.ts'
+      ).toBe(7);
 
       // Find every depthStencil block across all pipelines
       // Regex matches depthStencil: { ... } blocks
@@ -160,8 +158,8 @@ describe('Challenger M1-2: Adversarial Depth Pipeline & Buffer Verification', ()
 
       expect(
         depthStencilBlocksCount,
-        'All 8 render pipelines must define an active depthStencil descriptor block'
-      ).toBe(8);
+        'All 7 render pipelines must define an active depthStencil descriptor block'
+      ).toBe(7);
     });
 
     it('CH-M1-03 [Texture Creation Usages]: asserts depthTexture creation specifies RENDER_ATTACHMENT and TEXTURE_BINDING', () => {
@@ -301,7 +299,6 @@ describe('Challenger M1-2: Adversarial Depth Pipeline & Buffer Verification', ()
       const pipelines = [
         { name: 'pointsRenderPipeline', pipe: (engine as any).pointsRenderPipeline },
         { name: 'linesRenderPipeline', pipe: (engine as any).linesRenderPipeline },
-        { name: 'swissReliefPipeline', pipe: (engine as any).swissReliefPipeline },
         { name: 'vectorRibbonPipeline', pipe: (engine as any).vectorRibbonPipeline },
         { name: 'crustHydrospherePipeline', pipe: (engine as any).crustHydrospherePipeline },
       ];

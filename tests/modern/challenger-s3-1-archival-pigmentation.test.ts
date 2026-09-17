@@ -375,7 +375,7 @@ describe('Challenger S3-1: Archival Pigmentation & Weather Optical Modes Adversa
       expect(shaderSrc).toContain('u_pluvial_gamma: f32, // offset 288 (float 72)');
       expect(shaderSrc).toContain('u_weatherOpticalMode: u32, // offset 292 (uint 73)');
       expect(shaderSrc).toMatch(/(?:u_lclBypass|_padPrecip0):\s*f32,\s*\/\/\s*offset\s*296/);
-      expect(shaderSrc).toContain('_padPrecip1: f32, // offset 300 (float 75)');
+      expect(shaderSrc).toMatch(/(?:u_purityMode|_padPrecip1):\s*f32,\s*\/\/\s*offset\s*300/);
     });
 
     it('verifies Invariant §28: apply_weather_pigmentation contains explicit branches for Theme 0, Theme 1, and Theme 2', () => {

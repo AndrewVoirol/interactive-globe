@@ -16,7 +16,6 @@ export { isWebGPUSupported, getWebGPUDevice, getWebGPUAdapter };
 import physicsSimWGSL from './shaders/physics_sim.wgsl?raw';
 import pointsRenderWGSL from './shaders/points_render.wgsl?raw';
 import linesRenderWGSL from './shaders/lines_render.wgsl?raw';
-import swissReliefWGSL from './shaders/swiss_relief_shading.wgsl?raw';
 import vectorRibbonWGSL from './shaders/vector_ribbon.wgsl?raw';
 import crustHydrosphereWGSL from './shaders/crust_hydrosphere.wgsl?raw';
 import demUnpackWGSL from './shaders/dem_unpack.wgsl?raw';
@@ -26,6 +25,8 @@ import cloudShellWGSL from './shaders/cloud_shell.wgsl?raw';
 import atmosphereScatterWGSL from './shaders/atmosphere_scatter.wgsl?raw';
 import cloudNoiseComputeWGSL from './shaders/cloud_noise_compute.wgsl?raw';
 import volumetricCloudWGSL from './shaders/volumetric_cloud.wgsl?raw';
+import substrateMicroReliefWGSL from './shaders/substrate_micro_relief.wgsl?raw';
+import paperCompositionWGSL from './shaders/paper_composition.wgsl?raw';
 import { GPUProfiler } from './profiling/GPUProfiler';
 import { encodeFloat16 } from '../core/math/float16';
 import { parseTLE, propagateOrbitalPosition } from '../core/math/sgp4';
@@ -129,7 +130,20 @@ export interface WebGPUFrameParams {
   unfurlProgress?: number;
   width?: number;
   height?: number;
+  purityMode?: boolean;
+  substrateHaptics?: boolean;
+  paperSubstrate?: boolean;
+  fiberFrequency?: number;
+  fiberAnisotropy?: number;
+  plateMarkDepthMeters?: number;
+  inkRidgeHeightMeters?: number;
+  grainAngleRadians?: number;
+  sheenIntensity?: number;
+  absorptionFeathering?: number;
+  cameraPitchDeg?: number;
 }
+
+export type RenderParameters = WebGPUFrameParams;
 
 export interface CloudDimensions {
   width: number;
@@ -191,7 +205,6 @@ export class WebGPUEngine {
   private reliefUniformBuffer!: GPUBuffer;
   private reliefFloats: Float32Array = new Float32Array(16);
   private reliefUints: Uint32Array = new Uint32Array(this.reliefFloats.buffer);
-  private swissReliefPipeline!: GPURenderPipeline;
   private reliefBindGroupLayout!: GPUBindGroupLayout;
   private reliefBindGroup!: GPUBindGroup;
 
@@ -451,6 +464,9 @@ export class WebGPUEngine {
   public satelliteSegmentBuffer: GPUBuffer | null = null;
   public satelliteSegmentCount: number = 0;
 
+  // Purity Diagnostic Mode (R4)
+  public purityMode: boolean = false;
+
   // Atmospheric Wind Streamlines & Multi-Stratum Pipelines
   public readonly windParticleCount: number = 131072;
   public showSurfaceWinds: boolean = true;
@@ -525,6 +541,37 @@ export class WebGPUEngine {
 
   private cloudLayerUpdateFloats: Float32Array = new Float32Array(4);
   private cloudLayerUpdateU32: Uint32Array = new Uint32Array(this.cloudLayerUpdateFloats.buffer);
+
+  // ==========================================================================
+  // Section 6: Cartographic Intaglio Printing Haptics & Paper Tooth Micro-Deformations
+  // ==========================================================================
+  public substrateMicroReliefPipeline: GPUComputePipeline | null = null;
+  public substrateMicroReliefBindGroupLayout: GPUBindGroupLayout | null = null;
+  public substrateMicroReliefBindGroup: GPUBindGroup | null = null;
+
+  public paperCompositionPipeline: GPURenderPipeline | null = null;
+  public paperCompositionBindGroupLayout: GPUBindGroupLayout | null = null;
+  public paperCompositionBindGroup: GPUBindGroup | null = null;
+
+  public paperSubstrateUniformBuffer: GPUBuffer | null = null;
+  public paperSubstrateFloats: Float32Array = new Float32Array(8);
+
+  public substrateConfigUniformBuffer: GPUBuffer | null = null;
+  public substrateConfigFloats: Float32Array = new Float32Array(4);
+  public substrateConfigUints: Uint32Array = new Uint32Array(this.substrateConfigFloats.buffer);
+
+  public compositionLightingUniformBuffer: GPUBuffer | null = null;
+  public compositionLightingFloats: Float32Array = new Float32Array(12);
+  public compositionLightingUints: Uint32Array = new Uint32Array(this.compositionLightingFloats.buffer);
+
+  public sceneColorTexture: GPUTexture | null = null;
+  public sceneColorTextureView: GPUTextureView | null = null;
+  public paperNormalTexture: GPUTexture | null = null;
+  public paperNormalTextureView: GPUTextureView | null = null;
+  public substrateSampler: GPUSampler | null = null;
+  public substrateWidth: number = 0;
+  public substrateHeight: number = 0;
+  public paperSubstrateEnabled: boolean = false;
 
   private computeBindGroups: [GPUBindGroup, GPUBindGroup] = [null!, null!];
   private renderBindGroup!: GPUBindGroup;
@@ -639,6 +686,7 @@ export class WebGPUEngine {
     this.lineIndexCount = config.lineIndices.length;
 
     this.updateDepthTexture(config.canvas.width || 800, config.canvas.height || 600);
+    this.updateSubstrateTextures(config.canvas.width || 800, config.canvas.height || 600);
     console.log('[WebGPUEngine] creating initial textures and samplers...');
 
     // ========================================================================
@@ -3359,6 +3407,269 @@ export class WebGPUEngine {
   }
 
   // ==========================================================================
+  // Section 6: Cartographic Intaglio Printing Haptics & Paper Tooth Micro-Deformations
+  // ==========================================================================
+
+  public updateSubstrateTextures(width: number, height: number): void {
+    if (!this.device || typeof this.device.createTexture !== 'function') return;
+    const w = Math.max(1, width);
+    const h = Math.max(1, height);
+    if (this.substrateWidth === w && this.substrateHeight === h && this.sceneColorTexture && this.paperNormalTexture) {
+      return;
+    }
+    if (this.sceneColorTexture) {
+      this.sceneColorTexture.destroy();
+      this.sceneColorTexture = null;
+      this.sceneColorTextureView = null;
+    }
+    if (this.paperNormalTexture) {
+      this.paperNormalTexture.destroy();
+      this.paperNormalTexture = null;
+      this.paperNormalTextureView = null;
+    }
+    this.substrateMicroReliefBindGroup = null;
+    this.paperCompositionBindGroup = null;
+    this.substrateWidth = w;
+    this.substrateHeight = h;
+
+    try {
+      this.sceneColorTexture = this.device.createTexture({
+        label: 'scene_color_texture',
+        size: [w, h, 1],
+        format: this.format,
+        usage: typeof GPUTextureUsage !== 'undefined'
+          ? (GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING)
+          : (16 | 4),
+      });
+      this.sceneColorTextureView = this.sceneColorTexture.createView({ label: 'scene_color_view' });
+
+      this.paperNormalTexture = this.device.createTexture({
+        label: 'paper_normal_texture',
+        size: [w, h, 1],
+        format: 'rgba8snorm',
+        usage: typeof GPUTextureUsage !== 'undefined'
+          ? (GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING)
+          : (8 | 4),
+      });
+      this.paperNormalTextureView = this.paperNormalTexture.createView({ label: 'paper_normal_view' });
+
+      if (!this.substrateSampler) {
+        this.substrateSampler = this.device.createSampler({
+          label: 'substrate_linear_sampler',
+          minFilter: 'linear',
+          magFilter: 'linear',
+          addressModeU: 'clamp-to-edge',
+          addressModeV: 'clamp-to-edge',
+        });
+      }
+
+      this.updateSubstrateBindGroups();
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  public updateSubstrateBindGroups(): void {
+    if (!this.device || !this.substrateMicroReliefBindGroupLayout || !this.paperCompositionBindGroupLayout) return;
+    if (!this.sceneColorTextureView || !this.paperNormalTextureView || !this.substrateSampler) return;
+    if (!this.paperSubstrateUniformBuffer || !this.substrateConfigUniformBuffer || !this.compositionLightingUniformBuffer) return;
+
+    try {
+      this.substrateMicroReliefBindGroup = this.device.createBindGroup({
+        label: 'substrate_micro_relief_bind_group',
+        layout: this.substrateMicroReliefBindGroupLayout,
+        entries: [
+          { binding: 0, resource: this.sceneColorTextureView },
+          { binding: 1, resource: this.substrateSampler },
+          { binding: 2, resource: { buffer: this.paperSubstrateUniformBuffer } },
+          { binding: 3, resource: { buffer: this.substrateConfigUniformBuffer } },
+          { binding: 4, resource: this.paperNormalTextureView },
+        ],
+      });
+
+      this.paperCompositionBindGroup = this.device.createBindGroup({
+        label: 'paper_composition_bind_group',
+        layout: this.paperCompositionBindGroupLayout,
+        entries: [
+          { binding: 0, resource: this.sceneColorTextureView },
+          { binding: 1, resource: this.paperNormalTextureView },
+          { binding: 2, resource: this.substrateSampler },
+          { binding: 3, resource: { buffer: this.paperSubstrateUniformBuffer } },
+          { binding: 4, resource: { buffer: this.compositionLightingUniformBuffer } },
+        ],
+      });
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  public ensureSubstrateHapticsBuffers(): void {
+    if (!this.device) return;
+    if (this.paperSubstrateUniformBuffer && this.substrateConfigUniformBuffer && this.compositionLightingUniformBuffer) {
+      return;
+    }
+
+    try {
+      if (!this.paperSubstrateUniformBuffer) {
+        this.paperSubstrateUniformBuffer = this.device.createBuffer({
+          label: 'paper_substrate_uniform_buffer',
+          size: 32,
+          usage: typeof GPUBufferUsage !== 'undefined'
+            ? (GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST)
+            : (64 | 8),
+        });
+      }
+
+      if (!this.substrateConfigUniformBuffer) {
+        this.substrateConfigUniformBuffer = this.device.createBuffer({
+          label: 'substrate_config_uniform_buffer',
+          size: 16,
+          usage: typeof GPUBufferUsage !== 'undefined'
+            ? (GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST)
+            : (64 | 8),
+        });
+      }
+
+      if (!this.compositionLightingUniformBuffer) {
+        this.compositionLightingUniformBuffer = this.device.createBuffer({
+          label: 'composition_lighting_uniform_buffer',
+          size: 48,
+          usage: typeof GPUBufferUsage !== 'undefined'
+            ? (GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST)
+            : (64 | 8),
+        });
+      }
+
+      this.updateSubstrateBindGroups();
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  public initSubstrateHapticsPipelines(): void {
+    if (!this.device) return;
+
+    try {
+      // 1. Substrate Micro-Relief Compute Pipeline
+      const microReliefModule = this.device.createShaderModule({
+        label: 'substrate_micro_relief_shader',
+        code: substrateMicroReliefWGSL,
+      });
+
+      this.substrateMicroReliefBindGroupLayout = this.device.createBindGroupLayout({
+        label: 'substrate_micro_relief_bind_group_layout',
+        entries: [
+          { binding: 0, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 1, visibility: GPUShaderStage.COMPUTE, sampler: { type: 'filtering' } },
+          { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+          { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+          { binding: 4, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'rgba8snorm', viewDimension: '2d' } },
+        ],
+      });
+
+      const microReliefLayout = this.device.createPipelineLayout({
+        label: 'substrate_micro_relief_pipeline_layout',
+        bindGroupLayouts: [this.substrateMicroReliefBindGroupLayout],
+      });
+
+      this.substrateMicroReliefPipeline = this.device.createComputePipeline({
+        label: 'substrate_micro_relief_compute_pipeline',
+        layout: microReliefLayout,
+        compute: {
+          module: microReliefModule,
+          entryPoint: 'cs_main',
+        },
+      });
+
+      // 3. Paper Composition Render Pipeline
+      const compositionModule = this.device.createShaderModule({
+        label: 'paper_composition_shader',
+        code: paperCompositionWGSL,
+      });
+
+      this.paperCompositionBindGroupLayout = this.device.createBindGroupLayout({
+        label: 'paper_composition_bind_group_layout',
+        entries: [
+          { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 2, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+          { binding: 3, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+          { binding: 4, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+        ],
+      });
+
+      const compositionLayout = this.device.createPipelineLayout({
+        label: 'paper_composition_pipeline_layout',
+        bindGroupLayouts: [this.paperCompositionBindGroupLayout],
+      });
+
+      const createPipelineFn = (this.device as any)['createRenderPipeline'];
+      this.paperCompositionPipeline = createPipelineFn.call(this.device, {
+        label: 'paper_composition_render_pipeline',
+        layout: compositionLayout,
+        vertex: {
+          module: compositionModule,
+          entryPoint: 'vs_main',
+        },
+        fragment: {
+          module: compositionModule,
+          entryPoint: 'fs_main',
+          targets: [
+            {
+              format: this.format,
+              blend: {
+                color: { srcFactor: 'one', dstFactor: 'zero', operation: 'add' },
+                alpha: { srcFactor: 'one', dstFactor: 'zero', operation: 'add' },
+              },
+            },
+          ],
+        },
+        primitive: {
+          topology: 'triangle-list',
+          cullMode: 'none',
+        },
+      });
+
+      if (this.sceneColorTextureView && this.paperNormalTextureView) {
+        this.updateSubstrateBindGroups();
+      }
+    } catch (err) {
+      console.warn('[WebGPUEngine] Substrate haptics initialization failed (mock/headless guard):', err);
+    }
+  }
+
+  public getPaperSubstrateUniformBuffer(): GPUBuffer | null {
+    return this.paperSubstrateUniformBuffer;
+  }
+
+  public getPaperNormalTexture(): GPUTexture | null {
+    return this.paperNormalTexture;
+  }
+
+  public getPaperNormalTextureView(): GPUTextureView | null {
+    return this.paperNormalTextureView;
+  }
+
+  public getSceneColorTexture(): GPUTexture | null {
+    return this.sceneColorTexture;
+  }
+
+  public getSceneColorTextureView(): GPUTextureView | null {
+    return this.sceneColorTextureView;
+  }
+
+  public setPaperSubstrateEnabled(enabled: boolean): void {
+    this.paperSubstrateEnabled = enabled;
+    if (enabled) {
+      this.ensureSubstrateHapticsBuffers();
+    }
+  }
+
+  public isPaperSubstrateEnabled(): boolean {
+    return this.paperSubstrateEnabled;
+  }
+
+  // ==========================================================================
   // Milestone 2: 3D Cloud Noise Texture & Slice Readback (Invariant §46, §48)
   // ==========================================================================
 
@@ -3985,7 +4296,8 @@ export class WebGPUEngine {
 
   public renderVolumetricClouds(
     commandEncoder: GPUCommandEncoder,
-    params: WebGPUFrameParams
+    params: WebGPUFrameParams,
+    targetView?: GPUTextureView
   ): void {
     if (!this.context || !this.volumetricCloudPipeline) {
       return;
@@ -4000,7 +4312,7 @@ export class WebGPUEngine {
     this.updateVolumetricUniforms(params);
 
     try {
-      const currentTextureView = this.context.getCurrentTexture().createView();
+      const currentTextureView = targetView || this.context.getCurrentTexture().createView();
       const cloudPass = commandEncoder.beginRenderPass({
         label: 'volumetric_cloud_pass_pass2',
         colorAttachments: [
@@ -4035,11 +4347,6 @@ export class WebGPUEngine {
     const linesShaderModule = this.device.createShaderModule({
       label: 'lines_render',
       code: linesRenderWGSL,
-    });
-
-    const swissReliefShaderModule = this.device.createShaderModule({
-      label: 'swiss_relief_shading',
-      code: swissReliefWGSL,
     });
 
     const vectorRibbonShaderModule = this.device.createShaderModule({
@@ -4239,42 +4546,6 @@ export class WebGPUEngine {
       },
       primitive: {
         topology: 'line-list',
-        cullMode: 'none',
-      },
-    });
-
-    // 9. Eduard Imhof Swiss Relief Shading Render Pipeline (M1-T2)
-    const reliefPipelineLayout = this.device.createPipelineLayout({
-      bindGroupLayouts: [this.reliefBindGroupLayout],
-    });
-
-    this.swissReliefPipeline = this.device.createRenderPipeline({
-      label: 'swiss_relief_pipeline',
-      layout: reliefPipelineLayout,
-      vertex: {
-        module: swissReliefShaderModule,
-        entryPoint: 'vs_main',
-      },
-      fragment: {
-        module: swissReliefShaderModule,
-        entryPoint: 'fs_swiss_relief',
-        targets: [
-          {
-            format: this.format,
-            blend: {
-              color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
-              alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
-            },
-          },
-        ],
-      },
-      depthStencil: {
-        depthWriteEnabled: false,
-        depthCompare: 'always',
-        format: 'depth32float',
-      },
-      primitive: {
-        topology: 'triangle-strip',
         cullMode: 'none',
       },
     });
@@ -4486,6 +4757,13 @@ export class WebGPUEngine {
       if (this.windParticleBuffers && this.windUniformBuffer && this.windTextureView && this.jetStreamTextureView) {
         this.updateWindBindGroups();
       }
+    } catch {
+      // Mock environment guard
+    }
+
+    // 13. Cartographic Intaglio Substrate Micro-Relief & Paper Composition Pipelines (Milestone §6)
+    try {
+      this.initSubstrateHapticsPipelines();
     } catch {
       // Mock environment guard
     }
@@ -4799,6 +5077,9 @@ export class WebGPUEngine {
       this.crustUints[73] = validMode;
       this.crustFloats[74] = 0.0;
       this.crustFloats[75] = 0.0;
+      const isPurity = params.purityMode !== undefined ? Boolean(params.purityMode) : this.purityMode;
+      this.purityMode = isPurity;
+      this.crustFloats[75] = isPurity ? 1.0 : 0.0;
       const rawLclGating = params.thermodynamicGating !== undefined
         ? params.thermodynamicGating
         : (params.lclGating !== undefined ? params.lclGating : this._lclGating);
@@ -4861,6 +5142,86 @@ export class WebGPUEngine {
       }
       this.updateCloudUniforms(params.dt, params);
     }
+
+    // 14. Cartographic Intaglio Substrate Micro-Relief & Paper Composition Uniforms (Milestone §6)
+    const isPurity = params.purityMode !== undefined ? Boolean(params.purityMode) : Boolean(this.purityMode);
+    const showHaptics = !isPurity && Boolean(
+      params.substrateHaptics ||
+      params.paperSubstrate ||
+      this.paperSubstrateEnabled
+    );
+
+    if (showHaptics) {
+      this.ensureSubstrateHapticsBuffers();
+    }
+
+    if (
+      this.paperSubstrateUniformBuffer &&
+      this.substrateConfigUniformBuffer &&
+      this.compositionLightingUniformBuffer
+    ) {
+
+      const paperF = this.paperSubstrateFloats;
+      paperF[0] = params.fiberFrequency !== undefined ? params.fiberFrequency : 45.0;
+      paperF[1] = params.fiberAnisotropy !== undefined ? params.fiberAnisotropy : 0.65;
+      paperF[2] = params.plateMarkDepthMeters !== undefined ? params.plateMarkDepthMeters : 0.0035;
+      paperF[3] = params.inkRidgeHeightMeters !== undefined ? params.inkRidgeHeightMeters : 0.0018;
+      paperF[4] = params.grainAngleRadians !== undefined ? params.grainAngleRadians : 0.2618;
+      paperF[5] = params.sheenIntensity !== undefined
+        ? params.sheenIntensity
+        : (params.theme === 1 ? 0.85 : params.theme === 2 ? 0.50 : 0.40);
+      paperF[6] = params.absorptionFeathering !== undefined
+        ? params.absorptionFeathering
+        : (params.theme === 1 ? 0.35 : params.theme === 2 ? 0.15 : 0.20);
+      paperF[7] = 0.0;
+      this.device.queue.writeBuffer(this.paperSubstrateUniformBuffer, 0, paperF.buffer);
+
+      const canvasW = this.context?.canvas?.width || 800;
+      const canvasH = this.context?.canvas?.height || 600;
+
+      const confF = this.substrateConfigFloats;
+      const confU = this.substrateConfigUints;
+      confF[0] = canvasW;
+      confF[1] = canvasH;
+      confU[2] = params.theme !== undefined ? params.theme : 1;
+      confF[3] = showHaptics ? 1.0 : 0.0;
+      this.device.queue.writeBuffer(this.substrateConfigUniformBuffer, 0, confF.buffer);
+
+      let pitchDeg = 0.0;
+      if (params.cameraPitchDeg !== undefined) {
+        pitchDeg = params.cameraPitchDeg;
+      } else if (params.camera && (params.camera as any).pitch !== undefined) {
+        pitchDeg = Math.abs((params.camera as any).pitch) * (180.0 / Math.PI);
+      } else if ((params.camera as any)?.rotation?.x !== undefined) {
+        pitchDeg = Math.abs((params.camera as any).rotation.x) * (180.0 / Math.PI);
+      }
+
+      let camX = 0.0;
+      let camY = 0.0;
+      let camZ = 2.5;
+      if (params.camera?.position) {
+        camX = params.camera.position.x;
+        camY = params.camera.position.y;
+        camZ = params.camera.position.z;
+      }
+      const camDist = Math.hypot(camX, camY, camZ) || 2.5;
+
+      const compF = this.compositionLightingFloats;
+      const compU = this.compositionLightingUints;
+      compF[0] = params.sunAzimuth !== undefined ? params.sunAzimuth : 315.0;
+      compF[1] = params.sunAltitude !== undefined ? params.sunAltitude : 45.0;
+      compF[2] = pitchDeg;
+      compU[3] = params.theme !== undefined ? params.theme : 1;
+      compF[4] = camX;
+      compF[5] = camY;
+      compF[6] = camZ;
+      compF[7] = camDist;
+      compF[8] = canvasW;
+      compF[9] = canvasH;
+      compF[10] = showHaptics ? 1.0 : 0.0;
+      compF[11] = 0.0;
+      this.device.queue.writeBuffer(this.compositionLightingUniformBuffer, 0, compF.buffer);
+    }
   }
 
   /**
@@ -4886,6 +5247,18 @@ export class WebGPUEngine {
   public render(params: WebGPUFrameParams): void {
     if (!this.isInitialized) return;
 
+    const isPurity = params.purityMode !== undefined ? Boolean(params.purityMode) : Boolean(this.purityMode);
+    this.purityMode = isPurity;
+    const showHaptics = !isPurity && Boolean(
+      params.substrateHaptics ||
+      params.paperSubstrate ||
+      this.paperSubstrateEnabled
+    );
+
+    if (showHaptics) {
+      this.ensureSubstrateHapticsBuffers();
+    }
+
     if (params.atmosphericScale !== undefined) {
       this.atmosphericScale = params.atmosphericScale;
     }
@@ -4898,6 +5271,13 @@ export class WebGPUEngine {
     const canvasHeight = this.context.canvas?.height || 600;
     if (!this.depthTexture || this.depthTexture.width !== canvasWidth || this.depthTexture.height !== canvasHeight) {
       this.updateDepthTexture(canvasWidth, canvasHeight);
+    }
+    if (
+      !this.sceneColorTexture ||
+      this.sceneColorTexture.width !== canvasWidth ||
+      this.sceneColorTexture.height !== canvasHeight
+    ) {
+      this.updateSubstrateTextures(canvasWidth, canvasHeight);
     }
 
     // 1. Ensure cartographic buffers if relief, vectors, cloud shadows, atmosphere, or pluvial/precipitation are active
@@ -4960,7 +5340,7 @@ export class WebGPUEngine {
       : Boolean(params.showSurfaceWinds || params.showJetStream);
     const showSurf = showWind && (params.showSurfaceWinds !== undefined ? params.showSurfaceWinds : this.showSurfaceWinds);
     const showJet = showWind && (params.showJetStream !== undefined ? params.showJetStream : this.showJetStream);
-    const hasWindCompute = !!(
+    const hasWindCompute = !params.purityMode && !this.purityMode && !!(
       this.windComputePipeline &&
       this.windComputeBindGroups &&
       showWind &&
@@ -5001,10 +5381,20 @@ export class WebGPUEngine {
     );
 
     const isLight = params.theme === 1;
+    const canRunHaptics = showHaptics && Boolean(
+      this.paperCompositionPipeline &&
+      this.substrateMicroReliefPipeline &&
+      this.sceneColorTextureView &&
+      this.paperSubstrateUniformBuffer
+    );
+
+    const swapchainView = this.context.getCurrentTexture().createView();
+    const sceneTargetView = canRunHaptics ? this.sceneColorTextureView! : swapchainView;
+
     const renderPass = commandEncoder.beginRenderPass({
       colorAttachments: [
         {
-          view: this.context.getCurrentTexture().createView(),
+          view: sceneTargetView,
           clearValue: isLight
             ? { r: 0.0, g: 0.0, b: 0.0, a: 0.0 } // Pure transparent: premultiplied alpha 0.0 allows DOM .paper-cream cotton rag grain to show through without additive blowout
             : { r: 0.008, g: 0.016, b: 0.031, a: 1.0 }, // #020408 obsidian
@@ -5087,45 +5477,45 @@ export class WebGPUEngine {
     }
 
     // 3d. Interleaved Atmospheric Wind & Cloud Strata Passes (Milestone 4)
-    const finalShowSurf = showSurf;
-    const finalShowJet = showJet;
-    const showClouds = Boolean(params.showClouds) && this.cloudEnabled !== false;
-    const showCloudLow = showClouds && (params.showCloudLow !== undefined ? Boolean(params.showCloudLow) : this.cloudOptions.showLow !== false);
-    const showCloudMid = showClouds && (params.showCloudMid !== undefined ? Boolean(params.showCloudMid) : this.cloudOptions.showMid !== false);
-    const showCloudHigh = showClouds && (params.showCloudHigh !== undefined ? Boolean(params.showCloudHigh) : this.cloudOptions.showHigh !== false);
-    const showAtmosphere = !!(params.showAtmosphere && this.showAtmosphereScatter !== false);
+    const finalShowSurf = !isPurity && showSurf;
+    const finalShowJet = !isPurity && showJet;
+    const showClouds = !isPurity && Boolean(params.showClouds) && this.cloudEnabled !== false;
+    const showCloudLow = !isPurity && showClouds && (params.showCloudLow !== undefined ? Boolean(params.showCloudLow) : this.cloudOptions.showLow !== false);
+    const showCloudMid = !isPurity && showClouds && (params.showCloudMid !== undefined ? Boolean(params.showCloudMid) : this.cloudOptions.showMid !== false);
+    const showCloudHigh = !isPurity && showClouds && (params.showCloudHigh !== undefined ? Boolean(params.showCloudHigh) : this.cloudOptions.showHigh !== false);
+    const showAtmosphere = !isPurity && !!(params.showAtmosphere && this.showAtmosphereScatter !== false);
 
-    const useVolumetric = showClouds &&
+    const useVolumetric = !isPurity && showClouds &&
       (params.volumetricClouds === true || (Boolean(params.volumetricClouds) && this.volumetricCloudsEnabled)) &&
       !!this.volumetricCloudPipeline;
 
     // 1. Surface Winds
-    if (finalShowSurf && this.windRibbonPipeline && this.windRibbonBindGroups && this.quadCornerBuffer) {
+    if (!isPurity && finalShowSurf && this.windRibbonPipeline && this.windRibbonBindGroups && this.quadCornerBuffer) {
       this.renderSurfaceWindRibbons(renderPass);
     }
 
     // 2. Cloud Low (Bypassed when Pass 2 volumetric raymarching is active)
-    if (showCloudLow && !useVolumetric) {
+    if (!isPurity && showCloudLow && !useVolumetric) {
       this.renderCloudLayer(renderPass, 'low', params);
     }
 
     // 3. Cloud Mid (Bypassed when Pass 2 volumetric raymarching is active)
-    if (showCloudMid && !useVolumetric) {
+    if (!isPurity && showCloudMid && !useVolumetric) {
       this.renderCloudLayer(renderPass, 'mid', params);
     }
 
     // 4. Jet Stream
-    if (finalShowJet && this.windRibbonPipeline && this.windRibbonBindGroups && this.quadCornerBuffer) {
+    if (!isPurity && finalShowJet && this.windRibbonPipeline && this.windRibbonBindGroups && this.quadCornerBuffer) {
       this.renderJetStreamRibbons(renderPass);
     }
 
     // 5. Cloud High (Bypassed when Pass 2 volumetric raymarching is active)
-    if (showCloudHigh && !useVolumetric) {
+    if (!isPurity && showCloudHigh && !useVolumetric) {
       this.renderCloudLayer(renderPass, 'high', params);
     }
 
     // 5b. Planetary Atmospheric Scattering Envelope (RFC §1.3, Phase 6)
-    if (showAtmosphere && this.atmosphereScatterPipeline) {
+    if (!isPurity && showAtmosphere && this.atmosphereScatterPipeline) {
       this.renderAtmosphereScatterPass(renderPass, params);
     }
 
@@ -5140,8 +5530,46 @@ export class WebGPUEngine {
     renderPass.end();
 
     // Pass 2: Dedicated Volumetric Cloud Raymarcher Pass (Milestone 3)
-    if (useVolumetric) {
-      this.renderVolumetricClouds(commandEncoder, params);
+    if (!isPurity && useVolumetric) {
+      this.renderVolumetricClouds(commandEncoder, params, sceneTargetView);
+    }
+
+    // Pass 3: Cartographic Intaglio Substrate Micro-Relief & Paper Composition Pass (Milestone §6)
+    if (canRunHaptics) {
+      if (!this.substrateMicroReliefBindGroup || !this.paperCompositionBindGroup) {
+        this.updateSubstrateBindGroups();
+      }
+      if (this.substrateMicroReliefPipeline && this.substrateMicroReliefBindGroup) {
+        const microReliefPass = commandEncoder.beginComputePass({
+          label: 'substrate_micro_relief_pass',
+        });
+        microReliefPass.setPipeline(this.substrateMicroReliefPipeline);
+        microReliefPass.setBindGroup(0, this.substrateMicroReliefBindGroup);
+        const workgroupsX = Math.ceil(canvasWidth / 16);
+        const workgroupsY = Math.ceil(canvasHeight / 16);
+        microReliefPass.dispatchWorkgroups(workgroupsX, workgroupsY);
+        microReliefPass.end();
+      }
+
+      if (this.paperCompositionPipeline && this.paperCompositionBindGroup) {
+        const compPass = commandEncoder.beginRenderPass({
+          label: 'paper_composition_pass',
+          colorAttachments: [
+            {
+              view: swapchainView,
+              clearValue: isLight
+                ? { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }
+                : { r: 0.008, g: 0.016, b: 0.031, a: 1.0 },
+              loadOp: 'clear',
+              storeOp: 'store',
+            },
+          ],
+        });
+        compPass.setPipeline(this.paperCompositionPipeline);
+        compPass.setBindGroup(0, this.paperCompositionBindGroup);
+        compPass.draw(3, 1, 0, 0);
+        compPass.end();
+      }
     }
 
     // Resolve Profiler Frame Queries (Non-blocking async triple-buffered)
@@ -5163,6 +5591,7 @@ export class WebGPUEngine {
       alphaMode: 'premultiplied',
     });
     this.updateDepthTexture(width, height);
+    this.updateSubstrateTextures(width, height);
   }
 
   public onDeviceLost(callback: (info: GPUDeviceLostInfo) => void): void {
@@ -6465,6 +6894,27 @@ export class WebGPUEngine {
     this.atmosphereBindGroup = null;
     this.atmosphereBindGroupLayout = null;
     this.atmosphereScatterPipeline = null;
+
+    // Cartographic Intaglio Substrate Micro-Relief & Paper Composition Cleanup
+    this.paperSubstrateUniformBuffer?.destroy();
+    this.paperSubstrateUniformBuffer = null;
+    this.substrateConfigUniformBuffer?.destroy();
+    this.substrateConfigUniformBuffer = null;
+    this.compositionLightingUniformBuffer?.destroy();
+    this.compositionLightingUniformBuffer = null;
+    this.sceneColorTexture?.destroy();
+    this.sceneColorTexture = null;
+    this.sceneColorTextureView = null;
+    this.paperNormalTexture?.destroy();
+    this.paperNormalTexture = null;
+    this.paperNormalTextureView = null;
+    this.substrateSampler = null;
+    this.substrateMicroReliefPipeline = null;
+    this.substrateMicroReliefBindGroupLayout = null;
+    this.substrateMicroReliefBindGroup = null;
+    this.paperCompositionPipeline = null;
+    this.paperCompositionBindGroupLayout = null;
+    this.paperCompositionBindGroup = null;
 
     this.device?.destroy?.();
     this.isInitialized = false;

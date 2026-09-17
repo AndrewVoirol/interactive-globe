@@ -86,6 +86,9 @@ export const GEODETIC_EDGES: [string, string][] = [
   ['GRW', 'QTO'],
 ];
 
+const ORIGIN_VEC = new Vector3(0, 0, 0);
+const _scratchVecA = new Vector3();
+
 const TIER_CONFIG: Record<ResolutionTier, { lat: number; lon: number; bin: string }> = {
   '100k': { lat: 256, lon: 512, bin: '/geo-mesh-100k.bin' },
   '1M': { lat: 512, lon: 1024, bin: '/geo-mesh-1m.bin' },
@@ -157,6 +160,17 @@ export interface WebGPUCanvasProps {
   onShowCloudsChange?: (v: boolean) => void;
   onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
   prognosticModel?: PrognosticModelBackend;
+  purityMode?: boolean;
+  substrateHaptics?: boolean;
+  paperSubstrate?: boolean;
+  fiberFrequency?: number;
+  fiberAnisotropy?: number;
+  plateMarkDepthMeters?: number;
+  inkRidgeHeightMeters?: number;
+  grainAngleRadians?: number;
+  sheenIntensity?: number;
+  absorptionFeathering?: number;
+  cameraPitchDeg?: number;
 }
 
 interface RegionalManifestEntry {
@@ -229,6 +243,17 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   onShowCloudsChange,
   onTogglePlanetaryLayer,
   prognosticModel = 'weathernext3',
+  purityMode = false,
+  substrateHaptics = true,
+  paperSubstrate = true,
+  fiberFrequency = 45.0,
+  fiberAnisotropy = 0.65,
+  plateMarkDepthMeters = 0.0035,
+  inkRidgeHeightMeters = 0.0018,
+  grainAngleRadians = 0.2618,
+  sheenIntensity,
+  absorptionFeathering,
+  cameraPitchDeg,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -394,6 +419,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   // Dynamic Props Ref to decouple renderLoop from React re-renders
   const stateRef = useRef({
     unfurlProgress,
+    unfurl: unfurlProgress,
     mode,
     layerMode,
     theme,
@@ -429,10 +455,22 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     showAtmosphere,
     volumetricClouds,
     resolution,
+    purityMode,
+    substrateHaptics,
+    paperSubstrate,
+    fiberFrequency,
+    fiberAnisotropy,
+    plateMarkDepthMeters,
+    inkRidgeHeightMeters,
+    grainAngleRadians,
+    sheenIntensity,
+    absorptionFeathering,
+    cameraPitchDeg,
   });
   useEffect(() => {
     stateRef.current = {
       unfurlProgress,
+      unfurl: unfurlProgress,
       mode,
       layerMode,
       theme,
@@ -468,9 +506,20 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       showAtmosphere,
       volumetricClouds,
       resolution,
+      purityMode,
+      substrateHaptics,
+      paperSubstrate,
+      fiberFrequency,
+      fiberAnisotropy,
+      plateMarkDepthMeters,
+      inkRidgeHeightMeters,
+      grainAngleRadians,
+      sheenIntensity,
+      absorptionFeathering,
+      cameraPitchDeg,
     };
     cachedLayersRef.current = computeCachedLayers(dataLayers);
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -1003,6 +1052,52 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           }
           const useWn = (options as any)?.useWeatherNext ?? false;
           engineRef.current.loadAllCloudLayers(useWn).catch(() => {});
+        }
+
+        (window as any).__INDICATRIX_CAMERA__.setObliqueView(lonDeg, latDeg, altitudeRadius, pitchDeg, headingDeg);
+      },
+      snapIntaglioHaptics: (options?: {
+        theme?: number;
+        pitchDeg?: number;
+        fiberFrequency?: number;
+        fiberAnisotropy?: number;
+        sheenIntensity?: number;
+        plateMarkDepthMeters?: number;
+        inkRidgeHeightMeters?: number;
+        sunAltitude?: number;
+        sunAzimuth?: number;
+        substrateHaptics?: boolean;
+      } | number) => {
+        const opts = typeof options === 'number' ? { theme: options } : (options ?? {});
+        const lonDeg = -122.38;
+        const latDeg = 47.62;
+        const altitudeRadius = 6.2;
+        const pitchDeg = opts.pitchDeg ?? 68.0;
+        const headingDeg = 135.0;
+
+        if (typeof window !== 'undefined') {
+          (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {
+            ...((window as any).__INDICATRIX_LIVE_UNIFORMS__ || {}),
+            substrateHaptics: opts.substrateHaptics !== undefined ? Boolean(opts.substrateHaptics) : true,
+            paperSubstrate: opts.substrateHaptics !== undefined ? Boolean(opts.substrateHaptics) : true,
+            cameraPitchDeg: pitchDeg,
+            sunAltitude: opts.sunAltitude ?? 38.0,
+            sunAzimuth: opts.sunAzimuth ?? 315.0,
+            fiberFrequency: opts.fiberFrequency ?? 45.0,
+            fiberAnisotropy: opts.fiberAnisotropy ?? 0.65,
+            sheenIntensity: opts.sheenIntensity ?? (opts.theme === 1 || opts.theme === undefined ? 0.85 : opts.theme === 2 ? 0.50 : 0.40),
+            plateMarkDepthMeters: opts.plateMarkDepthMeters ?? 0.0035,
+            inkRidgeHeightMeters: opts.inkRidgeHeightMeters ?? 0.0018,
+          };
+          if (opts.theme !== undefined) {
+            (window as any).__INDICATRIX_LIVE_UNIFORMS__.theme = opts.theme;
+            if (typeof (window as any).__INDICATRIX_THEME__?.setThemeIndex === 'function') {
+              (window as any).__INDICATRIX_THEME__.setThemeIndex(opts.theme);
+            }
+            if (typeof (window as any).setTheme === 'function') {
+              (window as any).setTheme(opts.theme);
+            }
+          }
         }
 
         (window as any).__INDICATRIX_CAMERA__.setObliqueView(lonDeg, latDeg, altitudeRadius, pitchDeg, headingDeg);
@@ -1607,9 +1702,41 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       cameraTransitionRef.current = null;
+
+      const canvas = canvasRef.current;
+      const camera = cameraRef.current;
+      if (!canvas || !camera) return;
+
       // Smooth inertial zoom impulse (decay factor 0.05)
       const zoomImpulse = e.deltaY * 0.015;
       velocityRef.current.velRadius += zoomImpulse;
+
+      const hitPos = currentHitPosRef.current;
+
+      if (e.deltaY < 0) {
+        // Zoom In: Lerp target toward cursor hit point if on-globe
+        if (hitPos) {
+          const lerpFactor = Math.min(0.08, Math.abs(e.deltaY) * 0.0008);
+          targetRef.current.lerp(hitPos, lerpFactor);
+          const len = targetRef.current.length();
+          if (len > 5.0) {
+            targetRef.current.multiplyScalar(5.0 / len);
+          }
+        } else {
+          // Fallback: if off-globe, standard radial distance adjustment while decaying target toward origin
+          const recenterFactor = Math.min(0.05, Math.abs(e.deltaY) * 0.0005);
+          targetRef.current.lerp(ORIGIN_VEC, recenterFactor);
+        }
+      } else if (e.deltaY > 0) {
+        // Zoom Out: Exponentially decay target back toward (0, 0, 0)
+        const recenterFactor = Math.min(0.10, Math.abs(e.deltaY) * 0.0010);
+        targetRef.current.lerp(ORIGIN_VEC, recenterFactor);
+        if (sphericalRef.current.radius >= 20.0 || targetRef.current.lengthSq() < 1e-5) {
+          targetRef.current.set(0, 0, 0);
+        }
+      }
+
+      updateCameraTransform();
     };
 
     const onContextMenu = (e: MouseEvent) => e.preventDefault();
@@ -1953,7 +2080,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
           if (trajectory.isFinished()) {
             callbacksRef.current.onDemoModeChange?.(false);
-            const offset = new Vector3().subVectors(camera.position, targetRef.current);
+            const offset = _scratchVecA.subVectors(camera.position, targetRef.current);
             sphericalRef.current.radius = offset.length();
             sphericalRef.current.theta = Math.atan2(offset.x, offset.z);
             sphericalRef.current.phi = Math.acos(Math.min(Math.max(offset.y / Math.max(sphericalRef.current.radius, 0.001), -1), 1));
@@ -1982,7 +2109,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           camera.lookAt(targetRef.current);
           camera.updateMatrixWorld();
 
-          const offset = new Vector3().subVectors(camera.position, targetRef.current);
+          const offset = _scratchVecA.subVectors(camera.position, targetRef.current);
           sphericalRef.current.radius = offset.length();
           sphericalRef.current.theta = Math.atan2(offset.x, offset.z);
           sphericalRef.current.phi = Math.acos(Math.min(Math.max(offset.y / Math.max(sphericalRef.current.radius, 0.001), -1), 1));
@@ -1993,8 +2120,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         } else if (targetCameraPosRef.current && !isDraggingRef.current) {
           const targetPos = targetCameraPosRef.current;
           camera.position.lerp(targetPos, 0.08);
-          targetRef.current.lerp(new Vector3(0, 0, 0), 0.08);
-          const offset = new Vector3().subVectors(camera.position, targetRef.current);
+          targetRef.current.lerp(ORIGIN_VEC, 0.08);
+          const offset = _scratchVecA.subVectors(camera.position, targetRef.current);
           sphericalRef.current.radius = offset.length();
           sphericalRef.current.theta = Math.atan2(offset.x, offset.z);
           sphericalRef.current.phi = Math.acos(Math.min(Math.max(offset.y / Math.max(sphericalRef.current.radius, 0.001), -1), 1));
@@ -2051,6 +2178,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
               );
               vel.velRadius *= decay;
               if (Math.abs(vel.velRadius) < 1e-6) vel.velRadius = 0;
+            }
+
+            if (sphericalRef.current.radius >= 20.0 && targetRef.current.lengthSq() > 1e-5) {
+              targetRef.current.set(0, 0, 0);
             }
 
             updateCameraTransform();
@@ -2331,6 +2462,24 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             stateRef.current.isolatedStratum !== null
               ? stateRef.current.isolatedStratum
               : -1,
+          purityMode:
+            liveOverrides?.purityMode !== undefined
+              ? Boolean(liveOverrides.purityMode)
+              : Boolean(stateRef.current.purityMode),
+          substrateHaptics: liveOverrides?.substrateHaptics !== undefined
+            ? Boolean(liveOverrides.substrateHaptics)
+            : (stateRef.current.substrateHaptics ?? true),
+          paperSubstrate: liveOverrides?.paperSubstrate !== undefined
+            ? Boolean(liveOverrides.paperSubstrate)
+            : (stateRef.current.paperSubstrate ?? true),
+          fiberFrequency: liveOverrides?.fiberFrequency ?? stateRef.current.fiberFrequency,
+          fiberAnisotropy: liveOverrides?.fiberAnisotropy ?? stateRef.current.fiberAnisotropy,
+          plateMarkDepthMeters: liveOverrides?.plateMarkDepthMeters ?? stateRef.current.plateMarkDepthMeters,
+          inkRidgeHeightMeters: liveOverrides?.inkRidgeHeightMeters ?? stateRef.current.inkRidgeHeightMeters,
+          grainAngleRadians: liveOverrides?.grainAngleRadians ?? stateRef.current.grainAngleRadians,
+          sheenIntensity: liveOverrides?.sheenIntensity ?? stateRef.current.sheenIntensity,
+          absorptionFeathering: liveOverrides?.absorptionFeathering ?? stateRef.current.absorptionFeathering,
+          cameraPitchDeg: liveOverrides?.cameraPitchDeg ?? stateRef.current.cameraPitchDeg,
         });
 
         // Periodic GPU Profiler sampling (every 250ms)
