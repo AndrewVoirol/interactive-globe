@@ -1930,6 +1930,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     loadedBinRef.current = binFile;
     const engine = engineRef.current;
     (window as any).__WEBGPU_ENGINE__ = engine;
+    if ((window as any).__INDICATRIX_CAMERA__) {
+      (window as any).__INDICATRIX_CAMERA__.camera = cameraRef.current;
+    } else {
+      (window as any).__INDICATRIX_CAMERA__ = cameraRef.current;
+    }
+    engine.camera = cameraRef.current;
 
     fetch(binFile)
       .then(async (res) => {
@@ -1971,6 +1977,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
         // Asynchronously ingest ETOPO 2022 16-bit DEM texture (M1-T1)
         engine.loadDEMTexture('/earth-etopo2022-dem-u16.bin').catch(() => {});
+        engine.loadHydroTexture('/earth-hydrology-bc5.dds').catch(() => {});
+        engine.loadNormalTexture('/earth-normals-bc5.dds').catch(() => {});
         engine.loadVectorData('/geo-vectors.bin').catch(() => {});
         engine.loadContourMesh('/geo-contour-mesh.bin').catch(() => {});
         engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
@@ -2037,6 +2045,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
           const engine = engineRef.current;
           (window as any).__WEBGPU_ENGINE__ = engine;
+          if ((window as any).__INDICATRIX_CAMERA__) {
+            (window as any).__INDICATRIX_CAMERA__.camera = cameraRef.current;
+          } else {
+            (window as any).__INDICATRIX_CAMERA__ = cameraRef.current;
+          }
+          engine.camera = cameraRef.current;
           await engine.initialize({
             canvas,
             pointCount: pointsData.length / 3,
@@ -2050,6 +2064,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
           // Asynchronously ingest ETOPO 2022 16-bit DEM texture (M1-T1)
           engine.loadDEMTexture('/earth-etopo2022-dem-u16.bin').catch(() => {});
+          engine.loadHydroTexture('/earth-hydrology-bc5.dds').catch(() => {});
+          engine.loadNormalTexture('/earth-normals-bc5.dds').catch(() => {});
           engine.loadVectorData('/geo-vectors.bin').catch(() => {});
           engine.loadContourMesh('/geo-contour-mesh.bin').catch(() => {});
           engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
@@ -2557,10 +2573,19 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           showCloudMid: liveOverrides?.showCloudMid !== undefined ? liveOverrides.showCloudMid : stateRef.current.showCloudMid,
           showCloudHigh: liveOverrides?.showCloudHigh !== undefined ? liveOverrides.showCloudHigh : stateRef.current.showCloudHigh,
           showAtmosphere: effectiveShowAtmosphere,
-          cloudDriftSpeed: stateRef.current.cloudDriftSpeed,
-          cloudOpacity: stateRef.current.cloudOpacity,
+          cloudDriftSpeed:
+            liveOverrides?.cloudDriftSpeed !== undefined
+              ? liveOverrides.cloudDriftSpeed
+              : stateRef.current.cloudDriftSpeed,
+          cloudOpacity:
+            liveOverrides?.cloudOpacity !== undefined
+              ? liveOverrides.cloudOpacity
+              : stateRef.current.cloudOpacity,
           atmosphericScale: stateRef.current.atmosphericScale,
-          shadowIntensity: stateRef.current.shadowIntensity,
+          shadowIntensity:
+            liveOverrides?.shadowIntensity !== undefined
+              ? liveOverrides.shadowIntensity
+              : (liveOverrides?.cloudShadows === false ? 0.0 : stateRef.current.shadowIntensity),
           verticalScaleMode: stateRef.current.verticalScaleMode,
           rainShadowFeedback: stateRef.current.rainShadowFeedback,
           pluvialGamma: stateRef.current.pluvialGamma,
@@ -2591,6 +2616,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             liveOverrides?.purityMode !== undefined
               ? Boolean(liveOverrides.purityMode)
               : Boolean(stateRef.current.purityMode),
+          toksvigBypass:
+            liveOverrides?.toksvigBypass !== undefined
+              ? Boolean(liveOverrides.toksvigBypass)
+              : false,
           substrateHaptics: liveOverrides?.substrateHaptics !== undefined
             ? Boolean(liveOverrides.substrateHaptics)
             : (stateRef.current.substrateHaptics ?? true),

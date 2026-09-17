@@ -43,6 +43,9 @@ export async function getWebGPUDevice(): Promise<GPUDevice | null> {
       if (!adapter) return null;
       try {
         const requiredFeatures: GPUFeatureName[] = [];
+        if (adapter.features && adapter.features.has('texture-compression-bc')) {
+          requiredFeatures.push('texture-compression-bc');
+        }
         if (adapter.features && adapter.features.has('texture-formats-tier1' as any)) {
           requiredFeatures.push('texture-formats-tier1' as any);
         }

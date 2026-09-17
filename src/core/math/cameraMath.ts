@@ -554,11 +554,13 @@ export class PerspectiveCamera {
     this.matrixWorldInverse.lookAt(this.position, this.target, this.up);
   }
 
-  public lookAt(target: IVector3 | Vec3Tuple): void {
-    if (Array.isArray(target)) {
-      this.target.set(target[0], target[1], target[2]);
-    } else {
-      this.target.copy(target);
+  public lookAt(targetOrX: IVector3 | Vec3Tuple | number, y?: number, z?: number): void {
+    if (typeof targetOrX === 'number' && typeof y === 'number' && typeof z === 'number') {
+      this.target.set(targetOrX, y, z);
+    } else if (Array.isArray(targetOrX)) {
+      this.target.set(targetOrX[0], targetOrX[1], targetOrX[2]);
+    } else if (targetOrX && typeof targetOrX === 'object') {
+      this.target.copy(targetOrX as IVector3);
     }
     this.updateMatrixWorld();
   }

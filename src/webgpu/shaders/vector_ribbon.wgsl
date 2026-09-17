@@ -273,8 +273,10 @@ fn evaluateManifold(pos3D_raw: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<
     // Topographic Elevation Coupling from ETOPO 2022 DEM (Synchronized with crust_hydrosphere.wgsl)
     // Note: v = 0.0 is North Pole (+PI/2), v = 1.0 is South Pole (-PI/2)
     let demUv = vec2<f32>((lambda + PI) / (2.0 * PI), 0.5 - phi / PI);
-    let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, demUv, 3.0);
-    let demSample = sampleRegionalComposite(demUv, demSampleGlobal, 1.0);
+    let patchDist = length(sim.u_cameraPos.xyz - out.pos);
+    let patchLOD = clamp(log2(max(1.0, patchDist * 0.2)), 0.0, 4.0);
+    let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, demUv, patchLOD);
+    let demSample = sampleRegionalComposite(demUv, demSampleGlobal, patchLOD);
 
     let poleDist = abs(demUv.y - 0.5) * 2.0;
     let poleAtten = 1.0 - smoothstep(0.85, 0.98, poleDist);
@@ -298,27 +300,26 @@ fn evaluateManifold(pos3D_raw: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<
                 normalDisplacement = logNormH * dispScale * poleAtten;
             } else {
                 let logNormD = log(1.0 + (-elevMeters) / 1500.0) / log(1.0 + 10924.0 / 1500.0);
-                normalDisplacement = -logNormD * (dispScale * 0.65) * poleAtten;
+                normalDisplacement = -logNormD * dispScale * poleAtten;
             }
         } else {
             if (elevMeters >= 0.0) {
                 let normH = elevMeters / 8848.0;
-                let camDist = length(sim.u_cameraPos.xyz);
-                let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
-                let dynamicExp = clamp(mix(0.95, 1.25, orbitT) * (sim.u_peakExponent / 1.4), 0.85, 1.30);
-                let shapedH = (1.0 - exp(-2.2 * normH)) / (1.0 - exp(-2.2));
-                normalDisplacement = pow(shapedH, dynamicExp) * dispScale * poleAtten;
+                normalDisplacement = normH * dispScale * poleAtten;
             } else {
                 let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
                 let shelfD = normD / (1.0 + 1.5 * (1.0 - normD));
-                normalDisplacement = -shelfD * (dispScale * 0.65) * poleAtten;
+                normalDisplacement = -shelfD * dispScale * poleAtten;
             }
         }
     }
 
-    // Invariant §10: Horizon Tangent Attenuation for negative bathymetric displacement
+    // Invariant §10: Grazing Horizon Parameterization for negative bathymetric displacement
     let viewDir = normalize(sim.u_cameraPos.xyz - out.pos);
-    let limbAtten = smoothstep(0.02, 0.18, max(0.0, dot(out.normal, viewDir)));
+    let d_cam = length(sim.u_cameraPos.xyz);
+    let R_planet = 5.0;
+    let tau = dot(out.normal, viewDir) - sqrt(max(0.0, 1.0 - pow(R_planet / d_cam, 2.0)));
+    let limbAtten = select(smoothstep(0.0, 0.005, max(0.0, tau)), 1.0, tau >= 0.005);
     if (normalDisplacement < 0.0) {
         normalDisplacement = normalDisplacement * limbAtten;
     }
