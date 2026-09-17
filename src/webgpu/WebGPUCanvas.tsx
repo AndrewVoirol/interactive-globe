@@ -1153,6 +1153,66 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       snapGrandCanyon: (options?: any) => {
         (window as any).__INDICATRIX_CAMERA__.snapTerrainShadows(options);
       },
+      snapCloudAdvection: (options?: {
+        lonDeg?: number;
+        latDeg?: number;
+        altitudeRadius?: number;
+        pitchDeg?: number;
+        headingDeg?: number;
+        theme?: number;
+        cloudAdvection?: boolean;
+        cloudAdvectionSpeed?: number;
+        condensationRate?: number;
+        evaporationRate?: number;
+        reset?: boolean;
+      }) => {
+        const lonDeg = options?.lonDeg ?? -121.7604;
+        const latDeg = options?.latDeg ?? 46.8529;
+        const altitudeRadius = options?.altitudeRadius ?? 5.0045;
+        const pitchDeg = options?.pitchDeg ?? 72.0;
+        const headingDeg = options?.headingDeg ?? 145.0;
+        const advection = options?.cloudAdvection !== undefined ? Boolean(options.cloudAdvection) : true;
+        const speed = options?.cloudAdvectionSpeed ?? 1.5;
+
+        if (typeof window !== 'undefined') {
+          (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {
+            ...((window as any).__INDICATRIX_LIVE_UNIFORMS__ || {}),
+            showClouds: true,
+            volumetricClouds: true,
+            showCloudLow: true,
+            showCloudMid: true,
+            showCloudHigh: true,
+            cloudAdvection: advection,
+            cloudAdvectionSpeed: speed,
+            condensationRate: options?.condensationRate ?? 1.2,
+            evaporationRate: options?.evaporationRate ?? 0.8,
+          };
+          if (options?.theme !== undefined) {
+            (window as any).__INDICATRIX_LIVE_UNIFORMS__.theme = options.theme;
+            if (typeof (window as any).__INDICATRIX_THEME__?.setThemeIndex === 'function') {
+              (window as any).__INDICATRIX_THEME__.setThemeIndex(options.theme);
+            }
+            if (typeof (window as any).setTheme === 'function') {
+              (window as any).setTheme(options.theme);
+            }
+          }
+          if ((window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+            (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showClouds: true });
+          }
+        }
+        callbacksRef.current.onShowCloudsChange?.(true);
+
+        if (engineRef.current) {
+          engineRef.current.setVolumetricCloudsEnabled(true);
+          engineRef.current.setCloudAdvectionEnabled(advection);
+          if (options?.reset) {
+            engineRef.current.resetCloudAdvection();
+          }
+          engineRef.current.loadAllCloudLayers(false).catch(() => {});
+        }
+
+        (window as any).__INDICATRIX_CAMERA__.setObliqueView(lonDeg, latDeg, altitudeRadius, pitchDeg, headingDeg);
+      },
       animateToObliqueView: (options?: {
         lonDeg?: number;
         latDeg?: number;
@@ -2558,6 +2618,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           maxRayDistanceMeters: liveOverrides?.maxRayDistanceMeters ?? (stateRef.current as any).maxRayDistanceMeters,
           penumbraSoftness: liveOverrides?.penumbraSoftness ?? (stateRef.current as any).penumbraSoftness,
           sampleStepCount: liveOverrides?.sampleStepCount ?? (stateRef.current as any).sampleStepCount,
+          cloudAdvection: liveOverrides?.cloudAdvection !== undefined
+            ? liveOverrides.cloudAdvection
+            : ((stateRef.current as any).cloudAdvection ?? true),
+          cloudAdvectionSpeed: liveOverrides?.cloudAdvectionSpeed ?? (stateRef.current as any).cloudAdvectionSpeed,
+          condensationRate: liveOverrides?.condensationRate ?? (stateRef.current as any).condensationRate,
+          evaporationRate: liveOverrides?.evaporationRate ?? (stateRef.current as any).evaporationRate,
         });
 
         // Periodic GPU Profiler sampling (every 250ms)

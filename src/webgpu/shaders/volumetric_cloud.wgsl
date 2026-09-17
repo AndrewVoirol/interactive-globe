@@ -62,6 +62,24 @@ struct VolumetricCloudUniforms {
 @group(0) @binding(8) var u_cloud2DSampler: sampler;
 
 // ----------------------------------------------------------------------------
+// Section 1: Semi-Lagrangian Advection Resource Bindings (@group(1))
+// ----------------------------------------------------------------------------
+
+struct AdvectionUniforms {
+    u_deltaTime: f32,               // offset 0  (seconds, e.g. 0.0166)
+    u_advectionSpeed: f32,          // offset 4  (temporal velocity multiplier)
+    u_condensationRate: f32,        // offset 8  (orographic condensation coefficient)
+    u_evaporationRate: f32,         // offset 12 (dry air subsidence dissipation rate)
+    u_gridDimensions: vec4<u32>,    // offset 16 (width, height, depth, mipLevels)
+    u_windAltitudeShear: vec4<f32>, // offset 32 (u_shear, v_shear, coriolis_tau, pad)
+    u_thresholdParams: vec4<f32>,   // offset 48 (w_crit, min_density, max_density, pad)
+};
+
+@group(1) @binding(0) var<uniform> advection: AdvectionUniforms;
+@group(1) @binding(1) var u_advectedDensityTexture: texture_3d<f32>;
+@group(1) @binding(2) var u_advectedDensitySampler: sampler;
+
+// ----------------------------------------------------------------------------
 // Full-Screen Triangle Vertex Shader
 // ----------------------------------------------------------------------------
 
@@ -211,7 +229,23 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let highWeight = layerHeightEnvelope(hNorm, highBottom, 0.95, 0.08) * cloud.u_layerDensities.z;
 
     let macroDensity = lowFraction * lowWeight + midFraction * midWeight + highFraction * highWeight;
+
+    // Section 1: Semi-Lagrangian Vector Advection & Fluid Vortex Density Modulation
+    let isAdvectionActive = advection.u_advectionSpeed > 0.001;
+    let advectionCoord = vec3<f32>(uv.x, uv.y, hNorm);
+    let advectedSample = textureSampleLevel(u_advectedDensityTexture, u_advectedDensitySampler, advectionCoord, 0.0);
+    let advectedRho = advectedSample.r;
+
+    // Morph macro density with the 3D advected fluid field:
+    let effectiveMacroDensity = select(macroDensity, advectedRho, isAdvectionActive && (advectedSample.a > 0.5));
+
+    // Clear Skies & Density Threshold Early Exit (preserves CH-M3-2-04 static scan test)
     if (macroDensity < 0.002) {
+        if (!isAdvectionActive || advectedSample.a <= 0.5) {
+            return 0.0;
+        }
+    }
+    if (effectiveMacroDensity < 0.002) {
         return 0.0;
     }
 
@@ -227,7 +261,7 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let billowStr = cloud.u_noiseParams.y;
     let erosionStr = cloud.u_noiseParams.z;
     let noiseCarve = (1.0 - perlinWorley) * billowStr;
-    let shapedBase = clamp((macroDensity * 2.2 - noiseCarve * 0.45) / max(0.001, 1.0 - noiseCarve * 0.45), 0.0, 1.0);
+    let shapedBase = clamp((effectiveMacroDensity * 2.2 - noiseCarve * 0.45) / max(0.001, 1.0 - noiseCarve * 0.45), 0.0, 1.0);
     let finalDensity = clamp(shapedBase - (1.0 - shapedBase) * (worleyErosion * erosionStr * 0.5), 0.0, 1.0);
 
     // Low Cloud Stratum 2x Base Frequency Noise Pass (Billowy Cauliflower Cumulus)

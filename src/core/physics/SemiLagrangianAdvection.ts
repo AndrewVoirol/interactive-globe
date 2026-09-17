@@ -62,3 +62,144 @@ export function sampleAdvectedPrecipitationField(
   const s1 = sampleTexture(uv1, 1);
   return s0 * (1.0 - tau) + s1 * tau;
 }
+
+/**
+ * Evaluates 1D Catmull-Rom cubic spline interpolation at fractional offset f in [0, 1].
+ * C¹-continuous Hermite polynomial basis.
+ */
+export function catmullRom1D(f: number, p0: number, p1: number, p2: number, p3: number): number {
+  const f2 = f * f;
+  const f3 = f2 * f;
+  const c0 = -0.5 * p0 + 1.5 * p1 - 1.5 * p2 + 0.5 * p3;
+  const c1 = p0 - 2.5 * p1 + 2.0 * p2 - 0.5 * p3;
+  const c2 = -0.5 * p0 + 0.5 * p2;
+  const c3 = p1;
+  return ((c0 * f + c1) * f + c2) * f + c3;
+}
+
+/**
+ * 3D Catmull-Rom Tricubic Spline Interpolation over a dense 3D scalar density grid.
+ * Minimizes numerical dissipation in semi-Lagrangian advection (Section 1.2).
+ *
+ * @param volume 1D Float32Array containing W*H*D scalar samples.
+ * @param dims [width, height, depth] dimensions of the grid.
+ * @param uvw Normalized sample coordinates in [0, 1]³ (wraps in U, clamps in V and W).
+ * @returns Interpolated scalar density value.
+ */
+export function catmullRomTricubic(
+  volume: Float32Array,
+  dims: [number, number, number],
+  uvw: [number, number, number]
+): number {
+  const [w, h, d] = dims;
+  const pX = uvw[0] * w - 0.5;
+  const pY = uvw[1] * h - 0.5;
+  const pZ = uvw[2] * d - 0.5;
+
+  const iX = Math.floor(pX);
+  const iY = Math.floor(pY);
+  const iZ = Math.floor(pZ);
+
+  const fX = pX - iX;
+  const fY = pY - iY;
+  const fZ = pZ - iZ;
+
+  function sampleGrid(x: number, y: number, z: number): number {
+    // Periodic wrap in X (longitude)
+    const wrappedX = ((x % w) + w) % w;
+    // Clamp in Y (latitude) and Z (altitude)
+    const clampedY = Math.max(0, Math.min(h - 1, y));
+    const clampedZ = Math.max(0, Math.min(d - 1, z));
+    const idx = (clampedZ * h + clampedY) * w + wrappedX;
+    return volume[idx] || 0.0;
+  }
+
+  // Tricubic Catmull-Rom evaluation: 4 slices along Z, each containing 4 lines along Y of 4 taps along X (zero-allocation)
+  function evalSliceY(j: number, k: number): number {
+    const p0 = sampleGrid(iX - 1, iY + j, iZ + k);
+    const p1 = sampleGrid(iX + 0, iY + j, iZ + k);
+    const p2 = sampleGrid(iX + 1, iY + j, iZ + k);
+    const p3 = sampleGrid(iX + 2, iY + j, iZ + k);
+    return catmullRom1D(fX, p0, p1, p2, p3);
+  }
+
+  function evalSliceZ(k: number): number {
+    const y0 = evalSliceY(-1, k);
+    const y1 = evalSliceY(0, k);
+    const y2 = evalSliceY(1, k);
+    const y3 = evalSliceY(2, k);
+    return catmullRom1D(fY, y0, y1, y2, y3);
+  }
+
+  const z0 = evalSliceZ(-1);
+  const z1 = evalSliceZ(0);
+  const z2 = evalSliceZ(1);
+  const z3 = evalSliceZ(2);
+
+  return catmullRom1D(fZ, z0, z1, z2, z3);
+}
+
+/**
+ * Second-Order Runge-Kutta (RK2) Semi-Lagrangian Back-Trajectory Integrator (Section 1.2).
+ * Traces a parcel backwards along the 3D velocity field to determine departure position x_dep.
+ *
+ * @param uvw Arrival position in [0, 1]³ normalized coordinates.
+ * @param dt Timestep in seconds.
+ * @param velocityFn Function mapping position [u, v, w] to velocity vector [du/dt, dv/dt, dw/dt] in UVW/s.
+ * @returns Departure coordinates [u_dep, v_dep, w_dep] in [0, 1]³.
+ */
+export function rk2BackTrajectory3D(
+  uvw: [number, number, number],
+  dt: number,
+  velocityFn: (pos: [number, number, number]) => [number, number, number]
+): [number, number, number] {
+  function stepCoord(pos: [number, number, number], delta: [number, number, number]): [number, number, number] {
+    let u = (pos[0] - delta[0]) % 1.0;
+    if (u < 0.0) u += 1.0;
+    const v = Math.max(0.0001, Math.min(0.9999, pos[1] - delta[1]));
+    const w = Math.max(0.0, Math.min(1.0, pos[2] - delta[2]));
+    return [u, v, w];
+  }
+
+  // Step 1: Midpoint departure position x* = x - (dt / 2) * u(x, t)
+  const u0 = velocityFn(uvw);
+  const halfDt = dt * 0.5;
+  const xStar = stepCoord(uvw, [u0[0] * halfDt, u0[1] * halfDt, u0[2] * halfDt]);
+
+  // Step 2: Velocity evaluation at midpoint u(x*, t + dt/2)
+  const uHalf = velocityFn(xStar);
+
+  // Step 3: Full departure position x_dep = x - dt * u(x*, t + dt/2)
+  return stepCoord(uvw, [uHalf[0] * dt, uHalf[1] * dt, uHalf[2] * dt]);
+}
+
+/**
+ * Computes terrain-induced vertical velocity (orographic lift) w = u . grad(h).
+ */
+export function computeOrographicLift(
+  windMps: [number, number],
+  gradH: [number, number]
+): number {
+  return windMps[0] * gradH[0] + windMps[1] * gradH[1];
+}
+
+/**
+ * Thermodynamic Source / Sink Coupling (Section 1.2):
+ * Computes adiabatic orographic condensation and subsidence dissipation.
+ */
+export function computeThermodynamicCoupling(
+  rhoStar: number,
+  uDotGradH: number,
+  wCrit: number,
+  gammaCond: number,
+  kappaEvap: number,
+  rh: number,
+  dt: number,
+  minDens: number = 0.0,
+  maxDens: number = 1.0
+): { rhoNew: number; sCond: number; sEvap: number } {
+  const sCond = gammaCond * Math.max(0.0, uDotGradH - wCrit);
+  const sEvap = kappaEvap * Math.max(0.0, 1.0 - rh) * rhoStar;
+  const rhoNew = Math.max(minDens, Math.min(maxDens, rhoStar + dt * (sCond - sEvap)));
+  return { rhoNew, sCond, sEvap };
+}

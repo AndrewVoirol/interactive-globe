@@ -28,6 +28,7 @@ import volumetricCloudWGSL from './shaders/volumetric_cloud.wgsl?raw';
 import substrateMicroReliefWGSL from './shaders/substrate_micro_relief.wgsl?raw';
 import paperCompositionWGSL from './shaders/paper_composition.wgsl?raw';
 import horizonOcclusionWGSL from './shaders/horizon_occlusion.wgsl?raw';
+import cloudAdvectionWGSL from './shaders/cloud_advection.wgsl?raw';
 import { GPUProfiler } from './profiling/GPUProfiler';
 import { encodeFloat16 } from '../core/math/float16';
 import { parseTLE, propagateOrbitalPosition } from '../core/math/sgp4';
@@ -147,6 +148,10 @@ export interface WebGPUFrameParams {
   maxRayDistanceMeters?: number;
   penumbraSoftness?: number;
   sampleStepCount?: number;
+  cloudAdvection?: boolean;
+  cloudAdvectionSpeed?: number;
+  condensationRate?: number;
+  evaporationRate?: number;
 }
 
 export type RenderParameters = WebGPUFrameParams;
@@ -603,6 +608,29 @@ export class WebGPUEngine {
   public horizonOcclusionBindGroupLayout: GPUBindGroupLayout | null = null;
   public horizonOcclusionPipeline: GPUComputePipeline | null = null;
   public horizonOcclusionBindGroup: GPUBindGroup | null = null;
+
+  // Milestone Section 1: Temporal Cloud Morphing & Semi-Lagrangian Vector Advection
+  private cloudAdvectionEnabled: boolean = true;
+  private cloudDensityTextures: [GPUTexture | null, GPUTexture | null] = [null, null];
+  private cloudDensityTextureViews: [GPUTextureView | null, GPUTextureView | null] = [null, null];
+  private dummy3DDensityTexture: GPUTexture | null = null;
+  private dummy3DDensityTextureView: GPUTextureView | null = null;
+  private cloudDensitySampler: GPUSampler | null = null;
+  private advectionUniformBuffer: GPUBuffer | null = null;
+  private advectionFloats: Float32Array = new Float32Array(16);
+  private advectionU32: Uint32Array = new Uint32Array(this.advectionFloats.buffer);
+
+  public cloudAdvectionComputeBindGroupLayout: GPUBindGroupLayout | null = null;
+  public cloudAdvectionComputePipeline: GPUComputePipeline | null = null;
+  public cloudAdvectionComputeBindGroups: [GPUBindGroup | null, GPUBindGroup | null] = [null, null];
+
+  public cloudAdvectionRenderBindGroupLayout: GPUBindGroupLayout | null = null;
+  public cloudAdvectionRenderBindGroups: [GPUBindGroup | null, GPUBindGroup | null] = [null, null];
+  public cloudAdvectionDummyRenderBindGroup: GPUBindGroup | null = null;
+  private cloudAdvectionHasRealTextures: boolean = false;
+
+  public cloudAdvectionStep: number = 0;
+  public readonly cloudDensityGridDimensions: [number, number, number] = [128, 128, 32];
 
   private computeBindGroups: [GPUBindGroup, GPUBindGroup] = [null!, null!];
   private renderBindGroup!: GPUBindGroup;
@@ -3053,6 +3081,8 @@ export class WebGPUEngine {
       this.updateWindBindGroups();
       this.updateComputeBindGroups();
       this.updateDEMBindGroups();
+      this.cloudAdvectionComputeBindGroups = [null, null];
+      this.updateCloudAdvectionBindGroups();
       if (this.precipRingBuffer) {
         this.setPrecipitationRingBuffer(this.precipRingBuffer);
       }
@@ -3934,6 +3964,338 @@ export class WebGPUEngine {
   }
 
   // ==========================================================================
+  // Milestone Section 1: Temporal Cloud Morphing & Semi-Lagrangian Vector Advection
+  // ==========================================================================
+
+  public setCloudAdvectionEnabled(enabled: boolean): void {
+    this.cloudAdvectionEnabled = enabled;
+    if (enabled && this.device) {
+      this.ensureCloudAdvectionResources();
+    }
+  }
+
+  public isCloudAdvectionEnabled(): boolean {
+    return this.cloudAdvectionEnabled;
+  }
+
+  public resetCloudAdvection(): void {
+    if (!this.device || !this.cloudDensityTextures[0] || !this.cloudDensityTextures[1]) return;
+    try {
+      const [w, h, d] = this.cloudDensityGridDimensions;
+      const zeroData = new Uint8Array(w * h * d * 4);
+      for (let i = 0; i < 2; i++) {
+        if (this.cloudDensityTextures[i]) {
+          this.device.queue.writeTexture(
+            { texture: this.cloudDensityTextures[i]! },
+            zeroData,
+            { bytesPerRow: w * 4, rowsPerImage: h },
+            { width: w, height: h, depthOrArrayLayers: d }
+          );
+        }
+      }
+      this.cloudAdvectionStep = 0;
+    } catch {
+      // Mock guard
+    }
+  }
+
+  public getCloudDensityTexture(slot: 0 | 1 = 0): GPUTexture | null {
+    return this.cloudDensityTextures[slot];
+  }
+
+  public getCloudDensityTextureView(slot: 0 | 1 = 0): GPUTextureView | null {
+    return this.cloudDensityTextureViews[slot];
+  }
+
+  public getAdvectionUniformBuffer(): GPUBuffer | null {
+    return this.advectionUniformBuffer;
+  }
+
+  public ensureCloudAdvectionResources(): void {
+    if (!this.device || typeof this.device.createBuffer !== 'function') return;
+
+    try {
+      // 1. Allocate 64-byte AdvectionUniforms buffer (16-byte WGSL alignment)
+      if (!this.advectionUniformBuffer) {
+        this.advectionUniformBuffer = this.device.createBuffer({
+          label: 'advection_uniform_buffer',
+          size: 64,
+          usage: (typeof GPUBufferUsage !== 'undefined'
+            ? (GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST)
+            : (64 | 8)),
+        });
+      }
+
+      // 2. Allocate 3D linear density sampler
+      if (!this.cloudDensitySampler) {
+        this.cloudDensitySampler = this.device.createSampler({
+          label: 'cloud_density_3d_sampler',
+          addressModeU: 'repeat',
+          addressModeV: 'clamp-to-edge',
+          addressModeW: 'clamp-to-edge',
+          minFilter: 'linear',
+          magFilter: 'linear',
+        });
+      }
+
+      // 3. Allocate 1x1x1 dummy 3D density texture for un-advected fallback
+      if (!this.dummy3DDensityTexture) {
+        this.dummy3DDensityTexture = this.device.createTexture({
+          label: 'dummy_3d_density_texture',
+          size: [1, 1, 1],
+          dimension: '3d',
+          format: 'rgba8unorm',
+          usage: typeof GPUTextureUsage !== 'undefined' ? GPUTextureUsage.TEXTURE_BINDING : 4,
+        });
+        this.dummy3DDensityTextureView = this.dummy3DDensityTexture.createView({
+          label: 'dummy_3d_density_texture_view',
+          dimension: '3d',
+        });
+      }
+
+      // 4. Allocate 128x128x32 3D ping-pong GPU textures (rgba8unorm)
+      const [w, h, d] = this.cloudDensityGridDimensions;
+      const usage = typeof GPUTextureUsage !== 'undefined'
+        ? (GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC)
+        : (8 | 4 | 8 | 1);
+
+      for (let i = 0; i < 2; i++) {
+        if (!this.cloudDensityTextures[i]) {
+          this.cloudDensityTextures[i] = this.device.createTexture({
+            label: `cloud_density_3d_pingpong_${i}`,
+            size: [w, h, d],
+            dimension: '3d',
+            format: 'rgba8unorm',
+            usage,
+          });
+          this.cloudDensityTextureViews[i] = this.cloudDensityTextures[i]!.createView({
+            label: `cloud_density_3d_pingpong_view_${i}`,
+            dimension: '3d',
+          });
+        }
+      }
+
+      // 5. Initialize pipelines and bind groups if not yet created
+      if (!this.cloudAdvectionComputePipeline) {
+        this.initCloudAdvectionPipelines();
+      } else {
+        this.updateCloudAdvectionBindGroups();
+      }
+    } catch (err) {
+      console.error('[WebGPUEngine] ensureCloudAdvectionResources error:', err);
+    }
+  }
+
+  public initCloudAdvectionPipelines(): void {
+    if (!this.device || typeof this.device.createShaderModule !== 'function') return;
+
+    try {
+      const COMPUTE_STAGE = typeof GPUShaderStage !== 'undefined' ? GPUShaderStage.COMPUTE : 4;
+
+      if (!this.cloudAdvectionComputeBindGroupLayout) {
+        this.cloudAdvectionComputeBindGroupLayout = this.device.createBindGroupLayout({
+          label: 'cloud_advection_compute_bind_group_layout',
+          entries: [
+            { binding: 0, visibility: COMPUTE_STAGE, buffer: { type: 'uniform' } },
+            { binding: 1, visibility: COMPUTE_STAGE, texture: { sampleType: 'float', viewDimension: '3d' } },
+            { binding: 2, visibility: COMPUTE_STAGE, sampler: { type: 'filtering' } },
+            { binding: 3, visibility: COMPUTE_STAGE, storageTexture: { access: 'write-only', format: 'rgba8unorm', viewDimension: '3d' } },
+            { binding: 4, visibility: COMPUTE_STAGE, texture: { sampleType: 'float', viewDimension: '2d' } },
+            { binding: 5, visibility: COMPUTE_STAGE, sampler: { type: 'filtering' } },
+            { binding: 6, visibility: COMPUTE_STAGE, texture: { sampleType: 'float', viewDimension: '2d' } },
+            { binding: 7, visibility: COMPUTE_STAGE, sampler: { type: 'filtering' } },
+            { binding: 8, visibility: COMPUTE_STAGE, texture: { sampleType: 'float', viewDimension: '2d' } },
+            { binding: 9, visibility: COMPUTE_STAGE, texture: { sampleType: 'float', viewDimension: '2d' } },
+            { binding: 10, visibility: COMPUTE_STAGE, texture: { sampleType: 'float', viewDimension: '2d' } },
+          ],
+        });
+      }
+
+      const shaderModule = this.device.createShaderModule({
+        label: 'cloud_advection_compute_shader',
+        code: cloudAdvectionWGSL,
+      });
+
+      const pipelineLayout = this.device.createPipelineLayout({
+        label: 'cloud_advection_compute_pipeline_layout',
+        bindGroupLayouts: [this.cloudAdvectionComputeBindGroupLayout],
+      });
+
+      this.cloudAdvectionComputePipeline = this.device.createComputePipeline({
+        label: 'cloud_advection_compute_pipeline',
+        layout: pipelineLayout,
+        compute: {
+          module: shaderModule,
+          entryPoint: 'cs_main',
+        },
+      });
+
+      this.updateCloudAdvectionBindGroups();
+    } catch (err) {
+      console.error('[WebGPUEngine] initCloudAdvectionPipelines error:', err);
+    }
+  }
+
+  public updateCloudAdvectionBindGroups(): void {
+    if (!this.device || !this.advectionUniformBuffer) return;
+
+    try {
+      const demView = this.demTextureView;
+      const demSampler = this.demSampler || this.volumetricNoiseSampler;
+      const windView = this.windTextureView || this.dummyWindTextureView || demView;
+      const windSampler = this.windSampler || demSampler;
+      const densitySampler = this.cloudDensitySampler || demSampler;
+
+      // Fallback 2D cloud textures
+      const lowView = this.cloudTextures.low ? this.cloudTextures.low.createView() : (this.dummyCloudTextureView || demView);
+      const midView = this.cloudTextures.mid ? this.cloudTextures.mid.createView() : (this.dummyCloudTextureView || demView);
+      const highView = this.cloudTextures.high ? this.cloudTextures.high.createView() : (this.dummyCloudTextureView || demView);
+
+      // Compute Ping-Pong Bind Groups:
+      // Ping 0 -> Pong 1
+      if (this.cloudAdvectionComputeBindGroupLayout && this.cloudDensityTextureViews[0] && this.cloudDensityTextureViews[1] && demView && demSampler && windView && windSampler && densitySampler && lowView && midView && highView) {
+        this.cloudAdvectionComputeBindGroups[0] = this.device.createBindGroup({
+          label: 'cloud_advection_compute_bind_group_0_to_1',
+          layout: this.cloudAdvectionComputeBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.advectionUniformBuffer } },
+            { binding: 1, resource: this.cloudDensityTextureViews[0] },
+            { binding: 2, resource: densitySampler },
+            { binding: 3, resource: this.cloudDensityTextureViews[1] },
+            { binding: 4, resource: windView },
+            { binding: 5, resource: windSampler },
+            { binding: 6, resource: demView },
+            { binding: 7, resource: demSampler },
+            { binding: 8, resource: lowView },
+            { binding: 9, resource: midView },
+            { binding: 10, resource: highView },
+          ],
+        });
+
+        // Ping 1 -> Pong 0
+        this.cloudAdvectionComputeBindGroups[1] = this.device.createBindGroup({
+          label: 'cloud_advection_compute_bind_group_1_to_0',
+          layout: this.cloudAdvectionComputeBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.advectionUniformBuffer } },
+            { binding: 1, resource: this.cloudDensityTextureViews[1] },
+            { binding: 2, resource: densitySampler },
+            { binding: 3, resource: this.cloudDensityTextureViews[0] },
+            { binding: 4, resource: windView },
+            { binding: 5, resource: windSampler },
+            { binding: 6, resource: demView },
+            { binding: 7, resource: demSampler },
+            { binding: 8, resource: lowView },
+            { binding: 9, resource: midView },
+            { binding: 10, resource: highView },
+          ],
+        });
+      }
+
+      // Render Bind Groups (@group(1) in volumetric_cloud.wgsl):
+      if (this.cloudAdvectionRenderBindGroupLayout && densitySampler) {
+        if (this.cloudDensityTextureViews[0]) {
+          this.cloudAdvectionRenderBindGroups[0] = this.device.createBindGroup({
+            label: 'volumetric_cloud_advection_render_bg_0',
+            layout: this.cloudAdvectionRenderBindGroupLayout,
+            entries: [
+              { binding: 0, resource: { buffer: this.advectionUniformBuffer } },
+              { binding: 1, resource: this.cloudDensityTextureViews[0] },
+              { binding: 2, resource: densitySampler },
+            ],
+          });
+        }
+        if (this.cloudDensityTextureViews[1]) {
+          this.cloudAdvectionRenderBindGroups[1] = this.device.createBindGroup({
+            label: 'volumetric_cloud_advection_render_bg_1',
+            layout: this.cloudAdvectionRenderBindGroupLayout,
+            entries: [
+              { binding: 0, resource: { buffer: this.advectionUniformBuffer } },
+              { binding: 1, resource: this.cloudDensityTextureViews[1] },
+              { binding: 2, resource: densitySampler },
+            ],
+          });
+        }
+        if (this.dummy3DDensityTextureView) {
+          this.cloudAdvectionDummyRenderBindGroup = this.device.createBindGroup({
+            label: 'volumetric_cloud_advection_dummy_render_bg',
+            layout: this.cloudAdvectionRenderBindGroupLayout,
+            entries: [
+              { binding: 0, resource: { buffer: this.advectionUniformBuffer } },
+              { binding: 1, resource: this.dummy3DDensityTextureView },
+              { binding: 2, resource: densitySampler },
+            ],
+          });
+        }
+      }
+
+      this.cloudAdvectionHasRealTextures = !!(this.cloudTextures.low && this.windTextureView && this.demTextureView);
+    } catch {
+      // Mock / headless guard
+    }
+  }
+
+  public updateAdvectionUniforms(params: Partial<WebGPUFrameParams>): void {
+    if (!this.advectionUniformBuffer || !this.device) return;
+
+    const dt = params.dt !== undefined ? params.dt : 0.016667;
+    const advectionSpeed = params.cloudAdvectionSpeed !== undefined
+      ? params.cloudAdvectionSpeed
+      : (params.cloudDriftSpeed !== undefined ? params.cloudDriftSpeed : 1.0);
+    const condRate = params.condensationRate !== undefined ? params.condensationRate : 1.2;
+    const evapRate = params.evaporationRate !== undefined ? params.evaporationRate : 0.8;
+
+    const [w, h, d] = this.cloudDensityGridDimensions;
+
+    this.advectionFloats[0] = dt;
+    this.advectionFloats[1] = advectionSpeed;
+    this.advectionFloats[2] = condRate;
+    this.advectionFloats[3] = evapRate;
+
+    this.advectionU32[4] = w;
+    this.advectionU32[5] = h;
+    this.advectionU32[6] = d;
+    this.advectionU32[7] = 1;
+
+    // Altitude shear parameters: u_shear, v_shear, coriolis_tau, pad
+    this.advectionFloats[8] = 1.2;   // u_shear
+    this.advectionFloats[9] = 0.8;   // v_shear
+    this.advectionFloats[10] = 0.5;  // coriolis_tau
+    this.advectionFloats[11] = 0.0;  // pad
+
+    // Threshold parameters: w_crit, min_density, max_density, is_boot_step
+    const isBootStep = this.cloudAdvectionStep === 0 ? 1.0 : 0.0;
+    this.advectionFloats[12] = 0.015; // w_crit
+    this.advectionFloats[13] = 0.0;   // min_density
+    this.advectionFloats[14] = 1.0;   // max_density
+    this.advectionFloats[15] = isBootStep; // is_boot_step
+
+    this.device.queue.writeBuffer(this.advectionUniformBuffer, 0, this.advectionFloats.buffer);
+  }
+
+  public dispatchCloudAdvection(commandEncoder: GPUCommandEncoder, params: Partial<WebGPUFrameParams>): void {
+    if (
+      !this.cloudAdvectionComputePipeline ||
+      !this.cloudAdvectionComputeBindGroups[0] ||
+      !this.cloudAdvectionComputeBindGroups[1]
+    ) {
+      return;
+    }
+
+    const pingIdx = this.cloudAdvectionStep % 2;
+    const computePass = commandEncoder.beginComputePass({
+      label: `cloud_advection_compute_pass_step_${this.cloudAdvectionStep}`,
+    });
+    computePass.setPipeline(this.cloudAdvectionComputePipeline);
+    computePass.setBindGroup(0, this.cloudAdvectionComputeBindGroups[pingIdx]!);
+    // Grid is 128x128x32. Workgroup size is 8x8x4 => 16x16x8 workgroups
+    computePass.dispatchWorkgroups(16, 16, 8);
+    computePass.end();
+
+    this.cloudAdvectionStep++;
+  }
+
+  // ==========================================================================
   // Milestone 2: 3D Cloud Noise Texture & Slice Readback (Invariant §46, §48)
   // ==========================================================================
 
@@ -4246,9 +4608,20 @@ export class WebGPUEngine {
         ],
       });
 
+      if (!this.cloudAdvectionRenderBindGroupLayout) {
+        this.cloudAdvectionRenderBindGroupLayout = this.device.createBindGroupLayout({
+          label: 'cloud_advection_render_bind_group_layout',
+          entries: [
+            { binding: 0, visibility: FRAGMENT_STAGE, buffer: { type: 'uniform' } },
+            { binding: 1, visibility: FRAGMENT_STAGE, texture: { sampleType: 'float', viewDimension: '3d' } },
+            { binding: 2, visibility: FRAGMENT_STAGE, sampler: { type: 'filtering' } },
+          ],
+        });
+      }
+
       this.volumetricCloudPipelineLayout = this.device.createPipelineLayout({
         label: 'volumetric_cloud_pipeline_layout',
-        bindGroupLayouts: [this.volumetricCloudBindGroupLayout],
+        bindGroupLayouts: [this.volumetricCloudBindGroupLayout, this.cloudAdvectionRenderBindGroupLayout],
       });
 
       this.volumetricPipelineDescriptor = {
@@ -4361,6 +4734,15 @@ export class WebGPUEngine {
     const cloud2DSampler = this.cloudSampler || this.demSampler;
 
     if (!depthView || !noiseView || !noiseSampler || !lowView || !midView || !highView || !cloud2DSampler) {
+      console.warn('[WebGPUEngine updateVolumetricCloudBindGroup missing]', {
+        hasDepth: !!depthView,
+        hasNoise: !!noiseView,
+        hasNoiseSampler: !!noiseSampler,
+        hasLow: !!lowView,
+        hasMid: !!midView,
+        hasHigh: !!highView,
+        has2DSampler: !!cloud2DSampler,
+      });
       return;
     }
 
@@ -4380,6 +4762,33 @@ export class WebGPUEngine {
           { binding: 8, resource: cloud2DSampler },
         ],
       });
+
+      if (this.cloudAdvectionRenderBindGroupLayout && this.cloudDensitySampler && this.advectionUniformBuffer) {
+        if (!this.cloudAdvectionDummyRenderBindGroup && this.dummy3DDensityTextureView) {
+          this.cloudAdvectionDummyRenderBindGroup = this.device.createBindGroup({
+            label: 'volumetric_cloud_advection_dummy_render_bg',
+            layout: this.cloudAdvectionRenderBindGroupLayout,
+            entries: [
+              { binding: 0, resource: { buffer: this.advectionUniformBuffer } },
+              { binding: 1, resource: this.dummy3DDensityTextureView },
+              { binding: 2, resource: this.cloudDensitySampler },
+            ],
+          });
+        }
+        for (let i = 0; i < 2; i++) {
+          if (!this.cloudAdvectionRenderBindGroups[i] && this.cloudDensityTextureViews[i]) {
+            this.cloudAdvectionRenderBindGroups[i] = this.device.createBindGroup({
+              label: `volumetric_cloud_advection_render_bg_${i}`,
+              layout: this.cloudAdvectionRenderBindGroupLayout,
+              entries: [
+                { binding: 0, resource: { buffer: this.advectionUniformBuffer } },
+                { binding: 1, resource: this.cloudDensityTextureViews[i]! },
+                { binding: 2, resource: this.cloudDensitySampler },
+              ],
+            });
+          }
+        }
+      }
     } catch (err) {
       console.warn('[WebGPUEngine] Failed to create volumetricCloudBindGroup:', err);
     }
@@ -4575,6 +4984,10 @@ export class WebGPUEngine {
 
     this.updateVolumetricUniforms(params);
 
+    if (this.cloudAdvectionRenderBindGroupLayout && !this.cloudAdvectionDummyRenderBindGroup) {
+      this.ensureCloudAdvectionResources();
+    }
+
     try {
       const currentTextureView = targetView || this.context.getCurrentTexture().createView();
       const cloudPass = commandEncoder.beginRenderPass({
@@ -4589,6 +5002,19 @@ export class WebGPUEngine {
       });
       cloudPass.setPipeline(this.volumetricCloudPipeline);
       cloudPass.setBindGroup(0, this.volumetricCloudBindGroup);
+      if (this.cloudAdvectionRenderBindGroupLayout) {
+        const currentPongIdx = this.cloudAdvectionStep % 2;
+        const isAdvectionActive = params.cloudAdvection !== undefined ? Boolean(params.cloudAdvection) : this.cloudAdvectionEnabled;
+        const advectionBg = (isAdvectionActive && this.cloudAdvectionRenderBindGroups[currentPongIdx])
+          ? this.cloudAdvectionRenderBindGroups[currentPongIdx]
+          : this.cloudAdvectionDummyRenderBindGroup;
+        if (advectionBg) {
+          cloudPass.setBindGroup(1, advectionBg);
+        } else {
+          cloudPass.end();
+          return;
+        }
+      }
       cloudPass.draw(3, 1, 0, 0);
       cloudPass.end();
     } catch {
@@ -5649,7 +6075,31 @@ export class WebGPUEngine {
       this.horizonOcclusionBindGroup
     );
 
-    if (needsParticleCompute || hasWindCompute || hasHorizonCompute) {
+    // Pass 1d: Cloud Semi-Lagrangian Vector Advection Compute Dispatch (Section 1)
+    const showClouds = !isPurity && Boolean(params.showClouds) && this.cloudEnabled !== false;
+    const useVolumetric = !isPurity && showClouds &&
+      (params.volumetricClouds === true || (Boolean(params.volumetricClouds) && this.volumetricCloudsEnabled)) &&
+      !!this.volumetricCloudPipeline;
+    const isAdvectionActive = params.cloudAdvection !== undefined ? Boolean(params.cloudAdvection) : this.cloudAdvectionEnabled;
+    const showCloudAdvection = !isPurity && useVolumetric && isAdvectionActive;
+
+    if (showCloudAdvection) {
+      this.ensureCloudAdvectionResources();
+      this.updateAdvectionUniforms(params);
+      const hasRealTextures = !!(this.cloudTextures.low && this.windTextureView && this.demTextureView);
+      if (!this.cloudAdvectionComputeBindGroups[0] || (!this.cloudAdvectionHasRealTextures && hasRealTextures)) {
+        this.cloudAdvectionComputeBindGroups = [null, null];
+        this.updateCloudAdvectionBindGroups();
+      }
+    }
+
+    const hasCloudAdvectionCompute = showCloudAdvection && !!(
+      this.cloudAdvectionComputePipeline &&
+      this.cloudAdvectionComputeBindGroups[0] &&
+      this.cloudAdvectionComputeBindGroups[1]
+    );
+
+    if (needsParticleCompute || hasWindCompute || hasHorizonCompute || hasCloudAdvectionCompute) {
       const computePass = commandEncoder.beginComputePass({
         timestampWrites: this.profiler?.getComputeTimestampWrites(0),
       });
@@ -5679,6 +6129,14 @@ export class WebGPUEngine {
         const wgX = Math.ceil(this.terrainShadowMapWidth / 16);
         const wgY = Math.ceil(this.terrainShadowMapHeight / 16);
         computePass.dispatchWorkgroups(wgX, wgY, 1);
+      }
+
+      if (hasCloudAdvectionCompute) {
+        computePass.setPipeline(this.cloudAdvectionComputePipeline!);
+        const pingIdx = this.cloudAdvectionStep % 2;
+        computePass.setBindGroup(0, this.cloudAdvectionComputeBindGroups[pingIdx]!);
+        computePass.dispatchWorkgroups(16, 16, 8);
+        this.cloudAdvectionStep++;
       }
 
       computePass.end();
@@ -5797,15 +6255,10 @@ export class WebGPUEngine {
     // 3d. Interleaved Atmospheric Wind & Cloud Strata Passes (Milestone 4)
     const finalShowSurf = !isPurity && showSurf;
     const finalShowJet = !isPurity && showJet;
-    const showClouds = !isPurity && Boolean(params.showClouds) && this.cloudEnabled !== false;
     const showCloudLow = !isPurity && showClouds && (params.showCloudLow !== undefined ? Boolean(params.showCloudLow) : this.cloudOptions.showLow !== false);
     const showCloudMid = !isPurity && showClouds && (params.showCloudMid !== undefined ? Boolean(params.showCloudMid) : this.cloudOptions.showMid !== false);
     const showCloudHigh = !isPurity && showClouds && (params.showCloudHigh !== undefined ? Boolean(params.showCloudHigh) : this.cloudOptions.showHigh !== false);
     const showAtmosphere = !isPurity && !!(params.showAtmosphere && this.showAtmosphereScatter !== false);
-
-    const useVolumetric = !isPurity && showClouds &&
-      (params.volumetricClouds === true || (Boolean(params.volumetricClouds) && this.volumetricCloudsEnabled)) &&
-      !!this.volumetricCloudPipeline;
 
     // 1. Surface Winds
     if (!isPurity && finalShowSurf && this.windRibbonPipeline && this.windRibbonBindGroups && this.quadCornerBuffer) {
@@ -5850,6 +6303,18 @@ export class WebGPUEngine {
     // Pass 2: Dedicated Volumetric Cloud Raymarcher Pass (Milestone 3)
     if (!isPurity && useVolumetric) {
       this.renderVolumetricClouds(commandEncoder, params, sceneTargetView);
+    } else if (params.showClouds) {
+      if (!(this as any)._lastCloudDebugLog) {
+        (this as any)._lastCloudDebugLog = true;
+        console.warn('[WebGPUEngine Cloud Skipped]', {
+          isPurity,
+          showClouds,
+          cloudEnabled: this.cloudEnabled,
+          paramVolumetric: params.volumetricClouds,
+          engineVolumetric: this.volumetricCloudsEnabled,
+          hasPipeline: !!this.volumetricCloudPipeline,
+        });
+      }
     }
 
     // Pass 3: Cartographic Intaglio Substrate Micro-Relief & Paper Composition Pass (Milestone §6)
@@ -6454,6 +6919,8 @@ export class WebGPUEngine {
     if (texturesNeedRecreation) {
       this.updateCloudBindGroups();
       this.updateDEMBindGroups();
+      this.cloudAdvectionComputeBindGroups = [null, null];
+      this.updateCloudAdvectionBindGroups();
       this.updateVolumetricCloudBindGroup();
     }
   }
@@ -6599,6 +7066,8 @@ export class WebGPUEngine {
           this.updateDEMBindGroups();
         }
         this.updateVolumetricCloudBindGroup();
+        this.cloudAdvectionComputeBindGroups = [null, null];
+        this.updateCloudAdvectionBindGroups();
       } catch (err) {
         console.error('Failed to write cloud texture:', err);
       }
@@ -7250,6 +7719,25 @@ export class WebGPUEngine {
     this.terrainShadowBindGroupLayout = null;
     this.terrainShadowBindGroup = null;
     this.terrainShadowDummyBindGroup = null;
+
+    // Section 1: Temporal Cloud Morphing & Semi-Lagrangian Vector Advection Cleanup
+    for (let i = 0; i < 2; i++) {
+      this.cloudDensityTextures[i]?.destroy();
+      this.cloudDensityTextures[i] = null;
+      this.cloudDensityTextureViews[i] = null;
+      this.cloudAdvectionComputeBindGroups[i] = null;
+      this.cloudAdvectionRenderBindGroups[i] = null;
+    }
+    this.dummy3DDensityTexture?.destroy();
+    this.dummy3DDensityTexture = null;
+    this.dummy3DDensityTextureView = null;
+    this.cloudDensitySampler = null;
+    this.advectionUniformBuffer?.destroy();
+    this.advectionUniformBuffer = null;
+    this.cloudAdvectionComputePipeline = null;
+    this.cloudAdvectionComputeBindGroupLayout = null;
+    this.cloudAdvectionRenderBindGroupLayout = null;
+    this.cloudAdvectionDummyRenderBindGroup = null;
 
     this.device?.destroy?.();
     this.isInitialized = false;
