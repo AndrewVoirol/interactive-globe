@@ -578,7 +578,10 @@ operational camera range ($z_{\text{view}} \in [3, 30]$).
 
 **WebGPUEngine.ts Pipeline Descriptor Changes:**
 
-Add `depthBias` to `pointsRenderPipeline` and `linesRenderPipeline`:
+Add `depthBias` to polygonal render pipelines (e.g., triangle-list, triangle-strip).
+**IMPORTANT**: Per W3C WebGPU §10.3.3 and Rule 7, `depthBias` is strictly prohibited on non-polygonal primitive topologies. For `pointsRenderPipeline` and `linesRenderPipeline`, you MUST specify `depthBias: 0` or omit the property entirely.
+
+Example for polygonal pipelines:
 ```typescript
 depthStencil: {
     format: 'depth32float',
