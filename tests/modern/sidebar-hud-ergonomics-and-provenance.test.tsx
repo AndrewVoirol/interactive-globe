@@ -244,7 +244,6 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       expect(sidebarSource).toContain("'Scroll'");
       expect(sidebarSource).toContain("'Fracture'");
       expect(sidebarSource).toContain("'Fluid'");
-      expect(sidebarSource).toContain("'Dymaxion'");
     });
 
     it('does not contain removed features (Base Lattice, pinned footer, compact colophon)', () => {

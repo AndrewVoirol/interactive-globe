@@ -71,8 +71,8 @@ describe('Phase 2 Interactive Unfurl & Loaders Verification Suite', () => {
     camera.position.set(0, 0, 15);
     camera.lookAt(0, 0, 0);
 
-    // Verify each of the 5 modes: 0 (Linear), 1 (Scroll), 2 (Griffith), 3 (Fluid), 4 (Dymaxion)
-    for (let mode = 0; mode <= 4; mode++) {
+    // Verify each of the 4 modes: 0 (Linear), 1 (Scroll), 2 (Griffith), 3 (Fluid)
+    for (let mode = 0; mode <= 3; mode++) {
       for (let step = 0; step <= 10; step++) {
         const unfurl = step / 10.0;
         expect(() => {
@@ -142,13 +142,12 @@ describe('Phase 2 Interactive Unfurl & Loaders Verification Suite', () => {
     engine.dispose();
   });
 
-  it('UNFURL-04: verifies generateSphereGrid computes authentic Dymaxion 2D projection with zero NaNs', () => {
+  it('UNFURL-04: verifies generateSphereGrid computes authentic 3D and 2D projections with zero NaNs', () => {
     const engine = new WebGPUEngine();
     const mesh = engine.generateSphereGrid(32, 64);
     const floatsPerVertex = 12;
     const vertexCount = mesh.vertices.length / floatsPerVertex;
 
-    let dymaxionDistinctCount = 0;
     for (let i = 0; i < vertexCount; i++) {
       const offset = i * floatsPerVertex;
       const x = mesh.vertices[offset + 0];
@@ -156,19 +155,13 @@ describe('Phase 2 Interactive Unfurl & Loaders Verification Suite', () => {
       const z = mesh.vertices[offset + 2];
       const mercX = mesh.vertices[offset + 6];
       const mercY = mesh.vertices[offset + 7];
-      const dymX = mesh.vertices[offset + 8];
-      const dymY = mesh.vertices[offset + 9];
 
-      expect(Number.isFinite(dymX)).toBe(true);
-      expect(Number.isFinite(dymY)).toBe(true);
-
-      // Verify that Dymaxion coords are non-trivial and not simply identical to Mercator
-      if (Math.abs(dymX - mercX) > 0.1 || Math.abs(dymY - mercY) > 0.1) {
-        dymaxionDistinctCount++;
-      }
+      expect(Number.isFinite(x)).toBe(true);
+      expect(Number.isFinite(y)).toBe(true);
+      expect(Number.isFinite(z)).toBe(true);
+      expect(Number.isFinite(mercX)).toBe(true);
+      expect(Number.isFinite(mercY)).toBe(true);
     }
-    // Majority of points must differ from cylindrical Mercator projection
-    expect(dymaxionDistinctCount).toBeGreaterThan(vertexCount * 0.8);
   });
 
   it('UNFURL-05: verifies asynchronous loaders handle mid-stream disposal and uninitialized state gracefully', async () => {

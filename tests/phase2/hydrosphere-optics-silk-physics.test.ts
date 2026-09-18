@@ -11,6 +11,7 @@ import * as THREE from 'three';
 
 import crustHydrosphereWGSL from '../../src/webgpu/shaders/crust_hydrosphere.wgsl?raw';
 import physicsSimWGSL from '../../src/webgpu/shaders/physics_sim.wgsl?raw';
+import manifoldWGSL from '../../src/webgpu/shaders/manifold.wgsl?raw';
 
 describe('Hydrosphere Optics & Solenoidal Silk Physics Verification', () => {
   // ==========================================================================
@@ -115,9 +116,9 @@ describe('Hydrosphere Optics & Solenoidal Silk Physics Verification', () => {
   // ==========================================================================
   describe('Suite 4: Fluid Morph Silk Drape Dynamics (physics_sim.wgsl)', () => {
     it('PHYS-01: verifies irrational SO(3) rotation matrix in solenoidal curl noise', () => {
-      expect(physicsSimWGSL).toContain('vec3<f32>(0.00,  0.80,  0.60)');
-      expect(physicsSimWGSL).toContain('vec3<f32>(-0.80, 0.36, -0.48)');
-      expect(physicsSimWGSL).toContain('vec3<f32>(-0.60, -0.48, 0.64)');
+      expect(manifoldWGSL).toContain('vec3<f32>(0.00,  0.80,  0.60)');
+      expect(manifoldWGSL).toContain('vec3<f32>(-0.80, 0.36, -0.48)');
+      expect(manifoldWGSL).toContain('vec3<f32>(-0.60, -0.48, 0.64)');
 
       // Verify rotation matrix is orthogonal (R * R^T = I)
       const c0 = new THREE.Vector3(0.00, 0.80, 0.60);

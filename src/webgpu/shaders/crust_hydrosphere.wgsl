@@ -109,7 +109,7 @@ struct VertexInput {
     @location(0) position: vec3<f32>, // Base manifold position
     @location(1) uv: vec2<f32>,       // Longitude/Latitude [0, 1]
     @location(2) surfaceType: f32,    // 0.0 = Crust, 1.0 = Liquid Hydrosphere
-    @location(3) target2D: vec4<f32>, // xy: Mercator 2D, zw: Dymaxion 2D (optional)
+    @location(3) target2D: vec4<f32>, // xy: Mercator 2D, zw: Reserved/Unused
 };
 
 struct VertexOutput {
@@ -120,17 +120,14 @@ struct VertexOutput {
     @location(3) elevation: f32,
     @location(4) waterDepth: f32,
     @location(5) surfaceType: f32,
-    @location(6) dymaxion2D: vec2<f32>,
 };
 
-const PI: f32 = 3.14159265358979323846;
 const PI_F32: f32 = 3.14159265358979323846;
 const TWO_PI_F32: f32 = 6.28318530717958647692;
 const INV_PI_F32: f32 = 0.31830988618379067154;
 const INV_TWO_PI_F32: f32 = 0.15915494309189533577;
 const EARTH_RADIUS_M: f32 = 6371000.0;
 const INV_EARTH_RADIUS_M: f32 = 1.5696123e-7;
-const RADIUS: f32 = 5.0;
 
 fn computeSunLightDir(azimuthDeg: f32, altitudeDeg: f32) -> vec3<f32> {
     let radAz = radians(azimuthDeg);
@@ -502,143 +499,22 @@ fn computeHydrosphereShading(
 // ----------------------------------------------------------------------------
 // Manifold Kinematics Across All 5 Paradigms
 // ----------------------------------------------------------------------------
-fn computeCurlNoise(p: vec3<f32>, time: f32) -> vec3<f32> {
-    let t = time * 0.75;
-    let rot = mat3x3<f32>(
-         0.00,  0.80,  0.60,
-        -0.80,  0.36, -0.48,
-        -0.60, -0.48,  0.64
-    );
-    let q1 = rot * p * 0.45;
-    let q2 = rot * rot * p * 0.95;
-
-    let ux = -0.55 * cos(0.55 * q1.y + t * 0.7) - 0.45 * cos(0.95 * q1.z - t * 0.5);
-    let uy = -0.55 * cos(0.55 * q1.z + t * 0.9) - 0.45 * cos(0.95 * q1.x - t * 0.6);
-    let uz = -0.55 * cos(0.55 * q1.x + t * 0.8) - 0.45 * cos(0.95 * q1.y - t * 0.4);
-
-    let u2x = 0.25 * sin(1.5 * q2.y - t * 1.2);
-    let u2y = 0.25 * sin(1.5 * q2.z - t * 1.1);
-    let u2z = 0.25 * sin(1.5 * q2.x - t * 1.3);
-
-    return rot * vec3<f32>(ux + u2x, uy + u2y, uz + u2z);
-}
-
-struct DeformedVertex {
-    pos: vec3<f32>,
-    normal: vec3<f32>,
-};
-
-fn evaluateManifold(uv: vec2<f32>, unfurl: f32, mode: u32) -> DeformedVertex {
-    var out: DeformedVertex;
-    let clampedUnfurl = clamp(unfurl, 0.0, 1.0);
-    let ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
-
+fn evaluateGridManifold(uv: vec2<f32>, unfurl: f32, mode: u32) -> DeformedVertex {
     let lambda = (uv.x - 0.5) * TWO_PI_F32;
     let phi = (0.5 - uv.y) * PI_F32;
-
     let cosLat = cos(phi);
     let sinLat = sin(phi);
     let cosLon = cos(lambda);
     let sinLon = sin(lambda);
-
     let pos3D = vec3<f32>(RADIUS * cosLat * sinLon, RADIUS * sinLat, RADIUS * cosLat * cosLon);
-
     let clampedPhi = clamp(phi, -1.4835, 1.4835);
     let mercatorY = log(tan(PI_F32 * 0.25 + clampedPhi * 0.5)) * RADIUS;
     let mercatorX = lambda * RADIUS;
-    let pos2D = vec3<f32>(mercatorX, mercatorY, 0.015);
-
-    if (mode == 1u) {
-        // Mode 1: Cylindrical Scroll Unfurling
-        let oneMinusT = 1.0 - ease;
-        if (oneMinusT > 0.001) {
-            let invOneMinusT = 1.0 / oneMinusT;
-            let curAngle = oneMinusT * lambda;
-            let curX = (RADIUS * invOneMinusT) * sin(curAngle);
-            let curZ = (RADIUS * cosLat * invOneMinusT) * (cos(curAngle) - 1.0) + (RADIUS * cosLat * oneMinusT);
-            let curY = mix(pos3D.y, pos2D.y, ease);
-            out.pos = vec3<f32>(curX, curY, curZ);
-
-            let T_lambda = vec3<f32>(RADIUS * cos(curAngle), 0.0, -RADIUS * cosLat * sin(curAngle));
-            let T_phi = vec3<f32>(
-                0.0,
-                mix(RADIUS * cosLat, RADIUS / max(cosLat, 0.05), ease),
-                -RADIUS * sinLat * invOneMinusT * (cos(curAngle) - 1.0) - RADIUS * sinLat * oneMinusT
-            );
-            let rawNorm = cross(T_lambda, T_phi);
-            out.normal = select(normalize(pos3D), normalize(rawNorm), length(rawNorm) > 0.0001);
-        } else {
-            let u = oneMinusT * lambda;
-            let sinTerm = lambda * (1.0 - (u * u) / 6.0);
-            let cosTerm = oneMinusT * (lambda * lambda) * (-0.5 + (u * u) / 24.0);
-            let curX = RADIUS * sinTerm;
-            let curZ = RADIUS * cosLat * cosTerm + RADIUS * cosLat * oneMinusT;
-            let curY = mix(pos3D.y, pos2D.y, ease);
-            out.pos = vec3<f32>(curX, curY, curZ);
-            out.normal = vec3<f32>(0.0, 0.0, 1.0);
-        }
-    } else if (mode == 2u) {
-        // Mode 2: Griffith LEFM
-        let distToSeam = PI_F32 - abs(lambda);
-        let seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
-        let tRupture = 0.18;
-
-        let hitDist = length(pos3D - sim.u_cursorHitPos.xyz);
-        let cursorInfluence = sim.u_cursorActive * exp(-hitDist * hitDist / (2.0 * 0.64));
-        let hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cosLat * cosLat);
-
-        if (ease < tRupture) {
-            let strainProgress = ease / tRupture;
-            let localStrain = seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress;
-            out.pos = pos3D + normalize(pos3D) * (localStrain * 0.30);
-            out.normal = normalize(out.pos);
-        } else {
-            let postRuptureT = smoothstep(tRupture, 1.0, ease);
-            let flutterWave = sin(distToSeam * 16.0 - ease * 24.0);
-            let flutterDecay = exp(-4.2 * (ease - tRupture));
-            let flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay;
-            out.pos = mix(pos3D, pos2D, postRuptureT) + vec3<f32>(0.0, 0.0, flutterAmp);
-            out.normal = mix(normalize(pos3D), vec3<f32>(0.0, 0.0, 1.0), postRuptureT);
-        }
-    } else if (mode == 3u) {
-        // Mode 3: Fluid Advection
-        let rawSin = sin(PI_F32 * clampedUnfurl);
-        let liquefaction = pow(max(0.0, rawSin), 1.15);
-        let unElevatedSphere = normalize(pos3D) * RADIUS;
-        let basePos = mix(unElevatedSphere, vec3<f32>(mercatorX, mercatorY, 0.0), ease);
-        let naturalVel = computeCurlNoise(basePos, sim.u_time);
-
-        let hitDist = length(basePos - sim.u_cursorHitPos.xyz);
-        let coreRadius = 0.85;
-        let vortexCirc = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.05);
-        let surfaceNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(basePos), length(basePos) > 0.001);
-        let vortexTangent = normalize(cross(surfaceNormal, basePos - sim.u_cursorHitPos.xyz + vec3<f32>(0.001)));
-        let clampedSpeed = clamp(sim.u_cursorVel.w, 0.0, 1.5);
-        let vortexVelocity = vortexTangent * (sim.u_cursorActive * clampedSpeed * vortexCirc * 0.35);
-        let wakeAdvection = normalize(sim.u_cursorVel.xyz + vec3<f32>(0.0001)) * (clampedSpeed * 0.15 * sim.u_cursorActive * exp(-hitDist * hitDist / 1.5));
-
-        let wavePhase1 = dot(basePos, vec3<f32>(0.35, 0.62, 0.42)) * 1.35 - sim.u_time * 1.25;
-        let wavePhase2 = dot(basePos, vec3<f32>(-0.45, 0.30, 0.65)) * 1.75 - sim.u_time * 0.90;
-        let silkWave = (sin(wavePhase1) * 0.65 + cos(wavePhase2) * 0.35) * liquefaction * 0.65;
-        let silkDrape = surfaceNormal * silkWave;
-
-        let advectionOffset = naturalVel * (liquefaction * 1.55) + silkDrape + (vortexVelocity + wakeAdvection) * (sim.u_cursorActive * 0.25);
-        out.pos = basePos + advectionOffset + surfaceNormal * 0.015;
-        out.normal = mix(normalize(unElevatedSphere + silkDrape * 0.5), vec3<f32>(0.0, 0.0, 1.0), ease);
-    } else if (mode == 4u) {
-        // Mode 4: Fuller Dymaxion Polyhedral Net
-        let arch = sin(PI_F32 * clampedUnfurl) * 0.45;
-        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
-        out.pos = mix(pos3D, pos2D, ease) + sphereNorm * arch;
-        out.normal = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
-    } else {
-        // Mode 0: Linear Manifold Mix
-        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
-        out.pos = mix(pos3D, pos2D, ease);
-        out.normal = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
-    }
-
-    return out;
+    let mercator2D = vec2<f32>(mercatorX, mercatorY);
+    return evaluateManifoldCore(
+        pos3D, mercator2D, unfurl, mode,
+        sim.u_time, sim.u_cursorHitPos, sim.u_cursorActive, sim.u_cursorVel
+    );
 }
 
 fn decodeElevation(texColor: vec4<f32>) -> f32 {
@@ -716,7 +592,6 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
 
     var inUv = input.uv;
     var inSurfaceType = input.surfaceType;
-    var d2D = input.target2D.zw;
 
     var deformed: DeformedVertex;
     var inst: CDLODInstance;
@@ -728,7 +603,7 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
 
         // Evaluate unmorphed coordinate & world position to compute camera distance r
         let uv_unmorphed = inst.minUV + p * inst.sizeUV;
-        let unmorphed = evaluateManifold(uv_unmorphed, sim.u_unfurl, sim.u_mode);
+        let unmorphed = evaluateGridManifold(uv_unmorphed, sim.u_unfurl, sim.u_mode);
         let r = length(unmorphed.pos - sim.u_cameraPos.xyz);
 
         // Morph factor alpha
@@ -745,11 +620,10 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
         inst.lodFraction = f32(inst.lod) + alpha;
         instLod = inst.lodFraction;
 
-        // Pass canonical (u, v) directly into evaluateManifold
-        deformed = evaluateManifold(uv, sim.u_unfurl, sim.u_mode);
-        d2D = vec2<f32>(0.0, 0.0);
+        // Pass canonical (u, v) directly into evaluateGridManifold
+        deformed = evaluateGridManifold(uv, sim.u_unfurl, sim.u_mode);
     } else {
-        deformed = evaluateManifold(inUv, sim.u_unfurl, sim.u_mode);
+        deformed = evaluateGridManifold(inUv, sim.u_unfurl, sim.u_mode);
         let patchDistPre = length(sim.u_cameraPos.xyz - deformed.pos);
         inst.lodFraction = clamp(log2(max(1.0, patchDistPre * 0.2)), 0.0, 4.0);
         instLod = inst.lodFraction;
@@ -833,8 +707,6 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
     let worldP = basePos + baseNormal * normalDisplacement;
     output.worldPos = worldP;
     output.normal = baseNormal;
-
-    output.dymaxion2D = d2D;
 
     let viewPos = sim.u_viewMatrix * vec4<f32>(worldP, 1.0);
     output.clipPos = sim.u_projectionMatrix * viewPos;
@@ -1057,8 +929,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let du_dy = dpdy(input.uv.x);
     let dv_dx = dpdx(input.uv.y);
     let dv_dy = dpdy(input.uv.y);
-    let dym_dx = dpdx(input.dymaxion2D);
-    let dym_dy = dpdy(input.dymaxion2D);
     let dUV = fwidth(input.uv);
 
     // 2. Unconditional DEM 5-tap sampling with screen-space derivative LOD strictly before any branching/discard (Invariant #3)
@@ -1139,20 +1009,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // Modulate precipitation by LCL gate
     let precipModulated = precipAdvected * lclGate;
     let precipRate = precipModulated;
-
-    // Dymaxion cross-facet polygon tearing discard guard via analytical 2D Jacobian
-    if (sim.u_mode == 4u && sim.u_unfurl > 0.02) {
-        let det = du_dx * dv_dy - du_dy * dv_dx;
-        if (abs(det) > 1e-12) {
-            let invDet = 1.0 / det;
-            let d_du = (dym_dx * dv_dy - dym_dy * dv_dx) * invDet;
-            let d_dv = (-dym_dx * du_dy + dym_dy * du_dx) * invDet;
-
-            if (length(d_du) > 35.0 || length(d_dv) > 35.0) {
-                discard;
-            }
-        }
-    }
 
     let V = normalize(sim.u_cameraPos.xyz - input.worldPos);
     let N = normalize(input.normal);

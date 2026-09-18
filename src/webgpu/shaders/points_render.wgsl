@@ -35,6 +35,17 @@ struct VertexOutput {
     @location(2) vFacing: f32,
 };
 
+// ----------------------------------------------------------------------------
+// Horizon Limb Falloff Specification (§1)
+// ----------------------------------------------------------------------------
+fn horizonFalloff(facing: f32, tau: f32, killEdge0: f32, killEdge1: f32) -> f32 {
+    let maxPath: f32 = 12.5; // ≈ sqrt(π·X/2) for engine atmosphere
+    let path = min(1.0 / max(facing, 1.0 / maxPath), maxPath);
+    let transmission = exp(-tau * path);
+    let killTerm = smoothstep(killEdge0, killEdge1, facing);
+    return transmission * killTerm;
+}
+
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
@@ -45,8 +56,8 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     var dynamicNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos), length(pos) > 0.001);
     dynamicNormal = normalize(mix(dynamicNormal, vec3<f32>(0.0, 0.0, 1.0), sim.u_unfurl));
 
-    // Slight radial offset above terrain to eliminate depth-fighting against 3D crust mesh
-    let offsetPos = pos + dynamicNormal * (0.005 * (1.0 - sim.u_unfurl * 0.5));
+    // Rule 7: Zero geometric standoff conformance to DEM elevation surface
+    let offsetPos = pos;
     let worldPos = vec4<f32>(offsetPos, 1.0);
     let viewPos = sim.u_viewMatrix * worldPos;
     out.clipPos = sim.u_projectionMatrix * viewPos;
@@ -64,7 +75,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if (sim.u_layerMode == 2u) {
         discard;
     }
-    let backfaceDimming = mix(0.15, 1.0, smoothstep(-0.5, 0.2, in.vFacing));
+    let sphereFactor = 1.0 - smoothstep(0.0, 0.35, sim.u_unfurl);
+    let backfaceDimming = mix(1.0, horizonFalloff(in.vFacing, 0.15, 0.0, 0.08), sphereFactor);
+
+    if (sphereFactor > 0.0 && in.vFacing <= 0.0) {
+        discard;
+    }
 
     // Theme Palette: 0 = Obsidian & Celestial Platinum, 1 = Light Monochrome
     var geographicColor = vec3<f32>(0.49, 0.827, 0.988);

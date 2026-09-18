@@ -203,7 +203,6 @@ describe('Challenger 1: Binary Decoding, Zero-Copy & VRAM Adversarial Suite', ()
       // Verify all columnar arrays have identical lengths
       expect(geomDecoded.positions3D.length).toBe(contDecoded.positions3D.length);
       expect(geomDecoded.target2D.length).toBe(contDecoded.target2D.length);
-      expect(geomDecoded.dymaxion2D.length).toBe(contDecoded.dymaxion2D.length);
       expect(geomDecoded.typeData.length).toBe(contDecoded.typeData.length);
       expect(geomDecoded.lineIndices.length).toBe(contDecoded.lineIndices.length);
 
@@ -308,7 +307,6 @@ describe('Challenger 1: Binary Decoding, Zero-Copy & VRAM Adversarial Suite', ()
       const decoded = decodeContourMesh(extraBuf);
       expect(decoded.positions3D.length).toBe(20 * 3);
       expect(decoded.target2D.length).toBe(20 * 2);
-      expect(decoded.dymaxion2D.length).toBe(20 * 2);
       expect(decoded.typeData.length).toBe(20);
       expect(decoded.lineIndices.length).toBe(20);
     });
@@ -329,7 +327,6 @@ describe('Challenger 1: Binary Decoding, Zero-Copy & VRAM Adversarial Suite', ()
       const decoded = decodeContourMesh(zeroBuf);
       expect(decoded.positions3D.length).toBe(0);
       expect(decoded.target2D.length).toBe(0);
-      expect(decoded.dymaxion2D.length).toBe(0);
       expect(decoded.typeData.length).toBe(0);
       expect(decoded.lineIndices.length).toBe(0);
     });
@@ -342,7 +339,6 @@ describe('Challenger 1: Binary Decoding, Zero-Copy & VRAM Adversarial Suite', ()
       const decoded = decodeContourMesh(ptsOnlyBuf);
       expect(decoded.positions3D.length).toBe(75);
       expect(decoded.target2D.length).toBe(50);
-      expect(decoded.dymaxion2D.length).toBe(50);
       expect(decoded.typeData.length).toBe(25);
       expect(decoded.lineIndices.length).toBe(0);
     });
@@ -442,7 +438,6 @@ describe('Challenger 1: Binary Decoding, Zero-Copy & VRAM Adversarial Suite', ()
       // Backing buffers must strictly point to the same ArrayBuffer instance
       expect(decoded.positions3D.buffer).toBe(realArrayBuffer);
       expect(decoded.target2D.buffer).toBe(realArrayBuffer);
-      expect(decoded.dymaxion2D.buffer).toBe(realArrayBuffer);
       expect(decoded.typeData.buffer).toBe(realArrayBuffer);
       expect(decoded.lineIndices.buffer).toBe(realArrayBuffer);
     });
@@ -470,7 +465,7 @@ describe('Challenger 1: Binary Decoding, Zero-Copy & VRAM Adversarial Suite', ()
       expect(decoded.positions3D[0]).toBeCloseTo(originalX, 4);
     });
 
-    it('CH1-T17: validates exact contiguous byte offsets of all 5 columnar slices', () => {
+    it('CH1-T17: validates exact contiguous byte offsets of active columnar slices', () => {
       const decoded = decodeContourMesh(realArrayBuffer);
       const N = decoded.header.pointCount; // 69,028
       const M = decoded.header.indexCount; // 69,028
@@ -484,26 +479,15 @@ describe('Challenger 1: Binary Decoding, Zero-Copy & VRAM Adversarial Suite', ()
 
       expect(decoded.positions3D.byteOffset).toBe(expectedPosOffset);
       expect(decoded.target2D.byteOffset).toBe(expectedTarOffset);
-      expect(decoded.dymaxion2D.byteOffset).toBe(expectedDymOffset);
       expect(decoded.typeData.byteOffset).toBe(expectedTypOffset);
       expect(decoded.lineIndices.byteOffset).toBe(expectedIdxOffset);
       expect(expectedTotalBytes).toBe(realArrayBuffer.byteLength);
 
-      // Verify each slice has zero overlapping bytes and zero interstitial gaps
+      // Verify each slice has expected byte lengths
       expect(decoded.positions3D.byteLength).toBe(828336);
       expect(decoded.target2D.byteLength).toBe(552224);
-      expect(decoded.dymaxion2D.byteLength).toBe(552224);
       expect(decoded.typeData.byteLength).toBe(276112);
       expect(decoded.lineIndices.byteLength).toBe(276112);
-
-      const totalSliceBytes =
-        decoded.positions3D.byteLength +
-        decoded.target2D.byteLength +
-        decoded.dymaxion2D.byteLength +
-        decoded.typeData.byteLength +
-        decoded.lineIndices.byteLength;
-
-      expect(HEADER_BYTE_SIZE + totalSliceBytes).toBe(2485040);
     });
   });
 
@@ -815,12 +799,7 @@ describe('Challenger 1: Binary Decoding, Zero-Copy & VRAM Adversarial Suite', ()
         expect(Number.isFinite(decoded.target2D[i])).toBe(true);
       }
 
-      // 3. All 138,056 Dymaxion 2D coordinates
-      for (let i = 0; i < N * 2; i++) {
-        expect(Number.isFinite(decoded.dymaxion2D[i])).toBe(true);
-      }
-
-      // 4. All 69,028 normalized elevation values
+      // 3. All 69,028 normalized elevation values
       for (let i = 0; i < N; i++) {
         expect(Number.isFinite(decoded.typeData[i])).toBe(true);
         expect(decoded.typeData[i]).toBeGreaterThanOrEqual(0.0);

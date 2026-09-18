@@ -27,8 +27,6 @@ uniform sampler2D u_demTexture;
 uniform float u_displacementScale;
 
 attribute vec2 target2D;
-attribute vec2 dymaxion2D;
-attribute vec2 adjacentDymaxion2D;
 attribute float seamCut;
 attribute float vType;
 
@@ -173,23 +171,6 @@ void main() {
 
         finalPos = basePos + advectionOffset + surfaceNormal * 0.015;
         dynamicNormal = mix(normalize(unElevatedSphere + silkDrapeOffset * 0.5), vec3(0.0, 0.0, 1.0), t);
-    } else if (u_mode == 4) {
-        // Cut seam detection: collapse degenerate segments across cut boundaries in Dymaxion 2D space
-        // If distance between adjacent segment points in Dymaxion space is large (e.g. length(dymaxion2D - adjacentDymaxion2D) > 2.0 or length(dymaxion2D - target2D) across face boundaries),
-        // collapse gl_Position to degenerate clip coordinates (0, 0, -2, 1) when morphing to 2D (ease > 0.01) so lines do not stretch across the screen
-        if (ease > 0.01) {
-            float dymSegmentDist = length(dymaxion2D - adjacentDymaxion2D);
-            if (seamCut > 0.5 || dymSegmentDist > 2.0) {
-                gl_Position = vec4(0.0, 0.0, -2.0, 1.0);
-                return;
-            }
-        }
-        float t = ease;
-        vec3 dymaxionPos2D = vec3(dymaxion2D.x, dymaxion2D.y, 0.015);
-        float arch = sin(PI * clampedUnfurl) * 0.45;
-        vec3 sphereNorm = length(pos3D) > 0.001 ? normalize(pos3D) : vec3(0.0, 0.0, 1.0);
-        finalPos = mix(pos3D, dymaxionPos2D, t) + sphereNorm * arch;
-        dynamicNormal = mix(sphereNorm, vec3(0.0, 0.0, 1.0), t);
     } else {
         finalPos = mix(pos3D, pos2D, ease);
         dynamicNormal = normalize(pos3D);
@@ -212,7 +193,7 @@ void main() {
     vec3 viewDir = -normalize(mvPosition.xyz);
     float facing = dot(viewNormal, viewDir);
 
-    if (u_mode == 1 || u_mode == 2 || u_mode == 3 || u_mode == 4) {
+    if (u_mode == 1 || u_mode == 2 || u_mode == 3) {
         vFacing = mix(facing, dot(normalize(normalMatrix * vec3(0.0, 0.0, 1.0)), viewDir), pow(ease, 2.0));
     } else {
         vFacing = mix(facing, 1.0, ease);

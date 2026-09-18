@@ -22,9 +22,11 @@ import { WebGPUEngine, WebGPUFrameParams, WebGPUInitConfig } from '../../src/web
 import { MockGPUDevice } from '../helpers/webgpu-mock';
 
 const SHADER_PATH = path.resolve(__dirname, '../../src/webgpu/shaders/atmosphere_scatter.wgsl');
+const MANIFOLD_SHADER_PATH = path.resolve(__dirname, '../../src/webgpu/shaders/manifold.wgsl');
 const ENGINE_PATH = path.resolve(__dirname, '../../src/webgpu/WebGPUEngine.ts');
 
 const atmosphereShaderSource = fs.readFileSync(SHADER_PATH, 'utf-8');
+const manifoldShaderSource = fs.readFileSync(MANIFOLD_SHADER_PATH, 'utf-8');
 const engineSource = fs.readFileSync(ENGINE_PATH, 'utf-8');
 
 // ============================================================================
@@ -230,7 +232,7 @@ describe('Suite 4: Dynamic Dimensions & Ray-Shell Geometry (Invariant §48)', ()
   });
 
   it('ATM-GEOM-02: Concentric spherical shell is defined at R = 5.080 at base scale', () => {
-    expect(atmosphereShaderSource).toContain('const RADIUS: f32 = 5.0;');
+    expect(manifoldShaderSource).toContain('const RADIUS: f32 = 5.0;');
     expect(atmosphereShaderSource).toContain('let shellStandoff = 0.080 * (1.0 + (scaleFactor - 1.0) * 0.15);');
     expect(atmosphereShaderSource).toContain('let rAtm = RADIUS + 0.080 * (1.0 + (scaleFactor - 1.0) * 0.15);');
   });

@@ -379,7 +379,7 @@ fn hashScreen(p: vec2<f32>) -> f32 {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // Graceful fade during 2D planar unrolling (Modes 1..4)
+    // Graceful fade during 2D planar unrolling (Modes 1..3)
     let unfurl = cloud.u_simControl.y;
     if (unfurl > 0.30) {
         discard;

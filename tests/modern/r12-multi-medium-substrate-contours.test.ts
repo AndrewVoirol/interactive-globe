@@ -38,8 +38,8 @@ describe('Requirement R12: Multi-Medium Physical Substrate & Analytical Contours
         }
       }
 
-      // Exactly 7 active derivative evaluations must exist in the entire shader
-      expect(occurrences.length).toBe(7);
+      // Exactly 5 active derivative evaluations must exist in the entire shader
+      expect(occurrences.length).toBe(5);
       for (const occ of occurrences) {
         expect(occ.fn).toBe('fs_main');
       }

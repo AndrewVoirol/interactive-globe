@@ -163,7 +163,6 @@ describe('Adversarial Challenger Suite: Dynamic Cloud Ground Shadows & WGSL Inte
       const shadowEvalIdx = crustHydrosphereWGSL.indexOf('let shadowFactor = sampleCloudShadowFactor', fsMainIdx);
 
       // Branching and discard points
-      const dymaxionDiscardIdx = crustHydrosphereWGSL.indexOf('if (sim.u_mode == 4u && sim.u_unfurl > 0.02)', fsMainIdx);
       const surfaceDiscardIdx = crustHydrosphereWGSL.indexOf('if (input.surfaceType > 0.5)', fsMainIdx);
       const firstDiscardIdx = crustHydrosphereWGSL.indexOf('discard;', fsMainIdx);
 
@@ -172,7 +171,6 @@ describe('Adversarial Challenger Suite: Dynamic Cloud Ground Shadows & WGSL Inte
       expect(shadowEvalIdx).toBeGreaterThan(fsMainIdx);
 
       // Shadow factor MUST be computed unconditionally before ANY discard or branch
-      expect(shadowEvalIdx).toBeLessThan(dymaxionDiscardIdx);
       expect(shadowEvalIdx).toBeLessThan(surfaceDiscardIdx);
       expect(shadowEvalIdx).toBeLessThan(firstDiscardIdx);
     });

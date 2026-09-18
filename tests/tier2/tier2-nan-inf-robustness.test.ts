@@ -9,10 +9,6 @@ import {
   griffithHoopStress,
   raySphereIntersect,
 } from '../../src/utils/raycast';
-import {
-  projectPointToDymaxionFace,
-  getIcosahedronGeometry,
-} from '../../src/utils/dymaxion';
 
 describe('Tier 2: Robustness — Zero NaNs & Infinities Across All Mathematical Kernels', () => {
   it('T2-N01: computeCurlNoise produces 0 NaNs at coordinate origin (0, 0, 0) and time = 0.0', () => {
@@ -60,28 +56,6 @@ describe('Tier 2: Robustness — Zero NaNs & Infinities Across All Mathematical 
       const { sigmaThetaTheta } = griffithHoopStress(0.1, theta);
       expect(Number.isNaN(sigmaThetaTheta)).toBe(false);
       expect(Number.isFinite(sigmaThetaTheta)).toBe(true);
-    });
-  });
-
-  it('T2-N07: projectPointToDymaxionFace produces 0 NaNs at all 12 icosahedral vertices', () => {
-    const { vertices } = getIcosahedronGeometry();
-    vertices.forEach(v => {
-      const { gnomonicPos, maxDot } = projectPointToDymaxionFace(v);
-      expect(Number.isNaN(gnomonicPos[0])).toBe(false);
-      expect(Number.isNaN(gnomonicPos[1])).toBe(false);
-      expect(Number.isNaN(gnomonicPos[2])).toBe(false);
-      expect(maxDot).toBeGreaterThan(0.70);
-    });
-  });
-
-  it('T2-N08: projectPointToDymaxionFace produces 0 NaNs at all 20 face centroids', () => {
-    const { centroids } = getIcosahedronGeometry();
-    centroids.forEach(c => {
-      const { gnomonicPos, maxDot } = projectPointToDymaxionFace(c);
-      expect(maxDot).toBeCloseTo(1.0, 5); // Centroid matches face with dot = 1.0
-      expect(Number.isNaN(gnomonicPos[0])).toBe(false);
-      expect(Number.isNaN(gnomonicPos[1])).toBe(false);
-      expect(Number.isNaN(gnomonicPos[2])).toBe(false);
     });
   });
 

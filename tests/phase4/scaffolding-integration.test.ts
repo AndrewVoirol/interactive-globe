@@ -114,23 +114,6 @@ describe('Scaffolding & Integration Track: Production Systems Verification', () 
       expect(stateEquator.polarAngleDegrees).toBeCloseTo(90, 1);
       expect(stateEquator.pointScaleMultiplier).toBe(1.0);
     });
-
-    it('activates harmonic standing waves in Mode 4 during alpha in [0.45, 0.55]', () => {
-      const activeState = manager.update([10, 0, 10], 4, 0.50, 2.5);
-      expect(activeState.isStandingWaveActive).toBe(true);
-      expect(activeState.standingWaveAmplitude).not.toBe(0);
-
-      const inactiveState = manager.update([10, 0, 10], 4, 0.30, 2.5);
-      expect(inactiveState.isStandingWaveActive).toBe(false);
-      expect(inactiveState.standingWaveAmplitude).toBe(0);
-    });
-
-    it('evaluates Dymaxion specular flash sweep when reaching planarity (alpha >= 0.998 in Mode 4)', () => {
-      const flashState = manager.update([0, 0, 15], 4, 0.999, 1.0);
-      expect(flashState.isSpecularFlashActive).toBe(true);
-      expect(flashState.activeFacetIndex).toBeGreaterThanOrEqual(0);
-      expect(flashState.activeFacetIndex).toBeLessThanOrEqual(19);
-    });
   });
 
   // ==========================================================================

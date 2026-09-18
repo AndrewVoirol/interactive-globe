@@ -175,10 +175,9 @@ describe('Requirement R5: Complete Frontend HUD & UI/UX Integration', () => {
       expect(container.textContent).toContain('Scroll');
       expect(container.textContent).toContain('Griffith');
       expect(container.textContent).toContain('Fluid');
-      expect(container.textContent).toContain('Dymaxion');
     });
 
-    it('HUD-T06: calls onModeChange with correct mode index (0 through 4) when mode buttons are clicked', async () => {
+    it('HUD-T06: calls onModeChange with correct mode index (0 through 3) when mode buttons are clicked', async () => {
       const onModeChange = vi.fn();
       const props = createTopologyProps({ mode: 0, onModeChange });
 
@@ -192,7 +191,6 @@ describe('Requirement R5: Complete Frontend HUD & UI/UX Integration', () => {
       const scrollBtn = buttons.find(b => b.textContent?.includes('Scroll'));
       const griffithBtn = buttons.find(b => b.textContent?.includes('Griffith'));
       const fluidBtn = buttons.find(b => b.textContent?.includes('Fluid'));
-      const dymaxionBtn = buttons.find(b => b.textContent?.includes('Dymaxion'));
 
       await act(async () => {
         scrollBtn?.click();
@@ -208,11 +206,6 @@ describe('Requirement R5: Complete Frontend HUD & UI/UX Integration', () => {
         fluidBtn?.click();
       });
       expect(onModeChange).toHaveBeenCalledWith(3);
-
-      await act(async () => {
-        dymaxionBtn?.click();
-      });
-      expect(onModeChange).toHaveBeenCalledWith(4);
 
       await act(async () => {
         linearBtn?.click();

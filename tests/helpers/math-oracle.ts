@@ -206,42 +206,6 @@ export function getIcosahedronGeometry(): {
 }
 
 /**
- * Assigns a 3D unit vector to the closest icosahedral face and computes gnomonic projection
- */
-export function projectPointToDymaxionFace(p: [number, number, number]): {
-  faceIndex: number;
-  maxDot: number;
-  gnomonicPos: [number, number, number];
-} {
-  const { centroids } = getIcosahedronGeometry();
-  const len = Math.hypot(p[0], p[1], p[2]);
-  const unitP: [number, number, number] = [p[0] / len, p[1] / len, p[2] / len];
-
-  let maxDot = -Infinity;
-  let bestFace = 0;
-
-  for (let i = 0; i < centroids.length; i++) {
-    const c = centroids[i];
-    const dot = unitP[0] * c[0] + unitP[1] * c[1] + unitP[2] * c[2];
-    if (dot > maxDot) {
-      maxDot = dot;
-      bestFace = i;
-    }
-  }
-
-  // Gnomonic projection onto the face plane
-  const cBest = centroids[bestFace];
-  const denom = maxDot > 0 ? maxDot : 1.0;
-  const gnomonicPos: [number, number, number] = [
-    unitP[0] / denom,
-    unitP[1] / denom,
-    unitP[2] / denom,
-  ];
-
-  return { faceIndex: bestFace, maxDot, gnomonicPos };
-}
-
-/**
  * Analytical Ray-Sphere Intersection
  */
 export function raySphereIntersect(

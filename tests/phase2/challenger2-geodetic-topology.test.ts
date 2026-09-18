@@ -35,19 +35,10 @@ import {
   simplifyPolylineSpherical,
   severAntimeridianSegment,
   severPolylineAntimeridian,
-  clipSegmentDymaxion,
-  partitionPolylineByDymaxionFacets,
-  DYMAXION_FACE_EDGE_PLANES,
   Point2D,
   Point3D,
 } from '../../src/utils/contour-topology';
-
-import {
-  UNIT_VERTICES,
-  ICOSAHEDRON_FACES,
-  UNIT_CENTROIDS,
-  PHI,
-} from '../../src/utils/dymaxion';
+import { getIcosahedronGeometry } from '../helpers/math-oracle';
 
 describe('Challenger 2: Geodetic & Topology Adversarial Stress Suite', () => {
 
@@ -170,11 +161,12 @@ describe('Challenger 2: Geodetic & Topology Adversarial Stress Suite', () => {
 
       // 2. All 20 Regular Icosahedral Facets: each must equal 4*pi / 20 = pi/5 rad
       const expectedFacetArea = Math.PI / 5.0; // ~0.6283185307179586
+      const { vertices, faces } = getIcosahedronGeometry();
       for (let f = 0; f < 20; f++) {
-        const face = ICOSAHEDRON_FACES[f];
-        const vA = UNIT_VERTICES[face[0]];
-        const vB = UNIT_VERTICES[face[1]];
-        const vC = UNIT_VERTICES[face[2]];
+        const face = faces[f];
+        const vA = vertices[face[0]];
+        const vB = vertices[face[1]];
+        const vC = vertices[face[2]];
         const fArea = computeSphericalTriangleArea(vA, vB, vC, 1.0);
         expect(Math.abs(fArea - expectedFacetArea)).toBeLessThan(1e-14);
       }
@@ -488,208 +480,6 @@ describe('Challenger 2: Geodetic & Topology Adversarial Stress Suite', () => {
         expect(Math.abs(pt1[0])).toBeLessThan(1e-12);
         expect(pt1[2]).toBeLessThanOrEqual(1e-12); // z <= 0 on antimeridian
       }
-    });
-  });
-
-  // ==========================================================================
-  // Section 3: Fuller Dymaxion 20-Facet Boundary Severance Stress Harness
-  // ==========================================================================
-  describe('3. Fuller Dymaxion 20-Facet Boundary Severance Stress Harness', () => {
-
-    it('ADV-DY-01: Boundary crossing segments across all 20 facets clip cleanly onto edge planes', () => {
-      for (let f = 0; f < 20; f++) {
-        const centroid = UNIT_CENTROIDS[f];
-        const planes = DYMAXION_FACE_EDGE_PLANES[f];
-        const face = ICOSAHEDRON_FACES[f];
-
-        // Segment from centroid through edge 0 midpoint to outside
-        const v0 = UNIT_VERTICES[face[0]];
-        const v1 = UNIT_VERTICES[face[1]];
-        const mid: Point3D = [(v0[0] + v1[0]) * 0.5, (v0[1] + v1[1]) * 0.5, (v0[2] + v1[2]) * 0.5];
-
-        // Target point far outside edge 0
-        const outsidePt: Point3D = [
-          mid[0] + (mid[0] - centroid[0]),
-          mid[1] + (mid[1] - centroid[1]),
-          mid[2] + (mid[2] - centroid[2]),
-        ];
-
-        const clipped = clipSegmentDymaxion(centroid, outsidePt, f);
-        expect(clipped).not.toBeNull();
-
-        if (clipped) {
-          expect(clipped.length).toBe(2);
-
-          // Clipped endpoint must lie on the edge plane (distance ~ 0)
-          const q2 = toUnit(clipped[1]);
-          let minPlaneDist = Infinity;
-          for (const pl of planes) {
-            const d = Math.abs(pl[0] * q2[0] + pl[1] * q2[1] + pl[2] * q2[2]);
-            minPlaneDist = Math.min(minPlaneDist, d);
-          }
-          expect(minPlaneDist).toBeLessThan(1e-7);
-
-          // Both clipped points must be inside or on the facet (d >= -1e-7 for all planes)
-          for (const pl of planes) {
-            const d1 = pl[0] * clipped[0][0] + pl[1] * clipped[0][1] + pl[2] * clipped[0][2];
-            const d2 = pl[0] * clipped[1][0] + pl[1] * clipped[1][1] + pl[2] * clipped[1][2];
-            expect(d1).toBeGreaterThanOrEqual(-1e-7);
-            expect(d2).toBeGreaterThanOrEqual(-1e-7);
-          }
-        }
-      }
-    });
-
-    it('ADV-DY-02: Vertices on Facet Vertices (All 12 Icosahedron Vertices): preserves inward segments and culls outward segments', () => {
-      for (let f = 0; f < 20; f++) {
-        const face = ICOSAHEDRON_FACES[f];
-        const centroid = UNIT_CENTROIDS[f];
-
-        for (let i = 0; i < 3; i++) {
-          const vert = UNIT_VERTICES[face[i]];
-
-          // Segment pointing inward: from vertex to centroid
-          const inward = clipSegmentDymaxion(vert, centroid, f);
-          expect(inward).not.toBeNull();
-          if (inward) {
-            expect(inward.length).toBe(2);
-            for (const p of inward) {
-              expect(Number.isFinite(p[0])).toBe(true);
-              expect(Number.isFinite(p[1])).toBe(true);
-              expect(Number.isFinite(p[2])).toBe(true);
-            }
-          }
-
-          // Segment pointing outward away from facet
-          const outwardPt: Point3D = [
-            vert[0] * 2.0 - centroid[0],
-            vert[1] * 2.0 - centroid[1],
-            vert[2] * 2.0 - centroid[2],
-          ];
-          const outward = clipSegmentDymaxion(vert, outwardPt, f);
-          // Outward pointing from vertex should be culled or clipped to degenerate point (< 1e-9 chord)
-          if (outward !== null) {
-            // If not null, chord distance must be valid
-            const chord = computeChordalDistance(toUnit(outward[0]), toUnit(outward[1]));
-            expect(chord).toBeGreaterThanOrEqual(1e-9);
-          }
-        }
-      }
-    });
-
-    it('ADV-DY-03: Segments coincident with all 30 icosahedron edges are preserved in both adjacent facets', () => {
-      // Collect unique edges from faces
-      const edgeToFaces = new Map<string, number[]>();
-      for (let f = 0; f < 20; f++) {
-        const face = ICOSAHEDRON_FACES[f];
-        const pairs: [number, number][] = [
-          [face[0], face[1]],
-          [face[1], face[2]],
-          [face[2], face[0]],
-        ];
-        for (const [u, v] of pairs) {
-          const key = u < v ? `${u}-${v}` : `${v}-${u}`;
-          if (!edgeToFaces.has(key)) edgeToFaces.set(key, []);
-          edgeToFaces.get(key)!.push(f);
-        }
-      }
-
-      // 30 unique edges in regular icosahedron
-      expect(edgeToFaces.size).toBe(30);
-
-      for (const [key, faces] of edgeToFaces.entries()) {
-        expect(faces.length).toBe(2); // exactly 2 facets share each edge
-        const [uIdx, vIdx] = key.split('-').map(Number);
-        const vA = UNIT_VERTICES[uIdx];
-        const vB = UNIT_VERTICES[vIdx];
-
-        for (const f of faces) {
-          const clipped = clipSegmentDymaxion(vA, vB, f);
-          expect(clipped).not.toBeNull();
-          if (clipped) {
-            expect(clipped.length).toBe(2);
-            // Verify endpoints match edge endpoints
-            const dA = computeChordalDistance(toUnit(clipped[0]), vA);
-            const dB = computeChordalDistance(toUnit(clipped[1]), vB);
-            expect(dA).toBeLessThan(1e-5);
-            expect(dB).toBeLessThan(1e-5);
-          }
-        }
-      }
-    });
-
-    it('ADV-DY-04: Segments entirely inside return full segment; antipodal segments return null', () => {
-      for (let f = 0; f < 20; f++) {
-        const c = UNIT_CENTROIDS[f];
-        const face = ICOSAHEDRON_FACES[f];
-        const v0 = UNIT_VERTICES[face[0]];
-
-        // Strictly interior segment via convex combination:
-        // Point 1: centroid
-        const u1 = toUnit(c);
-        // Point 2: 90% centroid + 10% vertex v0 (strictly interior to facet f)
-        const u2 = toUnit([c[0] * 0.9 + v0[0] * 0.1, c[1] * 0.9 + v0[1] * 0.1, c[2] * 0.9 + v0[2] * 0.1]);
-
-        const pInside1: Point3D = [u1[0] * 5.0, u1[1] * 5.0, u1[2] * 5.0];
-        const pInside2: Point3D = [u2[0] * 5.0, u2[1] * 5.0, u2[2] * 5.0];
-
-        const clippedInside = clipSegmentDymaxion(pInside1, pInside2, f);
-        expect(clippedInside).not.toBeNull();
-        if (clippedInside) {
-          expect(clippedInside[0][0]).toBeCloseTo(pInside1[0], 6);
-          expect(clippedInside[0][1]).toBeCloseTo(pInside1[1], 6);
-          expect(clippedInside[0][2]).toBeCloseTo(pInside1[2], 6);
-          expect(clippedInside[1][0]).toBeCloseTo(pInside2[0], 6);
-          expect(clippedInside[1][1]).toBeCloseTo(pInside2[1], 6);
-          expect(clippedInside[1][2]).toBeCloseTo(pInside2[2], 6);
-        }
-
-        // Antipodal segment (outside facet)
-        const pAnti1: Point3D = [-u1[0] * 5.0, -u1[1] * 5.0, -u1[2] * 5.0];
-        const pAnti2: Point3D = [-u2[0] * 5.0, -u2[1] * 5.0, -u2[2] * 5.0];
-
-        const clippedAnti = clipSegmentDymaxion(pAnti1, pAnti2, f);
-        expect(clippedAnti).toBeNull();
-      }
-    });
-
-    it('ADV-DY-05: Global Great-Circle Polyline Partitioning Invariant across 20 facets', () => {
-      // Generate a global equatorial polyline with 180 points
-      const globalPoly: Point2D[] = [];
-      for (let i = 0; i <= 180; i++) {
-        const lon = -180.0 + i * 2.0;
-        const lat = 15.0 * Math.sin((lon * Math.PI) / 180.0);
-        globalPoly.push([lon, lat]);
-      }
-
-      const partitionMap = partitionPolylineByDymaxionFacets(globalPoly);
-
-      // Must cover multiple facets along the trajectory
-      expect(partitionMap.size).toBeGreaterThanOrEqual(6);
-
-      let totalStrips = 0;
-      for (const [faceIdx, strips] of partitionMap.entries()) {
-        expect(faceIdx).toBeGreaterThanOrEqual(0);
-        expect(faceIdx).toBeLessThan(20);
-        totalStrips += strips.length;
-
-        const planes = DYMAXION_FACE_EDGE_PLANES[faceIdx];
-
-        // Verify all partitioned points are strictly within or on the facet
-        for (const strip of strips) {
-          expect(strip.length).toBeGreaterThanOrEqual(2);
-          for (const pt of strip) {
-            const u = toUnit(lonLatToUnitSphere(pt[0], pt[1]));
-            for (const pl of planes) {
-              const dot = pl[0] * u[0] + pl[1] * u[1] + pl[2] * u[2];
-              // Must be within facet boundary (allowing floating tolerance 1e-4)
-              expect(dot).toBeGreaterThanOrEqual(-1e-4);
-            }
-          }
-        }
-      }
-
-      expect(totalStrips).toBeGreaterThanOrEqual(6);
     });
   });
 });

@@ -6,21 +6,18 @@ import {
   toMercator,
   computeCurlNoise,
   computeDivergence,
-  getIcosahedronGeometry,
-  projectPointToDymaxionFace,
 } from '../helpers/math-oracle';
 import { WebGPUEngine } from '../../src/webgpu/WebGPUEngine';
 
 /**
- * Adversarial Challenger M3 Suite: 5 Unfurl Modes & Decoupled Particle Compute (Features F30, F31)
+ * Adversarial Challenger M3 Suite: 4 Unfurl Modes & Decoupled Particle Compute (Features F30, F31)
  *
  * Rigorous empirical stress-testing:
- * 1. 1,000 sub-step alpha sweeps [0.0, 1.0] across all 5 modes:
+ * 1. 1,000 sub-step alpha sweeps [0.0, 1.0] across all 4 modes:
  *    - Mode 0: Zero NaNs, finite coordinates, volume bounding box.
  *    - Mode 1: Critical alphas [0.999, 0.9999, 0.99999, 1.0], zero division-by-zero, Taylor guard continuity.
  *    - Mode 2: Rupture threshold t = 0.18 - eps vs t = 0.18 + eps displacement continuity and LEFM limits.
  *    - Mode 3: Solenoidal curl noise divergence (< 0.02), liquefaction envelope vanishing at t=0, t=1.
- *    - Mode 4: 20-facet Dymaxion assignment, gnomonic projection maxDot > 0.5 across all 20 faces, arch bounds.
  * 2. WebGPU Workgroup Dispatch Limits & Decoupled Compute Architecture:
  *    - 4.19M nodes = exactly 16,384 workgroups (<= 65,535).
  *    - 16.78M nodes = 65,536 workgroups (> 65,535 WebGPU 1D limit), proving decoupling necessity.
@@ -191,35 +188,7 @@ function evalMode3(
   };
 }
 
-// Mode 4: Fuller Dymaxion Polyhedral Net Unfolding
-function evalMode4(
-  p3D: [number, number, number],
-  dymaxionTarget2D: [number, number],
-  alpha: number
-): { pos: [number, number, number]; arch: number } {
-  const ease = evaluateEase(alpha);
-  const arch = Math.sin(Math.PI * ease) * 0.45;
-  const pLen = Math.hypot(p3D[0], p3D[1], p3D[2]);
-  const sphereNorm: [number, number, number] =
-    pLen > 0.001 ? [p3D[0] / pLen, p3D[1] / pLen, p3D[2] / pLen] : [0, 0, 1];
-
-  const dymaxionTarget: [number, number, number] = [
-    dymaxionTarget2D[0],
-    dymaxionTarget2D[1],
-    0.0,
-  ];
-
-  return {
-    pos: [
-      (1 - ease) * p3D[0] + ease * dymaxionTarget[0] + sphereNorm[0] * arch,
-      (1 - ease) * p3D[1] + ease * dymaxionTarget[1] + sphereNorm[1] * arch,
-      (1 - ease) * p3D[2] + ease * dymaxionTarget[2] + sphereNorm[2] * arch,
-    ],
-    arch,
-  };
-}
-
-describe('Adversarial Challenger M3: 5 Unfurl Modes & Decoupled Particle Compute', () => {
+describe('Adversarial Challenger M3: 4 Unfurl Modes & Decoupled Particle Compute', () => {
   // Diverse sampling grid covering poles, equator, mid-latitudes, and antimeridian
   const samplePoints: Array<{ lon: number; lat: number }> = [
     { lon: 0, lat: 0 },         // Prime Meridian Equator
@@ -544,69 +513,7 @@ describe('Adversarial Challenger M3: 5 Unfurl Modes & Decoupled Particle Compute
   });
 
   // --------------------------------------------------------------------------
-  // Adversarial Test 5: Mode 4 Dymaxion 20-Facet Assignment & Gnomonic Projection
-  // --------------------------------------------------------------------------
-  describe('Mode 4: Fuller Dymaxion Polyhedral Net Unfolding', () => {
-    it('M4-STRESS-01: verifies Dymaxion facet assignment and gnomonic projection across all 20 faces', () => {
-      const { centroids, faces } = getIcosahedronGeometry();
-      expect(centroids.length).toBe(20);
-      expect(faces.length).toBe(20);
-
-      const assignedFaces = new Set<number>();
-
-      // Generate 200 Fibonacci sphere test points
-      const N = 200;
-      for (let i = 0; i < N; i++) {
-        const y = 1.0 - (2.0 * i + 1.0) / N;
-        const r = Math.sqrt(Math.max(0.0, 1.0 - y * y));
-        const theta = (2.0 * Math.PI * i) / PHI;
-        const p: [number, number, number] = [r * Math.cos(theta), y, r * Math.sin(theta)];
-
-        const proj = projectPointToDymaxionFace(p);
-
-        expect(proj.faceIndex).toBeGreaterThanOrEqual(0);
-        expect(proj.faceIndex).toBeLessThan(20);
-        assignedFaces.add(proj.faceIndex);
-
-        // For any point on the sphere, the maximum dot product with the closest icosahedral centroid is >= cos(theta_max) ≈ 0.7946 > 0.5
-        expect(proj.maxDot).toBeGreaterThan(0.70);
-        expect(Number.isFinite(proj.gnomonicPos[0])).toBe(true);
-        expect(Number.isFinite(proj.gnomonicPos[1])).toBe(true);
-        expect(Number.isFinite(proj.gnomonicPos[2])).toBe(true);
-      }
-
-      // With 200 points distributed uniformly on S^2, all 20 faces must be represented
-      expect(assignedFaces.size).toBe(20);
-    });
-
-    it('M4-STRESS-02: executes 1,000 sub-step sweep across Mode 4 verifying arch bounds and 0 NaNs', () => {
-      const SUB_STEPS = 1000;
-      for (const { lon, lat } of samplePoints) {
-        const p3D = toSphere(lon, lat, RADIUS);
-        const p2D = toMercator(lon, lat, RADIUS);
-
-        for (let step = 0; step <= SUB_STEPS; step++) {
-          const alpha = step / SUB_STEPS;
-          const { pos, arch } = evalMode4(p3D, p2D, alpha);
-
-          expect(Number.isFinite(pos[0])).toBe(true);
-          expect(Number.isFinite(pos[1])).toBe(true);
-          expect(Number.isFinite(pos[2])).toBe(true);
-
-          // Arch height bounds
-          expect(arch).toBeGreaterThanOrEqual(0.0);
-          expect(arch).toBeLessThanOrEqual(0.45);
-
-          if (step === 0 || step === SUB_STEPS) {
-            expect(arch).toBeCloseTo(0.0, 5);
-          }
-        }
-      }
-    });
-  });
-
-  // --------------------------------------------------------------------------
-  // Adversarial Test 6: Workgroup Dispatch Limits & Decoupled Particle Compute
+  // Adversarial Test 5: Workgroup Dispatch Limits & Decoupled Particle Compute
   // --------------------------------------------------------------------------
   describe('Workgroup Dispatch Limits & Particle Compute Decoupling (Feature F31)', () => {
     const WORKGROUP_SIZE = 256;

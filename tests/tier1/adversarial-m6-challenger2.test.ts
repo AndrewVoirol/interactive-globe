@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import * as THREE from 'three';
 import { WebGPUEngine, WebGPUInitConfig, WebGPUFrameParams } from '../../src/webgpu/WebGPUEngine';
 import { MockGPUDevice, MockGPUBuffer, createMockNavigatorGPU } from '../helpers/webgpu-mock';
-import { generateDymaxionBuffer } from '../../src/utils/dymaxion';
 import { RADIUS, CursorTracker } from '../../src/utils/raycast';
 import { generateFibonacciSphere, toSphere } from '../helpers/math-oracle';
 
@@ -91,18 +90,7 @@ function evaluateWGSLComputeParticle(
     return v * v * (3.0 - 2.0 * v);
   };
 
-  if (mode === 4) {
-    // Mode 4: Fuller Dymaxion
-    const arch = Math.sin(PI * ease) * 0.45;
-    const norm = normalize3(pos3D);
-    finalPos = [
-      (1 - ease) * pos3D[0] + ease * dymaxion2D[0] + norm[0] * arch,
-      (1 - ease) * pos3D[1] + ease * dymaxion2D[1] + norm[1] * arch,
-      (1 - ease) * pos3D[2] + ease * 0.0 + norm[2] * arch,
-    ];
-    finalVel = [0, 0, 0];
-    metric = 0.0;
-  } else if (mode === 1) {
+  if (mode === 1) {
     // Mode 1: Cylindrical Scroll
     const t = ease;
     const lambda = Math.atan2(pos3D[0], pos3D[2]);
@@ -620,12 +608,11 @@ describe('Adversarial Stress Test Suite: Challenger 2 for Milestone M6 (WebGPU C
   // Dimension 4: Mathematical Rigor, Zero-NaN Robustness & Cross-Backend Parity
   // --------------------------------------------------------------------------
   describe('Dimension 4: WGSL Compute Mathematical Oracle & Cross-Backend Equivalence', () => {
-    it('C2-M6-T10: verifies WGSL compute oracle matches across 1,000 Fibonacci nodes in all 5 modes', () => {
+    it('C2-M6-T10: verifies WGSL compute oracle matches across 1,000 Fibonacci nodes in all 4 modes', () => {
       const N = 1000;
       const { points3D, target2D } = generateFibonacciSphere(N);
-      const dymaxionBuffer = generateDymaxionBuffer(points3D);
 
-      const testModes = [0, 1, 2, 3, 4];
+      const testModes = [0, 1, 2, 3];
       const testAlphas = [0.0, 0.18, 0.5, 0.85, 1.0];
 
       for (const mode of testModes) {
@@ -640,10 +627,7 @@ describe('Adversarial Stress Test Suite: Challenger 2 for Milestone M6 (WebGPU C
               target2D[i * 2 + 0],
               target2D[i * 2 + 1],
             ];
-            const d2D: [number, number] = [
-              dymaxionBuffer[i * 2 + 0],
-              dymaxionBuffer[i * 2 + 1],
-            ];
+            const d2D: [number, number] = [0, 0];
             const cursorHit: [number, number, number] = [0, 0, 5];
             const cursorVel: [number, number, number, number] = [1.0, 0.5, 0.0, 1.118];
 
@@ -703,7 +687,7 @@ describe('Adversarial Stress Test Suite: Challenger 2 for Milestone M6 (WebGPU C
         [0, 0],
         1.0,
         0.5,
-        4, // Dymaxion
+        0, // Mode 0 (Linear Mix)
         1.0,
         [0, 0, 0],
         [0, 0, 0, 0],

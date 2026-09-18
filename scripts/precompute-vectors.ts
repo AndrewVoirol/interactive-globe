@@ -21,7 +21,6 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as topojson from 'topojson-client';
-import { projectToDymaxion2D } from '../src/utils/dymaxion';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -94,15 +93,9 @@ async function run() {
       // Compute 3D and 2D projections
       const [x1, y1, z1] = toSphere(lon1, lat1);
       const [u1, v1] = toMercator(lon1, lat1);
-      const [udym1, vdym1] = projectToDymaxion2D([x1, y1, z1]);
 
       const [x2, y2, z2] = toSphere(lon2, lat2);
       const [u2, v2] = toMercator(lon2, lat2);
-      const [udym2, vdym2] = projectToDymaxion2D([x2, y2, z2]);
-
-      // Dymaxion Net Cut Protection: Never connect across severed facet boundaries
-      const dymDist = Math.hypot(udym1 - udym2, vdym1 - vdym2);
-      if (dymDist > 0.85) continue;
 
       // Mercator Cut Protection: Never connect across antimeridian edge
       if (Math.abs(u1 - u2) > 15.0) continue;
@@ -111,12 +104,12 @@ async function run() {
 
       positions3DList.push(x1, y1, z1);
       target2DList.push(u1, v1);
-      dymaxion2DList.push(udym1, vdym1);
+      dymaxion2DList.push(0, 0);
       vTypeList.push(typeValue);
 
       positions3DList.push(x2, y2, z2);
       target2DList.push(u2, v2);
-      dymaxion2DList.push(udym2, vdym2);
+      dymaxion2DList.push(0, 0);
       vTypeList.push(typeValue);
 
       indicesList.push(idxStart, idxStart + 1);

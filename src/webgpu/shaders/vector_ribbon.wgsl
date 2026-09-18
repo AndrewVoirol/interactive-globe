@@ -54,9 +54,9 @@ struct VertexInput {
 
     // Per-Segment Instance Attributes
     @location(1) posA_3d: vec4<f32>,         // xyz: sphere pos, w: pointType (0=river, 1=coast)
-    @location(2) posA_target2d: vec4<f32>,   // xy: mercator 2D, zw: dymaxion 2D
+    @location(2) posA_target2d: vec4<f32>,   // xy: Mercator 2D, zw: Reserved/Unused
     @location(3) posB_3d: vec4<f32>,         // xyz: sphere pos, w: pointType
-    @location(4) posB_target2d: vec4<f32>,   // xy: mercator 2D, zw: dymaxion 2D
+    @location(4) posB_target2d: vec4<f32>,   // xy: Mercator 2D, zw: Reserved/Unused
 };
 
 struct VertexOutput {
@@ -67,9 +67,6 @@ struct VertexOutput {
     @location(3) facing: f32,
     @location(4) alphaPeak: f32,             // Subpixel radiometric energy attenuation
 };
-
-const PI: f32 = 3.14159265358979323846;
-const RADIUS: f32 = 5.0;
 
 // ----------------------------------------------------------------------------
 // Analytical 3D Solenoidal Curl Noise (div u = 0 guaranteed)
@@ -138,159 +135,23 @@ fn sampleRegionalComposite(uv: vec2<f32>, globalSample: vec4<f32>, lod: f32) -> 
     return mix(globalSample, regSample, weight);
 }
 
-fn computeCurlNoise(p: vec3<f32>, time: f32) -> vec3<f32> {
-    let t = time * 0.75;
-    let rot = mat3x3<f32>(
-         0.00,  0.80,  0.60,
-        -0.80,  0.36, -0.48,
-        -0.60, -0.48,  0.64
-    );
-    let q1 = rot * p * 0.45;
-    let q2 = rot * rot * p * 0.95;
-
-    let ux = -0.55 * cos(0.55 * q1.y + t * 0.7) - 0.45 * cos(0.95 * q1.z - t * 0.5);
-    let uy = -0.55 * cos(0.55 * q1.z + t * 0.9) - 0.45 * cos(0.95 * q1.x - t * 0.6);
-    let uz = -0.55 * cos(0.55 * q1.x + t * 0.8) - 0.45 * cos(0.95 * q1.y - t * 0.4);
-
-    let u2x = 0.25 * sin(1.5 * q2.y - t * 1.2);
-    let u2y = 0.25 * sin(1.5 * q2.z - t * 1.1);
-    let u2z = 0.25 * sin(1.5 * q2.x - t * 1.3);
-
-    return rot * vec3<f32>(ux + u2x, uy + u2y, uz + u2z);
-}
-
-// ----------------------------------------------------------------------------
-// Dynamic Manifold Transformation Across All 5 Engine Paradigms
-// ----------------------------------------------------------------------------
-struct DeformedVertex {
-    pos: vec3<f32>,
-    normal: vec3<f32>,
-};
-
-fn evaluateManifold(pos3D_raw: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>, pointType: f32) -> DeformedVertex {
-    var out: DeformedVertex;
-    let clampedUnfurl = clamp(sim.u_unfurl, 0.0, 1.0);
-    let ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
-    let pos2D = vec3<f32>(target2D.x, target2D.y, 0.0);
-
-    let pos3D = normalize(pos3D_raw) * 5.0;
-    let curR = 5.0;
-    let lambda = atan2(pos3D.x, pos3D.z);
-    let phi = asin(clamp(pos3D.y / curR, -0.9998, 0.9998));
-
-    if (sim.u_mode == 1u) {
-        // Mode 1: Cylindrical Scroll Unfurling
-        let oneMinusT = 1.0 - ease;
-        if (oneMinusT > 0.001) {
-            let invOneMinusT = 1.0 / oneMinusT;
-            let curAngle = oneMinusT * lambda;
-            let curX = (curR * invOneMinusT) * sin(curAngle);
-            let curZ = (curR * cos(phi) * invOneMinusT) * (cos(curAngle) - 1.0) + (curR * cos(phi) * oneMinusT);
-            let curY = mix(pos3D.y, pos2D.y, ease);
-            out.pos = vec3<f32>(curX, curY, curZ);
-
-            let T_lambda = vec3<f32>(curR * cos(curAngle), 0.0, -curR * cos(phi) * sin(curAngle));
-            let T_phi = vec3<f32>(
-                0.0,
-                mix(curR * cos(phi), curR / max(cos(phi), 0.05), ease),
-                -curR * sin(phi) * invOneMinusT * (cos(curAngle) - 1.0) - curR * sin(phi) * oneMinusT
-            );
-            let rawNorm = cross(T_lambda, T_phi);
-            out.normal = select(normalize(pos3D), normalize(rawNorm), length(rawNorm) > 0.0001);
-        } else {
-            // Taylor Expansion Guard near oneMinusT <= 0.001
-            let u = oneMinusT * lambda;
-            let sinTerm = lambda * (1.0 - (u * u) / 6.0);
-            let cosTerm = oneMinusT * (lambda * lambda) * (-0.5 + (u * u) / 24.0);
-            let curX = curR * sinTerm;
-            let curZ = curR * cos(phi) * cosTerm + curR * cos(phi) * oneMinusT;
-            let curY = mix(pos3D.y, pos2D.y, ease);
-            out.pos = vec3<f32>(curX, curY, curZ);
-            out.normal = vec3<f32>(0.0, 0.0, 1.0);
-        }
-    } else if (sim.u_mode == 2u) {
-        // Mode 2: Griffith Linear Elastic Fracture Mechanics (LEFM)
-        let distToSeam = PI - abs(lambda);
-        let seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
-        let tRupture = 0.18;
-
-        let hitDist = length(pos3D - sim.u_cursorHitPos.xyz);
-        let cursorInfluence = sim.u_cursorActive * exp(-hitDist * hitDist / (2.0 * 0.64));
-        let hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cos(phi) * cos(phi));
-
-        if (ease < tRupture) {
-            let strainProgress = ease / tRupture;
-            let localStrain = seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress;
-            out.pos = pos3D + normalize(pos3D) * (localStrain * 0.30);
-            out.normal = normalize(out.pos);
-        } else {
-            let postRuptureT = smoothstep(tRupture, 1.0, ease);
-            let flutterWave = sin(distToSeam * 16.0 - ease * 24.0);
-            let flutterDecay = exp(-4.2 * (ease - tRupture));
-            let flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay;
-            out.pos = mix(pos3D, pos2D, postRuptureT) + vec3<f32>(0.0, 0.0, flutterAmp);
-            out.normal = mix(normalize(pos3D), vec3<f32>(0.0, 0.0, 1.0), postRuptureT);
-        }
-    } else if (sim.u_mode == 3u) {
-        // Mode 3: Fluid Advection & Lamb-Oseen Vortex Wake
-        let rawSin = sin(PI * clampedUnfurl);
-        let liquefaction = pow(max(0.0, rawSin), 1.15);
-        let unElevatedSphere = normalize(pos3D) * RADIUS;
-        let basePos = mix(unElevatedSphere, vec3<f32>(target2D.x, target2D.y, 0.0), ease);
-        let naturalVel = computeCurlNoise(basePos, sim.u_time);
-
-        let hitDist = length(basePos - sim.u_cursorHitPos.xyz);
-        let coreRadius = 0.85;
-        let vortexCirc = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.05);
-        let surfaceNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(basePos), length(basePos) > 0.001);
-        let vortexTangent = normalize(cross(surfaceNormal, basePos - sim.u_cursorHitPos.xyz + vec3<f32>(0.001)));
-        let clampedSpeed = clamp(sim.u_cursorVel.w, 0.0, 1.5);
-        let vortexVelocity = vortexTangent * (sim.u_cursorActive * clampedSpeed * vortexCirc * 0.35);
-        let wakeAdvection = normalize(sim.u_cursorVel.xyz + vec3<f32>(0.0001)) * (clampedSpeed * 0.15 * sim.u_cursorActive * exp(-hitDist * hitDist / 1.5));
-
-        let wavePhase1 = dot(basePos, vec3<f32>(0.35, 0.62, 0.42)) * 1.35 - sim.u_time * 1.25;
-        let wavePhase2 = dot(basePos, vec3<f32>(-0.45, 0.30, 0.65)) * 1.75 - sim.u_time * 0.90;
-        let silkWave = (sin(wavePhase1) * 0.65 + cos(wavePhase2) * 0.35) * liquefaction * 0.65;
-        let silkDrape = surfaceNormal * silkWave;
-
-        let advectionOffset = naturalVel * (liquefaction * 1.55) + silkDrape + (vortexVelocity + wakeAdvection) * (sim.u_cursorActive * 0.25);
-        out.pos = basePos + advectionOffset;
-        out.normal = mix(normalize(unElevatedSphere + silkDrape * 0.5), vec3<f32>(0.0, 0.0, 1.0), ease);
-    } else if (sim.u_mode == 4u) {
-        // Mode 4: Fuller Dymaxion Polyhedral Net
-        let dymaxionPos2D = vec3<f32>(dymaxion2D.x, dymaxion2D.y, 0.0);
-        let arch = sin(PI * clampedUnfurl) * 0.45;
-        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
-        out.pos = mix(pos3D, dymaxionPos2D, ease) + sphereNorm * arch;
-        out.normal = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
-    } else {
-        // Mode 0: Linear Manifold Mix
-        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
-        out.pos = mix(pos3D, pos2D, ease);
-        out.normal = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
-    }
-
-    // Topographic Elevation Coupling from ETOPO 2022 DEM (Synchronized with crust_hydrosphere.wgsl)
-    // Note: v = 0.0 is North Pole (+PI/2), v = 1.0 is South Pole (-PI/2)
+fn applyVectorDisplacement(basePos: vec3<f32>, baseNormal: vec3<f32>, pointType: f32) -> vec3<f32> {
+    let curR = RADIUS;
+    let lambda = atan2(basePos.x, basePos.z);
+    let phi = asin(clamp(basePos.y / curR, -0.9998, 0.9998));
     let demUv = vec2<f32>((lambda + PI) / (2.0 * PI), 0.5 - phi / PI);
-    let patchDist = length(sim.u_cameraPos.xyz - out.pos);
+    let patchDist = length(sim.u_cameraPos.xyz - basePos);
     let patchLOD = clamp(log2(max(1.0, patchDist * 0.2)), 0.0, 4.0);
     let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, demUv, patchLOD);
     let demSample = sampleRegionalComposite(demUv, demSampleGlobal, patchLOD);
 
     let poleDist = abs(demUv.y - 0.5) * 2.0;
     let poleAtten = 1.0 - smoothstep(0.85, 0.98, poleDist);
-
-    // Exact geoid elevation decoding matching crust_hydrosphere.wgsl
     let elevMeters = demSample.a * 19772.0 - 10924.0;
     var normalDisplacement: f32 = 0.0;
     let dispScale = sim.u_displacementScale * 2.8;
 
     if (pointType >= 0.75) {
-        // Coastlines are mathematically defined at sea level datum.
-        // Clamping to max(0.0, sim.u_seaLevel) ensures negative sea level (exposed continental shelves)
-        // keeps the coastline on the subaerial crust surface rather than sinking 150m underground into rock,
-        // while positive sea level (coastal inundation) conforms to the rising water surface.
         let coastDatum = max(0.0, sim.u_seaLevel);
         normalDisplacement = (coastDatum / 8848.0) * dispScale * poleAtten;
     } else {
@@ -314,13 +175,10 @@ fn evaluateManifold(pos3D_raw: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<
         }
     }
 
-    // Invariant §10: Grazing Horizon Parameterization for negative bathymetric displacement
-    let viewDir = normalize(sim.u_cameraPos.xyz - out.pos);
+    let viewDir = normalize(sim.u_cameraPos.xyz - basePos);
     let d_cam = length(sim.u_cameraPos.xyz);
-    let R_planet = 5.0;
-    let camDist = d_cam;
-    let cosHorizon = sqrt(max(0.0, 1.0 - pow(R_planet / camDist, 2.0)));
-    let tau = dot(out.normal, viewDir) - cosHorizon;
+    let cosHorizon = sqrt(max(0.0, 1.0 - pow(RADIUS / d_cam, 2.0)));
+    let tau = dot(baseNormal, viewDir) - cosHorizon;
     let limbAtten = smoothstep(0.000, 0.005, tau);
     if (normalDisplacement < 0.0) {
         normalDisplacement = normalDisplacement * limbAtten;
@@ -328,9 +186,7 @@ fn evaluateManifold(pos3D_raw: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<
 
     // Eliminated 0.025 normal standoff: set standoff = 0.0 to conform directly to terrain surface without floating spikes
     let standoff = 0.0;
-    out.pos += out.normal * (normalDisplacement + standoff);
-
-    return out;
+    return basePos + baseNormal * (normalDisplacement + standoff);
 }
 
 // ----------------------------------------------------------------------------
@@ -341,15 +197,26 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
 
     // 1. Manifold Deformations
-    let defA = evaluateManifold(in.posA_3d.xyz, in.posA_target2d.xy, in.posA_target2d.zw, in.posA_3d.w);
-    let defB = evaluateManifold(in.posB_3d.xyz, in.posB_target2d.xy, in.posB_target2d.zw, in.posB_3d.w);
+    let defA = evaluateManifoldCore(
+        in.posA_3d.xyz, in.posA_target2d.xy,
+        sim.u_unfurl, sim.u_mode, sim.u_time,
+        sim.u_cursorHitPos, sim.u_cursorActive, sim.u_cursorVel
+    );
+    let dispPosA = applyVectorDisplacement(defA.pos, defA.normal, in.posA_3d.w);
+
+    let defB = evaluateManifoldCore(
+        in.posB_3d.xyz, in.posB_target2d.xy,
+        sim.u_unfurl, sim.u_mode, sim.u_time,
+        sim.u_cursorHitPos, sim.u_cursorActive, sim.u_cursorVel
+    );
+    let dispPosB = applyVectorDisplacement(defB.pos, defB.normal, in.posB_3d.w);
 
     // Compute view-space positions, normals, and horizon facing for both endpoints
-    let viewPosA = sim.u_viewMatrix * vec4<f32>(defA.pos, 1.0);
+    let viewPosA = sim.u_viewMatrix * vec4<f32>(dispPosA, 1.0);
     let viewNormalA = normalize((sim.u_viewMatrix * vec4<f32>(defA.normal, 0.0)).xyz);
     let facingA = dot(viewNormalA, -normalize(viewPosA.xyz));
 
-    let viewPosB = sim.u_viewMatrix * vec4<f32>(defB.pos, 1.0);
+    let viewPosB = sim.u_viewMatrix * vec4<f32>(dispPosB, 1.0);
     let viewNormalB = normalize((sim.u_viewMatrix * vec4<f32>(defB.normal, 0.0)).xyz);
     let facingB = dot(viewNormalB, -normalize(viewPosB.xyz));
 
@@ -477,6 +344,17 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 }
 
 // ----------------------------------------------------------------------------
+// Horizon Limb Falloff Specification (§1)
+// ----------------------------------------------------------------------------
+fn horizonFalloff(facing: f32, tau: f32, killEdge0: f32, killEdge1: f32) -> f32 {
+    let maxPath: f32 = 12.5; // ≈ sqrt(π·X/2) for engine atmosphere
+    let path = min(1.0 / max(facing, 1.0 / maxPath), maxPath);
+    let transmission = exp(-tau * path);
+    let killTerm = smoothstep(killEdge0, killEdge1, facing);
+    return transmission * killTerm;
+}
+
+// ----------------------------------------------------------------------------
 // Fragment Shader: Screen-Pixel Analytical Distance & Anti-Aliased Feathering
 // ----------------------------------------------------------------------------
 @fragment
@@ -509,7 +387,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // Smooth limb horizon falloff: cleanly attenuates to 0.0 at the silhouette
     // Completely eliminates detached spikes, floating slivers, or disconnected geometry
-    let horizonAtten = smoothstep(0.0, 0.10, in.facing);
+    let horizonAtten = horizonFalloff(in.facing, 0.15, 0.0, 0.08);
     let facingFade = mix(1.0, horizonAtten, sphereFactor);
 
     // Discard non-covered pixels or geometry behind the planetary horizon

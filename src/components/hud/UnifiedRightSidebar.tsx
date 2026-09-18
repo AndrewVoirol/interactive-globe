@@ -284,7 +284,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
     { id: 1, roman: 'II', label: 'Scroll' },
     { id: 2, roman: 'III', label: 'Fracture' },
     { id: 3, roman: 'IV', label: 'Fluid' },
-    { id: 4, roman: 'V', label: 'Dymaxion' },
   ] as const;
 
   const DEMO_PRESETS = [
@@ -308,12 +307,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   const tissotTelemetry = useMemo(() => {
     const latRad = (parsedLat * Math.PI) / 180;
     const cosLat = Math.max(0.087, Math.cos(latRad));
-    const eqArea = ((1 - alpha) * 1.0 + alpha * (mode === 4 ? 1.04 : 1.0)).toFixed(3);
+    const eqArea = ((1 - alpha) * 1.0 + alpha * 1.0).toFixed(3);
 
     const camBaseRatio =
-      mode === 4
-        ? 1.04
-        : mode === 1
+      mode === 1
         ? 1.0 / (cosLat * cosLat)
         : mode === 0
         ? 1.0 / cosLat
@@ -321,12 +318,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
     const localArea = ((1 - alpha) * 1.0 + alpha * camBaseRatio).toFixed(3);
 
     const polarBaseRatio =
-      mode === 4 ? 1.041 : mode === 1 ? 131.6 : mode === 0 ? 11.5 : mode === 3 ? 1.0 : 1.12;
+      mode === 1 ? 131.6 : mode === 0 ? 11.5 : mode === 3 ? 1.0 : 1.12;
     const polarVal = (1 - alpha) * 1.0 + alpha * polarBaseRatio;
     const polarStr =
-      mode === 4
-        ? `${polarVal.toFixed(3)}x`
-        : mode === 1
+      mode === 1
         ? alpha < 0.01
           ? '1.000x'
           : `${polarVal.toFixed(1)}x (85° limit)`
@@ -840,17 +835,17 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <span className="text-nano font-mono opacity-60 text-[var(--theme-text-muted)]">Mode {mode + 1}</span>
                     </div>
 
-                    {/* Archival Parchment Strip for 5 Modes */}
+                    {/* Archival Parchment Strip for 4 Modes */}
                     <div className="relative p-0.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] shadow-inner overflow-hidden select-none">
                       <div
                         className="absolute top-0.5 bottom-0.5 rounded-[2px] transition-all duration-300 ease-out pointer-events-none bg-[var(--theme-control-active-bg)] border border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)]"
                         style={{
-                          left: `calc(${mode * 20}% + 2px)`,
-                          width: `calc(20% - 4px)`,
+                          left: `calc(${mode * 25}% + 2px)`,
+                          width: `calc(25% - 4px)`,
                         }}
                       />
 
-                      <div className="relative grid grid-cols-5 z-10">
+                      <div className="relative grid grid-cols-4 z-10">
                         {PROJECTION_MODES.map((m) => {
                           const isActive = mode === m.id;
                           return (
@@ -928,7 +923,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           <div className="flex justify-between items-center text-nano uppercase tracking-wider font-semibold">
                             <span>Distortion Metric</span>
                             <span className="text-[var(--theme-status-sage)] font-bold">
-                              {mode === 4 ? 'Isomeric (s ≈ 1.04x)' : 'Morphing'}
+                              Morphing
                             </span>
                           </div>
                           <div className="grid grid-cols-3 gap-1.5 text-nano font-mono">

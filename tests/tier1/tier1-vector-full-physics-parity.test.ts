@@ -22,6 +22,10 @@ describe('Vector Overlay & WebGPU Full Physics Parity Verification', () => {
     path.join(projectRoot, 'src/webgpu/shaders/physics_sim.wgsl'),
     'utf8'
   );
+  const manifoldWGSL = fs.readFileSync(
+    path.join(projectRoot, 'src/webgpu/shaders/manifold.wgsl'),
+    'utf8'
+  );
 
   // --------------------------------------------------------------------------
   // 1. Mathematical Parity across all 5 Morphing Paradigms
@@ -52,11 +56,7 @@ describe('Vector Overlay & WebGPU Full Physics Parity Verification', () => {
       expect(vectorLayerCode).toContain('silkWave = (sin(wavePhase1) * 0.65 + cos(wavePhase2) * 0.35) * liquefaction * 0.65');
     });
 
-    it('VEC-PAR-04: verifies VectorOverlayLayer vertex shader implements Mode 4 Fuller Dymaxion arching shell expansion', () => {
-      expect(vectorLayerCode).toContain('u_mode == 4');
-      expect(vectorLayerCode).toContain('arch = sin(PI * clampedUnfurl) * 0.45');
-      expect(vectorLayerCode).toContain('mix(pos3D, dymaxionPos2D, t) + sphereNorm * arch');
-    });
+
 
     it('VEC-PAR-05: verifies Mode 0 incorporates 2D z-elevation to prevent coplanar z-fighting', () => {
       expect(vectorLayerCode).toContain('pos2D = vec3(target2D.x, target2D.y, 0.015)');
@@ -140,10 +140,10 @@ describe('Vector Overlay & WebGPU Full Physics Parity Verification', () => {
       expect(dockCode).not.toContain('B: Backend');
     });
 
-    it('VEC-PAR-16: verifies physics_sim.wgsl rotation matrix matches GLSL column vectors exactly', () => {
-      expect(physicsSimWGSL).toContain('vec3<f32>(0.00,  0.80,  0.60)');
-      expect(physicsSimWGSL).toContain('vec3<f32>(-0.80, 0.36, -0.48)');
-      expect(physicsSimWGSL).toContain('vec3<f32>(-0.60, -0.48, 0.64)');
+    it('VEC-PAR-16: verifies unified manifold.wgsl curl noise rotation matrix matches GLSL column vectors exactly', () => {
+      expect(manifoldWGSL).toContain('vec3<f32>(0.00,  0.80,  0.60)');
+      expect(manifoldWGSL).toContain('vec3<f32>(-0.80, 0.36, -0.48)');
+      expect(manifoldWGSL).toContain('vec3<f32>(-0.60, -0.48, 0.64)');
     });
 
     it('VEC-PAR-17: verifies startTime is threaded to VectorOverlayLayer in both App.tsx and WebGPUCanvas.tsx', () => {

@@ -31,7 +31,7 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
     onResolutionChange: vi.fn(),
     layerMode: 0,
     onLayerModeChange: vi.fn(),
-    mode: 4 as SimulationMode,
+    mode: 3 as SimulationMode,
     onModeChange: vi.fn(),
     cursorPhysicsEnabled: false,
     onCursorPhysicsToggle: vi.fn(),
@@ -125,7 +125,7 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
       latStr: "51°30'N",
       lonStr: "00°07'W",
       mapScaleStr: '1:25M',
-      mode: 4,
+      mode: 3,
     });
 
     await act(async () => {
@@ -139,8 +139,8 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
 
     // Verify paradigm mode buttons are rendered
     const buttons = Array.from(container.querySelectorAll('button'));
-    const dymaxionBtn = buttons.find(b => b.textContent?.includes('Dymaxion') || b.title?.includes('Dymaxion'));
-    expect(dymaxionBtn).toBeDefined();
+    const modeBtn = buttons.find(b => b.textContent?.includes('Fracture') || b.textContent?.includes('Griffith') || b.title?.includes('Griffith'));
+    expect(modeBtn).toBeDefined();
   });
 
   it('DOM-HUD-04: verifies backend switch button is excised from UnifiedRightSidebar', async () => {
@@ -211,14 +211,14 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
     });
 
     const buttons = Array.from(container.querySelectorAll('button'));
-    const dymaxionBtn = buttons.find(b => b.textContent?.includes('Dymaxion') || b.title?.includes('Dymaxion'));
-    expect(dymaxionBtn).toBeDefined();
+    const modeBtn = buttons.find(b => b.textContent?.includes('Fracture') || b.textContent?.includes('Griffith') || b.title?.includes('Griffith'));
+    expect(modeBtn).toBeDefined();
 
     await act(async () => {
-      dymaxionBtn?.click();
+      modeBtn?.click();
     });
 
-    expect(onModeChange).toHaveBeenCalledWith(4);
+    expect(onModeChange).toHaveBeenCalledWith(2);
   });
 
   it('DOM-HUD-08: dynamically updates DOM when telemetry coordinates and FPS change', async () => {

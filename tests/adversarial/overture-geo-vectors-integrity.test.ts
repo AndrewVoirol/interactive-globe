@@ -11,7 +11,6 @@ import path from 'path';
  * - S^2 radius exact precision at 5.015 +- 1e-4
  * - Mercator clipping: |u| <= 16.0, |v| <= 16.0
  * - Antimeridian seam crossing protection (no >170 to <-170, no deltaLon > 180)
- * - Dymaxion discontinuity cuts (segment jump <= 0.85)
  */
 
 describe('Adversarial Challenger: Overture Geo-Vectors Gate 1 Integrity', () => {
@@ -63,8 +62,7 @@ describe('Adversarial Challenger: Overture Geo-Vectors Gate 1 Integrity', () => 
     const target2D = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount * 2);
     offset += vertexCount * 2 * 4;
 
-    const dymaxion2D = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount * 2);
-    offset += vertexCount * 2 * 4;
+    offset += vertexCount * 2 * 4; // 8 bytes reserved padding per vertex
 
     const vType = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount);
 
@@ -103,13 +101,6 @@ describe('Adversarial Challenger: Overture Geo-Vectors Gate 1 Integrity', () => 
       if (Object.is(u, -0) || Object.is(v, -0)) negZeroCount++;
       if (Math.abs(u) > 16.0 || Math.abs(v) > 16.0) mercatorOutOfRange++;
 
-      // 2D Dymaxion
-      const ud = dymaxion2D[i * 2];
-      const vd = dymaxion2D[i * 2 + 1];
-      if (!Number.isFinite(ud) || !Number.isFinite(vd)) infCount++;
-      if (Number.isNaN(ud) || Number.isNaN(vd)) nanCount++;
-      if (Object.is(ud, -0) || Object.is(vd, -0)) negZeroCount++;
-
       // vType
       const vt = vType[i];
       if (vt === 1.0) coastCount++;
@@ -129,7 +120,7 @@ describe('Adversarial Challenger: Overture Geo-Vectors Gate 1 Integrity', () => 
     expect(riverCount).toBe(240000);
   });
 
-  it('STAGE1-CHALLENGE-04: tests all 565,000 line segments for antimeridian seam crossing and Dymaxion discontinuity cuts', () => {
+  it('STAGE1-CHALLENGE-04: tests all 565,000 line segments for antimeridian seam crossing cuts', () => {
     const buf = fs.readFileSync(binPath);
     const vertexCount = buf.readUInt32LE(8);
     const indexCount = buf.readUInt32LE(12);
@@ -141,9 +132,7 @@ describe('Adversarial Challenger: Overture Geo-Vectors Gate 1 Integrity', () => 
     const target2D = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount * 2);
     offset += vertexCount * 2 * 4;
 
-    const dymaxion2D = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount * 2);
-    offset += vertexCount * 2 * 4;
-
+    offset += vertexCount * 2 * 4; // 8 bytes reserved padding per vertex
     offset += vertexCount * 4; // vType
     const indices = new Uint32Array(buf.buffer, buf.byteOffset + offset, indexCount);
 
@@ -152,11 +141,8 @@ describe('Adversarial Challenger: Overture Geo-Vectors Gate 1 Integrity', () => 
     let antimeridianJumpViolations = 0;
     let lonDelta180Violations = 0;
     let mercatorJumpViolations = 0;
-    let dymaxionJumpViolations = 0;
-
     let maxDeltaLon = 0;
     let maxDeltaU = 0;
-    let maxDymDist = 0;
 
     for (let s = 0; s < segmentCount; s++) {
       const iA = indices[s * 2];
@@ -188,14 +174,6 @@ describe('Adversarial Challenger: Overture Geo-Vectors Gate 1 Integrity', () => 
       const dU = Math.abs(uA - uB);
       if (dU > maxDeltaU) maxDeltaU = dU;
       if (dU > 15.0) mercatorJumpViolations++;
-
-      const udA = dymaxion2D[iA * 2];
-      const vdA = dymaxion2D[iA * 2 + 1];
-      const udB = dymaxion2D[iB * 2];
-      const vdB = dymaxion2D[iB * 2 + 1];
-      const dymDist = Math.hypot(udA - udB, vdA - vdB);
-      if (dymDist > maxDymDist) maxDymDist = dymDist;
-      if (dymDist > 0.85) dymaxionJumpViolations++;
     }
 
     expect(oobIndices).toBe(0);
@@ -204,7 +182,5 @@ describe('Adversarial Challenger: Overture Geo-Vectors Gate 1 Integrity', () => 
     expect(maxDeltaLon).toBeLessThan(5.0);
     expect(mercatorJumpViolations).toBe(0);
     expect(maxDeltaU).toBeLessThan(1.0);
-    expect(dymaxionJumpViolations).toBe(0);
-    expect(maxDymDist).toBeLessThanOrEqual(0.85);
   });
 });

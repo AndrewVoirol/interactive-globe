@@ -33,7 +33,7 @@ Deviations from these are architectural regressions.
 10. **Render Loop Decoupling** — GPU animation never throttled by React reconciliation. React manages state, WebGPU manages pixels.
 11. **Perceptual Uniformity** — OKLCH color transitions. No linear RGB muddy midpoints.
 12. **Composable Cartography** — Layers reorder without shader recompilation.
-13. **Topological Integrity** — Seam cuts geometrically clean across the antimeridian and Dymaxion net.
+13. **Topological Integrity** — Seam cuts geometrically clean across the antimeridian.
 14. **Visual Primacy** — Visual fidelity is the deliverable. Audio is a future wire-in, not a verification criterion. Do not invest in audio until the visual output honors the research.
 15. **Horizon Sculpting** — Geometry displacement on the silhouette, not fragment tricks. Real vertices must move.
 16. **Neatline Primacy & Spatial Clearance Moats** — The outer neatline frames the global cartographic sheet; floating instruments float with guaranteed breathing room (minimum 10-12px spatial moat). Never allow neatline tangency, parallel border clashes ("railroad tracks"), or redundant internal neatlines within floating HUD elements.
@@ -135,7 +135,6 @@ Each morph paradigm uses a physics-derived animation curve, not generic cubic ea
 - **Scroll**: Cylindrical unrolling $R / (1-t)$ with Taylor guard at $1-t \le 10^{-3}$
 - **Griffith**: Elastostatic strain phase step response at $\alpha = 0.18$
 - **Fluid**: Liquefaction arc $L(t) = \sin^{1.15}(\pi t)$
-- **Dymaxion**: Polyhedral facet lift $0.45\sin(\pi t)$
 
 ---
 
@@ -175,6 +174,7 @@ The standalone `swiss_relief_shading.wgsl` is **dead code** — superseded by co
 ## 8. Morph Paradigms: What You Must SEE
 
 Each paradigm is a physical phenomenon. The research dossier defines the exact mathematics. The pixels must reflect them.
+*(Note: 20-facet icosahedral net unfolding paradigm was excised in Phase 2.2 in favor of the four core continuous Riemannian manifold paradigms).*
 
 ### Paradigm 0: Linear Manifold Interpolation
 - **α=0.0**: Perfect sphere. **α=0.5**: Smooth Hermite interpolation, no popping. **α=1.0**: Flat projection, clean lock-in.
@@ -199,18 +199,6 @@ This is the most visually demanding paradigm. **It must look like a piece of sil
 - **Silk drape**: Two interfering wave phases summed and scaled by `liquefaction * 0.65` produce `silkWave`, which modulates the surface normal via `silkDrapeOffset = surfaceNormal * silkWave`.
 - **At α=0.5**: Peak turbulent flow. Bioluminescent Cyan nodes. The surface should billow gracefully — not jitter, not snap, not feel mechanical.
 
-### Paradigm 4: Dymaxion Polyhedral Unfolding
-- **α=0.5**: Icosahedral facet lift $0.45\sin(\pi t)$. Harmonic standing waves visible on hinge edges. Must feel like origami engineering.
-- **α≥0.998**: Specular flash sweeps sequentially across all 20 facets over 350ms.
-
----
-
-## 9. Visual Verification: The Research Is The Spec
-
-**The research dossier is the specification. The pixels are the deliverable. The gap between them is the work.**
-
-When verifying, open the browser and ask:
-
 ### Does the water honor the Jerlov research?
 - Does the ocean show volumetric depth with spectral color shift? Shallow turquoise → deep navy?
 - Can you distinguish Type I (crystal tropical) from Type III (coastal turbid) via the Clarity slider?
@@ -229,7 +217,6 @@ When verifying, open the browser and ask:
 ### Do the morph transitions honor the physics?
 - Does Fluid morph feel like silk floating in water, not noise displacement?
 - Does Griffith fracture feel like material rupturing, not points spreading?
-- Does Dymaxion unfold feel like origami with hinge vibrations?
 - Reference: `research-dossier.md` §3
 
 ### Does the interaction feel like a scientific instrument?
@@ -251,8 +238,6 @@ When verifying, open the browser and ask:
 All whimsy tied to strict geometric or physical conditions.
 
 1. **Fibonacci Pole Alignment**: View vector <0.5° from polar axis → point scale ×1.2 producing concentric Moiré rings
-2. **Harmonic Edge Standing Waves**: Dymaxion mode α ∈ [0.45, 0.55] → hinge lines visibly vibrate
-3. **Dymaxion Specular Flash**: α ≥ 0.998 → flash sweeps across 20 facets over 350ms
 4. **Pinch Rebound**: Mouse up → visible damped harmonic oscillation ($k=45, \gamma=6.5, \omega_d=28$)
 
 > **Audio note**: `ProceduralAudioEngine.ts` exists and can be wired later. Visual must land first.

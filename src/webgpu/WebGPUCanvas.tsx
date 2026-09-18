@@ -12,7 +12,7 @@ import { CursorTracker } from '../utils/raycast';
 import { useCursorTracker } from '../core/CursorContext';
 import { DataLayerItem, PrognosticModelBackend } from '../components/hud/TelemetryHUD';
 
-import { GeodesicOverlayMode, ResolutionTier } from '../types';
+import { GeodesicOverlayMode, ResolutionTier, SimulationMode } from '../types';
 import { WhimsicalEffectsManager } from '../core/effects/WhimsicalEffectsManager';
 import { ManifoldPinchController } from '../core/interactions/ManifoldPinchController';
 import {
@@ -100,7 +100,7 @@ const TIER_CONFIG: Record<ResolutionTier, { lat: number; lon: number; bin: strin
 
 export interface WebGPUCanvasProps {
   unfurlProgress: number;
-  mode: number;
+  mode: SimulationMode;
   layerMode?: 0 | 1 | 2;
   theme?: 0 | 1 | 2; // 0 = Marie Tharp, 1 = Cream Rag Paper, 2 = Prussian Cyanotype
   showSoundings?: boolean;
@@ -2417,7 +2417,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const cursorUniforms = tracker.update(camera, curUnfurl);
         currentHitPosRef.current.copy(cursorUniforms.u_cursorHitPos);
 
-        // 1. Whimsical Effects Manager update (Fibonacci polar alignment Moiré scaling, Dymaxion standing waves, Specular flash)
+        // 1. Whimsical Effects Manager update (Fibonacci polar alignment Moiré scaling)
         const whimsicalState = whimsicalManagerRef.current.update(
           [camera.position.x, camera.position.y, camera.position.z],
           curMode,

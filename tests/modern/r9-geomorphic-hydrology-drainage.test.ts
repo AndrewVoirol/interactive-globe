@@ -20,7 +20,7 @@ describe('Stage 1 Geomorphic Hydrology Drainage & Invariant Verification', () =>
       const dpdyIdx = fsMainBody.indexOf('dpdy(');
       const demCIdx = fsMainBody.indexOf('let demC = textureSampleLevel(');
       const firstDiscardIdx = fsMainBody.indexOf('discard;');
-      const firstBranchIdx = fsMainBody.indexOf('if (sim.u_mode == 4u');
+      const firstBranchIdx = fsMainBody.indexOf('if (input.surfaceType > 0.5)');
 
       expect(fwidthIdx).toBeGreaterThan(0);
       expect(dpdxIdx).toBeGreaterThan(0);

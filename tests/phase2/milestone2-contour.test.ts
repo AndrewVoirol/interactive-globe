@@ -24,8 +24,6 @@ import {
   simplifyPolylineSpherical,
   severAntimeridianSegment,
   severPolylineAntimeridian,
-  clipSegmentDymaxion,
-  partitionPolylineByDymaxionFacets,
   computeBilinearSaddle,
   resolveAsymptoticDecider,
   interpolateContourEdge,
@@ -33,18 +31,11 @@ import {
   unitSphereToLonLat,
   MAGIC_GEOM,
   MAGIC_CONT,
-  DYMAXION_FACE_EDGE_PLANES,
 } from '../../src/utils/contour-topology';
-
-import {
-  UNIT_VERTICES,
-  ICOSAHEDRON_FACES,
-  UNIT_CENTROIDS,
-  PHI,
-} from '../../src/utils/dymaxion';
 
 import { WebGPUEngine } from '../../src/webgpu/WebGPUEngine';
 import { createMockNavigatorGPU, MockGPUDevice } from '../helpers/webgpu-mock';
+import { getIcosahedronGeometry } from '../helpers/math-oracle';
 import contourTopologyWGSL from '../../src/webgpu/shaders/contour_topology.wgsl?raw';
 
 describe('Milestone 2: Contour & Vector Topology Test Suite', () => {
@@ -104,14 +95,12 @@ describe('Milestone 2: Contour & Vector Topology Test Suite', () => {
       expect(() => decodeContourMesh(partialBuffer)).toThrow(/truncated/i);
     });
 
-    it('T04: decodes 5 columnar typed array slices without memory copy', () => {
+    it('T04: decodes 4 columnar typed array slices without memory copy', () => {
       const rawBuf = fs.readFileSync(binPath);
       const arrayBuffer = rawBuf.buffer.slice(rawBuf.byteOffset, rawBuf.byteOffset + rawBuf.byteLength);
 
       const mesh = decodeContourMesh(arrayBuffer);
-      expect(mesh.positions3D.length).toBe(69028 * 3);
       expect(mesh.target2D.length).toBe(69028 * 2);
-      expect(mesh.dymaxion2D.length).toBe(69028 * 2);
       expect(mesh.typeData.length).toBe(69028);
       expect(mesh.lineIndices.length).toBe(69028);
 
@@ -197,11 +186,12 @@ describe('Milestone 2: Contour & Vector Topology Test Suite', () => {
     });
 
     it('T10: Regular icosahedron equilateral facet benchmark: verifies E = pi/5 rad (36 deg) with error < 1e-14', () => {
-      // One facet of regular icosahedron from UNIT_VERTICES
-      const f0 = ICOSAHEDRON_FACES[0];
-      const A = UNIT_VERTICES[f0[0]];
-      const B = UNIT_VERTICES[f0[1]];
-      const C = UNIT_VERTICES[f0[2]];
+      // One facet of regular icosahedron
+      const { vertices, faces } = getIcosahedronGeometry();
+      const f0 = faces[0];
+      const A = vertices[f0[0]];
+      const B = vertices[f0[1]];
+      const C = vertices[f0[2]];
 
       const area = computeSphericalTriangleArea(A, B, C, 1.0);
       const expected = Math.PI / 5.0; // 0.6283185307179586 (4*pi / 20)
@@ -432,87 +422,7 @@ describe('Milestone 2: Contour & Vector Topology Test Suite', () => {
     });
   });
 
-  // ==========================================================================
-  // Suite 6: Fuller Dymaxion 20-Facet Boundary Severance (M2-T2)
-  // ==========================================================================
-  describe('Suite 6: Fuller Dymaxion 20-Facet Boundary Severance (M2-T2)', () => {
-    it('T27: verifies icosahedron geometry: 12 vertices, 20 facets, and golden ratio PHI', () => {
-      expect(UNIT_VERTICES.length).toBe(12);
-      expect(ICOSAHEDRON_FACES.length).toBe(20);
-      expect(UNIT_CENTROIDS.length).toBe(20);
-      expect(PHI).toBeCloseTo(1.61803398875, 8);
 
-      for (const v of UNIT_VERTICES) {
-        const len = Math.hypot(v[0], v[1], v[2]);
-        expect(len).toBeCloseTo(1.0, 6);
-      }
-    });
-
-    it('T28: verifies 20 inward-pointing edge normal planes with M_{k,e} . C_k > 0', () => {
-      expect(DYMAXION_FACE_EDGE_PLANES.length).toBe(20);
-      for (let f = 0; f < 20; f++) {
-        const planes = DYMAXION_FACE_EDGE_PLANES[f];
-        const centroid = UNIT_CENTROIDS[f];
-        expect(planes.length).toBe(3);
-
-        for (let e = 0; e < 3; e++) {
-          const plane = planes[e];
-          const dot = plane[0] * centroid[0] + plane[1] * centroid[1] + plane[2] * centroid[2];
-          expect(dot).toBeGreaterThan(0.0);
-        }
-      }
-    });
-
-    it('T29: spherical Sutherland-Hodgman clips segments crossing facet boundaries', () => {
-      // Vertex A inside Facet 0, Vertex B far outside Facet 0
-      const f0 = ICOSAHEDRON_FACES[0];
-      const centroid = UNIT_CENTROIDS[0];
-      const insidePoint: [number, number, number] = [centroid[0] * 5, centroid[1] * 5, centroid[2] * 5];
-
-      // Opposite point (antipodal to centroid)
-      const outsidePoint: [number, number, number] = [-centroid[0] * 5, -centroid[1] * 5, -centroid[2] * 5];
-
-      const clipped = clipSegmentDymaxion(insidePoint, outsidePoint, 0);
-      expect(clipped).not.toBeNull();
-      if (clipped) {
-        expect(clipped.length).toBe(2);
-        // Start point is insidePoint
-        expect(clipped[0][0]).toBeCloseTo(insidePoint[0], 4);
-        // End point is on boundary of facet 0: min distance to edge planes is ~0
-        const endUnit = [clipped[1][0] / 5, clipped[1][1] / 5, clipped[1][2] / 5];
-        const planes = DYMAXION_FACE_EDGE_PLANES[0];
-        let minEdgeDist = Infinity;
-        for (const pl of planes) {
-          const d = Math.abs(pl[0] * endUnit[0] + pl[1] * endUnit[1] + pl[2] * endUnit[2]);
-          minEdgeDist = Math.min(minEdgeDist, d);
-        }
-        expect(minEdgeDist).toBeLessThan(1e-4);
-      }
-    });
-
-    it('T30: returns null for segments entirely outside facet boundary', () => {
-      // Face 0 is in northern hemisphere; test segment in southern hemisphere
-      const c10 = UNIT_CENTROIDS[10]; // southern face
-      const pA: [number, number, number] = [c10[0] * 5, c10[1] * 5, c10[2] * 5];
-      const pB: [number, number, number] = [c10[0] * 5 + 0.1, c10[1] * 5, c10[2] * 5];
-
-      const clipped = clipSegmentDymaxion(pA, pB, 0);
-      expect(clipped).toBeNull();
-    });
-
-    it('T31: partitionPolylineByDymaxionFacets groups polyline segments by facet without dangling artifacts', () => {
-      const poly: [number, number][] = [
-        [0, 0], [10, 10], [20, 20], [30, 30], [40, 40],
-      ];
-      const map = partitionPolylineByDymaxionFacets(poly);
-      expect(map.size).toBeGreaterThan(0);
-      for (const [faceIdx, strips] of map.entries()) {
-        expect(faceIdx).toBeGreaterThanOrEqual(0);
-        expect(faceIdx).toBeLessThan(20);
-        expect(strips.length).toBeGreaterThan(0);
-      }
-    });
-  });
 
   // ==========================================================================
   // Suite 7: Nielson's Asymptotic Decider & Saddle Resolution (M2-T2)

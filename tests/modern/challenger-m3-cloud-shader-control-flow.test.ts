@@ -218,7 +218,6 @@ describe('Adversarial Challenger Suite: Cloud Shell WGSL Control Flow & Shader I
     function evaluateManifold(
       pos3D: [number, number, number],
       mercator2D: [number, number],
-      dymaxion2D: [number, number],
       unfurl: number,
       mode: number
     ): [number, number, number] {
@@ -241,17 +240,6 @@ describe('Adversarial Challenger Suite: Cloud Shell WGSL Control Flow & Shader I
         } else {
           return pos2D;
         }
-      } else if (mode === 4) {
-        // Mode 4: Fuller Dymaxion
-        const dym2D: [number, number, number] = [dymaxion2D[0], dymaxion2D[1], 0.0];
-        const arch = Math.sin(PI * unfurl) * 0.45;
-        const len = Math.sqrt(pos3D[0] * pos3D[0] + pos3D[1] * pos3D[1] + pos3D[2] * pos3D[2]);
-        const sphereNorm = len > 0.001 ? [pos3D[0] / len, pos3D[1] / len, pos3D[2] / len] : [0, 0, 1];
-        return [
-          pos3D[0] * (1 - ease) + dym2D[0] * ease + sphereNorm[0] * arch,
-          pos3D[1] * (1 - ease) + dym2D[1] * ease + sphereNorm[1] * arch,
-          pos3D[2] * (1 - ease) + dym2D[2] * ease + sphereNorm[2] * arch,
-        ];
       }
 
       // Default Modes 0, 2, 3 (Linear Mix)
@@ -262,7 +250,7 @@ describe('Adversarial Challenger Suite: Cloud Shell WGSL Control Flow & Shader I
       ];
     }
 
-    it('CHALLENGE-M3-11: 50,000 randomized trials across all modes and unfurl parameters yield zero NaNs or Infs', () => {
+    it('CHALLENGE-M3-11: 50,000 randomized trials across all modes (0..3) and unfurl parameters yield zero NaNs or Infs', () => {
       for (let i = 0; i < 50_000; i++) {
         // Generate random spherical point
         const u = Math.random();
@@ -274,11 +262,10 @@ describe('Adversarial Challenger Suite: Cloud Shell WGSL Control Flow & Shader I
         const z = SPHERE_RADIUS * Math.sin(phi) * Math.sin(theta);
 
         const mercator2D: [number, number] = [(u - 0.5) * 10.0, (v - 0.5) * 10.0];
-        const dymaxion2D: [number, number] = [(u - 0.5) * 8.0, (v - 0.5) * 8.0];
         const unfurl = Math.random();
-        const mode = Math.floor(Math.random() * 5); // 0, 1, 2, 3, 4
+        const mode = Math.floor(Math.random() * 4); // 0, 1, 2, 3
 
-        const res = evaluateManifold([x, y, z], mercator2D, dymaxion2D, unfurl, mode);
+        const res = evaluateManifold([x, y, z], mercator2D, unfurl, mode);
 
         expect(Number.isFinite(res[0])).toBe(true);
         expect(Number.isFinite(res[1])).toBe(true);
@@ -289,22 +276,21 @@ describe('Adversarial Challenger Suite: Cloud Shell WGSL Control Flow & Shader I
     it('CHALLENGE-M3-12: Mode 1 Cylindrical Scroll transition boundary at unfurl -> 1.0 handles singularity smoothly', () => {
       const pos3D: [number, number, number] = [0.0, 0.0, SPHERE_RADIUS];
       const mercator2D: [number, number] = [0.0, 0.0];
-      const dymaxion2D: [number, number] = [0.0, 0.0];
 
       // Probing exactly around unfurl = 1.0 (ease = 1.0, oneMinusT = 0)
       const nearOneUnfurls = [0.999, 0.9999, 0.99999, 1.0];
       for (const u of nearOneUnfurls) {
-        const res = evaluateManifold(pos3D, mercator2D, dymaxion2D, u, 1);
+        const res = evaluateManifold(pos3D, mercator2D, u, 1);
         expect(Number.isFinite(res[0])).toBe(true);
         expect(Number.isFinite(res[1])).toBe(true);
         expect(Number.isFinite(res[2])).toBe(true);
       }
     });
 
-    it('CHALLENGE-M3-13: Mode 4 Fuller Dymaxion protects against zero-length vector division', () => {
+    it('CHALLENGE-M3-13: evaluateManifold protects against zero-length vector input across modes', () => {
       // Degenerate zero position input
       const zeroPos: [number, number, number] = [0.0, 0.0, 0.0];
-      const res = evaluateManifold(zeroPos, [1.0, 2.0], [3.0, 4.0], 0.5, 4);
+      const res = evaluateManifold(zeroPos, [1.0, 2.0], 0.5, 0);
 
       expect(Number.isFinite(res[0])).toBe(true);
       expect(Number.isFinite(res[1])).toBe(true);

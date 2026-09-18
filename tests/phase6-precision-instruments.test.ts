@@ -167,7 +167,7 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
       expect(sextantCode).toContain('SPHERE (K > 0)');
       expect(sextantCode).toContain('PLANAR MAP (K = 0)');
       expect(sextantCode).toContain('ANTIMERIDIAN RUPTURE');
-      expect(sextantCode).toContain('DYMAXION (K = 0)');
+      expect(sextantCode).toContain('LIQUEFACTION');
     });
   });
 

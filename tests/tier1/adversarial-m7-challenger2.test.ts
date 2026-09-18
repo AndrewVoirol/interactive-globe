@@ -40,16 +40,6 @@ beforeAll(() => {
 
 import { WebGPUEngine, WebGPUInitConfig, WebGPUFrameParams } from '../../src/webgpu/WebGPUEngine';
 import { 
-  PHI, 
-  RADIUS as DYMAXION_RADIUS, 
-  UNIT_CENTROIDS, 
-  ICOSAHEDRON_FACES, 
-  projectPointToDymaxionFace, 
-  projectToDymaxion2D, 
-  generateDymaxionBuffer, 
-  computeDymaxionMorph 
-} from '../../src/utils/dymaxion';
-import { 
   RADIUS as RAYCAST_RADIUS, 
   screenToNDC, 
   raySphereIntersect, 
@@ -118,10 +108,10 @@ describe('Adversarial Verification Suite: Challenger 2 — Milestone M7 (All 6 A
       const N = 1000000;
       const pointsByteLength = N * 3 * 4; // 12,000,000 bytes
       const target2DByteLength = N * 2 * 4; // 8,000,000 bytes
-      const dymaxionByteLength = N * 2 * 4; // 8,000,000 bytes
+      const auxByteLength = N * 2 * 4; // 8,000,000 bytes
       const typeByteLength = N * 1 * 4; // 4,000,000 bytes
 
-      const totalVertexAttributesBytes = pointsByteLength + target2DByteLength + dymaxionByteLength + typeByteLength;
+      const totalVertexAttributesBytes = pointsByteLength + target2DByteLength + auxByteLength + typeByteLength;
       expect(totalVertexAttributesBytes).toBe(32_000_000); // Exactly 32,000,000 bytes
       expect(parseFloat((totalVertexAttributesBytes / (1024 * 1024)).toFixed(2))).toBe(30.52);
     });
@@ -168,78 +158,7 @@ describe('Adversarial Verification Suite: Challenger 2 — Milestone M7 (All 6 A
     });
   });
 
-  // =========================================================================
-  // AC3: Fuller Dymaxion Polyhedral Unfolding (Continuous & Zero NaNs)
-  // =========================================================================
-  describe('AC3: Fuller Dymaxion Polyhedral Unfolding (20 Facets & 0 NaNs)', () => {
-    it('AC3-T01: verifies 20 icosahedral facet centroids cover entire S^2 sphere with min dot >= 0.79', () => {
-      expect(UNIT_CENTROIDS.length).toBe(20);
-      expect(ICOSAHEDRON_FACES.length).toBe(20);
 
-      const { points3D } = generateFibonacciSphere(5000, 5.0);
-      let minDotObserved = Infinity;
-
-      for (let i = 0; i < 5000; i++) {
-        const p: [number, number, number] = [points3D[i * 3 + 0], points3D[i * 3 + 1], points3D[i * 3 + 2]];
-        const { maxDot, faceIndex } = projectPointToDymaxionFace(p);
-
-        expect(faceIndex).toBeGreaterThanOrEqual(0);
-        expect(faceIndex).toBeLessThan(20);
-        expect(maxDot).toBeGreaterThan(0.75); // Strictly positive
-        if (maxDot < minDotObserved) minDotObserved = maxDot;
-      }
-
-      expect(minDotObserved).toBeGreaterThan(0.79);
-    });
-
-    it('AC3-T02: verifies 0 NaN or Inf vertices across 5,000 points and 13 alpha steps in [0, 1]', () => {
-      const { points3D } = generateFibonacciSphere(5000, 5.0);
-      const dymaxionBuffer = generateDymaxionBuffer(points3D);
-
-      const alphaSteps = [0.0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0];
-
-      for (const alpha of alphaSteps) {
-        for (let i = 0; i < 5000; i += 5) {
-          const p3D: [number, number, number] = [points3D[i * 3 + 0], points3D[i * 3 + 1], points3D[i * 3 + 2]];
-          const d2D: [number, number] = [dymaxionBuffer[i * 2 + 0], dymaxionBuffer[i * 2 + 1]];
-
-          const morph = computeDymaxionMorph(p3D, d2D, alpha);
-
-          expect(Number.isFinite(morph.position[0])).toBe(true);
-          expect(Number.isFinite(morph.position[1])).toBe(true);
-          expect(Number.isFinite(morph.position[2])).toBe(true);
-          expect(Number.isFinite(morph.normal[0])).toBe(true);
-          expect(Number.isFinite(morph.normal[1])).toBe(true);
-          expect(Number.isFinite(morph.normal[2])).toBe(true);
-          expect(Number.isFinite(morph.arch)).toBe(true);
-        }
-      }
-    });
-
-    it('AC3-T03: verifies true-area planar unfolding reaches z = 0 at alpha = 1.0 with arch height = 0', () => {
-      const p3D: [number, number, number] = [0, 5.0, 0];
-      const d2D = projectToDymaxion2D(p3D);
-
-      const morphAt0 = computeDymaxionMorph(p3D, d2D, 0.0);
-      const morphAtHalf = computeDymaxionMorph(p3D, d2D, 0.5);
-      const morphAt1 = computeDymaxionMorph(p3D, d2D, 1.0);
-
-      // At alpha = 0: exactly initial sphere
-      expect(morphAt0.position[0]).toBeCloseTo(p3D[0], 4);
-      expect(morphAt0.position[1]).toBeCloseTo(p3D[1], 4);
-      expect(morphAt0.position[2]).toBeCloseTo(p3D[2], 4);
-      expect(morphAt0.arch).toBeCloseTo(0.0, 4);
-
-      // At alpha = 0.5: arch peak
-      expect(morphAtHalf.arch).toBeCloseTo(0.45, 4);
-
-      // At alpha = 1.0: planar net at z = 0
-      expect(morphAt1.position[0]).toBeCloseTo(d2D[0], 4);
-      expect(morphAt1.position[1]).toBeCloseTo(d2D[1], 4);
-      expect(morphAt1.position[2]).toBeCloseTo(0.0, 4);
-      expect(morphAt1.arch).toBeCloseTo(0.0, 4);
-    });
-  });
 
   // =========================================================================
   // AC4: Passive Raycast Cursor Perturbation (Non-Blocking Interaction)

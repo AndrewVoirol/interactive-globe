@@ -5,7 +5,7 @@ import { toSphere, toMercator } from '../../src/utils/projection';
 import { griffithHoopStress, lambOseenVortex } from '../../src/utils/raycast';
 
 describe('Tier 3: Cross-Feature Pairwise Combinations & State Machine Transitions', () => {
-  type SimMode = 0 | 1 | 2 | 3 | 4; // 0=Linear, 1=Scroll, 2=Griffith, 3=Fluid, 4=Dymaxion
+  type SimMode = 0 | 1 | 2 | 3; // 0=Linear, 1=Scroll, 2=Griffith, 3=Fluid
   type LayerMode = 0 | 1 | 2;       // 0=Both, 1=Points, 2=Wireframe
   type Backend = 'webgl2' | 'webgpu';
 
@@ -113,20 +113,6 @@ describe('Tier 3: Cross-Feature Pairwise Combinations & State Machine Transition
     expect(res.wireframeOpacity).toBe(0.0);
   });
 
-  it('T3-09: Pairwise Mode 4 (Dymaxion) x Layer 0 (Both) x WebGL2 x Cursor Idle', () => {
-    const res = evaluateState({ mode: 4, layerMode: 0, backend: 'webgl2', cursorActive: false, alpha: 0.0, time: 1.0 });
-    expect(res.pointsOpacity).toBe(1.0);
-    expect(res.wireframeOpacity).toBe(1.0);
-    expect(Number.isNaN(res.position[0])).toBe(false);
-  });
-
-  it('T3-10: Pairwise Mode 4 (Dymaxion) x Layer 2 (Wireframe) x WebGPU x Cursor Active', () => {
-    const res = evaluateState({ mode: 4, layerMode: 2, backend: 'webgpu', cursorActive: true, alpha: 1.0, time: 1.0 });
-    expect(res.pointsOpacity).toBe(0.0);
-    expect(res.wireframeOpacity).toBe(1.0);
-    expect(res.position[2]).toBeCloseTo(0.0, 5); // Flat on map
-  });
-
   it('T3-11: Mid-morph mode switch from Mode 0 (Linear) to Mode 3 (Fluid) at alpha = 0.5 preserves position continuity', () => {
     const resLinear = evaluateState({ mode: 0, layerMode: 0, backend: 'webgl2', cursorActive: false, alpha: 0.5, time: 1.0 });
     const resFluid = evaluateState({ mode: 3, layerMode: 0, backend: 'webgl2', cursorActive: false, alpha: 0.5, time: 1.0 });
@@ -207,8 +193,8 @@ describe('Tier 3: Cross-Feature Pairwise Combinations & State Machine Transition
     expect(manager.getLayer('layer-wireframe')?.opacity).toBe(1.0);
   });
 
-  it('T3-15: Complete 30-state combinatorial matrix validation (5 modes x 3 layers x 2 backends)', () => {
-    const modes: SimMode[] = [0, 1, 2, 3, 4];
+  it('T3-15: Complete 24-state combinatorial matrix validation (4 modes x 3 layers x 2 backends)', () => {
+    const modes: SimMode[] = [0, 1, 2, 3];
     const layerModes: LayerMode[] = [0, 1, 2];
     const backends: Backend[] = ['webgl2', 'webgpu'];
 
@@ -227,7 +213,7 @@ describe('Tier 3: Cross-Feature Pairwise Combinations & State Machine Transition
       });
     });
 
-    expect(validCombinations).toBe(30);
+    expect(validCombinations).toBe(24);
   });
 
   it('T3-16: Simultaneous mode change + layer change + backend toggle completes in single frame step', () => {
@@ -241,7 +227,7 @@ describe('Tier 3: Cross-Feature Pairwise Combinations & State Machine Transition
     };
 
     const finalState: MatrixState = {
-      mode: 4,
+      mode: 3,
       layerMode: 1,
       backend: 'webgpu',
       cursorActive: true,
@@ -262,7 +248,7 @@ describe('Tier 3: Cross-Feature Pairwise Combinations & State Machine Transition
   it('T3-17: Rapid mode cycling (0 -> 1 -> 2 -> 3 -> 4 -> 0) maintains bounded memory state', () => {
     let state: MatrixState = { mode: 0, layerMode: 0, backend: 'webgl2', cursorActive: false, alpha: 0.5, time: 0 };
     for (let cycle = 0; cycle < 50; cycle++) {
-      state.mode = (cycle % 5) as SimMode;
+      state.mode = (cycle % 4) as SimMode;
       const res = evaluateState(state);
       expect(Number.isFinite(res.position[0])).toBe(true);
     }

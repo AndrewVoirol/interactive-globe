@@ -5,17 +5,6 @@ import path from 'path';
 
 import { WebGPUEngine, WebGPUInitConfig, WebGPUFrameParams } from '../../src/webgpu/WebGPUEngine';
 import {
-  projectPointToDymaxionFace,
-  projectToDymaxion2D,
-  computeBarycentricCoordinates,
-  computeDymaxionMorph,
-  generateDymaxionBuffer,
-  UNIT_VERTICES,
-  ICOSAHEDRON_FACES,
-  UNIT_CENTROIDS,
-  getIcosahedronGeometry,
-} from '../../src/utils/dymaxion';
-import {
   screenToNDC,
   raySphereIntersect,
   rayPlaneIntersect,
@@ -149,7 +138,7 @@ describe('Tier 5: Adversarial Hardening & Stress Testing', () => {
       camera.position.set(0, 0, 15);
       camera.lookAt(0, 0, 0);
 
-      const modes = [0, 1, 2, 3, 4] as const;
+      const modes = [0, 1, 2, 3] as const;
       const layerModes = [0, 1, 2] as const;
 
       // Execute 500 hyper-frequency chaotic state switches
@@ -211,20 +200,11 @@ describe('Tier 5: Adversarial Hardening & Stress Testing', () => {
       const { points3D } = generateFibonacciSphere(100);
       const testP3D: [number, number, number] = [points3D[0], points3D[1], points3D[2]];
       const target2D: [number, number] = [1.2, -0.8];
-      const dymaxion2D = projectToDymaxion2D(testP3D);
-
       const discontinuousAlphas = [0.0, 1.0, 0.00001, 0.99999, 0.5, 0.18, 0.65, 0.0, 1.0];
 
-      for (const mode of [0, 1, 2, 3, 4]) {
+      for (const mode of [0, 1, 2, 3]) {
         for (const alpha of discontinuousAlphas) {
-          if (mode === 4) {
-            const morph = computeDymaxionMorph(testP3D, dymaxion2D, alpha);
-            expect(Number.isFinite(morph.position[0])).toBe(true);
-            expect(Number.isFinite(morph.position[1])).toBe(true);
-            expect(Number.isFinite(morph.position[2])).toBe(true);
-            expect(Number.isFinite(morph.normal[0])).toBe(true);
-            expect(morph.arch).toBeGreaterThanOrEqual(0.0);
-          } else if (mode === 3) {
+          if (mode === 3) {
             const vel = computeCurlNoise(testP3D, 1.5);
             const vortex = lambOseenVortex(0.3, 0.1, 2.0);
             expect(Number.isFinite(vel[0])).toBe(true);
@@ -452,81 +432,7 @@ describe('Tier 5: Adversarial Hardening & Stress Testing', () => {
   // =========================================================================
   // Dimension 4: White-Box Polyhedral Math & Physical Stress Oracles
   // =========================================================================
-  describe('Dimension 4: White-Box Polyhedral Dymaxion Math & Physical Continuity', () => {
-    it('T5-MATH-01: Dymaxion 20 icosahedral centroids and vertices form valid regular geometry', () => {
-      const geom = getIcosahedronGeometry(RADIUS);
-      expect(geom.vertices.length).toBe(12);
-      expect(geom.faces.length).toBe(20);
-      expect(geom.centroids.length).toBe(20);
-      expect(geom.edgeLength).toBeGreaterThan(0);
-      expect(geom.inradius).toBeGreaterThan(0);
-
-      // All unit vertices must be strictly radius RADIUS
-      geom.vertices.forEach(v => {
-        expect(Math.hypot(v[0], v[1], v[2])).toBeCloseTo(RADIUS, 4);
-      });
-
-      // All unit centroids must be unit length
-      UNIT_CENTROIDS.forEach(c => {
-        expect(Math.hypot(c[0], c[1], c[2])).toBeCloseTo(1.0, 4);
-      });
-    });
-
-    it('T5-MATH-02: projectPointToDymaxionFace guarantees maxDot >= 0.7946 and strictly non-negative projection for all unit sphere points', () => {
-      const { points3D } = generateFibonacciSphere(5000);
-      for (let i = 0; i < 5000; i++) {
-        const p: [number, number, number] = [
-          points3D[i * 3 + 0],
-          points3D[i * 3 + 1],
-          points3D[i * 3 + 2],
-        ];
-
-        const { faceIndex, maxDot, gnomonicPos } = projectPointToDymaxionFace(p);
-        expect(faceIndex).toBeGreaterThanOrEqual(0);
-        expect(faceIndex).toBeLessThan(20);
-        expect(maxDot).toBeGreaterThanOrEqual(0.79);
-        expect(Number.isFinite(gnomonicPos[0])).toBe(true);
-        expect(Number.isFinite(gnomonicPos[1])).toBe(true);
-        expect(Number.isFinite(gnomonicPos[2])).toBe(true);
-      }
-    });
-
-    it('T5-MATH-03: computeBarycentricCoordinates handles degenerate triangles and boundary points', () => {
-      const v0: [number, number, number] = [0, 0, 0];
-      const v1: [number, number, number] = [1, 0, 0];
-      const v2: [number, number, number] = [0, 1, 0];
-
-      // Exact centroid point
-      const pCentroid: [number, number, number] = [1 / 3, 1 / 3, 0];
-      const bCentroid = computeBarycentricCoordinates(pCentroid, v0, v1, v2);
-      expect(bCentroid[0]).toBeCloseTo(1 / 3, 3);
-      expect(bCentroid[1]).toBeCloseTo(1 / 3, 3);
-      expect(bCentroid[2]).toBeCloseTo(1 / 3, 3);
-
-      // Collinear / degenerate triangle (area = 0)
-      const bDegen = computeBarycentricCoordinates([0.5, 0, 0], [0, 0, 0], [1, 0, 0], [2, 0, 0]);
-      expect(bDegen[0]).toBeCloseTo(1 / 3, 3);
-      expect(bDegen[1]).toBeCloseTo(1 / 3, 3);
-      expect(bDegen[2]).toBeCloseTo(1 / 3, 3);
-    });
-
-    it('T5-MATH-04: generateDymaxionBuffer produces exactly 2N finite floats for N input vertices', () => {
-      const pointCount = 10000;
-      const { points3D } = generateFibonacciSphere(pointCount);
-      const dymaxionBuffer = generateDymaxionBuffer(points3D);
-
-      expect(dymaxionBuffer.length).toBe(pointCount * 2);
-
-      let hasNaN = false;
-      for (let i = 0; i < dymaxionBuffer.length; i++) {
-        if (!Number.isFinite(dymaxionBuffer[i])) {
-          hasNaN = true;
-          break;
-        }
-      }
-      expect(hasNaN).toBe(false);
-    });
-
+  describe('Dimension 4: White-Box Polyhedral Math & Physical Stress Oracles', () => {
     it('T5-MATH-05: Lamb-Oseen vortex core center peak vorticity monotonically decreases as t increases', () => {
       const rCenter = 0.0;
       const vEarly = lambOseenVortex(rCenter, 0.1, 5.0, 0.1);

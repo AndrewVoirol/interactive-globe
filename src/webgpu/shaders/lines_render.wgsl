@@ -35,6 +35,17 @@ struct VertexOutput {
     @location(4) spherePos: vec3<f32>,
 };
 
+// ----------------------------------------------------------------------------
+// Horizon Limb Falloff Specification (§1)
+// ----------------------------------------------------------------------------
+fn horizonFalloff(facing: f32, tau: f32, killEdge0: f32, killEdge1: f32) -> f32 {
+    let maxPath: f32 = 12.5; // ≈ sqrt(π·X/2) for engine atmosphere
+    let path = min(1.0 / max(facing, 1.0 / maxPath), maxPath);
+    let transmission = exp(-tau * path);
+    let killTerm = smoothstep(killEdge0, killEdge1, facing);
+    return transmission * killTerm;
+}
+
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
@@ -74,14 +85,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if (sim.u_layerMode == 1u) {
         discard;
     }
-    // Dymaxion cross-facet wireframe stretch discard
-    if (sim.u_mode == 4u && sim.u_unfurl > 0.02) {
-        if (dWorld / dSphere > 8.0 * (1.0 + sim.u_unfurl)) {
-            discard;
-        }
-    }
+
     let densityFactor = sqrt(100000.0 / max(f32(sim.u_numParticles), 1.0));
-    let backfaceDimming = mix(0.18, 1.0, smoothstep(-0.4, 0.2, in.vFacing));
+    let sphereFactor = 1.0 - smoothstep(0.0, 0.35, sim.u_unfurl);
+    let backfaceDimming = mix(1.0, horizonFalloff(in.vFacing, 0.15, 0.0, 0.08), sphereFactor);
+
+    if (sphereFactor > 0.0 && in.vFacing <= 0.0) {
+        discard;
+    }
 
     var wireColor = vec3<f32>(0.35, 0.42, 0.52);
     var alpha = 0.35;

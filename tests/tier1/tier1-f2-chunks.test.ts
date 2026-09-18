@@ -50,11 +50,9 @@ describe('F2: Vite Chunk Splitting & Bundle Hygiene', () => {
   it('F2-T4: verifies application source files are not grouped into vendor chunks', () => {
     const p1 = '/project/src/App.tsx';
     const p2 = '/project/src/webgpu/WebGPUEngine.ts';
-    const p3 = '/project/src/utils/dymaxion.ts';
 
     expect(manualChunksClassifier(p1)).toBeUndefined();
     expect(manualChunksClassifier(p2)).toBeUndefined();
-    expect(manualChunksClassifier(p3)).toBeUndefined();
   });
 
   it('F2-T5: verifies vite.config.ts file exists and defines valid build configuration', () => {

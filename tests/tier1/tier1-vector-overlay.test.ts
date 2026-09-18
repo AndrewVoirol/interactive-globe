@@ -36,8 +36,7 @@ describe('Vector Coastline & Major Waterway Overlay Architecture', () => {
     const target2D = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount * 2);
     offset += vertexCount * 2 * 4;
 
-    const dymaxion2D = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount * 2);
-    offset += vertexCount * 2 * 4;
+    offset += vertexCount * 2 * 4; // 8 bytes reserved padding per vertex
 
     const vType = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount * 1);
     offset += vertexCount * 1 * 4;
@@ -60,11 +59,6 @@ describe('Vector Coastline & Major Waterway Overlay Architecture', () => {
       const v = target2D[i * 2 + 1];
       expect(Number.isFinite(u)).toBe(true);
       expect(Number.isFinite(v)).toBe(true);
-
-      const ud = dymaxion2D[i * 2 + 0];
-      const vd = dymaxion2D[i * 2 + 1];
-      expect(Number.isFinite(ud)).toBe(true);
-      expect(Number.isFinite(vd)).toBe(true);
 
       const vt = vType[i];
       expect(vt === 1.0 || vt === 0.5).toBe(true);

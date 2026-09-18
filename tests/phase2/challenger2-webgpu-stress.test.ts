@@ -154,7 +154,7 @@ describe('Challenger 2: WebGPU Runtime & Stress Verification Suite', () => {
       camera.position.set(0, 0, 15);
       camera.lookAt(0, 0, 0);
 
-      const modes = [0, 1, 2, 3, 4];
+      const modes = [0, 1, 2, 3];
       const layerModes = [0, 1, 2];
       const themes = [0, 1];
       const renderLayerStrings: ('both' | 'points' | 'wireframe')[] = ['both', 'points', 'wireframe'];
@@ -219,7 +219,7 @@ describe('Challenger 2: WebGPU Runtime & Stress Verification Suite', () => {
         { unfurl: -100.0, mode: 99, theme: 99, time: -1000 },
         { unfurl: 100.0, mode: -1, theme: -1, time: 1e9 },
         { unfurl: 0.0, mode: 0, displacementScale: -5.0, hillshadeIntensity: -10.0 },
-        { unfurl: 1.0, mode: 4, displacementScale: 100.0, hillshadeIntensity: 50.0 },
+        { unfurl: 1.0, mode: 3, displacementScale: 100.0, hillshadeIntensity: 50.0 },
         { unfurl: 0.5, cursorVel: new THREE.Vector3(0, 0, 0) }, // Vector3 without 'w'
         { unfurl: 0.5, cursorHitPos: undefined, cursorVel: undefined },
       ];

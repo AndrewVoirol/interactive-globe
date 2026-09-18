@@ -16,14 +16,12 @@
 //   - Invariant §48: Dynamic Dimensions (No Hardcoded Literals)
 // ============================================================================
 
-const PI: f32 = 3.141592653589793;
 const TWO_PI: f32 = 6.283185307179586;
-const RADIUS: f32 = 5.0;
 
 // Strict 16-Byte Alignment Uniform Struct (Total: 288 bytes / 72 floats) (RFC §4.1)
 struct CloudUniforms {
     u_unfurl: f32,                // offset 0 (float 0) - Manifold morph parameter [0..1]
-    u_mode: u32,                  // offset 4 (float 1) - Simulation mode [0..4]
+    u_mode: u32,                  // offset 4 (float 1) - Simulation mode [0..3]
     u_theme: u32,                 // offset 8 (float 2) - Active medium theme (0, 1, 2)
     u_time: f32,                  // offset 12 (float 3) - Elapsed simulation time in seconds
     u_cameraPos: vec4<f32>,       // offset 16 (floats 4..7) - Camera XYZ position + 1.0
@@ -70,7 +68,7 @@ struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) uv: vec2<f32>,
     @location(2) surfaceType: f32,
-    @location(3) target2D: vec4<f32>, // xy: Mercator, zw: Dymaxion
+    @location(3) target2D: vec4<f32>, // xy: Mercator 2D, zw: Reserved/Unused
 };
 
 struct VertexOutput {
@@ -150,39 +148,6 @@ fn decodeElevation(demSample: vec4<f32>) -> f32 {
     return demSample.a * 19772.0 - 10924.0;
 }
 
-// Evaluates base manifold deformation across 5 paradigms
-fn evaluateManifold(pos3D: vec3<f32>, mercator2D: vec2<f32>, dymaxion2D: vec2<f32>) -> vec3<f32> {
-    let ease = cloud.u_unfurl * cloud.u_unfurl * (3.0 - 2.0 * cloud.u_unfurl);
-    let pos2D = vec3<f32>(mercator2D.x, mercator2D.y, 0.0);
-
-    if (cloud.u_mode == 1u) {
-        // Mode 1: Cylindrical Scroll
-        let oneMinusT = 1.0 - ease;
-        if (oneMinusT > 0.001) {
-            let invOneMinusT = 1.0 / oneMinusT;
-            let lonRad = atan2(pos3D.x, pos3D.z);
-            let curAngle = oneMinusT * lonRad;
-            let latRad = asin(clamp(pos3D.y / RADIUS, -0.999, 0.999));
-            let cosLat = cos(latRad);
-            let curX = (RADIUS * invOneMinusT) * sin(curAngle);
-            let curZ = (RADIUS * cosLat * invOneMinusT) * (cos(curAngle) - 1.0) + (RADIUS * cosLat * oneMinusT);
-            let curY = mix(pos3D.y, pos2D.y, ease);
-            return vec3<f32>(curX, curY, curZ);
-        } else {
-            return pos2D;
-        }
-    } else if (cloud.u_mode == 4u) {
-        // Mode 4: Fuller Dymaxion
-        let dym2D = vec3<f32>(dymaxion2D.x, dymaxion2D.y, 0.0);
-        let arch = sin(PI * cloud.u_unfurl) * 0.45;
-        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
-        return mix(pos3D, dym2D, ease) + sphereNorm * arch;
-    }
-
-    // Default Modes 0, 2, 3 (Linear Mix)
-    return mix(pos3D, pos2D, ease);
-}
-
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
     var out: VertexOutput;
@@ -194,7 +159,12 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     let elevMeters = decodeElevation(demSample);
 
     // Compute base manifold position and normal
-    let basePos = evaluateManifold(input.position, input.target2D.xy, input.target2D.zw);
+    let def = evaluateManifoldCore(
+        input.position, input.target2D.xy,
+        cloud.u_unfurl, cloud.u_mode, cloud.u_time,
+        vec4<f32>(0.0), 0.0, vec4<f32>(0.0)
+    );
+    let basePos = def.pos;
     let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(input.position), length(input.position) > 0.001);
     let flatNorm = vec3<f32>(0.0, 0.0, 1.0);
     var normal = normalize(mix(sphereNorm, flatNorm, cloud.u_unfurl));

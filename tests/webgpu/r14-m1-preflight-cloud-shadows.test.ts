@@ -133,14 +133,12 @@ describe('Milestone 1: Pre-Flight Hygiene & Dynamic Cloud Ground Shadows', () =>
 
       const dUVIdx = crustWgsl.indexOf('fwidth(input.uv)', fsMainIdx);
       const shadowEvalIdx = crustWgsl.indexOf('let shadowFactor = sampleCloudShadowFactor', fsMainIdx);
-      const dymaxionDiscardIdx = crustWgsl.indexOf('if (sim.u_mode == 4u && sim.u_unfurl > 0.02)', fsMainIdx);
       const surfaceDiscardIdx = crustWgsl.indexOf('if (input.surfaceType > 0.5)', fsMainIdx);
 
       // Derivatives must be evaluated first
       expect(dUVIdx).toBeGreaterThan(fsMainIdx);
       // Shadow sampling must be evaluated unconditionally before any dynamic branching or discard
       expect(shadowEvalIdx).toBeGreaterThan(fsMainIdx);
-      expect(shadowEvalIdx).toBeLessThan(dymaxionDiscardIdx);
       expect(shadowEvalIdx).toBeLessThan(surfaceDiscardIdx);
     });
 

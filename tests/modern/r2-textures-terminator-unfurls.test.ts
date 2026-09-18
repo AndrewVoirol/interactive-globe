@@ -6,17 +6,15 @@ import {
   toMercator,
   computeCurlNoise,
   computeDivergence,
-  getIcosahedronGeometry,
-  projectPointToDymaxionFace,
 } from '../helpers/math-oracle';
 
 /**
- * Requirement R2: WebGPU Feature Parity & All 5 Unfurl Modes Flawless Operation
+ * Requirement R2: WebGPU Feature Parity & All 4 Unfurl Modes Flawless Operation
  * Features: F28 (NASA Draping Contracts), F29 (Celestial Solar Terminator),
- *           F30 (5 Flawless Unfurl Modes), F31 (Decoupled 4.19M Particle Spawn)
+ *           F30 (4 Flawless Unfurl Modes), F31 (Decoupled 4.19M Particle Spawn)
  */
 
-describe('Requirement R2: WebGPU Feature Parity & All 5 Unfurl Modes Flawless Operation', () => {
+describe('Requirement R2: WebGPU Feature Parity & All 4 Unfurl Modes Flawless Operation', () => {
   // --------------------------------------------------------------------------
   // Feature F28: NASA Blue Marble & Night Lights Draping Contracts
   // --------------------------------------------------------------------------
@@ -161,9 +159,9 @@ describe('Requirement R2: WebGPU Feature Parity & All 5 Unfurl Modes Flawless Op
   });
 
   // --------------------------------------------------------------------------
-  // Feature F30: 5 Flawless Unfurl Modes Numerical Invariants
+  // Feature F30: 4 Flawless Unfurl Modes Numerical Invariants
   // --------------------------------------------------------------------------
-  describe('F30: 5 Flawless Unfurl Modes Across Alpha [0, 1]', () => {
+  describe('F30: 4 Flawless Unfurl Modes Across Alpha [0, 1]', () => {
     // Mode 0: Linear Morph
     describe('Mode 0: Linear Spherical-to-Planar Morph', () => {
       it('M0-T01: smoothly transitions coordinates from S^2 to R^2 with zero NaNs across alpha [0, 1]', () => {
@@ -281,31 +279,6 @@ describe('Requirement R2: WebGPU Feature Parity & All 5 Unfurl Modes Flawless Op
         expect(liquefaction(0.0)).toBeCloseTo(0.0, 6);
         expect(liquefaction(1.0)).toBeCloseTo(0.0, 6);
         expect(liquefaction(0.5)).toBeCloseTo(1.0, 4); // Peak billowing at mid-unfurl
-      });
-    });
-
-    // Mode 4: Fuller Dymaxion Polyhedral Unfurl
-    describe('Mode 4: Fuller Dymaxion Polyhedral Unfurl', () => {
-      it('M4-T01: assigns points unambiguously to 20 icosahedral facets with gnomonic projection', () => {
-        const { centroids } = getIcosahedronGeometry();
-        expect(centroids.length).toBe(20);
-
-        // Test points around the globe
-        const testCoords = [
-          [0, 0], [90, 45], [-120, -30], [30, 70], [-60, -60]
-        ];
-
-        for (const [lon, lat] of testCoords) {
-          const p = toSphere(lon, lat, 1.0);
-          const proj = projectPointToDymaxionFace(p);
-
-          expect(proj.faceIndex).toBeGreaterThanOrEqual(0);
-          expect(proj.faceIndex).toBeLessThan(20);
-          expect(proj.maxDot).toBeGreaterThan(0.5); // Closest centroid dot > 0.5
-          expect(Number.isFinite(proj.gnomonicPos[0])).toBe(true);
-          expect(Number.isFinite(proj.gnomonicPos[1])).toBe(true);
-          expect(Number.isFinite(proj.gnomonicPos[2])).toBe(true);
-        }
       });
     });
   });

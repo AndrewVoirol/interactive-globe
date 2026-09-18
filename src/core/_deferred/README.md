@@ -21,7 +21,7 @@ This directory contains hollow stubs, theoretical exploration prototypes, and du
 
 ### 3. `shaders/morph-shared.glsl.ts`
 - **Original Path**: `src/core/shaders/morph-shared.glsl.ts`
-- **Contents**: Shared GLSL functions (`computeCurlNoiseGLSL`, `mode1CylindricalScrollGLSL`, `mode2GriffithFractureGLSL`, `mode3FluidAdvectionGLSL`, `mode4FullerDymaxionGLSL`).
+- **Contents**: Shared GLSL functions (`computeCurlNoiseGLSL`, `mode1CylindricalScrollGLSL`, `mode2GriffithFractureGLSL`, `mode3FluidAdvectionGLSL`).
 - **Reason for Deferral**: Exact duplicate of `src/core/shaders/ShaderChunkRegistry.ts`. Retaining `ShaderChunkRegistry.ts` as the canonical source of shared GLSL chunks eliminates code duplication and confusion.
 
 ### 4. `hud/` (Superseded Fragmented HUD Components)

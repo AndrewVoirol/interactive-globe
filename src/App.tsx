@@ -501,7 +501,6 @@ export default function App() {
       else if (e.key === '2') setMode(1);
       else if (e.key === '3') setMode(2);
       else if (e.key === '4') setMode(3);
-      else if (e.key === '5') setMode(4);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -702,7 +701,7 @@ export default function App() {
           HUD Contract & Layer Controls:
           Display Layer: Both, Points, Wireframe
           setLayerMode(0), setLayerMode(1), setLayerMode(2)
-          grid-cols-5 simulation paradigms: Linear, Scroll, Griffith, Fluid, Dymaxion (Fuller Dymaxion)
+          grid-cols-4 simulation paradigms: Linear, Scroll, Griffith, Fluid
           VectorOverlayLayer GeodesicOverlayLayer DataLayerOverlay
           displacementScale={layer.displacementScale} elevationEncoding={layer.elevationEncoding}
           sunAzimuth={layer.sunAzimuth} sunAltitude={layer.sunAltitude} hillshadeIntensity={layer.hillshadeIntensity}
@@ -713,7 +712,7 @@ export default function App() {
           HUD Contract & Layer Controls:
           Display Layer: Both, Points, Wireframe
           setLayerMode(0), setLayerMode(1), setLayerMode(2)
-          grid-cols-5 simulation paradigms: Linear, Scroll, Griffith, Fluid, Dymaxion (Fuller Dymaxion)
+          grid-cols-4 simulation paradigms: Linear, Scroll, Griffith, Fluid
         */}
         {/* Top-Right Telemetry & Cartographic HUD */}
         <TelemetryHUD
@@ -855,11 +854,11 @@ export default function App() {
             <div className="flex items-center gap-2 text-micro font-mono">
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)]" />
               <span className="font-bold tracking-wider uppercase text-[var(--theme-text-accent)]">
-                {mode === 0 && 'Mode 1: Linear Dilation'}
-                {mode === 1 && 'Mode 2: Cylinder Unroll'}
-                {mode === 2 && 'Mode 3: Griffith Rupture'}
-                {mode === 3 && 'Mode 4: Fluid Vortex'}
-                {mode === 4 && 'Mode 5: Dymaxion Net'}
+                {mode === 0 && 'Linear Dilation'}
+                {mode === 1 && 'Cylinder Unroll'}
+                {mode === 2 && 'Griffith Rupture'}
+                {mode === 3 && 'Fluid Vortex'}
+
               </span>
               <span className="opacity-40">|</span>
               <span className="opacity-80 font-bold tabular-nums">

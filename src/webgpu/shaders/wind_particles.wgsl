@@ -6,9 +6,7 @@
 //              3D world position history for vector ribbon extrusion.
 // ============================================================================
 
-const PI: f32 = 3.141592653589793;
 const TWO_PI: f32 = 6.283185307179586;
-const RADIUS: f32 = 5.0; // Base manifold radius
 const EARTH_RADIUS: f32 = 6371000.0;
 
 struct WindSimUniforms {
@@ -259,51 +257,23 @@ fn computeLiftedAltitude(lonRad: f32, latRad: f32, vel: vec2<f32>, isJet: bool) 
     return baseAlt + lift;
 }
 
-// Evaluates 3D world position across Indicatrix's 5 morphing paradigms
-fn evaluateManifoldPosition(lonRad: f32, latRad: f32, altOffset: f32, mode: u32, unfurl: f32) -> vec3<f32> {
+fn geodeticToManifold(lonRad: f32, latRad: f32, altOffset: f32, mode: u32, unfurl: f32) -> vec3<f32> {
     let r = RADIUS + altOffset;
     let cosLat = cos(latRad);
     let sinLat = sin(latRad);
     let cosLon = cos(lonRad);
     let sinLon = sin(lonRad);
-
-    // Spherical position
     let p3D = vec3<f32>(r * cosLat * sinLon, r * sinLat, r * cosLat * cosLon);
-
-    // Planar flat position (Mercator matching terrain manifold)
     let clampedLat = clamp(latRad, -1.4835, 1.4835);
-    let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
-    let mercatorX = lonRad * RADIUS;
-    let p2D = vec3<f32>(mercatorX, mercatorY, altOffset);
-
-    let clampedUnfurl = clamp(unfurl, 0.0, 1.0);
-    let ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
-
-    // Mode 1: Cylindrical Scroll
-    if (mode == 1u) {
-        let oneMinusT = 1.0 - ease;
-        if (oneMinusT > 0.001) {
-            let invOneMinusT = 1.0 / oneMinusT;
-            let curAngle = oneMinusT * lonRad;
-            let curX = (r * invOneMinusT) * sin(curAngle);
-            let curZ = (r * cosLat * invOneMinusT) * (cos(curAngle) - 1.0) + (r * cosLat * oneMinusT);
-            let curY = mix(p3D.y, p2D.y, ease);
-            return vec3<f32>(curX, curY, curZ);
-        } else {
-            return p2D;
-        }
-    }
-
-    // Mode 4: Fuller Dymaxion arch interpolation
-    if (mode == 4u) {
-        let arch = sin(PI * ease) * 0.45;
-        let safeLen = max(length(p3D), 0.0001);
-        let sphereNorm = p3D / safeLen;
-        return mix(p3D, p2D, ease) + sphereNorm * arch;
-    }
-
-    // Default: Mode 0 (Linear), Mode 2 (Fracture), Mode 3 (Fluid)
-    return mix(p3D, p2D, ease);
+    let mercator2D = vec2<f32>(
+        lonRad * RADIUS,
+        log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS
+    );
+    let deformed = evaluateManifoldCore(
+        p3D, mercator2D, unfurl, mode,
+        sim.u_time, vec4<f32>(0.0), 0.0, vec4<f32>(0.0)
+    );
+    return deformed.pos;
 }
 
 @compute @workgroup_size(256, 1, 1)
@@ -396,7 +366,7 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let fadeOut = 1.0 - smoothstep(0.85, 1.0, age);
     let alpha = fadeIn * fadeOut;
 
-    let worldPos0 = evaluateManifoldPosition(lon, lat, alt0, sim.u_mode, sim.u_unfurl);
+    let worldPos0 = geodeticToManifold(lon, lat, alt0, sim.u_mode, sim.u_unfurl);
 
     // Dynamic physical streamline step length (in geographic radians) scaled with wind velocity
     // Surface winds: fine filament steps (0.020 rad) for crisp streamline continuity
@@ -416,7 +386,7 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let lat1 = clamp(lat - dir0.y * stepLen, -PI * 0.49, PI * 0.49);
     let v1 = sampleVelocity(lon1, lat1, isJetStream);
     let alt1 = computeLiftedAltitude(lon1, lat1, v1, isJetStream);
-    let worldPos1 = evaluateManifoldPosition(lon1, lat1, alt1, sim.u_mode, sim.u_unfurl);
+    let worldPos1 = geodeticToManifold(lon1, lat1, alt1, sim.u_mode, sim.u_unfurl);
 
     // Step 1 -> 2
     let s1 = max(length(v1), 0.01);
@@ -428,7 +398,7 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let lat2 = clamp(lat1 - dir1.y * stepLen, -PI * 0.49, PI * 0.49);
     let v2 = sampleVelocity(lon2, lat2, isJetStream);
     let alt2 = computeLiftedAltitude(lon2, lat2, v2, isJetStream);
-    let worldPos2 = evaluateManifoldPosition(lon2, lat2, alt2, sim.u_mode, sim.u_unfurl);
+    let worldPos2 = geodeticToManifold(lon2, lat2, alt2, sim.u_mode, sim.u_unfurl);
 
     // Step 2 -> 3
     let s2 = max(length(v2), 0.01);
@@ -440,7 +410,7 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let lat3 = clamp(lat2 - dir2.y * stepLen, -PI * 0.49, PI * 0.49);
     let v3 = sampleVelocity(lon3, lat3, isJetStream);
     let alt3 = computeLiftedAltitude(lon3, lat3, v3, isJetStream);
-    let worldPos3 = evaluateManifoldPosition(lon3, lat3, alt3, sim.u_mode, sim.u_unfurl);
+    let worldPos3 = geodeticToManifold(lon3, lat3, alt3, sim.u_mode, sim.u_unfurl);
 
     // Jet stream retains high segment alpha to form continuous fluid ribbons;
     // Surface winds retain balanced alpha for clearly defined streamlines without noise.

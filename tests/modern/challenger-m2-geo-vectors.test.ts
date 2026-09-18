@@ -43,7 +43,7 @@ describe('Adversarial Challenger M2: public/geo-vectors.bin Verification', () =>
     expect(buf.length).toBe(expectedBytes);
   });
 
-  it('CHALLENGE-02: parses binary arrays and verifies 100% vertex coordinates on S^2, Mercator, and Dymaxion', () => {
+  it('CHALLENGE-02: parses binary arrays and verifies 100% vertex coordinates on S^2, and Mercator', () => {
     const buf = fs.readFileSync(binPath);
     const vertexCount = buf.readUInt32LE(8);
 
@@ -54,8 +54,7 @@ describe('Adversarial Challenger M2: public/geo-vectors.bin Verification', () =>
     const target2D = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount * 2);
     offset += vertexCount * 2 * 4;
 
-    const dymaxion2D = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount * 2);
-    offset += vertexCount * 2 * 4;
+    offset += vertexCount * 2 * 4; // skip 8 bytes padding
 
     const vType = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount);
 
@@ -63,8 +62,6 @@ describe('Adversarial Challenger M2: public/geo-vectors.bin Verification', () =>
     let radiusDeviations = 0;
     let nanTarget2D = 0;
     let outOfBoundsMercator = 0;
-    let nanDymaxion2D = 0;
-    let outOfBoundsDymaxion = 0;
     let coastCount = 0;
     let riverCount = 0;
     let unexpectedVType = 0;
@@ -106,16 +103,6 @@ describe('Adversarial Challenger M2: public/geo-vectors.bin Verification', () =>
         }
       }
 
-      const ud = dymaxion2D[i * 2];
-      const vd = dymaxion2D[i * 2 + 1];
-      if (!Number.isFinite(ud) || !Number.isFinite(vd)) {
-        nanDymaxion2D++;
-      } else {
-        if (Math.abs(ud) > 50.0 || Math.abs(vd) > 50.0) {
-          outOfBoundsDymaxion++;
-        }
-      }
-
       const vt = vType[i];
       if (vt === 1.0) coastCount++;
       else if (vt === 0.5) riverCount++;
@@ -133,9 +120,6 @@ describe('Adversarial Challenger M2: public/geo-vectors.bin Verification', () =>
     expect(maxU).toBeLessThanOrEqual(15.8);
     expect(minV).toBeGreaterThanOrEqual(-15.8);
     expect(maxV).toBeLessThanOrEqual(15.8);
-
-    expect(nanDymaxion2D).toBe(0);
-    expect(outOfBoundsDymaxion).toBe(0);
 
     expect(unexpectedVType).toBe(0);
     expect(coastCount).toBeGreaterThan(800000);
@@ -155,9 +139,7 @@ describe('Adversarial Challenger M2: public/geo-vectors.bin Verification', () =>
     const target2D = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount * 2);
     offset += vertexCount * 2 * 4;
 
-    const dymaxion2D = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount * 2);
-    offset += vertexCount * 2 * 4;
-
+    offset += vertexCount * 2 * 4; // skip 8 bytes padding
     offset += vertexCount * 4; // skip vType
     const indices = new Uint32Array(buf.buffer, buf.byteOffset + offset, indexCount);
 
@@ -166,12 +148,8 @@ describe('Adversarial Challenger M2: public/geo-vectors.bin Verification', () =>
     let antimeridianCrossings = 0;
     let lonWrapViolations = 0;
     let mercatorJumpViolations = 0;
-    let dymaxionJumpViolations = 0;
-
     let maxDeltaLon = 0;
     let maxDeltaU = 0;
-    let maxDymDist = 0;
-
     for (let s = 0; s < segmentCount; s++) {
       const idxA = indices[s * 2];
       const idxB = indices[s * 2 + 1];
@@ -208,25 +186,13 @@ describe('Adversarial Challenger M2: public/geo-vectors.bin Verification', () =>
         mercatorJumpViolations++;
       }
 
-      const udA = dymaxion2D[idxA * 2];
-      const vdA = dymaxion2D[idxA * 2 + 1];
-      const udB = dymaxion2D[idxB * 2];
-      const vdB = dymaxion2D[idxB * 2 + 1];
-      const dymDist = Math.hypot(udA - udB, vdA - vdB);
-      if (dymDist > maxDymDist) maxDymDist = dymDist;
-      if (dymDist > 0.85) {
-        dymaxionJumpViolations++;
       }
-    }
 
     expect(oobIndices).toBe(0);
     expect(antimeridianCrossings).toBe(0);
     expect(lonWrapViolations).toBe(0);
     expect(mercatorJumpViolations).toBe(0);
-    expect(dymaxionJumpViolations).toBe(0);
-
     expect(maxDeltaLon).toBeLessThan(5.0); // Actual: 1.3577°
     expect(maxDeltaU).toBeLessThan(1.0);    // Actual: 0.1185
-    expect(maxDymDist).toBeLessThanOrEqual(0.85); // Actual: 0.8167
-  });
+    });
 });

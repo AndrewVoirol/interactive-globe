@@ -4,7 +4,6 @@ import {
   toMercator,
   computeCurlNoise,
   griffithHoopStress,
-  projectPointToDymaxionFace,
   RADIUS,
 } from '../helpers/math-oracle';
 
@@ -109,19 +108,6 @@ describe('Tier 2: Boundary Value Analysis — Alpha Morphing Parameter [0.0, 1.0
     const ease = evaluateEase(1.0);
     const turbulenceWeight = (1.0 - ease) * 0.5;
     expect(turbulenceWeight).toBe(0.0); // Fluid settles completely on planar map
-  });
-
-  it('T2-A14: Mode 4 (Dymaxion) face projection remains non-singular for all alpha in [0.0, 1.0]', () => {
-    const p = toSphere(120, -35);
-    const { gnomonicPos } = projectPointToDymaxionFace(p);
-    const alphas = [0.0, 0.001, 0.25, 0.5, 0.75, 0.999, 1.0];
-
-    alphas.forEach(a => {
-      const ease = evaluateEase(a);
-      const blendedZ = (1 - ease) * gnomonicPos[2] + ease * 0.0;
-      expect(Number.isFinite(blendedZ)).toBe(true);
-      expect(Number.isNaN(blendedZ)).toBe(false);
-    });
   });
 
   it('T2-A15: verifies derivative d(ease)/d(alpha) is continuous with zero velocity at endpoints alpha = 0 and alpha = 1', () => {

@@ -7,7 +7,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   PhaseFieldFractureSolver,
   ShallowWaterFluidSolver,
-  RigidHingeDymaxionSolver,
   PhysicsSolverRegistry,
 } from '../../src/core/physics';
 
@@ -119,44 +118,6 @@ describe('Phase 3: Governed Computational Physics & Standards Integration Test S
     });
   });
 
-  describe('3. RigidHingeDymaxionSolver (Mode 4 - Rigid Net Folding)', () => {
-    let solver: RigidHingeDymaxionSolver;
-
-    beforeEach(() => {
-      solver = new RigidHingeDymaxionSolver();
-    });
-
-    it('should initialize 20 icosahedral facet states', () => {
-      const states = solver.getFacetStates();
-      expect(states).toHaveLength(20);
-      expect(states[0].centroid3D).toBeDefined();
-    });
-
-    it('should compute shell arching height modulation h_arch(t)', () => {
-      const h0 = solver.computeArchingHeight(0.0);
-      const hMid = solver.computeArchingHeight(0.5);
-      const h1 = solver.computeArchingHeight(1.0);
-
-      expect(h0).toBeCloseTo(0);
-      expect(hMid).toBeGreaterThan(0.4);
-      expect(h1).toBeCloseTo(0);
-    });
-
-    it('should step Newton-Euler facet dynamics and update total angular momentum', () => {
-      solver.step({
-        dt: 0.016,
-        time: 0.5,
-        unfurl: 0.5,
-      });
-
-      const states = solver.getFacetStates();
-      const L = solver.getTotalAngularMomentum();
-
-      expect(states[0].hingeAngle).toBeGreaterThan(0);
-      expect(L).toHaveLength(3);
-    });
-  });
-
   describe('4. PhysicsSolverRegistry & GPU Storage Binding', () => {
     let registry: PhysicsSolverRegistry;
 
@@ -164,10 +125,9 @@ describe('Phase 3: Governed Computational Physics & Standards Integration Test S
       registry = new PhysicsSolverRegistry(100);
     });
 
-    it('should register built-in solvers for Modes 2, 3, and 4', () => {
+    it('should register built-in solvers for Modes 2 and 3', () => {
       expect(registry.getSolver(2)).toBeDefined();
       expect(registry.getSolver(3)).toBeDefined();
-      expect(registry.getSolver(4)).toBeDefined();
     });
 
     it('should step active solver and update 64-byte interleaved GPU storage buffer', () => {

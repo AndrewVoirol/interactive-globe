@@ -129,7 +129,7 @@ describe('GPU-Driven CDLOD Quadsphere & Continuous Geomorphing Invariants', () =
       expect(code).toContain('indirectCmd.indexCount = 49152u;');
     });
 
-    it('verifies Mode 4 dynamic bounding expansion using fluidMaxDisplacement', () => {
+    it('verifies dynamic bounding expansion using fluidMaxDisplacement', () => {
       const code = fs.readFileSync(cullingWgslPath, 'utf8');
       expect(code).toContain('fluidMaxDisplacement');
       expect(code).toContain('effectiveRadius += uniforms.fluidMaxDisplacement;');

@@ -9,7 +9,7 @@ import path from 'path';
 import React from 'react';
 import ReactDOMServer from 'react-dom/server';
 
-import type { SimulationMode, LayerMode, GeodesicOverlayMode, DymaxionProjectionResult } from '../../types';
+import type { SimulationMode, LayerMode, GeodesicOverlayMode } from '../../types';
 import { useEngineState } from '../../src/hooks/useEngineState';
 
 describe('Milestone 1 Empirical Stress-Test: Dead Code Surgery & Clean Up', () => {
@@ -21,22 +21,14 @@ describe('Milestone 1 Empirical Stress-Test: Dead Code Surgery & Clean Up', () =
   describe('1. types.ts Active Exports & Dead Import Pruning', () => {
     it('validates active exported types conform to runtime contract', () => {
       const mode0: SimulationMode = 0;
-      const mode4: SimulationMode = 4;
       const layerBoth: LayerMode = 0;
       const layerPoints: LayerMode = 1;
       const layerWire: LayerMode = 2;
       const overlayAntipodes: GeodesicOverlayMode = 'antipodes';
-      const dymaxResult: DymaxionProjectionResult = {
-        faceIndex: 0,
-        maxDot: 0.95,
-        gnomonicPos: [0.1, 0.2, 0.3],
-        dymaxion2D: [0.5, 0.5],
-      };
 
-      expect([mode0, mode4]).toEqual([0, 4]);
+      expect([mode0]).toEqual([0]);
       expect([layerBoth, layerPoints, layerWire]).toEqual([0, 1, 2]);
       expect(overlayAntipodes).toBe('antipodes');
-      expect(dymaxResult.faceIndex).toBe(0);
     });
 
     it('verifies types.ts contains zero unused GIS types and zero external GIS imports', () => {
@@ -60,7 +52,6 @@ describe('Milestone 1 Empirical Stress-Test: Dead Code Surgery & Clean Up', () =
       expect(content).toContain('export type SimulationMode');
       expect(content).toContain('export type LayerMode');
       expect(content).toContain('export type GeodesicOverlayMode');
-      expect(content).toContain('export interface DymaxionProjectionResult');
     });
   });
 

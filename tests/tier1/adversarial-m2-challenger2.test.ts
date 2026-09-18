@@ -93,7 +93,7 @@ describe('Adversarial Challenge 2 (Milestone M2): Layer Management, Wireframe Mo
         time: 1.0,
         dt: 0.016,
         unfurl: 0.5,
-        mode: 4,
+        mode: 3,
         theme: 0,
         cameraPosition: new THREE.Vector3(0, 0, 15),
         cameraCenter: new THREE.Vector3(0, 0, 0),

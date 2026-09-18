@@ -7,7 +7,6 @@ import {
   computeCurlNoise,
   lambOseenVortex,
   griffithHoopStress,
-  projectPointToDymaxionFace,
   generateFibonacciSphere,
   RADIUS,
 } from '../helpers/math-oracle';
@@ -158,23 +157,6 @@ describe('Tier 4: Real-World Application Scenarios & High-Load Stress Testing', 
     expect(parsed.target2D.length).toBe(1000000 * 2);
     expect(parsed.types.length).toBe(1000000);
     expect(parsed.indices.length).toBe(parsed.indexCount);
-  });
-
-  it('T4-S08: Dymaxion Unfolding Area Conservation — verifies spherical triangles map without distortion explosions', () => {
-    const { points3D } = generateFibonacciSphere(1000);
-    for (let i = 0; i < 1000; i++) {
-      const p: [number, number, number] = [
-        points3D[i * 3 + 0],
-        points3D[i * 3 + 1],
-        points3D[i * 3 + 2],
-      ];
-      const { maxDot, gnomonicPos } = projectPointToDymaxionFace(p);
-
-      // Max dot product is >= 0.7946 -> gnomonic radius expansion <= 1 / 0.7946 = 1.258
-      const gnomonicRadius = Math.hypot(gnomonicPos[0], gnomonicPos[1], gnomonicPos[2]);
-      expect(gnomonicRadius).toBeLessThanOrEqual(1.30);
-      expect(gnomonicRadius).toBeGreaterThanOrEqual(1.0);
-    }
   });
 
   it('T4-S09: Sustained 120 FPS Frame Telemetry Simulation — validates monotonic frametime telemetry', () => {

@@ -572,10 +572,6 @@ describe('Challenger S2-1: Adversarial Pluvial Coupling & WebGPU Atmospheric Str
       expect(firstDiscardIdx).toBeGreaterThan(0);
       expect(sampleIdx).toBeLessThan(firstDiscardIdx);
 
-      // Verify that sample occurs before the Dymaxion net discard branch
-      const dymaxionBranchIdx = fsMainBody.indexOf('if (sim.u_mode == 4u && sim.u_unfurl > 0.02)');
-      expect(dymaxionBranchIdx).toBeGreaterThan(0);
-      expect(sampleIdx).toBeLessThan(dymaxionBranchIdx);
     });
 
     it('CHALLENGE-S2-18: Verifies explicit LOD parameter (0.0) is passed to textureSampleLevel', () => {

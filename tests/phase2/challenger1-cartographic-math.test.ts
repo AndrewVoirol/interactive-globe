@@ -192,13 +192,6 @@ function evaluateManifoldOracle(
     outPos.copy(basePos).add(advectionOffset).addScaledVector(surfaceNormal, 0.015);
     const mixedNormBase = unElevatedSphere.clone().addScaledVector(silkDrape, 0.5).normalize();
     outNorm.lerpVectors(mixedNormBase, new THREE.Vector3(0, 0, 1), ease);
-  } else if (mode === 4) {
-    // Mode 4: Fuller Dymaxion
-    const dymaxionPos2D = new THREE.Vector3(dymaxion2D.x, dymaxion2D.y, 0.015);
-    const arch = Math.sin(PI * clampedUnfurl) * 0.45;
-    const sphereNorm = pos3D.length() > 0.001 ? pos3D.clone().normalize() : new THREE.Vector3(0, 0, 1);
-    outPos.lerpVectors(pos3D, dymaxionPos2D, ease).addScaledVector(sphereNorm, arch);
-    outNorm.lerpVectors(sphereNorm, new THREE.Vector3(0, 0, 1), ease);
   } else {
     // Mode 0: Linear Manifold Mix
     outPos.lerpVectors(pos3D, pos2D, ease);

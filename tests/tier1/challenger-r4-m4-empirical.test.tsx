@@ -237,9 +237,9 @@ describe('Empirical Challenger R4-M4: Test Quality & Behavioral Integrity Verifi
       });
       expect(onThemeToggle).toHaveBeenCalledTimes(1);
 
-      // 4. Paradigm Mode buttons: Mode 1 (Scroll), Mode 2 (Griffith), Mode 3 (Fluid), Mode 4 (Dymaxion)
-      const modeNames = ['Linear', 'Scroll', 'Fracture', 'Fluid', 'Dymaxion'];
-      for (let m = 0; m <= 4; m++) {
+      // 4. Paradigm Mode buttons: Mode 1 (Scroll), Mode 2 (Griffith), Mode 3 (Fluid)
+      const modeNames = ['Linear', 'Scroll', 'Fracture', 'Fluid'];
+      for (let m = 0; m <= 3; m++) {
         const modeBtn = buttons.find(b =>
           b.textContent?.toLowerCase().includes(modeNames[m].toLowerCase()) ||
           b.title?.toLowerCase().includes(modeNames[m].toLowerCase())
@@ -488,7 +488,6 @@ describe('Empirical Challenger R4-M4: Test Quality & Behavioral Integrity Verifi
       const t2RobustnessContent = fs.readFileSync(path.join(projectRoot, 'tests/tier2/tier2-nan-inf-robustness.test.ts'), 'utf8');
       expect(t2RobustnessContent).toContain("from '../../src/utils/projection';");
       expect(t2RobustnessContent).toContain("from '../../src/utils/raycast';");
-      expect(t2RobustnessContent).toContain("from '../../src/utils/dymaxion';");
       // Must NOT import math-oracle in tier2-nan-inf-robustness anymore
       expect(t2RobustnessContent).not.toContain("from '../helpers/math-oracle'");
 

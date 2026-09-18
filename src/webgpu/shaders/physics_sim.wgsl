@@ -11,12 +11,12 @@ struct Particle {
 
 struct StaticParticle {
     rest_sphere: vec4<f32>,  // xyz: S² Coordinate, w: Rest Radius (5.0)
-    rest_map: vec4<f32>,     // xy: 2D Mercator Target, zw: 2D Dymaxion Target
+    rest_map: vec4<f32>,     // xy: Mercator 2D, zw: Reserved/Unused
 };
 
 struct SimUniforms {
     u_unfurl: f32,           // Morph Progress [0.0 -> 1.0]
-    u_mode: u32,             // 0=Linear, 1=Scroll, 2=Griffith, 3=Fluid, 4=Dymaxion
+    u_mode: u32,             // 0=Linear, 1=Scroll, 2=Griffith, 3=Fluid
     u_layerMode: u32,        // 0=Both, 1=Points Only, 2=Wireframe Only
     u_time: f32,             // Elapsed Time (s)
     u_cursorActive: f32,     // 1.0 = Active Hover, 0.0 = Inactive
@@ -34,32 +34,6 @@ struct SimUniforms {
 @group(0) @binding(4) var u_windTexture: texture_2d<f32>;
 @group(0) @binding(5) var u_windSampler: sampler;
 
-const PI: f32 = 3.14159265358979323846;
-const RADIUS: f32 = 5.0;
-
-// Analytical 3D Solenoidal Vector Field (div u = 0 guaranteed, zero Cartesian lattice)
-fn computeCurlNoise(p: vec3<f32>, time: f32) -> vec3<f32> {
-    let t: f32 = time * 0.75;
-    
-    let rot = mat3x3<f32>(
-        vec3<f32>(0.00,  0.80,  0.60),
-        vec3<f32>(-0.80, 0.36, -0.48),
-        vec3<f32>(-0.60, -0.48, 0.64)
-    );
-
-    let q1 = rot * (p * 0.45);
-    let q2 = rot * (rot * (p * 0.95));
-
-    let u_x = -0.55 * cos(0.55 * q1.y + t * 0.7) - 0.45 * cos(0.95 * q1.z - t * 0.5);
-    let u_y = -0.55 * cos(0.55 * q1.z + t * 0.9) - 0.45 * cos(0.95 * q1.x - t * 0.6);
-    let u_z = -0.55 * cos(0.55 * q1.x + t * 0.8) - 0.45 * cos(0.95 * q1.y - t * 0.4);
-
-    let u2_x = 0.25 * sin(1.5 * q2.y - t * 1.2);
-    let u2_y = 0.25 * sin(1.5 * q2.z - t * 1.1);
-    let u2_z = 0.25 * sin(1.5 * q2.x - t * 1.3);
-
-    return rot * vec3<f32>(u_x + u2_x, u_y + u2_y, u_z + u2_z);
-}
 
 @compute @workgroup_size(256, 1, 1)
 fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -203,17 +177,6 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         finalPos = basePos + advectionOffset;
         finalVel = totalVelocity;
         metric = clamp(localVorticity, 0.0, 1.0);
-    }
-    // Mode 4: Fuller Dymaxion Polyhedral Net Unfolding
-    else if (sim.u_mode == 4u) {
-        let arch = sin(PI * ease) * 0.45;
-        let posLen = length(pos3D);
-        let safeLen = max(posLen, 0.0001);
-        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), pos3D / safeLen, posLen > 0.001);
-        let dymaxionTarget = vec3<f32>(pStatic.rest_map.zw, 0.0);
-        finalPos = mix(pos3D, dymaxionTarget, ease) + sphereNorm * arch;
-        finalVel = pos3D;
-        metric = 0.0;
     }
     // Mode 0: Linear Mix (Fallback)
     else {

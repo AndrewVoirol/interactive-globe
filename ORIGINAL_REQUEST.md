@@ -1559,4 +1559,188 @@ Integrity mode: `development`
 - [ ] `next_steps_and_differentiators.md` created with ≥ 5 substantive, evidence-grounded recommendations.
 </USER_REQUEST>
 
+## 2026-09-18T19:26:03Z
 
+<USER_REQUEST>
+Harden the Indicatrix Engine's WebGPU shader pipeline across 4 sequential phases. Each phase has strict gating — do not advance until the current phase's acceptance criteria pass. The work spans baseline visual captures, horizon falloff + CDLOD culling fixes (parallel), Mode 4 Dymaxion excision (26+ files), and evaluateManifold unification into a shared WGSL module.
+
+Working directory: /Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/cdl_od_path_forward
+
+## Binding References & Invariants
+
+Before ANY code changes, read and internalize these project files:
+
+1. **`SHADERS_SPEC_LEDGER.md`** (project root) — All shader math MUST conform to the ledger specifications. This is a binding contract (AGENTS.md Rule 27). Sections:
+   - §1: `horizonFalloff` function — Beer-Lambert transmission with Chapman function approximation and kill-term smoothstep
+   - §2: CDLOD tangent horizon culling — replaces hardcoded `24.5` with dynamic `R² - δ_max` via uniforms
+   - §3: `evaluateManifold` unified core — `switch(mode)` dispatch (modes 0–3, Mode 4 excised), `DeformedVertex` struct, mandatory deletion checklist for `computeCurlNoise` duplicates
+   - §4: Hardware `depthBias` parameters — replaces geometric standoff `0.005` in `points_render.wgsl`
+
+2. **`AGENTS.md`** (project root) — 28 rules governing shader development. Critical rules:
+   - Rule 4: WGSL derivatives (`fwidth`, `dpdx`, `dpdy`) must execute in uniform control flow before any branching
+   - Rule 7: Zero geometric standoff, hardware depth bias only
+   - Rule 11: Sequential milestones, no monolithic mandates
+   - Rule 21: Source-scanning test fragility — many tests use `readFileSync` to scan source files
+   - Rule 27: Spec ledger is a binding contract
+   - Rule 28: Shared module extraction requires mandatory deletion checklist
+
+3. **`.agents/skills/shader-pipeline/SKILL.md`** — Procedures for shader refactoring, visual capture protocol, verification commands.
+
+4. **`.agents/skills/shader-pipeline/references/phase-2-track-scopes.md`** — Disjoint file ownership for parallel workers. Strictly exclusive write access per track.
+
+5. **`.agents/hooks.json`** — Mechanical enforcement:
+   - `baseline-sentinel`: DENIES all shader file edits (`src/webgpu/shaders/`) until `screenshots/baseline_theme0.png` exists
+   - `mode4-excision-gate`: BLOCKS agent stop while `PHASE_2_2_ACTIVE` marker exists AND Mode 4 references remain in `src/`
+   - `spec-ledger-reminder`: Injects ephemeral reminder about spec ledger on every invocation
+
+6. **`DISCOVERY_LEDGER.md`** (project root) — Cross-session memory. Read before planning.
+
+## Requirements
+
+### R1. Baseline Sentinel Gate (Phase 2.0 — BLOCKING)
+
+Before any shader file is modified, capture visual baselines at the Hawaii litmus location (21°N, 157°W) in globe state (α=0.0) across all 3 cartographic mediums. The `baseline-sentinel` hook mechanically enforces this — shader edits will be denied until baselines exist.
+
+1. Run `npm run dev` to start the dev server.
+2. Using Chrome DevTools MCP, navigate to the running app (typically `http://localhost:5173`).
+3. Set camera to Hawaii litmus location (21°N, 157°W) in globe state (α=0.0).
+4. For each of the 3 mediums:
+   - **Theme 0** (Marie Tharp): Switch via UI controls → `take_screenshot` (omit `filePath`) → copy MCP temp file to `screenshots/baseline_theme0.png`
+   - **Theme 1** (Cream Rag): Switch → capture → copy to `screenshots/baseline_theme1.png`
+   - **Theme 2** (Prussian Cyanotype): Switch → capture → copy to `screenshots/baseline_theme2.png`
+5. Verify: `bash .agents/skills/shader-pipeline/scripts/verify-baselines.sh` must exit 0.
+
+### R2. Horizon Falloff & Standoff Compliance (Phase 2.1, Track A — parallel with R3)
+
+Implement spec-ledger-compliant horizon falloff and replace geometric standoffs with hardware depth bias. These files are EXCLUSIVELY owned by this track — no other worker may touch them:
+- `src/webgpu/shaders/vector_ribbon.wgsl`
+- `src/webgpu/shaders/atmosphere_scatter.wgsl`
+- `src/webgpu/shaders/points_render.wgsl`
+- `src/webgpu/shaders/lines_render.wgsl`
+
+1. Implement the `horizonFalloff` function from `SHADERS_SPEC_LEDGER.md §1` in the applicable shaders with their per-shader τ and killEdge parameters.
+2. Replace the `0.005` geometric standoff at `points_render.wgsl:49` (`let offsetPos = pos + dynamicNormal * (0.005 * ...)`) with `let offsetPos = pos;` and enable hardware `depthBias: -120`, `depthBiasSlopeScale: -1.0`, `depthBiasClamp: 0.0` on `pointsRenderPipeline` and `linesRenderPipeline` in `WebGPUEngine.ts` (pipeline creation only — Track B owns the culling section).
+3. Delete zombie file `src/webgpu/shaders/swiss_relief_shading.wgsl` (252 lines, confirmed orphaned).
+4. Verify: `npx vitest run tests/webgpu/` must pass.
+
+### R3. CDLOD Tangent Horizon Culling (Phase 2.1, Track B — parallel with R2)
+
+Replace hardcoded magic constant `24.5` with the tangent-distance formula. These files are EXCLUSIVELY owned by this track:
+- `src/webgpu/shaders/culling.wgsl`
+- `src/webgpu/WebGPUEngine.ts` (ONLY the `24.5` comparison near line 1782 — rest of file is shared)
+
+1. In `culling.wgsl:94`, replace `24.5` with dynamically computed `R_squared_minus_disp` per `SHADERS_SPEC_LEDGER.md §2`. This requires adding the threshold as a uniform.
+2. In `WebGPUEngine.ts:1782`, replace the matching `24.5` with the same formula computed CPU-side.
+3. Verify: `npx vitest run tests/modern/cdlod-quadsphere-culling.test.ts` must pass.
+
+### R4. Mode 4 (Dymaxion) Complete Excision (Phase 2.2 — sequential, after R2+R3)
+
+Remove all Mode 4 / Dymaxion code across the entire codebase. Scope confirmed at 26+ files across shaders (9 WGSL files with `mode == 4u`), engine, UI, utilities, and types.
+
+1. Create marker: `touch .agents/PHASE_2_2_ACTIVE` (activates the `mode4-excision-gate` Stop hook).
+2. Pre-flight: `grep -r 'readFileSync' tests/ | grep -iE 'dymaxion|mode.4'` to identify source-scanning tests that will break.
+3. Remove all `mode == 4u` / `mode === 4` branches from shaders and TypeScript.
+4. Update `SimulationMode` in `src/types.ts` from `0 | 1 | 2 | 3 | 4` to `0 | 1 | 2 | 3`. Remove `DymaxionProjectionResult` interface.
+5. Delete `src/utils/dymaxion.ts` entirely (354 lines).
+6. Remove Dymaxion imports and all dependent code from `src/utils/contour-topology.ts` (imports `UNIT_VERTICES`, `ICOSAHEDRON_FACES`, `UNIT_CENTROIDS`, `DYMAXION_FACE_VERTICES_2D`, `projectToDymaxion2D`, `clipSegmentDymaxion`, `partitionPolylineByDymaxionFacets`).
+7. Update `DESIGN_ETHOS.md` and `DISCOVERY_LEDGER.md` to reflect Mode 4 removal.
+8. Harmonize all broken tests — source-scanning tests that expected Dymaxion strings must be updated to scan correct files or remove Dymaxion assertions.
+9. Verify: `bash .agents/skills/shader-pipeline/scripts/audit-mode4.sh` must exit 0.
+10. Remove marker: `rm .agents/PHASE_2_2_ACTIVE`.
+
+### R5. evaluateManifold Unification (Phase 2.3 — sequential, after R4)
+
+Unify 5 divergent inline `evaluateManifold` definitions into a single shared WGSL module concatenated at pipeline creation time.
+
+Current inline definitions (all must be deleted after extraction):
+- `crust_hydrosphere.wgsl:531` — `fn evaluateManifold(uv, unfurl, mode)`
+- `atmosphere_scatter.wgsl:60` — `fn evaluateManifold(pos3D, mercator2D, dymaxion2D)`
+- `cloud_shell.wgsl:154` — `fn evaluateManifold(pos3D, mercator2D, dymaxion2D)`
+- `vector_ribbon.wgsl:170` — `fn evaluateManifold(pos3D_raw, target2D, dymaxion2D, pointType)`
+- `wind_particles.wgsl:263` — `fn evaluateManifoldPosition(lonRad, latRad, altOffset, mode, unfurl)`
+
+Also extract and deduplicate `computeCurlNoise` (currently in `crust_hydrosphere.wgsl:505`, `vector_ribbon.wgsl:141`, `physics_sim.wgsl:41`).
+
+1. Create `src/webgpu/shaders/manifold.wgsl` matching the unified signature in `SHADERS_SPEC_LEDGER.md §3` — `evaluateManifoldCore` with `switch(mode)` dispatch (Rule 28: use `switch` not `if/else if`).
+2. In `src/webgpu/WebGPUEngine.ts`, modify pipeline creation to concatenate `manifold.wgsl` (imported via `?raw`) before each consumer shader: `crust_hydrosphere`, `vector_ribbon`, `atmosphere_scatter`, `cloud_shell`, `wind_particles`. Pattern: `const fullShader = uniformsDecl + '\n' + manifoldWGSL + '\n' + mainShaderWGSL;`
+3. Delete ALL inline `evaluateManifold` and `computeCurlNoise` definitions from consumer shaders. Also delete any `const PI` or `const RADIUS` re-declarations that would collide with shared module declarations.
+4. Create appropriate adapter functions (grid adapter for `crust_hydrosphere`, geodetic adapter for `wind_particles`) per §3.
+5. Verify: `bash .agents/skills/shader-pipeline/scripts/audit-manifold.sh` must exit 0 (exactly 1 `fn evaluateManifold` definition in shaders/).
+6. Full suite gate: `npm test` (all 219+ test files must pass).
+7. Build gate: `npm run build` must succeed.
+
+## Acceptance Criteria
+
+### Phase 2.0 — Baseline Sentinel
+- [ ] `screenshots/baseline_theme0.png` exists and is >50KB (real visual content, not blank)
+- [ ] `screenshots/baseline_theme1.png` exists and is >50KB
+- [ ] `screenshots/baseline_theme2.png` exists and is >50KB
+- [ ] `bash .agents/skills/shader-pipeline/scripts/verify-baselines.sh` exits 0
+
+### Phase 2.1 — Horizon Falloff (Track A)
+- [ ] `horizonFalloff` function exists in `vector_ribbon.wgsl`, `atmosphere_scatter.wgsl`, `points_render.wgsl`, and `lines_render.wgsl` matching §1 signature
+- [ ] `grep -n '0.005' src/webgpu/shaders/points_render.wgsl` returns 0 matches (geometric standoff removed)
+- [ ] `depthBias: -120` configured on `pointsRenderPipeline` and `linesRenderPipeline` in `WebGPUEngine.ts`
+- [ ] `src/webgpu/shaders/swiss_relief_shading.wgsl` does not exist (zombie deleted)
+- [ ] `npx vitest run tests/webgpu/` passes all tests
+
+### Phase 2.1 — CDLOD Culling (Track B)
+- [ ] `grep -n '24.5' src/webgpu/shaders/culling.wgsl` returns 0 matches
+- [ ] `grep -n '24.5' src/webgpu/WebGPUEngine.ts` returns 0 matches (near former line 1782)
+- [ ] Dynamic `R_squared_minus_disp` uniform replaces the hardcoded constant
+- [ ] `npx vitest run tests/modern/cdlod-quadsphere-culling.test.ts` passes
+
+### Phase 2.2 — Mode 4 Excision
+- [ ] `bash .agents/skills/shader-pipeline/scripts/audit-mode4.sh` exits 0
+- [ ] `grep -rnE 'mode == 4u|Dymaxion|Mode 4' src/` returns 0 matches
+- [ ] `src/utils/dymaxion.ts` does not exist
+- [ ] `SimulationMode` in `src/types.ts` is `0 | 1 | 2 | 3` (no `4`)
+- [ ] `DymaxionProjectionResult` interface removed from `src/types.ts`
+- [ ] No Dymaxion imports remain in `src/utils/contour-topology.ts`
+- [ ] `.agents/PHASE_2_2_ACTIVE` marker removed
+- [ ] All source-scanning tests that referenced Dymaxion strings have been updated
+- [ ] `npm test` passes (intermediate gate)
+
+### Phase 2.3 — evaluateManifold Unification
+- [ ] `src/webgpu/shaders/manifold.wgsl` exists with `evaluateManifoldCore` using `switch(mode)` dispatch
+- [ ] `bash .agents/skills/shader-pipeline/scripts/audit-manifold.sh` exits 0 (exactly 1 `fn evaluateManifold` definition in shaders/)
+- [ ] Zero inline `evaluateManifold` definitions remain in consumer shaders
+- [ ] Zero duplicate `computeCurlNoise` definitions remain (extracted to shared module)
+- [ ] Pipeline concatenation pattern visible in `WebGPUEngine.ts`
+- [ ] `npm test` passes (full suite — 219+ test files, 3100+ tests)
+- [ ] `npm run build` succeeds
+
+### Global Invariants (must hold at every phase)
+- [ ] No WGSL derivative calls (`fwidth`, `dpdx`, `dpdy`) inside conditional branches (Rule 4)
+- [ ] Zero geometric standoffs > 0.002 in any shader (Rule 7)
+- [ ] All `clearValue` for premultiplied-alpha passes are `{r:0, g:0, b:0, a:0}` (Rule 15)
+- [ ] No `console.error` or WebGPU device-lost errors in browser console during visual verification
+</USER_REQUEST>
+
+## 2026-09-18T20:27:54Z
+
+<PARENT_DIRECTIVE>
+PHASE 2.2 COMPLETE — ALL GATES PASSED:
+
+- `audit-mode4.sh`: ✅ Zero Mode 4/Dymaxion references in src/
+- `npm test`: ✅ 225/225 test files, 3254/3254 tests passing
+- `.agents/PHASE_2_2_ACTIVE` marker: ✅ Removed
+- `mode4-excision-gate` stop hook: ✅ Will now allow stop
+
+Phase 2.3 (evaluateManifold unification into `manifold.wgsl`) is UNBLOCKED. The orchestrator should now proceed with:
+1. Create `src/webgpu/shaders/manifold.wgsl` per SHADERS_SPEC_LEDGER.md §3
+2. Concatenate via `?raw` import in WebGPUEngine.ts pipeline creation
+3. Delete all 5 inline evaluateManifold definitions + 3 computeCurlNoise duplicates
+4. Verify with `audit-manifold.sh`, then `npm test` + `npm run build`
+</PARENT_DIRECTIVE>
+
+## 2026-09-18T21:17:48Z
+
+<PARENT_DIRECTIVE>
+VICTORY AUDIT FINDINGS RESOLVED:
+
+1. ✅ `swiss_relief_shading.wgsl` deleted (was restored during a test fix — now permanently removed)
+2. ✅ `manifold.wgsl:6` Mode 4 comment removed — `audit-mode4.sh` now exits 0
+
+Both audit scripts pass cleanly. The orchestrator's remediation team can re-submit for victory audit, or the auditor can re-verify directly. These were 2 trivial fixes — no code logic changed.
+</PARENT_DIRECTIVE>

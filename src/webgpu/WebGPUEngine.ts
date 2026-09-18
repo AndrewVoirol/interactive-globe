@@ -8,7 +8,6 @@
 
 import { Vector3, Vector4, PerspectiveCamera } from '../core/math/cameraMath';
 import { isWebGPUSupported, getWebGPUDevice, getWebGPUAdapter } from './support';
-import { projectToDymaxion2D } from '../utils/dymaxion';
 import { decodeContourMesh } from '../utils/contour-topology';
 
 export { isWebGPUSupported, getWebGPUDevice, getWebGPUAdapter };
@@ -23,6 +22,7 @@ import windParticlesWGSL from './shaders/wind_particles.wgsl?raw';
 import windRibbonRenderWGSL from './shaders/wind_ribbon_render.wgsl?raw';
 import cloudShellWGSL from './shaders/cloud_shell.wgsl?raw';
 import atmosphereScatterWGSL from './shaders/atmosphere_scatter.wgsl?raw';
+import manifoldWGSL from './shaders/manifold.wgsl?raw';
 import cloudNoiseComputeWGSL from './shaders/cloud_noise_compute.wgsl?raw';
 import volumetricCloudWGSL from './shaders/volumetric_cloud.wgsl?raw';
 import substrateMicroReliefWGSL from './shaders/substrate_micro_relief.wgsl?raw';
@@ -46,7 +46,6 @@ export interface WebGPUInitConfig {
   target2DData: Float32Array; // 2 * N (xy)
   typeData: Float32Array;     // N (vType)
   lineIndices: Uint32Array;   // 2 * M (line segment index pairs)
-  dymaxion2DData?: Float32Array; // 2 * N (xy Dymaxion target)
   displacementScale?: number;
 }
 
@@ -233,7 +232,8 @@ export class WebGPUEngine {
   public static readonly CDLOD_MAX_INSTANCES = 4096;
   private cdlodCandidateFloats: Float32Array = new Float32Array(WebGPUEngine.CDLOD_MAX_NODES * 12);
   private cdlodCandidateUints: Uint32Array = new Uint32Array(this.cdlodCandidateFloats.buffer);
-  private cdlodCullingUniformFloats: Float32Array = new Float32Array(32);
+  public displacementScale: number = 0.055;
+  private cdlodCullingUniformFloats: Float32Array = new Float32Array(36);
   private cdlodCullingUniformUints: Uint32Array = new Uint32Array(this.cdlodCullingUniformFloats.buffer);
   private cdlodControlFloats: Float32Array = new Float32Array(4);
   private cdlodControlUints: Uint32Array = new Uint32Array(this.cdlodControlFloats.buffer);
@@ -1048,21 +1048,9 @@ export class WebGPUEngine {
       initialStaticParticles[sBase + 2] = config.pointsData[i * 3 + 2];
       initialStaticParticles[sBase + 3] = 5.0;
 
-      // rest_map (xy: Mercator 2D, zw: Dymaxion 2D)
+      // rest_map (xy: Mercator 2D)
       initialStaticParticles[sBase + 4] = config.target2DData[i * 2 + 0];
       initialStaticParticles[sBase + 5] = config.target2DData[i * 2 + 1];
-      if (config.dymaxion2DData) {
-        initialStaticParticles[sBase + 6] = config.dymaxion2DData[i * 2 + 0];
-        initialStaticParticles[sBase + 7] = config.dymaxion2DData[i * 2 + 1];
-      } else {
-        const [dymU, dymV] = projectToDymaxion2D([
-          config.pointsData[i * 3 + 0],
-          config.pointsData[i * 3 + 1],
-          config.pointsData[i * 3 + 2]
-        ]);
-        initialStaticParticles[sBase + 6] = dymU;
-        initialStaticParticles[sBase + 7] = dymV;
-      }
     }
 
     // Dedicated Static GPU Storage Buffer
@@ -1144,7 +1132,7 @@ export class WebGPUEngine {
    *   [0..2]  position: float32x3 (3D Cartesian on sphere of RADIUS = 5.0)
    *   [3..4]  uv: float32x2 (u: [0..1] longitude, v: [0..1] latitude)
    *   [5]     surfaceType: float32 (0.0 = Crust, 1.0 = Liquid Hydrosphere)
-   *   [6..9]  target2D: float32x4 (xy: Mercator 2D, zw: Dymaxion/Planar 2D)
+   *   [6..9]  target2D: float32x4 (xy: Mercator 2D)
    *   [10..11] padding: float32x2
    * Dual-surface mesh includes Surface 0 (Crust, surfaceType=0.0) and Surface 1 (Hydrosphere, surfaceType=1.0).
    */
@@ -1207,9 +1195,8 @@ export class WebGPUEngine {
           vertices[offset + 5] = surfaceType;
           vertices[offset + 6] = mercatorX;
           vertices[offset + 7] = mercatorY;
-          const [dymX, dymY] = projectToDymaxion2D([x, y, z]);
-          vertices[offset + 8] = dymX;
-          vertices[offset + 9] = dymY;
+          vertices[offset + 8] = 0.0;
+          vertices[offset + 9] = 0.0;
           vertices[offset + 10] = 0.0; // padding
           vertices[offset + 11] = 0.0; // padding
         }
@@ -1439,10 +1426,10 @@ export class WebGPUEngine {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
-    // 5. Culling uniforms buffer (128 bytes)
+    // 5. Culling uniforms buffer (144 bytes)
     this.cdlodCullingUniformBuffer = this.device.createBuffer({
       label: 'cdlod_culling_uniform_buffer',
-      size: 128,
+      size: 144,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -1593,18 +1580,6 @@ export class WebGPUEngine {
         const curY = p3D[1] * (1.0 - ease) + p2D[1] * ease;
         return [curX, curY, curZ];
       }
-    } else if (mode === 4) {
-      // Mode 4: Fuller Dymaxion Arch
-      const arch = Math.sin(PI * clampedUnfurl) * 0.45;
-      const len = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
-      const normX = p3D[0] / len;
-      const normY = p3D[1] / len;
-      const normZ = p3D[2] / len;
-      return [
-        p3D[0] * (1.0 - ease) + p2D[0] * ease + normX * arch,
-        p3D[1] * (1.0 - ease) + p2D[1] * ease + normY * arch,
-        p3D[2] * (1.0 - ease) + p2D[2] * ease + normZ * arch,
-      ];
     } else {
       // Mode 0: Linear Manifold Mix
       return [
@@ -1721,14 +1696,18 @@ export class WebGPUEngine {
     l = Math.hypot(a, b, c) || 1.0;
     planes[24] = a / l; planes[25] = b / l; planes[26] = c / l; planes[27] = d / l;
 
-    // Mode 4 (Fluid Advection) Dynamic Bounding Expansion
+    // Mode 3 (Fluid Advection) Dynamic Bounding Expansion
     let fluidDisplacement = 0.0;
-    if (mode === 3 || mode === 4) {
+    if (mode === 3) {
       const liquefaction = unfurl > 0 ? Math.pow(Math.max(0, Math.sin(Math.PI * unfurl)), 1.15) : 0;
       fluidDisplacement = liquefaction * 2.8 + (cursorActive ? 0.6 : 0.0);
     }
     planes[28] = fluidDisplacement;
     this.cdlodCullingUniformUints[29] = mode;
+
+    const maxDisplacementModelUnits = (this.displacementScale ?? 0.055) * 2.8;
+    const rSquaredMinusDisp = 5.0 * 5.0 - maxDisplacementModelUnits;
+    planes[32] = rSquaredMinusDisp;
 
     const camDistToCenter = Math.hypot(camX, camY, camZ);
     const altUnits = Math.max(0.001, camDistToCenter - 5.0);
@@ -1779,7 +1758,7 @@ export class WebGPUEngine {
       // Mode 0: Planetary Horizon Occlusion Culling (only valid on undeformed sphere when unfurl < 0.01)
       if (mode === 0 && unfurl < 0.01) {
         const cDotCam = cx * camX + cy * camY + cz * camZ;
-        if (cDotCam + effectiveRadius * camDistToCenter < 24.5) {
+        if (cDotCam + effectiveRadius * camDistToCenter < rSquaredMinusDisp) {
           return;
         }
       }
@@ -1901,7 +1880,7 @@ export class WebGPUEngine {
         0,
         this.cdlodCullingUniformFloats.buffer,
         0,
-        128
+        144
       );
       this.device.queue.writeBuffer(
         this.cdlodIndirectBuffer,
@@ -2248,7 +2227,7 @@ export class WebGPUEngine {
     try {
       const windComputeShaderModule = this.device.createShaderModule({
         label: 'wind_particles_compute',
-        code: windParticlesWGSL,
+        code: manifoldWGSL + '\n' + windParticlesWGSL,
       });
 
       const regView = this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || this.demTextureView);
@@ -3464,10 +3443,7 @@ export class WebGPUEngine {
       offset += vertexCount * 3 * 4;
 
       const target2D = new Float32Array(arrayBuffer, offset, vertexCount * 2);
-      offset += vertexCount * 2 * 4;
-
-      const dymaxion2D = new Float32Array(arrayBuffer, offset, vertexCount * 2);
-      offset += vertexCount * 2 * 4;
+      offset += vertexCount * 2 * 4;      offset += vertexCount * 2 * 4;
 
       const vType = new Float32Array(arrayBuffer, offset, vertexCount * 1);
       offset += vertexCount * 1 * 4;
@@ -3487,19 +3463,13 @@ export class WebGPUEngine {
 
         segFloats[base + 4] = target2D[idxA * 2 + 0];
         segFloats[base + 5] = target2D[idxA * 2 + 1];
-        segFloats[base + 6] = dymaxion2D[idxA * 2 + 0];
-        segFloats[base + 7] = dymaxion2D[idxA * 2 + 1];
-
         segFloats[base + 8] = positions[idxB * 3 + 0];
         segFloats[base + 9] = positions[idxB * 3 + 1];
         segFloats[base + 10] = positions[idxB * 3 + 2];
         segFloats[base + 11] = vType[idxB];
 
         segFloats[base + 12] = target2D[idxB * 2 + 0];
-        segFloats[base + 13] = target2D[idxB * 2 + 1];
-        segFloats[base + 14] = dymaxion2D[idxB * 2 + 0];
-        segFloats[base + 15] = dymaxion2D[idxB * 2 + 1];
-      }
+        segFloats[base + 13] = target2D[idxB * 2 + 1];      }
 
       this.vectorSegmentCount = segCount;
       if (this.vectorSegmentBuffer) {
@@ -3570,7 +3540,7 @@ export class WebGPUEngine {
         indexByteLength
       );
 
-      // 2. Vertex Buffer (32-byte stride: pos3D xyz + type w, target2D xy + dymaxion2D zw):
+      // 2. Vertex Buffer (32-byte stride: pos3D xyz + type w, target2D xy):
       // 69,028 * 32 = 2,208,896 bytes (~2.11 MB)
       const vertByteLength = this.contourVertexCount * 32;
       this.contourVertexBuffer = this.device.createBuffer({
@@ -3587,10 +3557,7 @@ export class WebGPUEngine {
         vertFloats[base + 3] = mesh.typeData[i];
 
         vertFloats[base + 4] = mesh.target2D[i * 2 + 0];
-        vertFloats[base + 5] = mesh.target2D[i * 2 + 1];
-        vertFloats[base + 6] = mesh.dymaxion2D[i * 2 + 0];
-        vertFloats[base + 7] = mesh.dymaxion2D[i * 2 + 1];
-      }
+        vertFloats[base + 5] = mesh.target2D[i * 2 + 1];      }
       this.device.queue.writeBuffer(this.contourVertexBuffer, 0, vertFloats.buffer);
 
       // 3. Segment Buffer (for Vector Ribbon Extrusion: 64 bytes per segment):
@@ -3615,19 +3582,13 @@ export class WebGPUEngine {
 
         segFloats[base + 4] = mesh.target2D[idxA * 2 + 0];
         segFloats[base + 5] = mesh.target2D[idxA * 2 + 1];
-        segFloats[base + 6] = mesh.dymaxion2D[idxA * 2 + 0];
-        segFloats[base + 7] = mesh.dymaxion2D[idxA * 2 + 1];
-
         segFloats[base + 8] = mesh.positions3D[idxB * 3 + 0];
         segFloats[base + 9] = mesh.positions3D[idxB * 3 + 1];
         segFloats[base + 10] = mesh.positions3D[idxB * 3 + 2];
         segFloats[base + 11] = mesh.typeData[idxB];
 
         segFloats[base + 12] = mesh.target2D[idxB * 2 + 0];
-        segFloats[base + 13] = mesh.target2D[idxB * 2 + 1];
-        segFloats[base + 14] = mesh.dymaxion2D[idxB * 2 + 0];
-        segFloats[base + 15] = mesh.dymaxion2D[idxB * 2 + 1];
-      }
+        segFloats[base + 13] = mesh.target2D[idxB * 2 + 1];      }
       this.device.queue.writeBuffer(this.contourSegmentBuffer, 0, segFloats.buffer);
     } catch (err) {
       if (typeof process === 'undefined' || process.env?.NODE_ENV !== 'test') {
@@ -5756,7 +5717,7 @@ export class WebGPUEngine {
     // 1. Create Shader Modules
     const computeShaderModule = this.device.createShaderModule({
       label: 'physics_sim_compute',
-      code: physicsSimWGSL,
+      code: manifoldWGSL + '\n' + physicsSimWGSL,
     });
 
     const pointsShaderModule = this.device.createShaderModule({
@@ -5771,12 +5732,12 @@ export class WebGPUEngine {
 
     const vectorRibbonShaderModule = this.device.createShaderModule({
       label: 'vector_ribbon',
-      code: vectorRibbonWGSL,
+      code: manifoldWGSL + '\n' + vectorRibbonWGSL,
     });
 
     const crustHydrosphereShaderModule = this.device.createShaderModule({
       label: 'crust_hydrosphere',
-      code: crustHydrosphereWGSL,
+      code: manifoldWGSL + '\n' + crustHydrosphereWGSL,
     });
 
     // 2. Bind Group Layouts
@@ -6099,7 +6060,7 @@ export class WebGPUEngine {
     try {
       const cloudShaderModule = this.device.createShaderModule({
         label: 'cloud_shell_shader',
-        code: cloudShellWGSL,
+        code: manifoldWGSL + '\n' + cloudShellWGSL,
       });
 
       this.cloudBindGroupLayout = this.device.createBindGroupLayout({
@@ -6152,7 +6113,7 @@ export class WebGPUEngine {
     try {
       const atmosphereShaderModule = this.device.createShaderModule({
         label: 'atmosphere_scatter_shader',
-        code: atmosphereScatterWGSL,
+        code: manifoldWGSL + '\n' + atmosphereScatterWGSL,
       });
 
       this.atmosphereBindGroupLayout = this.device.createBindGroupLayout({

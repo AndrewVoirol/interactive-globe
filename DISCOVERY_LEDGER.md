@@ -11,7 +11,7 @@
 | Domain | User Verdict | Root Cause / Current Failure State | Immediate Strategic Direction |
 | :--- | :---: | :--- | :--- |
 | **Air Dancer & Audio Whimsy** | `❌ CUT` | 3D inflatable tube man and synthesizer audio chime dissonance. Clashes with serious cartography. | **Purge completely.** Delete `AirDancerScene.tsx`, `ProceduralAudioEngine.ts`, and all references in `App.tsx`. |
-| **Globe-to-Map Morphing** | `✅ KEEP` | 5 modes diluting focus; Dymaxion is broken across styles. | **Consolidate to 2 heroes:** Hero 1 = Mode 1 (Linear/Spherical Unfurl), Hero 2 = Mode 4 (Fluid Flow). Demote/retire Dymaxion from the main UI. |
+| **Globe-to-Map Morphing** | `✅ KEEP` | 5 modes diluting focus; icosahedral net is broken across styles. | **Consolidate to 2 heroes:** Hero 1 = Linear/Spherical Unfurl, Hero 2 = Fluid Flow. Excised polyhedral net from the main UI in Phase 2.2. |
 | **Archival Paper Mediums** | `⚠️ REWORK` | Cream Rag, Prussian Cyanotype, and Marie Tharp have gotten muddy, lost their distinct craft, and lost fidelity. | **Return to authentic medium roots.** Calibrate color palettes, paper substrate tooth, and ink profiles. |
 | **Vector Linework & Overlays** | `⚠️ REWORK` | Linework is no longer crisp; lost sharpness and resolution across zooms. | **Re-architect vector ribbon feathering & LOD.** Crisp sub-pixel drafting hairlines; eliminate blur and z-fighting. |
 | **Terrain Elevation & Oceans** | `⚠️ REWORK` | Feels "half-baked", noisy, lacking genuine depth, not producing a "wow" factor. | **Re-tune Imhof Swiss relief shading & bathymetry.** Clean DEM sampling, natural hypsometry, authentic ocean trench depth. |
@@ -30,9 +30,9 @@
   - `src/core/audio/ProceduralAudioEngine.ts`
 * **Action:** Delete files, remove imports, remove audio mute toggle and tube man scene from `App.tsx`.
 
-### 2.2. Dymaxion De-prioritization
-* **Target Files:** `src/App.tsx`, `src/components/hud/NavigationDock.tsx`
-* **Action:** Remove Dymaxion from the primary mode switcher. Establish Mode 1 (Linear/Spherical Unfurl) as the premier hero mode, with Mode 4 (Fluid Advection) as the dynamic visual hero.
+### 2.2. Polyhedral Net Excision Completed
+* **Target Files:** `src/App.tsx`, `src/webgpu/WebGPUEngine.ts`, `src/core/GlobeOverlay.ts`, `src/core/VectorOverlayLayer.tsx`, `src/utils/contour-topology.ts`, and more.
+* **Action:** Polyhedral net references, logic, and branches completely excised from the core engine and UI in Phase 2.2. Fluid Advection is now the 4th mode (index 3).
 
 ---
 
@@ -89,7 +89,7 @@
 2. **Sidebar Re-Architecture (5 Curated Plates)**:
    - Replaced chaotic plates with 5 structured tabs: `[ALL]`, `[MEDIUM]`, `[TERRAIN]`, `[WEATHER]`, `[PROJECTION]`.
    - Added dedicated `Live Doppler Radar` control with active RainViewer sync indicators.
-   - Mode 1 (Linear Unfurl) and Mode 4 (Fluid Advection) designated as primary hero projections.
+   - Linear Unfurl and Fluid Advection designated as primary hero projections.
 3. **Curator's Colophon Embedded**:
    - Created `CuratorsColophon.tsx` displaying complete authoritative provenance:
      - ETOPO 2022 15 arc-sec 16-bit DEM (-10,924m to +8,848m)

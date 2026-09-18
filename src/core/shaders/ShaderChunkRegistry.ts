@@ -132,12 +132,3 @@ export const mode3FluidAdvectionGLSL = `
     finalPos = basePos + advectionOffset;
     dynamicNormal = mix(normalize(unElevatedSphere + silkDrapeOffset * 0.5), vec3(0.0, 0.0, 1.0), t);
 `;
-
-export const mode4FullerDymaxionGLSL = `
-    float t = ease;
-    vec3 dymaxionPos2D = vec3(dymaxion2D.x, dymaxion2D.y, 0.0);
-    float arch = sin(PI * clampedUnfurl) * 0.45;
-    vec3 sphereNorm = length(pos3D) > 0.001 ? normalize(pos3D) : vec3(0.0, 0.0, 1.0);
-    finalPos = mix(pos3D, dymaxionPos2D, t) + sphereNorm * arch;
-    dynamicNormal = mix(sphereNorm, vec3(0.0, 0.0, 1.0), t);
-`;

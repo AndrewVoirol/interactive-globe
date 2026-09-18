@@ -229,7 +229,7 @@ describe('Phase 5: Atmospheric Wind System Engine', () => {
   describe('4. WGSL Shader Structural Verification', () => {
     it('WGSL-01: wind_particles.wgsl defines RK2 advection and manifold position evaluation', () => {
       expect(windParticlesWGSL).toContain('fn cs_advect_wind');
-      expect(windParticlesWGSL).toContain('evaluateManifoldPosition');
+      expect(windParticlesWGSL).toContain('geodeticToManifold');
       expect(windParticlesWGSL).toContain('sampleVelocity');
       expect(windParticlesWGSL).toContain('struct WindParticle');
     });

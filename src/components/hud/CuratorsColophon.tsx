@@ -38,9 +38,7 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
       ? 'Scroll'
       : mode === 2
       ? 'Fracture'
-      : mode === 3
-      ? 'Fluid'
-      : 'Dymaxion';
+      : 'Fluid';
 
   const unfurlState =
     alpha < 0.02

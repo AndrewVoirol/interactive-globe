@@ -74,9 +74,7 @@ export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
           <div className="flex items-center gap-2">
             <span
               className={`w-2 h-2 rounded-full ${
-                mode === 4
-                  ? 'bg-emerald-400'
-                  : mode === 3
+                mode === 3
                   ? 'bg-indigo-400'
                   : mode === 2
                   ? 'bg-[#C86D51]'
@@ -117,12 +115,12 @@ export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
 
         {isDockOpen && (
           <div className="mt-3 space-y-3">
-            {/* Simulation Paradigms (Modes 0–4) */}
+            {/* Simulation Paradigms (Modes 0–3) */}
             <div className="space-y-1.5">
               <div className={`text-micro uppercase tracking-wider ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                Morph Paradigm (1–5)
+                Morph Paradigm (1–4)
               </div>
-              <div className="grid grid-cols-5 gap-1">
+              <div className="grid grid-cols-4 gap-1">
                 <button
                   onClick={() => onModeChange(0)}
                   title="Mode 0: Standard Linear Spherical-to-Planar Interpolation"
@@ -183,25 +181,9 @@ export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
                 >
                   Fluid
                 </button>
-                <button
-                  onClick={() => onModeChange(4)}
-                  title="Mode 4: Buckminster Fuller Dymaxion 20-Facet Icosahedral Unfolding"
-                  className={`py-1 px-1 rounded-lg text-nano font-bold transition-all text-center ${
-                    mode === 4
-                      ? isLight
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'bg-emerald-500/30 text-emerald-200 border border-emerald-500/50'
-                      : isLight
-                      ? 'text-zinc-600 hover:text-emerald-600'
-                      : 'text-zinc-400 hover:text-emerald-300'
-                  }`}
-                >
-                  Dymaxion
-                </button>
               </div>
             </div>
 
-            {/* View Mode & Cursor Dynamics */}
             {/* View Mode & Cursor Dynamics */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1 bg-black/20 rounded-lg p-0.5 border border-white/10">
@@ -336,11 +318,11 @@ export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
               <div className={`p-2.5 rounded-xl border text-micro space-y-1.5 tabular-nums ${isLight ? 'bg-purple-50/70 border-purple-200 text-zinc-800' : 'bg-purple-950/20 border-purple-500/30 text-purple-200'}`}>
                 <div className="flex justify-between items-center text-nano uppercase tracking-wider font-bold">
                   <span>Distortion Tensor</span>
-                  <span className="text-emerald-400">{mode === 4 ? 'Isomeric (s ≈ 1.04x)' : 'Morphing Tensor'}</span>
+                  <span className="text-emerald-400">Morphing Tensor</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-nano">
                   <div><span className="text-zinc-500 block">Equatorial Area:</span><span>1.000x</span></div>
-                  <div><span className="text-zinc-500 block">Polar Dilation:</span><span>{mode === 4 ? '1.041x' : '1.000x'}</span></div>
+                  <div><span className="text-zinc-500 block">Polar Dilation:</span><span>1.000x</span></div>
                 </div>
               </div>
             )}

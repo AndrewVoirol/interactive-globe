@@ -14,14 +14,12 @@
 //   - Invariant §48: Dynamic Dimensions (No Hardcoded Literals)
 // ============================================================================
 
-const PI: f32 = 3.141592653589793;
 const TWO_PI: f32 = 6.283185307179586;
-const RADIUS: f32 = 5.0;
 
 // Strict 16-Byte Alignment Uniform Struct (Total: 288 bytes / 72 floats) (RFC §4.1)
 struct AtmosphereUniforms {
     u_unfurl: f32,                // offset 0 (float 0) - Manifold morph parameter [0..1]
-    u_mode: u32,                  // offset 4 (float 1) - Simulation mode [0..4]
+    u_mode: u32,                  // offset 4 (float 1) - Simulation mode [0..3]
     u_theme: u32,                 // offset 8 (float 2) - Active medium theme (0, 1, 2)
     u_time: f32,                  // offset 12 (float 3) - Elapsed simulation time in seconds
     u_cameraPos: vec4<f32>,       // offset 16 (floats 4..7) - Camera XYZ position + 1.0
@@ -46,7 +44,7 @@ struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) uv: vec2<f32>,
     @location(2) surfaceType: f32,
-    @location(3) target2D: vec4<f32>, // xy: Mercator, zw: Dymaxion
+    @location(3) target2D: vec4<f32>, // xy: Mercator 2D, zw: Reserved/Unused
 };
 
 struct VertexOutput {
@@ -57,44 +55,17 @@ struct VertexOutput {
     @location(3) normal: vec3<f32>,
 };
 
-fn evaluateManifold(pos3D: vec3<f32>, mercator2D: vec2<f32>, dymaxion2D: vec2<f32>) -> vec3<f32> {
-    let ease = atmosphere.u_unfurl * atmosphere.u_unfurl * (3.0 - 2.0 * atmosphere.u_unfurl);
-    let pos2D = vec3<f32>(mercator2D.x, mercator2D.y, 0.0);
-
-    if (atmosphere.u_mode == 1u) {
-        // Mode 1: Conformal Cylindrical Unroll
-        let oneMinusT = 1.0 - ease;
-        if (oneMinusT > 0.001) {
-            let invOneMinusT = 1.0 / oneMinusT;
-            let lonRad = atan2(pos3D.x, pos3D.z);
-            let curAngle = oneMinusT * lonRad;
-            let latRad = asin(clamp(pos3D.y / RADIUS, -0.999, 0.999));
-            let cosLat = cos(latRad);
-            let curX = (RADIUS * invOneMinusT) * sin(curAngle);
-            let curZ = (RADIUS * cosLat * invOneMinusT) * (cos(curAngle) - 1.0) + (RADIUS * cosLat * oneMinusT);
-            let curY = mix(pos3D.y, pos2D.y, ease);
-            return vec3<f32>(curX, curY, curZ);
-        } else {
-            return pos2D;
-        }
-    } else if (atmosphere.u_mode == 4u) {
-        // Mode 4: Fuller Dymaxion
-        let dym2D = vec3<f32>(dymaxion2D.x, dymaxion2D.y, 0.0);
-        let arch = sin(PI * atmosphere.u_unfurl) * 0.45;
-        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
-        return mix(pos3D, dym2D, ease) + sphereNorm * arch;
-    }
-
-    // Default Modes 0, 2, 3 (Linear Mix)
-    return mix(pos3D, pos2D, ease);
-}
-
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
     var out: VertexOutput;
     out.uv = input.uv;
 
-    let basePos = evaluateManifold(input.position, input.target2D.xy, input.target2D.zw);
+    let def = evaluateManifoldCore(
+        input.position, input.target2D.xy,
+        atmosphere.u_unfurl, atmosphere.u_mode, atmosphere.u_time,
+        vec4<f32>(0.0), 0.0, vec4<f32>(0.0)
+    );
+    let basePos = def.pos;
     let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(input.position), length(input.position) > 0.001);
     let flatNorm = vec3<f32>(0.0, 0.0, 1.0);
     let normal = normalize(mix(sphereNorm, flatNorm, atmosphere.u_unfurl));
@@ -118,6 +89,17 @@ fn hash12(p: vec2<f32>) -> f32 {
     var p3 = fract(vec3<f32>(p.xyx) * 0.1031);
     p3 = p3 + dot(p3, p3.yzx + 33.33);
     return fract((p3.x + p3.y) * p3.z);
+}
+
+// ----------------------------------------------------------------------------
+// Horizon Limb Falloff Specification (§1)
+// ----------------------------------------------------------------------------
+fn horizonFalloff(facing: f32, tau: f32, killEdge0: f32, killEdge1: f32) -> f32 {
+    let maxPath: f32 = 12.5; // ≈ sqrt(π·X/2) for engine atmosphere
+    let path = min(1.0 / max(facing, 1.0 / maxPath), maxPath);
+    let transmission = exp(-tau * path);
+    let killTerm = smoothstep(killEdge0, killEdge1, facing);
+    return transmission * killTerm;
 }
 
 @fragment
@@ -203,7 +185,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let dayFactor = smoothstep(-0.20, 0.30, sunDotWorld);
 
     // Invariant §10: Horizon Tangent Attenuation for shell outer perimeter
-    let limbAtten = select(1.0, smoothstep(0.0, 0.25, in.facing + 0.15), isLimb);
+    let limbAtten = select(1.0, horizonFalloff(in.facing, 0.04, 0.0, 0.25), isLimb);
 
     // Invariant §28: Exhaustive Multi-Medium Shader Parity
     var scatterColor: vec3<f32>;

@@ -187,7 +187,7 @@ describe('Adversarial Challenger M5-2: Catalog Symmetry, DEM Parity & Comment Pu
     const wgslFiles = fs.readdirSync(shadersDir).filter((f) => f.endsWith('.wgsl'));
 
     it('CHALLENGE-M5-PURGE-01: confirms all WGSL shaders contain zero synthetic comment patterns', () => {
-      expect([15, 17, 18, 19, 20]).toContain(wgslFiles.length);
+      expect([15, 17, 18, 19, 20, 21]).toContain(wgslFiles.length);
 
       const forbiddenCommentSubstrings = [
         'Baseline kinetic energy conservation',

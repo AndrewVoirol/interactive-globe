@@ -153,43 +153,20 @@ describe('Phase 4: Crafted Visual Design & Procedural Audio Experience Test Suit
       effects = new WhimsicalEffectsManager();
     });
 
-    it('should detect Fibonacci polar camera alignment when theta < 0.5 degrees', () => {
-      // Camera looking straight down at North Pole (0, 5, 0)
-      const northPoleState = effects.update([0, 5, 0], 4, 0.0, 0.0);
-      expect(northPoleState.isPolarAligned).toBe(true);
-      expect(northPoleState.polarAngleDegrees).toBeLessThan(0.5);
-      expect(northPoleState.pointScaleMultiplier).toBe(1.2);
+    it('should detect Fibonacci polar camera alignment when theta < 0.5 degrees across all active modes (0..3)', () => {
+      for (const mode of [0, 1, 2, 3] as const) {
+        // Camera looking straight down at North Pole (0, 5, 0)
+        const northPoleState = effects.update([0, 5, 0], mode, 0.0, 0.0);
+        expect(northPoleState.isPolarAligned).toBe(true);
+        expect(northPoleState.polarAngleDegrees).toBeLessThan(0.5);
+        expect(northPoleState.pointScaleMultiplier).toBe(1.2);
 
-      // Camera at equator (5, 0, 0)
-      const equatorState = effects.update([5, 0, 0], 4, 0.0, 0.0);
-      expect(equatorState.isPolarAligned).toBe(false);
-      expect(equatorState.polarAngleDegrees).toBeCloseTo(90, 1);
-      expect(equatorState.pointScaleMultiplier).toBe(1.0);
-    });
-
-    it('should activate harmonic standing waves in Mode 4 during alpha in [0.45, 0.55]', () => {
-      // Active in window
-      const activeState = effects.update([5, 0, 0], 4, 0.50, 1.0);
-      expect(activeState.isStandingWaveActive).toBe(true);
-      expect(activeState.standingWaveAmplitude).not.toBe(0);
-
-      // Inactive outside window
-      const inactiveState = effects.update([5, 0, 0], 4, 0.20, 1.0);
-      expect(inactiveState.isStandingWaveActive).toBe(false);
-      expect(inactiveState.standingWaveAmplitude).toBe(0);
-    });
-
-    it('should compute standing wave eigenmode offset using y(x, t) formula', () => {
-      const offset = effects.computeStandingWaveOffset(0.5, 1.05, 0.0, 0.15);
-      expect(typeof offset).toBe('number');
-      expect(Math.abs(offset)).toBeLessThanOrEqual(0.15);
-    });
-
-    it('should trigger Dymaxion 20-facet specular flash sweep when alpha >= 0.998 in Mode 4', () => {
-      const flashState = effects.update([5, 0, 0], 4, 0.999, 0.0);
-      expect(flashState.isSpecularFlashActive).toBe(true);
-      expect(flashState.activeFacetIndex).toBeGreaterThanOrEqual(0);
-      expect(flashState.activeFacetIndex).toBeLessThanOrEqual(19);
+        // Camera at equator (5, 0, 0)
+        const equatorState = effects.update([5, 0, 0], mode, 0.0, 0.0);
+        expect(equatorState.isPolarAligned).toBe(false);
+        expect(equatorState.polarAngleDegrees).toBeCloseTo(90, 1);
+        expect(equatorState.pointScaleMultiplier).toBe(1.0);
+      }
     });
   });
 

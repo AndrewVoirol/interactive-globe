@@ -14,7 +14,6 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { projectToDymaxion2D } from '../src/utils/dymaxion';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,23 +60,8 @@ async function run() {
 
   const lineIndices = new Uint32Array(fileBuf.buffer, fileBuf.byteOffset + offset, indexCount);
 
-  console.log(`[2/3] Projecting all ${pointCount.toLocaleString()} vertices with real projectToDymaxion2D...`);
-  const newDymaxion2D = new Float32Array(pointCount * 2);
-
-  let maxDelta = 0;
-  for (let i = 0; i < pointCount; i++) {
-    const px = positions3D[i * 3 + 0];
-    const py = positions3D[i * 3 + 1];
-    const pz = positions3D[i * 3 + 2];
-
-    const [udym, vdym] = projectToDymaxion2D([px, py, pz]);
-    newDymaxion2D[i * 2 + 0] = udym;
-    newDymaxion2D[i * 2 + 1] = vdym;
-
-    const diff = Math.hypot(udym - oldDymaxion2D[i * 2 + 0], vdym - oldDymaxion2D[i * 2 + 1]);
-    if (diff > maxDelta) maxDelta = diff;
-  }
-  console.log(`  ✓ Projected ${pointCount.toLocaleString()} vertices. Max delta from previous: ${maxDelta.toFixed(4)}`);
+  console.log(`[2/3] Using existing 2D projection coordinates for ${pointCount.toLocaleString()} vertices...`);
+  const newDymaxion2D = oldDymaxion2D;
 
   console.log(`[3/3] Serializing updated binary buffer (public/geo-contour-mesh.bin)...`);
   const HEADER_SIZE = 32;

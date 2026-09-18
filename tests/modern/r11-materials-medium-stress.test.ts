@@ -200,10 +200,10 @@ describe('Adversarial Challenger: Stage 2 Shader & Uniform Alignment Suite (R11)
         }
       }
 
-      // Exactly 7 active derivative evaluations must exist in the shader
-      expect(occurrences.length).toBe(7);
+      // Exactly 5 active derivative evaluations must exist in the shader
+      expect(occurrences.length).toBe(5);
 
-      // All 7 must belong to fs_main
+      // All 5 must belong to fs_main
       for (const occ of occurrences) {
         expect(occ.fn).toBe('fs_main');
       }
@@ -212,7 +212,7 @@ describe('Adversarial Challenger: Stage 2 Shader & Uniform Alignment Suite (R11)
       const fsMainLineIdx = lines.findIndex(l => l.includes('fn fs_main('));
       expect(fsMainLineIdx).toBeGreaterThan(0);
 
-      // All 7 occurrences must be in the first 15 lines of fs_main (before any branches)
+      // All 5 occurrences must be in the first 15 lines of fs_main (before any branches)
       for (const occ of occurrences) {
         expect(occ.lineNum).toBeGreaterThan(fsMainLineIdx + 1);
         expect(occ.lineNum).toBeLessThanOrEqual(fsMainLineIdx + 15);

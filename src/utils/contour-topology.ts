@@ -4,18 +4,8 @@
 // Mathematical Grounding: Indicatrix Research Dossier (Frontier 2: Sections 2.1–2.6)
 // Topics: 32-Byte Binary Header Decoding, Simon l'Huilier (1786) Spherical Excess,
 //         Van Oosterom & Strackee (1983) Sliver Stability, Analytical Antimeridian
-//         Great-Circle Severance, Fuller Dymaxion 20-Facet Sutherland-Hodgman Clipping,
-//         and Nielson's Asymptotic Decider Saddle Ambiguity Resolution.
+//         Great-Circle Severance, and Nielson's Asymptotic Decider Saddle Ambiguity Resolution.
 // ============================================================================
-
-import {
-  UNIT_VERTICES,
-  ICOSAHEDRON_FACES,
-  UNIT_CENTROIDS,
-  DYMAXION_FACE_VERTICES_2D,
-  projectToDymaxion2D,
-  RADIUS as DEFAULT_RADIUS,
-} from './dymaxion';
 
 export type Point2D = [number, number];         // [lon, lat] in degrees
 export type Point3D = [number, number, number]; // [x, y, z] Cartesian on S^2
@@ -42,7 +32,6 @@ export interface DecodedContourMesh {
   header: ContourMeshHeader;
   positions3D: Float32Array;   // 3 floats per vertex (x, y, z on S^2)
   target2D: Float32Array;      // 2 floats per vertex (Mercator x, y)
-  dymaxion2D: Float32Array;    // 2 floats per vertex (Fuller 2D net x, y)
   typeData: Float32Array;      // 1 float per vertex (normalized elevation [0, 1])
   lineIndices: Uint32Array;    // line list indices (2 per segment)
 }
@@ -141,7 +130,6 @@ export function decodeContourMesh(buffer: ArrayBuffer | ArrayBufferView): Decode
   // Direct typed views without array copying
   const positions3D = new Float32Array(rawBuffer, posOffset, pointCount * 3);
   const target2D = new Float32Array(rawBuffer, tarOffset, pointCount * 2);
-  const dymaxion2D = new Float32Array(rawBuffer, dymOffset, pointCount * 2);
   const typeData = new Float32Array(rawBuffer, typOffset, pointCount * 1);
   const lineIndices = new Uint32Array(rawBuffer, idxOffset, indexCount);
 
@@ -149,7 +137,6 @@ export function decodeContourMesh(buffer: ArrayBuffer | ArrayBufferView): Decode
     header,
     positions3D,
     target2D,
-    dymaxion2D,
     typeData,
     lineIndices,
   };
@@ -548,154 +535,7 @@ export function severPolylineAntimeridian(points: Point2D[]): Point2D[][] {
 export const clipPolylineAntimeridian = severPolylineAntimeridian;
 
 // ============================================================================
-// 5. Fuller Dymaxion 20-Facet Boundary Severance (14 Cut Edges)
-// ============================================================================
-
-/**
- * Precomputed inward-pointing great-circle edge normal planes for each icosahedral facet.
- * Face plane normal M_{k, e} satisfies M . C_k > 0.
- */
-export const DYMAXION_FACE_EDGE_PLANES: Point3D[][] = ICOSAHEDRON_FACES.map((face, fIdx) => {
-  const v3D = [UNIT_VERTICES[face[0]], UNIT_VERTICES[face[1]], UNIT_VERTICES[face[2]]];
-  const centroid = UNIT_CENTROIDS[fIdx];
-  const edges: [number, number][] = [[0, 1], [1, 2], [2, 0]];
-
-  return edges.map(([eA, eB]) => {
-    const pA = v3D[eA];
-    const pB = v3D[eB];
-    // Cross product pA x pB
-    const mx = pA[1] * pB[2] - pA[2] * pB[1];
-    const my = pA[2] * pB[0] - pA[0] * pB[2];
-    const mz = pA[0] * pB[1] - pA[1] * pB[0];
-    const len = Math.hypot(mx, my, mz) || 1.0;
-    let norm: Point3D = [mx / len, my / len, mz / len];
-
-    // Orient inward toward facet centroid
-    if (norm[0] * centroid[0] + norm[1] * centroid[1] + norm[2] * centroid[2] < 0) {
-      norm = [-norm[0], -norm[1], -norm[2]];
-    }
-    return norm;
-  });
-});
-
-/**
- * Spherical Sutherland-Hodgman clipping of a 3D great-circle segment against an icosahedral facet.
- * Returns the clipped subsegment on S^2 or null if the segment lies completely outside the facet.
- */
-export function clipSegmentDymaxion(
-  p1: Point3D,
-  p2: Point3D,
-  faceIndex: number
-): Point3D[] | null {
-  if (faceIndex < 0 || faceIndex >= 20) return null;
-
-  const r1 = Math.hypot(p1[0], p1[1], p1[2]) || DEFAULT_RADIUS;
-  const r2 = Math.hypot(p2[0], p2[1], p2[2]) || DEFAULT_RADIUS;
-  const avgR = (r1 + r2) * 0.5;
-
-  let q1 = toUnit(p1);
-  let q2 = toUnit(p2);
-  const planes = DYMAXION_FACE_EDGE_PLANES[faceIndex];
-  const EPS = 1e-10;
-
-  for (let e = 0; e < 3; e++) {
-    const plane = planes[e];
-    const d1 = plane[0] * q1[0] + plane[1] * q1[1] + plane[2] * q1[2];
-    const d2 = plane[0] * q2[0] + plane[1] * q2[1] + plane[2] * q2[2];
-
-    if (d1 < -EPS && d2 < -EPS) {
-      return null; // Entirely outside
-    }
-
-    if (d1 >= -EPS && d2 >= -EPS) {
-      // Entirely inside with respect to this edge
-      continue;
-    }
-
-    const t = Math.max(0.0, Math.min(1.0, d1 / (d1 - d2)));
-    const inter: Point3D = [
-      (1.0 - t) * q1[0] + t * q2[0],
-      (1.0 - t) * q1[1] + t * q2[1],
-      (1.0 - t) * q1[2] + t * q2[2],
-    ];
-    const interUnit = toUnit(inter);
-
-    if (d1 >= -EPS && d2 < -EPS) {
-      q2 = interUnit;
-    } else {
-      q1 = interUnit;
-    }
-  }
-
-  // Check degenerate point
-  const segDist = computeChordalDistance(q1, q2);
-  if (segDist < 1e-9) {
-    return null;
-  }
-
-  return [
-    [q1[0] * avgR, q1[1] * avgR, q1[2] * avgR],
-    [q2[0] * avgR, q2[1] * avgR, q2[2] * avgR],
-  ];
-}
-
-/**
- * Partitions a spherical polyline into sub-polylines clipped to each of the 20 Fuller Dymaxion facets.
- */
-export function partitionPolylineByDymaxionFacets(poly: Point2D[]): Map<number, Point2D[][]> {
-  const result = new Map<number, Point2D[][]>();
-
-  if (poly.length < 2) {
-    return result;
-  }
-
-  for (let f = 0; f < 20; f++) {
-    const faceStrips: Point2D[][] = [];
-    let currentStrip: Point2D[] = [];
-
-    for (let i = 0; i < poly.length - 1; i++) {
-      const p1 = lonLatToUnitSphere(poly[i][0], poly[i][1]);
-      const p2 = lonLatToUnitSphere(poly[i + 1][0], poly[i + 1][1]);
-      const clipped = clipSegmentDymaxion(p1, p2, f);
-
-      if (clipped) {
-        const ptA = unitSphereToLonLat(clipped[0]);
-        const ptB = unitSphereToLonLat(clipped[1]);
-
-        if (currentStrip.length === 0) {
-          currentStrip.push(ptA, ptB);
-        } else {
-          const last = currentStrip[currentStrip.length - 1];
-          const dist = Math.hypot(last[0] - ptA[0], last[1] - ptA[1]);
-          if (dist < 1e-5) {
-            currentStrip.push(ptB);
-          } else {
-            faceStrips.push(currentStrip);
-            currentStrip = [ptA, ptB];
-          }
-        }
-      } else {
-        if (currentStrip.length > 0) {
-          faceStrips.push(currentStrip);
-          currentStrip = [];
-        }
-      }
-    }
-
-    if (currentStrip.length > 0) {
-      faceStrips.push(currentStrip);
-    }
-
-    if (faceStrips.length > 0) {
-      result.set(f, faceStrips);
-    }
-  }
-
-  return result;
-}
-
-// ============================================================================
-// 6. Nielson's Asymptotic Decider & Saddle Ambiguity Resolution
+// 5. Nielson's Asymptotic Decider & Saddle Ambiguity Resolution
 // ============================================================================
 
 /**

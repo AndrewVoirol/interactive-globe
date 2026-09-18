@@ -1,6 +1,6 @@
 // ============================================================================
 // Indicatrix Engine — GPU-Driven CDLOD Quadtree Culling & Indirect Draw WGSL
-// Frustum Culling, Distance-Based LOD Range Selection, Mode 4 Dynamic Bounding
+// Frustum Culling, Distance-Based LOD Range Selection, Fluid Dynamic Bounding
 // 2:1 Parametric Cylindrical CDLOD Quadtree in UV Space [0, 1] x [0, 1]
 // ============================================================================
 
@@ -39,6 +39,10 @@ struct CullingUniforms {
     mode: u32,                          // offset 116..120
     nodeCount: u32,                     // offset 120..124
     maxInstances: u32,                  // offset 124..128
+    R_squared_minus_disp: f32,          // offset 128..132
+    _pad0: f32,                         // offset 132..136
+    _pad1: f32,                         // offset 136..140
+    _pad2: f32,                         // offset 140..144
 };
 
 @group(0) @binding(0) var<uniform> uniforms: CullingUniforms;
@@ -66,11 +70,11 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let node = nodes[nodeIdx];
 
-    // Mode 4 (Fluid Advection) bounding sphere expansion:
+    // Fluid Advection (Mode 3) bounding sphere expansion:
     // Dynamically expand node bounding spheres by the maximum fluid displacement velocity
     // to prevent premature frustum clipping during severe vortex/wave displacement.
     var effectiveRadius = node.radius;
-    if (uniforms.mode == 3u || uniforms.mode == 4u) {
+    if (uniforms.mode == 3u) {
         effectiveRadius += uniforms.fluidMaxDisplacement;
     }
 
@@ -91,7 +95,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let unfurl = uniforms.cameraPos.w;
     if (uniforms.mode == 0u && unfurl < 0.01) {
         let cDotCam = dot(node.center, uniforms.cameraPos.xyz);
-        if (cDotCam + effectiveRadius * camDistToOrigin < 24.5) {
+        if (cDotCam + effectiveRadius * camDistToOrigin < uniforms.R_squared_minus_disp) {
             return;
         }
     }

@@ -8,7 +8,7 @@ import {
   LANDMARK_ANCHORS,
   generateTissotCircles
 } from '../../src/core/GlobeOverlay';
-import { generateDymaxionBuffer } from '../../src/utils/dymaxion';
+
 
 describe('Indicatrix Engine Architectural Extensions', () => {
   const appPath = fs.existsSync(path.resolve(__dirname, '../../src/App.tsx')) ? path.resolve(__dirname, '../../src/App.tsx') : path.resolve(__dirname, '../../App.tsx');
@@ -22,35 +22,7 @@ describe('Indicatrix Engine Architectural Extensions', () => {
     appCode += '\n' + fs.readFileSync(kinematicPath, 'utf-8');
   }
 
-  describe('1. Buckminster Fuller Dymaxion (Mode 4) Paradigm Integration', () => {
-    it('verifies App.tsx has 5-column simulation paradigm selector', () => {
-      expect(appCode).toContain('grid-cols-5');
-      expect(appCode).toContain('Dymaxion');
-      expect(appCode).toContain('Fuller Dymaxion');
-    });
 
-    it('verifies App.tsx provides dymaxion2D BufferAttribute on both mesh and points', () => {
-      if (!fs.existsSync(geoPath)) return;
-      expect(appCode).toContain("meshGeo.setAttribute('dymaxion2D'");
-      expect(appCode).toContain("pointGeo.setAttribute('dymaxion2D'");
-      expect(appCode).toContain('attribute vec2 dymaxion2D;');
-    });
-
-    it('verifies Dymaxion buffer generation operates deterministically with zero NaNs', () => {
-      const sampleBuffer = new Float32Array([
-        0.0, 5.0, 0.0,  // North pole
-        0.0, -5.0, 0.0, // South pole
-        5.0, 0.0, 0.0,  // Equator 0 lon
-        0.0, 0.0, 5.0   // Equator 90 lon
-      ]);
-      const dymaxion = generateDymaxionBuffer(sampleBuffer);
-      expect(dymaxion.length).toBe(8); // 4 points * 2 coords
-      for (let i = 0; i < dymaxion.length; i++) {
-        expect(Number.isFinite(dymaxion[i])).toBe(true);
-        expect(Number.isNaN(dymaxion[i])).toBe(false);
-      }
-    });
-  });
 
   describe('2. Geodesic Sampling & Morphing Dynamics', () => {
     it('samples great circle arcs with strict spherical normalization', () => {
@@ -67,8 +39,8 @@ describe('Indicatrix Engine Architectural Extensions', () => {
       }
     });
 
-    it('evaluates point morph seamlessly across all 5 simulation modes without NaNs', () => {
-      for (let m = 0; m <= 4; m++) {
+    it('evaluates point morph seamlessly across all 4 simulation modes without NaNs', () => {
+      for (let m = 0; m <= 3; m++) {
         for (let a = 0; a <= 10; a++) {
           const alpha = a / 10;
           const [x, y, z] = evaluatePointMorph(-3.7038, 40.4168, alpha, m);
@@ -98,16 +70,17 @@ describe('Indicatrix Engine Architectural Extensions', () => {
 
   describe('3. Tissot Indicatrix Cartographic Deformation Circles', () => {
     it('generates small distortion circles with valid angular resolution', () => {
-      const circles = generateTissotCircles(30, 45, 4.5, 16);
+      const circles = generateTissotCircles(30, 45, 4.8, 36);
       expect(circles.length).toBeGreaterThan(0);
-      for (const c of circles) {
-        expect(c.perimeter.length).toBe(17); // 16 segments + 1 closing point
-        for (const pt of c.perimeter) {
-          expect(Number.isFinite(pt.lat)).toBe(true);
-          expect(Number.isFinite(pt.lon)).toBe(true);
-          expect(pt.lat).toBeGreaterThanOrEqual(-90);
-          expect(pt.lat).toBeLessThanOrEqual(90);
-        }
+      const equatorCircle = circles.find(c => c.center.lat === 0 && c.center.lon === 0);
+      expect(equatorCircle).toBeDefined();
+      expect(equatorCircle!.perimeter.length).toBe(37);
+      expect(equatorCircle!.baseAreaRatio).toBeCloseTo(1.0, 2);
+      expect(equatorCircle!.axisMajor.length).toBe(2);
+      expect(equatorCircle!.axisMinor.length).toBe(2);
+      for (const pt of equatorCircle!.perimeter) {
+        expect(Number.isFinite(pt.lat)).toBe(true);
+        expect(Number.isFinite(pt.lon)).toBe(true);
       }
     });
   });
@@ -127,11 +100,11 @@ describe('Indicatrix Engine Architectural Extensions', () => {
       }
     });
 
-    it('verifies Zen mode toggle and keyboard shortcuts (Space, H, 1-5)', () => {
+    it('verifies Zen mode toggle and keyboard shortcuts (Space, H, 1-4)', () => {
       expect(appCode).toContain('isZenMode');
       expect(appCode).toContain("e.code === 'Space'");
       expect(appCode).toContain("e.key === 'h' || e.key === 'H'");
-      expect(appCode).toContain("e.key === '5'");
+      expect(appCode).toContain("e.key === '4'");
     });
   });
 });

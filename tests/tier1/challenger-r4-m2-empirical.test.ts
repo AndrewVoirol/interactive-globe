@@ -253,9 +253,9 @@ describe('Challenger 1 (Round 4 / Milestone 2): WebGL2 Visual & Functional Bug F
   });
 
   // =========================================================================
-  // Requirement 3: Dymaxion 20-Facet Frame Material Receives u_unfurl in useFrame
+  // Requirement 3: 20-Facet Frame Material Receives u_unfurl in useFrame
   // =========================================================================
-  describe('3. Dymaxion 20-Facet Frame Material Uniform Synchronization', () => {
+  describe('3. 20-Facet Frame Material Uniform Synchronization', () => {
     it('EMP-M2-T14: verifies frameMaterialRef is declared and bound to frame lineSegments', () => {
       if (!fs.existsSync(geoLayerPath)) return;
       expect(appTsx).toContain('const frameMaterialRef = useRef<THREE.ShaderMaterial>(null);');
@@ -278,48 +278,12 @@ describe('Challenger 1 (Round 4 / Milestone 2): WebGL2 Visual & Functional Bug F
       expect(appTsx).toContain('frameMaterialRef.current.uniforms.u_cursorActive.value = cursorUniforms.u_cursorActive;');
     });
 
-    it('EMP-M2-T16: verifies frameGeometry contains all required shader attributes (position, target2D, dymaxion2D, vType)', () => {
+    it('EMP-M2-T16: verifies frameGeometry contains all required shader attributes (position, vType)', () => {
       if (!fs.existsSync(geoLayerPath)) return;
       expect(appTsx).toContain("fGeo.setAttribute('position', new THREE.BufferAttribute(frameData.points3D, 3));");
-      expect(appTsx).toContain("fGeo.setAttribute('target2D', new THREE.BufferAttribute(frameData.dymaxion2D, 2));");
-      expect(appTsx).toContain("fGeo.setAttribute('dymaxion2D', new THREE.BufferAttribute(frameData.dymaxion2D, 2));");
       expect(appTsx).toContain("fGeo.setAttribute('vType', new THREE.BufferAttribute(new Float32Array(frameData.points3D.length / 3).fill(1.0), 1));");
     });
 
-    it('EMP-M2-T17: executes Dymaxion frame transformation math across alpha in [0, 1] with zero NaNs', () => {
-      // Simulate Dymaxion mode (mode == 4) math from meshVertexShader
-      const sample3D = new THREE.Vector3(0, 5, 0); // North vertex of icosahedron
-      const sample2D = new THREE.Vector2(0, 8.5);  // Projected 2D coordinate
-
-      const alphaSteps = [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0];
-      for (const unfurl of alphaSteps) {
-        const clampedUnfurl = Math.max(0.0, Math.min(1.0, unfurl));
-        const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
-        const t = ease;
-
-        const dymaxionPos2D = new THREE.Vector3(sample2D.x, sample2D.y, 0.0);
-        const arch = Math.sin(Math.PI * clampedUnfurl) * 0.45;
-        const sphereNorm = sample3D.length() > 0.001 ? sample3D.clone().normalize() : new THREE.Vector3(0, 0, 1);
-
-        const finalPos = new THREE.Vector3()
-          .lerpVectors(sample3D, dymaxionPos2D, t)
-          .add(sphereNorm.multiplyScalar(arch));
-
-        expect(Number.isFinite(finalPos.x)).toBe(true);
-        expect(Number.isFinite(finalPos.y)).toBe(true);
-        expect(Number.isFinite(finalPos.z)).toBe(true);
-
-        if (unfurl === 0.0) {
-          expect(finalPos.x).toBeCloseTo(sample3D.x, 5);
-          expect(finalPos.y).toBeCloseTo(sample3D.y, 5);
-          expect(finalPos.z).toBeCloseTo(sample3D.z, 5);
-        } else if (unfurl === 1.0) {
-          expect(finalPos.x).toBeCloseTo(sample2D.x, 5);
-          expect(finalPos.y).toBeCloseTo(sample2D.y, 5);
-          expect(finalPos.z).toBeCloseTo(0.0, 5);
-        }
-      }
-    });
   });
 
   // =========================================================================

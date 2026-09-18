@@ -116,7 +116,7 @@ fn sphericalTriangleExcessWGSL(vA: vec3<f32>, vB: vec3<f32>, vC: vec3<f32>, radi
 // ============================================================================
 
 /**
- * Detects residual cross-seam segments that jump the antimeridian or Dymaxion cut boundaries.
+ * Detects residual cross-seam segments that jump the antimeridian boundaries.
  */
 fn isCrossSeamSegment(target2DA: vec4<f32>, target2DB: vec4<f32>, mode: u32) -> bool {
     if (mode == 1u) {
@@ -124,12 +124,6 @@ fn isCrossSeamSegment(target2DA: vec4<f32>, target2DB: vec4<f32>, mode: u32) -> 
         let deltaX = abs(target2DA.x - target2DB.x);
         if (deltaX > 15.0) {
             return true; // Cull screen-spanning antimeridian streak
-        }
-    } else if (mode == 4u) {
-        // Mode 4 Fuller Dymaxion: net distance > facet edge length (~0.85)
-        let deltaDym = target2DA.zw - target2DB.zw;
-        if (dot(deltaDym, deltaDym) > 0.75) {
-            return true; // Cull spiderweb streak crossing cut edges
         }
     }
     return false;
@@ -141,7 +135,7 @@ fn isCrossSeamSegment(target2DA: vec4<f32>, target2DB: vec4<f32>, mode: u32) -> 
 
 struct VertexInput {
     @location(0) pos_3d: vec4<f32>,       // xyz: sphere pos, w: type (normalized elevation)
-    @location(1) target2d: vec4<f32>,     // xy: Mercator 2D, zw: Dymaxion 2D
+    @location(1) target2d: vec4<f32>,     // xy: Mercator 2D, zw: Reserved/Unused
 };
 
 struct VertexOutput {
@@ -158,16 +152,10 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
     let pos3D = in.pos_3d.xyz;
     let pos2D = vec3<f32>(in.target2d.x, in.target2d.y, 0.015);
-    let dymaxion2D = vec3<f32>(in.target2d.z, in.target2d.w, 0.015);
 
     var worldPos: vec3<f32>;
 
-    if (sim.u_mode == 4u) {
-        // Mode 4 Fuller Dymaxion
-        let arch = sin(PI * clampedUnfurl) * 0.45;
-        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
-        worldPos = mix(pos3D, dymaxion2D, ease) + sphereNorm * arch;
-    } else if (sim.u_mode == 1u) {
+    if (sim.u_mode == 1u) {
         // Mode 1 Cylindrical Scroll
         let curR = max(length(pos3D), 0.001);
         let lambda = atan2(pos3D.x, pos3D.z);

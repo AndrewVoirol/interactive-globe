@@ -57,7 +57,6 @@ interface SimUniformsOracle {
 function simulateWGSLComputeParticle(pIn: ParticleState, sim: SimUniformsOracle): ParticleState {
   const pos3D: [number, number, number] = [pIn.rest_sphere[0], pIn.rest_sphere[1], pIn.rest_sphere[2]];
   const pos2D: [number, number, number] = [pIn.rest_map[0], pIn.rest_map[1], 0.0];
-  const dymaxionTarget: [number, number, number] = [pIn.rest_map[2], pIn.rest_map[3], 0.0];
   const pointType = pIn.position[3];
 
   const clampedUnfurl = Math.max(0.0, Math.min(1.0, sim.u_unfurl));
@@ -74,17 +73,7 @@ function simulateWGSLComputeParticle(pIn: ParticleState, sim: SimUniformsOracle)
     ? [pos3D[0] / lenPos3D, pos3D[1] / lenPos3D, pos3D[2] / lenPos3D]
     : [0.0, 0.0, 1.0];
 
-  if (sim.u_mode === 4) {
-    // Mode 4: Fuller Dymaxion
-    const arch = Math.sin(PI * ease) * 0.45;
-    finalPos = [
-      (1 - ease) * pos3D[0] + ease * dymaxionTarget[0] + sphereNorm[0] * arch,
-      (1 - ease) * pos3D[1] + ease * dymaxionTarget[1] + sphereNorm[1] * arch,
-      (1 - ease) * pos3D[2] + ease * dymaxionTarget[2] + sphereNorm[2] * arch,
-    ];
-    finalVel = [0.0, 0.0, 0.0];
-    metric = 0.0;
-  } else if (sim.u_mode === 1) {
+  if (sim.u_mode === 1) {
     // Mode 1: Cylindrical Scroll
     const t = ease;
     const lambda = Math.atan2(pos3D[0], pos3D[2]);
@@ -458,9 +447,9 @@ describe('Adversarial Challenge Suite: Milestone M6 (Challenger 1)', () => {
   });
 
   // --------------------------------------------------------------------------
-  // 3. Mathematical Correctness & 0-NaN Fuzzing Across 5 Paradigms
+  // 3. Mathematical Correctness & 0-NaN Fuzzing Across 4 Paradigms
   // --------------------------------------------------------------------------
-  describe('3. Mathematical Correctness & 0-NaN Stress Fuzzing (All 5 Paradigms)', () => {
+  describe('3. Mathematical Correctness & 0-NaN Stress Fuzzing (All 4 Paradigms)', () => {
     const generateTestParticles = (count: number): ParticleState[] => {
       const particles: ParticleState[] = [];
       const goldenRatio = (1 + Math.sqrt(5)) / 2;
@@ -637,38 +626,6 @@ describe('Adversarial Challenge Suite: Milestone M6 (Challenger 1)', () => {
             expect(Number.isNaN(vorticityMetric)).toBe(false);
             expect(vorticityMetric).toBeGreaterThanOrEqual(0.0);
             expect(vorticityMetric).toBeLessThanOrEqual(1.0);
-          }
-        }
-      }
-    });
-
-    it('ADV-M6-T11: Mode 4 (Fuller Dymaxion) produces 0 NaNs and matches 20-facet planar projection at alpha=1.0', () => {
-      const alphas = [0.0, 0.25, 0.5, 0.75, 1.0];
-      for (const alpha of alphas) {
-        const sim: SimUniformsOracle = {
-          u_unfurl: alpha,
-          u_mode: 4,
-          u_layerMode: 0,
-          u_time: 0.0,
-          u_dt: 0.016,
-          u_cursorActive: 0,
-          u_numParticles: testParticles.length,
-          u_cursorRayOrig: [0, 0, 15, 0],
-          u_cursorRayDir: [0, 0, -1, 0],
-          u_cursorHitPos: [0, 0, 5, 0],
-          u_cursorVel: [0, 0, 0, 0],
-        };
-
-        for (const pIn of testParticles) {
-          const pOut = simulateWGSLComputeParticle(pIn, sim);
-          for (let c = 0; c < 3; c++) {
-            expect(Number.isNaN(pOut.position[c])).toBe(false);
-            expect(Number.isFinite(pOut.position[c])).toBe(true);
-          }
-          if (alpha === 1.0) {
-            expect(pOut.position[2]).toBeCloseTo(0.0, 4);
-            expect(pOut.position[0]).toBeCloseTo(pIn.rest_map[2], 4);
-            expect(pOut.position[1]).toBeCloseTo(pIn.rest_map[3], 4);
           }
         }
       }

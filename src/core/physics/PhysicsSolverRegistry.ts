@@ -1,12 +1,11 @@
 // ============================================================================
 // File: src/core/physics/PhysicsSolverRegistry.ts
 // Architecture: Governed Computational Physics (Registry & GPU Binding Layer)
-// Description: Binds physics engines to GPU storage buffers & uniform updates across Modes 0-4
+// Description: Binds physics engines to GPU storage buffers & uniform updates across Modes 0-3
 // ============================================================================
 
 import { PhaseFieldFractureSolver } from './PhaseFieldFractureSolver';
 import { ShallowWaterFluidSolver } from './ShallowWaterFluidSolver';
-import { RigidHingeDymaxionSolver } from './RigidHingeDymaxionSolver';
 
 export interface IPhysicsSolver {
   readonly id: string;
@@ -36,15 +35,11 @@ export class PhysicsSolverRegistry {
   // Governed Solvers
   public readonly phaseFieldSolver: PhaseFieldFractureSolver;
   public readonly shallowWaterSolver: ShallowWaterFluidSolver;
-  public readonly rigidHingeSolver: RigidHingeDymaxionSolver;
-
   constructor(nodeCount: number = 1000) {
     this.nodeCount = nodeCount;
 
     this.phaseFieldSolver = new PhaseFieldFractureSolver({ nodeCount });
     this.shallowWaterSolver = new ShallowWaterFluidSolver({ nodeCount });
-    this.rigidHingeSolver = new RigidHingeDymaxionSolver();
-
     this.registerBuiltinAdapters();
   }
 
@@ -121,33 +116,6 @@ export class PhysicsSolverRegistry {
       dispose: () => this.shallowWaterSolver.dispose(),
     });
 
-    // Mode 4 Adapter: Rigid Hinge Dymaxion Folding
-    this.registerSolver({
-      id: 'rigid-hinge-dymaxion',
-      modeIndex: 4,
-      initialize: () => this.rigidHingeSolver.initialize(),
-      step: (dt, time, unfurl, extra = {}) => {
-        this.rigidHingeSolver.step({
-          dt,
-          time,
-          unfurl,
-          cursorPos: extra.cursorPos,
-        });
-      },
-      updateGPUBuffer: (buffer) => {
-        const facetStates = this.rigidHingeSolver.getFacetStates();
-        // Propagate facet rigid transformations
-        if (facetStates.length > 0) {
-          const archH = this.rigidHingeSolver.computeArchingHeight(0.5);
-          buffer[7] = archH;
-        }
-      },
-      getUniformUpdates: () => {
-        const L = this.rigidHingeSolver.getTotalAngularMomentum();
-        return new Float32Array([4.0, L[0], L[1], L[2]]);
-      },
-      dispose: () => this.rigidHingeSolver.dispose(),
-    });
   }
 
   public registerSolver(solver: IPhysicsSolver): void {
@@ -196,6 +164,5 @@ export class PhysicsSolverRegistry {
     this.solvers.clear();
     this.phaseFieldSolver.dispose();
     this.shallowWaterSolver.dispose();
-    this.rigidHingeSolver.dispose();
   }
 }

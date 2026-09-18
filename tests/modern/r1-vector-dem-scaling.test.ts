@@ -47,7 +47,7 @@ describe('Requirement R1: High-Precision Vector Geometry & Topographic Relief De
       // Columnar array sizes per vertex:
       // positions3D: 3 floats = 12 bytes
       // target2D:    2 floats = 8 bytes
-      // dymaxion2D:  2 floats = 8 bytes
+      // reserved:    2 floats = 8 bytes
       // vType:       1 float  = 4 bytes
       // Total vertex attributes = 32 bytes/vertex
       // indices:     1 uint32 = 4 bytes/index
@@ -55,7 +55,7 @@ describe('Requirement R1: High-Precision Vector Geometry & Topographic Relief De
       expect(buf.length).toBe(expectedTotalBytes);
     });
 
-    it('GVEC-T03: validates vertex coordinate bounds, sphere radius, and 0 NaNs across S^2, Mercator, and Dymaxion', () => {
+    it('GVEC-T03: validates vertex coordinate bounds, sphere radius, and 0 NaNs across S^2 and Mercator', () => {
       const buf = fs.readFileSync(vectorBinPath);
       const vertexCount = buf.readUInt32LE(8);
       const indexCount = buf.readUInt32LE(12);
@@ -67,8 +67,7 @@ describe('Requirement R1: High-Precision Vector Geometry & Topographic Relief De
       const target2D = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount * 2);
       offset += vertexCount * 2 * 4;
 
-      const dymaxion2D = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount * 2);
-      offset += vertexCount * 2 * 4;
+      offset += vertexCount * 2 * 4; // 8 bytes reserved padding per vertex
 
       const vType = new Float32Array(buf.buffer, buf.byteOffset + offset, vertexCount);
       offset += vertexCount * 4;
@@ -97,12 +96,6 @@ describe('Requirement R1: High-Precision Vector Geometry & Topographic Relief De
         expect(Number.isFinite(v)).toBe(true);
         // Longitude span [-PI * R, PI * R]
         expect(Math.abs(u)).toBeLessThanOrEqual(Math.PI * 5.05 + 0.1);
-
-        // Dymaxion coordinates
-        const ud = dymaxion2D[i * 2 + 0];
-        const vd = dymaxion2D[i * 2 + 1];
-        expect(Number.isFinite(ud)).toBe(true);
-        expect(Number.isFinite(vd)).toBe(true);
 
         // Vertex type: 1.0 (coastline) or 0.5 (river)
         const vt = vType[i];

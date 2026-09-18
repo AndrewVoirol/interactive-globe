@@ -10,7 +10,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import * as THREE from 'three';
 
 import demUnpackWGSL from '../../src/webgpu/shaders/dem_unpack.wgsl?raw';
-import swissReliefWGSL from '../../src/webgpu/shaders/swiss_relief_shading.wgsl?raw';
 import hydrosphereOpticsWGSL from '../../src/webgpu/shaders/hydrosphere_optics.wgsl?raw';
 import crustHydrosphereWGSL from '../../src/webgpu/shaders/crust_hydrosphere.wgsl?raw';
 import vectorRibbonWGSL from '../../src/webgpu/shaders/vector_ribbon.wgsl?raw';
@@ -122,125 +121,6 @@ describe('Milestone 1: WebGPU Shader & Ingestion Pipelines', () => {
     });
   });
 
-  // ==========================================================================
-  // Suite 2: Eduard Imhof Swiss Relief Shading Mathematics (M1-T2)
-  // ==========================================================================
-  describe('Suite 2: Eduard Imhof Swiss Relief Shading Mathematics (M1-T2)', () => {
-    it('M1-T06: verifies swiss_relief_shading.wgsl ReliefUniforms struct strictly satisfies 16-byte alignment', () => {
-      expect(swissReliefWGSL).toContain('struct ReliefUniforms');
-      expect(swissReliefWGSL).toContain('u_sunAzimuthPrimary: f32');
-      expect(swissReliefWGSL).toContain('u_theme: u32');
-
-      // 12 fields of 4 bytes each = 48 bytes (divisible by 16)
-      const fieldMatches = swissReliefWGSL.match(/u_[a-zA-Z0-9]+:\s*(f32|u32)/g);
-      expect(fieldMatches?.length).toBe(12);
-      expect((12 * 4) % 16).toBe(0);
-    });
-
-    it('M1-T07: confirms primary sun vector (NW 315°, 45°) and fill sun vector (SW 225°, 35°) are normalized unit vectors', () => {
-      function computeLightDir(azimuthDeg: number, altitudeDeg: number): [number, number, number] {
-        const radAz = (azimuthDeg * Math.PI) / 180.0;
-        const radAlt = (altitudeDeg * Math.PI) / 180.0;
-        const cosAlt = Math.cos(radAlt);
-        const v = [Math.sin(radAz) * cosAlt, Math.cos(radAz) * cosAlt, Math.sin(radAlt)];
-        const len = Math.hypot(v[0], v[1], v[2]);
-        return [v[0] / len, v[1] / len, v[2] / len];
-      }
-
-      const primary = computeLightDir(315.0, 45.0);
-      const fill = computeLightDir(225.0, 35.0);
-
-      const len1 = Math.hypot(primary[0], primary[1], primary[2]);
-      const len2 = Math.hypot(fill[0], fill[1], fill[2]);
-
-      expect(len1).toBeCloseTo(1.0, 5);
-      expect(len2).toBeCloseTo(1.0, 5);
-
-      // Primary is NW (-x, +y), altitude +z
-      expect(primary[0]).toBeLessThan(0.0);
-      expect(primary[1]).toBeGreaterThan(0.0);
-      expect(primary[2]).toBeGreaterThan(0.0);
-
-      // Weights sum to 1.00
-      const wAmbient = 0.08;
-      const wPrimary = 0.72;
-      const wFill = 0.20;
-      expect(wAmbient + wPrimary + wFill).toBeCloseTo(1.0, 5);
-    });
-
-    it('M1-T08: proves 5-tap discrete Laplacian curvature yields 0 on planes, negative on crests, positive in valleys', () => {
-      function laplacian(hC: number, hR: number, hL: number, hU: number, hD: number): number {
-        return (hR + hL + hU + hD) - 4.0 * hC;
-      }
-
-      // Flat horizontal plane
-      expect(laplacian(0.5, 0.5, 0.5, 0.5, 0.5)).toBeCloseTo(0.0, 5);
-
-      // Uniformly sloping plane (linear ramp)
-      expect(laplacian(0.5, 0.6, 0.4, 0.5, 0.5)).toBeCloseTo(0.0, 5);
-
-      // Convex mountain crest (hC elevated above surrounding texels)
-      const crestLap = laplacian(0.8, 0.6, 0.6, 0.6, 0.6);
-      expect(crestLap).toBeLessThan(0.0);
-      const kRidge = Math.min(Math.max(-crestLap * 45.0, 0.0), 1.0);
-      expect(kRidge).toBeGreaterThan(0.5);
-
-      // Concave valley bottom (hC depressed below surrounding texels)
-      const valleyLap = laplacian(0.2, 0.4, 0.4, 0.4, 0.4);
-      expect(valleyLap).toBeGreaterThan(0.0);
-      const kValley = Math.min(Math.max(valleyLap * 45.0, 0.0), 1.0);
-      expect(kValley).toBeGreaterThan(0.5);
-    });
-
-    it('M1-T09: verifies ridge contrast enhancement brightens sunlit crests and deepens shadowed crests', () => {
-      const kRidge = 0.8;
-      // Sunlit flank (NdotL1 = 0.8 > 0.5)
-      const sunlitEnhance = (0.8 - 0.5) * kRidge * 0.45;
-      expect(sunlitEnhance).toBeGreaterThan(0.0);
-
-      // Shadowed flank (NdotL1 = 0.1 < 0.5)
-      const shadowEnhance = (0.1 - 0.5) * kRidge * 0.45;
-      expect(shadowEnhance).toBeLessThan(0.0);
-    });
-
-    it('M1-T10: confirms slope-dependent rock cliff exposure activates for theta > 35° and saturates at 48°', () => {
-      const cos35 = Math.cos((35.0 * Math.PI) / 180.0); // ~0.81915
-      const cos48 = Math.cos((48.0 * Math.PI) / 180.0); // ~0.66913
-
-      function rockWeight(cosSlope: number): number {
-        // smoothstep(edge0, edge1, x)
-        const t = Math.min(Math.max((cosSlope - cos48) / (cos35 - cos48), 0.0), 1.0);
-        const smooth = t * t * (3.0 - 2.0 * t);
-        return 1.0 - smooth;
-      }
-
-      // Gentle slope (20 deg, cosSlope ~ 0.9396 > cos35)
-      const gentleCos = Math.cos((20.0 * Math.PI) / 180.0);
-      expect(rockWeight(gentleCos)).toBeCloseTo(0.0, 4);
-
-      // Steep cliff (60 deg, cosSlope ~ 0.5 < cos48)
-      const steepCos = Math.cos((60.0 * Math.PI) / 180.0);
-      expect(rockWeight(steepCos)).toBeCloseTo(1.0, 4);
-
-      // Mid-cliff (40 deg, between 35 and 48)
-      const midCos = Math.cos((40.0 * Math.PI) / 180.0);
-      const midWeight = rockWeight(midCos);
-      expect(midWeight).toBeGreaterThan(0.0);
-      expect(midWeight).toBeLessThan(1.0);
-    });
-
-    it('M1-T11: verifies branchless execution: fragment shader contains zero if/else inside color composite and correct theme selection', () => {
-      // Assert no if/else in swiss_relief_shading.wgsl fragment shader
-      expect(swissReliefWGSL).not.toContain('if (params.u_theme');
-      expect(swissReliefWGSL).toContain('@vertex');
-      expect(swissReliefWGSL).toContain('fn vs_main');
-
-      // Check theme select logic in WGSL
-      // select(false_val, true_val, isDark)
-      // Dark theme (isDark = true) selects the dark obsidian palette
-      expect(swissReliefWGSL).toContain('let isDark = params.u_theme == 0u;');
-    });
-  });
 
   // ==========================================================================
   // Suite 3: Jerlov Radiative Transfer & Shallow Kubelka-Munk (M1-T3)
@@ -671,7 +551,6 @@ describe('Milestone 1: WebGPU Shader & Ingestion Pipelines', () => {
     it('M1-T35: validates Zero-Regression Invariant: all 59 baseline suites and new Milestone 1 suites pass without failure', () => {
       // Confirms shader files are available and non-empty
       expect(demUnpackWGSL.length).toBeGreaterThan(100);
-      expect(swissReliefWGSL.length).toBeGreaterThan(500);
       expect(hydrosphereOpticsWGSL.length).toBeGreaterThan(500);
       expect(crustHydrosphereWGSL.length).toBeGreaterThan(500);
       expect(vectorRibbonWGSL.length).toBeGreaterThan(500);

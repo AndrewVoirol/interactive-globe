@@ -163,13 +163,6 @@ describe('R18: Ocean Trenches, Bathymetry & Terrain Relief Remediation', () => {
       expect(trenchChasmWeight).toBeGreaterThan(0.9); // Strong ink absorption!
     });
 
-    it('R18-PHYS-07: verifies swiss_relief_shading.wgsl also eliminates 0.25 ocean slope suppression', () => {
-      const swissPath = path.join(projectRoot, 'src/webgpu/shaders/swiss_relief_shading.wgsl');
-      const swissSrc = fs.readFileSync(swissPath, 'utf8');
-      expect(swissSrc).not.toContain('select(-oceanDepth * 0.25, landElev, isLand > 0.45)');
-      expect(swissSrc).toContain('let bathyScale = 10924.0 / 8848.0;');
-      expect(swissSrc).toContain('let hC = select(-oceanDepth * bathyScale, landElev, isLand > 0.45);');
-    });
   });
 
   // ==========================================================================

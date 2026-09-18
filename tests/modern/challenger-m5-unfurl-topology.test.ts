@@ -1,6 +1,6 @@
 // ============================================================================
 // File: tests/modern/challenger-m5-unfurl-topology.test.ts
-// Empirical Challenger M5 Modern Suite: 5 Unfurl Modes, TopologyControlDock & WGSL Audit
+// Empirical Challenger M5 Modern Suite: 4 Unfurl Modes, TopologyControlDock & WGSL Audit
 // ============================================================================
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -18,7 +18,7 @@ import { SimulationMode } from '../../src/types';
 // Set React act environment flag
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
-describe('CHALLENGER-M5: 5 Unfurl Modes & TopologyControlDock Stress Suite', () => {
+describe('CHALLENGER-M5: 4 Unfurl Modes & TopologyControlDock Stress Suite', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -69,7 +69,6 @@ describe('CHALLENGER-M5: 5 Unfurl Modes & TopologyControlDock Stress Suite', () 
       { mode: 1, name: 'Scroll', dotClass: 'bg-slate-300' },
       { mode: 2, name: 'Griffith', dotClass: 'bg-[#C86D51]' },
       { mode: 3, name: 'Fluid', dotClass: 'bg-indigo-400' },
-      { mode: 4, name: 'Dymaxion', dotClass: 'bg-emerald-400' },
     ];
 
     for (const { mode, name, dotClass } of modes) {
@@ -108,9 +107,9 @@ describe('CHALLENGER-M5: 5 Unfurl Modes & TopologyControlDock Stress Suite', () 
       });
 
       const buttons = Array.from(container.querySelectorAll('button'));
-      const modeNames = ['Linear', 'Scroll', 'Griffith', 'Fluid', 'Dymaxion'];
+      const modeNames = ['Linear', 'Scroll', 'Griffith', 'Fluid'];
 
-      for (let expectedMode = 0; expectedMode < 5; expectedMode++) {
+      for (let expectedMode = 0; expectedMode < 4; expectedMode++) {
         const btn = buttons.find((b) => b.textContent?.trim() === modeNames[expectedMode]);
         expect(btn).toBeDefined();
 
@@ -121,7 +120,7 @@ describe('CHALLENGER-M5: 5 Unfurl Modes & TopologyControlDock Stress Suite', () 
         expect(onModeChange).toHaveBeenLastCalledWith(expectedMode);
       }
 
-      expect(onModeChange).toHaveBeenCalledTimes(5);
+      expect(onModeChange).toHaveBeenCalledTimes(4);
     });
 
     it('CHALLENGE-STRESS-01: executes 1,000 rapid randomized mode transitions without crashing or memory leaks', async () => {
@@ -138,7 +137,6 @@ describe('CHALLENGER-M5: 5 Unfurl Modes & TopologyControlDock Stress Suite', () 
         buttons.find((b) => b.textContent?.trim() === 'Scroll'),
         buttons.find((b) => b.textContent?.trim() === 'Griffith'),
         buttons.find((b) => b.textContent?.trim() === 'Fluid'),
-        buttons.find((b) => b.textContent?.trim() === 'Dymaxion'),
       ];
 
       expect(modeButtons.every(Boolean)).toBe(true);
@@ -146,7 +144,7 @@ describe('CHALLENGER-M5: 5 Unfurl Modes & TopologyControlDock Stress Suite', () 
       // Perform 1000 randomized clicks
       let lastTarget = 0;
       for (let i = 0; i < 1000; i++) {
-        const targetMode = Math.floor(Math.random() * 5);
+        const targetMode = Math.floor(Math.random() * 4);
         modeButtons[targetMode]?.click();
         lastTarget = targetMode;
       }
@@ -160,17 +158,7 @@ describe('CHALLENGER-M5: 5 Unfurl Modes & TopologyControlDock Stress Suite', () 
   // 3. Tissot Telemetry Tensor Behavior across Modes
   // --------------------------------------------------------------------------
   describe('3. Tissot Telemetry Invariants across Unfurl Modes', () => {
-    it('CHALLENGE-TISSOT-01: displays Isomeric tensor metrics for Mode 4 (Dymaxion)', async () => {
-      const props = createProps({ mode: 4, showTissot: true });
 
-      await act(async () => {
-        root.render(React.createElement(TopologyControlDock, props));
-      });
-
-      expect(container.textContent).toContain('Distortion Tensor');
-      expect(container.textContent).toContain('Isomeric (s ≈ 1.04x)');
-      expect(container.textContent).toContain('1.041x');
-    });
 
     it('CHALLENGE-TISSOT-02: displays Morphing Tensor metrics for Modes 0, 1, 2, 3', async () => {
       for (const m of [0, 1, 2, 3] as SimulationMode[]) {

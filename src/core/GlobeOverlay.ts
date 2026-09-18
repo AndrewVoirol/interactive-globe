@@ -10,7 +10,6 @@
  */
 
 import { Vector3 } from './math/cameraMath';
-import { projectToDymaxion2D } from '../utils/dymaxion';
 
 export const RADIUS = 5.0;
 const PI = Math.PI;
@@ -184,7 +183,7 @@ function computeCurlNoiseTS(p: [number, number, number], time: number): [number,
 
 /**
  * Evaluates the exact dynamic position of a geographic point (lon, lat) at morph progress alpha
- * across any of the 5 simulation paradigms (0=Linear, 1=Scroll, 2=Griffith, 3=Fluid, 4=Dymaxion)
+ * across any of the 4 simulation paradigms (0=Linear, 1=Scroll, 2=Griffith, 3=Fluid)
  */
 export function evaluatePointMorph(
   lon: number,
@@ -202,20 +201,7 @@ export function evaluatePointMorph(
   const clampedAlpha = Math.max(0, Math.min(1, alpha));
   const ease = clampedAlpha * clampedAlpha * (3 - 2 * clampedAlpha);
 
-  if (mode === 4) {
-    // Mode 4: Fuller Dymaxion
-    const [dymX, dymY] = projectToDymaxion2D(p3D);
-    const arch = Math.sin(PI * ease) * 0.45;
-    const normLen = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
-    const nx = p3D[0] / normLen;
-    const ny = p3D[1] / normLen;
-    const nz = p3D[2] / normLen;
-    return [
-      (1 - ease) * p3D[0] + ease * dymX + nx * arch,
-      (1 - ease) * p3D[1] + ease * dymY + ny * arch,
-      (1 - ease) * p3D[2] + ease * 0.0 + nz * arch,
-    ];
-  } else if (mode === 1) {
+  if (mode === 1) {
     // Mode 1: Constant-Radius Cylindrical Scroll with Taylor Expansion Guard
     const t = ease;
     const lambda = (lon * PI) / 180;
