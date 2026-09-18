@@ -62,6 +62,8 @@ Dynamic exponent and attenuation curves must match across all shaders.
 - **No monolithic mandates.** Swarms must NOT be launched touching ingestion, tessellation, atmosphere, and fragment shaders simultaneously.
 - **Sequential milestones.** Stage 1 → Stage 2 → Stage 3. No progression until the current stage passes visual review.
 - **Cooling down.** Agents pause, report live MCP captures, and cool down context at each gate.
+- **Mechanical enforcement over prose instructions.** Phase ordering MUST be enforced via `.agents/hooks.json` lifecycle hooks (`PreToolUse` deny gates, `Stop` continuation gates), not just prose instructions in prompts. Prose temporal instructions ("do M3 before M4") get blurred under token pressure. Hooks are deterministic.
+- **Disjoint file scopes for parallel workers.** When two or more workers execute in parallel, define exclusive file ownership per worker in a reference doc under `.agents/skills/`. Workers must NOT touch files outside their assigned scope. This prevents merge conflicts without requiring branch isolation.
 
 ## 12. Iterative Correction Without Pendulum Swings
 When the user reports a visual problem (e.g., "mountains are too spiky"), fix the specific problem without destroying the opposite quality. Do not swing from "too spiky" to "too flat." Make incremental adjustments and show the result before making further changes.
@@ -99,7 +101,7 @@ Theme switching must NEVER trigger pipeline recompilation. All medium parameters
 
 ## 20. Domain-Specific Skills (On-Demand)
 For detailed technical rules in specific domains, consult the appropriate skill:
-- **Shader engineering**: `.agents/skills/shader-engineering/SKILL.md` — WGSL alignment, texture formats, derivative evaluation, polar singularities, hydrosphere optics, relief shading, hypsometric ramps.
+- **Shader pipeline**: `.agents/skills/shader-pipeline/SKILL.md` — WebGPU shader refactoring, evaluateManifold unification, CDLOD culling, horizon falloff, Mode 4 excision audit, visual capture protocol.
 - **Data pipeline**: `.agents/skills/data-pipeline/SKILL.md` — Zarr ingestion, ring buffers, DEM resolution, Web Mercator reprojection, Float16 encoding, row pitch alignment.
 - **HUD layout**: `.agents/skills/hud-layout/SKILL.md` — Cascading offsets, responsive breakpoints, drawer partitioning, accessibility, chronometric scrubbers.
 - **Test integrity**: `.agents/skills/adversarial-challenger-protocol/SKILL.md` — Anti-cheating, test import integrity, defect injection, Monte Carlo fuzzing.
@@ -140,3 +142,10 @@ Inside continuous animation loops, `engine.render()`, and `updateUniforms()` cal
 - **Zero Allocations in Frame Loop**: NEVER instantiate `ArrayBuffer`, `Float32Array`, `Uint32Array`, or new typed array slice views (`new Uint32Array(buf, offset, len)`) per frame.
 - **Preallocated Class Instance Mirrors**: Preallocate static typed array mirror buffers on the engine class instance during `initialize()`.
 - **In-Place Mutation**: Update uniform state exclusively by mutating preallocated mirrors via index assignment or `.set()`, and upload to WebGPU using `device.queue.writeBuffer()`.
+
+## 27. Closed-Loop Research-to-Implementation Contracts
+When a research phase (`/boost`) feeds a subsequent implementation phase (`/teamwork-preview`), the research must emit a **spec ledger** — a machine-readable file at the project root containing exact mathematical formulas, WGSL function signatures, uniform layouts, and calibrated constants.
+- **No prose-only research.** Academic background and literature reviews go in a separate dossier. The spec ledger contains ONLY implementable specifications with checkboxes.
+- **Binding contract.** The implementation phase prompt must explicitly reference the spec ledger by filename and section number (e.g., "Implement the horizon falloff function from `SHADERS_SPEC_LEDGER.md §1`"). Implementation workers are bound to implement what the ledger specifies — they must not re-derive or improvise alternative formulas.
+- **Human gate between phases.** The user must review and approve the spec ledger before the implementation phase launches. If the formulas are wrong, the implementation swarm will implement wrong formulas with mechanical precision.
+- **Ephemeral reminder hook.** When a spec ledger exists on disk, a `PreInvocation` hook in `.agents/hooks.json` should inject an ephemeral reminder so every agent invocation is aware of the active contract.
