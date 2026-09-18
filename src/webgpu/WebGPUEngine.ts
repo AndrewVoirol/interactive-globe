@@ -188,24 +188,14 @@ export interface QuadtreeNodeData {
   radius: number;
   minU: number;
   minV: number;
-  size: number;
-  rangeL: number;
-  faceIndex: number;
+  sizeU: number;
+  sizeV: number;
   lod: number;
+  morphStart: number;
+  invMorphRange: number;
+  rangeL: number;
   hasChildren: boolean;
   childRangeL: number;
-}
-
-export function cubeFaceToSphereCartesian(face: number, u: number, v: number): [number, number, number] {
-  switch (face) {
-    case 0: return [1.0, -v, -u];
-    case 1: return [-1.0, -v, u];
-    case 2: return [u, 1.0, v];
-    case 3: return [u, -1.0, -v];
-    case 4: return [u, -v, 1.0];
-    case 5: return [-u, -v, -1.0];
-    default: return [0, 0, 1];
-  }
 }
 
 export class WebGPUEngine {
@@ -216,7 +206,7 @@ export class WebGPUEngine {
   private format!: GPUTextureFormat;
 
   // ==========================================================================
-  // Section: CDLOD Quadsphere Architecture & Watertight Geomorphing
+  // Section: 2:1 Parametric Cylindrical CDLOD Quadtree & Watertight Geomorphing
   // ==========================================================================
   public cdlodEnabled: boolean = false;
   public camera: any = null;
@@ -255,10 +245,12 @@ export class WebGPUEngine {
     radius: 0,
     minU: 0,
     minV: 0,
-    size: 0,
-    rangeL: 0,
-    faceIndex: 0,
+    sizeU: 0,
+    sizeV: 0,
     lod: 0,
+    morphStart: 0,
+    invMorphRange: 0,
+    rangeL: 0,
     hasChildren: false,
     childRangeL: 0,
   }));
@@ -267,7 +259,7 @@ export class WebGPUEngine {
   public lastCameraAltitudeKm: number = 10000;
   public lastMaxLodSeen: number = 1;
   public cdlodMaxLod: number = 12;
-  public cdlodLodRanges: number[] = Array.from({ length: 13 }, (_, l) => 28.0 / Math.pow(2, l));
+  public cdlodLodRanges: number[] = Array.from({ length: 14 }, (_, l) => 56.0 / Math.pow(2, l));
   public cdlodBuffersInitialized: boolean = false;
 
   private particleBuffers: [GPUBuffer, GPUBuffer] = [null!, null!];
@@ -1381,10 +1373,10 @@ export class WebGPUEngine {
     if (!this.device || this.cdlodBuffersInitialized) return;
     this.cdlodBuffersInitialized = true;
 
-    // Precalculate dyadic LOD distance ranges: R_L = 28.0 / 2^L
+    // Precalculate dyadic LOD distance ranges: R_L = 56.0 / 2^L
     this.cdlodLodRanges = [];
-    for (let l = 0; l <= 12; l++) {
-      this.cdlodLodRanges.push(28.0 / Math.pow(2, l));
+    for (let l = 0; l <= this.cdlodMaxLod + 1; l++) {
+      this.cdlodLodRanges.push(56.0 / Math.pow(2, l));
     }
 
     // Preallocate node pool for Zero-GC quadtree traversal (Rule 26)
@@ -1395,10 +1387,12 @@ export class WebGPUEngine {
         radius: 0,
         minU: 0,
         minV: 0,
-        size: 0,
-        rangeL: 0,
-        faceIndex: 0,
+        sizeU: 0,
+        sizeV: 0,
         lod: 0,
+        morphStart: 0,
+        invMorphRange: 0,
+        rangeL: 0,
         hasChildren: false,
         childRangeL: 0,
       });
@@ -1441,7 +1435,7 @@ export class WebGPUEngine {
     // 4. Instance buffer (written by culling compute, read by vertex shader)
     this.cdlodInstanceBuffer = this.device.createBuffer({
       label: 'cdlod_instance_buffer',
-      size: WebGPUEngine.CDLOD_MAX_INSTANCES * 48,
+      size: WebGPUEngine.CDLOD_MAX_INSTANCES * 32,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
@@ -1549,6 +1543,78 @@ export class WebGPUEngine {
     return this.cdlodEnabled;
   }
 
+  public static evaluateManifoldPosition(
+    u: number,
+    v: number,
+    mode: number,
+    unfurl: number,
+    radius = 5.0
+  ): [number, number, number] {
+    const TWO_PI = 2.0 * Math.PI;
+    const PI = Math.PI;
+    const lonRad = (u - 0.5) * TWO_PI;
+    const latRad = (0.5 - v) * PI;
+
+    const cosLat = Math.cos(latRad);
+    const sinLat = Math.sin(latRad);
+    const cosLon = Math.cos(lonRad);
+    const sinLon = Math.sin(lonRad);
+
+    const p3D: [number, number, number] = [
+      radius * cosLat * sinLon,
+      radius * sinLat,
+      radius * cosLat * cosLon,
+    ];
+
+    const clampedLat = Math.max(-1.4835, Math.min(1.4835, latRad));
+    const mercatorY = Math.log(Math.tan(PI * 0.25 + clampedLat * 0.5)) * radius;
+    const mercatorX = lonRad * radius;
+    const p2D: [number, number, number] = [mercatorX, mercatorY, 0.015];
+
+    const clampedUnfurl = Math.max(0.0, Math.min(1.0, unfurl));
+    const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+
+    if (mode === 1) {
+      // Mode 1: Cylindrical Scroll
+      const oneMinusT = 1.0 - ease;
+      if (oneMinusT > 0.001) {
+        const invOneMinusT = 1.0 / oneMinusT;
+        const curAngle = oneMinusT * lonRad;
+        const curX = (radius * invOneMinusT) * Math.sin(curAngle);
+        const curZ = (radius * cosLat * invOneMinusT) * (Math.cos(curAngle) - 1.0) + (radius * cosLat * oneMinusT);
+        const curY = p3D[1] * (1.0 - ease) + p2D[1] * ease;
+        return [curX, curY, curZ];
+      } else {
+        const uTaylor = oneMinusT * lonRad;
+        const sinTerm = lonRad * (1.0 - (uTaylor * uTaylor) / 6.0);
+        const cosTerm = oneMinusT * (lonRad * lonRad) * (-0.5 + (uTaylor * uTaylor) / 24.0);
+        const curX = radius * sinTerm;
+        const curZ = radius * cosLat * cosTerm + radius * cosLat * oneMinusT;
+        const curY = p3D[1] * (1.0 - ease) + p2D[1] * ease;
+        return [curX, curY, curZ];
+      }
+    } else if (mode === 4) {
+      // Mode 4: Fuller Dymaxion Arch
+      const arch = Math.sin(PI * clampedUnfurl) * 0.45;
+      const len = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
+      const normX = p3D[0] / len;
+      const normY = p3D[1] / len;
+      const normZ = p3D[2] / len;
+      return [
+        p3D[0] * (1.0 - ease) + p2D[0] * ease + normX * arch,
+        p3D[1] * (1.0 - ease) + p2D[1] * ease + normY * arch,
+        p3D[2] * (1.0 - ease) + p2D[2] * ease + normZ * arch,
+      ];
+    } else {
+      // Mode 0: Linear Manifold Mix
+      return [
+        p3D[0] * (1.0 - ease) + p2D[0] * ease,
+        p3D[1] * (1.0 - ease) + p2D[1] * ease,
+        p3D[2] * (1.0 - ease) + p2D[2] * ease,
+      ];
+    }
+  }
+
   public getNadirVertexSpacingMeters(altitudeKm: number): number {
     const d = altitudeKm / 1274.2;
     let lod = 1;
@@ -1560,8 +1626,7 @@ export class WebGPUEngine {
       }
     }
     const earthCircumferenceMeters = 2 * Math.PI * 6371000;
-    const faceArcLengthMeters = earthCircumferenceMeters / 4;
-    const nodeWidthMeters = faceArcLengthMeters / Math.pow(2, lod);
+    const nodeWidthMeters = (earthCircumferenceMeters * 0.5) / Math.pow(2, lod);
     return nodeWidthMeters / 64.0;
   }
 
@@ -1605,7 +1670,7 @@ export class WebGPUEngine {
     planes[0] = camX;
     planes[1] = camY;
     planes[2] = camZ;
-    planes[3] = 1.0;
+    planes[3] = unfurl;
 
     let m0 = 1, m1 = 0, m2 = 0, m3 = 0;
     let m4 = 0, m5 = 1, m6 = 0, m7 = 0;
@@ -1673,33 +1738,46 @@ export class WebGPUEngine {
     let maxLodSeen = 1;
 
     const traverseNode = (
-      faceIndex: number,
       lod: number,
       minU: number,
       minV: number,
-      size: number
+      sizeU: number,
+      sizeV: number
     ) => {
       if (this.cdlodActiveNodeCount >= WebGPUEngine.CDLOD_MAX_NODES) return;
 
-      const uMid = minU + size * 0.5;
-      const vMid = minV + size * 0.5;
-      const pMid = cubeFaceToSphereCartesian(faceIndex, uMid, vMid);
-      const lenMid = Math.hypot(pMid[0], pMid[1], pMid[2]);
-      const cx = (pMid[0] / lenMid) * 5.0;
-      const cy = (pMid[1] / lenMid) * 5.0;
-      const cz = (pMid[2] / lenMid) * 5.0;
+      const uMid = minU + sizeU * 0.5;
+      const vMid = minV + sizeV * 0.5;
+      const pMid = WebGPUEngine.evaluateManifoldPosition(uMid, vMid, mode, unfurl);
+      const cx = pMid[0];
+      const cy = pMid[1];
+      const cz = pMid[2];
 
-      const c0 = cubeFaceToSphereCartesian(faceIndex, minU, minV);
-      const len0 = Math.hypot(c0[0], c0[1], c0[2]);
-      const c0x = (c0[0] / len0) * 5.0;
-      const c0y = (c0[1] / len0) * 5.0;
-      const c0z = (c0[2] / len0) * 5.0;
-      const radius = Math.hypot(c0x - cx, c0y - cy, c0z - cz) * 1.15 + 0.008;
+      const c0 = WebGPUEngine.evaluateManifoldPosition(minU, minV, mode, unfurl);
+      const c1 = WebGPUEngine.evaluateManifoldPosition(minU + sizeU, minV, mode, unfurl);
+      const c2 = WebGPUEngine.evaluateManifoldPosition(minU, minV + sizeV, mode, unfurl);
+      const c3 = WebGPUEngine.evaluateManifoldPosition(minU + sizeU, minV + sizeV, mode, unfurl);
 
+      const e0 = WebGPUEngine.evaluateManifoldPosition(uMid, minV, mode, unfurl);
+      const e1 = WebGPUEngine.evaluateManifoldPosition(uMid, minV + sizeV, mode, unfurl);
+      const e2 = WebGPUEngine.evaluateManifoldPosition(minU, vMid, mode, unfurl);
+      const e3 = WebGPUEngine.evaluateManifoldPosition(minU + sizeU, vMid, mode, unfurl);
+
+      const maxDist = Math.max(
+        Math.hypot(c0[0] - cx, c0[1] - cy, c0[2] - cz),
+        Math.hypot(c1[0] - cx, c1[1] - cy, c1[2] - cz),
+        Math.hypot(c2[0] - cx, c2[1] - cy, c2[2] - cz),
+        Math.hypot(c3[0] - cx, c3[1] - cy, c3[2] - cz),
+        Math.hypot(e0[0] - cx, e0[1] - cy, e0[2] - cz),
+        Math.hypot(e1[0] - cx, e1[1] - cy, e1[2] - cz),
+        Math.hypot(e2[0] - cx, e2[1] - cy, e2[2] - cz),
+        Math.hypot(e3[0] - cx, e3[1] - cy, e3[2] - cz)
+      );
+      const radius = maxDist * 1.15 + 0.05;
       const effectiveRadius = radius + fluidDisplacement;
 
-      // Mode 0: Planetary Horizon Occlusion Culling
-      if (mode === 0) {
+      // Mode 0: Planetary Horizon Occlusion Culling (only valid on undeformed sphere when unfurl < 0.01)
+      if (mode === 0 && unfurl < 0.01) {
         const cDotCam = cx * camX + cy * camY + cz * camZ;
         if (cDotCam + effectiveRadius * camDistToCenter < 24.5) {
           return;
@@ -1716,47 +1794,75 @@ export class WebGPUEngine {
       }
 
       const camDist = Math.hypot(camX - cx, camY - cy, camZ - cz);
-      const surfaceDist = Math.max(
-        mode === 0 ? Math.max(0, camDistToCenter - 5.0) : 0,
+      let surfaceDist = Math.max(
+        (mode === 0 && unfurl < 0.01) ? Math.max(0, camDistToCenter - 5.0) : 0,
         camDist - effectiveRadius
       );
+
+      // Enforce horizontal periodic wrap: at u = 0.0 and u = 1.0, neighboring nodes on the globe must maintain identical subdivision levels
+      if (minU <= 1e-6) {
+        const wrapMidU = 1.0 - sizeU * 0.5;
+        const wrapPMid = WebGPUEngine.evaluateManifoldPosition(wrapMidU, vMid, mode, unfurl);
+        const wrapCamDist = Math.hypot(camX - wrapPMid[0], camY - wrapPMid[1], camZ - wrapPMid[2]);
+        const wrapSurfaceDist = Math.max(
+          (mode === 0 && unfurl < 0.01) ? Math.max(0, camDistToCenter - 5.0) : 0,
+          wrapCamDist - effectiveRadius
+        );
+        surfaceDist = Math.min(surfaceDist, wrapSurfaceDist);
+      } else if (minU + sizeU >= 1.0 - 1e-6) {
+        const wrapMidU = sizeU * 0.5;
+        const wrapPMid = WebGPUEngine.evaluateManifoldPosition(wrapMidU, vMid, mode, unfurl);
+        const wrapCamDist = Math.hypot(camX - wrapPMid[0], camY - wrapPMid[1], camZ - wrapPMid[2]);
+        const wrapSurfaceDist = Math.max(
+          (mode === 0 && unfurl < 0.01) ? Math.max(0, camDistToCenter - 5.0) : 0,
+          wrapCamDist - effectiveRadius
+        );
+        surfaceDist = Math.min(surfaceDist, wrapSurfaceDist);
+      }
+
       const rangeL = this.cdlodLodRanges[lod];
       const childRangeL = lod < this.cdlodMaxLod ? this.cdlodLodRanges[lod + 1] : 0;
-
       const shouldSubdivide = lod < this.cdlodMaxLod && surfaceDist < childRangeL;
 
       if (shouldSubdivide) {
-        const half = size * 0.5;
-        traverseNode(faceIndex, lod + 1, minU, minV, half);
-        traverseNode(faceIndex, lod + 1, minU + half, minV, half);
-        traverseNode(faceIndex, lod + 1, minU, minV + half, half);
-        traverseNode(faceIndex, lod + 1, minU + half, minV + half, half);
+        const halfU = sizeU * 0.5;
+        const halfV = sizeV * 0.5;
+        traverseNode(lod + 1, minU, minV, halfU, halfV);
+        traverseNode(lod + 1, minU + halfU, minV, halfU, halfV);
+        traverseNode(lod + 1, minU, minV + halfV, halfU, halfV);
+        traverseNode(lod + 1, minU + halfU, minV + halfV, halfU, halfV);
       } else {
         if (lod > maxLodSeen) maxLodSeen = lod;
         const poolIdx = this.cdlodActiveNodeCount++;
         const node = this.cdlodNodePool[poolIdx];
+
+        const mu = 0.35;
+        const morphStart = lod > 0 ? rangeL * (1.0 - mu) : 1e9;
+        const morphEnd = rangeL;
+        const invMorphRange = lod > 0 ? 1.0 / (morphEnd - morphStart) : 0.0;
+
         node.center[0] = cx;
         node.center[1] = cy;
         node.center[2] = cz;
         node.radius = radius;
         node.minU = minU;
         node.minV = minV;
-        node.size = size;
+        node.sizeU = sizeU;
+        node.sizeV = sizeV;
         node.rangeL = rangeL;
-        node.faceIndex = faceIndex;
         node.lod = lod;
+        node.morphStart = morphStart;
+        node.invMorphRange = invMorphRange;
         node.hasChildren = false;
         node.childRangeL = childRangeL;
       }
     };
 
-    // Traverse all 6 faces starting from LOD 1 root partitions (eliminates antimeridian crossing)
-    for (let face = 0; face < 6; face++) {
-      traverseNode(face, 1, -1.0, -1.0, 1.0);
-      traverseNode(face, 1,  0.0, -1.0, 1.0);
-      traverseNode(face, 1, -1.0,  0.0, 1.0);
-      traverseNode(face, 1,  0.0,  0.0, 1.0);
-    }
+    // Traverse 2-root quadtree:
+    // Root 0 (Western Hemisphere): UV bounds [0.0, 0.0] to [0.5, 1.0].
+    // Root 1 (Eastern Hemisphere): UV bounds [0.5, 0.0] to [1.0, 1.0].
+    traverseNode(0, 0.0, 0.0, 0.5, 1.0);
+    traverseNode(0, 0.5, 0.0, 0.5, 1.0);
 
     this.lastMaxLodSeen = maxLodSeen;
     this.lastVisibleInstanceCount = this.cdlodActiveNodeCount;
@@ -1771,12 +1877,12 @@ export class WebGPUEngine {
       this.cdlodCandidateFloats[off + 3] = node.radius;
       this.cdlodCandidateFloats[off + 4] = node.minU;
       this.cdlodCandidateFloats[off + 5] = node.minV;
-      this.cdlodCandidateFloats[off + 6] = node.size;
-      this.cdlodCandidateFloats[off + 7] = node.rangeL;
-      this.cdlodCandidateUints[off + 8] = node.faceIndex;
-      this.cdlodCandidateUints[off + 9] = node.lod;
-      this.cdlodCandidateUints[off + 10] = node.hasChildren ? 1 : 0;
-      this.cdlodCandidateFloats[off + 11] = node.childRangeL;
+      this.cdlodCandidateFloats[off + 6] = node.sizeU;
+      this.cdlodCandidateFloats[off + 7] = node.sizeV;
+      this.cdlodCandidateUints[off + 8] = node.lod;
+      this.cdlodCandidateFloats[off + 9] = node.morphStart;
+      this.cdlodCandidateFloats[off + 10] = node.invMorphRange;
+      this.cdlodCandidateFloats[off + 11] = 0.0;
     }
 
     this.cdlodCullingUniformUints[30] = this.cdlodActiveNodeCount;

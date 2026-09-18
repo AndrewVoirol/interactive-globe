@@ -318,8 +318,10 @@ fn evaluateManifold(pos3D_raw: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<
     let viewDir = normalize(sim.u_cameraPos.xyz - out.pos);
     let d_cam = length(sim.u_cameraPos.xyz);
     let R_planet = 5.0;
-    let tau = dot(out.normal, viewDir) - sqrt(max(0.0, 1.0 - pow(R_planet / d_cam, 2.0)));
-    let limbAtten = select(smoothstep(0.0, 0.005, max(0.0, tau)), 1.0, tau >= 0.005);
+    let camDist = d_cam;
+    let cosHorizon = sqrt(max(0.0, 1.0 - pow(R_planet / camDist, 2.0)));
+    let tau = dot(out.normal, viewDir) - cosHorizon;
+    let limbAtten = smoothstep(0.000, 0.005, tau);
     if (normalDisplacement < 0.0) {
         normalDisplacement = normalDisplacement * limbAtten;
     }

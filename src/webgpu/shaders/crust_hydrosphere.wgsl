@@ -87,14 +87,12 @@ struct TerrainShadowUniforms {
 @group(1) @binding(4) var u_normalTexture: texture_2d<f32>;
 
 struct CDLODInstance {
-    minCoord: vec2<f32>,
-    nodeSize: f32,
-    range_L: f32,
-    center: vec3<f32>,
-    radius: f32,
-    faceIndex: u32,
+    minUV: vec2<f32>,
+    sizeUV: vec2<f32>,
     lod: u32,
-    _pad: vec2<f32>,
+    morphStart: f32,
+    invMorphRange: f32,
+    lodFraction: f32,
 };
 
 struct CDLODControlUniforms {
@@ -127,6 +125,7 @@ struct VertexOutput {
 
 const PI: f32 = 3.14159265358979323846;
 const PI_F32: f32 = 3.14159265358979323846;
+const TWO_PI_F32: f32 = 6.28318530717958647692;
 const INV_PI_F32: f32 = 0.31830988618379067154;
 const INV_TWO_PI_F32: f32 = 0.15915494309189533577;
 const EARTH_RADIUS_M: f32 = 6371000.0;
@@ -529,32 +528,42 @@ struct DeformedVertex {
     normal: vec3<f32>,
 };
 
-fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>) -> DeformedVertex {
+fn evaluateManifold(uv: vec2<f32>, unfurl: f32, mode: u32) -> DeformedVertex {
     var out: DeformedVertex;
-    let clampedUnfurl = clamp(sim.u_unfurl, 0.0, 1.0);
+    let clampedUnfurl = clamp(unfurl, 0.0, 1.0);
     let ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
-    let pos2D = vec3<f32>(target2D.x, target2D.y, 0.015);
 
-    let curR = max(length(pos3D), 0.001);
-    let lambda = atan2(pos3D.x, pos3D.z);
-    let phi = asin(clamp(pos3D.y / curR, -0.9998, 0.9998));
+    let lambda = (uv.x - 0.5) * TWO_PI_F32;
+    let phi = (0.5 - uv.y) * PI_F32;
 
-    if (sim.u_mode == 1u) {
+    let cosLat = cos(phi);
+    let sinLat = sin(phi);
+    let cosLon = cos(lambda);
+    let sinLon = sin(lambda);
+
+    let pos3D = vec3<f32>(RADIUS * cosLat * sinLon, RADIUS * sinLat, RADIUS * cosLat * cosLon);
+
+    let clampedPhi = clamp(phi, -1.4835, 1.4835);
+    let mercatorY = log(tan(PI_F32 * 0.25 + clampedPhi * 0.5)) * RADIUS;
+    let mercatorX = lambda * RADIUS;
+    let pos2D = vec3<f32>(mercatorX, mercatorY, 0.015);
+
+    if (mode == 1u) {
         // Mode 1: Cylindrical Scroll Unfurling
         let oneMinusT = 1.0 - ease;
         if (oneMinusT > 0.001) {
             let invOneMinusT = 1.0 / oneMinusT;
             let curAngle = oneMinusT * lambda;
-            let curX = (curR * invOneMinusT) * sin(curAngle);
-            let curZ = (curR * cos(phi) * invOneMinusT) * (cos(curAngle) - 1.0) + (curR * cos(phi) * oneMinusT);
+            let curX = (RADIUS * invOneMinusT) * sin(curAngle);
+            let curZ = (RADIUS * cosLat * invOneMinusT) * (cos(curAngle) - 1.0) + (RADIUS * cosLat * oneMinusT);
             let curY = mix(pos3D.y, pos2D.y, ease);
             out.pos = vec3<f32>(curX, curY, curZ);
 
-            let T_lambda = vec3<f32>(curR * cos(curAngle), 0.0, -curR * cos(phi) * sin(curAngle));
+            let T_lambda = vec3<f32>(RADIUS * cos(curAngle), 0.0, -RADIUS * cosLat * sin(curAngle));
             let T_phi = vec3<f32>(
                 0.0,
-                mix(curR * cos(phi), curR / max(cos(phi), 0.05), ease),
-                -curR * sin(phi) * invOneMinusT * (cos(curAngle) - 1.0) - curR * sin(phi) * oneMinusT
+                mix(RADIUS * cosLat, RADIUS / max(cosLat, 0.05), ease),
+                -RADIUS * sinLat * invOneMinusT * (cos(curAngle) - 1.0) - RADIUS * sinLat * oneMinusT
             );
             let rawNorm = cross(T_lambda, T_phi);
             out.normal = select(normalize(pos3D), normalize(rawNorm), length(rawNorm) > 0.0001);
@@ -562,21 +571,21 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
             let u = oneMinusT * lambda;
             let sinTerm = lambda * (1.0 - (u * u) / 6.0);
             let cosTerm = oneMinusT * (lambda * lambda) * (-0.5 + (u * u) / 24.0);
-            let curX = curR * sinTerm;
-            let curZ = curR * cos(phi) * cosTerm + curR * cos(phi) * oneMinusT;
+            let curX = RADIUS * sinTerm;
+            let curZ = RADIUS * cosLat * cosTerm + RADIUS * cosLat * oneMinusT;
             let curY = mix(pos3D.y, pos2D.y, ease);
             out.pos = vec3<f32>(curX, curY, curZ);
             out.normal = vec3<f32>(0.0, 0.0, 1.0);
         }
-    } else if (sim.u_mode == 2u) {
+    } else if (mode == 2u) {
         // Mode 2: Griffith LEFM
-        let distToSeam = PI - abs(lambda);
+        let distToSeam = PI_F32 - abs(lambda);
         let seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
         let tRupture = 0.18;
 
         let hitDist = length(pos3D - sim.u_cursorHitPos.xyz);
         let cursorInfluence = sim.u_cursorActive * exp(-hitDist * hitDist / (2.0 * 0.64));
-        let hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cos(phi) * cos(phi));
+        let hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cosLat * cosLat);
 
         if (ease < tRupture) {
             let strainProgress = ease / tRupture;
@@ -591,12 +600,12 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
             out.pos = mix(pos3D, pos2D, postRuptureT) + vec3<f32>(0.0, 0.0, flutterAmp);
             out.normal = mix(normalize(pos3D), vec3<f32>(0.0, 0.0, 1.0), postRuptureT);
         }
-    } else if (sim.u_mode == 3u) {
+    } else if (mode == 3u) {
         // Mode 3: Fluid Advection
-        let rawSin = sin(PI * clampedUnfurl);
+        let rawSin = sin(PI_F32 * clampedUnfurl);
         let liquefaction = pow(max(0.0, rawSin), 1.15);
         let unElevatedSphere = normalize(pos3D) * RADIUS;
-        let basePos = mix(unElevatedSphere, vec3<f32>(target2D.x, target2D.y, 0.0), ease);
+        let basePos = mix(unElevatedSphere, vec3<f32>(mercatorX, mercatorY, 0.0), ease);
         let naturalVel = computeCurlNoise(basePos, sim.u_time);
 
         let hitDist = length(basePos - sim.u_cursorHitPos.xyz);
@@ -616,12 +625,11 @@ fn evaluateManifold(pos3D: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<f32>
         let advectionOffset = naturalVel * (liquefaction * 1.55) + silkDrape + (vortexVelocity + wakeAdvection) * (sim.u_cursorActive * 0.25);
         out.pos = basePos + advectionOffset + surfaceNormal * 0.015;
         out.normal = mix(normalize(unElevatedSphere + silkDrape * 0.5), vec3<f32>(0.0, 0.0, 1.0), ease);
-    } else if (sim.u_mode == 4u) {
+    } else if (mode == 4u) {
         // Mode 4: Fuller Dymaxion Polyhedral Net
-        let dymaxionPos2D = vec3<f32>(dymaxion2D.x, dymaxion2D.y, 0.015);
-        let arch = sin(PI * clampedUnfurl) * 0.45;
+        let arch = sin(PI_F32 * clampedUnfurl) * 0.45;
         let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
-        out.pos = mix(pos3D, dymaxionPos2D, ease) + sphereNorm * arch;
+        out.pos = mix(pos3D, pos2D, ease) + sphereNorm * arch;
         out.normal = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
     } else {
         // Mode 0: Linear Manifold Mix
@@ -702,83 +710,54 @@ fn sampleRegionalComposite(uv: vec2<f32>, globalSample: vec4<f32>, lod: f32) -> 
     return mix(globalSample, regSample, weight);
 }
 
-fn cubeFaceToSphere(face: u32, uv: vec2<f32>) -> vec3<f32> {
-    let u = uv.x;
-    let v = uv.y;
-    var p = vec3<f32>(0.0, 0.0, 0.0);
-    switch (face) {
-        case 0u: { p = vec3<f32>(1.0, -v, -u); }
-        case 1u: { p = vec3<f32>(-1.0, -v, u); }
-        case 2u: { p = vec3<f32>(u, 1.0, v); }
-        case 3u: { p = vec3<f32>(u, -1.0, -v); }
-        case 4u: { p = vec3<f32>(u, -v, 1.0); }
-        case 5u: { p = vec3<f32>(-u, -v, -1.0); }
-        default: { p = vec3<f32>(0.0, 0.0, 1.0); }
-    }
-    return p;
-}
-
 @vertex
 fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> VertexOutput {
     var output: VertexOutput;
 
-    var inPos = input.position;
     var inUv = input.uv;
     var inSurfaceType = input.surfaceType;
-    var t2D = input.target2D.xy;
     var d2D = input.target2D.zw;
 
+    var deformed: DeformedVertex;
+    var inst: CDLODInstance;
+    var instLod: f32 = 0.0;
+
     if (u_cdlodControl.u_cdlodActive == 1u) {
-        let inst = cdlodInstances[instanceIdx];
-        let K = 64.0;
-        let p_unmorphed = input.position.xy;
-        let uv_cube_unmorphed = inst.minCoord + p_unmorphed * inst.nodeSize;
-        let s_unmorphed = normalize(cubeFaceToSphere(inst.faceIndex, uv_cube_unmorphed));
-        let pos3D_unmorphed = s_unmorphed * RADIUS;
+        inst = cdlodInstances[instanceIdx];
+        let p = input.position.xy;
 
-        let lambda_u = atan2(s_unmorphed.x, s_unmorphed.z);
-        let phi_u = asin(clamp(s_unmorphed.y, -0.9998, 0.9998));
-        let clampedPhi_u = clamp(phi_u, -1.4835, 1.4835);
-        let mercatorY_u = log(tan(PI * 0.25 + clampedPhi_u * 0.5)) * RADIUS;
-        let mercatorX_u = lambda_u * RADIUS;
-        let t2D_u = vec2<f32>(mercatorX_u, mercatorY_u);
-        let deformed_u = evaluateManifold(pos3D_unmorphed, t2D_u, vec2<f32>(0.0, 0.0));
+        // Evaluate unmorphed coordinate & world position to compute camera distance r
+        let uv_unmorphed = inst.minUV + p * inst.sizeUV;
+        let unmorphed = evaluateManifold(uv_unmorphed, sim.u_unfurl, sim.u_mode);
+        let r = length(unmorphed.pos - sim.u_cameraPos.xyz);
 
-        // Continuous morph factor:
-        // alpha = clamp((dist - (1.0 - mu) * R_L) / (mu * R_L), 0.0, 1.0) with morph margin mu = 0.35.
-        let mu = 0.35;
-        let dist = length(sim.u_cameraPos.xyz - deformed_u.pos);
-        let R_L = inst.range_L;
-        let alpha = clamp((dist - (1.0 - mu) * R_L) / (mu * R_L), 0.0, 1.0);
+        // Morph factor alpha
+        let alpha = clamp((r - inst.morphStart) * inst.invMorphRange, 0.0, 1.0);
 
-        // 2D parametric coordinate snapping: displace odd grid vertices toward adjacent even vertices prior to manifold projection:
-        // p_morphed = p - alpha * (fract(p * (K * 0.5)) * (2.0 / K));
-        let p_morphed = p_unmorphed - alpha * (fract(p_unmorphed * (K * 0.5)) * (2.0 / K));
+        // Snap odd grid coordinates in parameter space
+        let p_morphed = p - alpha * (fract(p * 32.0) * (1.0 / 32.0));
 
-        // Project morphed parameters into spherical (Mode 0) or Mercator planar (Mode 1) coordinates seamlessly.
-        let uv_cube = inst.minCoord + p_morphed * inst.nodeSize;
-        let s = normalize(cubeFaceToSphere(inst.faceIndex, uv_cube));
-        inPos = s * RADIUS;
+        // Compute global parametric coordinate
+        let uv = inst.minUV + p_morphed * inst.sizeUV;
+        inUv = uv;
 
-        let lambda = atan2(s.x, s.z);
-        let phi = asin(clamp(s.y, -0.9998, 0.9998));
-        inUv = vec2<f32>(
-            lambda * INV_TWO_PI_F32 + 0.5,
-            0.5 - phi * INV_PI_F32
-        );
+        // Continuous LOD fraction including morph progression
+        inst.lodFraction = f32(inst.lod) + alpha;
+        instLod = inst.lodFraction;
 
-        let clampedPhi = clamp(phi, -1.4835, 1.4835);
-        let mercatorY = log(tan(PI * 0.25 + clampedPhi * 0.5)) * RADIUS;
-        let mercatorX = lambda * RADIUS;
-        t2D = vec2<f32>(mercatorX, mercatorY);
+        // Pass canonical (u, v) directly into evaluateManifold
+        deformed = evaluateManifold(uv, sim.u_unfurl, sim.u_mode);
         d2D = vec2<f32>(0.0, 0.0);
+    } else {
+        deformed = evaluateManifold(inUv, sim.u_unfurl, sim.u_mode);
+        let patchDistPre = length(sim.u_cameraPos.xyz - deformed.pos);
+        inst.lodFraction = clamp(log2(max(1.0, patchDistPre * 0.2)), 0.0, 4.0);
+        instLod = inst.lodFraction;
     }
 
     output.uv = inUv;
     output.surfaceType = inSurfaceType;
 
-    // Dynamic manifold base position across 5 paradigms
-    let deformed = evaluateManifold(inPos, t2D, d2D);
     let basePos = deformed.pos;
     let baseNormal = deformed.normal;
 
@@ -787,20 +766,20 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
     let patchDist = length(sim.u_cameraPos.xyz - basePos);
     let patchLOD = clamp(log2(max(1.0, patchDist * 0.2)), 0.0, 4.0);
 
-    let demSampleGlobal = textureSampleLevel(u_demTexture, u_demSampler, inUv, patchLOD);
-    let demSample = sampleRegionalComposite(inUv, demSampleGlobal, patchLOD);
-    let elevMeters = decodeElevation(demSample);
+    let uv = inUv;
+    let demSample = textureSampleLevel(u_demTexture, u_demSampler, uv, inst.lodFraction);
+    let demSampleComp = sampleRegionalComposite(uv, demSample, instLod);
+    let elevMeters = decodeElevation(demSampleComp);
     output.elevation = elevMeters;
 
     // Liquid Hydrosphere shell: conforms to dynamic lake datum or global sea level
     let hydroSample = textureSampleLevel(u_hydroTexture, u_demSampler, inUv, 0.0);
     let z_lake = hydroSample.g * 9000.0;
     let isLake = z_lake > 0.0;
-    let waterLevel = sim.u_seaLevel;
-    let localWaterLevel = select(waterLevel, z_lake + waterLevel, isLake);
+    let localWaterDatum = select(sim.u_seaLevel, z_lake, z_lake > 0.0);
 
     // Calculate sea level displacement
-    let depth = max(0.0, localWaterLevel - elevMeters);
+    let depth = max(0.0, localWaterDatum - elevMeters);
     output.waterDepth = depth;
 
     // Polar displacement attenuation near singularities (prevent spiky mesh artifacts in Canada/Greenland/Siberia)
@@ -812,7 +791,7 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
     var normalDisplacement = 0.0;
     let dispScale = sim.u_displacementScale * 2.8;
     if (inSurfaceType > 0.5) {
-        normalDisplacement = (localWaterLevel / 8848.0) * dispScale * poleAtten;
+        normalDisplacement = (localWaterDatum / 8848.0) * dispScale * poleAtten;
     } else {
         // Lithosphere Crust: linear geometric elevation displacement & full bathymetry (0.65 dampening removed)
         if (sim.u_verticalScaleMode == 1u) {
@@ -827,6 +806,7 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
             }
         } else {
             if (elevMeters >= 0.0) {
+                // True linear physical displacement: normalDisplacement = elevMeters * sim.u_elevationExaggeration
                 let normH = elevMeters / 8848.0;
                 normalDisplacement = normH * dispScale * poleAtten;
             } else {
@@ -838,12 +818,14 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
         }
     }
 
-    // Horizon Falloff for negative bathymetric displacement:
-    // Attenuates bathymetry smoothly at the grazing planetary limb (facing < 0.08)
-    // to prevent silhouette neatline indentations while preserving full bathymetry across the globe.
+    // Invariant §10: Grazing Horizon Parameterization for negative bathymetric displacement
     let viewDir = normalize(sim.u_cameraPos.xyz - basePos);
-    let facing = dot(baseNormal, viewDir);
-    let limbAtten = smoothstep(0.01, 0.08, facing);
+    let camDist = length(sim.u_cameraPos.xyz);
+    let d_cam = camDist;
+    let R_planet = RADIUS;
+    let cosHorizon = sqrt(max(0.0, 1.0 - pow(R_planet / camDist, 2.0)));
+    let tau = dot(baseNormal, viewDir) - cosHorizon;
+    let limbAtten = smoothstep(0.000, 0.005, tau);
     if (normalDisplacement < 0.0) {
         normalDisplacement = normalDisplacement * limbAtten;
     }
@@ -1180,11 +1162,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             discard;
         }
         // Dynamic lake datum evaluation: preserve water shell for inland lakes (e.g. Lake Titicaca at +3812m)
-        let isLake = z_lake > 0.0;
-        let localWaterLevel = select(sim.u_seaLevel, z_lake + sim.u_seaLevel, isLake);
-        let depthMeters = max(0.0, localWaterLevel - elevMeters);
-        let effectiveDepth = select(depthMeters, max(depthMeters, 107.0), isLake);
-        if (effectiveDepth <= 0.001) {
+        let localWaterDatum = select(sim.u_seaLevel, z_lake, z_lake > 0.0);
+        let depthMeters = max(0.0, localWaterDatum - elevMeters);
+        if (depthMeters <= 0.001) {
             discard;
         }
 
@@ -1192,7 +1172,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let clarityIdx = clamp(u32(floor((1.0 - clamp(sim.u_waterClarity, 0.0, 1.0)) * 4.0 + 0.5)), 0u, 4u);
         hydroUniforms.u_waterType = clarityIdx;
         hydroUniforms.u_time = sim.u_time;
-        hydroUniforms.u_seaLevelOffset = localWaterLevel;
+        hydroUniforms.u_seaLevelOffset = localWaterDatum;
         hydroUniforms.u_causticIntensity = 1.0;
         hydroUniforms.u_sunAzimuth = sim.u_sunAzimuth;
         hydroUniforms.u_sunAltitude = sim.u_sunAltitude;
@@ -1200,7 +1180,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         hydroUniforms.u_fresnelPower = 4.0;
 
         let sunPrimary = computeSunLightDir(sim.u_sunAzimuth, sim.u_sunAltitude);
-        let safeElevation = select(elevMeters, localWaterLevel - effectiveDepth, isLake);
+        let safeElevation = elevMeters;
         let hydroColor = computeHydrosphereShading(
             input.worldPos,
             N,
@@ -1316,18 +1296,20 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let effectiveNormal = select(blendedN, macroN, length(vec2<f32>(normX, normY)) < 0.01);
 
     // Toksvig Specular Anti-Aliasing:
-    // Read precomputed normal length L from the texture mipmap.
-    // Calculate variance sigma^2 = (1.0 - L) / max(L, 1e-4)
-    // Adjust microfacet BRDF roughness: alpha_prime = sqrt(alpha^2 + sigma^2)
+    // Derive the tangent-space normal and Toksvig length L = ||N_avg|| across mipmap levels.
     let nMipX = normSampleGlobal.r * 2.0 - 1.0;
     let nMipY = normSampleGlobal.g * 2.0 - 1.0;
     let normalDispersion = length(vec2<f32>(normX, normY) - vec2<f32>(nMipX, nMipY));
-    let mipScale = clamp(normalLOD, 0.0, 1.0);
-    let L_toksvig = clamp(1.0 - normalDispersion * 4.2 * mipScale, 0.02, 1.0);
-    let sigma_sq = (1.0 - L_toksvig) / max(L_toksvig, 1e-4);
-    let alpha_base = clamp(sim.u_roughness, 0.04, 1.0);
-    let alpha_prime = sqrt(alpha_base * alpha_base + sigma_sq);
-    let effectiveAlpha = select(alpha_prime, alpha_base, sim._padScrub1 > 0.5);
+    let mipScale = clamp(normalLOD * 0.25, 0.0, 1.0);
+    let L = clamp(1.0 - normalDispersion * (3.8 * mipScale + 0.4), 0.04, 1.0);
+    let L_toksvig = L;
+    let variance = (1.0 - L) / max(L, 1e-4);
+    let sigma_sq = variance;
+    let baseRoughness = select(0.06, clamp(sim.u_roughness, 0.04, 0.25), sim.u_theme != 1u);
+    let alpha_base = baseRoughness;
+    let roughness = sqrt(baseRoughness * baseRoughness + variance);
+    let alpha_prime = roughness;
+    let effectiveAlpha = select(roughness, baseRoughness, sim._padScrub1 > 0.5);
 
     // Discrete Laplacian Curvature evaluated strictly on domain-aware effective elevations
     let laplacian = ((effHR + effHL + effHU + effHD) - 4.0 * hC) * slopeScale;
@@ -1351,23 +1333,34 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let creviceAO = 1.0 - kValley * (0.85 * sim.u_ambientOcclusion);
     diffuseTotal = diffuseTotal * creviceAO;
 
-    // Microfacet Cook-Torrance Specular with Toksvig Anti-Aliasing (evaluated consistently in View Space)
+    // Tangent-space micro-structural normal from BC5 Level 0:
+    let n_micro = microN;
+
+    // Filtered normal from BC5 mipmap pyramid at screen-space derivative LOD:
+    let nMipZ = sqrt(max(0.0, 1.0 - nMipX * nMipX - nMipY * nMipY));
+    let n_filtered = normalize(macroN * nMipZ + (tangentX * nMipX + tangentY * nMipY) * (fragPoleAtten * microScale));
+
+    // Toksvig Specular Anti-Aliasing:
+    // When bypassed: raw un-filtered Level 0 micro-normal with base roughness alpha_base.
+    // When active: filtered LOD normal with Toksvig roughness alpha_prime.
+    let specNormalWorld = select(n_filtered, n_micro, sim._padScrub1 > 0.5);
+    let N_view_spec = normalize((sim.u_viewMatrix * vec4<f32>(specNormalWorld, 0.0)).xyz);
     let pos_view = (sim.u_viewMatrix * vec4<f32>(input.worldPos, 1.0)).xyz;
     let V_view = normalize(-pos_view);
     let L_view = L1_view;
     let H_view = normalize(L_view + V_view);
-    let NdotH_crust = max(0.0, dot(N_view, H_view));
-    let NdotV_crust = max(0.0, dot(N_view, V_view));
-    let NdotL_crust = max(0.0, dot(N_view, L_view));
+    let NdotH_crust = max(0.0, dot(N_view_spec, H_view));
+    let NdotV_crust = max(0.0, dot(N_view_spec, V_view));
+    let NdotL_crust = max(0.0, dot(N_view_spec, L_view));
 
     let a2_spec = effectiveAlpha * effectiveAlpha;
     let dDenom_crust = NdotH_crust * NdotH_crust * (a2_spec - 1.0) + 1.0;
     let D_crust = a2_spec / (PI * dDenom_crust * dDenom_crust);
     let k_crust = effectiveAlpha * 0.5;
     let G_crust = (NdotL_crust / (NdotL_crust * (1.0 - k_crust) + k_crust)) * (NdotV_crust / (NdotV_crust * (1.0 - k_crust) + k_crust));
-    let F_crust = 0.04 + (1.0 - 0.04) * pow(1.0 - max(0.0, dot(V_view, H_view)), 5.0);
+    let F_crust = 0.18 + (1.0 - 0.18) * pow(1.0 - max(0.0, dot(V_view, H_view)), 5.0);
     let specCrust = (D_crust * G_crust * F_crust) / max(4.0 * NdotL_crust * NdotV_crust, 1e-4);
-    let crustSpecular = specCrust * NdotL_crust * terrainShadow * shadowFactor * 0.25;
+    let crustSpecular = specCrust * NdotL_crust * terrainShadow * shadowFactor * 1.20;
 
     // Slope-Dependent Rock Cliff Exposure (theta > 35 degrees)
     let cosSlope = clamp(dot(perturbedN, n0), 0.0, 1.0);
@@ -1674,19 +1667,21 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // ------------------------------------------------------------------------
     let shoreWaterwayGate = smoothstep(0.40, 0.60, isLand);
     if (shoreWaterwayGate > 0.001) {
-        // 1. Upstream Drainage Catchment Area A & Leopold-Maddock Fluvial Hydraulics
+        // 1. Upstream Drainage Catchment Area A & Leopold-Maddock Downstream Hydraulic Geometry
         // Purging Laplacian heuristic (kValley) and elevation proxy (1 - normElev)^1.6
-        // Decode upstream catchment area A from BC5 hydrology texture (hydroSample.r)
-        let V_packed = clamp(hydroSample.r, 0.0, 1.0);
+        // Ingest 15 arc-sec MERIT Hydro upstream drainage area (UPA in km²) packed into log-scaled 16-bit texture
+        let normArea = textureSampleLevel(u_hydroTexture, u_demSampler, input.uv, 0.0).r;
         let A_max = 7000000.0;
-        let catchmentArea = exp(V_packed * log(A_max + 1.0)) - 1.0;
-        let descentAccum = clamp(pow(catchmentArea / A_max, 0.35), 0.0, 1.0);
+        let A = exp(normArea * log(A_max + 1.0)) - 1.0; // km²
+        let V_packed = normArea;
+        let catchmentArea = A;
+        let descentAccum = clamp(pow(A / A_max, 0.35), 0.0, 1.0);
 
         // Leopold-Maddock downstream hydraulic geometry scaling:
-        // w(A) = 2.1 * pow(max(0.0, A - 15.0), 0.45)
-        // d(A) = 0.28 * pow(max(0.0, A - 15.0), 0.32)
-        let w_A = 2.1 * pow(max(0.0, catchmentArea - 15.0), 0.45);
-        let d_A = 0.28 * pow(max(0.0, catchmentArea - 15.0), 0.32);
+        let channelWidth = 2.1 * pow(max(0.0, A - 15.0), 0.45);
+        let channelDepth = 0.28 * pow(max(0.0, A - 15.0), 0.32);
+        let w_A = channelWidth;
+        let d_A = channelDepth;
 
         // 2. Discrete Second-Derivative Valley Sub-Texel Centering
         let d2x = hR + hL - 2.0 * hC;
@@ -1711,9 +1706,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
         // Metric distance across planetary manifold (Earth equatorial circumference ~ 40,075,017m)
         let r_dist = distUv * 40075017.0;
+        let distToAxis = r_dist;
 
-        // Physical Gaussian terrain incision: delta_z = -d(A) * exp(-(2.0 * r_dist / max(w(A), 15.0))^2)
-        let delta_z = -d_A * exp(-pow(2.0 * r_dist / max(w_A, 15.0), 2.0));
+        // Incise fluvial channel into crust geometry and shade water albedo along channel corridor:
+        let channelIncise = -channelDepth * exp(-pow(2.0 * distToAxis / max(channelWidth, 15.0), 2.0));
+        let delta_z = channelIncise;
 
         // 3. Self-Tapering Waterway Line Width (Invariant #7: 55-60% of coastline width 3.40px)
         // High alpine headwaters: 0.40px ultra-fine hairline
@@ -1728,9 +1725,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let channelCoverage = 1.0 - smoothstep(riverHalfWidth - riverFeather, riverHalfWidth + riverFeather, distPx);
 
         // 4. Leopold-Maddock Fluvial Presence Gate
-        // Active on flat terrain if catchmentArea > 15.0 (Amazon Basin w(A) >= 1500m, active <20m elevation)
+        // Active on flat terrain if catchmentArea > 15.0 (Amazon Basin w(A) >= 1800m, active <20m elevation)
         // Inactive on dry alpine ridges (catchmentArea <= 15.0 -> w(A) = 0, riverPresence = 0)
-        let riverPresence = select(0.0, smoothstep(15.0, 45.0, catchmentArea), catchmentArea > 15.0);
+        let riverPresence = select(0.0, smoothstep(15.0, 45.0, A), A > 15.0);
         let valleyGate = riverPresence;
 
         // Cliff attenuation: in sheer vertical rock cliffs (>35°), water forms narrow chutes
@@ -1738,9 +1735,15 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
         let waterwayGlaze = channelCoverage * valleyGate * cliffDampen * shoreWaterwayGate;
 
-        // Physical Gaussian bed incision shading: darkens channel depression according to delta_z
-        let bedIncisionShade = clamp(1.0 + delta_z * 0.0035 * valleyGate * shoreWaterwayGate, 0.72, 1.0);
+        // Physical Gaussian bed incision shading: darkens channel depression according to channelIncise
+        let bedIncisionShade = clamp(1.0 + channelIncise * 0.0035 * valleyGate * shoreWaterwayGate, 0.72, 1.0);
         finalLand = finalLand * bedIncisionShade;
+
+        // Archival Medium: High-contrast intaglio plate indentation along Leopold-Maddock river trunks (Cream Rag)
+        if (sim.u_theme == 1u) {
+            let riverIntaglioDeboss = channelCoverage * valleyGate * (0.35 * sim.u_mediumProperties.x);
+            finalLand = finalLand * (1.0 - riverIntaglioDeboss * (1.0 - NdotL1 * 0.45));
+        }
 
         if (waterwayGlaze > 0.001) {
             var cWaterway: vec3<f32>;
@@ -1832,9 +1835,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             );
 
             if (sim.u_theme == 2u) {
-                // Exposure-modulated ferroprussiate deepening based on sensitometric curve
+                // Ferric blueprint tonal ramp: deep blue water absorption in restored ocean subduction trenches
                 let deepExposure = pow(clamp(normDepth, 0.0, 1.0), max(0.1, sim.u_mediumProperties.z));
-                cBathy = mix(cBathy, cBathyTrench, smoothstep(0.35, 0.95, deepExposure) * 0.60);
+                let cSubductionTrench = vec3<f32>(0.015, 0.04, 0.08); // Deep photochemical Turnbull's indigo
+                cBathy = mix(cBathy, cSubductionTrench, smoothstep(0.28, 0.92, deepExposure) * 0.75);
 
                 // Ocean trench Prussian crystal precipitation noise (colloidal insoluble ferroprussiate micro-crystals)
                 let bCrystalCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * (2600.0 * max(0.1, sim.u_mediumProperties.y));
@@ -1894,8 +1898,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 let ridgeHatch = clamp(ridgeHatchStrength * ridgeDepthGate, 0.0, 1.0);
                 cBathy = mix(cBathy, cBathyRidge, ridgeHatch * 0.60);
 
-                // Mid-Atlantic Ridge & oceanic axial rift valleys: prominent physiographic chasm incision
-                let oceanRiftChasm = smoothstep(0.04, 0.28, kValley) * ridgeDepthGate;
+                // Mid-Atlantic Ridge & oceanic axial rift valleys: prominent physiographic chasm incision scaled to real topographic gradient
+                let bathyGrad = length(vec2<f32>(effDHx, effDHy));
+                let oceanRiftChasm = smoothstep(0.04, 0.28, bathyGrad) * ridgeDepthGate;
                 cBathy = mix(cBathy, cTrenchInk, oceanRiftChasm * 0.70 * sim.u_mediumProperties.w);
             } else if (sim.u_theme == 1u) {
                 // Cream Rag: Subtractive paper tooth and ink absorption into cotton rag ground

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PerspectiveCamera } from 'three';
-import { WebGPUEngine, cubeFaceToSphereCartesian } from '../../src/webgpu/WebGPUEngine';
+import { WebGPUEngine } from '../../src/webgpu/WebGPUEngine';
 
 describe('GPU-Driven CDLOD Quadsphere & Continuous Geomorphing Invariants', () => {
   const cullingWgslPath = path.resolve(__dirname, '../../src/webgpu/shaders/culling.wgsl');
@@ -82,24 +82,17 @@ describe('GPU-Driven CDLOD Quadsphere & Continuous Geomorphing Invariants', () =
       }
     });
 
-    it('validates cubeFaceToSphereCartesian symmetry across all 6 cube faces', () => {
-      const corners = [
-        [-1.0, -1.0],
-        [1.0, -1.0],
-        [-1.0, 1.0],
-        [1.0, 1.0],
-      ];
+    it('validates evaluateManifoldPosition spatial continuity on sphere (mode=0, unfurl=0)', () => {
+      // Test continuity along equator and antimeridian
+      const seamEast = WebGPUEngine.evaluateManifoldPosition(1.0, 0.5, 0, 0.0);
+      const seamWest = WebGPUEngine.evaluateManifoldPosition(0.0, 0.5, 0, 0.0);
+      expect(Math.hypot(seamEast[0] - seamWest[0], seamEast[1] - seamWest[1], seamEast[2] - seamWest[2])).toBeCloseTo(0.0, 5);
 
-      for (let face = 0; face < 6; face++) {
-        for (const [u, v] of corners) {
-          const pt = cubeFaceToSphereCartesian(face, u, v);
-          expect(pt.length).toBe(3);
-          const len = Math.hypot(pt[0], pt[1], pt[2]);
-          expect(len).toBeCloseTo(Math.sqrt(3.0), 5); // unnormalized corner distance is sqrt(1 + 1 + 1)
-          const normX = pt[0] / len;
-          const normY = pt[1] / len;
-          const normZ = pt[2] / len;
-          expect(Math.hypot(normX, normY, normZ)).toBeCloseTo(1.0, 5);
+      // Verify radius is 5.0 everywhere on sphere
+      for (let u = 0; u <= 1.0; u += 0.25) {
+        for (let v = 0.1; v <= 0.9; v += 0.2) {
+          const pt = WebGPUEngine.evaluateManifoldPosition(u, v, 0, 0.0);
+          expect(Math.hypot(pt[0], pt[1], pt[2])).toBeCloseTo(5.0, 4);
         }
       }
     });
@@ -159,12 +152,10 @@ describe('GPU-Driven CDLOD Quadsphere & Continuous Geomorphing Invariants', () =
       expect(code).toContain('@group(2) @binding(1) var<storage, read> cdlodInstances: array<CDLODInstance>;');
     });
 
-    it('verifies geomorphing equations with morph margin mu = 0.35 and grid constant K = 64.0', () => {
+    it('verifies geomorphing equations in crust_hydrosphere.wgsl', () => {
       const code = fs.readFileSync(crustWgslPath, 'utf8');
-      expect(code).toContain('let K = 64.0;');
-      expect(code).toContain('let mu = 0.35;');
-      expect(code).toContain('clamp((dist - (1.0 - mu) * R_L) / (mu * R_L), 0.0, 1.0)');
-      expect(code).toContain('p_unmorphed - alpha * (fract(p_unmorphed * (K * 0.5)) * (2.0 / K))');
+      expect(code).toContain('let alpha = clamp((r - inst.morphStart) * inst.invMorphRange, 0.0, 1.0);');
+      expect(code).toContain('p_morphed = p - alpha * (fract(p * 32.0) * (1.0 / 32.0));');
     });
 
     it('mathematically proves odd vertices snap to even neighbors with zero seam at alpha = 1.0', () => {
@@ -173,8 +164,8 @@ describe('GPU-Driven CDLOD Quadsphere & Continuous Geomorphing Invariants', () =
 
       for (let i = 0; i <= 64; i++) {
         const p = i / K;
-        const fractTerm = (p * (K * 0.5)) % 1.0;
-        const p_morphed = p - alpha * (fractTerm * (2.0 / K));
+        const fractTerm = (p * 32.0) % 1.0;
+        const p_morphed = p - alpha * (fractTerm * (1.0 / 32.0));
 
         if (i % 2 === 0) {
           // Even vertices remain invariant
@@ -206,14 +197,14 @@ describe('GPU-Driven CDLOD Quadsphere & Continuous Geomorphing Invariants', () =
       expect(spacing15km).toBeGreaterThan(0.0);
     });
 
-    it('proves dyadic LOD ranges satisfy R_L = 28.0 / 2^L', () => {
+    it('proves dyadic LOD ranges satisfy R_L = 56.0 / 2^L', () => {
       engine.ensureCDLODBuffers();
       const ranges = (engine as any).cdlodLodRanges;
       expect(ranges).toBeDefined();
       expect(ranges.length).toBeGreaterThanOrEqual(12);
 
       for (let l = 0; l <= 11; l++) {
-        expect(ranges[l]).toBeCloseTo(28.0 / Math.pow(2, l), 5);
+        expect(ranges[l]).toBeCloseTo(56.0 / Math.pow(2, l), 5);
       }
     });
 
