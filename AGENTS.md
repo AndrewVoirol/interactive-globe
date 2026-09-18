@@ -40,7 +40,8 @@ No shader, geometry, or thematic refactor is complete based solely on compilatio
 ## 7. Zero-Standoff Surface Conformance & Horizon Falloff
 - Vectors conform strictly to the DEM elevation surface ($z_{\text{standoff}} \le 0.002$). No fixed normal offsets.
 - Vector fragments attenuate to zero before crossing the planetary horizon limb (`smoothstep(0.02, 0.20, in.facing)`).
-- Resolve z-fighting exclusively through hardware depth bias (`depthBias: -120`, `depthBiasSlopeScale: -1.0`), not geometric standoffs.
+- Resolve z-fighting exclusively through hardware depth bias (`depthBias: -120`, `depthBiasSlopeScale: -1.0`) on **polygonal pipelines** (`triangle-list`, `triangle-strip`), not geometric standoffs.
+- **W3C WebGPU §10.3.3 Primitive Invariant**: Hardware `depthBias` is strictly prohibited on non-polygonal primitive topologies (`point-list`, `line-list`). Point and line render pipelines must specify `depthBias: 0` or omit the property entirely.
 
 ## 8. Cross-Pipeline DEM Parity
 Any secondary WebGPU render pass that conforms to the planetary crust must use the identical geoid decoding formula as `crust_hydrosphere.wgsl`:
@@ -64,6 +65,12 @@ Dynamic exponent and attenuation curves must match across all shaders.
 - **Cooling down.** Agents pause, report live MCP captures, and cool down context at each gate.
 - **Mechanical enforcement over prose instructions.** Phase ordering MUST be enforced via `.agents/hooks.json` lifecycle hooks (`PreToolUse` deny gates, `Stop` continuation gates), not just prose instructions in prompts. Prose temporal instructions ("do M3 before M4") get blurred under token pressure. Hooks are deterministic.
 - **Disjoint file scopes for parallel workers.** When two or more workers execute in parallel, define exclusive file ownership per worker in a reference doc under `.agents/skills/`. Workers must NOT touch files outside their assigned scope. This prevents merge conflicts without requiring branch isolation.
+- **Cross-Cutting Excision Partitioning (The 5-Batch Rule)**: Any deprecation, excision, or cross-cutting refactor spanning >10 files or >50 references MUST NOT be assigned as a monolithic task to a single worker or agent. It must be pre-partitioned into discrete sequential/parallel batches:
+  1. *Batch 1 (Deletions)*: Purge standalone deprecated files/solvers to instantly collapse token counts.
+  2. *Batch 2 (Shaders)*: WGSL/GLSL files and shader chunk registries.
+  3. *Batch 3 (Engine/Core)*: Pipeline creation, CPU traversals, and mathematical adapters.
+  4. *Batch 4 (UI/Types/Docs)*: Interfaces, HUD docks, type enumerations, and colophons.
+  5. *Batch 5 (Test Harmonization)*: Source-scanning (`readFileSync`) and empirical suites.
 
 ## 12. Iterative Correction Without Pendulum Swings
 When the user reports a visual problem (e.g., "mountains are too spiky"), fix the specific problem without destroying the opposite quality. Do not swing from "too spiky" to "too flat." Make incremental adjustments and show the result before making further changes.
@@ -156,3 +163,20 @@ When extracting WGSL functions from consumer shaders into a shared module (e.g.,
 - **Mandatory deletion checklist.** The extraction spec MUST include an explicit checklist of every existing local copy that must be deleted from consumer shaders. Defining a function in the shared module without deleting consumer copies guarantees a `duplicate declaration` compilation error.
 - **`switch` over `if/else if` for mode dispatch.** Shared WGSL modules are concatenated into every consumer shader. Use `switch(expr) { case Xu: { ... } default: { ... } }` instead of `if/else if` chains to prevent Rule 21 source-scanning regex collisions.
 - **No re-declaration of shared constants.** When `manifold.wgsl` declares `const PI` or `const RADIUS`, consumer shaders that previously declared these locally must delete their copies.
+
+## 29. WGSL Uniform Struct Alignment & Scalar Packing Discipline
+In WGSL uniform buffers, `vec3<f32>` has an alignment of 16 bytes and a size of 12 bytes, leaving an implicit 4-byte padding hole before any subsequent field. This frequently causes silent buffer sizing mismatches against tightly-packed CPU `Float32Array` buffers.
+- **Prohibition of `vec3<f32>` in Uniforms**: In uniform struct definitions, do NOT use `vec3<f32>`. Use either:
+  1. Three explicit scalar fields: `field_x: f32, field_y: f32, field_z: f32`, or
+  2. An explicitly padded `vec4<f32>` where the fourth component is documented as unused or repurposed for a scalar parameter (e.g. `cameraPosAndUnfurl: vec4<f32>`).
+- **Exact Byte-Count Verification**: Always verify that `Math.ceil(size / 16) * 16` on CPU exactly matches the WGSL struct layout and buffer binding size.
+
+## 30. Excision Audit Hygiene & Self-Contaminating Comment Prohibition
+Static audit scripts (e.g. `audit-mode4.sh`) use literal token regular expressions (`grep -rnE 'token1|token2' src/`) to verify complete elimination of deprecated features.
+- **Zero Explanatory Comments**: When excising a feature, do NOT write explanatory comments mentioning the excised token in source files (e.g. avoid `// Note: Mode 4 (Dymaxion) was excised in Phase 2`). Static source scanners do not differentiate between comments and code; explanatory comments trigger false positive audit failures.
+- **Document Excision in Ledgers Only**: Record the historical context of excisions exclusively in project ledgers (`DISCOVERY_LEDGER.md`, `walkthrough.md`, git commit messages), keeping production source code completely clean of excised tokens.
+
+## 31. Runtime Test Artifact Isolation & Working Tree Purity
+Automated test suites that simulate live data ingestion or time-series updates must not pollute the repository with uncommitted runtime artifacts.
+- **Mock File Isolation**: Tests generating mock datasets or loop metadata must write to temporary memory or ephemeral fixtures in `tmp/`, not tracked production asset directories (`public/data/`).
+- **Post-Test Git Hygiene**: Before reporting milestone completion or performing phase gates, run `git status` to verify no test-generated artifacts (such as `radar-loop-meta.json`) remain dirty. Discard transient test mutations via `git checkout` if triggered.
