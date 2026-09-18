@@ -103,10 +103,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // Distance from camera to node bounding sphere surface
     let camDist = length(uniforms.cameraPos.xyz - node.center);
-    var surfaceDist = max(0.0, camDist - effectiveRadius);
-    if (uniforms.mode == 0u) {
-        surfaceDist = max(max(0.0, camDistToOrigin - 5.0), surfaceDist);
-    }
+    let surfaceDist = max(0.0, camDist - effectiveRadius);
 
     // Distance-Based LOD Range Selection:
     // If this node has children and the camera is close enough that children are active,

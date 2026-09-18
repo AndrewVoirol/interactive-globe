@@ -118,6 +118,8 @@ export interface TelemetryHUDProps {
   onTimelineChange?: (state: TimelineScrubberState) => void;
   purityMode?: boolean;
   onPurityModeToggle?: () => void;
+  cdlodEnabled?: boolean;
+  onCdlodToggle?: (enabled: boolean) => void;
 }
 
 export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
@@ -227,6 +229,8 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onTimelineChange={props.onTimelineChange}
         purityMode={props.purityMode}
         onPurityModeToggle={props.onPurityModeToggle}
+        cdlodEnabled={props.cdlodEnabled}
+        onCdlodToggle={props.onCdlodToggle}
       />
 
       {/* Bottom-Left Non-Intrusive Glassmorphic Toast Notification Stack */}

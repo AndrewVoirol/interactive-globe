@@ -218,7 +218,7 @@ export class WebGPUEngine {
   // ==========================================================================
   // Section: CDLOD Quadsphere Architecture & Watertight Geomorphing
   // ==========================================================================
-  public cdlodEnabled: boolean = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test' ? false : true;
+  public cdlodEnabled: boolean = false;
   public camera: any = null;
   public lastIndirectDrawCallsCount: number = 0;
   public patchVertexBuffer: GPUBuffer | null = null;
@@ -1978,6 +1978,9 @@ export class WebGPUEngine {
     // Test environment uses lightweight 128x256; live production engine uses 512x1024 (1M triangles)
     const [defLat, defLon] = isTestEnv ? [128, 256] : [512, 1024];
     this.rebuildSphereMesh(defLat, defLon);
+    if (!isTestEnv) {
+      this.ensureCDLODBuffers();
+    }
 
     this.updateDEMBindGroups();
   }
@@ -6736,11 +6739,13 @@ export class WebGPUEngine {
       this.cloudAdvectionComputeBindGroups[1]
     );
 
-    if (this.cdlodEnabled && (params.reliefActive || params.showRelief)) {
+    const isSphereMode = (params.mode ?? 0) === 0;
+    if (this.cdlodEnabled && isSphereMode && (params.reliefActive || params.showRelief)) {
       this.ensureCDLODBuffers();
     }
 
     const hasCDLODCompute = this.cdlodEnabled &&
+      isSphereMode &&
       (params.reliefActive || params.showRelief) &&
       !!(
         this.cdlodCullingPipeline &&
@@ -6849,12 +6854,23 @@ export class WebGPUEngine {
 
     // 1. Dual-Surface Lithosphere Crust & Liquid Hydrosphere (M1-T3)
     // 3D tessellated sphere grid with Jerlov radiative transfer, Kubelka-Munk reflectance & micro-ripples
+    const useCDLOD = this.cdlodEnabled &&
+      isSphereMode &&
+      !!(this.patchVertexBuffer && this.patchIndexBuffer && this.cdlodIndirectBuffer);
+
+    if (this.cdlodControlBuffer && this.cdlodControlUints && this.device) {
+      const activeUint = useCDLOD ? 1 : 0;
+      if (this.cdlodControlUints[0] !== activeUint) {
+        this.cdlodControlUints[0] = activeUint;
+        this.device.queue.writeBuffer(this.cdlodControlBuffer, 0, this.cdlodControlFloats.buffer);
+      }
+    }
+
     if (
       (params.reliefActive || params.showRelief) &&
       this.crustHydrospherePipeline &&
       this.crustBindGroup &&
-      ((this.cdlodEnabled && this.patchVertexBuffer && this.patchIndexBuffer && this.cdlodIndirectBuffer) ||
-       (this.crustVertexBuffer && this.crustIndexBuffer && this.crustIndexCount > 0))
+      (useCDLOD || (this.crustVertexBuffer && this.crustIndexBuffer && this.crustIndexCount > 0))
     ) {
       renderPass.setPipeline(this.crustHydrospherePipeline);
       const crustBg = (this.precipRingBuffer && !this.precipRingBuffer.disposed && this.crustPrecipBindGroups)
@@ -6873,10 +6889,7 @@ export class WebGPUEngine {
         renderPass.setBindGroup(2, this.cdlodBindGroup);
       }
       if (
-        this.cdlodEnabled &&
-        this.patchVertexBuffer &&
-        this.patchIndexBuffer &&
-        this.cdlodIndirectBuffer &&
+        useCDLOD &&
         typeof renderPass.drawIndexedIndirect === 'function'
       ) {
         renderPass.setVertexBuffer(0, this.patchVertexBuffer);

@@ -489,10 +489,11 @@ fn computeHydrosphereShading(
     let kExtinction = 0.0006 / clarityNorm;
     let depthOpacity = 1.0 - exp(-safeDepth * kExtinction);
     let turbidityBase = mix(0.68, 0.15, clarityNorm);
+    let maxOpacity = select(select(0.60, 0.55, sim.u_theme == 1u), 0.70, sim.u_theme == 2u);
     let waterOpacity = clamp(
         (turbidityBase + depthOpacity * 0.70 + fresnel * 0.20) * sim.u_layerOpacity,
         0.18,
-        0.96
+        maxOpacity
     );
 
     let finalOutput = vec4<f32>(finalColor, waterOpacity);
@@ -837,13 +838,12 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
         }
     }
 
-    // Invariant §10: Grazing Horizon Parameterization for negative bathymetric displacement
-    // Eliminates blanket 80-degree view cone throttling while preventing neatline silhouette indentations
+    // Horizon Falloff for negative bathymetric displacement:
+    // Attenuates bathymetry smoothly at the grazing planetary limb (facing < 0.08)
+    // to prevent silhouette neatline indentations while preserving full bathymetry across the globe.
     let viewDir = normalize(sim.u_cameraPos.xyz - basePos);
-    let d_cam = length(sim.u_cameraPos.xyz);
-    let R_planet = 5.0;
-    let tau = dot(baseNormal, viewDir) - sqrt(max(0.0, 1.0 - pow(R_planet / d_cam, 2.0)));
-    let limbAtten = select(smoothstep(0.0, 0.005, max(0.0, tau)), 1.0, tau >= 0.005);
+    let facing = dot(baseNormal, viewDir);
+    let limbAtten = smoothstep(0.01, 0.08, facing);
     if (normalDisplacement < 0.0) {
         normalDisplacement = normalDisplacement * limbAtten;
     }

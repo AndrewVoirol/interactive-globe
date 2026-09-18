@@ -126,6 +126,7 @@ export interface WebGPUCanvasProps {
   onCoordsChange?: (latDeg: number, lonDeg: number) => void;
   onResolutionChange?: (r: ResolutionTier) => void;
   cursorPhysicsEnabled?: boolean;
+  cdlodEnabled?: boolean;
   isZenMode?: boolean;
   isSidebarOpen?: boolean;
   startTime?: number;
@@ -210,6 +211,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   onCoordsChange,
   onResolutionChange,
   cursorPhysicsEnabled = false,
+  cdlodEnabled = false,
   isZenMode = false,
   isSidebarOpen = true,
   startTime,
@@ -287,6 +289,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   useEffect(() => {
     cursorPhysicsEnabledRef.current = cursorPhysicsEnabled;
   }, [cursorPhysicsEnabled]);
+
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.setCDLODEnabled(Boolean(cdlodEnabled));
+    }
+  }, [cdlodEnabled]);
 
   // Whimsical Effects & Signature Manifold Pinch Controllers
   const whimsicalManagerRef = useRef<WhimsicalEffectsManager>(new WhimsicalEffectsManager());

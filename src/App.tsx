@@ -98,6 +98,7 @@ export default function App() {
   const [prognosticModel, setPrognosticModel] = useState<PrognosticModelBackend>('weathernext3');
   const [prognosticVariable, setPrognosticVariable] = useState<string>('total_precipitation_1hr_mean');
   const [purityMode, setPurityMode] = useState<boolean>(false);
+  const [cdlodEnabled, setCdlodEnabled] = useState<boolean>(false);
   const lastWindHourRef = useRef<number>(-1);
 
   const handlePrognosticVariableChange = useCallback((variable: string) => {
@@ -654,6 +655,7 @@ export default function App() {
                 showVectors={showVectors}
                 dataLayers={dataLayers}
                 cursorPhysicsEnabled={cursorPhysicsEnabled}
+                cdlodEnabled={cdlodEnabled}
                 startTime={appStartTimeRef.current}
                 vortexStrength={fluidVortexStrength}
                 fractureIntensity={fractureIntensity}
@@ -817,6 +819,8 @@ export default function App() {
           onPrognosticVariableChange={handlePrognosticVariableChange}
           purityMode={purityMode}
           onPurityModeToggle={() => setPurityMode((p) => !p)}
+          cdlodEnabled={cdlodEnabled}
+          onCdlodToggle={setCdlodEnabled}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}
