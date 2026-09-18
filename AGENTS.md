@@ -180,3 +180,16 @@ Static audit scripts (e.g. `audit-mode4.sh`) use literal token regular expressio
 Automated test suites that simulate live data ingestion or time-series updates must not pollute the repository with uncommitted runtime artifacts.
 - **Mock File Isolation**: Tests generating mock datasets or loop metadata must write to temporary memory or ephemeral fixtures in `tmp/`, not tracked production asset directories (`public/data/`).
 - **Post-Test Git Hygiene**: Before reporting milestone completion or performing phase gates, run `git status` to verify no test-generated artifacts (such as `radar-loop-meta.json`) remain dirty. Discard transient test mutations via `git checkout` if triggered.
+
+## 32. Visual & Automated Test Grounding (The Zero-Error Mirage Invariant)
+An automated browser test, Playwright script, or MCP verification pass CANNOT certify a feature or stress test as "PASS" solely on the absence of WebGPU device errors or console warnings (`errors.length === 0`).
+- **Camera Standoff Verification**: Any automated script that positions the camera must programmatically assert that camera radius exceeds terrain surface elevation ($r_{\text{cam}} > R_{\text{planet}} + h_{\text{disp}}$). Never certify captures where the camera was positioned subterranean or inside the planet core.
+- **Telemetry Grounding**: Tests asserting visibility or behavior at a specific litmus location (e.g., Hawaii, Himalayas) must verify that telemetry coordinates match the target within geographic tolerance before capturing or evaluating frames.
+- **Non-Trivial Frame Verification**: Screen captures must be checked for non-trivial content (not 100% black/monochrome void or degenerate near-plane clipping curtains) before asserting that rendering is artifact-free.
+- **Assertion Provenance**: Never claim a mathematical edge case or parameter sweep is "verified in existing unit tests" without inspecting the test file to confirm specific assertions actually test those parameters.
+
+## 33. Two-Stage CPU/GPU Traversal & Pipeline Symmetry
+In hybrid rendering architectures where spatial acceleration structures (CDLOD quadtrees, frustum culling, horizon occlusion, LOD distance selection) are evaluated on both the CPU and GPU:
+- **Mirror Guard Symmetries**: Culling conditions, deformation mode guards (e.g., `unfurl < 0.01`), and surface distance metrics must remain strictly symmetrical between the CPU traversal in `WebGPUEngine.ts` and the GPU compute shader in `culling.wgsl`.
+- **No Half-Sided Gating**: Never modify or fix a culling gate in WGSL without simultaneously auditing the corresponding CPU quadtree traversal. Gating a feature on GPU without updating CPU traversal causes the CPU to waste cycles subdividing occluded nodes and overwhelming GPU candidate buffers.
+
