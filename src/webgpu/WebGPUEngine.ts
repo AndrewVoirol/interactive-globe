@@ -1797,24 +1797,27 @@ export class WebGPUEngine {
       );
 
       // Enforce horizontal periodic wrap: at u = 0.0 and u = 1.0, neighboring nodes on the globe must maintain identical subdivision levels
-      if (minU <= 1e-6) {
-        const wrapMidU = 1.0 - sizeU * 0.5;
-        const wrapPMid = WebGPUEngine.evaluateManifoldPosition(wrapMidU, vMid, mode, unfurl);
-        const wrapCamDist = Math.hypot(camX - wrapPMid[0], camY - wrapPMid[1], camZ - wrapPMid[2]);
-        const wrapSurfaceDist = Math.max(
-          (unfurl < 0.01) ? Math.max(0, camDistToCenter - 5.0) : 0,
-          wrapCamDist - effectiveRadius
-        );
-        surfaceDist = Math.min(surfaceDist, wrapSurfaceDist);
-      } else if (minU + sizeU >= 1.0 - 1e-6) {
-        const wrapMidU = sizeU * 0.5;
-        const wrapPMid = WebGPUEngine.evaluateManifoldPosition(wrapMidU, vMid, mode, unfurl);
-        const wrapCamDist = Math.hypot(camX - wrapPMid[0], camY - wrapPMid[1], camZ - wrapPMid[2]);
-        const wrapSurfaceDist = Math.max(
-          (unfurl < 0.01) ? Math.max(0, camDistToCenter - 5.0) : 0,
-          wrapCamDist - effectiveRadius
-        );
-        surfaceDist = Math.min(surfaceDist, wrapSurfaceDist);
+      // Strictly valid on the closed spherical globe (unfurl < 0.01); disabled on flat map sheet where u=0 and u=1 are physically separated.
+      if (unfurl < 0.01) {
+        if (minU <= 1e-6) {
+          const wrapMidU = 1.0 - sizeU * 0.5;
+          const wrapPMid = WebGPUEngine.evaluateManifoldPosition(wrapMidU, vMid, mode, unfurl);
+          const wrapCamDist = Math.hypot(camX - wrapPMid[0], camY - wrapPMid[1], camZ - wrapPMid[2]);
+          const wrapSurfaceDist = Math.max(
+            Math.max(0, camDistToCenter - 5.0),
+            wrapCamDist - effectiveRadius
+          );
+          surfaceDist = Math.min(surfaceDist, wrapSurfaceDist);
+        } else if (minU + sizeU >= 1.0 - 1e-6) {
+          const wrapMidU = sizeU * 0.5;
+          const wrapPMid = WebGPUEngine.evaluateManifoldPosition(wrapMidU, vMid, mode, unfurl);
+          const wrapCamDist = Math.hypot(camX - wrapPMid[0], camY - wrapPMid[1], camZ - wrapPMid[2]);
+          const wrapSurfaceDist = Math.max(
+            Math.max(0, camDistToCenter - 5.0),
+            wrapCamDist - effectiveRadius
+          );
+          surfaceDist = Math.min(surfaceDist, wrapSurfaceDist);
+        }
       }
 
       const rangeL = this.cdlodLodRanges[lod];
@@ -2077,9 +2080,10 @@ export class WebGPUEngine {
       this.loadDewpointTexture('/data/weathernext/dewpoint_temperature_2m_mean-0.bin').catch(() => {});
     }
 
-    // 4. Dual-Surface Lithosphere Crust & Liquid Hydrosphere 3D Sphere Grid Buffers
-    // Test environment uses lightweight 128x256; live production engine uses 512x1024 (1M triangles)
-    const [defLat, defLon] = isTestEnv ? [128, 256] : [512, 1024];
+    // 4. Dual-Surface Lithosphere Crust & Liquid Hydrosphere Fallback Mesh (128x256)
+    // Production runs dynamically on GPU-driven CDLOD quadsphere (< 700 KB VRAM).
+    // The static mesh is retained strictly as a lightweight 128x256 fallback (~2.3 MB) for test environments.
+    const [defLat, defLon] = [128, 256];
     this.rebuildSphereMesh(defLat, defLon);
     if (!isTestEnv) {
       this.ensureCDLODBuffers();
@@ -6831,14 +6835,12 @@ export class WebGPUEngine {
       this.cloudAdvectionComputeBindGroups[1]
     );
 
-    const isSphereMode = (params.mode ?? 0) === 0;
-    if (!isPurity && this.cdlodEnabled && isSphereMode && (params.reliefActive || params.showRelief)) {
+    if (!isPurity && this.cdlodEnabled && (params.reliefActive || params.showRelief)) {
       this.ensureCDLODBuffers();
     }
 
     const hasCDLODCompute = !isPurity &&
       this.cdlodEnabled &&
-      isSphereMode &&
       (params.reliefActive || params.showRelief) &&
       !!(
         this.cdlodCullingPipeline &&
@@ -6948,7 +6950,7 @@ export class WebGPUEngine {
     // 1. Dual-Surface Lithosphere Crust & Liquid Hydrosphere (M1-T3)
     // 3D tessellated sphere grid with Jerlov radiative transfer, Kubelka-Munk reflectance & micro-ripples
     const useCDLOD = this.cdlodEnabled &&
-      isSphereMode &&
+      !isPurity &&
       !!(this.patchVertexBuffer && this.patchIndexBuffer && this.cdlodIndirectBuffer);
 
     if (this.cdlodControlBuffer && this.cdlodControlUints && this.device) {
