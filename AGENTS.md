@@ -219,3 +219,8 @@ Per Design Ethos Principle 2, the flat map is an archival drafting sheet resting
 - **Full Oblique Relief Freedom**: The user must retain unrestricted ability to pitch ($\phi$) to grazing angles ($80^\circ$), yaw ($\theta$) $360^\circ$, pan, and zoom across all deformation modes and flat map states.
 
 
+
+## 37. WebGPU HMR Stale Pipeline Invariant
+In a Vite/React environment, Hot Module Replacement (HMR) seamlessly re-renders React components and re-executes JavaScript logic when a WGSL shader file is modified, but it **does not** automatically tear down and rebuild the cached WebGPU `GPURenderPipeline` on the GPU.
+- **The Stale Cache Illusion**: The browser UI will appear to have updated (React state, component props, and uniform buffer writes will reflect the new code), but the GPU will silently continue executing the old cached shader bytecode. This causes extreme state desynchronization (e.g., diagnostic UI says "Off", but the globe renders diagnostic colors).
+- **Mandatory Hard Refresh**: After saving *any* modification to a `.wgsl` shader file, you MUST perform a hard browser refresh (`window.location.reload()`) via MCP or instruct the user to do so before performing any visual verification. Never trust the live canvas output immediately following a WGSL file save without a full page reload.
