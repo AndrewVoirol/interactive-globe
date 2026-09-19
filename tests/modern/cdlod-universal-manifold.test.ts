@@ -38,7 +38,7 @@ describe('Universal CDLOD Manifold Integration & Pipeline Invariants', () => {
           expect(stats.nodeCount).toBeGreaterThan(0);
           expect(stats.nodeCount).toBeLessThanOrEqual(WebGPUEngine.CDLOD_MAX_NODES);
           expect(stats.maxLod).toBeGreaterThanOrEqual(1);
-          expect(stats.totalVertices).toBe(stats.nodeCount * 8450);
+          expect(stats.totalVertices).toBe(stats.nodeCount * 8962);
 
           // Forensically verify candidate buffer floats
           const candidateFloats = (engine as any).cdlodCandidateFloats as Float32Array;

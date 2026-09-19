@@ -53,9 +53,9 @@ struct CullingUniforms {
 @compute @workgroup_size(1)
 fn cs_reset() {
     atomicStore(&indirectCmd.instanceCount, 0u);
-    // Dual surface (crust + hydrosphere) 64x64 patch index count:
-    // 64 * 64 quads * 2 tris * 3 indices * 2 surfaces = 49152 indices
-    indirectCmd.indexCount = 49152u;
+    // Dual surface (crust + hydrosphere) 64x64 patch index count with perimeter skirts:
+    // (4096 grid quads + 256 skirt quads) * 6 indices * 2 surfaces = 52224 indices
+    indirectCmd.indexCount = 52224u;
     indirectCmd.firstIndex = 0u;
     indirectCmd.baseVertex = 0;
     indirectCmd.firstInstance = 0u;

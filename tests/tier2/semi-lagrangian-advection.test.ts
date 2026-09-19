@@ -153,7 +153,7 @@ describe('Tier 2: Semi-Lagrangian Advection on S² Manifold', () => {
     expect(shaderSrc).toMatch(/u_scrubTau\s*:\s*f32\s*,\s*\/\/\s*offset\s*304\s*\(float\s*76\)/);
     expect(shaderSrc).toMatch(/(?:u_advectionActive|_padScrub0)\s*:\s*f32/);
     expect(shaderSrc).toMatch(/_padScrub1\s*:\s*f32/);
-    expect(shaderSrc).toMatch(/_padScrub2\s*:\s*f32/);
+    expect(shaderSrc).toMatch(/(?:u_cdlodDiagnosticMode|_padScrub2)\s*:\s*f32/);
 
     // Alignment math: 304 is divisible by 16 (19 * 16), padded to 320 (20 * 16)
     expect(304 % 16).toBe(0);

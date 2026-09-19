@@ -158,7 +158,7 @@ describe('Challenger M4 Iteration 2: Purity Diagnostic Mode & Zero-Zombie Pass I
         { name: 'u_scrubTau', size: 4, align: 4, expectedOffset: 304 },
         { name: 'u_advectionActive', size: 4, align: 4, expectedOffset: 308 },
         { name: '_padScrub1', size: 4, align: 4, expectedOffset: 312 },
-        { name: '_padScrub2', size: 4, align: 4, expectedOffset: 316 },
+        { name: 'u_cdlodDiagnosticMode', size: 4, align: 4, expectedOffset: 316 },
       ];
 
       let currentOffset = 0;

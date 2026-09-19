@@ -118,6 +118,27 @@ export function useEngineState() {
     }
   }, [showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity]);
 
+  const [cdlodDiagnosticMode, setCdlodDiagnosticModeState] = useState<number>(0);
+
+  const setCdlodDiagnosticMode = (mode: number | ((prev: number) => number)) => {
+    setCdlodDiagnosticModeState((prev) => {
+      const val = typeof mode === 'function' ? mode(prev) : mode;
+      const resolved = typeof val === 'number' && Number.isFinite(val) ? Math.max(0, Math.min(3, Math.round(val))) : 0;
+      if (typeof window !== 'undefined') {
+        (window as any).__INDICATRIX_CDLOD_DIAGNOSTIC_MODE__ = resolved;
+        window.dispatchEvent(new CustomEvent('indicatrix:cdlod-diag', { detail: resolved }));
+      }
+      return resolved;
+    });
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__INDICATRIX_CDLOD_DIAGNOSTIC_MODE__ = cdlodDiagnosticMode;
+      (window as any).__INDICATRIX_SET_CDLOD_DIAGNOSTIC_MODE__ = setCdlodDiagnosticMode;
+    }
+  }, [cdlodDiagnosticMode]);
+
   const [dataInfo, setDataInfo] = useState<LoadedDataInfo>({ 
     pointCount: 100000, 
     lineCount: 300000,
@@ -245,6 +266,7 @@ export function useEngineState() {
     cloudDriftSpeed, setCloudDriftSpeed,
     cloudOpacity, setCloudOpacity,
     setCloudOptions,
+    cdlodDiagnosticMode, setCdlodDiagnosticMode,
   };
 }
 

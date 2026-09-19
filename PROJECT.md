@@ -57,6 +57,12 @@ The Continuous Volumetric Matrix is a scientific-grade 1,000,000-node globe-to-m
 | F22 | Spherical Contour Ingestion & Simon l'Huilier Topological Severance | Stream binary contour meshes (`geo-contour-mesh.bin`), compute spherical excess area on $S^2$, and sever polylines across antimeridian and 14 Dymaxion boundaries | P2-M2 | Frontier 2 |
 | F23 | Apple Silicon SIMD32 Workgroup 256 Zero-Copy 16M Dispatch | Configure 1D dispatch grid `ceil(N/256)` (62,500 <= 65,535 for 16M) with zero-copy `STORAGE | VERTEX` buffer aliasing (Arithmetic benchmark — no 16M dataset exists) | P2-M3 | Frontier 5 |
 | F24 | Asynchronous Triple-Buffered 16-Query GPUProfiler | Sub-microsecond GPU kernel pass profiling via 16-query ring buffer with non-blocking async mapping and graceful fallback | P2-M3 | Frontier 5 |
+| F25 | Hardware Perimeter Skirt Generation (R1) | Extrude downward perimeter skirts in `generatePatchMesh(64)` (8,962 verts, 52,224 indices) to close LOD cracks with zero texture stretching or lighting seams | Phase 3 - M1 | Survey E1 |
+| F26 | Topological 2:1 Restricted Quadtree Balancing (R2) | CPU 2-phase traversal with 29-bit universal spatial key, open-addressing hash table, and ripple balancing queue guaranteeing $|\Delta\text{LOD}| \le 1$ | Phase 3 - M2 | Survey E2 |
+| F27 | Screen-Space Error with Riemannian Metric Calibration (R3) | Dynamic SSE formulation replacing static dyadic ranges, calibrated by Riemannian metric determinant $\sigma(\phi; t) = \sqrt{(1-t) + t\sec^2\phi}$ | Phase 3 - M3 | Survey E2 |
+| F28 | Streamed Regional High-Res DEM Ingestion (R4) | Scale CDLOD to LOD 12 for litmus regions, eliminate regional mip-inversion blurring, maintain Rule 8 cross-pipeline parity | Phase 3 - M4 | Survey E3 |
+| F29 | Real-Time CDLOD Diagnostic Plate (R5) | In-shader diagnostic mode (float 79 in `SimUniforms`) visualizing integer LOD hues and continuous morph factor $\alpha$ with `[BETA]` tray UI | Phase 3 - M5 | Survey E1 |
+| F30 | Interactive Invariant Verification & Acceptance (Acceptance) | Automated validation of `verify_interactive_invariants.ts`, 100% full vitest suite pass, zero console errors, archival theme parity | Phase 3 - M6 | Survey E3 |
 
 ## Scaffolding & Scaling Status (DESIGN_ETHOS.md §11 Compliance)
 
@@ -143,6 +149,12 @@ ais-interactive-globe-to-map/
 | Phase 2 - M2 | Contour & Vector Topology | Isoline contour binary mesh streaming, Simon l'Huilier spherical excess on $S^2$, and 14-cut topological severance | Phase 2 M1 | DONE |
 | Phase 2 - M3 | Apple Silicon M4 Pro 16M Node Scaling & Publication | SIMD32 workgroup 256 zero-copy dispatch, triple-buffered GPUProfiler, 16M node UMA budgets, and validation-report-v3.md | Phase 2 M2 | DONE |
 | Stage 3 | Coupled System Dynamics | Orographic wind velocity & condensation wash (R1), autonomous origami crane orographic lift coupling & HUD telemetry (R2), WebGPU DEM pipeline bindings & uniform control flow (R3) | Stage 2 | DONE |
+| Phase 3 - M1 | Hardware Perimeter Skirt Generation (R1) | Extrude perimeter skirts in `generatePatchMesh(64)` (8,962 verts, 52,224 indices), update culling & crust shaders, harmonize tests | Stage 3 | DONE |
+| Phase 3 - M2 | Topological 2:1 Restricted Quadtree Balancing (R2) | CPU 2-phase traversal with 29-bit spatial keys, open-addressing hash table, and ripple balancing queue | Phase 3 - M1 | DONE |
+| Phase 3 - M3 | Dynamic SSE & Riemannian Metric Calibration (R3) | Dynamic SSE formulation replacing static dyadic ranges, calibrated by Riemannian metric factor $\sigma(\phi; t)$ | Phase 3 - M2 | DONE |
+| Phase 3 - M4 | Streamed Regional High-Res DEM Ingestion (R4) | Scale CDLOD quadtree to LOD 12 for litmus regions, fix regional mip-inversion, ensure Rule 8 parity | Phase 3 - M3 | DONE |
+| Phase 3 - M5 | Real-Time CDLOD Diagnostic Plate (R5) | In-shader diagnostic mode (float 79 in `SimUniforms`) for integer LOD & morph factor $\alpha$ with Beta Tray UI | Phase 3 - M1, M3 | DONE |
+| Phase 3 - M6 | Interactive Invariant Verification & Publication | Validate `verify_interactive_invariants.ts`, full vitest suite (100% pass), theme verification, Sentinel handoff | Phase 3 - M1-M5 | DONE |
 
 ## Interface Contracts
 

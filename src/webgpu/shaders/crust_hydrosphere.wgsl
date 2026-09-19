@@ -40,7 +40,7 @@ struct SimUniforms {
     u_scrubTau: f32, // offset 304 (float 76)
     u_advectionActive: f32, // offset 308 (float 77)
     _padScrub1: f32, // offset 312 (float 78)
-    _padScrub2: f32, // offset 316 (float 79)
+    u_cdlodDiagnosticMode: f32, // offset 316 (float 79)
 };
 
 @group(0) @binding(0) var<uniform> sim: SimUniforms;
@@ -120,6 +120,8 @@ struct VertexOutput {
     @location(3) elevation: f32,
     @location(4) waterDepth: f32,
     @location(5) surfaceType: f32,
+    @location(6) skirtFactor: f32,
+    @location(7) lodInfo: vec2<f32>,
 };
 
 const PI_F32: f32 = 3.14159265358979323846;
@@ -592,10 +594,12 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
 
     var inUv = input.uv;
     var inSurfaceType = input.surfaceType;
+    let skirtFactor = input.target2D.z;
 
     var deformed: DeformedVertex;
     var inst: CDLODInstance;
     var instLod: f32 = 0.0;
+    var morphAlpha: f32 = 0.0;
 
     if (u_cdlodControl.u_cdlodActive == 1u) {
         inst = cdlodInstances[instanceIdx];
@@ -608,6 +612,7 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
 
         // Morph factor alpha
         let alpha = clamp((r - inst.morphStart) * inst.invMorphRange, 0.0, 1.0);
+        morphAlpha = alpha;
 
         // Snap odd grid coordinates in parameter space
         let p_morphed = p - alpha * (fract(p * 32.0) * (1.0 / 32.0));
@@ -642,7 +647,7 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
 
     let uv = inUv;
     let demSample = textureSampleLevel(u_demTexture, u_demSampler, uv, inst.lodFraction);
-    let demSampleComp = sampleRegionalComposite(uv, demSample, instLod);
+    let demSampleComp = sampleRegionalComposite(uv, demSample, 0.0);
     let elevMeters = decodeElevation(demSampleComp);
     output.elevation = elevMeters;
 
@@ -700,9 +705,15 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
         normalDisplacement = normalDisplacement * limbAtten;
     }
 
-    let worldP = basePos + baseNormal * normalDisplacement;
+    let isCrust = inSurfaceType < 0.5;
+    let skirtDepth = select(0.0, max(0.015, inst.sizeUV.y * 0.35 * dispScale), isCrust && skirtFactor > 0.0);
+
+    let worldP = basePos + baseNormal * (normalDisplacement - skirtDepth);
     output.worldPos = worldP;
     output.normal = baseNormal;
+    output.skirtFactor = skirtFactor;
+    let alpha = morphAlpha;
+    output.lodInfo = vec2<f32>(f32(inst.lod), alpha);
 
     let viewPos = sim.u_viewMatrix * vec4<f32>(worldP, 1.0);
     output.clipPos = sim.u_projectionMatrix * viewPos;
@@ -918,6 +929,22 @@ fn sampleAdvectedPrecipitationField(
     return mix(sample0, sample1, tau);
 }
 
+// CDLOD Diagnostic Color Palette (Milestone 5 / R5)
+fn getLODColor(lod: u32) -> vec3<f32> {
+    switch (lod) {
+        case 0u: { return vec3<f32>(0.10, 0.25, 0.65); } // LOD 0: Deep Cobalt
+        case 1u: { return vec3<f32>(0.12, 0.58, 0.85); } // LOD 1: Cerulean
+        case 2u: { return vec3<f32>(0.15, 0.72, 0.60); } // LOD 2: Turquoise/Teal
+        case 3u: { return vec3<f32>(0.30, 0.78, 0.35); } // LOD 3: Meadow Green
+        case 4u: { return vec3<f32>(0.85, 0.82, 0.20); } // LOD 4: Lemon Yellow
+        case 5u: { return vec3<f32>(0.95, 0.58, 0.15); } // LOD 5: Amber Orange
+        case 6u: { return vec3<f32>(0.92, 0.25, 0.20); } // LOD 6: Crimson
+        case 7u: { return vec3<f32>(0.80, 0.20, 0.75); } // LOD 7: Magenta
+        case 8u: { return vec3<f32>(0.55, 0.15, 0.85); } // LOD 8: Violet
+        default: { return vec3<f32>(0.95, 0.95, 0.95); } // LOD 9+: Bright White
+    }
+}
+
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // 1. Unconditional derivative evaluation for WGSL uniform control flow conformance (Invariant #3)
@@ -1008,6 +1035,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     let V = normalize(sim.u_cameraPos.xyz - input.worldPos);
     let N = normalize(input.normal);
+
+    let isSkirt = input.skirtFactor > 0.5;
+    // Discard liquid hydrosphere skirt fragments (surfaceType > 0.5 && isSkirt) to prevent vertical glass walls
+    if (input.surfaceType > 0.5 && isSkirt) {
+        discard;
+    }
 
     if (input.surfaceType > 0.5) {
         if (sim.u_purityMode > 0.5) {
@@ -2070,6 +2103,31 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     finalCrust = mix(finalCrust, weatherOverlay.rgb, weatherOverlay.a);
+
+    // ========================================================================
+    // CDLOD Real-Time Diagnostic Plate (Milestone 5 / R5)
+    // ========================================================================
+    if (sim.u_cdlodDiagnosticMode > 0.5) {
+        let lodInt = u32(round(input.lodInfo.x));
+        let alpha = clamp(input.lodInfo.y, 0.0, 1.0);
+        let lodColor = getLODColor(lodInt);
+
+        var diagColor: vec3<f32>;
+        if (sim.u_cdlodDiagnosticMode >= 2.5) {
+            // Mode 3: Combined plate (LOD hue modulated by morph alpha + preserved hillshade relief)
+            let alphaMod = mix(vec3<f32>(0.75), vec3<f32>(1.25, 1.05, 0.65), alpha);
+            diagColor = lodColor * alphaMod;
+        } else if (sim.u_cdlodDiagnosticMode >= 1.5) {
+            // Mode 2: Pure Morph Factor Alpha Ramp
+            diagColor = mix(vec3<f32>(0.05, 0.40, 0.85), vec3<f32>(0.95, 0.20, 0.10), alpha);
+        } else {
+            // Mode 1: Discrete Integer LOD Hue
+            diagColor = lodColor;
+        }
+
+        let hillshade = clamp(NdotL1 * shadowFactor + 0.35, 0.25, 1.25);
+        finalCrust = diagColor * hillshade;
+    }
 
     let finalAlpha = clamp(sim.u_layerOpacity, 0.0, 1.0);
     return vec4<f32>(finalCrust * finalAlpha, finalAlpha);

@@ -231,6 +231,9 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onPurityModeToggle={props.onPurityModeToggle}
         cdlodEnabled={props.cdlodEnabled}
         onCdlodToggle={props.onCdlodToggle}
+        cdlodDiagnosticMode={props.cdlodDiagnosticMode}
+        onCdlodDiagnosticModeChange={props.onCdlodDiagnosticModeChange}
+        setCdlodDiagnosticMode={props.setCdlodDiagnosticMode}
       />
 
       {/* Bottom-Left Non-Intrusive Glassmorphic Toast Notification Stack */}

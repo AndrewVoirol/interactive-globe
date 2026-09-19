@@ -25,7 +25,7 @@ describe('Application Hardening: Dual CPU/GPU Culling Symmetry & Manifold Camera
       const engineTs = fs.readFileSync(engineTsPath, 'utf8');
       expect(engineTs).not.toMatch(/mode\s*===\s*0\s*&&\s*unfurl\s*<\s*0\.01/);
       expect(engineTs).toMatch(/if\s*\(\s*unfurl\s*<\s*0\.01\s*\)\s*\{[\s\S]*?cDotCam\s*\+/);
-      expect(engineTs).toMatch(/\(\s*unfurl\s*<\s*0\.01\s*\)\s*\?\s*Math\.max\(0,\s*camDistToCenter\s*-\s*5\.0\)/);
+      expect(engineTs).toMatch(/(?:\(\s*unfurl\s*<\s*0\.01\s*\)\s*\?\s*Math\.max\(0,\s*camDistToCenter\s*-\s*5\.0\)|if\s*\(\s*unfurl\s*<\s*0\.01\s*\)\s*\{\s*camAltitudeUnits\s*=\s*Math\.max\(0(?:\.001)?,\s*camDistToCenter\s*-\s*5\.0\))/);
     });
 
     it('proves CDLOD quadtree node counts are identical across modes 0, 1, 2 on undeformed sphere (unfurl=0)', () => {

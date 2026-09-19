@@ -11,11 +11,11 @@ describe('GPU-Driven CDLOD Quadsphere & Continuous Geomorphing Invariants', () =
   describe('Pillar 1: 64x64 Instanced Patch Geometry & Quadsphere Math', () => {
     it('generates 64x64 dual-surface patch with exact vertex and index counts', () => {
       const { vertices, indices } = WebGPUEngine.generatePatchMesh(64);
-      // (64 + 1) * (64 + 1) * 2 surfaces = 8,450 vertices
-      // 8,450 vertices * 12 floats (48 bytes stride) = 101,400 floats
-      expect(vertices.length).toBe(8450 * 12);
-      // 64 * 64 quads * 2 triangles * 3 indices * 2 surfaces = 49,152 indices
-      expect(indices.length).toBe(49152);
+      // (65 * 65 grid + 256 skirt) * 2 surfaces = 8,962 vertices
+      // 8,962 vertices * 12 floats (48 bytes stride) = 107,544 floats
+      expect(vertices.length).toBe(8962 * 12);
+      // (4096 grid quads + 256 skirt quads) * 6 indices * 2 surfaces = 52,224 indices
+      expect(indices.length).toBe(52224);
 
       // Verify zero NaNs or Infs
       for (let i = 0; i < vertices.length; i++) {
@@ -23,14 +23,14 @@ describe('GPU-Driven CDLOD Quadsphere & Continuous Geomorphing Invariants', () =
       }
       for (let i = 0; i < indices.length; i++) {
         expect(indices[i]).toBeGreaterThanOrEqual(0);
-        expect(indices[i]).toBeLessThan(8450);
+        expect(indices[i]).toBeLessThan(8962);
       }
     });
 
     it('verifies crust surface (type=0.0) and hydrosphere surface (type=1.0) separation', () => {
       const { vertices } = WebGPUEngine.generatePatchMesh(64);
       const floatsPerVertex = 12;
-      const vertsPerSurface = 65 * 65;
+      const vertsPerSurface = 4481; // 4,225 grid + 256 skirt vertices
 
       // Surface 0: Crust
       for (let i = 0; i < vertsPerSurface; i++) {
@@ -125,8 +125,8 @@ describe('GPU-Driven CDLOD Quadsphere & Continuous Geomorphing Invariants', () =
       expect(code).toMatch(/baseVertex\s*:\s*i32/);
       expect(code).toMatch(/firstInstance\s*:\s*u32/);
 
-      // Verify reset sets 49152 indices for the 64x64 dual surface patch
-      expect(code).toContain('indirectCmd.indexCount = 49152u;');
+      // Verify reset sets 52224 indices for the 64x64 dual surface patch with skirts
+      expect(code).toContain('indirectCmd.indexCount = 52224u;');
     });
 
     it('verifies dynamic bounding expansion using fluidMaxDisplacement', () => {
@@ -219,7 +219,7 @@ describe('GPU-Driven CDLOD Quadsphere & Continuous Geomorphing Invariants', () =
       engine.updateCDLOD(camera, 0, 0, false);
       const stats = engine.getCDLODStats();
 
-      // Total rendered vertices = activeNodes * 8450
+      // Total rendered vertices = activeNodes * 8962
       expect(stats.totalVertices).toBeLessThanOrEqual(150000);
       expect(stats.nodeCount).toBeGreaterThan(0);
     });

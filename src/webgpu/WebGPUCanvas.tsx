@@ -128,6 +128,7 @@ export interface WebGPUCanvasProps {
   onResolutionChange?: (r: ResolutionTier) => void;
   cursorPhysicsEnabled?: boolean;
   cdlodEnabled?: boolean;
+  cdlodDiagnosticMode?: number;
   isZenMode?: boolean;
   isSidebarOpen?: boolean;
   startTime?: number;
@@ -213,6 +214,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   onResolutionChange,
   cursorPhysicsEnabled = false,
   cdlodEnabled = true,
+  cdlodDiagnosticMode = 0,
   isZenMode = false,
   isSidebarOpen = true,
   startTime,
@@ -480,6 +482,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     sheenIntensity,
     absorptionFeathering,
     cameraPitchDeg,
+    cdlodDiagnosticMode,
   });
   useEffect(() => {
     stateRef.current = {
@@ -531,9 +534,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       sheenIntensity,
       absorptionFeathering,
       cameraPitchDeg,
+      cdlodDiagnosticMode,
     };
     cachedLayersRef.current = computeCachedLayers(dataLayers);
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -2774,6 +2778,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           waterClarity,
           peakExponent,
           paperTooth,
+          cdlodDiagnosticMode: stateRef.current.cdlodDiagnosticMode ?? 0,
           opacity,
           renderStyle,
           isolatedStratum:

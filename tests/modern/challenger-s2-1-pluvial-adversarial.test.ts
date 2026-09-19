@@ -405,7 +405,7 @@ describe('Challenger S2-1: Adversarial Pluvial Coupling & WebGPU Atmospheric Str
       { name: 'u_scrubTau', type: 'f32', size: 4, align: 4, expectedOffset: 304 },
       { name: 'u_advectionActive', type: 'f32', size: 4, align: 4, expectedOffset: 308 },
       { name: '_padScrub1', type: 'f32', size: 4, align: 4, expectedOffset: 312 },
-      { name: '_padScrub2', type: 'f32', size: 4, align: 4, expectedOffset: 316 },
+      { name: '(?:u_cdlodDiagnosticMode|_padScrub2)', type: 'f32', size: 4, align: 4, expectedOffset: 316 },
     ];
 
     it('CHALLENGE-S2-09: Parses SimUniforms from crust_hydrosphere.wgsl and validates field presence and order', () => {

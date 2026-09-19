@@ -1744,3 +1744,48 @@ VICTORY AUDIT FINDINGS RESOLVED:
 
 Both audit scripts pass cleanly. The orchestrator's remediation team can re-submit for victory audit, or the auditor can re-verify directly. These were 2 trivial fixes — no code logic changed.
 </PARENT_DIRECTIVE>
+
+## 2026-09-19T10:11:38Z
+
+<USER_REQUEST>
+# Teamwork Project Prompt — Draft
+
+> Status: Launched
+> Goal: Craft prompt → get user approval → delegate to teamwork_preview
+> Requested team: Full team
+
+Transition from the hybrid fallback baseline into the full architectural commitment of the high-resolution Level-of-Detail DEM engine, including hardware perimeter skirts, 2:1 restricted quadtree balancing, and Riemannian metric calibration.
+
+Working directory: /Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/cdl_od_path_forward
+Integrity mode: development
+
+**Reference Material:**
+- `SHADERS_SPEC_LEDGER.md` is active. All shader math MUST conform to the specifications in that ledger. Read it before modifying any WGSL files.
+- Academic Research may be used to inform the agents to build a novel, scalable solution.
+
+## Requirements
+
+### R1. Hardware Perimeter Skirt Generation
+Update `generatePatchMesh(64)` to include perimeter skirt geometry ($z_{\text{skirt}} = \Delta h_{\text{DEM}}$) and update vertex/fragment shaders to handle skirt rendering without texture stretching or lighting seams.
+
+### R2. Topological 2:1 Restricted Quadtree Balancing Pass
+Implement an explicit adjacency-balanced traversal pass on the CPU quadtree candidate pool to guarantee that no patch borders an active neighbor with $\Delta\text{LOD} > 1$.
+
+### R3. Screen-Space Error (SSE) with Riemannian Metric Calibration
+Replace hardcoded Euclidean distance ranges (`cdlodLodRanges`) with a dynamic Screen-Space Error formulation incorporating the Riemannian metric determinant $g(\phi)$ for Mercator and active deformation modes.
+
+### R4. Streamed 16-Bit Regional High-Resolution DEM Ingestion
+Scale CDLOD quadtree depth dynamically up to LOD 12 for litmus regions, ensuring synchronous Float16 / R16Unorm elevation decoding parity across all passes.
+
+### R5. In-Engine Real-Time CDLOD Diagnostic Plate
+Implement an in-shader diagnostic mode toggle in the `[BETA]` Tray to color each patch by integer LOD level and render morph factor $\alpha$ as a color gradient.
+
+## Acceptance Criteria
+
+### Verification Gating
+- [ ] `PORT=3000 npx tsx scripts/verify_interactive_invariants.ts` passes strictly at every milestone.
+- [ ] 3D flat map rotation, monotonic zooming, and zero console errors remain green.
+- [ ] Sub-pixel rasterization cracks at LOD boundaries are physically eliminated.
+- [ ] Morph progression visually bridges exactly one resolution octave (no popping).
+- [ ] Uniform pixel-level geometric detail is maintained from the equator to high latitudes.
+</USER_REQUEST>

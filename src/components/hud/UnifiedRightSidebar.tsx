@@ -116,6 +116,9 @@ export interface UnifiedRightSidebarProps {
   onPurityModeToggle?: () => void;
   cdlodEnabled?: boolean;
   onCdlodToggle?: (enabled: boolean) => void;
+  cdlodDiagnosticMode?: number;
+  onCdlodDiagnosticModeChange?: (mode: number) => void;
+  setCdlodDiagnosticMode?: (mode: number) => void;
 }
 
 export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
@@ -209,6 +212,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onPurityModeToggle,
   cdlodEnabled = true,
   onCdlodToggle,
+  cdlodDiagnosticMode: cdlodDiagnosticModeProp,
+  onCdlodDiagnosticModeChange,
+  setCdlodDiagnosticMode,
 }) => {
   const handleToggleClouds = (val: boolean) => {
     onShowCloudsChange?.(val);
@@ -264,6 +270,43 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   const [activePlate, setActivePlate] = useState<SidebarPlate>('scene');
   const [isBetaOpen, setIsBetaOpen] = useState(true);
   const [activeSnap, setActiveSnap] = useState<'equator' | 'pole' | 'seam' | 'isometric' | 'horizon' | null>(null);
+
+  const [internalCdlodDiagnosticMode, setInternalCdlodDiagnosticMode] = useState<number>(() => {
+    if (typeof window !== 'undefined' && typeof (window as any).__INDICATRIX_CDLOD_DIAGNOSTIC_MODE__ === 'number') {
+      return (window as any).__INDICATRIX_CDLOD_DIAGNOSTIC_MODE__;
+    }
+    return cdlodDiagnosticModeProp ?? 0;
+  });
+
+  useEffect(() => {
+    if (cdlodDiagnosticModeProp !== undefined) {
+      setInternalCdlodDiagnosticMode(cdlodDiagnosticModeProp);
+    }
+  }, [cdlodDiagnosticModeProp]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (e: Event) => {
+      const mode = (e as CustomEvent).detail;
+      if (typeof mode === 'number') {
+        setInternalCdlodDiagnosticMode(mode);
+      }
+    };
+    window.addEventListener('indicatrix:cdlod-diag', handler);
+    return () => window.removeEventListener('indicatrix:cdlod-diag', handler);
+  }, []);
+
+  const activeCdlodDiagnosticMode = cdlodDiagnosticModeProp !== undefined ? cdlodDiagnosticModeProp : internalCdlodDiagnosticMode;
+
+  const handleCdlodDiagnosticModeChange = useCallback((mode: number) => {
+    setInternalCdlodDiagnosticMode(mode);
+    onCdlodDiagnosticModeChange?.(mode);
+    setCdlodDiagnosticMode?.(mode);
+    if (typeof window !== 'undefined') {
+      (window as any).__INDICATRIX_CDLOD_DIAGNOSTIC_MODE__ = mode;
+      window.dispatchEvent(new CustomEvent('indicatrix:cdlod-diag', { detail: mode }));
+    }
+  }, [onCdlodDiagnosticModeChange, setCdlodDiagnosticMode]);
 
   const isLight = theme === 1;
 
@@ -1119,6 +1162,30 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               step={0.05}
                               readout={`${Math.round((primaryLayer?.paperTooth ?? 0.40) * 100)}%`}
                               onChange={(v) => onPaperToothChangeDataLayer?.(primaryLayerId, v)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                                CDLOD Mesh Diagnostics
+                              </span>
+                              <span className="text-nano font-mono text-amber-500 font-bold">
+                                {activeCdlodDiagnosticMode === 0 ? 'OFF' : activeCdlodDiagnosticMode === 1 ? 'LOD' : activeCdlodDiagnosticMode === 2 ? 'MORPH' : 'COMBINED'}
+                              </span>
+                            </div>
+                            <SegmentedControl
+                              size="sm"
+                              value={activeCdlodDiagnosticMode}
+                              onChange={handleCdlodDiagnosticModeChange}
+                              options={[
+                                { id: 0, label: 'Off', title: 'Normal Cartographic Rendering' },
+                                { id: 1, label: 'LOD', title: 'Color patches by integer LOD level' },
+                                { id: 2, label: 'Morph α', title: 'Render geomorphing transition factor alpha' },
+                                { id: 3, label: 'All', title: 'Combined LOD hue + morph gradient + relief' },
+                              ]}
                             />
                           </div>
                         </div>

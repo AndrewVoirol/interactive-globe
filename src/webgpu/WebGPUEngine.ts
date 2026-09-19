@@ -153,9 +153,11 @@ export interface WebGPUFrameParams {
   cloudAdvectionSpeed?: number;
   condensationRate?: number;
   evaporationRate?: number;
+  cdlodDiagnosticMode?: number;
 }
 
 export type RenderParameters = WebGPUFrameParams;
+export type RenderParams = WebGPUFrameParams;
 
 export interface CloudDimensions {
   width: number;
@@ -195,6 +197,10 @@ export interface QuadtreeNodeData {
   rangeL: number;
   hasChildren: boolean;
   childRangeL: number;
+  x: number;
+  y: number;
+  key: number;
+  split: boolean;
 }
 
 export class WebGPUEngine {
@@ -208,12 +214,13 @@ export class WebGPUEngine {
   // Section: 2:1 Parametric Cylindrical CDLOD Quadtree & Watertight Geomorphing
   // ==========================================================================
   public cdlodEnabled: boolean = true;
+  public cdlodDiagnosticMode: number = 0;
   public camera: any = null;
   public lastIndirectDrawCallsCount: number = 0;
   public patchVertexBuffer: GPUBuffer | null = null;
   public patchIndexBuffer: GPUBuffer | null = null;
   public patchIndexCount: number = 0;
-  public patchVertexCount: number = 0;
+  public patchVertexCount: number = 8962;
 
   public cdlodCandidateBuffer: GPUBuffer | null = null;
   public cdlodIndirectBuffer: GPUBuffer | null = null;
@@ -230,6 +237,14 @@ export class WebGPUEngine {
 
   public static readonly CDLOD_MAX_NODES = 4096;
   public static readonly CDLOD_MAX_INSTANCES = 4096;
+  private static readonly HASH_SIZE = 16384;
+  private static readonly HASH_MASK = 16383;
+  private cdlodSpatialHashKeys: Int32Array = new Int32Array(16384);
+  private cdlodSpatialHashValues: Int32Array = new Int32Array(16384);
+  private cdlodRippleQueue: Int32Array = new Int32Array(4096);
+  private cdlodRippleQueueHead: number = 0;
+  private cdlodRippleQueueTail: number = 0;
+
   private cdlodCandidateFloats: Float32Array = new Float32Array(WebGPUEngine.CDLOD_MAX_NODES * 12);
   private cdlodCandidateUints: Uint32Array = new Uint32Array(this.cdlodCandidateFloats.buffer);
   public displacementScale: number = 0.055;
@@ -237,7 +252,7 @@ export class WebGPUEngine {
   private cdlodCullingUniformUints: Uint32Array = new Uint32Array(this.cdlodCullingUniformFloats.buffer);
   private cdlodControlFloats: Float32Array = new Float32Array(4);
   private cdlodControlUints: Uint32Array = new Uint32Array(this.cdlodControlFloats.buffer);
-  private cdlodIndirectInitFloats: Uint32Array = new Uint32Array([49152, 0, 0, 0, 0]);
+  private cdlodIndirectInitFloats: Uint32Array = new Uint32Array([52224, 0, 0, 0, 0]);
   private pvMatrix: Float32Array = new Float32Array(16);
 
   private cdlodNodePool: QuadtreeNodeData[] = Array.from({ length: WebGPUEngine.CDLOD_MAX_NODES }, () => ({
@@ -253,13 +268,18 @@ export class WebGPUEngine {
     rangeL: 0,
     hasChildren: false,
     childRangeL: 0,
+    x: 0,
+    y: 0,
+    key: 0,
+    split: false,
   }));
   public cdlodActiveNodeCount: number = 0;
   public lastVisibleInstanceCount: number = 0;
   public lastCameraAltitudeKm: number = 10000;
   public lastMaxLodSeen: number = 1;
-  public cdlodMaxLod: number = 12;
-  public cdlodLodRanges: number[] = Array.from({ length: 14 }, (_, l) => 56.0 / Math.pow(2, l));
+  public cdlodMaxLod: number = 10;
+  public cdlodSseTolerance: number = 2.0;
+  public cdlodLodRanges: number[] = Array.from({ length: 16 }, (_, l) => 56.0 / Math.pow(2, l));
   public cdlodBuffersInitialized: boolean = false;
 
   private particleBuffers: [GPUBuffer, GPUBuffer] = [null!, null!];
@@ -489,6 +509,19 @@ export class WebGPUEngine {
     height: number;
     id: string;
   } | null = null;
+  public activeRegionalMinLon: number = 0;
+  public activeRegionalMinLat: number = 0;
+  public activeRegionalMaxLon: number = 0;
+  public activeRegionalMaxLat: number = 0;
+  public hasActiveRegionalDEM: boolean = false;
+
+  public getActiveRegionalBounds(): [number, number, number, number] | null {
+    if (this.activeRegionalDEM && this.activeRegionalDEM.bounds) {
+      return this.activeRegionalDEM.bounds;
+    }
+    return null;
+  }
+
   private dummyRegionalTexture: GPUTexture | null = null;
   private dummyRegionalTextureView: GPUTextureView | null = null;
   public regionalUniformBuffer: GPUBuffer | null = null;
@@ -1280,18 +1313,22 @@ export class WebGPUEngine {
    *   [0..2] position: (u, v, surfaceType)
    *   [3..4] uv: (u, v)
    *   [5] surfaceType: 0.0 or 1.0
-   *   [6..9] target2D: (u, v, 0.0, 0.0)
+   *   [6..9] target2D: (u, v, skirtFactor, 0.0) where skirtFactor = 0.0 (grid) or 1.0 (skirt bottom)
    *   [10..11] padding: (0.0, 0.0)
    */
   public static generatePatchMesh(
     gridSize = 64
   ): { vertices: Float32Array; indices: Uint32Array } {
-    const vertsPerSurface = (gridSize + 1) * (gridSize + 1);
+    const gridVertsPerSurface = (gridSize + 1) * (gridSize + 1);
+    const skirtVertsPerSurface = gridSize * 4;
+    const vertsPerSurface = gridVertsPerSurface + skirtVertsPerSurface;
     const totalVertices = vertsPerSurface * 2;
     const floatsPerVertex = 12;
     const vertices = new Float32Array(totalVertices * floatsPerVertex);
 
-    const quadsPerSurface = gridSize * gridSize;
+    const gridQuadsPerSurface = gridSize * gridSize;
+    const skirtQuadsPerSurface = gridSize * 4;
+    const quadsPerSurface = gridQuadsPerSurface + skirtQuadsPerSurface;
     const indicesPerSurface = quadsPerSurface * 6;
     const totalIndices = indicesPerSurface * 2;
     const indices = new Uint32Array(totalIndices);
@@ -1299,7 +1336,9 @@ export class WebGPUEngine {
     for (let surface = 0; surface < 2; surface++) {
       const surfaceType = surface === 0 ? 0.0 : 1.0;
       const baseVertexOffset = surface * vertsPerSurface;
+      const skirtBaseVertexOffset = baseVertexOffset + gridVertsPerSurface;
 
+      // 1. Base grid vertices (65x65 = 4,225 vertices per surface)
       for (let j = 0; j <= gridSize; j++) {
         const v = j / gridSize;
         for (let i = 0; i <= gridSize; i++) {
@@ -1315,16 +1354,60 @@ export class WebGPUEngine {
           vertices[offset + 5] = surfaceType;
           vertices[offset + 6] = u;
           vertices[offset + 7] = v;
-          vertices[offset + 8] = 0.0;
+          vertices[offset + 8] = 0.0; // skirtFactor = 0.0 (base terrain/grid)
           vertices[offset + 9] = 0.0;
           vertices[offset + 10] = 0.0;
           vertices[offset + 11] = 0.0;
         }
       }
 
+      // 2. Skirt bottom vertices (256 vertices per surface, continuous closed loop)
+      // Loop order (CCW perimeter): South (v=0) -> East (u=1) -> North (v=1) -> West (u=0)
+      for (let k = 0; k < skirtVertsPerSurface; k++) {
+        let u = 0.0;
+        let v = 0.0;
+        if (k < gridSize) {
+          // South border: v = 0, u in [0, 1] (64 segments)
+          u = k / gridSize;
+          v = 0.0;
+        } else if (k < 2 * gridSize) {
+          // East border: u = 1, v in [0, 1] (64 segments)
+          const step = k - gridSize;
+          u = 1.0;
+          v = step / gridSize;
+        } else if (k < 3 * gridSize) {
+          // North border: v = 1, u in [1, 0] (64 segments)
+          const step = k - 2 * gridSize;
+          u = 1.0 - step / gridSize;
+          v = 1.0;
+        } else {
+          // West border: u = 0, v in [1, 0] (64 segments)
+          const step = k - 3 * gridSize;
+          u = 0.0;
+          v = 1.0 - step / gridSize;
+        }
+
+        const vertIndex = skirtBaseVertexOffset + k;
+        const offset = vertIndex * floatsPerVertex;
+
+        vertices[offset + 0] = u;
+        vertices[offset + 1] = v;
+        vertices[offset + 2] = surfaceType;
+        vertices[offset + 3] = u;
+        vertices[offset + 4] = v;
+        vertices[offset + 5] = surfaceType;
+        vertices[offset + 6] = u;
+        vertices[offset + 7] = v;
+        vertices[offset + 8] = 1.0; // skirtFactor = 1.0 (skirt bottom vertex)
+        vertices[offset + 9] = 0.0;
+        vertices[offset + 10] = 0.0;
+        vertices[offset + 11] = 0.0;
+      }
+
       const baseIndexOffset = surface * indicesPerSurface;
       let indexPtr = baseIndexOffset;
 
+      // 3. Grid quads (64x64 = 4,096 quads = 24,576 indices per surface)
       for (let j = 0; j < gridSize; j++) {
         for (let i = 0; i < gridSize; i++) {
           const row1 = baseVertexOffset + j * (gridSize + 1);
@@ -1345,6 +1428,50 @@ export class WebGPUEngine {
           indices[indexPtr++] = i3;
         }
       }
+
+      // 4. Perimeter skirt quads (256 quads = 1,536 indices per surface)
+      // Outward-facing counter-clockwise winding along all 4 borders
+      for (let k = 0; k < skirtVertsPerSurface; k++) {
+        const nextK = (k + 1) % skirtVertsPerSurface;
+        const Sk = skirtBaseVertexOffset + k;
+        const Snext = skirtBaseVertexOffset + nextK;
+
+        let Tk = 0;
+        let Tnext = 0;
+
+        if (k < gridSize) {
+          // South: v = 0, u in [0, 1]
+          Tk = baseVertexOffset + k;
+          Tnext = baseVertexOffset + (k + 1);
+        } else if (k < 2 * gridSize) {
+          // East: u = 1, v in [0, 1]
+          const step = k - gridSize;
+          Tk = baseVertexOffset + step * (gridSize + 1) + gridSize;
+          Tnext = baseVertexOffset + (step + 1) * (gridSize + 1) + gridSize;
+        } else if (k < 3 * gridSize) {
+          // North: v = 1, u in [1, 0]
+          const step = k - 2 * gridSize;
+          Tk = baseVertexOffset + gridSize * (gridSize + 1) + (gridSize - step);
+          Tnext = baseVertexOffset + gridSize * (gridSize + 1) + (gridSize - step - 1);
+        } else {
+          // West: u = 0, v in [1, 0]
+          const step = k - 3 * gridSize;
+          Tk = baseVertexOffset + (gridSize - step) * (gridSize + 1);
+          Tnext = (step + 1 === gridSize)
+            ? baseVertexOffset
+            : baseVertexOffset + (gridSize - step - 1) * (gridSize + 1);
+        }
+
+        // Triangle 1: (Tk, Sk, Tnext)
+        indices[indexPtr++] = Tk;
+        indices[indexPtr++] = Sk;
+        indices[indexPtr++] = Tnext;
+
+        // Triangle 2: (Tnext, Sk, Snext)
+        indices[indexPtr++] = Tnext;
+        indices[indexPtr++] = Sk;
+        indices[indexPtr++] = Snext;
+      }
     }
 
     return { vertices, indices };
@@ -1362,7 +1489,7 @@ export class WebGPUEngine {
 
     // Precalculate dyadic LOD distance ranges: R_L = 56.0 / 2^L
     this.cdlodLodRanges = [];
-    for (let l = 0; l <= this.cdlodMaxLod + 1; l++) {
+    for (let l = 0; l <= Math.max(16, this.cdlodMaxLod + 4); l++) {
       this.cdlodLodRanges.push(56.0 / Math.pow(2, l));
     }
 
@@ -1382,6 +1509,10 @@ export class WebGPUEngine {
         rangeL: 0,
         hasChildren: false,
         childRangeL: 0,
+        x: 0,
+        y: 0,
+        key: 0,
+        split: false,
       });
     }
 
@@ -1548,6 +1679,18 @@ export class WebGPUEngine {
     return this.cdlodEnabled;
   }
 
+  public setCDLODDiagnosticMode(mode: number): void {
+    this.cdlodDiagnosticMode = mode;
+    if (this.crustFloats && this.crustUniformBuffer && this.device) {
+      this.crustFloats[79] = mode;
+      this.device.queue.writeBuffer(this.crustUniformBuffer, 0, this.crustFloats.buffer);
+    }
+  }
+
+  public setCdlodDiagnosticMode(mode: number): void {
+    this.setCDLODDiagnosticMode(mode);
+  }
+
   public static evaluateManifoldPosition(
     u: number,
     v: number,
@@ -1608,11 +1751,76 @@ export class WebGPUEngine {
     }
   }
 
-  public getNadirVertexSpacingMeters(altitudeKm: number): number {
+  /**
+   * Evaluates nominal range and Riemannian metric calibration factor for CDLOD LOD selection.
+   *
+   * Nominal range:
+   *   K_proj = H / (2.0 * tan(θ / 2.0))
+   *   δ_l = β * (W_0 / (2^l)) where W_0 = 10.0, β = 1.0
+   *   R_l^nominal = (δ_l * H) / (2.0 * τ_sse * tan(θ / 2.0))
+   *
+   * Riemannian metric factor:
+   *   φ = (midV - 0.5) * π, clamped to |φ| <= 1.4835 rad (±85.0°)
+   *   σ(φ; t) = sqrt((1.0 - t) + t * sec²(φ))
+   *
+   * Calibrated range:
+   *   R_l(φ; t) = R_l^nominal * σ(φ; t)
+   */
+  public computeCalibratedRange(
+    lod: number,
+    midV: number,
+    unfurl: number,
+    viewportHeight: number = 1080,
+    fovYRad: number = Math.PI / 4,
+    sseTolerance: number = this.cdlodSseTolerance,
+    beta: number = 1.0
+  ): number {
+    const tanHalfFov = Math.max(0.0001, Math.tan(fovYRad * 0.5));
+    const deltaL = (beta * 10.0) / Math.pow(2, Math.max(0, lod));
+    const nominalRange = (deltaL * viewportHeight) / (2.0 * sseTolerance * tanHalfFov);
+
+    const phi = (midV - 0.5) * Math.PI;
+    const clampedPhi = Math.max(-1.4835, Math.min(1.4835, phi));
+    const cosPhi = Math.cos(clampedPhi);
+    const secPhi = 1.0 / cosPhi;
+    const sec2Phi = secPhi * secPhi;
+    const t = Math.max(0.0, Math.min(1.0, unfurl));
+    const sigma = Math.sqrt((1.0 - t) + t * sec2Phi);
+
+    return nominalRange * sigma;
+  }
+
+  public getCDLODTelemetry(): {
+    nodeCount: number;
+    instanceCount: number;
+    maxLod: number;
+    sseTolerance: number;
+    nadirSpacingMeters: number;
+    cameraAltitudeKm: number;
+    patchVertices: number;
+    totalVertices: number;
+    indirectDrawCalls: number;
+  } {
+    const stats = this.getCDLODStats();
+    return {
+      nodeCount: stats.nodeCount,
+      instanceCount: stats.instanceCount,
+      maxLod: stats.maxLod,
+      sseTolerance: this.cdlodSseTolerance,
+      nadirSpacingMeters: stats.nadirSpacingMeters,
+      cameraAltitudeKm: this.lastCameraAltitudeKm,
+      patchVertices: stats.patchVertices,
+      totalVertices: stats.totalVertices,
+      indirectDrawCalls: this.lastIndirectDrawCallsCount,
+    };
+  }
+
+  public getNadirVertexSpacingMeters(altitudeKm: number, maxLod: number = 12): number {
     const d = altitudeKm / 1274.2;
     let lod = 1;
-    for (let l = 1; l <= this.cdlodMaxLod; l++) {
-      if (d < this.cdlodLodRanges[l]) {
+    for (let l = 1; l <= maxLod; l++) {
+      const rangeL = this.computeCalibratedRange(l, 0.5, 0.0, 1080, Math.PI / 4, this.cdlodSseTolerance, 56.0 / 6518.3753);
+      if (d < rangeL) {
         lod = l;
       } else {
         break;
@@ -1632,19 +1840,61 @@ export class WebGPUEngine {
     totalVertices: number;
   } {
     const nadirSpacing = this.getNadirVertexSpacingMeters(this.lastCameraAltitudeKm);
-    const totalVerts = this.lastVisibleInstanceCount * 8450;
+    const patchVerts = this.patchVertexCount || 8962;
+    const totalVerts = this.lastVisibleInstanceCount * patchVerts;
     return {
       nodeCount: this.cdlodActiveNodeCount,
       instanceCount: this.lastVisibleInstanceCount,
       nadirSpacingMeters: nadirSpacing,
       maxLod: this.lastMaxLodSeen,
-      patchVertices: 8450,
+      patchVertices: patchVerts,
       totalVertices: totalVerts,
     };
   }
 
   public getIndirectDrawCallsPerFrame(): number {
     return this.lastIndirectDrawCallsCount;
+  }
+
+  public hashInsert(key: number, poolIdx: number): void {
+    let slot = (key ^ (key >>> 16)) & WebGPUEngine.HASH_MASK;
+    let firstTombstone = -1;
+    while (this.cdlodSpatialHashKeys[slot] !== -1) {
+      if (this.cdlodSpatialHashKeys[slot] === key) {
+        this.cdlodSpatialHashValues[slot] = poolIdx;
+        return;
+      }
+      if (this.cdlodSpatialHashKeys[slot] === -2 && firstTombstone === -1) {
+        firstTombstone = slot;
+      }
+      slot = (slot + 1) & WebGPUEngine.HASH_MASK;
+    }
+    const insertSlot = firstTombstone !== -1 ? firstTombstone : slot;
+    this.cdlodSpatialHashKeys[insertSlot] = key;
+    this.cdlodSpatialHashValues[insertSlot] = poolIdx;
+  }
+
+  public hashLookup(key: number): number {
+    let slot = (key ^ (key >>> 16)) & WebGPUEngine.HASH_MASK;
+    while (this.cdlodSpatialHashKeys[slot] !== -1) {
+      if (this.cdlodSpatialHashKeys[slot] === key) {
+        return this.cdlodSpatialHashValues[slot];
+      }
+      slot = (slot + 1) & WebGPUEngine.HASH_MASK;
+    }
+    return -1;
+  }
+
+  public hashRemove(key: number): void {
+    let slot = (key ^ (key >>> 16)) & WebGPUEngine.HASH_MASK;
+    while (this.cdlodSpatialHashKeys[slot] !== -1) {
+      if (this.cdlodSpatialHashKeys[slot] === key) {
+        this.cdlodSpatialHashKeys[slot] = -2;
+        this.cdlodSpatialHashValues[slot] = -1;
+        return;
+      }
+      slot = (slot + 1) & WebGPUEngine.HASH_MASK;
+    }
   }
 
   public updateCDLOD(
@@ -1656,6 +1906,9 @@ export class WebGPUEngine {
     if (camera) {
       this.camera = camera;
     }
+    const viewportHeight = (this.context?.canvas as HTMLCanvasElement)?.height || 1080;
+    const fovYRad = camera?.fov ? (camera.fov * Math.PI) / 180.0 : (camera?.fovY ?? (Math.PI / 4));
+    const cdlodMeshBeta = 56.0 / 6518.3753;
     const planes = this.cdlodCullingUniformFloats;
     const camX = camera?.position?.x ?? 0.0;
     const camY = camera?.position?.y ?? 0.0;
@@ -1728,14 +1981,52 @@ export class WebGPUEngine {
     planes[32] = rSquaredMinusDisp;
 
     const camDistToCenter = Math.hypot(camX, camY, camZ);
-    const altUnits = Math.max(0.001, camDistToCenter - 5.0);
-    this.lastCameraAltitudeKm = altUnits * 1274.2;
+    let camAltitudeUnits: number;
+    if (unfurl < 0.01) {
+      camAltitudeUnits = Math.max(0.001, camDistToCenter - 5.0);
+    } else {
+      const lonSphere = Math.atan2(camX, camZ);
+      const latSphere = Math.asin(Math.max(-1.0, Math.min(1.0, camY / (camDistToCenter || 1.0))));
+      const lonFlat = camX / 5.0;
+      const latFlat = 2.0 * Math.atan(Math.exp(Math.max(-20.0, Math.min(20.0, camY / 5.0)))) - Math.PI * 0.5;
+      const t = Math.max(0.0, Math.min(1.0, unfurl));
+      const lonRad = lonSphere * (1.0 - t) + lonFlat * t;
+      const latRad = latSphere * (1.0 - t) + latFlat * t;
+      const subU = Math.max(0.0, Math.min(1.0, lonRad / (2.0 * Math.PI) + 0.5));
+      const subV = Math.max(0.0, Math.min(1.0, 0.5 - latRad / Math.PI));
+      const pSub = WebGPUEngine.evaluateManifoldPosition(subU, subV, mode, unfurl, 5.0);
+      camAltitudeUnits = Math.max(0.001, Math.hypot(camX - pSub[0], camY - pSub[1], camZ - pSub[2]));
+    }
+    this.lastCameraAltitudeKm = camAltitudeUnits * 1274.2;
 
+    // Phase 1: Selection & Spatial Hashing
+    this.cdlodSpatialHashKeys.fill(-1);
+    this.cdlodRippleQueueHead = 0;
+    this.cdlodRippleQueueTail = 0;
     this.cdlodActiveNodeCount = 0;
     let maxLodSeen = 1;
 
+    const regDEM = this.activeRegionalDEM;
+    const hasReg = (regDEM != null && regDEM.bounds != null) || this.hasActiveRegionalDEM;
+    let regMinLon = 0, regMinLat = 0, regMaxLon = 0, regMaxLat = 0;
+    if (hasReg) {
+      if (regDEM && regDEM.bounds) {
+        regMinLon = regDEM.bounds[0];
+        regMinLat = regDEM.bounds[1];
+        regMaxLon = regDEM.bounds[2];
+        regMaxLat = regDEM.bounds[3];
+      } else {
+        regMinLon = this.activeRegionalMinLon;
+        regMinLat = this.activeRegionalMinLat;
+        regMaxLon = this.activeRegionalMaxLon;
+        regMaxLat = this.activeRegionalMaxLat;
+      }
+    }
+
     const traverseNode = (
       lod: number,
+      x: number,
+      y: number,
       minU: number,
       minV: number,
       sizeU: number,
@@ -1792,8 +2083,8 @@ export class WebGPUEngine {
 
       const camDist = Math.hypot(camX - cx, camY - cy, camZ - cz);
       let surfaceDist = Math.max(
-        (unfurl < 0.01) ? Math.max(0, camDistToCenter - 5.0) : 0,
-        camDist - effectiveRadius
+        (unfurl < 0.01) ? camAltitudeUnits : 0,
+        camDist - maxDist
       );
 
       // Enforce horizontal periodic wrap: at u = 0.0 and u = 1.0, neighboring nodes on the globe must maintain identical subdivision levels
@@ -1804,8 +2095,8 @@ export class WebGPUEngine {
           const wrapPMid = WebGPUEngine.evaluateManifoldPosition(wrapMidU, vMid, mode, unfurl);
           const wrapCamDist = Math.hypot(camX - wrapPMid[0], camY - wrapPMid[1], camZ - wrapPMid[2]);
           const wrapSurfaceDist = Math.max(
-            Math.max(0, camDistToCenter - 5.0),
-            wrapCamDist - effectiveRadius
+            camAltitudeUnits,
+            wrapCamDist - maxDist
           );
           surfaceDist = Math.min(surfaceDist, wrapSurfaceDist);
         } else if (minU + sizeU >= 1.0 - 1e-6) {
@@ -1813,36 +2104,54 @@ export class WebGPUEngine {
           const wrapPMid = WebGPUEngine.evaluateManifoldPosition(wrapMidU, vMid, mode, unfurl);
           const wrapCamDist = Math.hypot(camX - wrapPMid[0], camY - wrapPMid[1], camZ - wrapPMid[2]);
           const wrapSurfaceDist = Math.max(
-            Math.max(0, camDistToCenter - 5.0),
-            wrapCamDist - effectiveRadius
+            camAltitudeUnits,
+            wrapCamDist - maxDist
           );
           surfaceDist = Math.min(surfaceDist, wrapSurfaceDist);
         }
       }
 
-      const rangeL = this.cdlodLodRanges[lod];
-      const childRangeL = lod < this.cdlodMaxLod ? this.cdlodLodRanges[lod + 1] : 0;
+      // Convert node patch parametric bounds (minU, minV, sizeU, sizeV) to longitude/latitude:
+      const patchMinLon = minU * 360.0 - 180.0;
+      const patchMaxLon = (minU + sizeU) * 360.0 - 180.0;
+      const patchMinLat = 90.0 - (minV + sizeV) * 180.0;
+      const patchMaxLat = 90.0 - minV * 180.0;
+
+      // Check if patch intersects the active regional DEM bounding box:
+      const isRegional = hasReg && !(
+        patchMaxLon < regMinLon ||
+        patchMinLon > regMaxLon ||
+        patchMaxLat < regMinLat ||
+        patchMinLat > regMaxLat
+      );
+      const effectiveMaxLod = isRegional ? 12 : this.cdlodMaxLod;
+
+      const midV = minV + sizeV * 0.5;
+      const rangeL = this.computeCalibratedRange(lod, midV, unfurl, viewportHeight, fovYRad, this.cdlodSseTolerance, cdlodMeshBeta);
+      const childRangeL = lod < effectiveMaxLod ? this.computeCalibratedRange(lod + 1, midV, unfurl, viewportHeight, fovYRad, this.cdlodSseTolerance, cdlodMeshBeta) : 0;
       // Strugar CDLOD Invariant: Include node half-diagonal margin (maxDist) so that when a neighbor refuses subdivision,
       // all boundary vertices on the subdivided patch have reached distance >= morphEnd (alpha = 1.0), closing all seam gaps.
-      const diagMargin = unfurl >= 0.01 ? maxDist * 0.5 : 0;
-      const shouldSubdivide = lod < this.cdlodMaxLod && surfaceDist < (childRangeL + diagMargin);
+      const diagMargin = unfurl >= 0.01 ? maxDist * 0.6 : 0;
+      const phase1Cap = Math.floor(WebGPUEngine.CDLOD_MAX_NODES * 0.75); // 3072 slots
+      const shouldSubdivide = lod < effectiveMaxLod &&
+        this.cdlodActiveNodeCount < phase1Cap &&
+        surfaceDist < (childRangeL + diagMargin);
 
       if (shouldSubdivide) {
         const halfU = sizeU * 0.5;
         const halfV = sizeV * 0.5;
-        traverseNode(lod + 1, minU, minV, halfU, halfV);
-        traverseNode(lod + 1, minU + halfU, minV, halfU, halfV);
-        traverseNode(lod + 1, minU, minV + halfV, halfU, halfV);
-        traverseNode(lod + 1, minU + halfU, minV + halfV, halfU, halfV);
+        traverseNode(lod + 1, x * 2,     y * 2,     minU,         minV,         halfU, halfV);
+        traverseNode(lod + 1, x * 2 + 1, y * 2,     minU + halfU, minV,         halfU, halfV);
+        traverseNode(lod + 1, x * 2,     y * 2 + 1, minU,         minV + halfV, halfU, halfV);
+        traverseNode(lod + 1, x * 2 + 1, y * 2 + 1, minU + halfU, minV + halfV, halfU, halfV);
       } else {
         if (lod > maxLodSeen) maxLodSeen = lod;
         const poolIdx = this.cdlodActiveNodeCount++;
         const node = this.cdlodNodePool[poolIdx];
 
-        const mu = 0.35;
-        const morphStart = lod > 0 ? rangeL * (1.0 - mu) : 1e9;
-        const morphEnd = rangeL;
-        const invMorphRange = lod > 0 ? 1.0 / (morphEnd - morphStart) : 0.0;
+        const morphStart = lod > 0 ? 0.65 * rangeL : 1e9;
+        const invMorphRange = lod > 0 ? 1.0 / (0.35 * rangeL) : 0.0;
+        const key = (lod << 25) | (y << 13) | x;
 
         node.center[0] = cx;
         node.center[1] = cy;
@@ -1858,35 +2167,179 @@ export class WebGPUEngine {
         node.invMorphRange = invMorphRange;
         node.hasChildren = false;
         node.childRangeL = childRangeL;
+        node.x = x;
+        node.y = y;
+        node.key = key;
+        node.split = false;
+
+        this.hashInsert(key, poolIdx);
+        if (lod >= 2 && this.cdlodRippleQueueTail < this.cdlodRippleQueue.length) {
+          this.cdlodRippleQueue[this.cdlodRippleQueueTail++] = poolIdx;
+        }
       }
     };
 
     // Traverse 2-root quadtree:
-    // Root 0 (Western Hemisphere): UV bounds [0.0, 0.0] to [0.5, 1.0].
-    // Root 1 (Eastern Hemisphere): UV bounds [0.5, 0.0] to [1.0, 1.0].
-    traverseNode(0, 0.0, 0.0, 0.5, 1.0);
-    traverseNode(0, 0.5, 0.0, 0.5, 1.0);
+    // Root 0 (Western Hemisphere, x=0, y=0): UV bounds [0.0, 0.0] to [0.5, 1.0].
+    // Root 1 (Eastern Hemisphere, x=1, y=0): UV bounds [0.5, 0.0] to [1.0, 1.0].
+    traverseNode(0, 0, 0, 0.0, 0.0, 0.5, 1.0);
+    traverseNode(0, 1, 0, 0.5, 0.0, 0.5, 1.0);
 
-    this.lastMaxLodSeen = maxLodSeen;
-    this.lastVisibleInstanceCount = this.cdlodActiveNodeCount;
+    // Phase 2: Ripple Balancing Pass (Refinement Propagation)
+    while (this.cdlodRippleQueueHead < this.cdlodRippleQueueTail) {
+      const poolIdx = this.cdlodRippleQueue[this.cdlodRippleQueueHead++];
+      const node = this.cdlodNodePool[poolIdx];
+      if (node.split || node.lod < 2) continue;
 
-    // Pack candidate nodes into preallocated mirror
+      const maxX = 1 << (node.lod + 1);
+      const maxY = 1 << node.lod;
+
+      for (let d = 0; d < 4; d++) {
+        let dx = 0, dy = 0;
+        if (d === 0) { dy = -1; }
+        else if (d === 1) { dy = 1; }
+        else if (d === 2) { dx = -1; }
+        else { dx = 1; }
+
+        let nx = node.x + dx;
+        let ny = node.y + dy;
+
+        // Polar boundaries
+        if (ny < 0 || ny >= maxY) continue;
+
+        // Antimeridian boundary
+        if (unfurl < 0.01) {
+          if (nx < 0) nx = maxX - 1;
+          else if (nx >= maxX) nx = 0;
+        } else {
+          if (nx < 0 || nx >= maxX) continue;
+        }
+
+        // Check ancestor levels k from node.lod - 2 down to 0
+        let resolvedDirection = false;
+        while (!resolvedDirection) {
+          let splitAncestor = false;
+          for (let k = node.lod - 2; k >= 0; k--) {
+            const shift = node.lod - k;
+            const ancX = nx >> shift;
+            const ancY = ny >> shift;
+            const ancKey = (k << 25) | (ancY << 13) | ancX;
+            const ancPoolIdx = this.hashLookup(ancKey);
+
+            if (ancPoolIdx !== -1) {
+              const ancNode = this.cdlodNodePool[ancPoolIdx];
+              if (!ancNode.split) {
+                if (this.cdlodActiveNodeCount + 4 <= WebGPUEngine.CDLOD_MAX_NODES) {
+                  ancNode.split = true;
+                  this.hashRemove(ancKey);
+
+                  const childLod = k + 1;
+                  if (childLod > maxLodSeen) maxLodSeen = childLod;
+                  const halfU = ancNode.sizeU * 0.5;
+                  const halfV = ancNode.sizeV * 0.5;
+
+                  for (let cy = 0; cy < 2; cy++) {
+                    for (let cx = 0; cx < 2; cx++) {
+                      const cIdx = this.cdlodActiveNodeCount++;
+                      const childNode = this.cdlodNodePool[cIdx];
+                      const childX = (ancX << 1) + cx;
+                      const childY = (ancY << 1) + cy;
+                      const childMinU = ancNode.minU + cx * halfU;
+                      const childMinV = ancNode.minV + cy * halfV;
+                      const childUMid = childMinU + halfU * 0.5;
+                      const childVMid = childMinV + halfV * 0.5;
+                      const cPatchMinLon = childMinU * 360.0 - 180.0;
+                      const cPatchMaxLon = (childMinU + halfU) * 360.0 - 180.0;
+                      const cPatchMinLat = 90.0 - (childMinV + halfV) * 180.0;
+                      const cPatchMaxLat = 90.0 - childMinV * 180.0;
+                      const cIsRegional = hasReg && !(
+                        cPatchMaxLon < regMinLon ||
+                        cPatchMinLon > regMaxLon ||
+                        cPatchMaxLat < regMinLat ||
+                        cPatchMinLat > regMaxLat
+                      );
+                      const cEffectiveMaxLod = cIsRegional ? 12 : this.cdlodMaxLod;
+
+                      const cRange = this.computeCalibratedRange(childLod, childVMid, unfurl, viewportHeight, fovYRad, this.cdlodSseTolerance, cdlodMeshBeta);
+                      const cChildRange = childLod < cEffectiveMaxLod
+                        ? this.computeCalibratedRange(childLod + 1, childVMid, unfurl, viewportHeight, fovYRad, this.cdlodSseTolerance, cdlodMeshBeta)
+                        : 0;
+                      const morphStart = childLod > 0 ? 0.65 * cRange : 1e9;
+                      const invMorphRange = childLod > 0 ? 1.0 / (0.35 * cRange) : 0.0;
+
+                      const cPos = WebGPUEngine.evaluateManifoldPosition(childUMid, childVMid, mode, unfurl);
+                      const cKey = (childLod << 25) | (childY << 13) | childX;
+
+                      childNode.center[0] = cPos[0];
+                      childNode.center[1] = cPos[1];
+                      childNode.center[2] = cPos[2];
+                      childNode.radius = ancNode.radius * 0.55;
+                      childNode.minU = childMinU;
+                      childNode.minV = childMinV;
+                      childNode.sizeU = halfU;
+                      childNode.sizeV = halfV;
+                      childNode.rangeL = cRange;
+                      childNode.lod = childLod;
+                      childNode.morphStart = morphStart;
+                      childNode.invMorphRange = invMorphRange;
+                      childNode.hasChildren = false;
+                      childNode.childRangeL = cChildRange;
+                      childNode.x = childX;
+                      childNode.y = childY;
+                      childNode.key = cKey;
+                      childNode.split = false;
+
+                      this.hashInsert(cKey, cIdx);
+                      if (childLod >= 2 && this.cdlodRippleQueueTail < this.cdlodRippleQueue.length) {
+                        this.cdlodRippleQueue[this.cdlodRippleQueueTail++] = cIdx;
+                      }
+                    }
+                  }
+                  splitAncestor = true;
+                }
+                break;
+              }
+            }
+          }
+          if (!splitAncestor) {
+            resolvedDirection = true;
+          }
+        }
+      }
+    }
+
+    // Phase 3: Dense Mirror Packing
+    let writeIdx = 0;
     for (let i = 0; i < this.cdlodActiveNodeCount; i++) {
       const node = this.cdlodNodePool[i];
-      const off = i * 12;
-      this.cdlodCandidateFloats[off + 0] = node.center[0];
-      this.cdlodCandidateFloats[off + 1] = node.center[1];
-      this.cdlodCandidateFloats[off + 2] = node.center[2];
-      this.cdlodCandidateFloats[off + 3] = node.radius;
-      this.cdlodCandidateFloats[off + 4] = node.minU;
-      this.cdlodCandidateFloats[off + 5] = node.minV;
-      this.cdlodCandidateFloats[off + 6] = node.sizeU;
-      this.cdlodCandidateFloats[off + 7] = node.sizeV;
-      this.cdlodCandidateUints[off + 8] = node.lod;
-      this.cdlodCandidateFloats[off + 9] = node.morphStart;
-      this.cdlodCandidateFloats[off + 10] = node.invMorphRange;
+      if (node.split) continue;
+
+      if (writeIdx !== i) {
+        const temp = this.cdlodNodePool[writeIdx];
+        this.cdlodNodePool[writeIdx] = this.cdlodNodePool[i];
+        this.cdlodNodePool[i] = temp;
+      }
+
+      const activeNode = this.cdlodNodePool[writeIdx];
+      const off = writeIdx * 12;
+      this.cdlodCandidateFloats[off + 0] = activeNode.center[0];
+      this.cdlodCandidateFloats[off + 1] = activeNode.center[1];
+      this.cdlodCandidateFloats[off + 2] = activeNode.center[2];
+      this.cdlodCandidateFloats[off + 3] = activeNode.radius;
+      this.cdlodCandidateFloats[off + 4] = activeNode.minU;
+      this.cdlodCandidateFloats[off + 5] = activeNode.minV;
+      this.cdlodCandidateFloats[off + 6] = activeNode.sizeU;
+      this.cdlodCandidateFloats[off + 7] = activeNode.sizeV;
+      this.cdlodCandidateUints[off + 8] = activeNode.lod;
+      this.cdlodCandidateFloats[off + 9] = activeNode.morphStart;
+      this.cdlodCandidateFloats[off + 10] = activeNode.invMorphRange;
       this.cdlodCandidateFloats[off + 11] = 0.0;
+      writeIdx++;
     }
+
+    this.cdlodActiveNodeCount = writeIdx;
+    this.lastMaxLodSeen = maxLodSeen;
+    this.lastVisibleInstanceCount = writeIdx;
 
     this.cdlodCullingUniformUints[30] = this.cdlodActiveNodeCount;
     this.cdlodCullingUniformUints[31] = WebGPUEngine.CDLOD_MAX_INSTANCES;
@@ -3284,6 +3737,11 @@ export class WebGPUEngine {
         height: entry.height,
         id: entry.id,
       };
+      this.activeRegionalMinLon = entry.bounds.minLon;
+      this.activeRegionalMinLat = entry.bounds.minLat;
+      this.activeRegionalMaxLon = entry.bounds.maxLon;
+      this.activeRegionalMaxLat = entry.bounds.maxLat;
+      this.hasActiveRegionalDEM = true;
       const regBuf = this.ensureRegionalBuffer();
       const data = new Float32Array(16);
       data[0] = entry.bounds.minLon;
@@ -3295,6 +3753,11 @@ export class WebGPUEngine {
       this.device.queue.writeBuffer(regBuf, 0, data);
     } else {
       this.activeRegionalDEM = null;
+      this.activeRegionalMinLon = 0;
+      this.activeRegionalMinLat = 0;
+      this.activeRegionalMaxLon = 0;
+      this.activeRegionalMaxLat = 0;
+      this.hasActiveRegionalDEM = false;
       if (this.regionalUniformBuffer) {
         const data = new Float32Array(16); // all zeros, u_regionalActive = 0
         this.device.queue.writeBuffer(this.regionalUniformBuffer, 0, data);
@@ -3312,6 +3775,11 @@ export class WebGPUEngine {
     if (entry) {
       if (this.activeRegionalDEM && this.activeRegionalDEM.id === id) {
         this.activeRegionalDEM = null;
+        this.activeRegionalMinLon = 0;
+        this.activeRegionalMinLat = 0;
+        this.activeRegionalMaxLon = 0;
+        this.activeRegionalMaxLat = 0;
+        this.hasActiveRegionalDEM = false;
         if (this.regionalUniformBuffer) {
           const data = new Float32Array(16);
           this.device.queue.writeBuffer(this.regionalUniformBuffer, 0, data);
@@ -6534,7 +7002,10 @@ export class WebGPUEngine {
       this.crustFloats[77] = isAdvection ? 1.0 : 0.0;
       const toksvigBypass = params.toksvigBypass !== undefined ? Boolean(params.toksvigBypass) : false;
       this.crustFloats[78] = toksvigBypass ? 1.0 : 0.0;
-      this.crustFloats[79] = 0.0;
+      if (params.cdlodDiagnosticMode !== undefined) {
+        this.cdlodDiagnosticMode = params.cdlodDiagnosticMode;
+      }
+      this.crustFloats[79] = params.cdlodDiagnosticMode ?? this.cdlodDiagnosticMode ?? 0.0;
 
       this.device.queue.writeBuffer(this.crustUniformBuffer, 0, cf.buffer);
     }
@@ -8632,6 +9103,11 @@ export class WebGPUEngine {
     this.dummyRegionalTexture = null;
     this.dummyRegionalTextureView = null;
     this.activeRegionalDEM = null;
+    this.activeRegionalMinLon = 0;
+    this.activeRegionalMinLat = 0;
+    this.activeRegionalMaxLon = 0;
+    this.activeRegionalMaxLat = 0;
+    this.hasActiveRegionalDEM = false;
     for (const entry of this.regionalDEMTextures.values()) {
       try { entry.texture.destroy(); } catch {}
     }

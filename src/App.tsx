@@ -13,6 +13,14 @@ import { KinematicCameraController } from './components/canvas/KinematicCameraCo
 import WebGPUFallback from './components/canvas/WebGPUFallback';
 import { TactileButton } from './components/ui/TactileButton';
 
+declare module './components/hud/TelemetryHUD' {
+  interface TelemetryHUDProps {
+    cdlodDiagnosticMode?: number;
+    onCdlodDiagnosticModeChange?: (mode: number) => void;
+    setCdlodDiagnosticMode?: (mode: number) => void;
+  }
+}
+
 export { KinematicCameraController } from './components/canvas/KinematicCameraController';
 const WebGPUCanvas = React.lazy(() => import('./webgpu/WebGPUCanvas'));
 
@@ -47,6 +55,7 @@ export default function App() {
     cursorPhysicsEnabled, setCursorPhysicsEnabled,
     resolution, setResolution,
     fps, setFps,
+    cdlodDiagnosticMode, setCdlodDiagnosticMode,
     activeOverlay, setActiveOverlay,
     showLandmarks, setShowLandmarks,
     showTissot, setShowTissot,
@@ -655,6 +664,7 @@ export default function App() {
                 dataLayers={dataLayers}
                 cursorPhysicsEnabled={cursorPhysicsEnabled}
                 cdlodEnabled={cdlodEnabled}
+                cdlodDiagnosticMode={cdlodDiagnosticMode}
                 startTime={appStartTimeRef.current}
                 vortexStrength={fluidVortexStrength}
                 fractureIntensity={fractureIntensity}
@@ -820,6 +830,9 @@ export default function App() {
           onPurityModeToggle={() => setPurityMode((p) => !p)}
           cdlodEnabled={cdlodEnabled}
           onCdlodToggle={setCdlodEnabled}
+          cdlodDiagnosticMode={cdlodDiagnosticMode}
+          onCdlodDiagnosticModeChange={setCdlodDiagnosticMode}
+          setCdlodDiagnosticMode={setCdlodDiagnosticMode}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}
