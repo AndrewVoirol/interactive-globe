@@ -207,7 +207,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   timelineMinutes, onTimelineChange,
   purityMode = false,
   onPurityModeToggle,
-  cdlodEnabled = false,
+  cdlodEnabled = true,
   onCdlodToggle,
 }) => {
   const handleToggleClouds = (val: boolean) => {
@@ -1123,31 +1123,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           </div>
                         </div>
 
-                        <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex flex-col">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
-                                  CDLOD Quadsphere
-                                </span>
-                                {mode !== 0 && (
-                                  <span className="text-nano font-mono text-amber-500/80">
-                                    (Sphere mode only)
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
-                                GPU-driven continuous LOD quadsphere
-                              </span>
-                            </div>
-                            <TactileSwitch
-                              checked={Boolean(cdlodEnabled)}
-                              onChange={() => onCdlodToggle?.(!cdlodEnabled)}
-                              title="Toggle CDLOD Quadsphere"
-                              label="CDLOD Quadsphere"
-                            />
-                          </div>
-                        </div>
                       </div>
                     )}
                   </div>

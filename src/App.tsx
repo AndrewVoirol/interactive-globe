@@ -98,7 +98,7 @@ export default function App() {
   const [prognosticModel, setPrognosticModel] = useState<PrognosticModelBackend>('weathernext3');
   const [prognosticVariable, setPrognosticVariable] = useState<string>('total_precipitation_1hr_mean');
   const [purityMode, setPurityMode] = useState<boolean>(false);
-  const [cdlodEnabled, setCdlodEnabled] = useState<boolean>(false);
+  const [cdlodEnabled, setCdlodEnabled] = useState<boolean>(true);
   const lastWindHourRef = useRef<number>(-1);
 
   const handlePrognosticVariableChange = useCallback((variable: string) => {

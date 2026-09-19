@@ -195,9 +195,9 @@ describe('Challenger 2: WebGPU Runtime & Stress Verification Suite', () => {
       }
 
       // Buffer count after cartographic activation must remain strictly constant
-      // 5 core + 7 cartographic = 12 buffers
+      // 5 core + 7 cartographic + 7 CDLOD = 19 buffers
       const finalBufferCount = device.buffers.length;
-      expect(finalBufferCount).toBe(12);
+      expect(finalBufferCount).toBe(19);
 
       // Verify currentStep incremented to exactly 1000
       expect((engine as any).currentStep).toBe(1000);
@@ -402,7 +402,7 @@ describe('Challenger 2: WebGPU Runtime & Stress Verification Suite', () => {
         }
 
         const device = (engine as any).device as MockGPUDevice;
-        expect(device.buffers.length).toBe(12); // 5 core + 7 cartographic
+        expect(device.buffers.length).toBe(19); // 5 core + 7 cartographic + 7 CDLOD
 
         engine.dispose();
         expect(engine.initialized).toBe(false);

@@ -212,7 +212,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   onCoordsChange,
   onResolutionChange,
   cursorPhysicsEnabled = false,
-  cdlodEnabled = false,
+  cdlodEnabled = true,
   isZenMode = false,
   isSidebarOpen = true,
   startTime,

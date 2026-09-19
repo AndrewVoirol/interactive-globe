@@ -207,7 +207,7 @@ export class WebGPUEngine {
   // ==========================================================================
   // Section: 2:1 Parametric Cylindrical CDLOD Quadtree & Watertight Geomorphing
   // ==========================================================================
-  public cdlodEnabled: boolean = false;
+  public cdlodEnabled: boolean = true;
   public camera: any = null;
   public lastIndirectDrawCallsCount: number = 0;
   public patchVertexBuffer: GPUBuffer | null = null;
@@ -1485,7 +1485,25 @@ export class WebGPUEngine {
     });
 
     // 9. Culling Compute Pipelines
+    if (!this.cdlodCullingPipeline) {
+      this.initCDLODPipelines();
+    }
+  }
+
+  public initCDLODPipelines(): void {
+    if (!this.device) return;
     try {
+      if (!this.cdlodCullingBindGroupLayout) {
+        this.cdlodCullingBindGroupLayout = this.device.createBindGroupLayout({
+          label: 'cdlod_culling_bind_group_layout',
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+            { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+            { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+            { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+          ],
+        });
+      }
       const cullingModule = this.device.createShaderModule({
         label: 'cdlod_culling_module',
         code: cullingWGSL,
@@ -6176,6 +6194,13 @@ export class WebGPUEngine {
     } catch {
       // Mock environment guard
     }
+
+    // 15. Continuous Distance-Dependent Level of Detail (CDLOD) Culling Pipelines (Rule 22)
+    try {
+      this.initCDLODPipelines();
+    } catch {
+      // Mock environment guard
+    }
   }
 
   public updateUniforms(params: WebGPUFrameParams): void {
@@ -6807,11 +6832,12 @@ export class WebGPUEngine {
     );
 
     const isSphereMode = (params.mode ?? 0) === 0;
-    if (this.cdlodEnabled && isSphereMode && (params.reliefActive || params.showRelief)) {
+    if (!isPurity && this.cdlodEnabled && isSphereMode && (params.reliefActive || params.showRelief)) {
       this.ensureCDLODBuffers();
     }
 
-    const hasCDLODCompute = this.cdlodEnabled &&
+    const hasCDLODCompute = !isPurity &&
+      this.cdlodEnabled &&
       isSphereMode &&
       (params.reliefActive || params.showRelief) &&
       !!(
