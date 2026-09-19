@@ -1822,7 +1822,10 @@ export class WebGPUEngine {
 
       const rangeL = this.cdlodLodRanges[lod];
       const childRangeL = lod < this.cdlodMaxLod ? this.cdlodLodRanges[lod + 1] : 0;
-      const shouldSubdivide = lod < this.cdlodMaxLod && surfaceDist < childRangeL;
+      // Strugar CDLOD Invariant: Include node half-diagonal margin (maxDist) so that when a neighbor refuses subdivision,
+      // all boundary vertices on the subdivided patch have reached distance >= morphEnd (alpha = 1.0), closing all seam gaps.
+      const diagMargin = unfurl >= 0.01 ? maxDist * 0.5 : 0;
+      const shouldSubdivide = lod < this.cdlodMaxLod && surfaceDist < (childRangeL + diagMargin);
 
       if (shouldSubdivide) {
         const halfU = sizeU * 0.5;
@@ -2080,10 +2083,9 @@ export class WebGPUEngine {
       this.loadDewpointTexture('/data/weathernext/dewpoint_temperature_2m_mean-0.bin').catch(() => {});
     }
 
-    // 4. Dual-Surface Lithosphere Crust & Liquid Hydrosphere Fallback Mesh (128x256)
-    // Production runs dynamically on GPU-driven CDLOD quadsphere (< 700 KB VRAM).
-    // The static mesh is retained strictly as a lightweight 128x256 fallback (~2.3 MB) for test environments.
-    const [defLat, defLon] = [128, 256];
+    // 4. Dual-Surface Lithosphere Crust & Liquid Hydrosphere High-Resolution Baseline Mesh
+    // Test environment uses lightweight 128x256; live production engine uses 512x1024 (1M triangles)
+    const [defLat, defLon] = isTestEnv ? [128, 256] : [512, 1024];
     this.rebuildSphereMesh(defLat, defLon);
     if (!isTestEnv) {
       this.ensureCDLODBuffers();
