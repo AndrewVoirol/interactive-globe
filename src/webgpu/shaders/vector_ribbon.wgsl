@@ -176,10 +176,8 @@ fn applyVectorDisplacement(basePos: vec3<f32>, baseNormal: vec3<f32>, pointType:
     }
 
     let viewDir = normalize(sim.u_cameraPos.xyz - basePos);
-    let d_cam = length(sim.u_cameraPos.xyz);
-    let cosHorizon = sqrt(max(0.0, 1.0 - pow(RADIUS / d_cam, 2.0)));
-    let tau = dot(baseNormal, viewDir) - cosHorizon;
-    let limbAtten = smoothstep(0.000, 0.005, tau);
+    let facing = dot(baseNormal, viewDir);
+    let limbAtten = smoothstep(0.000, 0.005, facing);
     if (normalDisplacement < 0.0) {
         normalDisplacement = normalDisplacement * limbAtten;
     }

@@ -110,10 +110,11 @@ fn horizonFalloff(facing: f32, tau: f32, killEdge0: f32, killEdge1: f32) -> f32 
    `manifold.wgsl` module.
 2. In each consumer shader, replace the existing `smoothstep(...)` or `limbAtten`
    calculations with the per-shader call from the table above.
-3. For `vector_ribbon.wgsl:317-327` (the cosine-horizon bathymetric guard), keep the
-   specialized `tau = dot(normal, viewDir) - cosHorizon` formulation as-is — this is
-   a separate geometric computation specific to negative displacement, not a generic
-   atmospheric falloff.
+3. For `vector_ribbon.wgsl` and `crust_hydrosphere.wgsl` (negative bathymetric displacement guard),
+   use `facing = dot(baseNormal, viewDir)` with `smoothstep(0.000, 0.005, facing)`.
+   The previous `tau = dot(baseNormal, viewDir) - cosHorizon` formulation erroneously subtracted
+   the camera-centric silhouette cone half-angle cosine (~0.9428), causing bathymetric displacement
+   to collapse to zero everywhere more than 19.47° from camera nadir.
 
 ---
 

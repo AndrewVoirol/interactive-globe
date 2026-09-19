@@ -203,11 +203,11 @@ export function validateShaderSourceInvariants(crustWGSL: string, vectorWGSL: st
   if (vectorWGSL.includes('smoothstep(0.02, 0.18, max(0.0, dot(out.normal, viewDir)))')) {
     errors.push('vector_ribbon.wgsl contains blanket horizon tangent attenuation');
   }
-  if (!crustWGSL.includes('tau = dot(baseNormal, viewDir) - cosHorizon')) {
-    errors.push('crust_hydrosphere.wgsl missing analytical grazing horizon tau parameterization');
+  if (!crustWGSL.includes('facing = dot(baseNormal, viewDir)')) {
+    errors.push('crust_hydrosphere.wgsl missing analytical grazing horizon facing parameterization');
   }
-  if (!vectorWGSL.includes('tau = dot(out.normal, viewDir) - cosHorizon')) {
-    errors.push('vector_ribbon.wgsl missing analytical grazing horizon tau parameterization');
+  if (!vectorWGSL.includes('facing = dot(baseNormal, viewDir)')) {
+    errors.push('vector_ribbon.wgsl missing analytical grazing horizon facing parameterization');
   }
 
   // 5. HydroLAKES BC5 Texture & Surface Datum Verification

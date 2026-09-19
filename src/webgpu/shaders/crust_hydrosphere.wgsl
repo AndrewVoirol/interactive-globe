@@ -694,12 +694,8 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
 
     // Invariant §10: Grazing Horizon Parameterization for negative bathymetric displacement
     let viewDir = normalize(sim.u_cameraPos.xyz - basePos);
-    let camDist = length(sim.u_cameraPos.xyz);
-    let d_cam = camDist;
-    let R_planet = RADIUS;
-    let cosHorizon = sqrt(max(0.0, 1.0 - pow(R_planet / camDist, 2.0)));
-    let tau = dot(baseNormal, viewDir) - cosHorizon;
-    let limbAtten = smoothstep(0.000, 0.005, tau);
+    let facing = dot(baseNormal, viewDir);
+    let limbAtten = smoothstep(0.000, 0.005, facing);
     if (normalDisplacement < 0.0) {
         normalDisplacement = normalDisplacement * limbAtten;
     }
@@ -1015,6 +1011,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     if (input.surfaceType > 0.5) {
         if (sim.u_purityMode > 0.5) {
+            discard;
+        }
+        if (sim.u_renderStyle == 0u && abs(sim.u_seaLevel) <= 0.01 && z_lake <= 0.0) {
             discard;
         }
         // Dynamic lake datum evaluation: preserve water shell for inland lakes (e.g. Lake Titicaca at +3812m)
