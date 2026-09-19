@@ -125,7 +125,10 @@ Many test suites in this project use `fs.readFileSync` to read `.tsx` source fil
 Internal physics tuning levers, shader diagnostics, and uncalibrated tactile controls (such as procedural paper tooth sliders, raw friction multipliers, or cursor physics ripples) must not clutter primary instrument cards.
 - **Beta Tray Containment**: Place experimental or developer-facing controls in a dedicated, collapsible `[BETA]` tray at the bottom of the relevant tab.
 - **Aesthetic Status Tagging**: Controls active only in specific themes must explicitly display a status tag (e.g. `(Cream Rag only)`) when inactive, rather than silently disabling with zero explanation.
-- **Retirement to Constants**: Once physical parameters are calibrated and validated in shader code, remove the UI slider completely and hardcode the optimal constant into WGSL. Do not expose internal engine plumbing to users permanently.
+- **Retirement to Constants & Pipeline Promotion**:
+  - Once physical parameters are calibrated and validated in shader code, remove the UI slider completely and hardcode the optimal constant into WGSL. Do not expose internal engine plumbing to users permanently.
+  - When promoting an experimental or beta pipeline to default (e.g., removing a beta switch and setting `enabled: true`), perform a full vertical sweep of all component prop defaults, canvas wrappers, engine class properties, and initial hook states to eliminate stale `false` default parameters.
+  - Audit runtime buffer and pass accounting in stress tests (e.g., Challenger suites) to account for newly initialized default buffers without breaking allocation invariants.
 
 ## 23. Fast-Path Iterative Test Scoping (Targeted vitest vs. Full Suite Gating)
 The project test suite contains over 210 test files and 3,100+ tests, including intensive Monte Carlo DEM elevation decoders and uniform stress suites that take 35–45 seconds per run.
