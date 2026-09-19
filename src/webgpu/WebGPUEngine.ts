@@ -1755,8 +1755,8 @@ export class WebGPUEngine {
       const radius = maxDist * 1.15 + 0.05;
       const effectiveRadius = radius + fluidDisplacement;
 
-      // Mode 0: Planetary Horizon Occlusion Culling (only valid on undeformed sphere when unfurl < 0.01)
-      if (mode === 0 && unfurl < 0.01) {
+      // Planetary Horizon Occlusion Culling (only valid on undeformed sphere when unfurl < 0.01)
+      if (unfurl < 0.01) {
         const cDotCam = cx * camX + cy * camY + cz * camZ;
         if (cDotCam + effectiveRadius * camDistToCenter < rSquaredMinusDisp) {
           return;
@@ -1774,7 +1774,7 @@ export class WebGPUEngine {
 
       const camDist = Math.hypot(camX - cx, camY - cy, camZ - cz);
       let surfaceDist = Math.max(
-        (mode === 0 && unfurl < 0.01) ? Math.max(0, camDistToCenter - 5.0) : 0,
+        (unfurl < 0.01) ? Math.max(0, camDistToCenter - 5.0) : 0,
         camDist - effectiveRadius
       );
 
@@ -1784,7 +1784,7 @@ export class WebGPUEngine {
         const wrapPMid = WebGPUEngine.evaluateManifoldPosition(wrapMidU, vMid, mode, unfurl);
         const wrapCamDist = Math.hypot(camX - wrapPMid[0], camY - wrapPMid[1], camZ - wrapPMid[2]);
         const wrapSurfaceDist = Math.max(
-          (mode === 0 && unfurl < 0.01) ? Math.max(0, camDistToCenter - 5.0) : 0,
+          (unfurl < 0.01) ? Math.max(0, camDistToCenter - 5.0) : 0,
           wrapCamDist - effectiveRadius
         );
         surfaceDist = Math.min(surfaceDist, wrapSurfaceDist);
@@ -1793,7 +1793,7 @@ export class WebGPUEngine {
         const wrapPMid = WebGPUEngine.evaluateManifoldPosition(wrapMidU, vMid, mode, unfurl);
         const wrapCamDist = Math.hypot(camX - wrapPMid[0], camY - wrapPMid[1], camZ - wrapPMid[2]);
         const wrapSurfaceDist = Math.max(
-          (mode === 0 && unfurl < 0.01) ? Math.max(0, camDistToCenter - 5.0) : 0,
+          (unfurl < 0.01) ? Math.max(0, camDistToCenter - 5.0) : 0,
           wrapCamDist - effectiveRadius
         );
         surfaceDist = Math.min(surfaceDist, wrapSurfaceDist);

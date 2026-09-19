@@ -21,6 +21,7 @@ import {
   sampleGreatCircleGeodesic,
   generateTissotCircles,
   evaluatePointMorph,
+  geoToSphere,
 } from '../core/GlobeOverlay';
 import { TrajectoryCameraController, Waypoint3D } from '../core/camera/TrajectoryCameraController';
 import {
@@ -325,6 +326,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     theta: 1.5184, // 87°E (Himalayas / Tibetan Plateau)
     phi: 1.0821,   // 28°N
   });
+  const activeCoordsRef = useRef<{ lat: number; lon: number }>({
+    lat: 90 - (1.0821 * 180) / Math.PI,
+    lon: (1.5184 * 180) / Math.PI,
+  });
+  const lastUnfurlRef = useRef(0);
 
   // Inertial momentum velocities matching Drei OrbitControls glide (decay factor 0.05)
   const velocityRef = useRef<{
@@ -769,9 +775,25 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     const spherical = sphericalRef.current;
     const target = targetRef.current;
 
-    camera.position.x = target.x + spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
-    camera.position.y = target.y + spherical.radius * Math.cos(spherical.phi);
-    camera.position.z = target.z + spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+    const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
+    const curUnfurl = animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0);
+    const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
+    const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+
+    const sinPhi = Math.sin(spherical.phi);
+    const cosPhi = Math.cos(spherical.phi);
+    const sinTheta = Math.sin(spherical.theta);
+    const cosTheta = Math.cos(spherical.theta);
+
+    const dirX = (1.0 - ease) * (sinPhi * sinTheta);
+    const dirY = (1.0 - ease) * cosPhi;
+    const dirZ = (1.0 - ease) * (sinPhi * cosTheta) + ease;
+    const dirLen = Math.hypot(dirX, dirY, dirZ);
+    const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
+
+    camera.position.x = target.x + spherical.radius * (dirX * invLen);
+    camera.position.y = target.y + spherical.radius * (dirY * invLen);
+    camera.position.z = target.z + spherical.radius * (dirZ * invLen);
     camera.lookAt(target);
     camera.updateMatrixWorld();
   }, []);
@@ -809,10 +831,35 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     (window as any).__INDICATRIX_CAMERA__ = {
       setSpherical: (r: number, theta: number, phi: number, target?: [number, number, number]) => {
         cameraRef.current.up.set(0, 1, 0);
+        const lat = 90 - (phi * 180) / Math.PI;
+        const lon = (theta * 180) / Math.PI;
+        activeCoordsRef.current = { lat, lon };
+        const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
+        const curUnfurl = animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0);
         if (target) {
           targetRef.current.set(target[0], target[1], target[2]);
-        } else {
+        } else if (curUnfurl < 0.01) {
           targetRef.current.set(0, 0, 0);
+        } else {
+          const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
+          const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+          const curMode = stateRef.current?.mode ?? 0;
+          const deformed = evaluatePointMorph(lon, lat, curUnfurl, curMode, 0, 0.0);
+          const sinPhi = Math.sin(phi);
+          const cosPhi = Math.cos(phi);
+          const sinTheta = Math.sin(theta);
+          const cosTheta = Math.cos(theta);
+          const dirX = (1.0 - ease) * (sinPhi * sinTheta);
+          const dirY = (1.0 - ease) * cosPhi;
+          const dirZ = (1.0 - ease) * (sinPhi * cosTheta) + ease;
+          const dirLen = Math.hypot(dirX, dirY, dirZ);
+          const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
+          const standoff = 5.0 * (1.0 - ease);
+          targetRef.current.set(
+            deformed[0] - standoff * (dirX * invLen),
+            deformed[1] - standoff * (dirY * invLen),
+            deformed[2] - standoff * (dirZ * invLen)
+          );
         }
         sphericalRef.current.radius = r;
         sphericalRef.current.theta = theta;
@@ -827,15 +874,40 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       },
       lookAtCoordinates: (lonDeg: number, latDeg: number, zoomRadius = 15, target?: [number, number, number]) => {
         cameraRef.current.up.set(0, 1, 0);
+        activeCoordsRef.current = { lat: latDeg, lon: lonDeg };
+        const phi = ((90 - latDeg) * Math.PI) / 180;
+        const theta = (lonDeg * Math.PI) / 180;
+        const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
+        const curUnfurl = animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0);
         if (target) {
           targetRef.current.set(target[0], target[1], target[2]);
-        } else {
+        } else if (curUnfurl < 0.01) {
           targetRef.current.set(0, 0, 0);
+        } else {
+          const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
+          const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+          const curMode = stateRef.current?.mode ?? 0;
+          const deformed = evaluatePointMorph(lonDeg, latDeg, curUnfurl, curMode, 0, 0.0);
+          const sinPhi = Math.sin(phi);
+          const cosPhi = Math.cos(phi);
+          const sinTheta = Math.sin(theta);
+          const cosTheta = Math.cos(theta);
+          const dirX = (1.0 - ease) * (sinPhi * sinTheta);
+          const dirY = (1.0 - ease) * cosPhi;
+          const dirZ = (1.0 - ease) * (sinPhi * cosTheta) + ease;
+          const dirLen = Math.hypot(dirX, dirY, dirZ);
+          const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
+          const standoff = 5.0 * (1.0 - ease);
+          targetRef.current.set(
+            deformed[0] - standoff * (dirX * invLen),
+            deformed[1] - standoff * (dirY * invLen),
+            deformed[2] - standoff * (dirZ * invLen)
+          );
         }
         const h_floor = getGroundClearanceFloor(lonDeg, latDeg);
         sphericalRef.current.radius = Math.max(h_floor, Math.min(zoomRadius, 30.0));
-        sphericalRef.current.theta = (lonDeg * Math.PI) / 180;
-        sphericalRef.current.phi = ((90 - latDeg) * Math.PI) / 180;
+        sphericalRef.current.theta = theta;
+        sphericalRef.current.phi = phi;
         velocityRef.current.velTheta = 0;
         velocityRef.current.velPhi = 0;
         velocityRef.current.velRadius = 0;
@@ -845,6 +917,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         updateCameraTransform();
       },
       easeToCoordinates: (lonDeg: number, latDeg: number, zoomRadius = 14.0, durationSec = 1.4) => {
+        activeCoordsRef.current = { lat: latDeg, lon: lonDeg };
         const phi = ((90 - latDeg) * Math.PI) / 180;
         const theta = (lonDeg * Math.PI) / 180;
         const sinPhi = Math.sin(phi);
@@ -855,9 +928,37 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const h_floor = getGroundClearanceFloor(lonDeg, latDeg);
         const safeRadius = Math.max(h_floor, Math.min(zoomRadius, 30.0));
 
-        const camX = safeRadius * sinPhi * sinTheta;
-        const camY = safeRadius * cosPhi;
-        const camZ = safeRadius * sinPhi * cosTheta;
+        const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
+        const curUnfurl = animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0);
+        let endTarget = new Vector3(0, 0, 0);
+        let endPos = new Vector3(safeRadius * sinPhi * sinTheta, safeRadius * cosPhi, safeRadius * sinPhi * cosTheta);
+
+        if (curUnfurl >= 0.01) {
+          const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
+          const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+          const curMode = stateRef.current?.mode ?? 0;
+          const deformed = evaluatePointMorph(lonDeg, latDeg, curUnfurl, curMode, 0, 0.0);
+          const dirX = (1.0 - ease) * (sinPhi * sinTheta);
+          const dirY = (1.0 - ease) * cosPhi;
+          const dirZ = (1.0 - ease) * (sinPhi * cosTheta) + ease;
+          const dirLen = Math.hypot(dirX, dirY, dirZ);
+          const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
+          const standoff = 5.0 * (1.0 - ease);
+          endTarget = new Vector3(
+            deformed[0] - standoff * (dirX * invLen),
+            deformed[1] - standoff * (dirY * invLen),
+            deformed[2] - standoff * (dirZ * invLen)
+          );
+          endPos = new Vector3(
+            endTarget.x + safeRadius * (dirX * invLen),
+            endTarget.y + safeRadius * (dirY * invLen),
+            endTarget.z + safeRadius * (dirZ * invLen)
+          );
+        }
+
+        sphericalRef.current.radius = safeRadius;
+        sphericalRef.current.theta = theta;
+        sphericalRef.current.phi = phi;
 
         velocityRef.current.velTheta = 0;
         velocityRef.current.velPhi = 0;
@@ -867,8 +968,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         targetCameraPosRef.current = null;
 
         if (durationSec <= 0) {
-          cameraRef.current.position.set(camX, camY, camZ);
-          targetRef.current.set(0, 0, 0);
+          cameraRef.current.position.copy(endPos);
+          targetRef.current.copy(endTarget);
           cameraRef.current.up.set(0, 1, 0);
           cameraRef.current.lookAt(targetRef.current);
           cameraRef.current.updateMatrixWorld();
@@ -876,9 +977,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         } else {
           cameraTransitionRef.current = {
             startPos: cameraRef.current.position.clone(),
-            endPos: new Vector3(camX, camY, camZ),
+            endPos,
             startTarget: targetRef.current.clone(),
-            endTarget: new Vector3(0, 0, 0),
+            endTarget,
             startUp: cameraRef.current.up.clone(),
             endUp: new Vector3(0, 1, 0),
             startTime: performance.now(),
@@ -940,6 +1041,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         sphericalRef.current.radius = safeRadius;
         sphericalRef.current.theta = theta;
         sphericalRef.current.phi = phi;
+        activeCoordsRef.current = { lat: latDeg, lon: lonDeg };
 
         velocityRef.current.velTheta = 0;
         velocityRef.current.velPhi = 0;
@@ -1797,6 +1899,37 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         // Track angular velocity for smooth inertial glide release
         velocityRef.current.velTheta = dTheta;
         velocityRef.current.velPhi = dPhi;
+
+        let lon = (sphericalRef.current.theta * 180) / Math.PI;
+        lon = ((((lon + 180) % 360) + 360) % 360) - 180;
+        const lat = Math.max(-85, Math.min(85, 90 - (sphericalRef.current.phi * 180) / Math.PI));
+        activeCoordsRef.current = { lat, lon };
+
+        const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
+        const curUnfurl = animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0);
+        if (curUnfurl >= 0.01) {
+          const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
+          const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+          const curMode = stateRef.current?.mode ?? 0;
+          const deformed = evaluatePointMorph(lon, lat, curUnfurl, curMode, 0, 0.0);
+          const sinPhi = Math.sin(sphericalRef.current.phi);
+          const cosPhi = Math.cos(sphericalRef.current.phi);
+          const sinTheta = Math.sin(sphericalRef.current.theta);
+          const cosTheta = Math.cos(sphericalRef.current.theta);
+          const dirX = (1.0 - ease) * (sinPhi * sinTheta);
+          const dirY = (1.0 - ease) * cosPhi;
+          const dirZ = (1.0 - ease) * (sinPhi * cosTheta) + ease;
+          const dirLen = Math.hypot(dirX, dirY, dirZ);
+          const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
+          const standoff = 5.0 * (1.0 - ease);
+          targetRef.current.set(
+            deformed[0] - standoff * (dirX * invLen),
+            deformed[1] - standoff * (dirY * invLen),
+            deformed[2] - standoff * (dirZ * invLen)
+          );
+        } else {
+          targetRef.current.set(0, 0, 0);
+        }
       } else if (dragButtonRef.current === 2 || dragButtonRef.current === 1) {
         // Pan translation
         const panSpeed = sphericalRef.current.radius * 0.001;
@@ -1807,6 +1940,18 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         // Track pan velocity for smooth inertial glide release
         velocityRef.current.velPanX = dPanX;
         velocityRef.current.velPanY = dPanY;
+
+        const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
+        const curUnfurl = animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0);
+        if (curUnfurl >= 0.01) {
+          let lon = (targetRef.current.x / 5.0) * (180 / Math.PI);
+          lon = ((((lon + 180) % 360) + 360) % 360) - 180;
+          const clampedY = Math.max(-5.0 * 2.5, Math.min(5.0 * 2.5, targetRef.current.y));
+          const lat = (2.0 * Math.atan(Math.exp(clampedY / 5.0)) - Math.PI / 2.0) * (180 / Math.PI);
+          activeCoordsRef.current = { lat, lon };
+          sphericalRef.current.theta = (lon * Math.PI) / 180;
+          sphericalRef.current.phi = ((90 - lat) * Math.PI) / 180;
+        }
       }
       updateCameraTransform();
     };
@@ -2312,6 +2457,21 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
               if (Math.abs(vel.velPhi) < 1e-6) vel.velPhi = 0;
               if (Math.abs(vel.velPanX) < 1e-6) vel.velPanX = 0;
               if (Math.abs(vel.velPanY) < 1e-6) vel.velPanY = 0;
+
+              if (Math.abs(vel.velTheta) > 1e-6 || Math.abs(vel.velPhi) > 1e-6) {
+                let lon = (sphericalRef.current.theta * 180) / Math.PI;
+                lon = ((((lon + 180) % 360) + 360) % 360) - 180;
+                const lat = Math.max(-85, Math.min(85, 90 - (sphericalRef.current.phi * 180) / Math.PI));
+                activeCoordsRef.current = { lat, lon };
+              } else if (curUnfurl >= 0.01 && (Math.abs(vel.velPanX) > 1e-6 || Math.abs(vel.velPanY) > 1e-6)) {
+                let lon = (targetRef.current.x / 5.0) * (180 / Math.PI);
+                lon = ((((lon + 180) % 360) + 360) % 360) - 180;
+                const clampedY = Math.max(-5.0 * 2.5, Math.min(5.0 * 2.5, targetRef.current.y));
+                const lat = (2.0 * Math.atan(Math.exp(clampedY / 5.0)) - Math.PI / 2.0) * (180 / Math.PI);
+                activeCoordsRef.current = { lat, lon };
+                sphericalRef.current.theta = (lon * Math.PI) / 180;
+                sphericalRef.current.phi = ((90 - lat) * Math.PI) / 180;
+              }
             }
 
             if (Math.abs(vel.velRadius) > 1e-6) {
@@ -2329,10 +2489,61 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
               if (Math.abs(vel.velRadius) < 1e-6) vel.velRadius = 0;
             }
 
-            if (sphericalRef.current.radius >= 20.0 && targetRef.current.lengthSq() > 1e-5) {
+            if (curUnfurl < 0.01 && sphericalRef.current.radius >= 20.0 && targetRef.current.lengthSq() > 1e-5) {
               targetRef.current.set(0, 0, 0);
             }
 
+            updateCameraTransform();
+          }
+        }
+
+        if (!curIsDemoMode && !cameraTransitionRef.current && !targetCameraPosRef.current) {
+          const isPanning = (isDraggingRef.current && (dragButtonRef.current === 1 || dragButtonRef.current === 2))
+            || (Math.abs(velocityRef.current.velPanX) > 1e-6 || Math.abs(velocityRef.current.velPanY) > 1e-6);
+          let targetChanged = false;
+          if (curUnfurl < 0.01) {
+            if (!isPanning && targetRef.current.lengthSq() > 1e-6) {
+              targetRef.current.set(0, 0, 0);
+              targetChanged = true;
+            }
+          } else if (!isPanning) {
+            const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
+            const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+            const lon = activeCoordsRef.current.lon;
+            const lat = activeCoordsRef.current.lat;
+            const deformed = evaluatePointMorph(lon, lat, curUnfurl, curMode, time, 0.0);
+
+            const sinPhi = Math.sin(sphericalRef.current.phi);
+            const cosPhi = Math.cos(sphericalRef.current.phi);
+            const sinTheta = Math.sin(sphericalRef.current.theta);
+            const cosTheta = Math.cos(sphericalRef.current.theta);
+
+            const dirX = (1.0 - ease) * (sinPhi * sinTheta);
+            const dirY = (1.0 - ease) * cosPhi;
+            const dirZ = (1.0 - ease) * (sinPhi * cosTheta) + ease;
+            const dirLen = Math.hypot(dirX, dirY, dirZ);
+            const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
+
+            const standoff = 5.0 * (1.0 - ease);
+            const targetX = deformed[0] - standoff * (dirX * invLen);
+            const targetY = deformed[1] - standoff * (dirY * invLen);
+            const targetZ = deformed[2] - standoff * (dirZ * invLen);
+            if (
+              Math.abs(targetRef.current.x - targetX) > 1e-5 ||
+              Math.abs(targetRef.current.y - targetY) > 1e-5 ||
+              Math.abs(targetRef.current.z - targetZ) > 1e-5
+            ) {
+              targetRef.current.set(targetX, targetY, targetZ);
+              targetChanged = true;
+            }
+          }
+
+          if (
+            targetChanged ||
+            Math.abs(curUnfurl - lastUnfurlRef.current) > 1e-5 ||
+            (curMode === 3 && curUnfurl >= 0.01)
+          ) {
+            lastUnfurlRef.current = curUnfurl;
             updateCameraTransform();
           }
         }
@@ -3004,6 +3215,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
               const latRad = 2.0 * Math.atan(Math.exp(clampedY / 5.0)) - Math.PI / 2.0;
               latDeg = Math.round(latRad * (180 / Math.PI));
             }
+          }
+          if (curUnfurl >= 0.01 && curUnfurl <= 0.99) {
+            latDeg = Math.round(activeCoordsRef.current.lat);
+            lonDeg = Math.round(activeCoordsRef.current.lon);
           }
           lonDeg = ((((lonDeg + 180) % 360) + 360) % 360) - 180;
           callbacksRef.current.onCoordsChange(latDeg, lonDeg);

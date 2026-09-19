@@ -91,9 +91,9 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let camDistToOrigin = length(uniforms.cameraPos.xyz);
 
-    // Mode 0: Planetary Horizon Occlusion Culling (only valid on undeformed sphere when unfurl < 0.01)
+    // Planetary Horizon Occlusion Culling (only valid on undeformed sphere when unfurl < 0.01)
     let unfurl = uniforms.cameraPos.w;
-    if (uniforms.mode == 0u && unfurl < 0.01) {
+    if (unfurl < 0.01) {
         let cDotCam = dot(node.center, uniforms.cameraPos.xyz);
         if (cDotCam + effectiveRadius * camDistToOrigin < uniforms.R_squared_minus_disp) {
             return;
