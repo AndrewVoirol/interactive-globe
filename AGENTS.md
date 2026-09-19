@@ -196,3 +196,26 @@ In hybrid rendering architectures where spatial acceleration structures (CDLOD q
 - **Mirror Guard Symmetries**: Culling conditions, deformation mode guards (e.g., `unfurl < 0.01`), and surface distance metrics must remain strictly symmetrical between the CPU traversal in `WebGPUEngine.ts` and the GPU compute shader in `culling.wgsl`.
 - **No Half-Sided Gating**: Never modify or fix a culling gate in WGSL without simultaneously auditing the corresponding CPU quadtree traversal. Gating a feature on GPU without updating CPU traversal causes the CPU to waste cycles subdividing occluded nodes and overwhelming GPU candidate buffers.
 
+## 34. The "Right Way" Discipline (Prohibition of Lazy Retreats & Over-Engineering)
+When an active architectural subsystem (e.g. GPU-driven CDLOD, dynamic manifold morphing, 3D camera kinematics) produces visual artifacts or regressions:
+- **No Lazy Retreats**: Never recommend disabling the feature, reverting to legacy fixed meshes, or locking degrees of freedom as the primary solution when an architectural path has been chosen.
+- **No Over-Engineered Rewrites**: Do not propose multi-thousand-line rewrites of entire pipeline stages when isolated mathematical causes (such as boundary margins, metric mismatches, or state coupling) have not been forensically eliminated first.
+- **Root Cause Isolation**: Identify the exact mathematical discontinuity (e.g. missing node diagonal margins, coordinate fighting in frame loops, or trigonometric clamping) and apply the minimal, rigorous correction.
+
+## 35. Interactive Ground-Truth Smoke Verification
+Unit tests and WebGPU device error audits (`errors.length === 0`) are necessary but completely insufficient for certifying interactive simulation systems (Rule 32).
+- **Mandatory Live Interaction Testing**: Any modification affecting camera controls, user gestures, zooming, or mesh subdivision MUST be verified using an automated browser-in-the-loop harness (such as `scripts/verify_interactive_invariants.ts` via Playwright or Chrome DevTools MCP).
+- **Physical Delta Assertions**: The verification script must programmatically dispatch real user events (`PointerEvent('pointerdown')`, `pointermove`, `pointerup`) on the canvas and assert that:
+  1. Camera orbital angles rotate by non-trivial deltas ($\Delta\theta \ne 0, \Delta\phi \ne 0$).
+  2. Camera world position $\mathbf{P}_{\text{cam}}$ changes in 3D.
+  3. Altitude zoom sweeps remain strictly monotonic and exceed ground clearance elevation ($r_{\text{cam}} > R_{\text{planet}} + h_{\text{disp}}$).
+  4. Real rendered pixels are captured across all 3 archival themes without WebGPU warnings or console errors.
+
+## 36. Decoupled Manifold Target & 3-DOF Drafting Board Kinematics
+Per Design Ethos Principle 2, the flat map is an archival drafting sheet resting on a physical map board, not a static 2D image.
+- **Strict Decoupling**: Surface target tracking $\mathbf{T}(t) = \mathbf{M}(\lambda, \phi, t)$ and camera attitude $(\theta, \phi, r)$ must remain strictly decoupled. The camera position is governed exclusively by:
+  $$\mathbf{P}_{\text{cam}} = \mathbf{T} + r \begin{bmatrix} \sin\phi \sin\theta \\ \cos\phi \\ \sin\phi \cos\theta \end{bmatrix}$$
+- **Prohibition of Degenerate Multipliers**: Never multiply orbital angle components ($\sin\phi\sin\theta, \cos\phi$) by transition terms like `(1.0 - ease)` that collapse rotational degrees of freedom at boundary states ($\text{unfurl} = 1.0$).
+- **Full Oblique Relief Freedom**: The user must retain unrestricted ability to pitch ($\phi$) to grazing angles ($80^\circ$), yaw ($\theta$) $360^\circ$, pan, and zoom across all deformation modes and flat map states.
+
+
