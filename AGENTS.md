@@ -224,3 +224,12 @@ Per Design Ethos Principle 2, the flat map is an archival drafting sheet resting
 In a Vite/React environment, Hot Module Replacement (HMR) seamlessly re-renders React components and re-executes JavaScript logic when a WGSL shader file is modified, but it **does not** automatically tear down and rebuild the cached WebGPU `GPURenderPipeline` on the GPU.
 - **The Stale Cache Illusion**: The browser UI will appear to have updated (React state, component props, and uniform buffer writes will reflect the new code), but the GPU will silently continue executing the old cached shader bytecode. This causes extreme state desynchronization (e.g., diagnostic UI says "Off", but the globe renders diagnostic colors).
 - **Mandatory Hard Refresh**: After saving *any* modification to a `.wgsl` shader file, you MUST perform a hard browser refresh (`window.location.reload()`) via MCP or instruct the user to do so before performing any visual verification. Never trust the live canvas output immediately following a WGSL file save without a full page reload.
+
+## 38. Dual-Regime (Terrestrial & Bathymetric) Oblique Manifold Verification
+An automated test suite, CDLOD pass, or visual verification harness CANNOT certify terrain geometry or manifold unrolling as watertight based solely on terrestrial summits or globe-state captures.
+- **Mandatory Dual-Regime Sweep**: Any modification touching CDLOD quadtrees, perimeter skirts, vertex displacement, or manifold unfurl must capture and visually evaluate BOTH:
+  1. *Terrestrial High-Relief*: Mount Everest ($28^\circ\text{N}, 87^\circ\text{E}$) or Mauna Kea ($20^\circ\text{N}, 156^\circ\text{W}$) at grazing pitch ($\ge 60^\circ$).
+  2. *Bathymetric Abyssal Basin & Continental Shelf*: North Atlantic ($37^\circ\text{N}, 48^\circ\text{W}$) or Mariana Trench ($11^\circ\text{N}, 142^\circ\text{E}$) at grazing pitch ($\ge 60^\circ$).
+- **Flat-Map Regime Mandate ($\text{unfurl} = 1.0$)**: Skirt watertightness must be verified in planar projection ($K=0$) across oceanic shelves. Perimeter skirts must drop sufficiently below abyssal depths ($-11,000\text{m}$) regardless of `displacementScale` to prevent white background canvas bleed.
+- **HUD Scrubber & Neatline Framing Gate**: Screen captures must verify that the chronometric scrubber labels render without mid-word truncation (e.g. `EQUIRECTANGULAR PLANAR`), and that sheet neatline borders prevent 3D canvas background void leaks in the viewport corners.
+
