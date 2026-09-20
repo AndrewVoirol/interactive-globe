@@ -207,12 +207,14 @@ export function evaluatePointMorph(
     const lambda = (lon * PI) / 180;
     const phi = (Math.max(-MAX_LAT, Math.min(MAX_LAT, lat)) * PI) / 180;
     const oneMinusT = 1.0 - t;
+    const cosLat = Math.cos(phi);
+    const r_phi = (1.0 - t) * (RADIUS * cosLat) + t * RADIUS;
 
     if (oneMinusT > 0.001) {
       const invOneMinusT = 1.0 / oneMinusT;
       const curAngle = oneMinusT * lambda;
-      const curX = (RADIUS * invOneMinusT) * Math.sin(curAngle);
-      const curZ = (RADIUS * Math.cos(phi) * invOneMinusT) * (Math.cos(curAngle) - 1.0) + (RADIUS * Math.cos(phi) * oneMinusT);
+      const curX = (r_phi * invOneMinusT) * Math.sin(curAngle);
+      const curZ = (r_phi * invOneMinusT) * (Math.cos(curAngle) - 1.0) + (r_phi * oneMinusT);
       const curY = (1.0 - t) * p3D[1] + t * p2D[1];
       return [curX, curY, curZ];
     } else {
@@ -220,8 +222,8 @@ export function evaluatePointMorph(
       const u = oneMinusT * lambda;
       const sinTerm = lambda * (1.0 - (u * u) / 6.0);
       const cosTerm = oneMinusT * (lambda * lambda) * (-0.5 + (u * u) / 24.0);
-      const curX = RADIUS * sinTerm;
-      const curZ = RADIUS * Math.cos(phi) * cosTerm + RADIUS * Math.cos(phi) * oneMinusT;
+      const curX = r_phi * sinTerm;
+      const curZ = r_phi * cosTerm + r_phi * oneMinusT;
       const curY = (1.0 - t) * p3D[1] + t * p2D[1];
       return [curX, curY, curZ];
     }

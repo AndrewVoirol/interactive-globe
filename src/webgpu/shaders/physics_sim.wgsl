@@ -78,12 +78,14 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let lambda = atan2(pos3D.x, pos3D.z);
         let phi = asin(clamp(pos3D.y / RADIUS, -0.9998, 0.9998));
         let oneMinusT = 1.0 - t;
+        let cosLat = cos(phi);
+        let r_phi = mix(RADIUS * cosLat, RADIUS, ease);
 
         if (oneMinusT > 0.001) {
             let invOneMinusT = 1.0 / oneMinusT;
             let curAngle = oneMinusT * lambda;
-            let curX = (RADIUS * invOneMinusT) * sin(curAngle);
-            let curZ = (RADIUS * cos(phi) * invOneMinusT) * (cos(curAngle) - 1.0) + (RADIUS * cos(phi) * oneMinusT);
+            let curX = (r_phi * invOneMinusT) * sin(curAngle);
+            let curZ = (r_phi * invOneMinusT) * (cos(curAngle) - 1.0) + (r_phi * oneMinusT);
             let curY = mix(pos3D.y, pos2D.y, t);
             finalPos = vec3<f32>(curX, curY, curZ);
         } else {
@@ -91,8 +93,8 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let u = oneMinusT * lambda;
             let sinTerm = lambda * (1.0 - (u * u) / 6.0);
             let cosTerm = oneMinusT * (lambda * lambda) * (-0.5 + (u * u) / 24.0);
-            let curX = RADIUS * sinTerm;
-            let curZ = RADIUS * cos(phi) * cosTerm + RADIUS * cos(phi) * oneMinusT;
+            let curX = r_phi * sinTerm;
+            let curZ = r_phi * cosTerm + r_phi * oneMinusT;
             let curY = mix(pos3D.y, pos2D.y, t);
             finalPos = vec3<f32>(curX, curY, curZ);
         }

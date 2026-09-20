@@ -68,21 +68,22 @@ fn evaluateManifoldCore(
             let latRad = asin(clamp(pos3D.y / RADIUS, -0.9998, 0.9998));
             let cosLat = cos(latRad);
             let sinLat = sin(latRad);
+            let r_phi = mix(RADIUS * cosLat, RADIUS, ease);
 
             if (oneMinusT > 0.001) {
                 let invOneMinusT = 1.0 / oneMinusT;
                 let curAngle = oneMinusT * lonRad;
-                let curX = (RADIUS * invOneMinusT) * sin(curAngle);
-                let curZ = (RADIUS * cosLat * invOneMinusT) * (cos(curAngle) - 1.0)
-                         + (RADIUS * cosLat * oneMinusT);
+                let curX = (r_phi * invOneMinusT) * sin(curAngle);
+                let curZ = (r_phi * invOneMinusT) * (cos(curAngle) - 1.0)
+                         + (r_phi * oneMinusT);
                 let curY = mix(pos3D.y, pos2D.y, ease);
                 out.pos = vec3<f32>(curX, curY, curZ);
 
                 // Analytical normal via tangent-frame cross product
                 let T_lambda = vec3<f32>(
-                    RADIUS * cos(curAngle),
+                    r_phi * cos(curAngle),
                     0.0,
-                    -RADIUS * cosLat * sin(curAngle)
+                    -r_phi * sin(curAngle)
                 );
                 let T_phi = vec3<f32>(
                     0.0,
@@ -98,8 +99,8 @@ fn evaluateManifoldCore(
                 let u = oneMinusT * lonRad;
                 let sinTerm = lonRad * (1.0 - (u * u) / 6.0);
                 let cosTerm = oneMinusT * (lonRad * lonRad) * (-0.5 + (u * u) / 24.0);
-                let curX = RADIUS * sinTerm;
-                let curZ = RADIUS * cosLat * cosTerm + RADIUS * cosLat * oneMinusT;
+                let curX = r_phi * sinTerm;
+                let curZ = r_phi * cosTerm + r_phi * oneMinusT;
                 let curY = mix(pos3D.y, pos2D.y, ease);
                 out.pos = vec3<f32>(curX, curY, curZ);
                 out.normal = vec3<f32>(0.0, 0.0, 1.0);
@@ -181,37 +182,12 @@ fn evaluateManifoldCore(
         }
 
         default: {
-            // ── Mode 0: Spheroidal Metric Dilation (Default) ──────────────
-            // Eliminates polar pinched gourd collapse during unfurling by continuously
-            // dilating latitude parallels as K -> 0 (sphere to cylinder transition).
-            let lonRad = atan2(pos3D.x, pos3D.z);
-            let latRad = asin(clamp(pos3D.y / RADIUS, -0.9998, 0.9998));
-            let cosLat = max(cos(latRad), 0.02);
-            
-            // Continuous spheroidal dilation factor: as ease -> 1, parallels expand
-            // smoothly from sphere (cosLat) to cylinder (1.0), maintaining convex curvature
-            let dilation = pow(1.0 / cosLat, ease);
-            
-            let dilatedPos3D = vec3<f32>(
-                pos3D.x * dilation,
-                pos3D.y,
-                pos3D.z * dilation
-            );
-            
-            // z-depth flattens continuously with (1.0 - ease)
-            let curZ = dilatedPos3D.z * (1.0 - ease);
-            let curX = mix(dilatedPos3D.x, pos2D.x, ease);
-            let curY = mix(pos3D.y, pos2D.y, ease);
-            
-            out.pos = vec3<f32>(curX, curY, curZ);
-            
+            // ── Mode 0: Linear Manifold Mix (Default) ─────────────────────
             let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0),
                                     normalize(pos3D),
                                     length(pos3D) > 0.001);
-            let mixedNorm = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
-            out.normal = select(vec3<f32>(0.0, 0.0, 1.0),
-                                normalize(mixedNorm),
-                                length(mixedNorm) > 0.0001);
+            out.pos = mix(pos3D, pos2D, ease);
+            out.normal = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
         }
     }
 

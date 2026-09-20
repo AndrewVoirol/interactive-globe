@@ -1728,32 +1728,55 @@ export class WebGPUEngine {
     if (mode === 1) {
       // Mode 1: Cylindrical Scroll
       const oneMinusT = 1.0 - ease;
+      const r_phi = (1.0 - ease) * (radius * cosLat) + ease * radius;
       if (oneMinusT > 0.001) {
         const invOneMinusT = 1.0 / oneMinusT;
         const curAngle = oneMinusT * lonRad;
-        const curX = (radius * invOneMinusT) * Math.sin(curAngle);
-        const curZ = (radius * cosLat * invOneMinusT) * (Math.cos(curAngle) - 1.0) + (radius * cosLat * oneMinusT);
+        const curX = (r_phi * invOneMinusT) * Math.sin(curAngle);
+        const curZ = (r_phi * invOneMinusT) * (Math.cos(curAngle) - 1.0) + (r_phi * oneMinusT);
         const curY = p3D[1] * (1.0 - ease) + p2D[1] * ease;
         return [curX, curY, curZ];
       } else {
         const uTaylor = oneMinusT * lonRad;
         const sinTerm = lonRad * (1.0 - (uTaylor * uTaylor) / 6.0);
         const cosTerm = oneMinusT * (lonRad * lonRad) * (-0.5 + (uTaylor * uTaylor) / 24.0);
-        const curX = radius * sinTerm;
-        const curZ = radius * cosLat * cosTerm + radius * cosLat * oneMinusT;
+        const curX = r_phi * sinTerm;
+        const curZ = r_phi * cosTerm + r_phi * oneMinusT;
         const curY = p3D[1] * (1.0 - ease) + p2D[1] * ease;
         return [curX, curY, curZ];
       }
+    } else if (mode === 2) {
+      // Mode 2: Griffith LEFM Fracture
+      const distToSeam = PI - Math.abs(lonRad);
+      const seamFactor = 1.0 - Math.max(0.0, Math.min(1.0, distToSeam / 0.75));
+      const tRupture = 0.18;
+      if (ease < tRupture) {
+        const strainProgress = ease / tRupture;
+        const localStrain = seamFactor * strainProgress * Math.max(0.2, Math.cos(latRad * 0.85));
+        const normLen = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
+        return [
+          p3D[0] + (p3D[0] / normLen) * localStrain * 0.3,
+          p3D[1] + (p3D[1] / normLen) * localStrain * 0.3,
+          p3D[2] + (p3D[2] / normLen) * localStrain * 0.3,
+        ];
+      } else {
+        const postRuptureT = Math.max(0.0, Math.min(1.0, (ease - tRupture) / (1.0 - tRupture)));
+        const postRuptureEase = postRuptureT * postRuptureT * (3.0 - 2.0 * postRuptureT);
+        const peeledX = (1.0 - postRuptureEase) * p3D[0] + postRuptureEase * p2D[0];
+        const peeledY = (1.0 - postRuptureEase) * p3D[1] + postRuptureEase * p2D[1];
+        const flutterWave = Math.sin(distToSeam * 16.0 - ease * 24.0);
+        const flutterDecay = Math.exp(-4.2 * (ease - tRupture));
+        const flutterAmp = 0.50 * seamFactor * flutterWave * flutterDecay;
+        const flutterZ = (1.0 - postRuptureEase) * p3D[2] + flutterAmp;
+        return [peeledX, peeledY, flutterZ];
+      }
     } else {
-      // Mode 0: Spheroidal Metric Dilation
-      const cosLatSafe = Math.max(cosLat, 0.02);
-      const dilation = Math.pow(1.0 / cosLatSafe, ease);
-      const dilatedP3D_x = p3D[0] * dilation;
-      const dilatedP3D_z = p3D[2] * dilation;
-      const curX = dilatedP3D_x * (1.0 - ease) + p2D[0] * ease;
-      const curY = p3D[1] * (1.0 - ease) + p2D[1] * ease;
-      const curZ = dilatedP3D_z * (1.0 - ease);
-      return [curX, curY, curZ];
+      // Mode 0: Linear Manifold Mix (Default)
+      return [
+        p3D[0] * (1.0 - ease) + p2D[0] * ease,
+        p3D[1] * (1.0 - ease) + p2D[1] * ease,
+        p3D[2] * (1.0 - ease) + p2D[2] * ease,
+      ];
     }
   }
 

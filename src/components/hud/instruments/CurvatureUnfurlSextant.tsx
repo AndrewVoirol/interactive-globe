@@ -64,6 +64,8 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   const lastTimeRef = useRef(0);
   const velocityRef = useRef(0);
   const momentumRafRef = useRef<number | null>(null);
+  const alphaRef = useRef(alpha);
+  alphaRef.current = alpha;
 
   useEffect(() => {
     return () => {
@@ -108,7 +110,9 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
       let normX = (rawFrac - padPct) / (1.0 - 2 * padPct);
       normX = Math.max(0.0, Math.min(1.0, normX));
 
-      onAlphaChange(parseFloat(normX.toFixed(3)));
+      const val = parseFloat(normX.toFixed(3));
+      alphaRef.current = val;
+      onAlphaChange(val);
     },
     [onAlphaChange]
   );
@@ -159,7 +163,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
     // Clamp velocity to enforce 2-5 alpha units (0.02 - 0.05) maximum overshoot
     vel = Math.max(-0.0015, Math.min(0.0015, vel));
     if (Math.abs(vel) > 0.0002) {
-      let currentAlpha = alpha;
+      let currentAlpha = alphaRef.current;
       const step = () => {
         vel *= 0.60; // rapid friction damping over 20-50ms (2-3 frames)
         if (Math.abs(vel) < 0.00008) {
@@ -167,7 +171,8 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
           return;
         }
         currentAlpha = Math.max(0.0, Math.min(1.0, currentAlpha + vel * 16));
-        onAlphaChange(parseFloat(currentAlpha.toFixed(3)));
+        alphaRef.current = parseFloat(currentAlpha.toFixed(3));
+        onAlphaChange(alphaRef.current);
         momentumRafRef.current = requestAnimationFrame(step);
       };
       momentumRafRef.current = requestAnimationFrame(step);

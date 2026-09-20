@@ -330,12 +330,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   const targetRef = useRef<Vector3>(new Vector3(0, 0, 0));
   const sphericalRef = useRef<{ radius: number; theta: number; phi: number }>({
     radius: 15,
-    theta: 1.5184, // 87°E (Himalayas / Tibetan Plateau)
-    phi: 1.0821,   // 28°N
+    theta: 0,
+    phi: Math.PI / 2, // 0°N, 0°E (Prime Meridian / Equator, matching [0, 0, 15])
   });
   const activeCoordsRef = useRef<{ lat: number; lon: number }>({
-    lat: 90 - (1.0821 * 180) / Math.PI,
-    lon: (1.5184 * 180) / Math.PI,
+    lat: 0,
+    lon: 0,
   });
   const lastUnfurlRef = useRef(0);
 
@@ -2397,6 +2397,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           sphericalRef.current.radius = offset.length();
           sphericalRef.current.theta = Math.atan2(offset.x, offset.z);
           sphericalRef.current.phi = Math.acos(Math.min(Math.max(offset.y / Math.max(sphericalRef.current.radius, 0.001), -1), 1));
+          let lon = (sphericalRef.current.theta * 180) / Math.PI;
+          lon = ((((lon + 180) % 360) + 360) % 360) - 180;
+          const lat = Math.max(-85, Math.min(85, 90 - (sphericalRef.current.phi * 180) / Math.PI));
+          activeCoordsRef.current = { lat, lon };
           updateCameraTransform();
 
           if (camera.position.distanceTo(targetPos) < 0.05) {
@@ -2491,9 +2495,22 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             const lat = activeCoordsRef.current.lat;
             const deformed = evaluatePointMorph(lon, lat, curUnfurl, curMode, time, 0.0);
 
-            const targetX = deformed[0] * ease;
-            const targetY = deformed[1] * ease;
-            const targetZ = deformed[2] * ease;
+            const curPhi = sphericalRef.current.phi;
+            const curTheta = sphericalRef.current.theta;
+            const sinPhi = Math.sin(curPhi);
+            const cosPhi = Math.cos(curPhi);
+            const sinTheta = Math.sin(curTheta);
+            const cosTheta = Math.cos(curTheta);
+            const dirX = sinPhi * sinTheta;
+            const dirY = cosPhi;
+            const dirZ = sinPhi * cosTheta;
+            const dirLen = Math.hypot(dirX, dirY, dirZ);
+            const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
+            const standoff = 5.0 * (1.0 - ease);
+
+            const targetX = deformed[0] - standoff * (dirX * invLen);
+            const targetY = deformed[1] - standoff * (dirY * invLen);
+            const targetZ = deformed[2] - standoff * (dirZ * invLen);
             if (
               Math.abs(targetRef.current.x - targetX) > 1e-5 ||
               Math.abs(targetRef.current.y - targetY) > 1e-5 ||
@@ -2648,7 +2665,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         // Dynamic near-plane modulation: 0.1 at orbit (alt >= 1.0) -> 0.00005 in troposphere (alt <= 0.004)
         const camDist = camera.position.length();
         const targetNear = computeDynamicNearPlane(camDist);
-        if (Math.abs(camera.near - targetNear) > 1e-7) {
+        if (Math.abs(camera.near - targetNear) > 1e-4) {
           camera.near = targetNear;
           camera.updateProjectionMatrix();
         }

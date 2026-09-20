@@ -363,9 +363,11 @@ fn computeHydrosphereShading(
     let tangentX = normalize(mix(sphereTangentX, flatTangentX, sim.u_unfurl));
     let tangentY = normalize(mix(sphereTangentY, flatTangentY, sim.u_unfurl));
 
+    let camDistToFrag = length(worldPos - sim.u_cameraPos.xyz);
+    let rippleAtten = 1.0 - smoothstep(1.0, 7.0, max(0.0, camDistToFrag - RADIUS));
     let perturbedNormal = normalize(
         baseNormal + 
-        (tangentX * ripples.normalPerturbation.x + tangentY * ripples.normalPerturbation.y) * 0.35
+        (tangentX * ripples.normalPerturbation.x + tangentY * ripples.normalPerturbation.y) * (0.35 * rippleAtten)
     );
 
     let cosines = computeSlantPathCosines(baseNormal, sunDir, viewDir);
@@ -1044,6 +1046,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let isSkirt = input.skirtFactor > 0.5;
     // Discard liquid hydrosphere skirt fragments (surfaceType > 0.5 && isSkirt) to prevent vertical glass walls
     if (input.surfaceType > 0.5 && isSkirt) {
+        discard;
+    }
+    if (input.surfaceType > 0.5 && input.skirtFactor > 0.001) {
         discard;
     }
 
@@ -1953,39 +1958,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         }
     }
 
-    // Archival Cartographic Drafting Graticule (15° Parallels & Meridians)
-    let meridianGrid = fract(input.uv.x * 24.0);
-    let parallelGrid = fract(input.uv.y * 12.0);
-
-    // Polar meridian attenuation: smoothly fade meridians approaching poles (>75° latitude)
-    let poleDist = abs(input.uv.y - 0.5) * 2.0;
-    let meridianFade = 1.0 - smoothstep(0.78, 0.95, poleDist);
-
-    // Screen-space derivative feathering (fwidth) for resolution-invariant hairline linework
-    let halfWidthU = max(0.012, dUV.x * 1.25);
-    let halfWidthV = max(0.012, dUV.y * 1.25);
-
-    let lineU = (1.0 - smoothstep(0.0, halfWidthU, min(meridianGrid, 1.0 - meridianGrid))) * meridianFade;
-    let lineV = 1.0 - smoothstep(0.0, halfWidthV, min(parallelGrid, 1.0 - parallelGrid));
-    let minorGraticule = max(lineU, lineV);
-
-    let isEquator = 1.0 - smoothstep(0.0, max(0.020, dUV.y * 1.8), abs(input.uv.y - 0.5));
-    let isPrime   = (1.0 - smoothstep(0.0, max(0.020, dUV.x * 1.8), abs(input.uv.x - 0.5))) * meridianFade;
-    let majorGraticule = max(isEquator, isPrime);
-
-    var cGraticule: vec3<f32>;
-    var graticuleWeight: f32;
-    if (sim.u_theme == 2u) {
-        cGraticule = vec3<f32>(0.91, 0.93, 0.96); // Chalk Ruling Pen Linework
-        graticuleWeight = minorGraticule * 0.09 + majorGraticule * 0.18;
-    } else if (sim.u_theme == 1u) {
-        cGraticule = vec3<f32>(0.28, 0.22, 0.16); // Copperplate Sepia Ink Linework
-        graticuleWeight = minorGraticule * 0.08 + majorGraticule * 0.16;
-    } else {
-        cGraticule = vec3<f32>(0.23, 0.47, 0.54); // Marine Turquoise Drafting Linework
-        graticuleWeight = minorGraticule * 0.08 + majorGraticule * 0.16;
-    }
-    finalCrust = mix(finalCrust, cGraticule, clamp(graticuleWeight, 0.0, 0.35));
 
     // ========================================================================
     // MEDIUM-SPECIFIC ANALYTICAL CONTOURS & OCEANOGRAPHIC ISOBATHS
