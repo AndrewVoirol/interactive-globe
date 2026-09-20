@@ -73,36 +73,47 @@ fn evaluateManifoldCore(
     // Rule 21 & Rule 28 compliance: switch dispatch prevents source-scanning regex collisions
     switch (mode) {
         case 1u: {
-            // ── Mode 1: Continuous Involute Cylindrical Scroll Unfurl (§3) ──
-            // Single continuous Riemann-Cartan curvature relaxation eliminating the 2-stage split
+            // ── Mode 1: Parchment Scroll Unfurl with Tight Roll Dynamics (§3) ──
+            // Rapid cylinder formation by alpha = 0.20 eliminates polar puckering;
+            // cylinder rolls up tightly like parchment before unfurling flat onto drafting sheet.
             let lonRad = select(atan2(pos3D.x, pos3D.z), mercator2D.x / RADIUS, abs(mercator2D.x) > 0.00001 || abs(mercator2D.y) > 0.00001);
             let clampedY = clamp(pos3D.y / RADIUS, -0.9998, 0.9998);
             let latRad = asin(clampedY);
             let cosLat = cos(latRad);
             let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
 
-            let s = 1.0 - smoothstep(0.0, 1.0, ease);
+            // Phase 1: Rapid cylinder formation (alpha in [0.0, 0.20])
+            let tCyl = smoothstep(0.0, 0.20, ease);
+            let rCyl = mix(RADIUS * cosLat, RADIUS, tCyl);
+
+            // Phase 2: Parchment tight roll-up compression (tightens cylinder radius before unrolling)
+            let tRoll = sin(PI * smoothstep(0.15, 0.40, ease));
+            let rScroll = rCyl * (1.0 - 0.20 * tRoll);
+
+            // Phase 3: Unrolling curvature relaxation onto drafting table (alpha in [0.20, 1.00])
+            let tUnroll = smoothstep(0.20, 1.0, ease);
+            let s = 1.0 - tUnroll;
             let u = s * lonRad;
-            let rPhi = mix(RADIUS * cosLat, RADIUS, smoothstep(0.0, 0.60, ease));
 
             var curX: f32;
             var curZ: f32;
 
             if (abs(u) > 0.02) {
                 let sDiv = max(0.0001, s);
-                curX = rPhi * (sin(u) / sDiv);
-                curZ = rPhi * ((cos(u) - 1.0) / sDiv + s);
+                curX = rScroll * (sin(u) / sDiv);
+                curZ = rScroll * ((cos(u) - 1.0) / sDiv + s);
             } else {
                 let u2 = u * u;
-                curX = rPhi * lonRad * (1.0 - u2 / 6.0);
-                curZ = -s * rPhi * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPhi * s;
+                curX = rScroll * lonRad * (1.0 - u2 / 6.0);
+                curZ = -s * rScroll * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rScroll * s;
             }
 
-            let curY = mix(pos3D.y, mercator2D.y, ease);
+            // Polar Puckering Elimination: Y stays cylindrical during formation, then unrolls to Mercator
+            let curY = mix(pos3D.y, mercator2D.y, tUnroll);
             out.pos = vec3<f32>(curX, curY, curZ);
 
             let cylNorm = vec3<f32>(sin(u), 0.0, cos(u));
-            let rawNorm = mix(sphereNorm, select(vec3<f32>(0.0, 0.0, 1.0), normalize(cylNorm), length(cylNorm) > 0.0001), ease);
+            let rawNorm = mix(sphereNorm, select(vec3<f32>(0.0, 0.0, 1.0), normalize(cylNorm), length(cylNorm) > 0.0001), tCyl);
             out.normal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(rawNorm), length(rawNorm) > 0.001);
         }
 
@@ -163,21 +174,22 @@ fn evaluateManifoldCore(
             let volumePreserve = sphereNorm * (RADIUS * 0.50 * rawSin);
             let basePos = mix(pos3D, pos2D, ease) + volumePreserve;
 
-            let surfaceNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(basePos), length(basePos) > 0.001);
+            let baseLen = length(basePos);
+            let surfaceNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(basePos), baseLen > 0.001);
 
             // Solenoidal curl noise projected strictly onto the surface tangent plane
             // (Eliminates radial bunching and knobby marbles while delivering authentic fluid streamline flow)
-            let rawCurl = computeCurlNoise(basePos, simTime);
+            let rawCurl = computeCurlNoise(basePos, simTime * 1.5);
             let normalComp = dot(rawCurl, surfaceNormal);
             let tangentCurl = rawCurl - surfaceNormal * normalComp;
-            let fluidShear = tangentCurl * (RADIUS * 0.16 * liquefaction);
+            let fluidShear = tangentCurl * (RADIUS * 0.28 * liquefaction);
 
-            // 3-Octave dispersion-coupled gravity-capillary surface waves along normal
-            let phi1 = 0.45 * basePos.x + 0.60 * basePos.y - 1.2 * simTime;
-            let phi2 = -0.55 * basePos.x + 0.35 * basePos.y - 0.9 * simTime;
-            let phi3 = 0.70 * basePos.x - 0.50 * basePos.y - 1.6 * simTime;
+            // 3-Octave dispersion-coupled gravity-capillary surface waves (multi-axis 3D traveling wave harmonics with faster undulation)
+            let phi1 = dot(basePos, vec3<f32>(0.35, 0.62, 0.42)) * 1.35 - simTime * 2.8;
+            let phi2 = dot(basePos, vec3<f32>(-0.45, 0.30, 0.65)) * 1.75 - simTime * 2.2;
+            let phi3 = dot(basePos, vec3<f32>(0.55, -0.40, 0.35)) * 2.10 - simTime * 3.4;
             let capillaryDecay = 1.0 - smoothstep(0.85, 1.0, ease);
-            let zCapillary = (0.22 * sin(phi1) + 0.14 * cos(phi2) + 0.08 * sin(phi3)) * liquefaction * capillaryDecay;
+            let zCapillary = (0.45 * sin(phi1) + 0.30 * cos(phi2) + 0.20 * sin(phi3)) * liquefaction * capillaryDecay;
 
             // Cursor Lamb-Oseen vortex interaction in fluid medium
             var cursorOffset = vec3<f32>(0.0);
@@ -221,11 +233,11 @@ fn evaluateManifoldCore(
 
             // Boundary Petal Curl & Margin Flap Flare on antimeridian flaps (|lon| -> PI)
             let lonNorm = abs(lonRad) / PI;
-            let fBoundary = lonNorm * lonNorm;
-            let rawSin = sin(PI * ease);
+            let fPetal = smoothstep(0.35, 1.0, lonNorm);
+            let thetaPetal = fPetal * cos(latRad * 0.75) * sin(PI * ease) * 1.45;
             let flareSign = select(-1.0, 1.0, lonRad >= 0.0);
-            let deltaXFlare = flareSign * RADIUS * fBoundary * lonNorm * rawSin * 0.18;
-            let deltaZCurl = -RADIUS * fBoundary * rawSin * (1.0 - 0.5 * ease) * 0.22;
+            let deltaXFlare = flareSign * RADIUS * sin(thetaPetal) * 0.32;
+            let deltaZCurl = -RADIUS * (1.0 - cos(thetaPetal)) * 0.48 * (1.0 - 0.4 * ease);
 
             out.pos = basePos + vec3<f32>(deltaXFlare, 0.0, deltaZCurl);
 

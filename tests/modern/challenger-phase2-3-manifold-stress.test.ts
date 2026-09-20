@@ -85,7 +85,7 @@ export function evaluateManifoldCore(
 
   switch (mode) {
     case 1: {
-      // ── Mode 1: Continuous Involute Cylindrical Scroll Unfurl (§3) ──
+      // ── Mode 1: Parchment Scroll Unfurl with Tight Roll Dynamics (§3) ──
       const lonRad = (Math.abs(mercator2D[0]) > 0.00001 || Math.abs(mercator2D[1]) > 0.00001)
         ? mercator2D[0] / RADIUS
         : Math.atan2(pos3D[0], pos3D[2]);
@@ -95,33 +95,43 @@ export function evaluateManifoldCore(
       const pLen = Math.hypot(pos3D[0], pos3D[1], pos3D[2]);
       const sphereNorm: [number, number, number] = pLen > 0.001 ? normalize3(pos3D) : [0.0, 0.0, 1.0];
 
-      const s = 1.0 - smoothstep(0.0, 1.0, ease);
+      // Phase 1: Rapid cylinder formation (alpha in [0.0, 0.20])
+      const tCyl = smoothstep(0.0, 0.20, ease);
+      const rCyl = (1.0 - tCyl) * (RADIUS * cosLat) + tCyl * RADIUS;
+
+      // Phase 2: Parchment tight roll-up compression (tightens cylinder radius before unrolling)
+      const tRoll = Math.sin(PI * smoothstep(0.15, 0.40, ease));
+      const rScroll = rCyl * (1.0 - 0.20 * tRoll);
+
+      // Phase 3: Unrolling curvature relaxation onto drafting table (alpha in [0.20, 1.00])
+      const tUnroll = smoothstep(0.20, 1.0, ease);
+      const s = 1.0 - tUnroll;
       const u = s * lonRad;
-      const rPhi = (1.0 - smoothstep(0.0, 0.60, ease)) * (RADIUS * cosLat) + smoothstep(0.0, 0.60, ease) * RADIUS;
 
       let curX: number;
       let curZ: number;
 
       if (Math.abs(u) > 0.02) {
         const sDiv = Math.max(0.0001, s);
-        curX = rPhi * (Math.sin(u) / sDiv);
-        curZ = rPhi * ((Math.cos(u) - 1.0) / sDiv + s);
+        curX = rScroll * (Math.sin(u) / sDiv);
+        curZ = rScroll * ((Math.cos(u) - 1.0) / sDiv + s);
       } else {
         const u2 = u * u;
-        curX = rPhi * lonRad * (1.0 - u2 / 6.0);
-        curZ = -s * rPhi * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPhi * s;
+        curX = rScroll * lonRad * (1.0 - u2 / 6.0);
+        curZ = -s * rScroll * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rScroll * s;
       }
 
-      const curY = (1.0 - ease) * pos3D[1] + ease * mercator2D[1];
+      // Polar Puckering Elimination: Y stays cylindrical during formation, then unrolls to Mercator
+      const curY = (1.0 - tUnroll) * pos3D[1] + tUnroll * mercator2D[1];
       outPos = [curX, curY, curZ];
 
       const cylNorm: [number, number, number] = [Math.sin(u), 0.0, Math.cos(u)];
       const rawCylLen = Math.hypot(cylNorm[0], cylNorm[1], cylNorm[2]);
       const normCyl: [number, number, number] = rawCylLen > 0.0001 ? normalize3(cylNorm) : [0.0, 0.0, 1.0];
       const rawNorm: [number, number, number] = [
-        (1.0 - ease) * sphereNorm[0] + ease * normCyl[0],
-        (1.0 - ease) * sphereNorm[1] + ease * normCyl[1],
-        (1.0 - ease) * sphereNorm[2] + ease * normCyl[2],
+        (1.0 - tCyl) * sphereNorm[0] + tCyl * normCyl[0],
+        (1.0 - tCyl) * sphereNorm[1] + tCyl * normCyl[1],
+        (1.0 - tCyl) * sphereNorm[2] + tCyl * normCyl[2],
       ];
       outNormal = normalize3(rawNorm);
       break;
@@ -216,12 +226,12 @@ export function evaluateManifoldCore(
       const baseLen = Math.hypot(basePos[0], basePos[1], basePos[2]) || 1.0;
       const surfaceNormal: [number, number, number] = [basePos[0] / baseLen, basePos[1] / baseLen, basePos[2] / baseLen];
 
-      // 3-Octave dispersion-coupled gravity-capillary surface waves
-      const phi1 = 0.45 * basePos[0] + 0.60 * basePos[1] - 1.2 * simTime;
-      const phi2 = -0.55 * basePos[0] + 0.35 * basePos[1] - 0.9 * simTime;
-      const phi3 = 0.70 * basePos[0] - 0.50 * basePos[1] - 1.6 * simTime;
+      // 3-Octave dispersion-coupled gravity-capillary surface waves (multi-axis 3D traveling wave harmonics with faster undulation)
+      const phi1 = (basePos[0] * 0.35 + basePos[1] * 0.62 + basePos[2] * 0.42) * 1.35 - simTime * 2.8;
+      const phi2 = (basePos[0] * -0.45 + basePos[1] * 0.30 + basePos[2] * 0.65) * 1.75 - simTime * 2.2;
+      const phi3 = (basePos[0] * 0.55 + basePos[1] * -0.40 + basePos[2] * 0.35) * 2.10 - simTime * 3.4;
       const capillaryDecay = 1.0 - smoothstep(0.85, 1.0, ease);
-      const zCapillary = (0.22 * Math.sin(phi1) + 0.14 * Math.cos(phi2) + 0.08 * Math.sin(phi3)) * liquefaction * capillaryDecay;
+      const zCapillary = (0.45 * Math.sin(phi1) + 0.30 * Math.cos(phi2) + 0.20 * Math.sin(phi3)) * liquefaction * capillaryDecay;
 
       const rawNorm: [number, number, number] = [
         surfaceNormal[0] * (1.0 - ease),
@@ -285,11 +295,11 @@ export function evaluateManifoldCore(
 
       // Boundary Petal Curl & Margin Flap Flare on antimeridian flaps (|lon| -> PI)
       const lonNorm = Math.abs(lonRad) / PI;
-      const fBoundary = lonNorm * lonNorm;
-      const rawSin = Math.sin(PI * ease);
+      const fPetal = smoothstep(0.35, 1.0, lonNorm);
+      const thetaPetal = fPetal * Math.cos(latRad * 0.75) * Math.sin(PI * ease) * 1.45;
       const flareSign = lonRad >= 0.0 ? 1.0 : -1.0;
-      const deltaXFlare = flareSign * RADIUS * fBoundary * lonNorm * rawSin * 0.18;
-      const deltaZCurl = -RADIUS * fBoundary * rawSin * (1.0 - 0.5 * ease) * 0.22;
+      const deltaXFlare = flareSign * RADIUS * Math.sin(thetaPetal) * 0.32;
+      const deltaZCurl = -RADIUS * (1.0 - Math.cos(thetaPetal)) * 0.48 * (1.0 - 0.4 * ease);
 
       outPos = [
         baseX + deltaXFlare,
