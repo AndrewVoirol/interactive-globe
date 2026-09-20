@@ -415,14 +415,15 @@ fn computeHydrosphereShading(
     // Jerlov volume radiance: Type I crystal sapphire blue vs Type III emerald green
     let pelagicRadiance = clamp((props.Rinf * 36.0) * sunIllum, vec3<f32>(0.0), vec3<f32>(0.75));
 
-    // Deep abyssal trenches (> 2000m to 10,924m): total extinction deepens into midnight indigo
-    let normDepth = clamp(safeDepth / 10924.0, 0.0, 1.0);
-    let trenchFactor = smoothstep(0.12, 0.85, normDepth);
-    let deepOceanColor = mix(pelagicRadiance, cTrench, trenchFactor);
+    // Calibrated bathymetric depth regimes (shallows 0-200m, slope 200-2500m, abyss >2500m)
+    let shelfBlend = smoothstep(2.0, 200.0, safeDepth);
+    let shelfColor = mix(seabedRadiance * 1.35, pelagicRadiance, shelfBlend);
+    let slopeBlend = smoothstep(200.0, 2500.0, safeDepth);
+    let slopeColor = mix(shelfColor, mix(pelagicRadiance, cTrench, 0.55), slopeBlend);
+    let abyssBlend = smoothstep(2500.0, 10000.0, safeDepth);
+    var waterColor = mix(slopeColor, cTrench, abyssBlend);
 
-    // Continuous physical blend from shallow Kubelka-Munk seabed glow to deep Jerlov volume radiance
-    let depthBlend = smoothstep(6.0, 65.0, safeDepth);
-    var waterColor = mix(seabedRadiance * 1.35, deepOceanColor, depthBlend);
+    let depthBlend = smoothstep(10.0, 2200.0, safeDepth);
 
     // Medium-specific water surface styling:
     // In Theme 1 (Cream Rag): Archival watercolor wash on cotton rag paper
@@ -469,13 +470,13 @@ fn computeHydrosphereShading(
 
     let photorealSpecular = vec3<f32>(sunSpecular * fresnel * specAtten * shadowFactor);
     let archivalMatteSpecular = vec3<f32>(0.92, 0.95, 0.98) * (sunSpecular * fresnel * specAtten * shadowFactor * 0.20);
-    let defaultSpecular = select(archivalMatteSpecular, photorealSpecular, sim.u_renderStyle >= 2u);
+    let defaultSpecular = archivalMatteSpecular * 0.35;
 
     var mediumSpecular: vec3<f32>;
     if (sim.u_theme == 1u) {
         mediumSpecular = vec3<f32>(0.95, 0.92, 0.85) * (sunSpecular * 0.02 * fresnel);
     } else if (sim.u_theme == 2u) {
-        mediumSpecular = vec3<f32>(0.85, 0.92, 1.00) * (sunSpecular * fresnel * specAtten * shadowFactor * 0.25);
+        mediumSpecular = vec3<f32>(0.85, 0.92, 1.00) * (sunSpecular * fresnel * specAtten * shadowFactor * 0.15);
     } else {
         mediumSpecular = defaultSpecular;
     }
@@ -484,13 +485,13 @@ fn computeHydrosphereShading(
 
     // Dynamic optical transparency modulated by Beer-Lambert clarity (10% to 100%)
     let clarityNorm = clamp(sim.u_waterClarity, 0.08, 1.0);
-    let kExtinction = 0.0006 / clarityNorm;
+    let kExtinction = 0.00035 / clarityNorm;
     let depthOpacity = 1.0 - exp(-safeDepth * kExtinction);
-    let turbidityBase = mix(0.68, 0.15, clarityNorm);
-    let maxOpacity = select(select(0.60, 0.55, sim.u_theme == 1u), 0.70, sim.u_theme == 2u);
+    let turbidityBase = mix(0.35, 0.08, clarityNorm);
+    let maxOpacity = select(select(0.78, 0.65, sim.u_theme == 1u), 0.82, sim.u_theme == 2u);
     let waterOpacity = clamp(
-        (turbidityBase + depthOpacity * 0.70 + fresnel * 0.20) * sim.u_layerOpacity,
-        0.18,
+        (turbidityBase + depthOpacity * 0.65 + fresnel * 0.15) * sim.u_layerOpacity,
+        0.12,
         maxOpacity
     );
 
@@ -1165,8 +1166,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let scaleY = select(select(0.0, 1.0, hasU || hasD), 0.5, hasU && hasD);
     let dHx = (effHR - effHL) * scaleX * dispScale * slopeScale;
     let dHy = (effHD - effHU) * scaleY * dispScale * slopeScale;
-    let effDHx = dHx * polarLonAtten;
-    let effDHy = dHy * polarLonAtten;
+
+    // Mountain massif normal damping: prevents gradient explosion into needle spikes at high summits
+    let peakDamp = 1.0 / (1.0 + max(0.0, landElev - 0.20) * 1.6);
+    let effDHx = dHx * polarLonAtten * peakDamp;
+    let effDHy = dHy * polarLonAtten * peakDamp;
 
     // Perturbed surface normal in 3D world space with polar attenuation
     let perturbedN = normalize(n0 - (tangentX * effDHx + tangentY * effDHy) * fragPoleAtten);
@@ -1546,9 +1550,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         finalLand = clamp(finalLand * ferricModulation, vec3<f32>(0.0), vec3<f32>(1.0));
     }
 
-    // Continental crust Cook-Torrance microfacet specular highlight with Toksvig AA
-    let cSpecMedium = select(select(vec3<f32>(0.92, 0.94, 0.96), vec3<f32>(0.95, 0.92, 0.85), sim.u_theme == 1u), vec3<f32>(0.85, 0.92, 1.00), sim.u_theme == 2u);
-    finalLand = finalLand + crustSpecular * cSpecMedium;
+    // Continental crust uses archival matte paper ink absorption — zero computer-game specular glare
 
     // ------------------------------------------------------------------------
     // STAGE 1 In-Shader Geomorphic Hydrology Drainage (Frontiers 3 & 4)

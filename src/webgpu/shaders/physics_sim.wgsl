@@ -178,9 +178,17 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         finalVel = totalVelocity;
         metric = clamp(localVorticity, 0.0, 1.0);
     }
-    // Mode 0: Linear Mix (Fallback)
+    // Mode 0: Spheroidal Metric Dilation
     else {
-        finalPos = mix(pos3D, pos2D, ease);
+        let phi = asin(clamp(pos3D.y / RADIUS, -0.9998, 0.9998));
+        let cosLat = max(cos(phi), 0.02);
+        let dilation = pow(1.0 / cosLat, ease);
+        let dilatedX = pos3D.x * dilation;
+        let dilatedZ = pos3D.z * dilation;
+        let curX = mix(dilatedX, pos2D.x, ease);
+        let curY = mix(pos3D.y, pos2D.y, ease);
+        let curZ = dilatedZ * (1.0 - ease);
+        finalPos = vec3<f32>(curX, curY, curZ);
         finalVel = vTangent * 0.01;
         metric = 0.0;
     }

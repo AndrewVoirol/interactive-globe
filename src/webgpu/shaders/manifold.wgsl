@@ -181,12 +181,37 @@ fn evaluateManifoldCore(
         }
 
         default: {
-            // ── Mode 0: Linear Manifold Mix (Default) ─────────────────────
+            // ── Mode 0: Spheroidal Metric Dilation (Default) ──────────────
+            // Eliminates polar pinched gourd collapse during unfurling by continuously
+            // dilating latitude parallels as K -> 0 (sphere to cylinder transition).
+            let lonRad = atan2(pos3D.x, pos3D.z);
+            let latRad = asin(clamp(pos3D.y / RADIUS, -0.9998, 0.9998));
+            let cosLat = max(cos(latRad), 0.02);
+            
+            // Continuous spheroidal dilation factor: as ease -> 1, parallels expand
+            // smoothly from sphere (cosLat) to cylinder (1.0), maintaining convex curvature
+            let dilation = pow(1.0 / cosLat, ease);
+            
+            let dilatedPos3D = vec3<f32>(
+                pos3D.x * dilation,
+                pos3D.y,
+                pos3D.z * dilation
+            );
+            
+            // z-depth flattens continuously with (1.0 - ease)
+            let curZ = dilatedPos3D.z * (1.0 - ease);
+            let curX = mix(dilatedPos3D.x, pos2D.x, ease);
+            let curY = mix(pos3D.y, pos2D.y, ease);
+            
+            out.pos = vec3<f32>(curX, curY, curZ);
+            
             let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0),
                                     normalize(pos3D),
                                     length(pos3D) > 0.001);
-            out.pos = mix(pos3D, pos2D, ease);
-            out.normal = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
+            let mixedNorm = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
+            out.normal = select(vec3<f32>(0.0, 0.0, 1.0),
+                                normalize(mixedNorm),
+                                length(mixedNorm) > 0.0001);
         }
     }
 

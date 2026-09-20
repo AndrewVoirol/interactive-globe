@@ -602,6 +602,9 @@ export class WebGPUEngine {
   private lastSimVortex: number = -1;
   private lastSimFracture: number = -1;
   private simWarmupFrames: number = 0;
+  private simPendingFrames: number = 0;
+  private lastWrittenParticleBufferIndex: number = 1;
+  private lastCamPos: [number, number, number] = [0, 0, 0];
   private windRibbonBindGroups: [GPUBindGroup, GPUBindGroup] | null = null;
   private cloudPipeline: GPURenderPipeline | null = null;
   private cloudBindGroupLayout: GPUBindGroupLayout | null = null;
@@ -1742,12 +1745,15 @@ export class WebGPUEngine {
         return [curX, curY, curZ];
       }
     } else {
-      // Mode 0: Linear Manifold Mix
-      return [
-        p3D[0] * (1.0 - ease) + p2D[0] * ease,
-        p3D[1] * (1.0 - ease) + p2D[1] * ease,
-        p3D[2] * (1.0 - ease) + p2D[2] * ease,
-      ];
+      // Mode 0: Spheroidal Metric Dilation
+      const cosLatSafe = Math.max(cosLat, 0.02);
+      const dilation = Math.pow(1.0 / cosLatSafe, ease);
+      const dilatedP3D_x = p3D[0] * dilation;
+      const dilatedP3D_z = p3D[2] * dilation;
+      const curX = dilatedP3D_x * (1.0 - ease) + p2D[0] * ease;
+      const curY = p3D[1] * (1.0 - ease) + p2D[1] * ease;
+      const curZ = dilatedP3D_z * (1.0 - ease);
+      return [curX, curY, curZ];
     }
   }
 
@@ -7254,10 +7260,27 @@ export class WebGPUEngine {
     const isVortexChanged = params.vortexStrength !== undefined && Math.abs(params.vortexStrength - this.lastSimVortex) > 1e-4;
     const isFractureChanged = params.fractureIntensity !== undefined && Math.abs(params.fractureIntensity - this.lastSimFracture) > 1e-4;
 
+    const camPos = params.camera.position;
+    const isCameraChanged = Math.hypot(
+      camPos.x - this.lastCamPos[0],
+      camPos.y - this.lastCamPos[1],
+      camPos.z - this.lastCamPos[2]
+    ) > 1e-4;
+    if (isCameraChanged) {
+      this.lastCamPos[0] = camPos.x;
+      this.lastCamPos[1] = camPos.y;
+      this.lastCamPos[2] = camPos.z;
+    }
+
+    if (isUnfurlChanged || isModeChanged || isVortexChanged || isFractureChanged || isCursorActive || (isCameraChanged && isUnfurlActive)) {
+      this.simPendingFrames = 2;
+    }
+
     const needsParticleCompute =
+      this.simPendingFrames > 0 ||
       this.simWarmupFrames < 2 ||
       isUnfurlChanged ||
-      (isUnfurlActive && (params.isPlaying || isVortexChanged || isFractureChanged)) ||
+      (isUnfurlActive && (params.isPlaying || isVortexChanged || isFractureChanged || params.mode === 3)) ||
       isModeChanged ||
       isCursorActive;
 
@@ -7337,6 +7360,11 @@ export class WebGPUEngine {
         const workgroupCount = Math.min(65535, Math.ceil(this.pointCount / 256));
         computePass.dispatchWorkgroups(workgroupCount, 1, 1);
         this.simWarmupFrames++;
+        if (this.simPendingFrames > 0) {
+          this.simPendingFrames--;
+        }
+        this.lastWrittenParticleBufferIndex = (this.currentStep + 1) % 2;
+        this.currentStep++;
         this.lastSimUnfurl = params.unfurl;
         this.lastSimMode = params.mode;
         this.lastSimVortex = params.vortexStrength ?? 0;
@@ -7382,7 +7410,7 @@ export class WebGPUEngine {
     }
 
     // Pass 2: Consolidated Single Render Pass (TBDR on-chip optimization)
-    const outBuffer = this.particleBuffers[(this.currentStep + 1) % 2];
+    const outBuffer = this.particleBuffers[this.lastWrittenParticleBufferIndex];
     const layerMode = params.layerMode !== undefined ? params.layerMode : (
       params.renderLayers === 'points' ? 1 : params.renderLayers === 'wireframe' ? 2 : 0
     );
@@ -7402,9 +7430,7 @@ export class WebGPUEngine {
       colorAttachments: [
         {
           view: sceneTargetView,
-          clearValue: isLight
-            ? { r: 0.0, g: 0.0, b: 0.0, a: 0.0 } // Pure transparent: premultiplied alpha 0.0 allows DOM .paper-cream cotton rag grain to show through without additive blowout
-            : { r: 0.008, g: 0.016, b: 0.031, a: 1.0 }, // #020408 obsidian
+          clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }, // Pure transparent: premultiplied alpha allows DOM archival paper substrate to show through for all themes
           loadOp: 'clear',
           storeOp: 'store',
         },
@@ -7435,6 +7461,7 @@ export class WebGPUEngine {
     }
 
     if (
+      !isPurity &&
       (params.reliefActive || params.showRelief) &&
       this.crustHydrospherePipeline &&
       this.crustBindGroup &&
@@ -7553,7 +7580,7 @@ export class WebGPUEngine {
     }
 
     // 4. Render Point Sprites
-    if (layerMode === 0 || layerMode === 1) {
+    if (isPurity || layerMode === 0 || layerMode === 1) {
       renderPass.setPipeline(this.pointsRenderPipeline);
       renderPass.setBindGroup(0, this.renderBindGroup);
       renderPass.setVertexBuffer(0, outBuffer);
@@ -7602,9 +7629,7 @@ export class WebGPUEngine {
           colorAttachments: [
             {
               view: swapchainView,
-              clearValue: isLight
-                ? { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }
-                : { r: 0.008, g: 0.016, b: 0.031, a: 1.0 },
+              clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 0.0 },
               loadOp: 'clear',
               storeOp: 'store',
             },
@@ -7624,7 +7649,6 @@ export class WebGPUEngine {
     this.device.queue.submit([commandEncoder.finish()]);
 
     // Swap Ping-Pong Step
-    this.currentStep++;
     this.windStep++;
   }
 

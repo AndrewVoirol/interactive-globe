@@ -85,7 +85,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Theme Palette: 0 = Obsidian & Celestial Platinum, 1 = Light Monochrome
     var geographicColor = vec3<f32>(0.49, 0.827, 0.988);
     var structuralColor = vec3<f32>(0.05, 0.12, 0.22);
-    var baseAlpha = select(mix(0.03, 0.35, in.vPointType), mix(0.05, 0.95, in.vPointType), sim.u_layerMode == 1u);
+    var baseAlpha = select(mix(0.015, 0.35, in.vPointType), mix(0.05, 0.95, in.vPointType), sim.u_layerMode == 1u);
 
     if (sim.u_theme == 0u) {
         // Theme 0: Obsidian & Celestial Platinum (Marie Tharp)
@@ -95,13 +95,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         // Light Monochrome: Architectural Charcoal Land on Misty Silver Ocean (Cream Rag)
         geographicColor = vec3<f32>(0.08, 0.09, 0.11);
         structuralColor = vec3<f32>(0.82, 0.85, 0.89);
-        baseAlpha = select(mix(0.08, 0.35, in.vPointType), mix(0.12, 0.95, in.vPointType), sim.u_layerMode == 1u);
+        baseAlpha = select(mix(0.02, 0.35, in.vPointType), mix(0.10, 0.95, in.vPointType), sim.u_layerMode == 1u);
     } else if (sim.u_theme == 2u) {
         // Theme 2: Prussian Cyanotype (Washed Cerulean #A5D5FF on Prussian Indigo #162B42 Ground)
         // STRICTLY MONOCHROMATIC
         geographicColor = vec3<f32>(0.647, 0.835, 1.00); // Washed cerulean accent #A5D5FF
         structuralColor = vec3<f32>(0.086, 0.169, 0.259); // Ferroprussiate indigo #162B42
-        baseAlpha = select(mix(0.08, 0.40, in.vPointType), mix(0.15, 0.98, in.vPointType), sim.u_layerMode == 1u);
+        baseAlpha = select(mix(0.02, 0.40, in.vPointType), mix(0.12, 0.98, in.vPointType), sim.u_layerMode == 1u);
     }
 
     let baseColor = mix(structuralColor, geographicColor, in.vPointType);

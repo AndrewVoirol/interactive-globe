@@ -28,8 +28,8 @@ describe('Milestone M6: Comprehensive WebGPU WGSL Compute & Render Pipeline Test
     });
 
     it('M6-T03: verifies physics_sim.wgsl covers all 5 morphing paradigms', () => {
-      // Mode 0: Linear mix
-      expect(physicsSimWGSL).toContain('mix(pos3D, pos2D, ease)');
+      // Mode 0: Spheroidal metric dilation
+      expect(physicsSimWGSL).toContain('mix(dilatedX, pos2D.x, ease)');
       // Mode 1: Cylindrical scroll
       expect(physicsSimWGSL).toContain('sim.u_mode == 1u');
       expect(physicsSimWGSL).toContain('invOneMinusT');
