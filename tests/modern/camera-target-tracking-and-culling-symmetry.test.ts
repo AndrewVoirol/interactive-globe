@@ -11,6 +11,59 @@ describe('Application Hardening: Dual CPU/GPU Culling Symmetry & Manifold Camera
   const engineTsPath = path.join(projectRoot, 'src/webgpu/WebGPUEngine.ts');
   const canvasTsxPath = path.join(projectRoot, 'src/webgpu/WebGPUCanvas.tsx');
 
+  function computeCameraPose(
+    lon: number,
+    lat: number,
+    unfurl: number,
+    mode: number,
+    radius = 15.0,
+    time = 0.0
+  ) {
+    const phi = ((90 - lat) * Math.PI) / 180;
+    const theta = (lon * Math.PI) / 180;
+    const clampedUnfurl = Math.max(0.0, Math.min(1.0, unfurl));
+
+    const sinPhi = Math.sin(phi);
+    const cosPhi = Math.cos(phi);
+    const sinTheta = Math.sin(theta);
+    const cosTheta = Math.cos(theta);
+
+    const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+    const dirX = sinPhi * sinTheta;
+    const dirY = cosPhi;
+    const dirZ = sinPhi * cosTheta;
+    const dirLen = Math.hypot(dirX, dirY, dirZ);
+    const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
+    const normDir = new Vector3(dirX * invLen, dirY * invLen, dirZ * invLen);
+
+    let target: Vector3;
+    if (clampedUnfurl < 0.01) {
+      target = new Vector3(0, 0, 0);
+    } else {
+      const deformedArr = evaluatePointMorph(lon, lat, clampedUnfurl, mode, time, 0.0);
+      const standoff = 5.0 * (1.0 - ease);
+      target = new Vector3(
+        deformedArr[0] - standoff * normDir.x,
+        deformedArr[1] - standoff * normDir.y,
+        deformedArr[2] - standoff * normDir.z
+      );
+    }
+
+    const cameraPos = new Vector3(
+      target.x + radius * normDir.x,
+      target.y + radius * normDir.y,
+      target.z + radius * normDir.z
+    );
+
+    const deformedArr = evaluatePointMorph(lon, lat, clampedUnfurl, mode, time, 0.0);
+    return {
+      target,
+      cameraPos,
+      normDir,
+      deformed: new Vector3(deformedArr[0], deformedArr[1], deformedArr[2]),
+    };
+  }
+
   // =========================================================================
   // 1. Dual CPU/GPU Culling Symmetry (Rule 33)
   // =========================================================================
@@ -92,59 +145,6 @@ describe('Application Hardening: Dual CPU/GPU Culling Symmetry & Manifold Camera
   // 2. Manifold Camera Target Tracking Across Unfurl
   // =========================================================================
   describe('Pillar 2: Manifold Camera Target Tracking Mathematical Rigor', () => {
-    function computeCameraPose(
-      lon: number,
-      lat: number,
-      unfurl: number,
-      mode: number,
-      radius = 15.0,
-      time = 0.0
-    ) {
-      const phi = ((90 - lat) * Math.PI) / 180;
-      const theta = (lon * Math.PI) / 180;
-      const clampedUnfurl = Math.max(0.0, Math.min(1.0, unfurl));
-
-      const sinPhi = Math.sin(phi);
-      const cosPhi = Math.cos(phi);
-      const sinTheta = Math.sin(theta);
-      const cosTheta = Math.cos(theta);
-
-      const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
-      const dirX = (1.0 - ease) * (sinPhi * sinTheta);
-      const dirY = (1.0 - ease) * cosPhi;
-      const dirZ = (1.0 - ease) * (sinPhi * cosTheta) + ease;
-      const dirLen = Math.hypot(dirX, dirY, dirZ);
-      const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
-      const normDir = new Vector3(dirX * invLen, dirY * invLen, dirZ * invLen);
-
-      let target: Vector3;
-      if (clampedUnfurl < 0.01) {
-        target = new Vector3(0, 0, 0);
-      } else {
-        const deformedArr = evaluatePointMorph(lon, lat, clampedUnfurl, mode, time, 0.0);
-        const standoff = 5.0 * (1.0 - ease);
-        target = new Vector3(
-          deformedArr[0] - standoff * normDir.x,
-          deformedArr[1] - standoff * normDir.y,
-          deformedArr[2] - standoff * normDir.z
-        );
-      }
-
-      const cameraPos = new Vector3(
-        target.x + radius * normDir.x,
-        target.y + radius * normDir.y,
-        target.z + radius * normDir.z
-      );
-
-      const deformedArr = evaluatePointMorph(lon, lat, clampedUnfurl, mode, time, 0.0);
-      return {
-        target,
-        cameraPos,
-        normDir,
-        deformed: new Vector3(deformedArr[0], deformedArr[1], deformedArr[2]),
-      };
-    }
-
     it('verifies camera target at unfurl < 0.01 is strictly (0, 0, 0) across diverse coordinates', () => {
       const coords = [
         { lon: 0, lat: 0 },
@@ -327,6 +327,29 @@ describe('Application Hardening: Dual CPU/GPU Culling Symmetry & Manifold Camera
       expect(deformed[0]).toBeCloseTo(p2D[0], 4);
       expect(deformed[1]).toBeCloseTo(p2D[1], 4);
       expect(deformed[2]).toBeCloseTo(0.0, 4);
+    });
+
+    it('RULE-36: verifies WebGPUCanvas.tsx eliminates degenerate (1.0 - ease) multiplier on orbital angles', () => {
+      const canvasSrc = fs.readFileSync(canvasTsxPath, 'utf8');
+      expect(canvasSrc).not.toMatch(/dirX\s*=\s*\(1\.0\s*-\s*ease\)/);
+      expect(canvasSrc).not.toMatch(/dirY\s*=\s*\(1\.0\s*-\s*ease\)/);
+      expect(canvasSrc).not.toMatch(/dirZ\s*=\s*\(1\.0\s*-\s*ease\)/);
+    });
+
+    it('DEF-06: verifies WebGPUCanvas.tsx setSpherical falls back to sphericalRef when theta/phi are undefined', () => {
+      const canvasSrc = fs.readFileSync(canvasTsxPath, 'utf8');
+      expect(canvasSrc).toMatch(/const\s+curTheta\s*=\s*theta\s*!==\s*undefined\s*\?\s*theta\s*:\s*sphericalRef\.current\.theta/);
+      expect(canvasSrc).toMatch(/const\s+curPhi\s*=\s*phi\s*!==\s*undefined\s*\?\s*phi\s*:\s*sphericalRef\.current\.phi/);
+    });
+
+    it('RULE-36: verifies camera retains oblique relief pitch and yaw at unfurl = 1.0 without nadir collapse', () => {
+      // Test oblique angle at Tokyo on flat map
+      const pose = computeCameraPose(139.77, 35.68, 1.0, 0, 15.0);
+      const relCam = new Vector3().subVectors(pose.cameraPos, pose.target);
+      // Under Rule 36, camera attitude is not collapsed to nadir (0, 0, 15)
+      expect(Math.abs(relCam.x)).toBeGreaterThan(0.1);
+      expect(Math.abs(relCam.y)).toBeGreaterThan(0.1);
+      expect(relCam.length()).toBeCloseTo(15.0, 4);
     });
   });
 });

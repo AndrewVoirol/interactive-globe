@@ -89,6 +89,11 @@ export const GEODETIC_EDGES: [string, string][] = [
 
 const ORIGIN_VEC = new Vector3(0, 0, 0);
 const _scratchVecA = new Vector3();
+const _scratchProjVec = new Vector3();
+const _scratchNorm = new Vector3();
+const _scratchVDir = new Vector3();
+const _scratchProjResult: [number, number, boolean] = [0, 0, false];
+const BENCHMARKS_MAP = new Map<string, GeodeticBenchmark>(GEODETIC_BENCHMARKS.map((b) => [b.id, b]));
 
 const TIER_CONFIG: Record<ResolutionTier, { lat: number; lon: number; bin: string }> = {
   '100k': { lat: 256, lon: 512, bin: '/geo-mesh-100k.bin' },
@@ -817,10 +822,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   // DevTools Camera Navigation Hook for Automated Verification
   useEffect(() => {
     (window as any).__INDICATRIX_CAMERA__ = {
-      setSpherical: (r: number, theta: number, phi: number, target?: [number, number, number]) => {
+      setSpherical: (r: number, theta?: number, phi?: number, target?: [number, number, number]) => {
         cameraRef.current.up.set(0, 1, 0);
-        const lat = 90 - (phi * 180) / Math.PI;
-        const lon = (theta * 180) / Math.PI;
+        const curTheta = theta !== undefined ? theta : sphericalRef.current.theta;
+        const curPhi = phi !== undefined ? phi : sphericalRef.current.phi;
+        const lat = 90 - (curPhi * 180) / Math.PI;
+        const lon = (curTheta * 180) / Math.PI;
         activeCoordsRef.current = { lat, lon };
         const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
         const curUnfurl = animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0);
@@ -833,13 +840,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
           const curMode = stateRef.current?.mode ?? 0;
           const deformed = evaluatePointMorph(lon, lat, curUnfurl, curMode, 0, 0.0);
-          const sinPhi = Math.sin(phi);
-          const cosPhi = Math.cos(phi);
-          const sinTheta = Math.sin(theta);
-          const cosTheta = Math.cos(theta);
-          const dirX = (1.0 - ease) * (sinPhi * sinTheta);
-          const dirY = (1.0 - ease) * cosPhi;
-          const dirZ = (1.0 - ease) * (sinPhi * cosTheta) + ease;
+          const sinPhi = Math.sin(curPhi);
+          const cosPhi = Math.cos(curPhi);
+          const sinTheta = Math.sin(curTheta);
+          const cosTheta = Math.cos(curTheta);
+          const dirX = sinPhi * sinTheta;
+          const dirY = cosPhi;
+          const dirZ = sinPhi * cosTheta;
           const dirLen = Math.hypot(dirX, dirY, dirZ);
           const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
           const standoff = 5.0 * (1.0 - ease);
@@ -850,8 +857,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           );
         }
         sphericalRef.current.radius = r;
-        sphericalRef.current.theta = theta;
-        sphericalRef.current.phi = phi;
+        sphericalRef.current.theta = curTheta;
+        sphericalRef.current.phi = curPhi;
         velocityRef.current.velTheta = 0;
         velocityRef.current.velPhi = 0;
         velocityRef.current.velRadius = 0;
@@ -880,9 +887,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           const cosPhi = Math.cos(phi);
           const sinTheta = Math.sin(theta);
           const cosTheta = Math.cos(theta);
-          const dirX = (1.0 - ease) * (sinPhi * sinTheta);
-          const dirY = (1.0 - ease) * cosPhi;
-          const dirZ = (1.0 - ease) * (sinPhi * cosTheta) + ease;
+          const dirX = sinPhi * sinTheta;
+          const dirY = cosPhi;
+          const dirZ = sinPhi * cosTheta;
           const dirLen = Math.hypot(dirX, dirY, dirZ);
           const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
           const standoff = 5.0 * (1.0 - ease);
@@ -926,9 +933,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
           const curMode = stateRef.current?.mode ?? 0;
           const deformed = evaluatePointMorph(lonDeg, latDeg, curUnfurl, curMode, 0, 0.0);
-          const dirX = (1.0 - ease) * (sinPhi * sinTheta);
-          const dirY = (1.0 - ease) * cosPhi;
-          const dirZ = (1.0 - ease) * (sinPhi * cosTheta) + ease;
+          const dirX = sinPhi * sinTheta;
+          const dirY = cosPhi;
+          const dirZ = sinPhi * cosTheta;
           const dirLen = Math.hypot(dirX, dirY, dirZ);
           const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
           const standoff = 5.0 * (1.0 - ease);
@@ -1951,6 +1958,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       const camera = cameraRef.current;
       if (!canvas || !camera) return;
 
+      const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
+      const curUnfurl = animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0);
+
       // Smooth inertial zoom impulse (decay factor 0.05)
       const zoomImpulse = e.deltaY * 0.015;
       velocityRef.current.velRadius += zoomImpulse;
@@ -1963,7 +1973,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           const lerpFactor = Math.min(0.08, Math.abs(e.deltaY) * 0.0008);
           targetRef.current.lerp(hitPos, lerpFactor);
           const len = targetRef.current.length();
-          if (len > 5.0) {
+          if (curUnfurl < 0.01 && len > 5.0) {
             targetRef.current.multiplyScalar(5.0 / len);
           }
         } else {
@@ -1972,11 +1982,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           targetRef.current.lerp(ORIGIN_VEC, recenterFactor);
         }
       } else if (e.deltaY > 0) {
-        // Zoom Out: Exponentially decay target back toward (0, 0, 0)
-        const recenterFactor = Math.min(0.10, Math.abs(e.deltaY) * 0.0010);
-        targetRef.current.lerp(ORIGIN_VEC, recenterFactor);
-        if (sphericalRef.current.radius >= 20.0 || targetRef.current.lengthSq() < 1e-5) {
-          targetRef.current.set(0, 0, 0);
+        // Zoom Out: Exponentially decay target back toward (0, 0, 0) in spherical mode only
+        if (curUnfurl < 0.01) {
+          const recenterFactor = Math.min(0.10, Math.abs(e.deltaY) * 0.0010);
+          targetRef.current.lerp(ORIGIN_VEC, recenterFactor);
+          if (sphericalRef.current.radius >= 20.0 || targetRef.current.lengthSq() < 1e-5) {
+            targetRef.current.set(0, 0, 0);
+          }
         }
       }
 
@@ -2851,28 +2863,33 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             const h = vHeight;
 
               const projectPoint = (x3: number, y3: number, z3: number): [number, number, boolean] => {
-                const vec = new Vector3(x3, y3, z3);
+                _scratchProjVec.set(x3, y3, z3);
                 let isFront = true;
                 // Strict horizon backface culling in spherical/globe regime
                 if (curUnfurl < 0.35) {
-                  const norm = vec.clone().normalize();
-                  const vDir = new Vector3().subVectors(camera.position, vec).normalize();
-                  const facing = norm.dot(vDir);
+                  _scratchNorm.copy(_scratchProjVec).normalize();
+                  _scratchVDir.subVectors(camera.position, _scratchProjVec).normalize();
+                  const facing = _scratchNorm.dot(_scratchVDir);
                   if (facing < 0.05) {
                     isFront = false;
                   }
                 }
-                vec.project(camera);
-                if (vec.z >= 1.0 || vec.z <= -1.0) {
+                _scratchProjVec.project(camera);
+                if (_scratchProjVec.z >= 1.0 || _scratchProjVec.z <= -1.0) {
                   isFront = false;
                 }
-                return [(vec.x * 0.5 + 0.5) * w, (-vec.y * 0.5 + 0.5) * h, isFront];
+                _scratchProjResult[0] = (_scratchProjVec.x * 0.5 + 0.5) * w;
+                _scratchProjResult[1] = (-_scratchProjVec.y * 0.5 + 0.5) * h;
+                _scratchProjResult[2] = isFront;
+                return _scratchProjResult;
               };
 
               // 1. Geodesic Arcs & Animated Current Flow Beads
               if (curActiveOverlay && curActiveOverlay !== 'off') {
-                const activeArcs = sampledArcSegmentsRef.current.filter(a => a.category === curActiveOverlay);
-                activeArcs.forEach(arc => {
+                const arcs = sampledArcSegmentsRef.current;
+                for (let aIdx = 0; aIdx < arcs.length; aIdx++) {
+                  const arc = arcs[aIdx];
+                  if (arc.category !== curActiveOverlay) continue;
                   ctx.beginPath();
                   let hasStarted = false;
                   for (let i = 0; i < arc.segments.length; i++) {
@@ -2922,7 +2939,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                       ctx.fill();
                     }
                   }
-                });
+                }
               }
 
               // 2. Tissot Indicatrices (Authentic Mathematical Conjugate Axes & Drafting Ink)
@@ -2940,7 +2957,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                     ? 'rgba(232, 237, 242, 0.55)'
                     : 'rgba(56, 189, 248, 0.55)';
 
-                tissotCirclesRef.current.forEach(c => {
+                const circles = tissotCirclesRef.current;
+                for (let cIdx = 0; cIdx < circles.length; cIdx++) {
+                  const c = circles[cIdx];
                   // Outer Indicatrix Perimeter
                   ctx.strokeStyle = inkColor;
                   ctx.lineWidth = 1.0;
@@ -2968,8 +2987,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                   ctx.lineWidth = 0.75;
                   ctx.setLineDash([2, 2]);
 
-                  const renderAxis = (axis: [{ lat: number; lon: number }, { lat: number; lon: number }]) => {
-                    if (!axis || axis.length < 2) return;
+                  for (let axIdx = 0; axIdx < 2; axIdx++) {
+                    const axis = axIdx === 0 ? c.axisMajor : c.axisMinor;
+                    if (!axis || axis.length < 2) continue;
                     ctx.beginPath();
                     let axisStarted = false;
                     const STEPS = 8;
@@ -2991,17 +3011,15 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                       }
                     }
                     ctx.stroke();
-                  };
-
-                  if (c.axisMajor) renderAxis(c.axisMajor);
-                  if (c.axisMinor) renderAxis(c.axisMinor);
+                  }
                   ctx.setLineDash([]);
-                });
+                }
               }
 
               // 3. Landmark Anchors
               if (curShowLandmarks) {
-                LANDMARK_ANCHORS.forEach(lm => {
+                for (let lmIdx = 0; lmIdx < LANDMARK_ANCHORS.length; lmIdx++) {
+                  const lm = LANDMARK_ANCHORS[lmIdx];
                   const pos3D = evaluatePointMorph(lm.lon, lm.lat, curUnfurl, curMode, time, 0.12);
                   const [lx, ly, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
                   if (isFront && lx >= -50 && lx <= w + 50 && ly >= -50 && ly <= h + 50) {
@@ -3029,12 +3047,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                     ctx.fillStyle = curTheme === 1 ? '#0F172A' : '#E2E8F0';
                     ctx.fillText(label, px + 5, py + 12);
                   }
-                });
+                }
               }
 
               // 4. Bathymetric Spot Soundings
               if (curShowSoundings) {
-                ARCHIVAL_SOUNDINGS.forEach((s) => {
+                for (let sIdx = 0; sIdx < ARCHIVAL_SOUNDINGS.length; sIdx++) {
+                  const s = ARCHIVAL_SOUNDINGS[sIdx];
                   const pos3D = evaluatePointMorph(s.lon, s.lat, curUnfurl, curMode, time, -0.015);
                   const [sx, sy, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
                   if (isFront && sx >= -20 && sx <= w + 20 && sy >= -20 && sy <= h + 20) {
@@ -3058,14 +3077,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                     const text = `${s.depthFm} fm`;
                     ctx.fillText(text, sx + 4, sy + 3);
                   }
-                });
+                }
               }
 
               // 5. Geodetic Triangulation Sightlines & Benchmarks
               if (curShowTriangulation) {
-                const bmMap = new Map<string, GeodeticBenchmark>();
-                GEODETIC_BENCHMARKS.forEach((b) => bmMap.set(b.id, b));
-
                 // Draw connecting dashed great-circle sightlines
                 ctx.setLineDash([3, 3]);
                 ctx.lineWidth = 1.0;
@@ -3076,10 +3092,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                     ? 'rgba(120, 190, 255, 0.45)'
                     : 'rgba(0, 229, 255, 0.45)';
 
-                GEODETIC_EDGES.forEach(([idA, idB]) => {
-                  const a = bmMap.get(idA);
-                  const b = bmMap.get(idB);
-                  if (!a || !b) return;
+                for (let eIdx = 0; eIdx < GEODETIC_EDGES.length; eIdx++) {
+                  const edge = GEODETIC_EDGES[eIdx];
+                  const a = BENCHMARKS_MAP.get(edge[0]);
+                  const b = BENCHMARKS_MAP.get(edge[1]);
+                  if (!a || !b) continue;
 
                   ctx.beginPath();
                   let started = false;
@@ -3102,11 +3119,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                     }
                   }
                   ctx.stroke();
-                });
+                }
                 ctx.setLineDash([]);
 
                 // Draw benchmark stations
-                GEODETIC_BENCHMARKS.forEach((bm) => {
+                for (let bmIdx = 0; bmIdx < GEODETIC_BENCHMARKS.length; bmIdx++) {
+                  const bm = GEODETIC_BENCHMARKS[bmIdx];
                   const pos3D = evaluatePointMorph(bm.lon, bm.lat, curUnfurl, curMode, time, 0.06);
                   const [bx, by, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
                   if (isFront && bx >= -30 && bx <= w + 30 && by >= -30 && by <= h + 30) {
@@ -3130,7 +3148,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                     ctx.fillStyle = bmColor;
                     ctx.fillText(bm.id, bx + 5, by - 3);
                   }
-                });
+                }
               }
 
               ctx.restore();

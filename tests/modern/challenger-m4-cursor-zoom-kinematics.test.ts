@@ -38,12 +38,12 @@ describe('Challenger M4-IT2: Cursor-Relative Zoom Kinematics & Allocation Stress
       expect(canvasSrc).toContain('else if (e.deltaY > 0)');
     });
 
-    it('CHALLENGE-ZOOM-02: Verifies targetRef is clamped to length <= 5.0 in WebGPUCanvas', () => {
-      expect(canvasSrc).toMatch(/if\s*\(\s*len\s*>\s*5\.0\s*\)\s*\{\s*targetRef\.current\.multiplyScalar\(\s*5\.0\s*\/\s*len\s*\);\s*\}/);
+    it('CHALLENGE-ZOOM-02: Verifies targetRef is clamped to length <= 5.0 in WebGPUCanvas (spherical mode)', () => {
+      expect(canvasSrc).toMatch(/if\s*\(\s*curUnfurl\s*<\s*0\.01\s*&&\s*len\s*>\s*5\.0\s*\)\s*\{\s*targetRef\.current\.multiplyScalar\(\s*5\.0\s*\/\s*len\s*\);\s*\}/);
     });
 
-    it('CHALLENGE-ZOOM-03: Verifies zoom-out snapping at radius >= 20.0 or lengthSq() < 1e-5 in onWheel', () => {
-      expect(canvasSrc).toMatch(/if\s*\(\s*sphericalRef\.current\.radius\s*>=\s*20\.0\s*\|\|\s*targetRef\.current\.lengthSq\(\)\s*<\s*1e-5\s*\)\s*\{\s*targetRef\.current\.set\(\s*0\s*,\s*0\s*,\s*0\s*\);\s*\}/);
+    it('CHALLENGE-ZOOM-03: Verifies zoom-out snapping at radius >= 20.0 or lengthSq() < 1e-5 in onWheel (spherical mode)', () => {
+      expect(canvasSrc).toMatch(/if\s*\(\s*curUnfurl\s*<\s*0\.01\s*\)\s*\{[^}]*?targetRef\.current\.lerp\(\s*ORIGIN_VEC[\s\S]*?if\s*\(\s*sphericalRef\.current\.radius\s*>=\s*20\.0\s*\|\|\s*targetRef\.current\.lengthSq\(\)\s*<\s*1e-5\s*\)\s*\{\s*targetRef\.current\.set\(\s*0\s*,\s*0\s*,\s*0\s*\);\s*\}/);
     });
 
     it('CHALLENGE-ZOOM-04: Verifies onWheel reads currentHitPosRef.current and eliminates fresh unproject', () => {
@@ -61,7 +61,7 @@ describe('Challenger M4-IT2: Cursor-Relative Zoom Kinematics & Allocation Stress
   // Pillar 2: Kinematic Bounds & Convergence
   // ==========================================================================
   describe('Pillar 2: Kinematic Bounds & Convergence', () => {
-    function createRig(initialRadius = 15.0) {
+    function createRig(initialRadius = 15.0, unfurl = 0.0) {
       const camera = new PerspectiveCamera(45, 1024 / 768, 0.1, 1000);
       const target = new Vector3(0, 0, 0);
       const spherical = { radius: initialRadius, theta: 0, phi: Math.PI / 2 };
@@ -76,14 +76,14 @@ describe('Challenger M4-IT2: Cursor-Relative Zoom Kinematics & Allocation Stress
 
       function stepWheel(ndcX: number, ndcY: number, deltaY: number) {
         const { rayOrig, rayDir } = unprojectScreenToRay(ndcX, ndcY, camera);
-        const hitResult = computeManifoldHit(rayOrig, rayDir, 0, 5.0);
+        const hitResult = computeManifoldHit(rayOrig, rayDir, unfurl, 5.0);
 
         if (deltaY < 0) {
           if (hitResult.hit && hitResult.hitPos) {
             const lerpFactor = Math.min(0.08, Math.abs(deltaY) * 0.0008);
             target.lerp(hitResult.hitPos, lerpFactor);
             const len = target.length();
-            if (len > 5.0) {
+            if (unfurl < 0.01 && len > 5.0) {
               target.multiplyScalar(5.0 / len);
             }
           } else {
@@ -91,10 +91,12 @@ describe('Challenger M4-IT2: Cursor-Relative Zoom Kinematics & Allocation Stress
             target.lerp(ORIGIN_VEC, decayFactor);
           }
         } else if (deltaY > 0) {
-          const recenterFactor = Math.min(0.10, Math.abs(deltaY) * 0.0010);
-          target.lerp(ORIGIN_VEC, recenterFactor);
-          if (spherical.radius >= 20.0 || target.lengthSq() < 1e-5) {
-            target.set(0, 0, 0);
+          if (unfurl < 0.01) {
+            const recenterFactor = Math.min(0.10, Math.abs(deltaY) * 0.0010);
+            target.lerp(ORIGIN_VEC, recenterFactor);
+            if (spherical.radius >= 20.0 || target.lengthSq() < 1e-5) {
+              target.set(0, 0, 0);
+            }
           }
         }
 
@@ -202,6 +204,29 @@ describe('Challenger M4-IT2: Cursor-Relative Zoom Kinematics & Allocation Stress
       // Camera translation shifts perspective such that a fixed cursor NDC eventually falls off the globe limb
       expect(missCount).toBeGreaterThan(0);
       expect(hitCount).toBeGreaterThan(0);
+    });
+
+    it('CHALLENGE-ZOOM-13: Flat map zoom (unfurl >= 0.01) preserves targets with length > 5.0 without origin decay or clamping', () => {
+      // Simulates flat map zoom kinematics matching onWheel logic (DEF-01 P0 blocker fix)
+      const rig = createRig(15.0, 1.0);
+      rig.target.set(12.19, 3.34, 0.0); // Tokyo coordinates on flat map
+      rig.updateCameraTransform();
+
+      // Step zoom-in: at center screen (0, 0), ray aims directly at target
+      rig.stepWheel(0.0, 0.0, -500);
+
+      // Verify target length > 5.0 is preserved without clamping
+      expect(rig.target.length()).toBeGreaterThan(5.0);
+      expect(rig.target.x).toBeCloseTo(12.19, 2);
+      expect(rig.target.y).toBeCloseTo(3.34, 2);
+
+      // Step zoom-out with large deltaY to radius >= 20.0: verify no decay toward origin or snapping
+      rig.spherical.radius = 25.0;
+      rig.stepWheel(0.0, 0.0, 500);
+
+      expect(rig.target.length()).toBeGreaterThan(5.0);
+      expect(rig.target.x).toBeCloseTo(12.19, 2);
+      expect(rig.target.y).toBeCloseTo(3.34, 2);
     });
   });
 

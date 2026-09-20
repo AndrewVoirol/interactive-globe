@@ -284,8 +284,9 @@ describe('Challenger 1 Milestone 1: Peak Shaping Mathematical Stress Harness', (
     it('M1-CHALLENGE-11: Rule 8 Cross-Pipeline DEM Mathematical Parity across all 3 shaders', () => {
       // 1. Check peak shaping formula in cloud and wind shaders, and linear or peak shaping in crust
       const expectedPeakShaping = 'let shapedH = (1.0 - exp(-2.2 * normH)) / (1.0 - exp(-2.2));';
-      const expectedLinearCrust = 'normalDisplacement = normH * dispScale * poleAtten;';
-      const crustHasLinearOrShaped = crustSrc.includes(expectedPeakShaping) || crustSrc.includes(expectedLinearCrust);
+      const expectedLinearCrust = crustSrc.includes('normalDisplacement = expNormH * dispScale * poleAtten;') ||
+        crustSrc.includes('normalDisplacement = normH * dispScale * poleAtten;');
+      const crustHasLinearOrShaped = crustSrc.includes(expectedPeakShaping) || expectedLinearCrust;
       expect(crustHasLinearOrShaped).toBe(true);
       expect(cloudSrc).toContain(expectedPeakShaping);
       expect(windSrc).toContain(expectedPeakShaping);

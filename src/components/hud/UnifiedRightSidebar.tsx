@@ -1117,7 +1117,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       className="w-full p-2.5 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border)]/15 transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                        <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border border-[var(--theme-status-amber)]/30">
                           BETA
                         </span>
                         <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
@@ -1172,7 +1172,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
                                 CDLOD Mesh Diagnostics
                               </span>
-                              <span className="text-nano font-mono text-amber-500 font-bold">
+                              <span className="text-nano font-mono text-[var(--theme-status-amber)] font-bold">
                                 {activeCdlodDiagnosticMode === 0 ? 'OFF' : activeCdlodDiagnosticMode === 1 ? 'LOD' : activeCdlodDiagnosticMode === 2 ? 'MORPH' : 'COMBINED'}
                               </span>
                             </div>
@@ -1313,7 +1313,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                     </span>
                                   )}
                                   {isShadowedRaster && (
-                                    <span className="text-nano font-mono px-1 py-0.2 rounded border bg-amber-500/20 text-amber-300 border-amber-500/40" title="This raster dataset is occluded by a higher active raster layer in the Z-order stack">
+                                    <span className="text-nano font-mono px-1 py-0.2 rounded border bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40" title="This raster dataset is occluded by a higher active raster layer in the Z-order stack">
                                       (Shadowed by higher raster layer)
                                     </span>
                                   )}
@@ -1597,10 +1597,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         activeOverlay === 'migration'
                           ? theme === 1
                             ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] shadow-sm font-semibold ring-1 ring-[#7D4700]/40'
-                            : 'bg-amber-500/35 text-amber-200 border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.4)] ring-1 ring-amber-400/60 font-semibold'
+                            : 'bg-[var(--theme-status-amber)]/35 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/80 shadow-[0_0_10px_var(--theme-status-amber)] ring-1 ring-[var(--theme-status-amber)]/60 font-semibold'
                           : theme === 1
                           ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#7D4700] hover:border-[#7D4700]/40 bg-[var(--theme-control-bg)]'
-                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-amber-500 hover:border-amber-400/50 bg-[var(--theme-control-bg)]'
+                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-status-amber)] hover:border-[var(--theme-status-amber)]/50 bg-[var(--theme-control-bg)]'
                       }`}
                     >
                       Migration
@@ -1672,7 +1672,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           ? tier === '16M'
                             ? theme === 1
                               ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] font-semibold shadow-sm'
-                              : 'bg-amber-500 text-black border-amber-400 font-semibold shadow-sm'
+                              : 'bg-[var(--theme-status-amber)] text-black border-[var(--theme-status-amber)] font-semibold shadow-sm'
                             : 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-semibold shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
                           : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
                       }`}
@@ -1827,7 +1827,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <span>{preset.name}</span>
                       </span>
                       {preset.unsupported && (
-                        <span className="flex items-center gap-1 text-nano uppercase font-bold px-1.5 py-0.5 rounded border bg-amber-500/20 text-amber-300 border-amber-500/40">
+                        <span className="flex items-center gap-1 text-nano uppercase font-bold px-1.5 py-0.5 rounded border bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40">
                           [UNSUPPORTED: Requires XYZ Tile Pipeline]
                         </span>
                       )}

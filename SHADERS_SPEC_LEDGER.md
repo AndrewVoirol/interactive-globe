@@ -218,7 +218,7 @@ the unified manifold function:
 u_unfurl: f32,
 u_mode: u32,
 u_time: f32,
-u_cursorHitPos: vec4<f32>,   // xyz: world-space hit position, w: unused
+u_cursorHitPos: vec4<f32>,   // xyz: world-space hit position, w: fracture multiplier (Mode 2)
 u_cursorVel: vec4<f32>,      // xyz: velocity vector, w: speed magnitude
 u_cursorActive: f32,         // 0.0 = inactive, 1.0 = active
 ```
@@ -326,9 +326,10 @@ fn evaluateManifoldCore(
             let seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
             let tRupture: f32 = 0.18;
 
+            let fracMult = select(1.0, hitPos.w, hitPos.w > 0.01);
             let hitDist = length(pos3D - hitPos.xyz);
             let cursorInfluence = curActive * exp(-hitDist * hitDist / (2.0 * 0.64));
-            let hoopStress = cursorInfluence * 0.45
+            let hoopStress = cursorInfluence * 0.45 * fracMult
                            * (1.0 + 2.0 * cos(latRad) * cos(latRad));
 
             if (ease < tRupture) {
@@ -344,7 +345,7 @@ fn evaluateManifoldCore(
                 let flutterWave = sin(distToSeam * 16.0 - ease * 24.0);
                 let flutterDecay = exp(-4.2 * (ease - tRupture));
                 let flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20)
-                               * flutterWave * flutterDecay;
+                               * flutterWave * flutterDecay * fracMult;
                 out.pos = mix(pos3D, pos2D, postRuptureT)
                         + vec3<f32>(0.0, 0.0, flutterAmp);
                 out.normal = mix(normalize(pos3D), vec3<f32>(0.0, 0.0, 1.0),

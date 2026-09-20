@@ -329,11 +329,11 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
       const frameIdx = Math.max(1, Math.min(6, Math.floor((60 + rounded) / 10) + 1));
       return {
         badge: 'PAST RADAR',
-        badgeColor: 'border-amber-500/50 text-amber-700 dark:text-amber-300 bg-amber-500/15',
+        badgeColor: 'border-[var(--theme-status-amber)]/50 text-[var(--theme-status-amber)] bg-[var(--theme-status-amber)]/15',
         primary: `-${absMin}m`,
         secondary: `Frame ${frameIdx}/6 • Past Mosaic`,
         zoneText: 'Radar Mosaic (-60m)',
-        accentClass: 'text-amber-700 dark:text-amber-300 border-amber-500/40 bg-amber-500/10',
+        accentClass: 'text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40 bg-[var(--theme-status-amber)]/10',
       };
     } else if (rounded === 0) {
       return {
@@ -421,17 +421,17 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
       {currentMinutes < 0 && !isRadarActive && (
         <div
           data-testid="radar-nowcast-prompt"
-          className="flex items-center justify-between gap-2 p-2 rounded-[2px] border border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-nano font-mono transition-all shadow-xs"
+          className="flex items-center justify-between gap-2 p-2 rounded-[2px] border border-[var(--theme-status-amber)]/40 bg-[var(--theme-status-amber)]/10 text-[var(--theme-status-amber)] text-nano font-mono transition-all shadow-xs"
         >
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 animate-pulse" />
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--theme-status-amber)] shrink-0 animate-pulse" />
             <span className="truncate">Doppler radar layer required for past nowcast frames (-60m..0m)</span>
           </div>
           {onEnableRadar && (
             <button
               type="button"
               onClick={onEnableRadar}
-              className="px-2 py-0.5 rounded-[1px] bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold border border-amber-600 transition-colors shrink-0 uppercase tracking-wider text-nano cursor-pointer"
+              className="px-2 py-0.5 rounded-[1px] bg-[var(--theme-status-amber)] hover:opacity-90 text-zinc-950 font-bold border border-[var(--theme-status-amber)] transition-colors shrink-0 uppercase tracking-wider text-nano cursor-pointer"
             >
               Enable Radar
             </button>
@@ -485,7 +485,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
           <div
             className={`h-full relative overflow-hidden border-r border-dashed border-[var(--theme-text-accent)]/50 transition-colors duration-150 ${
               currentMinutes < 0
-                ? 'bg-amber-500/20 shadow-[inset_0_0_10px_rgba(245,158,11,0.25)]'
+                ? 'bg-[var(--theme-status-amber)]/20 shadow-[inset_0_0_10px_var(--theme-status-amber)]'
                 : 'bg-[var(--theme-status-sage,#34d399)]/10'
             }`}
             style={{ width: `${RADAR_FRACTION * 100}%` }}
@@ -570,7 +570,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
             <div
               className={`w-2.5 h-7 rounded-[1px] shadow-[0_1px_4px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all ${
                 currentMinutes < 0
-                  ? 'bg-amber-500 border border-amber-600 shadow-[0_0_10px_rgba(245,158,11,0.6)] text-zinc-950'
+                  ? 'bg-[var(--theme-status-amber)] border border-[var(--theme-status-amber)] shadow-[0_0_10px_var(--theme-status-amber)] text-zinc-950'
                   : currentMinutes > 0
                   ? 'bg-sky-500 border border-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.5)] text-zinc-950'
                   : 'bg-[var(--theme-slider-thumb-bg,#c5a059)] border border-[var(--theme-slider-thumb-border,#7c6230)] shadow-[0_0_8px_var(--theme-text-accent)]'

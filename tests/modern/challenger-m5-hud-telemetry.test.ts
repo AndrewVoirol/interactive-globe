@@ -213,7 +213,7 @@ describe('Adversarial Challenger M5: HUD State, Telemetry, and Resolution Switch
         expect(activeBtn).toBeDefined();
 
         if (tier === '16M') {
-          expect(activeBtn?.className).toContain('bg-amber-500');
+          expect(activeBtn?.className).toContain('bg-[var(--theme-status-amber)]');
           expect(activeBtn?.className).toContain('text-black');
         } else if (tier === '1M' || tier === '4M') {
           expect(activeBtn?.className).toContain('bg-purple-600');
@@ -376,22 +376,22 @@ describe('Adversarial Challenger M5: HUD State, Telemetry, and Resolution Switch
         {
           fps: 0,
           expectedText: '0 FPS',
-          dotColorClass: 'bg-amber-400',
-          textColorClass: 'text-amber-400 font-bold',
+          dotColorClass: 'bg-[var(--theme-status-amber)]',
+          textColorClass: 'text-[var(--theme-status-amber)] font-bold',
           hasPulse: false,
         },
         {
           fps: 30,
           expectedText: '30 FPS',
-          dotColorClass: 'bg-amber-400',
-          textColorClass: 'text-amber-400 font-bold',
+          dotColorClass: 'bg-[var(--theme-status-amber)]',
+          textColorClass: 'text-[var(--theme-status-amber)] font-bold',
           hasPulse: false,
         },
         {
           fps: 54, // Just below 55 threshold
           expectedText: '54 FPS',
-          dotColorClass: 'bg-amber-400',
-          textColorClass: 'text-amber-400 font-bold',
+          dotColorClass: 'bg-[var(--theme-status-amber)]',
+          textColorClass: 'text-[var(--theme-status-amber)] font-bold',
           hasPulse: false,
         },
         {

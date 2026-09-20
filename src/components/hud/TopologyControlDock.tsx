@@ -80,7 +80,7 @@ export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
                   ? 'bg-[#C86D51]'
                   : mode === 1
                   ? 'bg-slate-300'
-                  : 'bg-amber-400'
+                  : 'bg-[var(--theme-status-amber)]'
               }`}
             ></span>
             <span className={`text-title font-bold tracking-wider uppercase ${isLight ? 'text-zinc-900' : 'text-zinc-200'}`}>
@@ -127,11 +127,11 @@ export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
                   className={`py-1 px-1 rounded-lg text-nano font-bold transition-all text-center ${
                     mode === 0
                       ? isLight
-                        ? 'bg-amber-500 text-white shadow-sm'
-                        : 'bg-amber-500/30 text-amber-200 border border-amber-500/50'
+                        ? 'bg-[var(--theme-status-amber)] text-white shadow-sm'
+                        : 'bg-[var(--theme-status-amber)]/30 text-[var(--theme-status-amber)] border border-[var(--theme-status-amber)]/50'
                       : isLight
-                      ? 'text-zinc-600 hover:text-amber-600'
-                      : 'text-zinc-400 hover:text-amber-300'
+                      ? 'text-zinc-600 hover:text-[var(--theme-status-amber)]'
+                      : 'text-zinc-400 hover:text-[var(--theme-status-amber)]'
                   }`}
                 >
                   Linear
@@ -263,7 +263,7 @@ export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
                 <button
                   onClick={() => onOverlayChange('migration')}
                   className={`py-1 px-1 rounded-lg text-nano font-bold transition-all text-center ${
-                    activeOverlay === 'migration' ? (isLight ? 'bg-[#7D4700] text-[#FDFCF9]' : 'bg-amber-500/25 text-amber-300') : 'text-zinc-400'
+                    activeOverlay === 'migration' ? (isLight ? 'bg-[#7D4700] text-[#FDFCF9]' : 'bg-[var(--theme-status-amber)]/25 text-[var(--theme-status-amber)]') : 'text-zinc-400'
                   }`}
                 >
                   Migration
@@ -297,7 +297,7 @@ export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
                   showVectors ? (isLight ? 'bg-zinc-900 text-white' : 'bg-white/20 text-white') : 'text-zinc-400'
                 }`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${showVectors ? 'bg-amber-400' : 'bg-zinc-600'}`}></span>
+                <span className={`w-1.5 h-1.5 rounded-full ${showVectors ? 'bg-[var(--theme-status-amber)]' : 'bg-zinc-600'}`}></span>
                 <span>Vectors (V)</span>
               </button>
             </div>

@@ -673,11 +673,13 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
         normalDisplacement = (localWaterDatum / 8848.0) * dispScale * poleAtten;
     } else {
         // Lithosphere Crust: linear geometric elevation displacement & full bathymetry (0.65 dampening removed)
+        let exponent = select(1.0, clamp(sim.u_peakExponent, 0.2, 4.0), sim.u_peakExponent > 0.01);
         if (sim.u_verticalScaleMode == 1u) {
             if (elevMeters >= 0.0) {
                 // Symmetrical logarithmic elevation: expands lower/mid relief (hills/valleys) while smoothly bounding summits
                 let logNormH = log(1.0 + elevMeters / 1200.0) / log(1.0 + 8848.0 / 1200.0);
-                normalDisplacement = logNormH * dispScale * poleAtten;
+                let expLogNormH = pow(clamp(logNormH, 0.0, 1.0), exponent);
+                normalDisplacement = expLogNormH * dispScale * poleAtten;
             } else {
                 // Symmetrical logarithmic bathymetry: reveals continental shelf and slope without core blowout
                 let logNormD = log(1.0 + (-elevMeters) / 1500.0) / log(1.0 + 10924.0 / 1500.0);
@@ -687,7 +689,8 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
             if (elevMeters >= 0.0) {
                 // True linear physical displacement: normalDisplacement = elevMeters * sim.u_elevationExaggeration
                 let normH = elevMeters / 8848.0;
-                normalDisplacement = normH * dispScale * poleAtten;
+                let expNormH = pow(clamp(normH, 0.0, 1.0), exponent);
+                normalDisplacement = expNormH * dispScale * poleAtten;
             } else {
                 let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
                 // Continuous finite-slope continental shelf: eliminates vertical shear cliff at shoreline

@@ -65,7 +65,7 @@ describe('CHALLENGER-M5: 4 Unfurl Modes & TopologyControlDock Stress Suite', () 
   // --------------------------------------------------------------------------
   describe('1. Unfurl Mode State Transitions & Active UI Signatures', () => {
     const modes: { mode: SimulationMode; name: string; dotClass: string }[] = [
-      { mode: 0, name: 'Linear', dotClass: 'bg-amber-400' },
+      { mode: 0, name: 'Linear', dotClass: 'bg-[var(--theme-status-amber)]' },
       { mode: 1, name: 'Scroll', dotClass: 'bg-slate-300' },
       { mode: 2, name: 'Griffith', dotClass: 'bg-[#C86D51]' },
       { mode: 3, name: 'Fluid', dotClass: 'bg-indigo-400' },
@@ -83,8 +83,10 @@ describe('CHALLENGER-M5: 4 Unfurl Modes & TopologyControlDock Stress Suite', () 
         expect(container.textContent).toContain(name);
 
         // 2. Pulse indicator dot must have mode-specific color class
-        const dot = container.querySelector(`span.${dotClass.replace('#', '\\#')}`);
-        expect(dot).toBeDefined();
+        const dots = Array.from(container.querySelectorAll('span.rounded-full'));
+        const dot = dots.find((el) => el.className.includes(dotClass));
+        expect(dot, `Mode ${mode} indicator dot with class ${dotClass} must exist`).toBeDefined();
+        expect(dot).not.toBeNull();
 
         // 3. Active button must exist
         const buttons = Array.from(container.querySelectorAll('button'));

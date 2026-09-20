@@ -71,10 +71,10 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
         <div className="flex items-center gap-1.5 font-bold pr-2 border-r border-white/10">
           <span
             className={`w-2 h-2 rounded-full ${
-              fps >= 100 ? 'bg-purple-400 animate-pulse' : fps >= 55 ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+              fps >= 100 ? 'bg-purple-400 animate-pulse' : fps >= 55 ? 'bg-emerald-400 animate-pulse' : 'bg-[var(--theme-status-amber)]'
             }`}
           ></span>
-          <span className={fps >= 100 ? 'text-purple-400 font-bold' : fps >= 55 ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+          <span className={fps >= 100 ? 'text-purple-400 font-bold' : fps >= 55 ? 'text-emerald-400 font-bold' : 'text-[var(--theme-status-amber)] font-bold'}>
             {fps} FPS
           </span>
         </div>
@@ -114,7 +114,7 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
               className={`px-1.5 py-0.5 rounded text-nano font-bold transition-all ${
                 resolution === tier
                   ? tier === '16M'
-                    ? 'bg-amber-500 text-black font-semibold shadow-sm'
+                    ? 'bg-[var(--theme-status-amber)] text-black font-semibold shadow-sm'
                     : tier === '1M' || tier === '4M'
                     ? 'bg-purple-600 text-white font-semibold shadow-sm'
                     : isLight
@@ -139,7 +139,7 @@ export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
           }`}
         >
           {isLight ? (
-            <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-3.5 h-3.5 text-[var(--theme-status-amber)]" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 2.78a1 1 0 011.415 0l.707.707a1 1 0 01-1.414 1.415l-.707-.707a1 1 0 010-1.415zM17 9a1 1 0 100 2h1a1 1 0 100-2h-1zm-2.78 6.22a1 1 0 010 1.415l-.707.707a1 1 0 01-1.415-1.414l.707-.707a1 1 0 011.414 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.56 14.78a1 1 0 01-1.415 0l-.707-.707a1 1 0 011.414-1.414l.707.707a1 1 0 010 1.414zM4 11a1 1 0 100-2H3a1 1 0 100 2h1zm2.78-6.22a1 1 0 011.415 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.415z" />
             </svg>
           ) : (

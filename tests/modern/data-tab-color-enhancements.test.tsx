@@ -195,12 +195,12 @@ describe('DATA Tab Informative Color Enhancements', () => {
 
       // Left radar zone should have amber glow styling
       const leftZone = track?.firstElementChild as HTMLDivElement;
-      expect(leftZone.className).toContain('bg-amber-500/20');
+      expect(leftZone.className).toContain('bg-[var(--theme-status-amber)]/20');
 
       // Badge in header should reflect radar amber accent
       const radarBadge = container.querySelector('span.text-nano.font-bold.uppercase');
       expect(radarBadge?.textContent).toBe('PAST RADAR');
-      expect(radarBadge?.className).toContain('border-amber-500');
+      expect(radarBadge?.className).toContain('border-[var(--theme-status-amber)]');
     });
 
     it('COLOR-04: illuminates cyan forecast zone when scrubbing into future forecast (+12h)', async () => {

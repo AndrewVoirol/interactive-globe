@@ -146,7 +146,9 @@ describe('R20: Orographic Wind Deflection & Atmospheric Downstream Coupling Test
       const targetFormula = '(1.0 - exp(-2.2 * normH)) / (1.0 - exp(-2.2))';
       expect(windParticlesWGSL).toContain(targetFormula);
       expect(cloudShellWGSL).toContain(targetFormula);
-      const crustHasTargetOrLinear = crustHydrosphereWGSL.includes(targetFormula) || crustHydrosphereWGSL.includes('normalDisplacement = normH * dispScale * poleAtten;');
+      const crustHasTargetOrLinear = crustHydrosphereWGSL.includes(targetFormula) ||
+        crustHydrosphereWGSL.includes('normalDisplacement = expNormH * dispScale * poleAtten;') ||
+        crustHydrosphereWGSL.includes('normalDisplacement = normH * dispScale * poleAtten;');
       expect(crustHasTargetOrLinear).toBe(true);
     });
 

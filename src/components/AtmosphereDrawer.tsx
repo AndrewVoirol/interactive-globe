@@ -581,7 +581,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                 ? 'bg-[#96641e]/20 hover:bg-[#96641e]/35 text-[#52350c] border-[#96641e]/40'
                 : theme === 2
                 ? 'bg-[#3a5578]/30 hover:bg-[#3a5578]/50 text-[#dbe5f0] border-[#5a6e8c]/50'
-                : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.2)]'
+                : 'bg-[var(--theme-status-amber)]/20 hover:bg-[var(--theme-status-amber)]/30 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40 shadow-[0_0_8px_var(--theme-status-amber)]'
             }`}
             title="1-Click Horizon Cross-Section (Pitch 78°, Oblique Limb View)"
           >

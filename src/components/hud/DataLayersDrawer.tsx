@@ -281,7 +281,7 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                               </span>
                             )}
                             {isShadowedRaster && (
-                              <span className="text-nano font-mono px-1.5 py-0.2 rounded border bg-amber-500/20 text-amber-300 border-amber-500/40" title="This raster dataset is occluded by a higher active raster layer in the Z-order stack">
+                              <span className="text-nano font-mono px-1.5 py-0.2 rounded border bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40" title="This raster dataset is occluded by a higher active raster layer in the Z-order stack">
                                 (Shadowed by higher raster layer)
                               </span>
                             )}
@@ -419,7 +419,7 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                         </div>
 
                         <div className="flex items-center gap-1.5">
-                          <span className="text-amber-400 font-bold text-nano uppercase tracking-wider">Sun Azimuth:</span>
+                          <span className="text-[var(--theme-status-amber)] font-bold text-nano uppercase tracking-wider">Sun Azimuth:</span>
                           <input
                             id={`drawer-azimuth-${layer.id}`}
                             name={`azimuth-${layer.id}`}
@@ -431,7 +431,7 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                             onChange={(e) => onHillshadeChangeDataLayer?.(layer.id, parseFloat(e.target.value), layer.hillshadeIntensity ?? 0.65)}
                             className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
                           />
-                          <span className="w-8 text-right font-bold text-amber-300 text-nano tabular-nums">{Math.round(layer.sunAzimuth ?? 315)}°</span>
+                          <span className="w-8 text-right font-bold text-[var(--theme-status-amber)] text-nano tabular-nums">{Math.round(layer.sunAzimuth ?? 315)}°</span>
                         </div>
 
                         {/* Direction A: Valley Crevice Ambient Occlusion & Antialiased Contours */}
@@ -497,7 +497,7 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                             </div>
 
                             <div className="flex items-center gap-1.5">
-                              <span className="text-amber-400 font-bold text-nano uppercase tracking-wider">Peak Sharp:</span>
+                              <span className="text-[var(--theme-status-amber)] font-bold text-nano uppercase tracking-wider">Peak Sharp:</span>
                               <input
                                 id={`drawer-layer-peaksharp-${layer.id}`}
                                 name={`layerPeakSharp-${layer.id}`}
@@ -509,7 +509,7 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                                 onChange={(e) => onPeakExponentChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
                                 className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
                               />
-                              <span className="w-8 text-right font-bold text-amber-300 text-nano tabular-nums">{(layer.peakExponent ?? 1.4).toFixed(1)}x</span>
+                              <span className="w-8 text-right font-bold text-[var(--theme-status-amber)] text-nano tabular-nums">{(layer.peakExponent ?? 1.4).toFixed(1)}x</span>
                             </div>
                           </div>
                         )}
@@ -584,7 +584,7 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-bold text-micro">{preset.name}</span>
                         {preset.unsupported && (
-                          <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-amber-500/20 text-amber-300 border-amber-500/40">
+                          <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40">
                             [UNSUPPORTED: Requires XYZ Tile Pipeline]
                           </span>
                         )}

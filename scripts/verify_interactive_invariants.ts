@@ -105,14 +105,17 @@ async function runInteractiveVerification() {
   const zoomResults = await page.evaluate(() => {
     const c = (window as any).__INDICATRIX_CAMERA__;
     if (!c) return { error: 'No camera' };
-    const initialRadius = c.getSpherical?.()?.radius ?? 15.0;
+    const curSph = c.getSpherical?.();
+    const initialRadius = curSph?.radius ?? 15.0;
+    const curTheta = curSph?.theta ?? 0;
+    const curPhi = curSph?.phi ?? (Math.PI / 2);
 
     // Zoom in steps
-    c.setSpherical(12.0);
+    c.setSpherical(12.0, curTheta, curPhi);
     const r1 = c.getSpherical?.()?.radius;
-    c.setSpherical(8.0);
+    c.setSpherical(8.0, curTheta, curPhi);
     const r2 = c.getSpherical?.()?.radius;
-    c.setSpherical(5.5);
+    c.setSpherical(5.5, curTheta, curPhi);
     const r3 = c.getSpherical?.()?.radius;
 
     return { initialRadius, r1, r2, r3 };
