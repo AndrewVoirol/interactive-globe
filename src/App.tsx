@@ -459,20 +459,26 @@ export default function App() {
   const glideToAlpha = useCallback((targetAlpha: number) => {
     setIsPlaying(false);
     const startAlpha = alphaRef.current;
-    if (Math.abs(startAlpha - targetAlpha) < 0.001) return;
+    if (Math.abs(startAlpha - targetAlpha) < 0.0001) return;
     const startTime = performance.now();
     const duration = 650;
 
     const animate = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(1.0, elapsed / duration);
-      const ease = progress < 0.5 
-        ? 4 * progress * progress * progress 
-        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      // Quintic smootherstep easing
+      const ease = progress * progress * progress * (progress * (progress * 6 - 15) + 10);
       const cur = startAlpha + (targetAlpha - startAlpha) * ease;
-      setAlpha(parseFloat(cur.toFixed(4)));
+      if (typeof window !== 'undefined') {
+        (window as any).__INDICATRIX_SCRUB_ALPHA__ = cur;
+      }
+      setAlpha(cur);
       if (progress < 1.0) {
         requestAnimationFrame(animate);
+      } else {
+        if (typeof window !== 'undefined') {
+          (window as any).__INDICATRIX_SCRUB_ALPHA__ = undefined;
+        }
       }
     };
     requestAnimationFrame(animate);

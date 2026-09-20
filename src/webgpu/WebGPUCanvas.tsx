@@ -2320,8 +2320,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         fractureIntensity: curFractureIntensity,
       } = stateRef.current;
 
+      const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
       const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
-      const curUnfurl = animAlpha !== undefined ? animAlpha : curUnfurlProp;
+      const curUnfurl = scrubAlpha !== undefined ? scrubAlpha : (animAlpha !== undefined ? animAlpha : curUnfurlProp);
 
       if (engine.initialized) {
         const appStartTime = startTime !== undefined ? startTime : startTimeRef.current;
@@ -2445,7 +2446,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                 lon = ((((lon + 180) % 360) + 360) % 360) - 180;
                 const lat = Math.max(-85, Math.min(85, 90 - (sphericalRef.current.phi * 180) / Math.PI));
                 activeCoordsRef.current = { lat, lon };
-              } else if (curUnfurl >= 0.01 && (Math.abs(vel.velPanX) > 1e-6 || Math.abs(vel.velPanY) > 1e-6)) {
+              } else if (curUnfurl > 0.0001 && (Math.abs(vel.velPanX) > 1e-6 || Math.abs(vel.velPanY) > 1e-6)) {
                 let lon = (targetRef.current.x / 5.0) * (180 / Math.PI);
                 lon = ((((lon + 180) % 360) + 360) % 360) - 180;
                 const clampedY = Math.max(-5.0 * 2.5, Math.min(5.0 * 2.5, targetRef.current.y));
@@ -2469,7 +2470,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
               if (Math.abs(vel.velRadius) < 1e-6) vel.velRadius = 0;
             }
 
-            if (curUnfurl < 0.01 && sphericalRef.current.radius >= 20.0 && targetRef.current.lengthSq() > 1e-5) {
+            if (curUnfurl <= 0.0001 && sphericalRef.current.radius >= 20.0 && targetRef.current.lengthSq() > 1e-5) {
               targetRef.current.set(0, 0, 0);
             }
 
@@ -2483,48 +2484,57 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           const isUnfurlAnimating = Math.abs(curUnfurl - lastUnfurlRef.current) > 1e-5;
           let targetChanged = false;
 
-          if (curUnfurl < 0.01) {
-            if (!isPanning && targetRef.current.lengthSq() > 1e-6) {
-              targetRef.current.set(0, 0, 0);
-              targetChanged = true;
-            }
-          } else if (isUnfurlAnimating && !isPanning) {
+          if (isUnfurlAnimating && !isPanning) {
             const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
-            const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
-            const lon = activeCoordsRef.current.lon;
-            const lat = activeCoordsRef.current.lat;
-            const deformed = evaluatePointMorph(lon, lat, curUnfurl, curMode, time, 0.0);
+            const ease = clampedUnfurl * clampedUnfurl * clampedUnfurl * (clampedUnfurl * (clampedUnfurl * 6.0 - 15.0) + 10.0);
+            const targetBlend = clampedUnfurl <= 0.0 ? 0.0 : (clampedUnfurl >= 0.05 ? 1.0 : (clampedUnfurl / 0.05) * (clampedUnfurl / 0.05) * (3.0 - 2.0 * (clampedUnfurl / 0.05)));
 
-            const curPhi = sphericalRef.current.phi;
-            const curTheta = sphericalRef.current.theta;
-            const sinPhi = Math.sin(curPhi);
-            const cosPhi = Math.cos(curPhi);
-            const sinTheta = Math.sin(curTheta);
-            const cosTheta = Math.cos(curTheta);
-            const dirX = sinPhi * sinTheta;
-            const dirY = cosPhi;
-            const dirZ = sinPhi * cosTheta;
-            const dirLen = Math.hypot(dirX, dirY, dirZ);
-            const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
-            const standoff = 5.0 * (1.0 - ease);
+            if (targetBlend <= 0.0) {
+              if (targetRef.current.lengthSq() > 1e-6) {
+                targetRef.current.set(0, 0, 0);
+                targetChanged = true;
+              }
+            } else {
+              const lon = activeCoordsRef.current.lon;
+              const lat = activeCoordsRef.current.lat;
+              const deformed = evaluatePointMorph(lon, lat, curUnfurl, curMode, time, 0.0);
 
-            const targetX = deformed[0] - standoff * (dirX * invLen);
-            const targetY = deformed[1] - standoff * (dirY * invLen);
-            const targetZ = deformed[2] - standoff * (dirZ * invLen);
-            if (
-              Math.abs(targetRef.current.x - targetX) > 1e-5 ||
-              Math.abs(targetRef.current.y - targetY) > 1e-5 ||
-              Math.abs(targetRef.current.z - targetZ) > 1e-5
-            ) {
-              targetRef.current.set(targetX, targetY, targetZ);
-              targetChanged = true;
+              const curPhi = sphericalRef.current.phi;
+              const curTheta = sphericalRef.current.theta;
+              const sinPhi = Math.sin(curPhi);
+              const cosPhi = Math.cos(curPhi);
+              const sinTheta = Math.sin(curTheta);
+              const cosTheta = Math.cos(curTheta);
+              const dirX = sinPhi * sinTheta;
+              const dirY = cosPhi;
+              const dirZ = sinPhi * cosTheta;
+              const dirLen = Math.hypot(dirX, dirY, dirZ);
+              const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
+              const standoff = 5.0 * (1.0 - ease);
+
+              const fullTargetX = deformed[0] - standoff * (dirX * invLen);
+              const fullTargetY = deformed[1] - standoff * (dirY * invLen);
+              const fullTargetZ = deformed[2] - standoff * (dirZ * invLen);
+
+              const targetX = fullTargetX * targetBlend;
+              const targetY = fullTargetY * targetBlend;
+              const targetZ = fullTargetZ * targetBlend;
+
+              if (
+                Math.abs(targetRef.current.x - targetX) > 1e-5 ||
+                Math.abs(targetRef.current.y - targetY) > 1e-5 ||
+                Math.abs(targetRef.current.z - targetZ) > 1e-5
+              ) {
+                targetRef.current.set(targetX, targetY, targetZ);
+                targetChanged = true;
+              }
             }
           }
 
           if (
             targetChanged ||
             isUnfurlAnimating ||
-            (curMode === 3 && curUnfurl >= 0.01)
+            (curMode === 3 && curUnfurl > 0.0001)
           ) {
             lastUnfurlRef.current = curUnfurl;
             updateCameraTransform();

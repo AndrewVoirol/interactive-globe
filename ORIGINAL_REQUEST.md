@@ -1789,3 +1789,81 @@ Implement an in-shader diagnostic mode toggle in the `[BETA]` Tray to color each
 - [ ] Morph progression visually bridges exactly one resolution octave (no popping).
 - [ ] Uniform pixel-level geometric detail is maintained from the equator to high latitudes.
 </USER_REQUEST>
+
+## 2026-09-20T06:10:56Z
+
+<USER_REQUEST>
+# Teamwork Project Prompt — Draft
+
+> Status: Step 9 — Assemble and Validate
+> Goal: Craft prompt → get user approval → delegate to teamwork_preview
+> Requested team: Full team
+
+Fix the degradation of the continuous projection transition (unfurl, unroll, liquefaction) and its associated scrubbing slider in the interactive globe/map application, ensuring completely smooth sub-frame interpolation and functional UI controls. The implementation must be verified using a real GPU-enabled Chrome browser via the Chrome DevTools MCP (not headless Chromium).
+
+Working directory: /Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/cdl_od_path_forward
+Integrity mode: development
+
+## Requirements
+
+### R1. Restore Slider Smoothness
+The interactive scrubbing slider on the dock UI must smoothly transition the visual state between the globe and map projections. The slider drag interaction must continuously map to the projection state without jumping, snapping, or skipping.
+
+### R2. Restore Sub-frame Interpolation Math
+The continuous projection transition (unfurl, unroll, liquefaction) must render with completely smooth sub-frame interpolation. The intended mathematical calculations for these transitions in the WGSL shaders and WebGPU engine must be restored and correctly synchronized with the UI state.
+
+## Acceptance Criteria
+
+### Visual Smoothness
+- [ ] Dragging the scrubbing slider continuously updates the visual projection state, verified using Chrome DevTools MCP screencasting or sequence screenshots on a real GPU-enabled Chrome browser.
+- [ ] No visual jumping, skipped frames, or sudden snapping occurs during the unfurl/unroll/liquefaction transition.
+
+### Architecture
+- [ ] The projection interpolation value (e.g., `u_unfurl`) is correctly synchronized between the React UI, WebGPU engine, and WGSL shaders without race conditions or dropped updates.
+
+---
+*Next: when approved → delegate via invoke_subagent (see Delegation Protocol)*
+</USER_REQUEST>
+
+## 2026-09-20T07:24:49Z
+
+<USER_REQUEST>
+# Teamwork Project Prompt — Draft
+
+> Status: Launched
+> Goal: Execute the approved plan via teamwork_preview
+> Requested team: Full team
+
+Fix the degradation of the continuous projection transition (unfurl, unroll, liquefaction) and its associated scrubbing slider in the interactive globe/map application. The slider must be perfectly tactile (1:1 with mouse movement), and the 4 projection modes must visually perform their physically distinct transitions rather than just linearly melting through the planet's interior.
+
+Working directory: /Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/cdl_od_path_forward
+Integrity mode: development
+
+## Requirements
+
+### R1. Restore 1:1 Tactile Slider Correlation
+Remove the global Quintic Smootherstep (`ease`) from `manifold.wgsl` and `WebGPUEngine.ts`. The `alpha` value from the slider must map linearly to the geometric transition state to prevent massive visual lag at the edges of the drag. 
+
+### R2. Add UI-Level Easing for Auto-Playback
+To ensure the automated playback (Spacebar) remains smooth without breaking the raw 1:1 manual slider, apply a smoothing function (e.g. smoothstep or quintic smootherstep) directly to the auto-playback time clock (`curAlpha`) within the `requestAnimationFrame` loop in `App.tsx`. 
+
+### R3. Fix Mode 2 (Fracture) Physics
+Instead of linearly interpolating through the planet, Mode 2 must use the Cylindrical Unroll geometry (from Mode 1) as its base, and superimpose the fracture strain, tearing, and flutter dynamics on top. It must look like a rigid shell cracking and peeling open. 
+
+### R4. Fix Mode 3 (Fluid) Physics
+Instead of linearly interpolating through the planet, Mode 3 must feature an orbital swelling factor or outward ballooning during the fluid transition. It must look like a beautiful piece of silk fabric suspended and floating in a pool of water, hiding the linear volumetric collapse behind a dynamic fluid deformation.
+
+### R5. Verification Constraints
+All visual verification must be performed using the Chrome DevTools MCP with the GPU active (a real browser). Do NOT use headless Chromium. 
+
+## Acceptance Criteria
+
+### Visual Smoothness & Tactility
+- [ ] Dragging the scrubbing slider continuously updates the visual projection state 1:1 without perceived lag, verified using Chrome DevTools MCP screencasting on a real GPU-enabled Chrome browser.
+- [ ] Auto-playback (Spacebar) smoothly accelerates and decelerates the slider thumb and the visual state.
+
+### Distinct Mode Physics
+- [ ] Mode 2 visually peels or unfolds rather than linearly passing through the globe's center point.
+- [ ] Mode 3 visually billows or swells outward like floating silk during the transition rather than linearly collapsing.
+</USER_REQUEST>
+

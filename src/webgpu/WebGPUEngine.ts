@@ -1694,12 +1694,56 @@ export class WebGPUEngine {
     this.setCDLODDiagnosticMode(mode);
   }
 
+  private static computeCurlNoise(p: [number, number, number], time: number): [number, number, number] {
+    const t = time * 0.75;
+
+    // rot = mat3x3<f32>(col0, col1, col2) matching manifold.wgsl:17-21
+    // col0 = ( 0.00,  0.80,  0.60)
+    // col1 = (-0.80,  0.36, -0.48)
+    // col2 = (-0.60, -0.48,  0.64)
+    // rot * v = v.x * col0 + v.y * col1 + v.z * col2
+    const rotMul = (v: [number, number, number]): [number, number, number] => [
+      -0.80 * v[1] - 0.60 * v[2],
+      0.80 * v[0] + 0.36 * v[1] - 0.48 * v[2],
+      0.60 * v[0] - 0.48 * v[1] + 0.64 * v[2],
+    ];
+
+    // rotT = transpose(rot) matching manifold.wgsl:22
+    // rotT * w = w.x * row0 + w.y * row1 + w.z * row2
+    const rotTMul = (w: [number, number, number]): [number, number, number] => [
+      0.80 * w[1] + 0.60 * w[2],
+      -0.80 * w[0] + 0.36 * w[1] - 0.48 * w[2],
+      -0.60 * w[0] - 0.48 * w[1] + 0.64 * w[2],
+    ];
+
+    const q1 = rotMul([p[0] * 0.45, p[1] * 0.45, p[2] * 0.45]);
+    const q2 = rotMul(rotMul([p[0] * 0.95, p[1] * 0.95, p[2] * 0.95]));
+
+    const ux = -0.55 * Math.cos(0.55 * q1[1] + t * 0.7) - 0.45 * Math.cos(0.95 * q1[2] - t * 0.5);
+    const uy = -0.55 * Math.cos(0.55 * q1[2] + t * 0.9) - 0.45 * Math.cos(0.95 * q1[0] - t * 0.6);
+    const uz = -0.55 * Math.cos(0.55 * q1[0] + t * 0.8) - 0.45 * Math.cos(0.95 * q1[1] - t * 0.4);
+
+    const u2x = 0.25 * Math.sin(1.5 * q2[1] - t * 1.2);
+    const u2y = 0.25 * Math.sin(1.5 * q2[2] - t * 1.1);
+    const u2z = 0.25 * Math.sin(1.5 * q2[0] - t * 1.3);
+
+    const out1 = rotTMul([ux, uy, uz]);
+    const out2 = rotTMul(rotTMul([u2x, u2y, u2z]));
+
+    return [
+      out1[0] + out2[0],
+      out1[1] + out2[1],
+      out1[2] + out2[2],
+    ];
+  }
+
   public static evaluateManifoldPosition(
     u: number,
     v: number,
     mode: number,
     unfurl: number,
-    radius = 5.0
+    radius = 5.0,
+    simTime = 0.0
   ): [number, number, number] {
     const TWO_PI = 2.0 * Math.PI;
     const PI = Math.PI;
@@ -1723,53 +1767,161 @@ export class WebGPUEngine {
     const p2D: [number, number, number] = [mercatorX, mercatorY, 0.015];
 
     const clampedUnfurl = Math.max(0.0, Math.min(1.0, unfurl));
-    const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+    const ease = clampedUnfurl;
 
     if (mode === 1) {
       // Mode 1: Cylindrical Scroll
       const oneMinusT = 1.0 - ease;
       const r_phi = (1.0 - ease) * (radius * cosLat) + ease * radius;
-      if (oneMinusT > 0.001) {
-        const invOneMinusT = 1.0 / oneMinusT;
-        const curAngle = oneMinusT * lonRad;
-        const curX = (r_phi * invOneMinusT) * Math.sin(curAngle);
-        const curZ = (r_phi * invOneMinusT) * (Math.cos(curAngle) - 1.0) + (r_phi * oneMinusT);
-        const curY = p3D[1] * (1.0 - ease) + p2D[1] * ease;
-        return [curX, curY, curZ];
+      const s = oneMinusT;
+      const uAngle = s * lonRad;
+
+      let curX: number;
+      let curZ: number;
+
+      if (Math.abs(uAngle) > 0.02) {
+        curX = (r_phi / s) * Math.sin(uAngle);
+        curZ = (r_phi / s) * (Math.cos(uAngle) - 1.0) + (r_phi * s);
       } else {
-        const uTaylor = oneMinusT * lonRad;
-        const sinTerm = lonRad * (1.0 - (uTaylor * uTaylor) / 6.0);
-        const cosTerm = oneMinusT * (lonRad * lonRad) * (-0.5 + (uTaylor * uTaylor) / 24.0);
-        const curX = r_phi * sinTerm;
-        const curZ = r_phi * cosTerm + r_phi * oneMinusT;
-        const curY = p3D[1] * (1.0 - ease) + p2D[1] * ease;
-        return [curX, curY, curZ];
+        const u2 = uAngle * uAngle;
+        const u4 = u2 * u2;
+        const sinTerm = lonRad * (1.0 - u2 / 6.0 + u4 / 120.0);
+        const cosTerm = -s * (lonRad * lonRad) * (0.5 - u2 / 24.0 + u4 / 720.0);
+        curX = r_phi * sinTerm;
+        curZ = r_phi * cosTerm + r_phi * s;
       }
+      const curY = p3D[1] * (1.0 - ease) + p2D[1] * ease;
+      return [curX, curY, curZ];
     } else if (mode === 2) {
-      // Mode 2: Griffith LEFM Fracture
+      // Mode 2: Griffith LEFM Fracture (Cylindrical unroll base + fracture dynamics)
+      const smoothstep = (e0: number, e1: number, x: number): number => {
+        const t = Math.max(0.0, Math.min(1.0, (x - e0) / (e1 - e0)));
+        return t * t * (3.0 - 2.0 * t);
+      };
+
       const distToSeam = PI - Math.abs(lonRad);
-      const seamFactor = 1.0 - Math.max(0.0, Math.min(1.0, distToSeam / 0.75));
+      const seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
       const tRupture = 0.18;
-      if (ease < tRupture) {
-        const strainProgress = ease / tRupture;
-        const localStrain = seamFactor * strainProgress * Math.max(0.2, Math.cos(latRad * 0.85));
-        const normLen = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
-        return [
-          p3D[0] + (p3D[0] / normLen) * localStrain * 0.3,
-          p3D[1] + (p3D[1] / normLen) * localStrain * 0.3,
-          p3D[2] + (p3D[2] / normLen) * localStrain * 0.3,
-        ];
+      const tau = Math.max(0.0, ease - tRupture);
+      const strainDecay = Math.exp(-6.0 * tau);
+      const strainProgress = ease < tRupture ? ease / tRupture : 1.0;
+      const localStrain = seamFactor * strainProgress * Math.max(0.2, Math.cos(latRad * 0.85));
+
+      const unrollProg = ease <= tRupture ? 0.0 : smoothstep(tRupture, 1.0, ease);
+      const s = 1.0 - unrollProg;
+      const r_phi = (1.0 - unrollProg) * (radius * cosLat) + unrollProg * radius;
+      const uAngle = s * lonRad;
+
+      let baseX: number;
+      let baseZ: number;
+      let f_cos: number;
+
+      if (Math.abs(uAngle) > 0.02) {
+        baseX = (r_phi / s) * Math.sin(uAngle);
+        f_cos = (Math.cos(uAngle) - 1.0) / s;
+        baseZ = r_phi * f_cos + (r_phi * s);
       } else {
-        const postRuptureT = Math.max(0.0, Math.min(1.0, (ease - tRupture) / (1.0 - tRupture)));
-        const postRuptureEase = postRuptureT * postRuptureT * (3.0 - 2.0 * postRuptureT);
-        const peeledX = (1.0 - postRuptureEase) * p3D[0] + postRuptureEase * p2D[0];
-        const peeledY = (1.0 - postRuptureEase) * p3D[1] + postRuptureEase * p2D[1];
-        const flutterWave = Math.sin(distToSeam * 16.0 - ease * 24.0);
-        const flutterDecay = Math.exp(-4.2 * (ease - tRupture));
-        const flutterAmp = 0.50 * seamFactor * flutterWave * flutterDecay;
-        const flutterZ = (1.0 - postRuptureEase) * p3D[2] + flutterAmp;
-        return [peeledX, peeledY, flutterZ];
+        const u2 = uAngle * uAngle;
+        const u4 = u2 * u2;
+        baseX = r_phi * lonRad * (1.0 - u2 / 6.0 + u4 / 120.0);
+        f_cos = -s * (lonRad * lonRad) * (0.5 - u2 / 24.0 + u4 / 720.0);
+        baseZ = r_phi * f_cos + (r_phi * s);
       }
+      const baseY = p3D[1] * (1.0 - unrollProg) + p2D[1] * unrollProg;
+
+      // Base normal estimation
+      const pLen = Math.hypot(p3D[0], p3D[1], p3D[2]);
+      const sphereNorm: [number, number, number] = pLen > 0.001
+        ? [p3D[0] / pLen, p3D[1] / pLen, p3D[2] / pLen]
+        : [0.0, 0.0, 1.0];
+
+      const T_lambda: [number, number, number] = [r_phi * Math.cos(uAngle), 0.0, -r_phi * Math.sin(uAngle)];
+      const T_phi: [number, number, number] = [
+        -radius * sinLat * Math.sin(uAngle),
+        (radius * cosLat) * (1.0 - unrollProg) + (radius / Math.max(cosLat, 0.05)) * unrollProg,
+        -s * radius * sinLat * (f_cos + s),
+      ];
+      const rawNx = T_lambda[1] * T_phi[2] - T_lambda[2] * T_phi[1];
+      const rawNy = T_lambda[2] * T_phi[0] - T_lambda[0] * T_phi[2];
+      const rawNz = T_lambda[0] * T_phi[1] - T_lambda[1] * T_phi[0];
+      const rawNLen = Math.hypot(rawNx, rawNy, rawNz);
+      const blendNorm: [number, number, number] = [
+        sphereNorm[0] * (1.0 - unrollProg),
+        sphereNorm[1] * (1.0 - unrollProg),
+        sphereNorm[2] * (1.0 - unrollProg) + 1.0 * unrollProg,
+      ];
+      const baseNorm: [number, number, number] = rawNLen > 0.0001
+        ? [rawNx / rawNLen, rawNy / rawNLen, rawNz / rawNLen]
+        : blendNorm;
+
+      // Superimposed strain tension, tearing and flutter
+      const outwardTension = localStrain * 0.30 * strainDecay * (1.0 - unrollProg);
+      const crackSign = lonRad >= 0.0 ? 1.0 : -1.0;
+      const crackOpen = seamFactor * (1.0 - unrollProg) * smoothstep(0.0, 0.35, tau);
+      const tearX = crackSign * crackOpen * 0.60;
+      const tearZ = -crackOpen * 0.25;
+
+      const flutterWave = Math.sin(distToSeam * 16.0) * Math.sin(24.0 * tau);
+      const flutterDecay = Math.exp(-4.2 * tau);
+      const flutterRamp = smoothstep(0.0, 0.04, tau);
+      const flutterAmp = 0.50 * seamFactor * flutterWave * flutterDecay * flutterRamp * (1.0 - unrollProg);
+
+      return [
+        baseX + baseNorm[0] * outwardTension + tearX + baseNorm[0] * flutterAmp,
+        baseY + baseNorm[1] * outwardTension + baseNorm[1] * flutterAmp,
+        baseZ + baseNorm[2] * outwardTension + tearZ + baseNorm[2] * flutterAmp,
+      ];
+    } else if (mode === 3) {
+      // Mode 3: Fluid Advection with Orbital Swelling
+      const rawSin = Math.sin(PI * clampedUnfurl);
+      const liquefaction = Math.pow(Math.max(0.0, rawSin), 1.15);
+      const p3DLen = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
+      const sphereNorm: [number, number, number] = [p3D[0] / p3DLen, p3D[1] / p3DLen, p3D[2] / p3DLen];
+      const unElevatedSphere: [number, number, number] = [
+        sphereNorm[0] * radius,
+        sphereNorm[1] * radius,
+        sphereNorm[2] * radius,
+      ];
+      const basePos: [number, number, number] = [
+        unElevatedSphere[0] * (1.0 - ease) + p2D[0] * ease,
+        unElevatedSphere[1] * (1.0 - ease) + p2D[1] * ease,
+        unElevatedSphere[2] * (1.0 - ease) + p2D[2] * ease,
+      ];
+
+      // Orbital swelling ballooning displacement
+      const balloonAmp = radius * 0.50 * rawSin;
+      const swelledBasePos: [number, number, number] = [
+        basePos[0] + sphereNorm[0] * balloonAmp,
+        basePos[1] + sphereNorm[1] * balloonAmp,
+        basePos[2] + sphereNorm[2] * balloonAmp,
+      ];
+
+      const naturalVelocity = WebGPUEngine.computeCurlNoise(swelledBasePos, simTime);
+      const swelledLen = Math.hypot(swelledBasePos[0], swelledBasePos[1], swelledBasePos[2]) || 1.0;
+      const surfaceNormal: [number, number, number] = swelledLen > 0.001
+        ? [swelledBasePos[0] / swelledLen, swelledBasePos[1] / swelledLen, swelledBasePos[2] / swelledLen]
+        : [0.0, 0.0, 1.0];
+
+      const wavePhase1 = (swelledBasePos[0] * 0.35 + swelledBasePos[1] * 0.62 + swelledBasePos[2] * 0.42) * 1.35 - simTime * 1.25;
+      const wavePhase2 = (-swelledBasePos[0] * 0.45 + swelledBasePos[1] * 0.30 + swelledBasePos[2] * 0.65) * 1.75 - simTime * 0.90;
+      const silkWave = (Math.sin(wavePhase1) * 0.65 + Math.cos(wavePhase2) * 0.35) * liquefaction * 0.65;
+      const silkDrape = [
+        surfaceNormal[0] * silkWave,
+        surfaceNormal[1] * silkWave,
+        surfaceNormal[2] * silkWave,
+      ];
+
+      const advectionOffset = [
+        naturalVelocity[0] * (liquefaction * 1.55) + silkDrape[0],
+        naturalVelocity[1] * (liquefaction * 1.55) + silkDrape[1],
+        naturalVelocity[2] * (liquefaction * 1.55) + silkDrape[2],
+      ];
+
+      return [
+        swelledBasePos[0] + advectionOffset[0] + surfaceNormal[0] * 0.015,
+        swelledBasePos[1] + advectionOffset[1] + surfaceNormal[1] * 0.015,
+        swelledBasePos[2] + advectionOffset[2] + surfaceNormal[2] * 0.015,
+      ];
     } else {
       // Mode 0: Linear Manifold Mix (Default)
       return [
@@ -2093,10 +2245,12 @@ export class WebGPUEngine {
       const radius = maxDist * 1.15 + 0.05;
       const effectiveRadius = radius + fluidDisplacement;
 
-      // Planetary Horizon Occlusion Culling (only valid on undeformed sphere when unfurl < 0.01)
-      if (unfurl < 0.01) {
+      // Planetary Horizon Occlusion Culling (with continuous Hermite falloff)
+      const globeWeight = Math.max(0.0, 1.0 - Math.min(1.0, unfurl / 0.05));
+      if (globeWeight > 0.0) {
         const cDotCam = cx * camX + cy * camY + cz * camZ;
-        if (cDotCam + effectiveRadius * camDistToCenter < rSquaredMinusDisp) {
+        const effectiveMargin = (1.0 - globeWeight) * camDistToCenter * 10.0;
+        if (cDotCam + (effectiveRadius + effectiveMargin) * camDistToCenter < rSquaredMinusDisp) {
           return;
         }
       }
@@ -2112,19 +2266,19 @@ export class WebGPUEngine {
 
       const camDist = Math.hypot(camX - cx, camY - cy, camZ - cz);
       let surfaceDist = Math.max(
-        (unfurl < 0.01) ? camAltitudeUnits : 0,
+        globeWeight * camAltitudeUnits,
         camDist - maxDist
       );
 
       // Enforce horizontal periodic wrap: at u = 0.0 and u = 1.0, neighboring nodes on the globe must maintain identical subdivision levels
-      // Strictly valid on the closed spherical globe (unfurl < 0.01); disabled on flat map sheet where u=0 and u=1 are physically separated.
-      if (unfurl < 0.01) {
+      // Strictly valid on the closed spherical globe (globeWeight > 0.001); disabled on flat map sheet where u=0 and u=1 are physically separated.
+      if (globeWeight > 0.001) {
         if (minU <= 1e-6) {
           const wrapMidU = 1.0 - sizeU * 0.5;
           const wrapPMid = WebGPUEngine.evaluateManifoldPosition(wrapMidU, vMid, mode, unfurl);
           const wrapCamDist = Math.hypot(camX - wrapPMid[0], camY - wrapPMid[1], camZ - wrapPMid[2]);
           const wrapSurfaceDist = Math.max(
-            camAltitudeUnits,
+            globeWeight * camAltitudeUnits,
             wrapCamDist - maxDist
           );
           surfaceDist = Math.min(surfaceDist, wrapSurfaceDist);
@@ -2133,7 +2287,7 @@ export class WebGPUEngine {
           const wrapPMid = WebGPUEngine.evaluateManifoldPosition(wrapMidU, vMid, mode, unfurl);
           const wrapCamDist = Math.hypot(camX - wrapPMid[0], camY - wrapPMid[1], camZ - wrapPMid[2]);
           const wrapSurfaceDist = Math.max(
-            camAltitudeUnits,
+            globeWeight * camAltitudeUnits,
             wrapCamDist - maxDist
           );
           surfaceDist = Math.min(surfaceDist, wrapSurfaceDist);
@@ -2160,7 +2314,7 @@ export class WebGPUEngine {
       const childRangeL = lod < effectiveMaxLod ? this.computeCalibratedRange(lod + 1, midV, unfurl, viewportHeight, fovYRad, this.cdlodSseTolerance, cdlodMeshBeta) : 0;
       // Strugar CDLOD Invariant: Include node half-diagonal margin (maxDist) so that when a neighbor refuses subdivision,
       // all boundary vertices on the subdivided patch have reached distance >= morphEnd (alpha = 1.0), closing all seam gaps.
-      const diagMargin = unfurl >= 0.01 ? maxDist * 0.6 : 0;
+      const diagMargin = (1.0 - globeWeight) * (maxDist * 0.6);
       const phase1Cap = Math.floor(WebGPUEngine.CDLOD_MAX_NODES * 0.75); // 3072 slots
       const shouldSubdivide = lod < effectiveMaxLod &&
         this.cdlodActiveNodeCount < phase1Cap &&

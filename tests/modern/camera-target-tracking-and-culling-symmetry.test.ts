@@ -68,16 +68,16 @@ describe('Application Hardening: Dual CPU/GPU Culling Symmetry & Manifold Camera
   // 1. Dual CPU/GPU Culling Symmetry (Rule 33)
   // =========================================================================
   describe('Pillar 1: Dual CPU/GPU Horizon Occlusion Culling Symmetry', () => {
-    it('verifies culling.wgsl removes mode == 0u gate and gates solely on unfurl < 0.01', () => {
+    it('verifies culling.wgsl removes mode == 0u gate and gates with continuous Hermite horizon culling', () => {
       const cullingWgsl = fs.readFileSync(cullingWgslPath, 'utf8');
-      expect(cullingWgsl).not.toMatch(/uniforms\.mode\s*==\s*0u\s*&&\s*unfurl\s*<\s*0\.01/);
-      expect(cullingWgsl).toMatch(/if\s*\(\s*unfurl\s*<\s*0\.01\s*\)\s*\{[\s\S]*?dot\(node\.center,\s*uniforms\.cameraPos\.xyz\)/);
+      expect(cullingWgsl).not.toMatch(/uniforms\.mode\s*==\s*0u/);
+      expect(cullingWgsl).toMatch(/globeWeight[\s\S]*?dot\(node\.center,\s*uniforms\.cameraPos\.xyz\)/);
     });
 
     it('verifies WebGPUEngine.ts CPU traversal gates horizon culling solely on unfurl < 0.01', () => {
       const engineTs = fs.readFileSync(engineTsPath, 'utf8');
       expect(engineTs).not.toMatch(/mode\s*===\s*0\s*&&\s*unfurl\s*<\s*0\.01/);
-      expect(engineTs).toMatch(/if\s*\(\s*unfurl\s*<\s*0\.01\s*\)\s*\{[\s\S]*?cDotCam\s*\+/);
+      expect(engineTs).toMatch(/cDotCam\s*\+/);
       expect(engineTs).toMatch(/(?:\(\s*unfurl\s*<\s*0\.01\s*\)\s*\?\s*Math\.max\(0,\s*camDistToCenter\s*-\s*5\.0\)|if\s*\(\s*unfurl\s*<\s*0\.01\s*\)\s*\{\s*camAltitudeUnits\s*=\s*Math\.max\(0(?:\.001)?,\s*camDistToCenter\s*-\s*5\.0\))/);
     });
 

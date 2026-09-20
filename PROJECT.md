@@ -63,6 +63,13 @@ The Continuous Volumetric Matrix is a scientific-grade 1,000,000-node globe-to-m
 | F28 | Streamed Regional High-Res DEM Ingestion (R4) | Scale CDLOD to LOD 12 for litmus regions, eliminate regional mip-inversion blurring, maintain Rule 8 cross-pipeline parity | Phase 3 - M4 | Survey E3 |
 | F29 | Real-Time CDLOD Diagnostic Plate (R5) | In-shader diagnostic mode (float 79 in `SimUniforms`) visualizing integer LOD hues and continuous morph factor $\alpha$ with `[BETA]` tray UI | Phase 3 - M5 | Survey E1 |
 | F30 | Interactive Invariant Verification & Acceptance (Acceptance) | Automated validation of `verify_interactive_invariants.ts`, 100% full vitest suite pass, zero console errors, archival theme parity | Phase 3 - M6 | Survey E3 |
+| F31 | Dock Scrubbing Slider Geometry & Smoothness | Fix SVG letterbox unprojection, remove 150ms CSS thumb transition, remove micro-momentum overshoot, eliminate `toFixed(3)` quantization in `CurvatureUnfurlSextant.tsx` | Transition Restore | Survey E1/E2 |
+| F32 | Zero-Latency Sub-frame Scrub Channel | Stream unquantized `normX` directly to `window.__INDICATRIX_SCRUB_ALPHA__` for 120 FPS sub-frame sampling in `WebGPUCanvas.tsx`, throttle React state | Transition Restore | Survey E1/E2 |
+| F33 | Continuous Mathematical Interpolation in WGSL | Quintic smootherstep easing, fix Mode 2 Griffith $C^0$ rupture jump, fix Mode 1 Cylindrical Scroll cancellation & flip, unify point sprite dilation with crust | Transition Restore | Survey Miner/E2 |
+| F34 | Normal Vector Continuity in evaluateManifold | Normalize blended normal vectors across Modes 0-3 in `manifold.wgsl` to eliminate $(0,0,0)$ normal collapse at $\alpha = 0.5$ | Transition Restore | Survey Miner/E2 |
+| F35 | Continuous Boundary Easing at Transitions | Replace hard step conditionals at $\alpha = 0.01$ and $0.35$ with continuous Hermite transitions for camera target, CDLOD culling, and limb attenuation | Transition Restore | Survey E1/Miner |
+| F36 | CPU evaluateManifoldPosition Mode 3 Parity | Add Mode 3 (Fluid Advection) to CPU `evaluateManifoldPosition` in `WebGPUEngine.ts` so CDLOD bounding boxes match GPU vertex displacements | Transition Restore | Survey E1 |
+| F37 | Live GPU Chrome DevTools MCP Visual Verification | Sequence capture in real GPU Chrome browser verifying continuous sub-frame slider dragging without jumping, skipping, or snapping, 100% test pass | Transition Restore | Acceptance |
 
 ## Scaffolding & Scaling Status (DESIGN_ETHOS.md §11 Compliance)
 
@@ -155,6 +162,7 @@ ais-interactive-globe-to-map/
 | Phase 3 - M4 | Streamed Regional High-Res DEM Ingestion (R4) | Scale CDLOD quadtree to LOD 12 for litmus regions, fix regional mip-inversion, ensure Rule 8 parity | Phase 3 - M3 | DONE |
 | Phase 3 - M5 | Real-Time CDLOD Diagnostic Plate (R5) | In-shader diagnostic mode (float 79 in `SimUniforms`) for integer LOD & morph factor $\alpha$ with Beta Tray UI | Phase 3 - M1, M3 | DONE |
 | Phase 3 - M6 | Interactive Invariant Verification & Publication | Validate `verify_interactive_invariants.ts`, full vitest suite (100% pass), theme verification, Sentinel handoff | Phase 3 - M1-M5 | DONE |
+| Phase 4 - Transition | Continuous Projection Transition & Scrubbing Slider Restoration | Dock slider smoothness, zero-latency scrub channel, WGSL continuous math, normal vector continuity, continuous boundary easing, CPU Mode 3 parity, Live GPU Chrome DevTools MCP verification | Phase 3 | DONE |
 
 ## Interface Contracts
 

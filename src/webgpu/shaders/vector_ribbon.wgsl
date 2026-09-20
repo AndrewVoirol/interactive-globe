@@ -177,7 +177,8 @@ fn applyVectorDisplacement(basePos: vec3<f32>, baseNormal: vec3<f32>, pointType:
 
     let viewDir = normalize(sim.u_cameraPos.xyz - basePos);
     let facing = dot(baseNormal, viewDir);
-    let limbAtten = select(1.0, smoothstep(0.000, 0.005, facing), sim.u_unfurl < 0.01);
+    let globeWeight = 1.0 - smoothstep(0.0, 0.05, sim.u_unfurl);
+    let limbAtten = mix(1.0, smoothstep(0.000, 0.005, facing), globeWeight);
     if (normalDisplacement < 0.0) {
         normalDisplacement = normalDisplacement * limbAtten;
     }

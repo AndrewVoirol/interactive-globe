@@ -58,18 +58,23 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   theme = isLight ? 1 : 0,
 }) => {
   const boxRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
   const [isHovered, setIsHovered] = useState(false);
-  const lastClientXRef = useRef(0);
-  const lastTimeRef = useRef(0);
-  const velocityRef = useRef(0);
-  const momentumRafRef = useRef<number | null>(null);
   const alphaRef = useRef(alpha);
   alphaRef.current = alpha;
+  const lastSyncRef = useRef(0);
+  const throttleTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
-      if (momentumRafRef.current) cancelAnimationFrame(momentumRafRef.current);
+      if (throttleTimerRef.current) {
+        cancelAnimationFrame(throttleTimerRef.current);
+      }
+      if (typeof window !== 'undefined') {
+        (window as any).__INDICATRIX_SCRUB_ALPHA__ = undefined;
+      }
     };
   }, []);
 
@@ -102,81 +107,88 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
       };
 
   const updateFromPointer = useCallback(
-    (clientX: number) => {
-      if (!boxRef.current) return;
-      const rect = boxRef.current.getBoundingClientRect();
-      const padPct = 15 / 240;
-      const rawFrac = (clientX - rect.left) / rect.width;
-      let normX = (rawFrac - padPct) / (1.0 - 2 * padPct);
+    (clientX: number, clientY: number) => {
+      const svg = svgRef.current;
+      let normX = 0;
+      if (svg && typeof svg.createSVGPoint === 'function' && typeof svg.getScreenCTM === 'function') {
+        const ctm = svg.getScreenCTM();
+        if (ctm) {
+          const pt = svg.createSVGPoint();
+          pt.x = clientX;
+          pt.y = clientY;
+          const svgP = pt.matrixTransform(ctm.inverse());
+          normX = (svgP.x - 15) / 210;
+        } else if (boxRef.current) {
+          const rect = boxRef.current.getBoundingClientRect();
+          const rawFrac = (clientX - rect.left) / (rect.width || 1);
+          normX = (rawFrac - 15 / 240) / (210 / 240);
+        }
+      } else if (boxRef.current) {
+        const rect = boxRef.current.getBoundingClientRect();
+        const rawFrac = (clientX - rect.left) / (rect.width || 1);
+        normX = (rawFrac - 15 / 240) / (210 / 240);
+      }
       normX = Math.max(0.0, Math.min(1.0, normX));
 
-      const val = parseFloat(normX.toFixed(3));
-      alphaRef.current = val;
-      onAlphaChange(val);
+      // Zero-Latency Sub-Frame Scrub Channel:
+      // Direct write to window for immediate 120 FPS render loop sampling
+      if (typeof window !== 'undefined') {
+        (window as any).__INDICATRIX_SCRUB_ALPHA__ = normX;
+      }
+
+      alphaRef.current = normX;
+
+      // Throttle React setAlpha(normX) to ~30Hz / rAF to eliminate VDOM diff storms
+      const now = performance.now();
+      if (now - lastSyncRef.current >= 33) {
+        lastSyncRef.current = now;
+        onAlphaChange(normX);
+      } else if (!throttleTimerRef.current) {
+        throttleTimerRef.current = requestAnimationFrame(() => {
+          throttleTimerRef.current = null;
+          lastSyncRef.current = performance.now();
+          onAlphaChange(alphaRef.current);
+        });
+      }
     },
     [onAlphaChange]
   );
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    setIsDragging(true);
     isDraggingRef.current = true;
-    if (momentumRafRef.current) {
-      cancelAnimationFrame(momentumRafRef.current);
-      momentumRafRef.current = null;
+    if (throttleTimerRef.current) {
+      cancelAnimationFrame(throttleTimerRef.current);
+      throttleTimerRef.current = null;
     }
-    lastClientXRef.current = e.clientX;
-    lastTimeRef.current = performance.now();
-    velocityRef.current = 0;
     boxRef.current?.setPointerCapture(e.pointerId);
-    updateFromPointer(e.clientX);
+    updateFromPointer(e.clientX, e.clientY);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDraggingRef.current) return;
-    const now = performance.now();
-    const dt = now - lastTimeRef.current;
-    if (dt > 4 && boxRef.current) {
-      const rect = boxRef.current.getBoundingClientRect();
-      const dx = (e.clientX - lastClientXRef.current) / (rect.width * (1.0 - 2 * (15 / 240)));
-      velocityRef.current = dx / dt; // normalized fraction per ms
-      lastClientXRef.current = e.clientX;
-      lastTimeRef.current = now;
-    }
-    updateFromPointer(e.clientX);
+    updateFromPointer(e.clientX, e.clientY);
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    setIsDragging(false);
     isDraggingRef.current = false;
+    if (throttleTimerRef.current) {
+      cancelAnimationFrame(throttleTimerRef.current);
+      throttleTimerRef.current = null;
+    }
     try {
       boxRef.current?.releasePointerCapture(e.pointerId);
     } catch {
       // Ignore
     }
 
-    // If stationary before releasing, cancel coasting
-    const now = performance.now();
-    if (now - lastTimeRef.current > 50) {
-      velocityRef.current = 0;
+    // Clear zero-latency scrub channel and commit final value to React state
+    const finalAlpha = alphaRef.current;
+    if (typeof window !== 'undefined') {
+      (window as any).__INDICATRIX_SCRUB_ALPHA__ = undefined;
     }
-
-    // Micro-momentum coasting (20-50ms inertia decay, strictly clamped to 2-5 alpha units)
-    let vel = velocityRef.current;
-    // Clamp velocity to enforce 2-5 alpha units (0.02 - 0.05) maximum overshoot
-    vel = Math.max(-0.0015, Math.min(0.0015, vel));
-    if (Math.abs(vel) > 0.0002) {
-      let currentAlpha = alphaRef.current;
-      const step = () => {
-        vel *= 0.60; // rapid friction damping over 20-50ms (2-3 frames)
-        if (Math.abs(vel) < 0.00008) {
-          momentumRafRef.current = null;
-          return;
-        }
-        currentAlpha = Math.max(0.0, Math.min(1.0, currentAlpha + vel * 16));
-        alphaRef.current = parseFloat(currentAlpha.toFixed(3));
-        onAlphaChange(alphaRef.current);
-        momentumRafRef.current = requestAnimationFrame(step);
-      };
-      momentumRafRef.current = requestAnimationFrame(step);
-    }
+    onAlphaChange(finalAlpha);
   };
 
   // SVG dimensions: 240 x 36
@@ -208,10 +220,10 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
           const step = e.shiftKey ? 0.05 : 0.01;
           if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
             e.preventDefault();
-            onAlphaChange(parseFloat(Math.max(0.0, alpha - step).toFixed(3)));
+            onAlphaChange(Math.max(0.0, alpha - step));
           } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
             e.preventDefault();
-            onAlphaChange(parseFloat(Math.min(1.0, alpha + step).toFixed(3)));
+            onAlphaChange(Math.min(1.0, alpha + step));
           } else if (e.key === 'Home') {
             e.preventDefault();
             onAlphaChange(0.0);
@@ -232,7 +244,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
           isHovered ? 'shadow-[0_0_12px_var(--theme-focus-ring)] border-[var(--theme-card-border-hover)]' : ''
         }`}
       >
-        <svg className="w-full h-full pointer-events-none" viewBox="0 0 240 36">
+        <svg ref={svgRef} className="w-full h-full pointer-events-none" viewBox="0 0 240 36">
           {/* Radial reference rays */}
           <line x1="120" y1="34" x2="15" y2="10" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
           <line x1="120" y1="34" x2="68" y2="6" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
@@ -259,11 +271,11 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
           <circle
             cx={thumbX}
             cy={thumbY}
-            r={isHovered ? 5.5 : 4.5}
+            r={isHovered || isDragging ? 5.5 : 4.5}
             fill={sextantTokens.thumbFill}
             stroke={sextantTokens.thumbStroke}
             strokeWidth="2"
-            className="shadow-sm transition-all duration-150"
+            className={`shadow-sm ${isDragging ? '' : 'transition-all duration-150'}`}
           />
         </svg>
 

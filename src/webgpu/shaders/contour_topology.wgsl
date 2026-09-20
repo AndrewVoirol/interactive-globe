@@ -149,7 +149,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
 
     let clampedUnfurl = clamp(sim.u_unfurl, 0.0, 1.0);
-    let ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+    let ease = clampedUnfurl;
     let pos3D = in.pos_3d.xyz;
     let pos2D = vec3<f32>(in.target2d.x, in.target2d.y, 0.015);
 

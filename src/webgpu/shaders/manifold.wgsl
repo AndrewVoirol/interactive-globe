@@ -55,7 +55,7 @@ fn evaluateManifoldCore(
     curVel: vec4<f32>,
 ) -> DeformedVertex {
     let clampedUnfurl = clamp(unfurl, 0.0, 1.0);
-    let ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+    let ease = clampedUnfurl;
     var out: DeformedVertex;
     let pos2D = vec3<f32>(mercator2D.x, mercator2D.y, 0.0);
 
@@ -64,53 +64,63 @@ fn evaluateManifoldCore(
         case 1u: {
             // ── Mode 1: Cylindrical Scroll Unfurl ──────────────────────────
             let oneMinusT = 1.0 - ease;
-            let lonRad = atan2(pos3D.x, pos3D.z);
-            let latRad = asin(clamp(pos3D.y / RADIUS, -0.9998, 0.9998));
+            // Direct canonical geodetic extraction: eliminates lossy atan2 flipping at seam
+            let lonRad = select(atan2(pos3D.x, pos3D.z), mercator2D.x / RADIUS, abs(mercator2D.x) > 0.00001 || abs(mercator2D.y) > 0.00001);
+            let clampedY = clamp(pos3D.y / RADIUS, -0.9998, 0.9998);
+            let latRad = asin(clampedY);
             let cosLat = cos(latRad);
             let sinLat = sin(latRad);
             let r_phi = mix(RADIUS * cosLat, RADIUS, ease);
 
-            if (oneMinusT > 0.001) {
-                let invOneMinusT = 1.0 / oneMinusT;
-                let curAngle = oneMinusT * lonRad;
-                let curX = (r_phi * invOneMinusT) * sin(curAngle);
-                let curZ = (r_phi * invOneMinusT) * (cos(curAngle) - 1.0)
-                         + (r_phi * oneMinusT);
-                let curY = mix(pos3D.y, pos2D.y, ease);
-                out.pos = vec3<f32>(curX, curY, curZ);
+            let s = oneMinusT;
+            let u = s * lonRad;
+            var curX: f32;
+            var curZ: f32;
+            var f_sin: f32;
+            var f_cos: f32;
 
-                // Analytical normal via tangent-frame cross product
-                let T_lambda = vec3<f32>(
-                    r_phi * cos(curAngle),
-                    0.0,
-                    -r_phi * sin(curAngle)
-                );
-                let T_phi = vec3<f32>(
-                    0.0,
-                    mix(RADIUS * cosLat, RADIUS / max(cosLat, 0.05), ease),
-                    -RADIUS * sinLat * invOneMinusT * (cos(curAngle) - 1.0)
-                        - RADIUS * sinLat * oneMinusT
-                );
-                let rawNorm = cross(T_lambda, T_phi);
-                out.normal = select(normalize(pos3D), normalize(rawNorm),
-                                    length(rawNorm) > 0.0001);
+            if (abs(u) > 0.02) {
+                f_sin = sin(u) / s;
+                f_cos = (cos(u) - 1.0) / s;
+                curX = r_phi * f_sin;
+                curZ = r_phi * f_cos + r_phi * s;
             } else {
-                // Taylor expansion guard near oneMinusT <= 0.001 (sinc limit)
-                let u = oneMinusT * lonRad;
-                let sinTerm = lonRad * (1.0 - (u * u) / 6.0);
-                let cosTerm = oneMinusT * (lonRad * lonRad) * (-0.5 + (u * u) / 24.0);
-                let curX = r_phi * sinTerm;
-                let curZ = r_phi * cosTerm + r_phi * oneMinusT;
-                let curY = mix(pos3D.y, pos2D.y, ease);
-                out.pos = vec3<f32>(curX, curY, curZ);
-                out.normal = vec3<f32>(0.0, 0.0, 1.0);
+                let u2 = u * u;
+                let u4 = u2 * u2;
+                f_sin = lonRad * (1.0 - u2 / 6.0 + u4 / 120.0);
+                f_cos = -s * (lonRad * lonRad) * (0.5 - u2 / 24.0 + u4 / 720.0);
+                curX = r_phi * f_sin;
+                curZ = r_phi * f_cos + r_phi * s;
             }
+            let curY = mix(pos3D.y, pos2D.y, ease);
+            out.pos = vec3<f32>(curX, curY, curZ);
+
+            // Analytical normal via exact tangent-frame cross product
+            let T_lambda = vec3<f32>(
+                r_phi * cos(u),
+                0.0,
+                -r_phi * sin(u)
+            );
+            let T_phi = vec3<f32>(
+                -RADIUS * sinLat * sin(u),
+                mix(RADIUS * cosLat, RADIUS / max(cosLat, 0.05), ease),
+                -s * RADIUS * sinLat * (f_cos + s)
+            );
+            let rawNorm = cross(T_lambda, T_phi);
+            let normLen = length(rawNorm);
+            let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
+            out.normal = select(mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease), normalize(rawNorm), normLen > 0.0001);
         }
 
         case 2u: {
             // ── Mode 2: Griffith Linear Elastic Fracture Mechanics ─────────
-            let lonRad = atan2(pos3D.x, pos3D.z);
-            let latRad = asin(clamp(pos3D.y / RADIUS, -0.9998, 0.9998));
+            // Base manifold: Mode 1 Cylindrical Unroll (peeling shell kinematics)
+            // Superimposed: Griffith tensile strain, seam tearing, and normal flutter
+            let lonRad = select(atan2(pos3D.x, pos3D.z), mercator2D.x / RADIUS, abs(mercator2D.x) > 0.00001 || abs(mercator2D.y) > 0.00001);
+            let clampedY = clamp(pos3D.y / RADIUS, -0.9998, 0.9998);
+            let latRad = asin(clampedY);
+            let cosLat = cos(latRad);
+            let sinLat = sin(latRad);
             let distToSeam = PI - abs(lonRad);
             let seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
             let tRupture: f32 = 0.18;
@@ -119,44 +129,112 @@ fn evaluateManifoldCore(
             let hitDist = length(pos3D - hitPos.xyz);
             let cursorInfluence = curActive * exp(-hitDist * hitDist / (2.0 * 0.64));
             let hoopStress = cursorInfluence * 0.45 * fracMult
-                           * (1.0 + 2.0 * cos(latRad) * cos(latRad));
+                           * (1.0 + 2.0 * cosLat * cosLat);
 
-            if (ease < tRupture) {
-                let strainProgress = ease / tRupture;
-                let localStrain = seamFactor * strainProgress
-                                * max(0.2, cos(latRad * 0.85)) + hoopStress;
-                out.pos = pos3D + normalize(pos3D) * (localStrain * 0.30);
-                out.normal = normalize(out.pos);
+            let tau = max(0.0, ease - tRupture);
+            let strainDecay = exp(-6.0 * tau);
+            let strainProgress = select(ease / tRupture, 1.0, ease >= tRupture);
+            let localStrain = seamFactor * strainProgress
+                            * max(0.2, cos(latRad * 0.85)) + hoopStress;
+
+            // Sphere unit normal
+            let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0),
+                                    normalize(pos3D),
+                                    length(pos3D) > 0.001);
+
+            // Post-rupture unroll progress: smoothstep starts at 0.0 at tRupture
+            let unrollProg = select(0.0, smoothstep(tRupture, 1.0, ease), ease >= tRupture);
+            let s = 1.0 - unrollProg;
+            let r_phi = mix(RADIUS * cosLat, RADIUS, unrollProg);
+            let u = s * lonRad;
+
+            var baseX: f32;
+            var baseZ: f32;
+            var f_sin: f32;
+            var f_cos: f32;
+
+            if (abs(u) > 0.02) {
+                f_sin = sin(u) / s;
+                f_cos = (cos(u) - 1.0) / s;
+                baseX = r_phi * f_sin;
+                baseZ = r_phi * f_cos + r_phi * s;
             } else {
-                let postRuptureT = smoothstep(tRupture, 1.0, ease);
-                let flutterWave = sin(distToSeam * 16.0 - ease * 24.0);
-                let flutterDecay = exp(-4.2 * (ease - tRupture));
-                let flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20)
-                               * flutterWave * flutterDecay * fracMult;
-                out.pos = mix(pos3D, pos2D, postRuptureT)
-                        + vec3<f32>(0.0, 0.0, flutterAmp);
-                out.normal = mix(normalize(pos3D), vec3<f32>(0.0, 0.0, 1.0),
-                                 postRuptureT);
+                let u2 = u * u;
+                let u4 = u2 * u2;
+                f_sin = lonRad * (1.0 - u2 / 6.0 + u4 / 120.0);
+                f_cos = -s * (lonRad * lonRad) * (0.5 - u2 / 24.0 + u4 / 720.0);
+                baseX = r_phi * f_sin;
+                baseZ = r_phi * f_cos + r_phi * s;
             }
+            let baseY = mix(pos3D.y, pos2D.y, unrollProg);
+            let basePos = vec3<f32>(baseX, baseY, baseZ);
+
+            // Tangent frame on unrolling cylindrical manifold
+            let T_lambda = vec3<f32>(
+                r_phi * cos(u),
+                0.0,
+                -r_phi * sin(u)
+            );
+            let T_phi = vec3<f32>(
+                -RADIUS * sinLat * sin(u),
+                mix(RADIUS * cosLat, RADIUS / max(cosLat, 0.05), unrollProg),
+                -s * RADIUS * sinLat * (f_cos + s)
+            );
+            let rawNorm = cross(T_lambda, T_phi);
+            let normLen = length(rawNorm);
+            let baseNorm = select(mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), unrollProg),
+                                  normalize(rawNorm),
+                                  normLen > 0.0001);
+
+            // Griffith Fracture Superimposed Dynamics:
+            // 1. Stored elastic strain outward displacement
+            let outwardTension = baseNorm * (localStrain * 0.30 * strainDecay * (1.0 - unrollProg));
+
+            // 2. Antimeridian lateral rift separation (crack flanks pull apart)
+            let crackSign = select(-1.0, 1.0, lonRad >= 0.0);
+            let crackOpen = seamFactor * (1.0 - unrollProg) * smoothstep(0.0, 0.35, tau);
+            let tearOffset = vec3<f32>(crackSign * crackOpen * 0.60, 0.0, -crackOpen * 0.25);
+
+            // 3. Normal-aligned flexural flutter waves
+            let flutterWave = sin(distToSeam * 16.0) * sin(24.0 * tau);
+            let flutterDecay = exp(-4.2 * tau);
+            let flutterRamp = smoothstep(0.0, 0.04, tau);
+            let flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20)
+                           * flutterWave * flutterDecay * flutterRamp * fracMult * (1.0 - unrollProg);
+            let flutterOffset = baseNorm * flutterAmp;
+
+            out.pos = basePos + outwardTension + tearOffset + flutterOffset;
+            out.normal = select(baseNorm, vec3<f32>(0.0, 0.0, 1.0), unrollProg >= 1.0);
         }
 
         case 3u: {
             // ── Mode 3: Fluid Advection & Lamb-Oseen Vortex Wake ──────────
+            // Orbital swelling ballooning factor eliminates interior volumetric collapse
+            // Simulates silk fabric suspended and floating in a fluid medium
             let rawSin = sin(PI * clampedUnfurl);
             let liquefaction = pow(max(0.0, rawSin), 1.15);
-            let unElevatedSphere = normalize(pos3D) * RADIUS;
+            let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0),
+                                    normalize(pos3D),
+                                    length(pos3D) > 0.001);
+            let unElevatedSphere = sphereNorm * RADIUS;
             let basePos = mix(unElevatedSphere, pos2D, ease);
-            let naturalVel = computeCurlNoise(basePos, simTime);
 
-            let hitDist = length(basePos - hitPos.xyz);
+            // Orbital swelling ballooning displacement
+            // Preserves volumetric presence throughout mid-flight transition
+            let balloonAmp = RADIUS * 0.50 * rawSin;
+            let swelledBasePos = basePos + sphereNorm * balloonAmp;
+
+            let naturalVel = computeCurlNoise(swelledBasePos, simTime);
+
+            let hitDist = length(swelledBasePos - hitPos.xyz);
             let coreRadius: f32 = 0.85;
             let vortexCirc = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius)))
                            / (hitDist + 0.05);
             let surfaceNormal = select(vec3<f32>(0.0, 0.0, 1.0),
-                                       normalize(basePos),
-                                       length(basePos) > 0.001);
+                                       normalize(swelledBasePos),
+                                       length(swelledBasePos) > 0.001);
             let vortexTangent = normalize(cross(surfaceNormal,
-                                                basePos - hitPos.xyz + vec3<f32>(0.001)));
+                                                swelledBasePos - hitPos.xyz + vec3<f32>(0.001)));
             let clampedSpeed = clamp(curVel.w, 0.0, 1.5);
             let vortexVelocity = vortexTangent
                                * (curActive * clampedSpeed * vortexCirc * 0.35);
@@ -164,9 +242,10 @@ fn evaluateManifoldCore(
                               * (clampedSpeed * 0.15 * curActive
                                  * exp(-hitDist * hitDist / 1.5));
 
-            let wavePhase1 = dot(basePos, vec3<f32>(0.35, 0.62, 0.42)) * 1.35
+            // Multi-harmonic silk drape traveling wave
+            let wavePhase1 = dot(swelledBasePos, vec3<f32>(0.35, 0.62, 0.42)) * 1.35
                            - simTime * 1.25;
-            let wavePhase2 = dot(basePos, vec3<f32>(-0.45, 0.30, 0.65)) * 1.75
+            let wavePhase2 = dot(swelledBasePos, vec3<f32>(-0.45, 0.30, 0.65)) * 1.75
                            - simTime * 0.90;
             let silkWave = (sin(wavePhase1) * 0.65 + cos(wavePhase2) * 0.35)
                          * liquefaction * 0.65;
@@ -176,9 +255,11 @@ fn evaluateManifoldCore(
                                 + silkDrape
                                 + (vortexVelocity + wakeAdvection)
                                   * (curActive * 0.25);
-            out.pos = basePos + advectionOffset + surfaceNormal * 0.015;
-            out.normal = mix(normalize(unElevatedSphere + silkDrape * 0.5),
+
+            out.pos = swelledBasePos + advectionOffset + surfaceNormal * 0.015;
+            let rawNorm = mix(normalize(unElevatedSphere + silkDrape * 0.5),
                              vec3<f32>(0.0, 0.0, 1.0), ease);
+            out.normal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(rawNorm), length(rawNorm) > 0.001);
         }
 
         default: {
@@ -187,7 +268,8 @@ fn evaluateManifoldCore(
                                     normalize(pos3D),
                                     length(pos3D) > 0.001);
             out.pos = mix(pos3D, pos2D, ease);
-            out.normal = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
+            let rawNorm = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
+            out.normal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(rawNorm), length(rawNorm) > 0.001);
         }
     }
 

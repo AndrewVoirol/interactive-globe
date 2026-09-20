@@ -143,8 +143,8 @@ describe('Hydrosphere Optics & Solenoidal Silk Physics Verification', () => {
     });
 
     it('PHYS-02: verifies silk drape wave dynamics formulation in Mode 3', () => {
-      expect(physicsSimWGSL).toContain('let wavePhase1 = dot(basePos, vec3<f32>(0.35, 0.62, 0.42)) * 1.35 - sim.u_time * 1.25;');
-      expect(physicsSimWGSL).toContain('let wavePhase2 = dot(basePos, vec3<f32>(-0.45, 0.30, 0.65)) * 1.75 - sim.u_time * 0.90;');
+      expect(physicsSimWGSL).toContain('let wavePhase1 = dot(swelledBasePos, vec3<f32>(0.35, 0.62, 0.42)) * 1.35 - sim.u_time * 1.25;');
+      expect(physicsSimWGSL).toContain('let wavePhase2 = dot(swelledBasePos, vec3<f32>(-0.45, 0.30, 0.65)) * 1.75 - sim.u_time * 0.90;');
       expect(physicsSimWGSL).toContain('let silkWave = (sin(wavePhase1) * 0.65 + cos(wavePhase2) * 0.35) * liquefaction * 0.65;');
       expect(physicsSimWGSL).toContain('let silkDrapeOffset = surfaceNormal * silkWave;');
     });

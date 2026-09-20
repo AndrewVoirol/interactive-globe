@@ -223,7 +223,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     var effWorldP = worldP;
 
     if (cloud.u_mode == 1u) {
-        let ease = cloud.u_unfurl * cloud.u_unfurl * (3.0 - 2.0 * cloud.u_unfurl);
+        let ease = clamp(cloud.u_unfurl, 0.0, 1.0);
         let oneMinusT = 1.0 - ease;
         if (oneMinusT > 0.001) {
             let invOneMinusT = 1.0 / oneMinusT;

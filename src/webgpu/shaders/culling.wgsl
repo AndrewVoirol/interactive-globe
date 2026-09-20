@@ -91,11 +91,13 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let camDistToOrigin = length(uniforms.cameraPos.xyz);
 
-    // Planetary Horizon Occlusion Culling (only valid on undeformed sphere when unfurl < 0.01)
+    // Planetary Horizon Occlusion Culling (smoothly decoupled as unfurl progresses)
     let unfurl = uniforms.cameraPos.w;
-    if (unfurl < 0.01) {
+    let globeWeight = 1.0 - smoothstep(0.0, 0.05, unfurl);
+    if (globeWeight > 0.0) {
         let cDotCam = dot(node.center, uniforms.cameraPos.xyz);
-        if (cDotCam + effectiveRadius * camDistToOrigin < uniforms.R_squared_minus_disp) {
+        let effectiveMargin = (1.0 - globeWeight) * camDistToOrigin * 10.0;
+        if (cDotCam + (effectiveRadius + effectiveMargin) * camDistToOrigin < uniforms.R_squared_minus_disp) {
             return;
         }
     }

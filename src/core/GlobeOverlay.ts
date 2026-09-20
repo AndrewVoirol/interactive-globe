@@ -199,7 +199,7 @@ export function evaluatePointMorph(
   const p3D = geoToSphere(lon, lat, RADIUS + elevationOffset);
   const p2D = geoToMercator(lon, lat, RADIUS);
   const clampedAlpha = Math.max(0, Math.min(1, alpha));
-  const ease = clampedAlpha * clampedAlpha * (3 - 2 * clampedAlpha);
+  const ease = clampedAlpha;
 
   if (mode === 1) {
     // Mode 1: Constant-Radius Cylindrical Scroll with Taylor Expansion Guard

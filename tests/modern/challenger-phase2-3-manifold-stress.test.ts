@@ -77,7 +77,7 @@ export function evaluateManifoldCore(
   curVel: [number, number, number, number] = [0, 0, 0, 0]
 ): { pos: [number, number, number]; normal: [number, number, number] } {
   const clampedUnfurl = Math.max(0.0, Math.min(1.0, unfurl));
-  const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+  const ease = clampedUnfurl;
   const pos2D: [number, number, number] = [mercator2D[0], mercator2D[1], 0.0];
 
   let outPos: [number, number, number] = [0, 0, 0];
@@ -87,92 +87,153 @@ export function evaluateManifoldCore(
     case 1: {
       // ── Mode 1: Cylindrical Scroll Unfurl ──────────────────────────
       const oneMinusT = 1.0 - ease;
-      const lonRad = Math.atan2(pos3D[0], pos3D[2]);
+      const lonRad = (Math.abs(mercator2D[0]) > 0.00001 || Math.abs(mercator2D[1]) > 0.00001)
+        ? mercator2D[0] / RADIUS
+        : Math.atan2(pos3D[0], pos3D[2]);
       const clampedY = Math.max(-0.9998, Math.min(0.9998, pos3D[1] / RADIUS));
       const latRad = Math.asin(clampedY);
       const cosLat = Math.cos(latRad);
       const sinLat = Math.sin(latRad);
+      const r_phi = (1.0 - ease) * (RADIUS * cosLat) + ease * RADIUS;
 
-      if (oneMinusT > 0.001) {
-        const invOneMinusT = 1.0 / oneMinusT;
-        const curAngle = oneMinusT * lonRad;
-        const curX = (RADIUS * invOneMinusT) * Math.sin(curAngle);
-        const curZ = (RADIUS * cosLat * invOneMinusT) * (Math.cos(curAngle) - 1.0)
-                   + (RADIUS * cosLat * oneMinusT);
-        const curY = pos3D[1] * (1.0 - ease) + pos2D[1] * ease;
-        outPos = [curX, curY, curZ];
+      const s = oneMinusT;
+      const u = s * lonRad;
+      let curX: number;
+      let curZ: number;
+      let f_sin: number;
+      let f_cos: number;
 
-        const T_lambda: [number, number, number] = [
-          RADIUS * Math.cos(curAngle),
-          0.0,
-          -RADIUS * cosLat * Math.sin(curAngle),
-        ];
-        const T_phi: [number, number, number] = [
-          0.0,
-          (RADIUS * cosLat) * (1.0 - ease) + (RADIUS / Math.max(cosLat, 0.05)) * ease,
-          -RADIUS * sinLat * invOneMinusT * (Math.cos(curAngle) - 1.0) - RADIUS * sinLat * oneMinusT,
-        ];
-        const rawNorm = cross3(T_lambda, T_phi);
-        const rawLen = Math.hypot(rawNorm[0], rawNorm[1], rawNorm[2]);
-        outNormal = rawLen > 0.0001 ? normalize3(rawNorm) : normalize3(pos3D);
+      if (Math.abs(u) > 0.02) {
+        f_sin = Math.sin(u) / s;
+        f_cos = (Math.cos(u) - 1.0) / s;
+        curX = r_phi * f_sin;
+        curZ = r_phi * f_cos + r_phi * s;
       } else {
-        // Taylor expansion guard near oneMinusT <= 0.001
-        const u = oneMinusT * lonRad;
-        const sinTerm = lonRad * (1.0 - (u * u) / 6.0);
-        const cosTerm = oneMinusT * (lonRad * lonRad) * (-0.5 + (u * u) / 24.0);
-        const curX = RADIUS * sinTerm;
-        const curZ = RADIUS * cosLat * cosTerm + RADIUS * cosLat * oneMinusT;
-        const curY = pos3D[1] * (1.0 - ease) + pos2D[1] * ease;
-        outPos = [curX, curY, curZ];
-        outNormal = [0.0, 0.0, 1.0];
+        const u2 = u * u;
+        const u4 = u2 * u2;
+        f_sin = lonRad * (1.0 - u2 / 6.0 + u4 / 120.0);
+        f_cos = -s * (lonRad * lonRad) * (0.5 - u2 / 24.0 + u4 / 720.0);
+        curX = r_phi * f_sin;
+        curZ = r_phi * f_cos + r_phi * s;
       }
+      const curY = pos3D[1] * (1.0 - ease) + pos2D[1] * ease;
+      outPos = [curX, curY, curZ];
+
+      const T_lambda: [number, number, number] = [
+        r_phi * Math.cos(u),
+        0.0,
+        -r_phi * Math.sin(u),
+      ];
+      const T_phi: [number, number, number] = [
+        -RADIUS * sinLat * Math.sin(u),
+        (RADIUS * cosLat) * (1.0 - ease) + (RADIUS / Math.max(cosLat, 0.05)) * ease,
+        -s * RADIUS * sinLat * (f_cos + s),
+      ];
+      const rawNorm = cross3(T_lambda, T_phi);
+      const normLen = Math.hypot(rawNorm[0], rawNorm[1], rawNorm[2]);
+      const pLen = Math.hypot(pos3D[0], pos3D[1], pos3D[2]);
+      const sphereNorm = pLen > 0.001 ? normalize3(pos3D) : [0.0, 0.0, 1.0];
+      const flatNorm: [number, number, number] = [0.0, 0.0, 1.0];
+      const blendNorm: [number, number, number] = [
+        sphereNorm[0] * (1.0 - ease) + flatNorm[0] * ease,
+        sphereNorm[1] * (1.0 - ease) + flatNorm[1] * ease,
+        sphereNorm[2] * (1.0 - ease) + flatNorm[2] * ease,
+      ];
+      outNormal = normLen > 0.0001 ? normalize3(rawNorm) : normalize3(blendNorm);
       break;
     }
 
     case 2: {
       // ── Mode 2: Griffith Linear Elastic Fracture Mechanics ─────────
-      const lonRad = Math.atan2(pos3D[0], pos3D[2]);
+      const lonRad = (Math.abs(mercator2D[0]) > 0.00001 || Math.abs(mercator2D[1]) > 0.00001)
+        ? mercator2D[0] / RADIUS
+        : Math.atan2(pos3D[0], pos3D[2]);
       const clampedY = Math.max(-0.9998, Math.min(0.9998, pos3D[1] / RADIUS));
       const latRad = Math.asin(clampedY);
+      const cosLat = Math.cos(latRad);
+      const sinLat = Math.sin(latRad);
       const distToSeam = PI - Math.abs(lonRad);
       const seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
       const tRupture = 0.18;
 
+      const fracMult = hitPos[3] > 0.01 ? hitPos[3] : 1.0;
       const hitDx = pos3D[0] - hitPos[0];
       const hitDy = pos3D[1] - hitPos[1];
       const hitDz = pos3D[2] - hitPos[2];
       const hitDist = Math.hypot(hitDx, hitDy, hitDz);
       const cursorInfluence = curActive * Math.exp(-hitDist * hitDist / (2.0 * 0.64));
-      const hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * Math.cos(latRad) * Math.cos(latRad));
+      const hoopStress = cursorInfluence * 0.45 * fracMult * (1.0 + 2.0 * cosLat * cosLat);
 
-      if (ease < tRupture) {
-        const strainProgress = ease / tRupture;
-        const localStrain = seamFactor * strainProgress * Math.max(0.2, Math.cos(latRad * 0.85)) + hoopStress;
-        const normP = normalize3(pos3D);
-        outPos = [
-          pos3D[0] + normP[0] * (localStrain * 0.30),
-          pos3D[1] + normP[1] * (localStrain * 0.30),
-          pos3D[2] + normP[2] * (localStrain * 0.30),
-        ];
-        outNormal = normalize3(outPos);
+      const tau = Math.max(0.0, ease - tRupture);
+      const strainDecay = Math.exp(-6.0 * tau);
+      const strainProgress = ease < tRupture ? ease / tRupture : 1.0;
+      const localStrain = seamFactor * strainProgress * Math.max(0.2, Math.cos(latRad * 0.85)) + hoopStress;
+      const pLen = Math.hypot(pos3D[0], pos3D[1], pos3D[2]);
+      const sphereNorm: [number, number, number] = pLen > 0.001 ? normalize3(pos3D) : [0.0, 0.0, 1.0];
+
+      const unrollProg = ease <= tRupture ? 0.0 : smoothstep(tRupture, 1.0, ease);
+      const s = 1.0 - unrollProg;
+      const r_phi = (1.0 - unrollProg) * (RADIUS * cosLat) + unrollProg * RADIUS;
+      const u = s * lonRad;
+
+      let baseX: number;
+      let baseZ: number;
+      let f_cos: number;
+
+      if (Math.abs(u) > 0.02) {
+        baseX = (r_phi / s) * Math.sin(u);
+        f_cos = (Math.cos(u) - 1.0) / s;
+        baseZ = r_phi * f_cos + (r_phi * s);
       } else {
-        const postRuptureT = smoothstep(tRupture, 1.0, ease);
-        const flutterWave = Math.sin(distToSeam * 16.0 - ease * 24.0);
-        const flutterDecay = Math.exp(-4.2 * (ease - tRupture));
-        const flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay;
-
-        outPos = [
-          pos3D[0] * (1.0 - postRuptureT) + pos2D[0] * postRuptureT,
-          pos3D[1] * (1.0 - postRuptureT) + pos2D[1] * postRuptureT,
-          pos3D[2] * (1.0 - postRuptureT) + pos2D[2] * postRuptureT + flutterAmp,
-        ];
-        const normP = normalize3(pos3D);
-        outNormal = [
-          normP[0] * (1.0 - postRuptureT),
-          normP[1] * (1.0 - postRuptureT),
-          normP[2] * (1.0 - postRuptureT) + 1.0 * postRuptureT,
-        ];
+        const u2 = u * u;
+        const u4 = u2 * u2;
+        baseX = r_phi * lonRad * (1.0 - u2 / 6.0 + u4 / 120.0);
+        f_cos = -s * (lonRad * lonRad) * (0.5 - u2 / 24.0 + u4 / 720.0);
+        baseZ = r_phi * f_cos + (r_phi * s);
       }
+      const baseY = pos3D[1] * (1.0 - unrollProg) + pos2D[1] * unrollProg;
+      const basePos: [number, number, number] = [baseX, baseY, baseZ];
+
+      const T_lambda: [number, number, number] = [
+        r_phi * Math.cos(u),
+        0.0,
+        -r_phi * Math.sin(u),
+      ];
+      const T_phi: [number, number, number] = [
+        -RADIUS * sinLat * Math.sin(u),
+        (RADIUS * cosLat) * (1.0 - unrollProg) + (RADIUS / Math.max(cosLat, 0.05)) * unrollProg,
+        -s * RADIUS * sinLat * (f_cos + s),
+      ];
+      const rawNorm = cross3(T_lambda, T_phi);
+      const normLen = Math.hypot(rawNorm[0], rawNorm[1], rawNorm[2]);
+      const blendNorm: [number, number, number] = [
+        sphereNorm[0] * (1.0 - unrollProg),
+        sphereNorm[1] * (1.0 - unrollProg),
+        sphereNorm[2] * (1.0 - unrollProg) + 1.0 * unrollProg,
+      ];
+      const baseNorm: [number, number, number] = normLen > 0.0001
+        ? normalize3(rawNorm)
+        : normalize3(blendNorm);
+
+      const outwardTension = localStrain * 0.30 * strainDecay * (1.0 - unrollProg);
+      const crackSign = lonRad >= 0.0 ? 1.0 : -1.0;
+      const crackOpen = seamFactor * (1.0 - unrollProg) * smoothstep(0.0, 0.35, tau);
+      const tearX = crackSign * crackOpen * 0.60;
+      const tearZ = -crackOpen * 0.25;
+
+      const flutterWave = Math.sin(distToSeam * 16.0) * Math.sin(24.0 * tau);
+      const flutterDecay = Math.exp(-4.2 * tau);
+      const flutterRamp = smoothstep(0.0, 0.04, tau);
+      const flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20)
+                       * flutterWave * flutterDecay * flutterRamp * fracMult * (1.0 - unrollProg);
+
+      outPos = [
+        basePos[0] + baseNorm[0] * outwardTension + tearX + baseNorm[0] * flutterAmp,
+        basePos[1] + baseNorm[1] * outwardTension + baseNorm[1] * flutterAmp,
+        basePos[2] + baseNorm[2] * outwardTension + tearZ + baseNorm[2] * flutterAmp,
+      ];
+
+      outNormal = unrollProg >= 1.0 ? [0.0, 0.0, 1.0] : baseNorm;
       break;
     }
 
@@ -180,33 +241,43 @@ export function evaluateManifoldCore(
       // ── Mode 3: Fluid Advection & Lamb-Oseen Vortex Wake ──────────
       const rawSin = Math.sin(PI * clampedUnfurl);
       const liquefaction = Math.pow(Math.max(0.0, rawSin), 1.15);
-      const normP = normalize3(pos3D);
+      const pLen = Math.hypot(pos3D[0], pos3D[1], pos3D[2]);
+      const sphereNorm: [number, number, number] = pLen > 0.001 ? normalize3(pos3D) : [0.0, 0.0, 1.0];
       const unElevatedSphere: [number, number, number] = [
-        normP[0] * RADIUS,
-        normP[1] * RADIUS,
-        normP[2] * RADIUS,
+        sphereNorm[0] * RADIUS,
+        sphereNorm[1] * RADIUS,
+        sphereNorm[2] * RADIUS,
       ];
       const basePos: [number, number, number] = [
         unElevatedSphere[0] * (1.0 - ease) + pos2D[0] * ease,
         unElevatedSphere[1] * (1.0 - ease) + pos2D[1] * ease,
         unElevatedSphere[2] * (1.0 - ease) + pos2D[2] * ease,
       ];
-      const naturalVel = computeCurlNoise(basePos, simTime);
 
-      const hitDx = basePos[0] - hitPos[0];
-      const hitDy = basePos[1] - hitPos[1];
-      const hitDz = basePos[2] - hitPos[2];
+      // Orbital swelling ballooning displacement
+      const balloonAmp = RADIUS * 0.50 * rawSin;
+      const swelledBasePos: [number, number, number] = [
+        basePos[0] + sphereNorm[0] * balloonAmp,
+        basePos[1] + sphereNorm[1] * balloonAmp,
+        basePos[2] + sphereNorm[2] * balloonAmp,
+      ];
+
+      const naturalVel = computeCurlNoise(swelledBasePos, simTime);
+
+      const hitDx = swelledBasePos[0] - hitPos[0];
+      const hitDy = swelledBasePos[1] - hitPos[1];
+      const hitDz = swelledBasePos[2] - hitPos[2];
       const hitDist = Math.hypot(hitDx, hitDy, hitDz);
       const coreRadius = 0.85;
       const vortexCirc = (1.0 - Math.exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.05);
 
-      const baseLen = Math.hypot(basePos[0], basePos[1], basePos[2]);
-      const surfaceNormal: [number, number, number] = baseLen > 0.001 ? normalize3(basePos) : [0.0, 0.0, 1.0];
+      const swelledLen = Math.hypot(swelledBasePos[0], swelledBasePos[1], swelledBasePos[2]);
+      const surfaceNormal: [number, number, number] = swelledLen > 0.001 ? normalize3(swelledBasePos) : [0.0, 0.0, 1.0];
 
       const relHit: [number, number, number] = [
-        basePos[0] - hitPos[0] + 0.001,
-        basePos[1] - hitPos[1] + 0.001,
-        basePos[2] - hitPos[2] + 0.001,
+        swelledBasePos[0] - hitPos[0] + 0.001,
+        swelledBasePos[1] - hitPos[1] + 0.001,
+        swelledBasePos[2] - hitPos[2] + 0.001,
       ];
       const vortexCross = cross3(surfaceNormal, relHit);
       const vortexTangent = normalize3(vortexCross);
@@ -225,8 +296,8 @@ export function evaluateManifoldCore(
         velNorm[2] * wakeScale,
       ];
 
-      const wavePhase1 = (basePos[0] * 0.35 + basePos[1] * 0.62 + basePos[2] * 0.42) * 1.35 - simTime * 1.25;
-      const wavePhase2 = (basePos[0] * -0.45 + basePos[1] * 0.30 + basePos[2] * 0.65) * 1.75 - simTime * 0.90;
+      const wavePhase1 = (swelledBasePos[0] * 0.35 + swelledBasePos[1] * 0.62 + swelledBasePos[2] * 0.42) * 1.35 - simTime * 1.25;
+      const wavePhase2 = (swelledBasePos[0] * -0.45 + swelledBasePos[1] * 0.30 + swelledBasePos[2] * 0.65) * 1.75 - simTime * 0.90;
       const silkWave = (Math.sin(wavePhase1) * 0.65 + Math.cos(wavePhase2) * 0.35) * liquefaction * 0.65;
       const silkDrape: [number, number, number] = [
         surfaceNormal[0] * silkWave,
@@ -241,9 +312,9 @@ export function evaluateManifoldCore(
       ];
 
       outPos = [
-        basePos[0] + advectionOffset[0] + surfaceNormal[0] * 0.015,
-        basePos[1] + advectionOffset[1] + surfaceNormal[1] * 0.015,
-        basePos[2] + advectionOffset[2] + surfaceNormal[2] * 0.015,
+        swelledBasePos[0] + advectionOffset[0] + surfaceNormal[0] * 0.015,
+        swelledBasePos[1] + advectionOffset[1] + surfaceNormal[1] * 0.015,
+        swelledBasePos[2] + advectionOffset[2] + surfaceNormal[2] * 0.015,
       ];
 
       const mixedNormBase: [number, number, number] = normalize3([
@@ -252,11 +323,13 @@ export function evaluateManifoldCore(
         unElevatedSphere[2] + silkDrape[2] * 0.5,
       ]);
 
-      outNormal = [
+      const rawNorm: [number, number, number] = [
         mixedNormBase[0] * (1.0 - ease),
         mixedNormBase[1] * (1.0 - ease),
         mixedNormBase[2] * (1.0 - ease) + 1.0 * ease,
       ];
+      const rawLen = Math.hypot(rawNorm[0], rawNorm[1], rawNorm[2]);
+      outNormal = rawLen > 0.001 ? normalize3(rawNorm) : [0.0, 0.0, 1.0];
       break;
     }
 
@@ -269,11 +342,13 @@ export function evaluateManifoldCore(
         pos3D[1] * (1.0 - ease) + pos2D[1] * ease,
         pos3D[2] * (1.0 - ease) + pos2D[2] * ease,
       ];
-      outNormal = [
+      const rawNorm: [number, number, number] = [
         sphereNorm[0] * (1.0 - ease),
         sphereNorm[1] * (1.0 - ease),
         sphereNorm[2] * (1.0 - ease) + 1.0 * ease,
       ];
+      const rawLen = Math.hypot(rawNorm[0], rawNorm[1], rawNorm[2]);
+      outNormal = rawLen > 0.001 ? normalize3(rawNorm) : [0.0, 0.0, 1.0];
       break;
     }
   }
@@ -597,17 +672,18 @@ describe('Challenger Phase 2.3: evaluateManifold Unification Stress Harness', ()
       }
     });
 
-    it('CHALLENGE-2.3-11: Identifies normal collapse to zero vector in Mode 0 at antimeridian equator when alpha=0.5', () => {
+    it('CHALLENGE-2.3-11: Confirms normal collapse is eliminated in Mode 0 at antimeridian equator when alpha=0.5', () => {
       // At pos3D = [0, 0, -5.0] (antimeridian equator):
       // sphereNorm = [0, 0, -1]
       // At alpha = 0.5: ease = 0.5
-      // mix([0, 0, -1], [0, 0, 1], 0.5) = [0, 0, 0] (ZERO VECTOR)
+      // Linear mix([0, 0, -1], [0, 0, 1], 0.5) = [0, 0, 0] (COLLAPSE AVOIDED via fallback to [0, 0, 1])
       const antimeridianPos: [number, number, number] = [0.0, 0.0, -RADIUS];
       const resMode0 = evaluateManifoldCore(antimeridianPos, [PI * RADIUS, 0.0], 0.5, 0);
       const lenMode0 = Math.hypot(resMode0.normal[0], resMode0.normal[1], resMode0.normal[2]);
 
-      // Document this exact empirical behavior: normal collapses to 0.0 at the antimeridian equator at alpha=0.5
-      expect(lenMode0).toBeCloseTo(0.0, 4);
+      // Confirms normal length is strictly unit normalized (>= 0.99) and equals [0, 0, 1]
+      expect(lenMode0).toBeGreaterThanOrEqual(0.99);
+      expect(resMode0.normal).toEqual([0.0, 0.0, 1.0]);
     });
   });
 

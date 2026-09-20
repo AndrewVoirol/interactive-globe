@@ -41,6 +41,8 @@ export function useEngineState() {
   const [playDirection, setPlayDirection] = useState<1 | -1>(1);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [isZenMode, setIsZenMode] = useState<boolean>(false);
+  const playbackClockRef = useRef<number>(0);
+  const wasPlayingRef = useRef<boolean>(false);
 
   // Live Simulation Parameters & GPU Profiler Telemetry
   const [fractureIntensity, setFractureIntensity] = useState<number>(1.0);
@@ -182,39 +184,85 @@ export function useEngineState() {
     });
   }, []);
 
-  // Auto-morph loop: decoupled continuous accumulator + throttled UI state sync
+  // Auto-morph loop: decoupled continuous accumulator + UI-level quintic smootherstep easing
   useEffect(() => {
     if (!isPlaying) {
+      wasPlayingRef.current = false;
       if (typeof window !== 'undefined') {
         (window as any).__INDICATRIX_ANIM_ALPHA__ = undefined;
       }
       return;
     }
+
+    // Invert current alpha so playback starts seamlessly from the current slider position
+    const invertQuintic = (target: number): number => {
+      if (target <= 0.0) return 0.0;
+      if (target >= 1.0) return 1.0;
+
+      // Cubic initial guess near flat boundaries where S_5'(t) -> 0
+      let t = target;
+      if (target <= 0.05) {
+        t = Math.cbrt(target / 10.0);
+      } else if (target >= 0.95) {
+        t = 1.0 - Math.cbrt((1.0 - target) / 10.0);
+      }
+
+      for (let i = 0; i < 4; i++) {
+        const t2 = t * t;
+        const t3 = t2 * t;
+        const oneMinusT = 1.0 - t;
+        const f = t3 * (t * (t * 6.0 - 15.0) + 10.0) - target;
+        const df = 30.0 * t2 * oneMinusT * oneMinusT;
+        const d2f = 60.0 * t * oneMinusT * (1.0 - 2.0 * t);
+        const denom = 2.0 * df * df - f * d2f;
+        if (Math.abs(denom) < 1e-12) break;
+        const step = (2.0 * f * df) / denom;
+        t = Math.max(0.0, Math.min(1.0, t - step));
+      }
+      return t;
+    };
+
+    const evaluateEase = (t: number): number => {
+      const c = Math.max(0.0, Math.min(1.0, t));
+      return c * c * c * (c * (c * 6.0 - 15.0) + 10.0);
+    };
+
+    if (!wasPlayingRef.current) {
+      wasPlayingRef.current = true;
+      playbackClockRef.current = invertQuintic(alpha);
+      if (playbackClockRef.current >= 1.0 && playDirection > 0) {
+        setPlayDirection(-1);
+      } else if (playbackClockRef.current <= 0.0 && playDirection < 0) {
+        setPlayDirection(1);
+      }
+    }
+
     let animId: number;
     let lastT = performance.now();
     let lastUiSync = performance.now();
-    let curAlpha = alpha;
 
     const tick = (now: number) => {
       const dt = (now - lastT) * 0.001;
       lastT = now;
       const step = dt * 0.20 * playbackSpeed * playDirection;
-      curAlpha += step;
-      if (curAlpha >= 1.0) {
-        curAlpha = 1.0;
+      playbackClockRef.current += step;
+      if (playbackClockRef.current >= 1.0) {
+        playbackClockRef.current = 1.0;
         setPlayDirection(-1);
-      } else if (curAlpha <= 0.0) {
-        curAlpha = 0.0;
+      } else if (playbackClockRef.current <= 0.0) {
+        playbackClockRef.current = 0.0;
         setPlayDirection(1);
       }
 
+      const easedAlpha = evaluateEase(playbackClockRef.current);
+
       if (typeof window !== 'undefined') {
-        (window as any).__INDICATRIX_ANIM_ALPHA__ = curAlpha;
+        (window as any).__INDICATRIX_ANIM_ALPHA__ = easedAlpha;
       }
 
       // Throttled UI state sync at 20 Hz (every 50ms) to eliminate 120 Hz React Virtual DOM diff storms
       if (now - lastUiSync >= 50) {
-        setAlpha(curAlpha);
+        setAlpha(easedAlpha);
         lastUiSync = now;
       }
 
@@ -226,7 +274,10 @@ export function useEngineState() {
       if (typeof window !== 'undefined') {
         (window as any).__INDICATRIX_ANIM_ALPHA__ = undefined;
       }
-      setAlpha(curAlpha);
+      // Guard against overwriting manual drag value on unmount
+      if (typeof window === 'undefined' || (window as any).__INDICATRIX_SCRUB_ALPHA__ === undefined) {
+        setAlpha(evaluateEase(playbackClockRef.current));
+      }
     };
   }, [isPlaying, playDirection, playbackSpeed]);
 
