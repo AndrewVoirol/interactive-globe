@@ -85,7 +85,7 @@ export function evaluateManifoldCore(
 
   switch (mode) {
     case 1: {
-      // ── Mode 1: Authentic 2-Stage Developable Scroll Unfurl (§3) ──
+      // ── Mode 1: Continuous Involute Cylindrical Scroll Unfurl (§3) ──
       const lonRad = (Math.abs(mercator2D[0]) > 0.00001 || Math.abs(mercator2D[1]) > 0.00001)
         ? mercator2D[0] / RADIUS
         : Math.atan2(pos3D[0], pos3D[2]);
@@ -95,45 +95,35 @@ export function evaluateManifoldCore(
       const pLen = Math.hypot(pos3D[0], pos3D[1], pos3D[2]);
       const sphereNorm: [number, number, number] = pLen > 0.001 ? normalize3(pos3D) : [0.0, 0.0, 1.0];
 
-      if (ease <= 0.35) {
-        // Stage 1: Sphere to Developable Cylinder (K = 1/R^2 -> 0)
-        const t1 = smoothstep(0.0, 0.35, ease);
-        const r_phi = (1.0 - t1) * (RADIUS * cosLat) + t1 * RADIUS;
-        const curY = (1.0 - t1 * 0.5) * pos3D[1] + (t1 * 0.5) * mercator2D[1];
-        const curX = r_phi * Math.sin(lonRad);
-        const curZ = r_phi * Math.cos(lonRad);
-        outPos = [curX, curY, curZ];
+      const s = 1.0 - smoothstep(0.0, 1.0, ease);
+      const u = s * lonRad;
+      const rPhi = (1.0 - smoothstep(0.0, 0.60, ease)) * (RADIUS * cosLat) + smoothstep(0.0, 0.60, ease) * RADIUS;
 
-        const cylNorm: [number, number, number] = [Math.sin(lonRad), 0.0, Math.cos(lonRad)];
-        outNormal = normalize3([
-          (1.0 - t1) * sphereNorm[0] + t1 * cylNorm[0],
-          (1.0 - t1) * sphereNorm[1] + t1 * cylNorm[1],
-          (1.0 - t1) * sphereNorm[2] + t1 * cylNorm[2],
-        ]);
+      let curX: number;
+      let curZ: number;
+
+      if (Math.abs(u) > 0.02) {
+        const sDiv = Math.max(0.0001, s);
+        curX = rPhi * (Math.sin(u) / sDiv);
+        curZ = rPhi * ((Math.cos(u) - 1.0) / sDiv + s);
       } else {
-        // Stage 2: Cylinder Unrolling onto Drafting Table
-        const t2 = smoothstep(0.35, 1.0, ease);
-        const s = 1.0 - t2;
-        const u = s * lonRad;
-        let curX: number;
-        let curZ: number;
-
-        if (Math.abs(u) > 0.02) {
-          curX = RADIUS * (Math.sin(u) / s);
-          curZ = RADIUS * ((Math.cos(u) - 1.0) / s) + RADIUS * s;
-        } else {
-          const u2 = u * u;
-          curX = RADIUS * lonRad * (1.0 - u2 / 6.0);
-          curZ = -s * RADIUS * (lonRad * lonRad) * (0.5 - u2 / 24.0) + RADIUS * s;
-        }
-        const yStage1 = pos3D[1] * 0.5 + mercator2D[1] * 0.5;
-        const curY = (1.0 - t2) * yStage1 + t2 * mercator2D[1];
-        outPos = [curX, curY, curZ];
-
-        const rawNorm: [number, number, number] = [Math.sin(u), 0.0, Math.cos(u)];
-        const rawLen = Math.hypot(rawNorm[0], rawNorm[1], rawNorm[2]);
-        outNormal = rawLen > 0.0001 ? normalize3(rawNorm) : [0.0, 0.0, 1.0];
+        const u2 = u * u;
+        curX = rPhi * lonRad * (1.0 - u2 / 6.0);
+        curZ = -s * rPhi * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPhi * s;
       }
+
+      const curY = (1.0 - ease) * pos3D[1] + ease * mercator2D[1];
+      outPos = [curX, curY, curZ];
+
+      const cylNorm: [number, number, number] = [Math.sin(u), 0.0, Math.cos(u)];
+      const rawCylLen = Math.hypot(cylNorm[0], cylNorm[1], cylNorm[2]);
+      const normCyl: [number, number, number] = rawCylLen > 0.0001 ? normalize3(cylNorm) : [0.0, 0.0, 1.0];
+      const rawNorm: [number, number, number] = [
+        (1.0 - ease) * sphereNorm[0] + ease * normCyl[0],
+        (1.0 - ease) * sphereNorm[1] + ease * normCyl[1],
+        (1.0 - ease) * sphereNorm[2] + ease * normCyl[2],
+      ];
+      outNormal = normalize3(rawNorm);
       break;
     }
 
@@ -153,8 +143,8 @@ export function evaluateManifoldCore(
       const fSeam = 1.0 - smoothstep(0.0, 0.70, dRift);
       const crackSign = lonRad >= lambdaRift ? 1.0 : -1.0;
 
-      // Eastward surface tangent vector on sphere
-      const tEast = normalize3([sphereNorm[2], 0.0, -sphereNorm[0]]);
+      const tEastRaw: [number, number, number] = [sphereNorm[2], 0.0, -sphereNorm[0]];
+      const tEast = normalize3(tEastRaw);
 
       const fracMult = hitPos[3] > 0.01 ? hitPos[3] : 1.0;
       const hitDist = Math.hypot(pos3D[0] - hitPos[0], pos3D[1] - hitPos[1], pos3D[2] - hitPos[2]);
@@ -211,10 +201,11 @@ export function evaluateManifoldCore(
     }
 
     case 3: {
-      // ── Mode 3: Hydrodynamic Fluid Relaxation & Suspended Silk Sheet (§5) ──
+      // ── Mode 3: Hydrodynamic Fluid Relaxation & Viscous Streamline Shear (§5) ──
       const pLen = Math.hypot(pos3D[0], pos3D[1], pos3D[2]);
       const sphereNorm: [number, number, number] = pLen > 0.001 ? normalize3(pos3D) : [0.0, 0.0, 1.0];
       const rawSin = Math.sin(PI * clampedUnfurl);
+      const liquefaction = rawSin * (1.0 - 0.35 * ease);
       const volumePreserve = RADIUS * 0.50 * rawSin;
       const basePos: [number, number, number] = [
         (1.0 - ease) * pos3D[0] + ease * pos2D[0] + sphereNorm[0] * volumePreserve,
@@ -222,14 +213,15 @@ export function evaluateManifoldCore(
         (1.0 - ease) * pos3D[2] + ease * pos2D[2] + sphereNorm[2] * volumePreserve,
       ];
 
-      // Low-frequency suspended silk sheet traveling harmonics
-      const phi1 = 0.45 * basePos[0] + 0.60 * basePos[1] - 1.2 * simTime;
-      const phi2 = -0.50 * basePos[0] + 0.35 * basePos[1] - 0.8 * simTime;
-      const capillaryDecay = 1.0 - smoothstep(0.85, 1.0, ease);
-      const zSilk = (0.35 * Math.sin(phi1) + 0.20 * Math.cos(phi2)) * rawSin * capillaryDecay;
-
       const baseLen = Math.hypot(basePos[0], basePos[1], basePos[2]) || 1.0;
       const surfaceNormal: [number, number, number] = [basePos[0] / baseLen, basePos[1] / baseLen, basePos[2] / baseLen];
+
+      // 3-Octave dispersion-coupled gravity-capillary surface waves
+      const phi1 = 0.45 * basePos[0] + 0.60 * basePos[1] - 1.2 * simTime;
+      const phi2 = -0.55 * basePos[0] + 0.35 * basePos[1] - 0.9 * simTime;
+      const phi3 = 0.70 * basePos[0] - 0.50 * basePos[1] - 1.6 * simTime;
+      const capillaryDecay = 1.0 - smoothstep(0.85, 1.0, ease);
+      const zCapillary = (0.22 * Math.sin(phi1) + 0.14 * Math.cos(phi2) + 0.08 * Math.sin(phi3)) * liquefaction * capillaryDecay;
 
       const rawNorm: [number, number, number] = [
         surfaceNormal[0] * (1.0 - ease),
@@ -262,16 +254,16 @@ export function evaluateManifoldCore(
       }
 
       outPos = [
-        basePos[0] + surfaceNormal[0] * zSilk + cursorOffset[0],
-        basePos[1] + surfaceNormal[1] * zSilk + cursorOffset[1],
-        basePos[2] + surfaceNormal[2] * zSilk + cursorOffset[2],
+        basePos[0] + surfaceNormal[0] * zCapillary + cursorOffset[0],
+        basePos[1] + surfaceNormal[1] * zCapillary + cursorOffset[1],
+        basePos[2] + surfaceNormal[2] * zCapillary + cursorOffset[2],
       ];
       outNormal = normManifold;
       break;
     }
 
     default: {
-      // ── Mode 0: Polar-Convergent Geodesic Unfolding (§2) ──
+      // ── Mode 0: Polar-Convergent Geodesic Unfolding with Boundary Petal Curl (§2) ──
       const lonRad = (Math.abs(mercator2D[0]) > 0.00001 || Math.abs(mercator2D[1]) > 0.00001)
         ? mercator2D[0] / RADIUS
         : Math.atan2(pos3D[0], pos3D[2]);
@@ -287,10 +279,22 @@ export function evaluateManifoldCore(
       const sphereNorm: [number, number, number] = pLen > 0.001 ? normalize3(pos3D) : [0.0, 0.0, 1.0];
 
       const chordLift = RADIUS * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
+      const baseX = (1.0 - ease) * pos3D[0] + ease * pos2DEff[0] + sphereNorm[0] * chordLift;
+      const baseY = (1.0 - ease) * pos3D[1] + ease * pos2DEff[1] + sphereNorm[1] * chordLift;
+      const baseZ = (1.0 - ease) * pos3D[2] + ease * pos2DEff[2] + sphereNorm[2] * chordLift;
+
+      // Boundary Petal Curl & Margin Flap Flare on antimeridian flaps (|lon| -> PI)
+      const lonNorm = Math.abs(lonRad) / PI;
+      const fBoundary = lonNorm * lonNorm;
+      const rawSin = Math.sin(PI * ease);
+      const flareSign = lonRad >= 0.0 ? 1.0 : -1.0;
+      const deltaXFlare = flareSign * RADIUS * fBoundary * lonNorm * rawSin * 0.18;
+      const deltaZCurl = -RADIUS * fBoundary * rawSin * (1.0 - 0.5 * ease) * 0.22;
+
       outPos = [
-        (1.0 - ease) * pos3D[0] + ease * pos2DEff[0] + sphereNorm[0] * chordLift,
-        (1.0 - ease) * pos3D[1] + ease * pos2DEff[1] + sphereNorm[1] * chordLift,
-        (1.0 - ease) * pos3D[2] + ease * pos2DEff[2] + sphereNorm[2] * chordLift,
+        baseX + deltaXFlare,
+        baseY,
+        baseZ + deltaZCurl,
       ];
 
       const rawNorm: [number, number, number] = [
@@ -369,15 +373,15 @@ describe('Challenger Phase 2.3: evaluateManifold Unification Stress Harness', ()
       }
     });
 
-    it('CHALLENGE-2.3-02: verifies Mode 1 2-stage developable scroll unfurl from cylinder to flat sheet', () => {
-      // Stage 1 (alpha in [0, 0.35]): sphere to developable cylinder of radius 5.0
-      // Stage 2 (alpha in [0.35, 1.0]): cylinder unrolls to flat sheet
+    it('CHALLENGE-2.3-02: verifies Mode 1 continuous involute developable scroll unfurl from cylinder to flat sheet', () => {
+      // Continuous involute unroll: sphere to developable cylinder unrolling to flat sheet
       const equator0 = geoCoords(0, 0);
       const res0 = evaluateManifoldCore(equator0.pos3D, equator0.mercator2D, 0.0, 1);
       expect(res0.pos[2]).toBeCloseTo(5.0, 2);
 
-      const resStage1 = evaluateManifoldCore(equator0.pos3D, equator0.mercator2D, 0.35, 1);
-      expect(resStage1.pos[2]).toBeCloseTo(5.0, 2);
+      const resMid = evaluateManifoldCore(equator0.pos3D, equator0.mercator2D, 0.35, 1);
+      expect(resMid.pos[2]).toBeLessThan(5.0);
+      expect(resMid.pos[2]).toBeGreaterThan(2.0);
 
       const resFlat = evaluateManifoldCore(equator0.pos3D, equator0.mercator2D, 1.0, 1);
       // At alpha=1.0, flat sheet, curZ = 0.0

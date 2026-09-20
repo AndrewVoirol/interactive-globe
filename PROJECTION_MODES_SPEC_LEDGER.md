@@ -12,24 +12,24 @@ The physical relief must never be squashed into a 2D planar decal mid-flight.
 
 ---
 
-## §2: Mode 0 — Polar-Convergent Geodesic Unfolding (The Optical Illusion)
-**Target**: `src/webgpu/shaders/manifold.wgsl` (`case 0u:`)
+## §2: Mode 0 — Polar-Convergent Geodesic Unfolding with Boundary Petal Curl
+**Target**: `src/webgpu/shaders/manifold.wgsl` (`default:`)
 
 ### 2.1 Problem Solved
-Eliminates the gaping circular hole at the North and South Poles caused by Cartesian lerp $\text{mix}(\mathbf{p}_{3D}, \mathbf{p}_{2D}, \alpha)$.
+Eliminates the gaping circular hole at the North and South Poles while delivering an archival boundary flap curl and petal flare instead of flat interior chord sliding.
 
 ### 2.2 Mathematical Formulation
-- At latitude $\phi \in [-\pi/2, \pi/2]$ and longitude $\lambda \in [-\pi, \pi]$:
-  - In 3D: $\mathbf{p}_{3D} = (R\cos\phi\sin\lambda, R\sin\phi, R\cos\phi\cos\lambda)$.
-  - In 2D Mercator: $\mathbf{p}_{2D} = (\lambda R, Y_{\text{merc}}(\phi), 0)$.
 - Effective longitude dilation:
   $$\lambda_{\text{eff}}(\lambda, \phi, \alpha) = \lambda \cdot \left(\cos\phi + (1.0 - \cos\phi) \cdot S_3(\alpha)\right)$$
   where $S_3(\alpha) = 3\alpha^2 - 2\alpha^3$.
 - Radial elevation preservation (prevents interior chord deflation):
   $$\mathbf{n}_{\text{sphere}} = \frac{\mathbf{p}_{3D}}{|\mathbf{p}_{3D}|}$$
-  $$\mathbf{p}_{\text{unfurl}} = \text{mix}(\mathbf{p}_{3D}, \mathbf{p}_{2D}, \alpha) + \mathbf{n}_{\text{sphere}} \cdot R \cdot (1.0 - \alpha) \cdot \sin(\pi \alpha) \cdot 0.28$$
-- Normal vector:
-  $$\mathbf{n}_{\text{manifold}} = \text{normalize}\left(\text{mix}(\mathbf{n}_{\text{sphere}}, (0, 0, 1), \alpha)\right)$$
+  $$\mathbf{p}_{\text{base}} = \text{mix}(\mathbf{p}_{3D}, \mathbf{p}_{2D}(\lambda_{\text{eff}}), \alpha) + \mathbf{n}_{\text{sphere}} \cdot R \cdot (1.0 - \alpha) \cdot \sin(\pi \alpha) \cdot 0.28$$
+- Boundary Petal Curl and Flap Flare (margins $|\lambda| \to \pi$):
+  $$f_{\text{boundary}} = \left(\frac{|\lambda|}{\pi}\right)^2$$
+  $$\Delta x_{\text{flare}} = \text{sign}(\lambda) \cdot R \cdot f_{\text{boundary}} \cdot \frac{|\lambda|}{\pi} \cdot \sin(\pi \alpha) \cdot 0.18$$
+  $$\Delta z_{\text{curl}} = -R \cdot f_{\text{boundary}} \cdot \sin(\pi \alpha) \cdot (1.0 - 0.5\alpha) \cdot 0.22$$
+  $$\mathbf{p}_{\text{unfurl}} = \mathbf{p}_{\text{base}} + (\Delta x_{\text{flare}}, 0, \Delta z_{\text{curl}})$$
 
 ### 2.3 Boundary Invariants
 - At $\alpha = 0.0$: $\mathbf{p} = \mathbf{p}_{3D}$, $\mathbf{n} = \mathbf{n}_{\text{sphere}}$ (exact sphere).
@@ -38,27 +38,26 @@ Eliminates the gaping circular hole at the North and South Poles caused by Carte
 
 ---
 
-## §3: Mode 1 — Authentic Developable Scroll Unfurl (Parchment Cylinder)
+## §3: Mode 1 — Continuous Involute Cylindrical Scroll Unfurl ($C^\infty$)
 **Target**: `src/webgpu/shaders/manifold.wgsl` (`case 1u:`)
 
-### 3.1 The Cartographic Truth
-Reverse-engineering a flat rectangular map of dimensions $2\pi R \times 2 Y_{\max}$ rolled without stretching yields an **open cylinder (scroll)** of radius $R$ and height $2 Y_{\max}$. Gauss's *Theorema Egregium* guarantees that a cylinder ($K = 0$) unrolls onto a plane ($K = 0$) isometrically without tearing or distortion.
+### 3.1 Continuous Riemann-Cartan Curvature Relaxation
+Eliminates the artificial 2-stage mode switch and jarring closed-pipe pause. A single continuous involute curvature unroll transforms the sphere into a developable surface and onto the plane in one seamless motion.
 
-### 3.2 Two-Stage Developable Kinematics
-- **Stage 1 ($\alpha \in [0.00, 0.35]$): Sphere to Developable Cylinder ($K = 1/R^2 \to 0$)**
-  - Parameter $t_1 = \text{smoothstep}(0.0, 0.35, \alpha)$.
-  - Meridians straighten vertically. Parallel circles expand from $R\cos\phi$ to full cylinder radius $R$:
-    $$r(\phi, t_1) = \text{mix}(R\cos\phi, R, t_1)$$
-    $$y(\phi, t_1) = \text{mix}(R\sin\phi, Y_{\text{merc}}(\phi), t_1 \cdot 0.5)$$
-  - Top and bottom poles open from points into circular cylinder rims of radius $R$.
-- **Stage 2 ($\alpha \in [0.35, 1.00]$): Cylinder Unrolling onto Drafting Table**
-  - Parameter $t_2 = \text{smoothstep}(0.35, 1.0, \alpha)$.
-  - Cylinder of radius $R$ unrolls circumferentially:
-    $$s = 1.0 - t_2, \quad u = s \cdot \lambda$$
-    $$x = R \cdot \frac{\sin(u)}{s}, \quad z = R \cdot \frac{\cos(u) - 1.0}{s} + R \cdot s$$
-    $$y = \text{mix}(y(\phi, 1.0), Y_{\text{merc}}(\phi), t_2)$$
-- Robust Taylor expansion for $u \to 0$ when $s \to 0$:
-  $$x = R \lambda (1 - u^2/6), \quad z = -s R \lambda^2 (0.5 - u^2/24) + R s$$
+### 3.2 Formulation
+- Relaxation parameters:
+  $$s(\alpha) = \max(0.001, 1.0 - \text{smoothstep}(0.0, 1.0, \alpha)), \quad u = s(\alpha) \cdot \lambda$$
+  $$r_{\phi}(\phi, \alpha) = \text{mix}(R\cos\phi, R, \text{smoothstep}(0.0, 0.60, \alpha))$$
+- Involute cylinder coordinate expansion:
+  For $|u| > 0.02$:
+  $$x = r_{\phi} \cdot \frac{\sin(u)}{s}, \quad z = r_{\phi} \cdot \left(\frac{\cos(u) - 1.0}{s} + s\right)$$
+  For small $|u| \le 0.02$ (Taylor series avoiding division by zero):
+  $$x = r_{\phi} \lambda (1 - u^2/6), \quad z = -s r_{\phi} \lambda^2 (0.5 - u^2/24) + r_{\phi} s$$
+- Latitude flattening:
+  $$y = \text{mix}(\mathbf{p}_{3D}.y, \mathbf{p}_{2D}.y, \alpha)$$
+- Analytical cylinder normal:
+  $$\mathbf{n}_{\text{cyl}} = (\sin(u), 0, \cos(u))$$
+  $$\mathbf{n}_{\text{manifold}} = \text{select}\left(\mathbf{n}_{\text{sphere}}, \text{normalize}(\text{mix}(\mathbf{n}_{\text{cyl}}, (0, 0, 1), \alpha)), |\mathbf{n}_{\text{cyl}}| > 10^{-4}\right)$$
 
 ---
 
@@ -75,7 +74,6 @@ Reverse-engineering a flat rectangular map of dimensions $2\pi R \times 2 Y_{\ma
 - **$\alpha \in [0.00, 0.15]$ (Pre-Rupture Dilatation & Crack Nucleation)**:
   - Globe visibly swells with tensile hoop strain: $\Delta R = 0.06 R \cdot \alpha / 0.15$.
   - The Mid-Atlantic crack visibly opens by $\pm 0.08$ units immediately at $\alpha > 0.01$.
-  - Subterranean mantle luminosity ($I_{\text{mantle}} \propto f_{\text{seam}} \cdot \alpha$) emits from the opening crevasse.
 - **$\alpha \in [0.15, 1.00]$ (Crustal Plate Peeling & Calving)**:
   - Eastern Plate ($\lambda > \lambda_{\text{rift}}$) and Western Plate ($\lambda < \lambda_{\text{rift}}$) rotate outward along rigid hinges.
   - Acoustic micro-fracture shockwaves ripple through the basaltic crust:
@@ -84,22 +82,24 @@ Reverse-engineering a flat rectangular map of dimensions $2\pi R \times 2 Y_{\ma
 
 ---
 
-## §5: Mode 3 — Hydrodynamic Fluid Relaxation & Suspended Silk Sheet
+## §5: Mode 3 — Hydrodynamic Fluid Relaxation & Viscous Streamline Shear
 **Target**: `src/webgpu/shaders/manifold.wgsl` (`case 3u:`)
 
-### 5.1 Elimination of High-Frequency Noise
-- Completely eliminate radial curl noise bump displacement (`balloonAmp * sphereNorm + computeCurlNoise * 1.55`) that creates knobby spherical "marbles".
+### 5.1 Tangent-Projected Solenoidal Shear (Zero Radial Knobs)
+- Completely eliminates radial curl noise displacement that caused spherical "marbles".
+- Projects the solenoidal velocity field strictly onto the 2-manifold surface tangent plane:
+  $$\mathbf{v}_{\text{tangent}} = \mathbf{v}_{\text{curl}} - (\mathbf{v}_{\text{curl}} \cdot \mathbf{n}_{\text{surf}})\,\mathbf{n}_{\text{surf}}$$
+  $$\Delta \mathbf{p}_{\text{shear}} = \mathbf{v}_{\text{tangent}} \cdot [R \cdot 0.16 \cdot \sin(\pi \alpha) (1 - 0.35\alpha)]$$
+  Continents smoothly shear and swirl along fluid streamlines with zero perpendicular bunching.
 
-### 5.2 Kinematics
-- **Phase 1 ($\alpha \in [0.00, 0.35]$): Viscous Laminar Liquefaction**
-  - Smooth low-frequency surface tension flow. Manifold retains continuous volume while softening edges.
-- **Phase 2 ($\alpha \in [0.35, 0.85]$): Suspended Silk Sheet Draping**
-  - The manifold billows like a weightless silk sheet suspended in fluid.
-  - Governed by two low-frequency traveling harmonics:
-    $$\Phi_1 = 0.45 x + 0.60 y - 1.2 t_{\text{sim}}, \quad \Phi_2 = -0.50 x + 0.35 y - 0.8 t_{\text{sim}}$$
-    $$Z_{\text{silk}} = (0.35 \sin\Phi_1 + 0.20 \cos\Phi_2) \cdot \sin(\pi \alpha)$$
-- **Phase 3 ($\alpha \in [0.85, 1.00]$): Planar Capillary Tension**
-  - Billowing waves decay smoothly to zero as capillary tension pulls the sheet flush to $Z = 0$ on the drafting table.
+### 5.2 3-Octave Dispersion-Coupled Gravity-Capillary Surface Waves
+- Traveling harmonic wave packets along $\mathbf{n}_{\text{surf}}$:
+  $$\Phi_1 = 0.45 x + 0.60 y - 1.2 t_{\text{sim}}$$
+  $$\Phi_2 = -0.55 x + 0.35 y - 0.9 t_{\text{sim}}$$
+  $$\Phi_3 = 0.70 x - 0.50 y - 1.6 t_{\text{sim}}$$
+  $$z_{\text{capillary}} = (0.22 \sin\Phi_1 + 0.14 \cos\Phi_2 + 0.08 \sin\Phi_3) \cdot \sin(\pi \alpha) \cdot (1 - \text{smoothstep}(0.85, 1.0, \alpha))$$
+- Final fluid manifold position:
+  $$\mathbf{p}_{\text{fluid}} = \mathbf{p}_{\text{base}} + \Delta \mathbf{p}_{\text{shear}} + \mathbf{n}_{\text{surf}} \cdot z_{\text{capillary}} + \text{cursorOffset}$$
 
 ---
 

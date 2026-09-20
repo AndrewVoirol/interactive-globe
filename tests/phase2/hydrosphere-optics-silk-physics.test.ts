@@ -144,9 +144,9 @@ describe('Hydrosphere Optics & Solenoidal Silk Physics Verification', () => {
 
     it('PHYS-02: verifies silk drape wave dynamics formulation in Mode 3', () => {
       expect(manifoldWGSL).toContain('let phi1 = 0.45 * basePos.x + 0.60 * basePos.y - 1.2 * simTime;');
-      expect(manifoldWGSL).toContain('let phi2 = -0.50 * basePos.x + 0.35 * basePos.y - 0.8 * simTime;');
-      expect(manifoldWGSL).toContain('let zSilk = (0.35 * sin(phi1) + 0.20 * cos(phi2)) * rawSin * capillaryDecay;');
-      expect(manifoldWGSL).toContain('out.pos = basePos + surfaceNormal * zSilk');
+      expect(manifoldWGSL).toContain('let phi2 = -0.55 * basePos.x + 0.35 * basePos.y - 0.9 * simTime;');
+      expect(manifoldWGSL).toContain('let phi3 = 0.70 * basePos.x - 0.50 * basePos.y - 1.6 * simTime;');
+      expect(manifoldWGSL).toContain('out.pos = basePos + fluidShear + surfaceNormal * zCapillary');
     });
 
     it('PHYS-03: verifies liquefaction curve produces zero displacement at boundaries and peak billow at alpha = 0.5', () => {

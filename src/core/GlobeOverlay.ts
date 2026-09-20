@@ -202,41 +202,32 @@ export function evaluatePointMorph(
   const ease = clampedAlpha;
 
   if (mode === 1) {
-    // Mode 1: Authentic 2-Stage Developable Scroll Unfurl (§3)
+    // Mode 1: Continuous Involute Cylindrical Scroll Unfurl (§3)
     const lambda = (lon * PI) / 180;
     const phi = (Math.max(-MAX_LAT, Math.min(MAX_LAT, lat)) * PI) / 180;
     const cosLat = Math.cos(phi);
-    const sinLon = Math.sin(lambda);
-    const cosLon = Math.cos(lambda);
 
-    if (ease <= 0.35) {
-      const t1 = ease / 0.35;
-      const smoothT1 = t1 * t1 * (3.0 - 2.0 * t1);
-      const r_phi = (1.0 - smoothT1) * (RADIUS * cosLat) + smoothT1 * RADIUS;
-      const curY = p3D[1] * (1.0 - smoothT1 * 0.5) + p2D[1] * (smoothT1 * 0.5);
-      const curX = r_phi * sinLon;
-      const curZ = r_phi * cosLon;
-      return [curX, curY, curZ];
+    const smoothstep = (e0: number, e1: number, x: number): number => {
+      const t = Math.max(0.0, Math.min(1.0, (x - e0) / (e1 - e0)));
+      return t * t * (3.0 - 2.0 * t);
+    };
+    const s = 1.0 - smoothstep(0.0, 1.0, ease);
+    const uAngle = s * lambda;
+    const rPhi = (1.0 - smoothstep(0.0, 0.60, ease)) * (RADIUS * cosLat) + smoothstep(0.0, 0.60, ease) * RADIUS;
+    let curX: number;
+    let curZ: number;
+
+    if (Math.abs(uAngle) > 0.02) {
+      const sDiv = Math.max(0.0001, s);
+      curX = rPhi * (Math.sin(uAngle) / sDiv);
+      curZ = rPhi * ((Math.cos(uAngle) - 1.0) / sDiv + s);
     } else {
-      const t2 = (ease - 0.35) / 0.65;
-      const smoothT2 = t2 * t2 * (3.0 - 2.0 * t2);
-      const s = 1.0 - smoothT2;
-      const uAngle = s * lambda;
-      let curX: number;
-      let curZ: number;
-
-      if (Math.abs(uAngle) > 0.02) {
-        curX = RADIUS * (Math.sin(uAngle) / s);
-        curZ = RADIUS * ((Math.cos(uAngle) - 1.0) / s) + RADIUS * s;
-      } else {
-        const u2 = uAngle * uAngle;
-        curX = RADIUS * lambda * (1.0 - u2 / 6.0);
-        curZ = -s * RADIUS * (lambda * lambda) * (0.5 - u2 / 24.0) + RADIUS * s;
-      }
-      const yStage1 = p3D[1] * 0.5 + p2D[1] * 0.5;
-      const curY = yStage1 * (1.0 - smoothT2) + p2D[1] * smoothT2;
-      return [curX, curY, curZ];
+      const u2 = uAngle * uAngle;
+      curX = rPhi * lambda * (1.0 - u2 / 6.0);
+      curZ = -s * rPhi * (lambda * lambda) * (0.5 - u2 / 24.0) + rPhi * s;
     }
+    const curY = p3D[1] * (1.0 - ease) + p2D[1] * ease;
+    return [curX, curY, curZ];
   } else if (mode === 2) {
     // Mode 2: Tectonic Crust Fracture (Mid-Atlantic Ridge Calving, §4)
     const lambda = (lon * PI) / 180;
@@ -297,10 +288,11 @@ export function evaluatePointMorph(
       ];
     }
   } else if (mode === 3) {
-    // Mode 3: Hydrodynamic Fluid Relaxation & Suspended Silk Sheet (§5)
+    // Mode 3: Hydrodynamic Fluid Relaxation & Viscous Streamline Shear (§5)
     const p3DLen = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
     const sphereNorm: [number, number, number] = [p3D[0] / p3DLen, p3D[1] / p3DLen, p3D[2] / p3DLen];
     const rawSin = Math.sin(PI * clampedAlpha);
+    const liquefaction = rawSin * (1.0 - 0.35 * ease);
     const volumePreserve = RADIUS * 0.50 * rawSin;
 
     const basePos: [number, number, number] = [
@@ -309,25 +301,27 @@ export function evaluatePointMorph(
       p3D[2] * (1.0 - ease) + 0.0 + sphereNorm[2] * volumePreserve,
     ];
 
+    // 3-Octave dispersion-coupled gravity-capillary surface waves
     const phi1 = 0.45 * basePos[0] + 0.60 * basePos[1] - 1.2 * time;
-    const phi2 = -0.50 * basePos[0] + 0.35 * basePos[1] - 0.8 * time;
+    const phi2 = -0.55 * basePos[0] + 0.35 * basePos[1] - 0.9 * time;
+    const phi3 = 0.70 * basePos[0] - 0.50 * basePos[1] - 1.6 * time;
     const smoothstep = (e0: number, e1: number, x: number): number => {
       const t = Math.max(0.0, Math.min(1.0, (x - e0) / (e1 - e0)));
       return t * t * (3.0 - 2.0 * t);
     };
     const capillaryDecay = 1.0 - smoothstep(0.85, 1.0, ease);
-    const zSilk = (0.35 * Math.sin(phi1) + 0.20 * Math.cos(phi2)) * rawSin * capillaryDecay;
+    const zCapillary = (0.22 * Math.sin(phi1) + 0.14 * Math.cos(phi2) + 0.08 * Math.sin(phi3)) * liquefaction * capillaryDecay;
 
     const baseLen = Math.hypot(basePos[0], basePos[1], basePos[2]) || 1.0;
     const surfaceNormal: [number, number, number] = [basePos[0] / baseLen, basePos[1] / baseLen, basePos[2] / baseLen];
 
     return [
-      basePos[0] + surfaceNormal[0] * zSilk,
-      basePos[1] + surfaceNormal[1] * zSilk,
-      basePos[2] + surfaceNormal[2] * zSilk,
+      basePos[0] + surfaceNormal[0] * zCapillary,
+      basePos[1] + surfaceNormal[1] * zCapillary,
+      basePos[2] + surfaceNormal[2] * zCapillary,
     ];
   } else {
-    // Mode 0: Polar-Convergent Geodesic Unfolding (§2)
+    // Mode 0: Polar-Convergent Geodesic Unfolding with Boundary Petal Curl (§2)
     const lambda = (lon * PI) / 180;
     const phi = (Math.max(-MAX_LAT, Math.min(MAX_LAT, lat)) * PI) / 180;
     const cosLat = Math.cos(phi);
@@ -340,10 +334,22 @@ export function evaluatePointMorph(
     const sphereNorm: [number, number, number] = [p3D[0] / p3DLen, p3D[1] / p3DLen, p3D[2] / p3DLen];
     const chordLift = RADIUS * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
 
+    const baseX = p3D[0] * (1.0 - ease) + p2DEffX * ease + sphereNorm[0] * chordLift;
+    const baseY = p3D[1] * (1.0 - ease) + p2D[1] * ease + sphereNorm[1] * chordLift;
+    const baseZ = p3D[2] * (1.0 - ease) + 0.0 + sphereNorm[2] * chordLift;
+
+    // Boundary Petal Curl & Margin Flap Flare on antimeridian flaps (|lon| -> PI)
+    const lonNorm = Math.abs(lambda) / PI;
+    const fBoundary = lonNorm * lonNorm;
+    const rawSin = Math.sin(PI * ease);
+    const flareSign = lambda >= 0.0 ? 1.0 : -1.0;
+    const deltaXFlare = flareSign * RADIUS * fBoundary * lonNorm * rawSin * 0.18;
+    const deltaZCurl = -RADIUS * fBoundary * rawSin * (1.0 - 0.5 * ease) * 0.22;
+
     return [
-      p3D[0] * (1.0 - ease) + p2DEffX * ease + sphereNorm[0] * chordLift,
-      p3D[1] * (1.0 - ease) + p2D[1] * ease + sphereNorm[1] * chordLift,
-      p3D[2] * (1.0 - ease) + 0.0 + sphereNorm[2] * chordLift,
+      baseX + deltaXFlare,
+      baseY,
+      baseZ + deltaZCurl,
     ];
   }
 }
