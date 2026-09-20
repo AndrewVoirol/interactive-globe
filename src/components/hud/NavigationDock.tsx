@@ -15,6 +15,8 @@ export interface NavigationDockProps {
   activeDirection?: 'architectural' | 'hybrid' | 'photoreal' | null;
   onSelectRenderStyle?: (style: 'architectural' | 'hybrid' | 'photoreal') => void;
   mode?: SimulationMode;
+  onGlideToMode?: (mode: SimulationMode) => void;
+  onCancelGlide?: () => void;
 }
 
 export const NavigationDock: React.FC<NavigationDockProps> = ({
@@ -30,6 +32,8 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
   activeDirection,
   onSelectRenderStyle,
   mode = 0,
+  onGlideToMode,
+  onCancelGlide,
 }) => {
   const isLight = theme === 1;
 
@@ -47,6 +51,33 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
       >
         {/* Archival Drafting Hairline Divider (Preserves single-border HUD contract) */}
         <div className="hidden h-4 w-px bg-[var(--theme-neatline-border)]/40 shrink-0 z-10" />
+
+        {/* 4-Segment Projection Mode Selector */}
+        <div
+          role="group"
+          aria-label="Projection Mode Selection"
+          className="flex items-center rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] p-0.5 shrink-0 z-10 text-nano font-mono"
+        >
+          {(['Linear', 'Scroll', 'Fracture', 'Fluid'] as const).map((label, idx) => {
+            const isActive = mode === idx;
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => onGlideToMode?.(idx as SimulationMode)}
+                aria-pressed={isActive}
+                title={`Switch to ${label} Mode (${idx + 1})`}
+                className={`tactile-btn px-2 py-0.5 rounded-[1px] transition-all uppercase tracking-wider font-semibold ${
+                  isActive
+                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] shadow-sm'
+                    : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)] hover:bg-[var(--theme-control-hover-bg)]'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
 
         {/* Play/Pause Toggle */}
         <button
@@ -98,6 +129,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
             alpha={alpha}
             onAlphaChange={onAlphaChange}
             onGlideToAlpha={onGlideToAlpha}
+            onCancelGlide={onCancelGlide}
             mode={mode}
             theme={theme}
             isLight={isLight}

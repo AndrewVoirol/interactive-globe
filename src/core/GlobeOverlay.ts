@@ -228,57 +228,125 @@ export function evaluatePointMorph(
       return [curX, curY, curZ];
     }
   } else if (mode === 2) {
-    // Mode 2: Griffith LEFM Fracture
+    // Mode 2: Griffith LEFM Fracture (Cylindrical unroll base + fracture dynamics)
     const t = ease;
     const lambda = (lon * PI) / 180;
     const phi = (Math.max(-MAX_LAT, Math.min(MAX_LAT, lat)) * PI) / 180;
+    const cosLat = Math.cos(phi);
+    const sinLat = Math.sin(phi);
     const distToSeam = PI - Math.abs(lambda);
     const seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
     const tRupture = 0.18;
 
     const hitDist = cursorHitPos ? Math.hypot(p3D[0] - cursorHitPos[0], p3D[1] - cursorHitPos[1], p3D[2] - cursorHitPos[2]) : Infinity;
     const cursorInfluence = cursorActive * Math.exp(-hitDist * hitDist / (2.0 * 0.64));
+    const hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cosLat * cosLat);
 
-    if (t < tRupture) {
-      const strainProgress = t / tRupture;
-      const hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * Math.cos(phi) * Math.cos(phi));
-      const localStrain = seamFactor * strainProgress * Math.max(0.2, Math.cos(phi * 0.85)) + hoopStress;
-      const normLen = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
-      return [
-        p3D[0] + (p3D[0] / normLen) * localStrain * 0.3,
-        p3D[1] + (p3D[1] / normLen) * localStrain * 0.3,
-        p3D[2] + (p3D[2] / normLen) * localStrain * 0.3,
-      ];
+    const tau = Math.max(0.0, ease - tRupture);
+    const strainDecay = Math.exp(-6.0 * tau);
+    const strainProgress = ease < tRupture ? ease / tRupture : 1.0;
+    const localStrain = seamFactor * strainProgress * Math.max(0.2, Math.cos(phi * 0.85)) + hoopStress;
+
+    const unrollProg = ease <= tRupture ? 0.0 : smoothstep(tRupture, 1.0, ease);
+    const s = 1.0 - unrollProg;
+    const r_phi = (1.0 - unrollProg) * (RADIUS * cosLat) + unrollProg * RADIUS;
+    const uAngle = s * lambda;
+
+    let baseX: number;
+    let baseZ: number;
+    let f_cos: number;
+
+    if (Math.abs(uAngle) > 0.02) {
+      baseX = (r_phi / s) * Math.sin(uAngle);
+      f_cos = (Math.cos(uAngle) - 1.0) / s;
+      baseZ = r_phi * f_cos + (r_phi * s);
     } else {
-      const postRuptureT = smoothstep(tRupture, 1.0, t);
-      const peeledX = (1 - postRuptureT) * p3D[0] + postRuptureT * p2D[0];
-      const peeledY = (1 - postRuptureT) * p3D[1] + postRuptureT * p2D[1];
-      const flutterWave = Math.sin(distToSeam * 16.0 - t * 24.0);
-      const flutterDecay = Math.exp(-4.2 * (t - tRupture));
-      const flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay;
-      const flutterZ = (1 - postRuptureT) * p3D[2] + flutterAmp;
-      return [peeledX, peeledY, flutterZ];
+      const u2 = uAngle * uAngle;
+      const u4 = u2 * u2;
+      baseX = r_phi * lambda * (1.0 - u2 / 6.0 + u4 / 120.0);
+      f_cos = -s * (lambda * lambda) * (0.5 - u2 / 24.0 + u4 / 720.0);
+      baseZ = r_phi * f_cos + (r_phi * s);
     }
+    const baseY = p3D[1] * (1.0 - unrollProg) + p2D[1] * unrollProg;
+
+    // Normal estimation matching manifold.wgsl and WebGPUEngine.ts
+    const pLen = Math.hypot(p3D[0], p3D[1], p3D[2]);
+    const sphereNorm: [number, number, number] = pLen > 0.001
+      ? [p3D[0] / pLen, p3D[1] / pLen, p3D[2] / pLen]
+      : [0.0, 0.0, 1.0];
+
+    const T_lambda: [number, number, number] = [r_phi * Math.cos(uAngle), 0.0, -r_phi * Math.sin(uAngle)];
+    const T_phi: [number, number, number] = [
+      -RADIUS * sinLat * Math.sin(uAngle),
+      (RADIUS * cosLat) * (1.0 - unrollProg) + (RADIUS / Math.max(cosLat, 0.05)) * unrollProg,
+      -s * RADIUS * sinLat * (f_cos + s),
+    ];
+    const rawNx = T_lambda[1] * T_phi[2] - T_lambda[2] * T_phi[1];
+    const rawNy = T_lambda[2] * T_phi[0] - T_lambda[0] * T_phi[2];
+    const rawNz = T_lambda[0] * T_phi[1] - T_lambda[1] * T_phi[0];
+    const rawNLen = Math.hypot(rawNx, rawNy, rawNz);
+    const blendNorm: [number, number, number] = [
+      sphereNorm[0] * (1.0 - unrollProg),
+      sphereNorm[1] * (1.0 - unrollProg),
+      sphereNorm[2] * (1.0 - unrollProg) + 1.0 * unrollProg,
+    ];
+    const baseNorm: [number, number, number] = rawNLen > 0.0001
+      ? [rawNx / rawNLen, rawNy / rawNLen, rawNz / rawNLen]
+      : blendNorm;
+
+    // Griffith Fracture Superimposed Dynamics:
+    const outwardTension = localStrain * 0.30 * strainDecay * (1.0 - unrollProg);
+    const crackSign = lambda >= 0.0 ? 1.0 : -1.0;
+    const crackOpen = seamFactor * (1.0 - unrollProg) * smoothstep(0.0, 0.35, tau);
+    const tearX = crackSign * crackOpen * 0.60;
+    const tearZ = -crackOpen * 0.25;
+
+    const flutterWave = Math.sin(distToSeam * 16.0) * Math.sin(24.0 * tau);
+    const flutterDecay = Math.exp(-4.2 * tau);
+    const flutterRamp = smoothstep(0.0, 0.04, tau);
+    const flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay * flutterRamp * (1.0 - unrollProg);
+
+    return [
+      baseX + baseNorm[0] * outwardTension + tearX + baseNorm[0] * flutterAmp,
+      baseY + baseNorm[1] * outwardTension + baseNorm[1] * flutterAmp,
+      baseZ + baseNorm[2] * outwardTension + tearZ + baseNorm[2] * flutterAmp,
+    ];
   } else if (mode === 3) {
-    // Mode 3: Incompressible Fluid Advection
+    // Mode 3: Incompressible Fluid Advection with Orbital Swelling
     const t = ease;
     const rawSin = Math.sin(PI * clampedAlpha);
-    const liquefaction = Math.pow(Math.max(0, rawSin), 1.15);
-    const basePos: [number, number, number] = [
-      (1 - t) * p3D[0] + t * p2D[0],
-      (1 - t) * p3D[1] + t * p2D[1],
-      (1 - t) * p3D[2] + t * 0.0,
+    const liquefaction = Math.pow(Math.max(0.0, rawSin), 1.15);
+    const p3DLen = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
+    const sphereNorm: [number, number, number] = [p3D[0] / p3DLen, p3D[1] / p3DLen, p3D[2] / p3DLen];
+    const unElevatedSphere: [number, number, number] = [
+      sphereNorm[0] * RADIUS,
+      sphereNorm[1] * RADIUS,
+      sphereNorm[2] * RADIUS,
     ];
-    const naturalVelocity = computeCurlNoiseTS(basePos, time);
+    const basePos: [number, number, number] = [
+      (1 - t) * unElevatedSphere[0] + t * p2D[0],
+      (1 - t) * unElevatedSphere[1] + t * p2D[1],
+      (1 - t) * unElevatedSphere[2] + t * 0.0,
+    ];
 
-    const wavePhase1 = (basePos[0] * 0.35 + basePos[1] * 0.62 + basePos[2] * 0.42) * 1.35 - time * 1.25;
-    const wavePhase2 = (-basePos[0] * 0.45 + basePos[1] * 0.30 + basePos[2] * 0.65) * 1.75 - time * 0.90;
-    const silkWave = (Math.sin(wavePhase1) * 0.65 + Math.cos(wavePhase2) * 0.35) * liquefaction * 0.65;
+    // Orbital swelling ballooning displacement
+    const balloonAmp = RADIUS * 0.50 * rawSin;
+    const swelledBasePos: [number, number, number] = [
+      basePos[0] + sphereNorm[0] * balloonAmp,
+      basePos[1] + sphereNorm[1] * balloonAmp,
+      basePos[2] + sphereNorm[2] * balloonAmp,
+    ];
 
-    const baseLen = Math.hypot(basePos[0], basePos[1], basePos[2]) || 1.0;
-    const surfaceNormal: [number, number, number] = baseLen > 0.001
-      ? [basePos[0] / baseLen, basePos[1] / baseLen, basePos[2] / baseLen]
+    const naturalVelocity = computeCurlNoiseTS(swelledBasePos, time);
+
+    const swelledLen = Math.hypot(swelledBasePos[0], swelledBasePos[1], swelledBasePos[2]) || 1.0;
+    const surfaceNormal: [number, number, number] = swelledLen > 0.001
+      ? [swelledBasePos[0] / swelledLen, swelledBasePos[1] / swelledLen, swelledBasePos[2] / swelledLen]
       : [0.0, 0.0, 1.0];
+
+    const wavePhase1 = (swelledBasePos[0] * 0.35 + swelledBasePos[1] * 0.62 + swelledBasePos[2] * 0.42) * 1.35 - time * 1.25;
+    const wavePhase2 = (-swelledBasePos[0] * 0.45 + swelledBasePos[1] * 0.30 + swelledBasePos[2] * 0.65) * 1.75 - time * 0.90;
+    const silkWave = (Math.sin(wavePhase1) * 0.65 + Math.cos(wavePhase2) * 0.35) * liquefaction * 0.65;
 
     const silkDrapeOffset: [number, number, number] = [
       surfaceNormal[0] * silkWave,
@@ -289,9 +357,9 @@ export function evaluatePointMorph(
     let vortexVelocity: [number, number, number] = [0, 0, 0];
     let wakeAdvection: [number, number, number] = [0, 0, 0];
     if (cursorHitPos && cursorVel && cursorActive > 0.001) {
-      const dx = basePos[0] - cursorHitPos[0];
-      const dy = basePos[1] - cursorHitPos[1];
-      const dz = basePos[2] - cursorHitPos[2];
+      const dx = swelledBasePos[0] - cursorHitPos[0];
+      const dy = swelledBasePos[1] - cursorHitPos[1];
+      const dz = swelledBasePos[2] - cursorHitPos[2];
       const hitDist = Math.hypot(dx, dy, dz);
       const coreRadius = 0.85;
       const vortexCirculation = (1.0 - Math.exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.05);
@@ -324,9 +392,9 @@ export function evaluatePointMorph(
     ];
 
     return [
-      basePos[0] + advectionOffset[0],
-      basePos[1] + advectionOffset[1],
-      basePos[2] + advectionOffset[2],
+      swelledBasePos[0] + advectionOffset[0],
+      swelledBasePos[1] + advectionOffset[1],
+      swelledBasePos[2] + advectionOffset[2],
     ];
   } else {
     // Mode 0: Linear Mix

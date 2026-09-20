@@ -11,6 +11,7 @@ export interface CurvatureUnfurlSextantProps {
   alpha: number; // 0.000 (Sphere) to 1.000 (Map)
   onAlphaChange: (val: number) => void;
   onGlideToAlpha?: (target: number) => void;
+  onCancelGlide?: () => void;
   mode?: SimulationMode;
   theme?: 0 | 1 | 2;
   isLight?: boolean;
@@ -53,6 +54,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   alpha,
   onAlphaChange,
   onGlideToAlpha,
+  onCancelGlide,
   mode = 0,
   isLight = false,
   theme = isLight ? 1 : 0,
@@ -62,15 +64,18 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [localAlpha, setLocalAlpha] = useState<number | null>(null);
   const alphaRef = useRef(alpha);
-  alphaRef.current = alpha;
-  const lastSyncRef = useRef(0);
-  const throttleTimerRef = useRef<number | null>(null);
+  if (!isDraggingRef.current) {
+    alphaRef.current = alpha;
+  }
+  const lastSyncRef = useRef(-100);
+  const throttleTimerRef = useRef<any>(null);
 
   useEffect(() => {
     return () => {
       if (throttleTimerRef.current) {
-        cancelAnimationFrame(throttleTimerRef.current);
+        clearTimeout(throttleTimerRef.current);
       }
       if (typeof window !== 'undefined') {
         (window as any).__INDICATRIX_SCRUB_ALPHA__ = undefined;
@@ -108,24 +113,12 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
 
   const updateFromPointer = useCallback(
     (clientX: number, clientY: number) => {
-      const svg = svgRef.current;
       let normX = 0;
-      if (svg && typeof svg.createSVGPoint === 'function' && typeof svg.getScreenCTM === 'function') {
-        const ctm = svg.getScreenCTM();
-        if (ctm) {
-          const pt = svg.createSVGPoint();
-          pt.x = clientX;
-          pt.y = clientY;
-          const svgP = pt.matrixTransform(ctm.inverse());
-          normX = (svgP.x - 15) / 210;
-        } else if (boxRef.current) {
-          const rect = boxRef.current.getBoundingClientRect();
-          const rawFrac = (clientX - rect.left) / (rect.width || 1);
-          normX = (rawFrac - 15 / 240) / (210 / 240);
-        }
-      } else if (boxRef.current) {
+      if (boxRef.current) {
         const rect = boxRef.current.getBoundingClientRect();
-        const rawFrac = (clientX - rect.left) / (rect.width || 1);
+        const w = rect.width || 1;
+        const rawFrac = (clientX - rect.left) / w;
+        // SVG track runs from x = 15 to x = 225 in viewBox="0 0 240 36"
         normX = (rawFrac - 15 / 240) / (210 / 240);
       }
       normX = Math.max(0.0, Math.min(1.0, normX));
@@ -137,31 +130,37 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
       }
 
       alphaRef.current = normX;
+      setLocalAlpha(normX);
 
-      // Throttle React setAlpha(normX) to ~30Hz / rAF to eliminate VDOM diff storms
+      // Throttle React setAlpha(normX) to 20Hz (every 50ms) to eliminate VDOM diff storms
       const now = performance.now();
-      if (now - lastSyncRef.current >= 33) {
+      if (now - lastSyncRef.current >= 50) {
         lastSyncRef.current = now;
         onAlphaChange(normX);
       } else if (!throttleTimerRef.current) {
-        throttleTimerRef.current = requestAnimationFrame(() => {
+        throttleTimerRef.current = setTimeout(() => {
           throttleTimerRef.current = null;
           lastSyncRef.current = performance.now();
           onAlphaChange(alphaRef.current);
-        });
+        }, 50);
       }
     },
     [onAlphaChange]
   );
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    onCancelGlide?.();
     setIsDragging(true);
     isDraggingRef.current = true;
     if (throttleTimerRef.current) {
-      cancelAnimationFrame(throttleTimerRef.current);
+      clearTimeout(throttleTimerRef.current);
       throttleTimerRef.current = null;
     }
-    boxRef.current?.setPointerCapture(e.pointerId);
+    try {
+      boxRef.current?.setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore
+    }
     updateFromPointer(e.clientX, e.clientY);
   };
 
@@ -171,10 +170,12 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    const wasDragging = isDraggingRef.current;
     setIsDragging(false);
     isDraggingRef.current = false;
+    setLocalAlpha(null);
     if (throttleTimerRef.current) {
-      cancelAnimationFrame(throttleTimerRef.current);
+      clearTimeout(throttleTimerRef.current);
       throttleTimerRef.current = null;
     }
     try {
@@ -183,27 +184,34 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
       // Ignore
     }
 
-    // Clear zero-latency scrub channel and commit final value to React state
-    const finalAlpha = alphaRef.current;
+    // Clear zero-latency scrub channel and commit final value to React state immediately
     if (typeof window !== 'undefined') {
       (window as any).__INDICATRIX_SCRUB_ALPHA__ = undefined;
     }
-    onAlphaChange(finalAlpha);
+    if (wasDragging) {
+      onAlphaChange(alphaRef.current);
+    }
   };
 
   // SVG dimensions: 240 x 36
-  const peakY = 6 + alpha * 20;
+  const effectiveAlpha = isDragging && localAlpha !== null ? localAlpha : alpha;
+  const peakY = 6 + effectiveAlpha * 20;
   const pathD = `M 15 26 Q 120 ${peakY} 225 26`;
 
-  const t = Math.max(0, Math.min(1, alpha));
+  const t = Math.max(0, Math.min(1, effectiveAlpha));
   const thumbX = 15 + t * 210;
   const thumbY = (1 - t) * (1 - t) * 26 + 2 * (1 - t) * t * peakY + t * t * 26;
 
+  // Intermediate quadratic Bezier ticks at t1 = 0.30 and t2 = 0.70
+  // y_tick(effectiveAlpha, t) = (1 - t)^2 * 26 + 2(1 - t)t * (6 + 20 * effectiveAlpha) + t^2 * 26
+  // At alpha = 0: 17.6, at alpha = 1: 26.0
+  const tickY = 15.08 + 0.42 * peakY;
+
   const milestones = MILESTONES_BY_MODE[mode] || MILESTONES_BY_MODE[0];
   let currentMilestone = milestones[0];
-  if (alpha >= 0.85) currentMilestone = milestones[3];
-  else if (alpha >= 0.5) currentMilestone = milestones[2];
-  else if (alpha >= 0.15) currentMilestone = milestones[1];
+  if (effectiveAlpha >= 0.98) currentMilestone = milestones[3];
+  else if (effectiveAlpha >= 0.5) currentMilestone = milestones[2];
+  else if (effectiveAlpha >= 0.15) currentMilestone = milestones[1];
 
   return (
     <div className="flex flex-col items-center w-72 sm:w-80 md:w-[350px] select-none">
@@ -217,6 +225,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         aria-valuemax={1}
         aria-valuenow={parseFloat(alpha.toFixed(3))}
         onKeyDown={(e) => {
+          onCancelGlide?.();
           const step = e.shiftKey ? 0.05 : 0.01;
           if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
             e.preventDefault();
@@ -236,6 +245,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        onLostPointerCapture={handlePointerUp}
         onPointerEnter={() => setIsHovered(true)}
         onPointerLeave={() => setIsHovered(false)}
         onDoubleClick={() => onGlideToAlpha?.(alpha < 0.5 ? 1.0 : 0.0)}
@@ -244,7 +254,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
           isHovered ? 'shadow-[0_0_12px_var(--theme-focus-ring)] border-[var(--theme-card-border-hover)]' : ''
         }`}
       >
-        <svg ref={svgRef} className="w-full h-full pointer-events-none" viewBox="0 0 240 36">
+        <svg ref={svgRef} className="w-full h-full pointer-events-none" viewBox="0 0 240 36" preserveAspectRatio="none">
           {/* Radial reference rays */}
           <line x1="120" y1="34" x2="15" y2="10" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
           <line x1="120" y1="34" x2="68" y2="6" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
@@ -253,10 +263,10 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
           <line x1="120" y1="34" x2="225" y2="10" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
 
           {/* Magnetic tick markers */}
-          <circle cx="15" cy="26" r="2" fill={alpha < 0.15 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
-          <circle cx="78" cy="17" r="2" fill={alpha >= 0.15 && alpha < 0.5 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
-          <circle cx="162" cy="17" r="2" fill={alpha >= 0.5 && alpha < 0.85 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
-          <circle cx="225" cy="26" r="2" fill={alpha >= 0.85 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
+          <circle cx="15" cy="26" r="2" fill={effectiveAlpha < 0.15 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
+          <circle cx="78" cy={tickY} r="2" fill={effectiveAlpha >= 0.15 && effectiveAlpha < 0.5 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
+          <circle cx="162" cy={tickY} r="2" fill={effectiveAlpha >= 0.5 && effectiveAlpha < 0.98 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
+          <circle cx="225" cy="26" r="2" fill={effectiveAlpha >= 0.98 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
 
           {/* Curvature Unfurling Arc */}
           <path
@@ -275,7 +285,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
             fill={sextantTokens.thumbFill}
             stroke={sextantTokens.thumbStroke}
             strokeWidth="2"
-            className={`shadow-sm ${isDragging ? '' : 'transition-all duration-150'}`}
+            className="shadow-sm pointer-events-none"
           />
         </svg>
 

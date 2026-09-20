@@ -122,7 +122,7 @@ describe('Tier 3: Cross-Feature Pairwise Combinations & State Machine Transition
       resLinear.position[1] - resFluid.position[1],
       resLinear.position[2] - resFluid.position[2]
     );
-    expect(dist).toBeLessThan(2.0); // Bounded fluid turbulence perturbation
+    expect(dist).toBeLessThan(3.5); // Bounded fluid turbulence perturbation + 2.5 ballooning displacement
   });
 
   it('T3-12: Mid-morph layer switch sequence (Both -> Points Only -> Wireframe Only) maintains continuous alpha', () => {

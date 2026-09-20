@@ -829,15 +829,16 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const lat = 90 - (curPhi * 180) / Math.PI;
         const lon = (curTheta * 180) / Math.PI;
         activeCoordsRef.current = { lat, lon };
+        const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
         const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
-        const curUnfurl = animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0);
+        const curUnfurl = scrubAlpha !== undefined ? scrubAlpha : (animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0));
         if (target) {
           targetRef.current.set(target[0], target[1], target[2]);
         } else if (curUnfurl < 0.01) {
           targetRef.current.set(0, 0, 0);
         } else {
           const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
-          const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+          const ease = clampedUnfurl;
           const curMode = stateRef.current?.mode ?? 0;
           const deformed = evaluatePointMorph(lon, lat, curUnfurl, curMode, 0, 0.0);
           const sinPhi = Math.sin(curPhi);
@@ -849,7 +850,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           const dirZ = sinPhi * cosTheta;
           const dirLen = Math.hypot(dirX, dirY, dirZ);
           const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
-          const standoff = 5.0 * (1.0 - ease);
+          const standoff = 5.0 * (1.0 - clampedUnfurl);
           targetRef.current.set(
             deformed[0] - standoff * (dirX * invLen),
             deformed[1] - standoff * (dirY * invLen),
@@ -872,15 +873,16 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         activeCoordsRef.current = { lat: latDeg, lon: lonDeg };
         const phi = ((90 - latDeg) * Math.PI) / 180;
         const theta = (lonDeg * Math.PI) / 180;
+        const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
         const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
-        const curUnfurl = animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0);
+        const curUnfurl = scrubAlpha !== undefined ? scrubAlpha : (animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0));
         if (target) {
           targetRef.current.set(target[0], target[1], target[2]);
         } else if (curUnfurl < 0.01) {
           targetRef.current.set(0, 0, 0);
         } else {
           const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
-          const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+          const ease = clampedUnfurl;
           const curMode = stateRef.current?.mode ?? 0;
           const deformed = evaluatePointMorph(lonDeg, latDeg, curUnfurl, curMode, 0, 0.0);
           const sinPhi = Math.sin(phi);
@@ -892,7 +894,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           const dirZ = sinPhi * cosTheta;
           const dirLen = Math.hypot(dirX, dirY, dirZ);
           const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
-          const standoff = 5.0 * (1.0 - ease);
+          const standoff = 5.0 * (1.0 - clampedUnfurl);
           targetRef.current.set(
             deformed[0] - standoff * (dirX * invLen),
             deformed[1] - standoff * (dirY * invLen),
@@ -923,14 +925,15 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const h_floor = getGroundClearanceFloor(lonDeg, latDeg);
         const safeRadius = Math.max(h_floor, Math.min(zoomRadius, 30.0));
 
+        const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
         const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
-        const curUnfurl = animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0);
+        const curUnfurl = scrubAlpha !== undefined ? scrubAlpha : (animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0));
         let endTarget = new Vector3(0, 0, 0);
         let endPos = new Vector3(safeRadius * sinPhi * sinTheta, safeRadius * cosPhi, safeRadius * sinPhi * cosTheta);
 
         if (curUnfurl >= 0.01) {
           const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
-          const ease = clampedUnfurl * clampedUnfurl * (3.0 - 2.0 * clampedUnfurl);
+          const ease = clampedUnfurl;
           const curMode = stateRef.current?.mode ?? 0;
           const deformed = evaluatePointMorph(lonDeg, latDeg, curUnfurl, curMode, 0, 0.0);
           const dirX = sinPhi * sinTheta;
@@ -938,7 +941,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           const dirZ = sinPhi * cosTheta;
           const dirLen = Math.hypot(dirX, dirY, dirZ);
           const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
-          const standoff = 5.0 * (1.0 - ease);
+          const standoff = 5.0 * (1.0 - clampedUnfurl);
           endTarget = new Vector3(
             deformed[0] - standoff * (dirX * invLen),
             deformed[1] - standoff * (dirY * invLen),
@@ -1895,8 +1898,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         velocityRef.current.velTheta = dTheta;
         velocityRef.current.velPhi = dPhi;
 
+        const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
         const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
-        const curUnfurl = animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0);
+        const curUnfurl = scrubAlpha !== undefined ? scrubAlpha : (animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0));
 
         if (curUnfurl < 0.01) {
           let lon = (sphericalRef.current.theta * 180) / Math.PI;
@@ -1916,8 +1920,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         velocityRef.current.velPanX = dPanX;
         velocityRef.current.velPanY = dPanY;
 
+        const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
         const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
-        const curUnfurl = animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0);
+        const curUnfurl = scrubAlpha !== undefined ? scrubAlpha : (animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0));
         if (curUnfurl >= 0.01) {
           let lon = (targetRef.current.x / 5.0) * (180 / Math.PI);
           lon = ((((lon + 180) % 360) + 360) % 360) - 180;
@@ -1958,8 +1963,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       const camera = cameraRef.current;
       if (!canvas || !camera) return;
 
+      const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
       const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
-      const curUnfurl = animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0);
+      const curUnfurl = scrubAlpha !== undefined ? scrubAlpha : (animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0));
 
       // Smooth inertial zoom impulse (decay factor 0.05)
       const zoomImpulse = e.deltaY * 0.015;
@@ -2486,7 +2492,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
           if (isUnfurlAnimating && !isPanning) {
             const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
-            const ease = clampedUnfurl * clampedUnfurl * clampedUnfurl * (clampedUnfurl * (clampedUnfurl * 6.0 - 15.0) + 10.0);
+            const ease = clampedUnfurl;
             const targetBlend = clampedUnfurl <= 0.0 ? 0.0 : (clampedUnfurl >= 0.05 ? 1.0 : (clampedUnfurl / 0.05) * (clampedUnfurl / 0.05) * (3.0 - 2.0 * (clampedUnfurl / 0.05)));
 
             if (targetBlend <= 0.0) {
@@ -2510,7 +2516,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
               const dirZ = sinPhi * cosTheta;
               const dirLen = Math.hypot(dirX, dirY, dirZ);
               const invLen = dirLen > 1e-6 ? 1.0 / dirLen : 1.0;
-              const standoff = 5.0 * (1.0 - ease);
+              const standoff = 5.0 * (1.0 - clampedUnfurl);
 
               const fullTargetX = deformed[0] - standoff * (dirX * invLen);
               const fullTargetY = deformed[1] - standoff * (dirY * invLen);

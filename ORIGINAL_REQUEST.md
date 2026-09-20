@@ -1867,3 +1867,67 @@ All visual verification must be performed using the Chrome DevTools MCP with the
 - [ ] Mode 3 visually billows or swells outward like floating silk during the transition rather than linearly collapsing.
 </USER_REQUEST>
 
+
+
+## 2026-09-20T14:46:49Z
+
+This is a single self-contained fix; keep it small and focused. Implement tactile precision, coordinate alignment, magnetic detents, and mode glide transitions for the Curvature Unfurl Sextant and Navigation Dock.
+
+Working directory: /Users/andrewvoirol/Antigravity/Projects/ais-interactive-globe-to-map
+Integrity mode: development
+
+## Requirements
+
+### R1. Arc-Geometry to Pointer-Domain Alignment
+- Target: src/components/hud/instruments/CurvatureUnfurlSextant.tsx
+- In `updateFromPointer`, calibrate pointer `clientX` relative to the actual visual bounds of the SVG arc path (`M 15 26 ... 225 26` across `viewBox="0 0 240 36"`):
+  * Active arc span: `leftMargin = rect.width * (15 / 240)`, `arcWidth = rect.width * (210 / 240)`.
+  * Map `normX = Math.max(0.0, Math.min(1.0, (clientX - (rect.left + leftMargin)) / arcWidth))`.
+  * Verify that clicking directly on the left tick marker ($x = 15$) registers $lpha = 0.000$, and clicking on the right tick marker ($x = 225$) registers $lpha = 1.000$.
+  * Update velocity calculation in `handlePointerMove` to use `arcWidth` rather than raw `rect.width`.
+
+### R2. Touch Action & Mobile Pointer Drag Integrity
+- Target: src/components/hud/instruments/CurvatureUnfurlSextant.tsx
+- Add `touch-none` (`touch-action: none`) to the slider container div.
+- Ensure pointer capture (`setPointerCapture` / `releasePointerCapture`) persists across window boundary excursions and touch gestures without causing scroll contention.
+
+### R3. Magnetic Milestone Detents with Velocity Breakaway
+- Target: src/components/hud/instruments/CurvatureUnfurlSextant.tsx
+- Implement magnetic detent snapping around milestone thresholds:
+  * Milestone positions: [0.000, 0.300, 0.700, 1.000].
+  * Snapping radius: $|lpha - 	ext{milestone}| \le 0.015$.
+  * Velocity breakaway: When `Math.abs(velocityRef.current) > 0.0004` (normalized units/ms), bypass detent snapping so fast drags pass smoothly through intermediate ticks.
+  * When drag velocity falls below breakaway or pointer stops within the radius, snap `activeAlpha` directly to the milestone value.
+
+### R4. Smooth Projection Mode Transition Auto-Glide
+- Target: src/App.tsx, src/components/hud/NavigationDock.tsx
+- When a user changes projection mode via NavigationDock while $lpha > 0.05$:
+  * Prevent single-frame vertex pops by initiating an auto-glide sequence:
+    1. Smoothly glide $lpha$ to $0.00$ (Globe) over 250ms using cubic ease-in.
+    2. Switch `mode` uniform at $lpha = 0.00$ (where all 4 topologies are mathematically identical spheres).
+    3. Smoothly restore $lpha$ to the prior value over 350ms using cubic ease-out.
+  * Allow clicking the active mode pill to trigger a no-op.
+  * If the user interacts with the sextant slider during an in-flight mode glide, cancel the glide immediately and bind directly to the user's manual pointer coordinates.
+
+### R5. ARIA Telemetry & Accessibility Navigation
+- Target: src/components/hud/instruments/CurvatureUnfurlSextant.tsx
+- Add `aria-valuetext={`${(activeAlpha * 100).toFixed(0)}% — ${currentMilestone.label}: ${currentMilestone.sub}`}` to the slider element.
+- Add `PageDown` / `PageUp` keyboard handlers to advance or regress to adjacent milestone thresholds.
+- Add numeric key handlers (`1`, `2`, `3`, `4`) to jump directly to milestones $0.000$, $0.300$, $0.700$, and $1.000$ respectively.
+
+## Acceptance Criteria
+
+### Precision & Geometry Checks
+- [ ] Clicking at $x = 	ext{rect.left} + 	ext{rect.width} 	imes (15/240)$ sets $lpha = 0.000$ (within $\pm 0.001$).
+- [ ] Clicking at $x = 	ext{rect.left} + 	ext{rect.width} 	imes (225/240)$ sets $lpha = 1.000$ (within $\pm 0.001$).
+- [ ] Slider container contains `touch-none` class.
+- [ ] Slow pointer drag within $[0.285, 0.315]$ snaps to exactly $0.300$; high-speed drag passes through without snapping.
+- [ ] Switching projection modes at $lpha = 0.50$ glides to $0.00$, switches mode, and returns to $0.50$ without visual vertex popping.
+- [ ] Slider element exposes `aria-valuetext` reflecting milestone label.
+- [ ] Pressing `PageUp` / `PageDown` steps between milestone values.
+
+### Automated Test Verification
+- [ ] Targeted tests pass: `npx vitest run tests/hud/CurvatureUnfurlSextant.test.tsx tests/unit/hud/NavigationDock.test.tsx`
+- [ ] Full test suite passes: `npx vitest run` (3,367+ tests, 0 regressions).
+- [ ] WGSL uniform control flow audit: `npm run lint:wgsl` (0 errors).
+- [ ] TypeScript check: `npx tsc --noEmit` (0 errors).

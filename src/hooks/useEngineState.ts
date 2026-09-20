@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { isWebGPUSupported } from '../webgpu/support';
 import { ThemeManager, ThemePalette, ThemeMode, ArchivalMediumId } from '../core/themes';
 
@@ -281,6 +281,145 @@ export function useEngineState() {
     };
   }, [isPlaying, playDirection, playbackSpeed]);
 
+  // Centralized glide kinematics & mode coordination (R4)
+  const glideAnimRef = useRef<number | null>(null);
+  const alphaRef = useRef(alpha);
+  alphaRef.current = alpha;
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+
+  const cancelGlide = useCallback(() => {
+    if (glideAnimRef.current !== null) {
+      cancelAnimationFrame(glideAnimRef.current);
+      glideAnimRef.current = null;
+    }
+    if (typeof window !== 'undefined') {
+      (window as any).__INDICATRIX_SCRUB_ALPHA__ = undefined;
+    }
+  }, []);
+
+  const glideToAlpha = useCallback((targetAlpha: number, duration: number = 650) => {
+    cancelGlide();
+    setIsPlaying(false);
+    const startAlpha = alphaRef.current;
+    const clampedTarget = Math.max(0.0, Math.min(1.0, targetAlpha));
+    if (Math.abs(startAlpha - clampedTarget) < 0.0001) return;
+    const startTime = performance.now();
+    let lastUiSync = startTime;
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1.0, elapsed / duration);
+      // Quintic smootherstep easing
+      const ease = progress * progress * progress * (progress * (progress * 6.0 - 15.0) + 10.0);
+      const cur = startAlpha + (clampedTarget - startAlpha) * ease;
+      alphaRef.current = cur;
+      if (typeof window !== 'undefined') {
+        (window as any).__INDICATRIX_SCRUB_ALPHA__ = cur;
+      }
+      // Throttled UI state sync at 20Hz (every 50ms) to eliminate VDOM diff storms
+      if (now - lastUiSync >= 50) {
+        setAlpha(cur);
+        lastUiSync = now;
+      }
+      if (progress < 1.0) {
+        glideAnimRef.current = requestAnimationFrame(animate);
+      } else {
+        glideAnimRef.current = null;
+        if (typeof window !== 'undefined') {
+          (window as any).__INDICATRIX_SCRUB_ALPHA__ = undefined;
+        }
+        alphaRef.current = clampedTarget;
+        setAlpha(clampedTarget);
+      }
+    };
+    glideAnimRef.current = requestAnimationFrame(animate);
+  }, [cancelGlide]);
+
+  const glideToMode = useCallback((targetMode: SimulationMode) => {
+    if (modeRef.current === targetMode) return;
+    cancelGlide();
+    setIsPlaying(false);
+
+    if (alphaRef.current < 0.01) {
+      modeRef.current = targetMode;
+      setMode(targetMode);
+      return;
+    }
+
+    const startAlpha = alphaRef.current;
+    const startTime = performance.now();
+    let lastUiSync = startTime;
+    let switchedMode = false;
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      if (elapsed < 250) {
+        // Phase 1: 250ms cubic ease-in to alpha = 0.00
+        const p = Math.min(1.0, elapsed / 250);
+        const easeIn = p * p * p;
+        const curAlpha = Math.max(0.0, startAlpha * (1.0 - easeIn));
+        alphaRef.current = curAlpha;
+        if (typeof window !== 'undefined') {
+          (window as any).__INDICATRIX_SCRUB_ALPHA__ = curAlpha;
+        }
+        if (now - lastUiSync >= 50) {
+          setAlpha(curAlpha);
+          lastUiSync = now;
+        }
+        glideAnimRef.current = requestAnimationFrame(animate);
+      } else if (elapsed < 600) {
+        // Singularity point: uniform switch
+        if (!switchedMode) {
+          modeRef.current = targetMode;
+          setMode(targetMode);
+          switchedMode = true;
+        }
+        // Phase 2: 350ms cubic ease-out restore to startAlpha
+        const p = Math.min(1.0, (elapsed - 250) / 350);
+        const q = 1.0 - p;
+        const easeOut = 1.0 - q * q * q;
+        const curAlpha = Math.min(1.0, startAlpha * easeOut);
+        alphaRef.current = curAlpha;
+        if (typeof window !== 'undefined') {
+          (window as any).__INDICATRIX_SCRUB_ALPHA__ = curAlpha;
+        }
+        if (now - lastUiSync >= 50) {
+          setAlpha(curAlpha);
+          lastUiSync = now;
+        }
+        glideAnimRef.current = requestAnimationFrame(animate);
+      } else {
+        if (!switchedMode) {
+          modeRef.current = targetMode;
+          setMode(targetMode);
+        }
+        glideAnimRef.current = null;
+        if (typeof window !== 'undefined') {
+          (window as any).__INDICATRIX_SCRUB_ALPHA__ = undefined;
+        }
+        alphaRef.current = startAlpha;
+        setAlpha(startAlpha);
+      }
+    };
+    glideAnimRef.current = requestAnimationFrame(animate);
+  }, [cancelGlide]);
+
+  useEffect(() => {
+    if (isPlaying) {
+      cancelGlide();
+    }
+  }, [isPlaying, cancelGlide]);
+
+  useEffect(() => {
+    return () => {
+      if (glideAnimRef.current !== null) {
+        cancelAnimationFrame(glideAnimRef.current);
+        glideAnimRef.current = null;
+      }
+    };
+  }, []);
+
   return {
     backend, setBackend,
     theme, setTheme,
@@ -318,6 +457,9 @@ export function useEngineState() {
     cloudOpacity, setCloudOpacity,
     setCloudOptions,
     cdlodDiagnosticMode, setCdlodDiagnosticMode,
+    glideToAlpha,
+    glideToMode,
+    cancelGlide,
   };
 }
 

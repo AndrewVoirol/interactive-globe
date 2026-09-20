@@ -51,6 +51,9 @@ export default function App() {
     hasWebGPU,
     alpha, setAlpha,
     mode, setMode,
+    glideToAlpha,
+    glideToMode,
+    cancelGlide,
     layerMode, setLayerMode,
     cursorPhysicsEnabled, setCursorPhysicsEnabled,
     resolution, setResolution,
@@ -453,47 +456,19 @@ export default function App() {
     registerDevToolsAPI(engineState);
   }, [engineState]);
 
-  const alphaRef = useRef(alpha);
-  alphaRef.current = alpha;
-
-  const glideToAlpha = useCallback((targetAlpha: number) => {
-    setIsPlaying(false);
-    const startAlpha = alphaRef.current;
-    if (Math.abs(startAlpha - targetAlpha) < 0.0001) return;
-    const startTime = performance.now();
-    const duration = 650;
-
-    const animate = (now: number) => {
-      const elapsed = now - startTime;
-      const progress = Math.min(1.0, elapsed / duration);
-      // Quintic smootherstep easing
-      const ease = progress * progress * progress * (progress * (progress * 6 - 15) + 10);
-      const cur = startAlpha + (targetAlpha - startAlpha) * ease;
-      if (typeof window !== 'undefined') {
-        (window as any).__INDICATRIX_SCRUB_ALPHA__ = cur;
-      }
-      setAlpha(cur);
-      if (progress < 1.0) {
-        requestAnimationFrame(animate);
-      } else {
-        if (typeof window !== 'undefined') {
-          (window as any).__INDICATRIX_SCRUB_ALPHA__ = undefined;
-        }
-      }
-    };
-    requestAnimationFrame(animate);
-  }, []);
-
-  // Global Keyboard Shortcuts
+  // Global Keyboard Shortcuts (Centralized Glide Coordination)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.code === 'Space') {
         e.preventDefault();
+        cancelGlide();
         setIsPlaying((p) => !p);
       } else if (e.key === 'g' || e.key === 'G') {
+        cancelGlide();
         glideToAlpha(0.0);
       } else if (e.key === 'm' || e.key === 'M') {
+        cancelGlide();
         glideToAlpha(1.0);
       } else if (e.key === 'h' || e.key === 'H') {
         setIsZenMode((z) => !z);
@@ -512,22 +487,34 @@ export default function App() {
         handleSelectRenderStyleWithVectorAuto('hybrid');
       } else if (e.key === '9') {
         handleSelectRenderStyleWithVectorAuto('photoreal');
-      } else if (e.key === '1') setMode(0);
-      else if (e.key === '2') setMode(1);
-      else if (e.key === '3') setMode(2);
-      else if (e.key === '4') setMode(3);
+      } else if (e.key === '1') {
+        cancelGlide();
+        glideToMode(0);
+      } else if (e.key === '2') {
+        cancelGlide();
+        glideToMode(1);
+      } else if (e.key === '3') {
+        cancelGlide();
+        glideToMode(2);
+      } else if (e.key === '4') {
+        cancelGlide();
+        glideToMode(3);
+      } else if (e.key === '5') {
+        cancelGlide();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
     activeDirection,
+    cancelGlide,
     glideToAlpha,
+    glideToMode,
     handleSelectRenderStyleWithVectorAuto,
     hasWebGPU,
     setBackend,
     setIsPlaying,
     setIsZenMode,
-    setMode,
     setShowVectors,
     setTheme,
     toggleDemoMode,
@@ -845,15 +832,21 @@ export default function App() {
         <NavigationDock
           isZenMode={isZenMode}
           isPlaying={isPlaying}
-          onTogglePlay={() => setIsPlaying((p) => !p)}
+          onTogglePlay={() => {
+            cancelGlide();
+            setIsPlaying((p) => !p);
+          }}
           playbackSpeed={playbackSpeed}
           onToggleSpeed={() => setPlaybackSpeed((s) => (s === 0.5 ? 1.0 : s === 1.0 ? 2.0 : 0.5))}
           alpha={alpha}
           onAlphaChange={(val) => {
+            cancelGlide();
             setIsPlaying(false);
             setAlpha(val);
           }}
           onGlideToAlpha={glideToAlpha}
+          onGlideToMode={glideToMode}
+          onCancelGlide={cancelGlide}
           theme={theme}
           mode={mode}
         />
