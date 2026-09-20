@@ -69,14 +69,8 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   if (!isDraggingRef.current) {
     alphaRef.current = alpha;
   }
-  const lastSyncRef = useRef(-100);
-  const throttleTimerRef = useRef<any>(null);
-
   useEffect(() => {
     return () => {
-      if (throttleTimerRef.current) {
-        clearTimeout(throttleTimerRef.current);
-      }
       if (typeof window !== 'undefined') {
         (window as any).__INDICATRIX_SCRUB_ALPHA__ = undefined;
       }
@@ -131,19 +125,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
 
       alphaRef.current = normX;
       setLocalAlpha(normX);
-
-      // Throttle React setAlpha(normX) to 20Hz (every 50ms) to eliminate VDOM diff storms
-      const now = performance.now();
-      if (now - lastSyncRef.current >= 50) {
-        lastSyncRef.current = now;
-        onAlphaChange(normX);
-      } else if (!throttleTimerRef.current) {
-        throttleTimerRef.current = setTimeout(() => {
-          throttleTimerRef.current = null;
-          lastSyncRef.current = performance.now();
-          onAlphaChange(alphaRef.current);
-        }, 50);
-      }
+      onAlphaChange(normX);
     },
     [onAlphaChange]
   );
@@ -152,10 +134,6 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
     onCancelGlide?.();
     setIsDragging(true);
     isDraggingRef.current = true;
-    if (throttleTimerRef.current) {
-      clearTimeout(throttleTimerRef.current);
-      throttleTimerRef.current = null;
-    }
     try {
       boxRef.current?.setPointerCapture(e.pointerId);
     } catch {
@@ -174,10 +152,6 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
     setIsDragging(false);
     isDraggingRef.current = false;
     setLocalAlpha(null);
-    if (throttleTimerRef.current) {
-      clearTimeout(throttleTimerRef.current);
-      throttleTimerRef.current = null;
-    }
     try {
       boxRef.current?.releasePointerCapture(e.pointerId);
     } catch {

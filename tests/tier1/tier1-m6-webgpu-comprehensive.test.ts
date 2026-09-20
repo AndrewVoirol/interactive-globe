@@ -4,6 +4,7 @@ import { WebGPUEngine, WebGPUInitConfig, WebGPUFrameParams } from '../../src/web
 import { MockGPUDevice, createMockNavigatorGPU } from '../helpers/webgpu-mock';
 
 import physicsSimWGSL from '../../src/webgpu/shaders/physics_sim.wgsl?raw';
+import manifoldWGSL from '../../src/webgpu/shaders/manifold.wgsl?raw';
 import pointsRenderWGSL from '../../src/webgpu/shaders/points_render.wgsl?raw';
 import linesRenderWGSL from '../../src/webgpu/shaders/lines_render.wgsl?raw';
 
@@ -27,21 +28,23 @@ describe('Milestone M6: Comprehensive WebGPU WGSL Compute & Render Pipeline Test
       expect(physicsSimWGSL).toContain('struct SimUniforms');
     });
 
-    it('M6-T03: verifies physics_sim.wgsl covers all 5 morphing paradigms', () => {
-      // Mode 0: Linear manifold mix (unified with manifold.wgsl)
-      expect(physicsSimWGSL).toContain('mix(pos3D, pos2D, ease)');
-      // Mode 1: Cylindrical scroll
+    it('M6-T03: verifies physics_sim.wgsl and manifold.wgsl cover all morphing paradigms', () => {
+      // physics_sim invokes unified evaluateManifoldCore
+      expect(physicsSimWGSL).toContain('evaluateManifoldCore');
       expect(physicsSimWGSL).toContain('sim.u_mode == 1u');
-      expect(physicsSimWGSL).toContain('r_phi');
-      // Mode 2: Griffith LEFM
       expect(physicsSimWGSL).toContain('sim.u_mode == 2u');
-      expect(physicsSimWGSL).toContain('seamFactor');
-      expect(physicsSimWGSL).toContain('hoopStress');
-      // Mode 3: Fluid Flow
       expect(physicsSimWGSL).toContain('sim.u_mode == 3u');
-      expect(physicsSimWGSL).toContain('computeCurlNoise');
-      expect(physicsSimWGSL).toContain('vortexCirculation');
 
+      // Mode 0: Linear geodesic unfolding in manifold.wgsl
+      expect(manifoldWGSL).toContain('lonEff = lonRad * (cosLat + (1.0 - cosLat) * s3)');
+      // Mode 1: Cylindrical scroll
+      expect(manifoldWGSL).toContain('case 1u:');
+      // Mode 2: Griffith LEFM & Tectonic Fracture
+      expect(manifoldWGSL).toContain('case 2u:');
+      expect(manifoldWGSL).toContain('hoopStress');
+      // Mode 3: Fluid Flow & Curl Noise
+      expect(manifoldWGSL).toContain('case 3u:');
+      expect(physicsSimWGSL).toContain('computeCurlNoise');
     });
   });
 

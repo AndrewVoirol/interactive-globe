@@ -165,9 +165,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
         vec4<f32>(0.0), 0.0, vec4<f32>(0.0)
     );
     let basePos = def.pos;
-    let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(input.position), length(input.position) > 0.001);
-    let flatNorm = vec3<f32>(0.0, 0.0, 1.0);
-    var normal = normalize(mix(sphereNorm, flatNorm, cloud.u_unfurl));
+    var normal = def.normal;
     out.normal = normal;
 
     // Support 3 independent altitude standoffs:

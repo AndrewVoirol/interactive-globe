@@ -72,172 +72,41 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let eNorth = cross(normal, eEast);
     let vTangent = uWind * eEast + vWind * eNorth;
 
-    // Mode 1: Cylindrical Scroll (engine-audit.md §3.6)
+    // Evaluate unified manifold position from manifold.wgsl
+    let deformed = evaluateManifoldCore(
+        pos3D,
+        pos2D.xy,
+        sim.u_unfurl,
+        sim.u_mode,
+        sim.u_time,
+        sim.u_cursorHitPos,
+        sim.u_cursorActive,
+        sim.u_cursorVel
+    );
+    finalPos = deformed.pos;
+
+    let fracMult = select(1.0, sim.u_cursorHitPos.w, sim.u_cursorHitPos.w > 0.01);
+    let vortexMult = select(1.0, sim.u_vortexStrength, sim.u_vortexStrength > 0.01);
+
+    // Mode-specific velocity and metric
     if (sim.u_mode == 1u) {
-        let t = ease;
-        let lambda = select(atan2(pos3D.x, pos3D.z), pos2D.x / RADIUS, abs(pos2D.x) > 0.00001 || abs(pos2D.y) > 0.00001);
-        let phi = asin(clamp(pos3D.y / RADIUS, -0.9998, 0.9998));
-        let oneMinusT = 1.0 - t;
-        let cosLat = cos(phi);
-        let r_phi = mix(RADIUS * cosLat, RADIUS, ease);
-
-        let s = oneMinusT;
-        let u = s * lambda;
-        var curX: f32;
-        var curZ: f32;
-
-        if (abs(u) > 0.02) {
-            curX = (r_phi / s) * sin(u);
-            curZ = (r_phi / s) * (cos(u) - 1.0) + (r_phi * s);
-        } else {
-            let u2 = u * u;
-            let u4 = u2 * u2;
-            let sinTerm = lambda * (1.0 - u2 / 6.0 + u4 / 120.0);
-            let cosTerm = -s * (lambda * lambda) * (0.5 - u2 / 24.0 + u4 / 720.0);
-            curX = r_phi * sinTerm;
-            curZ = r_phi * cosTerm + r_phi * s;
-        }
-        let curY = mix(pos3D.y, pos2D.y, t);
-        finalPos = vec3<f32>(curX, curY, curZ);
         finalVel = vec3<f32>(0.0);
         metric = 0.0;
-    }
-    // Mode 2: Griffith LEFM Fracture + Cursor Hoop Stress Probe
-    else if (sim.u_mode == 2u) {
-        let t = ease;
-        let lambda = select(atan2(pos3D.x, pos3D.z), pos2D.x / RADIUS, abs(pos2D.x) > 0.00001 || abs(pos2D.y) > 0.00001);
-        let phi = asin(clamp(pos3D.y / RADIUS, -0.9998, 0.9998));
-        let cosLat = cos(phi);
-        let sinLat = sin(phi);
-        let distToSeam = PI - abs(lambda);
-        let seamFactor = 1.0 - smoothstep(0.0, 0.85, distToSeam);
-        let tRupture: f32 = 0.18;
-
-        // Passive cursor raycast distance and tensile hoop stress concentration
-        let fracMult = select(1.0, sim.u_cursorHitPos.w, sim.u_cursorHitPos.w > 0.01);
-        let hitDist = length(pos3D - sim.u_cursorHitPos.xyz);
-        let cursorInfluence = sim.u_cursorActive * exp(-hitDist * hitDist / (2.0 * 0.64));
-        let hoopStress = cursorInfluence * 0.45 * fracMult
-                       * (1.0 + 2.0 * cosLat * cosLat);
-
-        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
-
-        // C1 continuous unroll progress starting smoothly at tRupture = 0.18
-        let tau = select(0.0, smoothstep(tRupture, 1.0, ease), ease >= tRupture);
-        let unrollProg = tau;
-        let s = 1.0 - unrollProg;
-        let r_phi = mix(RADIUS * cosLat, RADIUS, unrollProg);
-        let u = s * lambda;
-
-        var baseX: f32;
-        var baseZ: f32;
-        var f_sin: f32;
-        var f_cos: f32;
-
-        if (abs(u) > 0.02) {
-            f_sin = sin(u) / s;
-            f_cos = (cos(u) - 1.0) / s;
-            baseX = r_phi * f_sin;
-            baseZ = r_phi * f_cos + r_phi * s;
-        } else {
-            let u2 = u * u;
-            let u4 = u2 * u2;
-            f_sin = lambda * (1.0 - u2 / 6.0 + u4 / 120.0);
-            f_cos = -s * (lambda * lambda) * (0.5 - u2 / 24.0 + u4 / 720.0);
-            baseX = r_phi * f_sin;
-            baseZ = r_phi * f_cos + r_phi * s;
-        }
-        let baseY = mix(pos3D.y, pos2D.y, unrollProg);
-        let basePos = vec3<f32>(baseX, baseY, baseZ);
-
-        // Tangent frame on unrolling cylindrical manifold
-        let T_lambda = vec3<f32>(
-            r_phi * cos(u),
-            0.0,
-            -r_phi * sin(u)
-        );
-        let T_phi = vec3<f32>(
-            -RADIUS * sinLat * sin(u),
-            mix(RADIUS * cosLat, RADIUS / max(cosLat, 0.05), unrollProg),
-            -s * RADIUS * sinLat * (f_cos + s)
-        );
-        let rawNorm = cross(T_lambda, T_phi);
-        let normLen = length(rawNorm);
-        let baseNorm = select(mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), unrollProg),
-                              normalize(rawNorm),
-                              normLen > 0.0001);
-
-        // Griffith Fracture Superimposed Dynamics:
-        // 1. Stored elastic strain outward displacement (active from alpha = 0.00 along seam flaring)
-        let localStrain = seamFactor * sin(PI * ease) * max(0.2, cos(phi * 0.85)) + hoopStress * (1.0 - ease);
-        let outwardTension = baseNorm * (localStrain * 0.30 * (1.0 - unrollProg));
-
-        // 2. Antimeridian lateral rift separation (crack flanks pull apart continuously with smooth C1 dilation)
-        let crackSign = select(-1.0, 1.0, lambda >= 0.0);
-        let crackOpen = seamFactor * (1.0 - unrollProg) * sin(PI * 0.5 * tau);
-        let tearOffset = vec3<f32>(crackSign * crackOpen * 0.60, 0.0, -crackOpen * 0.25);
-
-        // 3. Normal-aligned flexural flutter waves (smooth C1/C2 continuous acoustic emissions)
-        let flutterWave = sin(distToSeam * 16.0) * sin(8.0 * tau);
-        let flutterDecay = exp(-3.5 * tau);
-        let flutterAmp = (0.45 * seamFactor + cursorInfluence * 0.20)
-                       * flutterWave * flutterDecay * (tau * (1.0 - tau)) * fracMult;
-        let flutterOffset = baseNorm * flutterAmp;
-
-        finalPos = basePos + outwardTension + tearOffset + flutterOffset;
-        let strainMetric = mix(localStrain, 0.0, pow(unrollProg, 1.8));
-        metric = clamp(strainMetric, 0.0, 1.0);
+    } else if (sim.u_mode == 2u) {
+        let lambdaRift: f32 = -0.48869219;
+        let lonRad = select(atan2(pos3D.x, pos3D.z), pos2D.x / RADIUS, abs(pos2D.x) > 0.00001 || abs(pos2D.y) > 0.00001);
+        let dRift = abs(lonRad - lambdaRift);
+        let fSeam = 1.0 - smoothstep(0.0, 0.70, dRift);
+        let localStrain = fSeam * sin(PI * ease) * fracMult;
         finalVel = vec3<f32>(0.0);
-    }
-    // Mode 3: Fluid Flow + Lamb-Oseen Trailing Vortex Wake (Continuous Hermite Formulation)
-    else if (sim.u_mode == 3u) {
+        metric = clamp(localStrain, 0.0, 1.0);
+    } else if (sim.u_mode == 3u) {
         let rawSin = sin(PI * clampedUnfurl);
-        let liquefaction = pow(max(0.0, rawSin), 0.90);
-
-        // Continuous un-elevated spherical projection avoiding interior chord contraction
-        let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
-        let unElevatedSphere = sphereNorm * RADIUS;
-        let basePos = mix(unElevatedSphere, pos2D, ease);
-
-        // Orbital swelling ballooning displacement matching manifold.wgsl
-        let balloonAmp = RADIUS * 0.50 * rawSin;
-        let swelledBasePos = basePos + sphereNorm * balloonAmp;
-
-        let vortexMult = select(1.0, sim.u_vortexStrength, sim.u_vortexStrength > 0.01);
-        let naturalVelocity = computeCurlNoise(swelledBasePos, sim.u_time) * vortexMult;
-
-        // Passive cursor raycast perturbation: Lamb-Oseen trailing rotational wake
-        let hitDist = length(swelledBasePos - sim.u_cursorHitPos.xyz);
-        let coreRadius: f32 = 0.85;
-        let vortexCirculation = (1.0 - exp(-hitDist * hitDist / (coreRadius * coreRadius))) / (hitDist + 0.05);
-
-        let surfaceNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(swelledBasePos), length(swelledBasePos) > 0.001);
-        let vortexTangent = normalize(cross(surfaceNormal, swelledBasePos - sim.u_cursorHitPos.xyz + vec3<f32>(0.001)));
-        let clampedSpeed = clamp(sim.u_cursorVel.w, 0.0, 1.5);
-        let vortexVelocity = vortexTangent * (sim.u_cursorActive * clampedSpeed * vortexCirculation * 0.35);
-        let wakeAdvection = normalize(sim.u_cursorVel.xyz + vec3<f32>(0.0001)) * (clampedSpeed * 0.15 * sim.u_cursorActive * exp(-hitDist * hitDist / 1.5));
-
-        let localVorticity = length(naturalVelocity) * 0.3 + (clampedSpeed * 0.5) * exp(-hitDist / 0.85);
-
-        // Passive wind field advection
         let windAdvection = vTangent * (0.45 * (1.0 - ease));
-        let totalVelocity = naturalVelocity + windAdvection + vortexVelocity + wakeAdvection;
-
-        // Silk drape wave dynamics: smooth traveling normal wave simulating delicate silk billowing in water
-        let wavePhase1 = dot(swelledBasePos, vec3<f32>(0.35, 0.62, 0.42)) * 1.35 - sim.u_time * 1.25;
-        let wavePhase2 = dot(swelledBasePos, vec3<f32>(-0.45, 0.30, 0.65)) * 1.75 - sim.u_time * 0.90;
-        let silkWave = (sin(wavePhase1) * 0.65 + cos(wavePhase2) * 0.35) * liquefaction * 0.65;
-        let silkDrapeOffset = surfaceNormal * silkWave;
-
-        let advectionOffset = (naturalVelocity + windAdvection) * (liquefaction * 1.55) + silkDrapeOffset + (vortexVelocity + wakeAdvection) * (sim.u_cursorActive * 0.25);
-
-        finalPos = swelledBasePos + advectionOffset + surfaceNormal * 0.015;
-        finalVel = totalVelocity;
-        metric = clamp(localVorticity, 0.0, 1.0);
-    }
-    // Mode 0: Linear Manifold Mix (Unified with manifold.wgsl)
-    else {
-        finalPos = mix(pos3D, pos2D, ease);
+        let naturalVel = computeCurlNoise(finalPos, sim.u_time) * vortexMult;
+        finalVel = naturalVel + windAdvection;
+        metric = clamp(length(naturalVel) * 0.3 * rawSin, 0.0, 1.0);
+    } else {
         finalVel = vTangent * 0.01;
         metric = 0.0;
     }

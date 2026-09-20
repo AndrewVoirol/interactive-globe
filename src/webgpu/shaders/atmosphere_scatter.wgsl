@@ -66,9 +66,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
         vec4<f32>(0.0), 0.0, vec4<f32>(0.0)
     );
     let basePos = def.pos;
-    let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(input.position), length(input.position) > 0.001);
-    let flatNorm = vec3<f32>(0.0, 0.0, 1.0);
-    let normal = normalize(mix(sphereNorm, flatNorm, atmosphere.u_unfurl));
+    let normal = def.normal;
     out.normal = normal;
 
     // Atmospheric scattering shell radius (R = 5.080 at base scale 1.0)

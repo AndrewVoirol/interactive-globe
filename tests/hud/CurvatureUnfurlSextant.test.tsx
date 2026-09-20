@@ -89,7 +89,7 @@ describe('CurvatureUnfurlSextant: 120Hz Decoupled Scrubbing & Dynamic Ticks', ()
     expect((window as any).__INDICATRIX_SCRUB_ALPHA__).toBeCloseTo(0.75, 2);
   });
 
-  it('SEXTANT-02: throttles React state emission onAlphaChange to 20Hz (50ms) during active drag', async () => {
+  it('SEXTANT-02: dispatches unthrottled React state emission onAlphaChange immediately during active drag', async () => {
     const onAlphaChange = vi.fn();
 
     await act(async () => {
@@ -118,26 +118,19 @@ describe('CurvatureUnfurlSextant: 120Hz Decoupled Scrubbing & Dynamic Ticks', ()
     // Initial down fires onAlphaChange
     expect(onAlphaChange).toHaveBeenCalledTimes(1);
 
-    // Rapid moves within 50ms should be throttled
+    // Rapid moves within 50ms should emit immediately without 50ms throttle delay
     await act(async () => {
       for (let i = 0; i < 5; i++) {
         const move = new Event('pointermove', { bubbles: true }) as any;
         move.pointerId = 1;
-        move.clientX = 156.4 + i * 10;
+        move.clientX = 156.4 + (i + 1) * 10;
         slider.dispatchEvent(move);
         vi.advanceTimersByTime(5); // Only 5ms per move
       }
     });
 
-    // Still throttled, shouldn't have fired 5 times
-    expect(onAlphaChange.mock.calls.length).toBeLessThan(4);
-
-    // Advance beyond throttle window
-    await act(async () => {
-      vi.advanceTimersByTime(50);
-    });
-
-    expect(onAlphaChange.mock.calls.length).toBeGreaterThanOrEqual(2);
+    // Unthrottled: fired 1 (down) + 5 (moves) = 6 times immediately
+    expect(onAlphaChange).toHaveBeenCalledTimes(6);
   });
 
   it('SEXTANT-03: clears window.__INDICATRIX_SCRUB_ALPHA__ on pointerup, pointercancel, and lostpointercapture', async () => {

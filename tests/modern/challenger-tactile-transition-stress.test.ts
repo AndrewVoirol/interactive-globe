@@ -256,19 +256,19 @@ describe('Mathematical Stress Challenger: Continuous Projection Transition Verif
       const norm0 = norm3(m0_half.pos);
       const norm3Val = norm3(m3_half.pos);
 
-      console.log(`[STRESS-05] At alpha=0.5 (0,0): Mode 0 norm=${norm0.toFixed(3)} (50% collapsed), Mode 3 norm=${norm3Val.toFixed(3)} (preserved/swelled)`);
+      console.log(`[STRESS-05] At alpha=0.5 (0,0): Mode 0 norm=${norm0.toFixed(3)} (chord lift mitigated), Mode 3 norm=${norm3Val.toFixed(3)} (preserved/swelled)`);
 
-      expect(norm0).toBeCloseTo(2.5, 2);
-      // Mode 3 radial preservation: norm is >= 4.40 (delta <= 0.12), whereas Mode 0 is 2.50
+      expect(norm0).toBeCloseTo(3.2, 1);
+      // Mode 3 radial preservation: norm is >= 4.40 (delta <= 0.12), whereas Mode 0 is 3.20
       expect(norm3Val).toBeGreaterThanOrEqual(RADIUS * 0.88);
-      expect(norm3Val - norm0).toBeGreaterThanOrEqual(1.90);
+      expect(norm3Val - norm0).toBeGreaterThanOrEqual(1.80);
     });
 
     it('STRESS-06: verifies Mode 3 outward ballooning ensures ||p|| >= R_0 * (1 - delta) across transition', () => {
       // For all coordinates during the spherical transition regime (alpha in [0.0, 0.50]),
       // Mode 3 outward ballooning ensures that the radial distance from origin never collapses into the core.
       // With delta = 0.15, ||p|| >= R_0 * (1 - 0.15) = 4.25 for all alpha in [0.0, 0.50] at Null Island,
-      // whereas Mode 0 collapses down to 2.50 (delta = 0.50).
+      // whereas Mode 0 collapses down to 3.20 with chord lift (or 2.50 without).
       const nullIsland = geoCoords(0, 0);
       let minNormMode3 = Infinity;
       let minNormMode0 = Infinity;
@@ -292,7 +292,7 @@ describe('Mathematical Stress Challenger: Continuous Projection Transition Verif
 
       console.log(`[STRESS-06] In alpha in [0.0, 0.50]: Mode 3 minNorm=${minNormMode3.toFixed(3)}, Mode 0 minNorm=${minNormMode0.toFixed(3)}`);
       expect(minNormMode3).toBeGreaterThanOrEqual(RADIUS * 0.85);
-      expect(minNormMode0).toBeCloseTo(2.5, 2);
+      expect(minNormMode0).toBeCloseTo(3.2, 1);
     });
 
     it('STRESS-07: verifies ballooning amplitude formula in manifold.wgsl and WebGPUEngine.ts', () => {

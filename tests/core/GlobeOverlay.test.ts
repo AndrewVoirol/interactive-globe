@@ -59,19 +59,18 @@ describe('GlobeOverlay: CPU/GPU Manifold Parity for Fracture and Fluid Modes', (
       }
     });
 
-    it('OVERLAY-03: Mode 2 adheres to tRupture = 0.18 threshold', () => {
-      // For alpha <= 0.18, unrollProg is 0.0
+    it('OVERLAY-03: Mode 2 adheres to tRupture = 0.15 threshold with elastic hoop strain', () => {
+      // For alpha <= 0.15, unrollProg is 0.0, sphere expands under elastic hoop strain
       const ptPre1 = evaluatePointMorph(0.0, 0.0, 0.05, 2, 0.0, 0.0);
-      const ptPre2 = evaluatePointMorph(0.0, 0.0, 0.18, 2, 0.0, 0.0);
+      const ptPre2 = evaluatePointMorph(0.0, 0.0, 0.15, 2, 0.0, 0.0);
 
-      // In pre-rupture on front hemisphere (lon=0, lat=0, distToSeam=PI, seamFactor=0),
-      // there is zero unrolling: baseZ remains at RADIUS (5.0)
-      expect(ptPre1[2]).toBeCloseTo(RADIUS, 2);
-      expect(ptPre2[2]).toBeCloseTo(RADIUS, 2);
+      // In pre-rupture on front hemisphere (lon=0, lat=0), radius expands by 0.06 * RADIUS * (alpha / 0.15)
+      expect(ptPre1[2]).toBeCloseTo(RADIUS + 0.06 * RADIUS * (0.05 / 0.15), 2);
+      expect(ptPre2[2]).toBeCloseTo(RADIUS + 0.06 * RADIUS, 2);
 
-      // For alpha > 0.18, unrollProg > 0, so baseZ decreases
-      const ptPost = evaluatePointMorph(0.0, 0.0, 0.30, 2, 0.0, 0.0);
-      expect(ptPost[2]).toBeLessThan(RADIUS - 0.1);
+      // For alpha > 0.15, unrollProg > 0, so baseZ decreases toward 0
+      const ptPost = evaluatePointMorph(0.0, 0.0, 0.50, 2, 0.0, 0.0);
+      expect(ptPost[2]).toBeLessThan(RADIUS - 0.5);
     });
   });
 

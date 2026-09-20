@@ -241,9 +241,9 @@ describe('Milestone 3: Cloud Shell WGSL Shader & Inking (R1, R4 / F28, F29)', ()
     it('M3-MORPH-01: Displaces along surface normal: p_world = basePos + normal * totalOffset', () => {
       expect(cloudShellWGSL).toContain('let worldP = basePos + normal * totalOffset;');
 
-      // Verify that at alpha=1.0, normal blends toward (0, 0, 1)
-      expect(cloudShellWGSL).toContain('let flatNorm = vec3<f32>(0.0, 0.0, 1.0);');
-      expect(cloudShellWGSL).toContain('mix(sphereNorm, flatNorm, cloud.u_unfurl)');
+      // Verify that normal is derived from unified evaluateManifoldCore
+      expect(cloudShellWGSL).toContain('let def = evaluateManifoldCore(');
+      expect(cloudShellWGSL).toContain('var normal = def.normal;');
 
       // Behavioral validation of normal blending:
       // At u_unfurl = 0.0 (globe): normal = sphereNorm (radial unit vector)
