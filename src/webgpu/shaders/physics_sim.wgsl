@@ -137,11 +137,12 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let fracMult = select(1.0, sim.u_cursorHitPos.w, sim.u_cursorHitPos.w > 0.01);
         let hitDist = length(pos3D - sim.u_cursorHitPos.xyz);
         let cursorInfluence = sim.u_cursorActive * exp(-hitDist * hitDist / (2.0 * 0.64));
-        let hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cos(phi) * cos(phi)) * fracMult;
-
-        let tRupture = 0.18;
+        let baseHoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cos(phi) * cos(phi)) * fracMult;
+        let tRupture = 0.05;
         if (t < tRupture) {
             let strainProgress = t / tRupture;
+            let preRuptureHoop = strainProgress * 0.15 * (1.0 + cos(phi) * cos(phi));
+            let hoopStress = baseHoopStress + preRuptureHoop;
             let localStrain = seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress;
             let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
             let outwardTension = sphereNorm * (localStrain * 0.30);
@@ -160,7 +161,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
             let peeledPos = mix(pos3D, pos2D, postRuptureT);
             finalPos = peeledPos + flutterOffset;
-            let localStrain = mix(seamFactor * (1.0 - postRuptureT) * 0.9 + crackTipGlow + hoopStress, 0.0, pow(postRuptureT, 1.8));
+            let localStrain = mix(seamFactor * (1.0 - postRuptureT) * 0.9 + crackTipGlow + baseHoopStress, 0.0, pow(postRuptureT, 1.8));
             metric = clamp(localStrain, 0.0, 1.0);
         }
         finalVel = vec3<f32>(0.0);

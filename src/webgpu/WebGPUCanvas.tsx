@@ -809,10 +809,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     (window as any).__INDICATRIX_CAMERA__ = {
       setSpherical: (r: number, theta: number, phi: number, target?: [number, number, number]) => {
         cameraRef.current.up.set(0, 1, 0);
+        const curUnfurl = stateRef.current.unfurlProgress ?? 0;
+        const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
+        const standoff = 5.0 * (1.0 - clampedUnfurl);
         if (target) {
           targetRef.current.set(target[0], target[1], target[2]);
         } else {
-          targetRef.current.set(0, 0, 0);
+          targetRef.current.set(0, 0, standoff);
         }
         sphericalRef.current.radius = r;
         sphericalRef.current.theta = theta;
@@ -827,10 +830,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       },
       lookAtCoordinates: (lonDeg: number, latDeg: number, zoomRadius = 15, target?: [number, number, number]) => {
         cameraRef.current.up.set(0, 1, 0);
+        const curUnfurl = stateRef.current.unfurlProgress ?? 0;
+        const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
+        const standoff = 5.0 * (1.0 - clampedUnfurl);
         if (target) {
           targetRef.current.set(target[0], target[1], target[2]);
         } else {
-          targetRef.current.set(0, 0, 0);
+          targetRef.current.set(0, 0, standoff);
         }
         const h_floor = getGroundClearanceFloor(lonDeg, latDeg);
         sphericalRef.current.radius = Math.max(h_floor, Math.min(zoomRadius, 30.0));
@@ -855,9 +861,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const h_floor = getGroundClearanceFloor(lonDeg, latDeg);
         const safeRadius = Math.max(h_floor, Math.min(zoomRadius, 30.0));
 
+        const curUnfurl = stateRef.current.unfurlProgress ?? 0;
+        const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
+        const standoff = 5.0 * (1.0 - clampedUnfurl);
+
         const camX = safeRadius * sinPhi * sinTheta;
         const camY = safeRadius * cosPhi;
-        const camZ = safeRadius * sinPhi * cosTheta;
+        const camZ = safeRadius * sinPhi * cosTheta + standoff;
 
         velocityRef.current.velTheta = 0;
         velocityRef.current.velPhi = 0;
@@ -868,7 +878,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
         if (durationSec <= 0) {
           cameraRef.current.position.set(camX, camY, camZ);
-          targetRef.current.set(0, 0, 0);
+          targetRef.current.set(0, 0, standoff);
           cameraRef.current.up.set(0, 1, 0);
           cameraRef.current.lookAt(targetRef.current);
           cameraRef.current.updateMatrixWorld();
@@ -878,7 +888,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             startPos: cameraRef.current.position.clone(),
             endPos: new Vector3(camX, camY, camZ),
             startTarget: targetRef.current.clone(),
-            endTarget: new Vector3(0, 0, 0),
+            endTarget: new Vector3(0, 0, standoff),
             startUp: cameraRef.current.up.clone(),
             endUp: new Vector3(0, 1, 0),
             startTime: performance.now(),
@@ -2516,6 +2526,18 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                 callbacksRef.current.onResolutionChange?.(targetLod);
               }
             }
+          }
+        }
+
+        // Camera Standoff & Easing Harmonization (Milestone 2):
+        // Linear camera standoff matching manifold surface translation: standoff = 5.0 * (1.0 - clampedUnfurl)
+        // Eliminates the ±0.71 unit camera whiplash
+        const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
+        const standoff = 5.0 * (1.0 - clampedUnfurl);
+        if (!curIsDemoMode && !cameraTransitionRef.current && !targetCameraPosRef.current) {
+          if (Math.abs(targetRef.current.z - standoff) > 1e-5) {
+            targetRef.current.z = standoff;
+            updateCameraTransform();
           }
         }
 

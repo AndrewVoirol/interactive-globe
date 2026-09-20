@@ -446,28 +446,109 @@ export default function App() {
 
   const alphaRef = useRef(alpha);
   alphaRef.current = alpha;
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+
+  const glideRafRef = useRef<number | null>(null);
+  const targetRestoreAlphaRef = useRef<number | null>(null);
+  const inFlightTargetModeRef = useRef<SimulationMode | null>(null);
+
+  const cancelGlide = useCallback(() => {
+    if (glideRafRef.current !== null) {
+      cancelAnimationFrame(glideRafRef.current);
+      glideRafRef.current = null;
+    }
+    targetRestoreAlphaRef.current = null;
+    inFlightTargetModeRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      cancelGlide();
+    };
+  }, [cancelGlide]);
 
   const glideToAlpha = useCallback((targetAlpha: number) => {
     setIsPlaying(false);
+    cancelGlide();
     const startAlpha = alphaRef.current;
     if (Math.abs(startAlpha - targetAlpha) < 0.001) return;
     const startTime = performance.now();
-    const duration = 650;
-
+    const duration = 600;
     const animate = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(1.0, elapsed / duration);
-      const ease = progress < 0.5 
-        ? 4 * progress * progress * progress 
-        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      // Quintic ease out
+      const ease = 1 - Math.pow(1 - progress, 5);
       const cur = startAlpha + (targetAlpha - startAlpha) * ease;
       setAlpha(parseFloat(cur.toFixed(4)));
       if (progress < 1.0) {
-        requestAnimationFrame(animate);
+        glideRafRef.current = requestAnimationFrame(animate);
+      } else {
+        glideRafRef.current = null;
       }
     };
-    requestAnimationFrame(animate);
-  }, []);
+    glideRafRef.current = requestAnimationFrame(animate);
+  }, [cancelGlide]);
+
+  const switchModeWithGlide = useCallback((targetMode: SimulationMode) => {
+    if (targetMode === modeRef.current && inFlightTargetModeRef.current === null) return;
+    if (targetMode === inFlightTargetModeRef.current) return;
+    setIsPlaying(false);
+
+    const restoreAlpha = targetRestoreAlphaRef.current !== null ? targetRestoreAlphaRef.current : alphaRef.current;
+
+    if (glideRafRef.current !== null) {
+      cancelAnimationFrame(glideRafRef.current);
+      glideRafRef.current = null;
+    }
+
+    if (restoreAlpha <= 0.05) {
+      inFlightTargetModeRef.current = null;
+      targetRestoreAlphaRef.current = null;
+      setMode(targetMode);
+      return;
+    }
+
+    inFlightTargetModeRef.current = targetMode;
+    targetRestoreAlphaRef.current = restoreAlpha;
+    const startAlpha = alphaRef.current;
+    const phase1Duration = 250;
+    const phase2Duration = 350;
+    const totalDuration = phase1Duration + phase2Duration;
+    const startTime = performance.now();
+    let modeSwitched = false;
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      if (elapsed < phase1Duration) {
+        const p = Math.min(1.0, Math.max(0.0, elapsed / phase1Duration));
+        const easeIn = p * p * p;
+        const curAlpha = Math.max(0.0, startAlpha * (1.0 - easeIn));
+        setAlpha(parseFloat(curAlpha.toFixed(4)));
+        glideRafRef.current = requestAnimationFrame(animate);
+      } else {
+        if (!modeSwitched) {
+          setAlpha(0.0);
+          setMode(targetMode);
+          modeSwitched = true;
+        }
+        if (elapsed < totalDuration) {
+          const p = Math.min(1.0, Math.max(0.0, (elapsed - phase1Duration) / phase2Duration));
+          const easeOut = 1.0 - Math.pow(1.0 - p, 3);
+          const curAlpha = Math.min(restoreAlpha, restoreAlpha * easeOut);
+          setAlpha(parseFloat(curAlpha.toFixed(4)));
+          glideRafRef.current = requestAnimationFrame(animate);
+        } else {
+          setAlpha(parseFloat(restoreAlpha.toFixed(4)));
+          glideRafRef.current = null;
+          inFlightTargetModeRef.current = null;
+          targetRestoreAlphaRef.current = null;
+        }
+      }
+    };
+    glideRafRef.current = requestAnimationFrame(animate);
+  }, [cancelGlide]);
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -475,6 +556,7 @@ export default function App() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.code === 'Space') {
         e.preventDefault();
+        cancelGlide();
         setIsPlaying((p) => !p);
       } else if (e.key === 'g' || e.key === 'G') {
         glideToAlpha(0.0);
@@ -497,23 +579,24 @@ export default function App() {
         handleSelectRenderStyleWithVectorAuto('hybrid');
       } else if (e.key === '9') {
         handleSelectRenderStyleWithVectorAuto('photoreal');
-      } else if (e.key === '1') setMode(0);
-      else if (e.key === '2') setMode(1);
-      else if (e.key === '3') setMode(2);
-      else if (e.key === '4') setMode(3);
-      else if (e.key === '5') setMode(4);
+      } else if (e.key === '1') switchModeWithGlide(0);
+      else if (e.key === '2') switchModeWithGlide(1);
+      else if (e.key === '3') switchModeWithGlide(2);
+      else if (e.key === '4') switchModeWithGlide(3);
+      else if (e.key === '5') switchModeWithGlide(4);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
     activeDirection,
+    cancelGlide,
     glideToAlpha,
     handleSelectRenderStyleWithVectorAuto,
     hasWebGPU,
     setBackend,
     setIsPlaying,
     setIsZenMode,
-    setMode,
+    switchModeWithGlide,
     setShowVectors,
     setTheme,
     toggleDemoMode,
@@ -833,11 +916,14 @@ export default function App() {
           alpha={alpha}
           onAlphaChange={(val) => {
             setIsPlaying(false);
+            cancelGlide();
             setAlpha(val);
           }}
           onGlideToAlpha={glideToAlpha}
           theme={theme}
           mode={mode}
+          onModeChange={setMode}
+          onSelectMode={setMode}
         />
 
 

@@ -212,14 +212,15 @@ fn evaluateManifold(pos3D_raw: vec3<f32>, target2D: vec2<f32>, dymaxion2D: vec2<
         // Mode 2: Griffith Linear Elastic Fracture Mechanics (LEFM)
         let distToSeam = PI - abs(lambda);
         let seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
-        let tRupture = 0.18;
+        let tRupture = 0.05;
 
         let hitDist = length(pos3D - sim.u_cursorHitPos.xyz);
         let cursorInfluence = sim.u_cursorActive * exp(-hitDist * hitDist / (2.0 * 0.64));
-        let hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cos(phi) * cos(phi));
 
         if (ease < tRupture) {
             let strainProgress = ease / tRupture;
+            let preRuptureHoop = strainProgress * 0.15 * (1.0 + cos(phi) * cos(phi));
+            let hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cos(phi) * cos(phi)) + preRuptureHoop;
             let localStrain = seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress;
             out.pos = pos3D + normalize(pos3D) * (localStrain * 0.30);
             out.normal = normalize(out.pos);

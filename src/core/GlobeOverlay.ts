@@ -246,14 +246,16 @@ export function evaluatePointMorph(
     const phi = (Math.max(-MAX_LAT, Math.min(MAX_LAT, lat)) * PI) / 180;
     const distToSeam = PI - Math.abs(lambda);
     const seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
-    const tRupture = 0.18;
+    const tRupture = 0.05;
 
     const hitDist = cursorHitPos ? Math.hypot(p3D[0] - cursorHitPos[0], p3D[1] - cursorHitPos[1], p3D[2] - cursorHitPos[2]) : Infinity;
     const cursorInfluence = cursorActive * Math.exp(-hitDist * hitDist / (2.0 * 0.64));
 
     if (t < tRupture) {
       const strainProgress = t / tRupture;
-      const hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * Math.cos(phi) * Math.cos(phi));
+      // Pre-rupture hoop stress so visible hemisphere responds immediately to slider
+      const preRuptureHoop = strainProgress * 0.15 * (1.0 + Math.cos(phi) * Math.cos(phi));
+      const hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * Math.cos(phi) * Math.cos(phi)) + preRuptureHoop;
       const localStrain = seamFactor * strainProgress * Math.max(0.2, Math.cos(phi * 0.85)) + hoopStress;
       const normLen = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
       return [
@@ -263,13 +265,31 @@ export function evaluatePointMorph(
       ];
     } else {
       const postRuptureT = smoothstep(tRupture, 1.0, t);
-      const peeledX = (1 - postRuptureT) * p3D[0] + postRuptureT * p2D[0];
-      const peeledY = (1 - postRuptureT) * p3D[1] + postRuptureT * p2D[1];
+      // Align GlobeOverlay.ts base manifold to Cylindrical Unroll
+      const oneMinusT = 1.0 - postRuptureT;
+      let unrollX: number;
+      let unrollY: number;
+      let unrollZ: number;
+
+      if (oneMinusT > 0.001) {
+        const invOneMinusT = 1.0 / oneMinusT;
+        const curAngle = oneMinusT * lambda;
+        unrollX = (RADIUS * invOneMinusT) * Math.sin(curAngle);
+        unrollZ = (RADIUS * Math.cos(phi) * invOneMinusT) * (Math.cos(curAngle) - 1.0) + (RADIUS * Math.cos(phi) * oneMinusT);
+        unrollY = (1.0 - postRuptureT) * p3D[1] + postRuptureT * p2D[1];
+      } else {
+        const u = oneMinusT * lambda;
+        const sinTerm = lambda * (1.0 - (u * u) / 6.0);
+        const cosTerm = oneMinusT * (lambda * lambda) * (-0.5 + (u * u) / 24.0);
+        unrollX = RADIUS * sinTerm;
+        unrollZ = RADIUS * Math.cos(phi) * cosTerm + RADIUS * Math.cos(phi) * oneMinusT;
+        unrollY = (1.0 - postRuptureT) * p3D[1] + postRuptureT * p2D[1];
+      }
+
       const flutterWave = Math.sin(distToSeam * 16.0 - t * 24.0);
       const flutterDecay = Math.exp(-4.2 * (t - tRupture));
       const flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay;
-      const flutterZ = (1 - postRuptureT) * p3D[2] + flutterAmp;
-      return [peeledX, peeledY, flutterZ];
+      return [unrollX, unrollY, unrollZ + flutterAmp];
     }
   } else if (mode === 3) {
     // Mode 3: Incompressible Fluid Advection
@@ -281,16 +301,23 @@ export function evaluatePointMorph(
       (1 - t) * p3D[1] + t * p2D[1],
       (1 - t) * p3D[2] + t * 0.0,
     ];
-    const naturalVelocity = computeCurlNoiseTS(basePos, time);
-
-    const wavePhase1 = (basePos[0] * 0.35 + basePos[1] * 0.62 + basePos[2] * 0.42) * 1.35 - time * 1.25;
-    const wavePhase2 = (-basePos[0] * 0.45 + basePos[1] * 0.30 + basePos[2] * 0.65) * 1.75 - time * 0.90;
-    const silkWave = (Math.sin(wavePhase1) * 0.65 + Math.cos(wavePhase2) * 0.35) * liquefaction * 0.65;
 
     const baseLen = Math.hypot(basePos[0], basePos[1], basePos[2]) || 1.0;
     const surfaceNormal: [number, number, number] = baseLen > 0.001
       ? [basePos[0] / baseLen, basePos[1] / baseLen, basePos[2] / baseLen]
       : [0.0, 0.0, 1.0];
+
+    // Ballooning fluid shell (+2.5 units at mid-unfurl) so camera target stays focused and overlay soundings do not drown
+    const balloonAmp = rawSin * 2.5;
+    basePos[0] += surfaceNormal[0] * balloonAmp;
+    basePos[1] += surfaceNormal[1] * balloonAmp;
+    basePos[2] += surfaceNormal[2] * balloonAmp;
+
+    const naturalVelocity = computeCurlNoiseTS(basePos, time);
+
+    const wavePhase1 = (basePos[0] * 0.35 + basePos[1] * 0.62 + basePos[2] * 0.42) * 1.35 - time * 1.25;
+    const wavePhase2 = (-basePos[0] * 0.45 + basePos[1] * 0.30 + basePos[2] * 0.65) * 1.75 - time * 0.90;
+    const silkWave = (Math.sin(wavePhase1) * 0.65 + Math.cos(wavePhase2) * 0.35) * liquefaction * 0.65;
 
     const silkDrapeOffset: [number, number, number] = [
       surfaceNormal[0] * silkWave,
