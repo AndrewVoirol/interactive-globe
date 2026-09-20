@@ -510,7 +510,8 @@ describe('Challenger M1.1 — Empirical Patch Geometry, Winding & Topology Harne
       // Downward displacement along baseNormal for crust skirts
       expect(code).toContain('let skirtFactor = input.target2D.z;');
       expect(code).toContain('let isCrust = inSurfaceType < 0.5;');
-      expect(code).toContain('let skirtDepth = select(0.0, max(0.015, inst.sizeUV.y * 0.35 * dispScale), isCrust && skirtFactor > 0.0);');
+      expect(code).toContain('let abyssalDrop = max(0.02, dispScale * 1.05 + 0.015);');
+      expect(code).toContain('let skirtDepth = select(0.0, max(abyssalDrop, inst.sizeUV.y * 0.35 * dispScale), isCrust && skirtFactor > 0.0);');
       expect(code).toContain('let worldP = basePos + baseNormal * (normalDisplacement - skirtDepth);');
 
       // Hydrosphere skirt fragments discarded

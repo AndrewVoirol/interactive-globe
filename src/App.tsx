@@ -637,7 +637,7 @@ export default function App() {
 
 
         {/* Viewport Canvas (Standalone WebGPU Instrument with SVG Fallback) */}
-        <div className="w-full h-full relative">
+        <div className="absolute inset-2 overflow-hidden">
           {hasWebGPU ? (
             <React.Suspense fallback={
               <div className="w-full h-full flex items-center justify-center font-mono text-micro bg-[var(--theme-panel-bg)] text-[var(--theme-text-primary)]">

@@ -253,7 +253,8 @@ describe('R1 Hardware Perimeter Skirt Generation (Watertight Patch Seams)', () =
       expect(code).toContain('let skirtFactor = input.target2D.z;');
 
       // Downward displacement along -baseNormal
-      expect(code).toContain('let skirtDepth = select(0.0, max(0.015, inst.sizeUV.y * 0.35 * dispScale), isCrust && skirtFactor > 0.0);');
+      expect(code).toContain('let abyssalDrop = max(0.02, dispScale * 1.05 + 0.015);');
+      expect(code).toContain('let skirtDepth = select(0.0, max(abyssalDrop, inst.sizeUV.y * 0.35 * dispScale), isCrust && skirtFactor > 0.0);');
       expect(code).toContain('let worldP = basePos + baseNormal * (normalDisplacement - skirtDepth);');
 
       // Passes skirtFactor to fragment shader

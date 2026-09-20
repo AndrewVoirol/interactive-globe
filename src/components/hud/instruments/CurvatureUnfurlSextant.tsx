@@ -27,7 +27,7 @@ const MILESTONES_BY_MODE: Record<number, MilestoneStage[]> = {
     { t: 0.0, label: 'SPHERE (K > 0)', desc: 'Closed Riemannian sphere' },
     { t: 0.3, label: 'LINEAR DILATION', desc: 'Spheroidal metric interpolation' },
     { t: 0.7, label: 'PLANAR TRANSITION', desc: 'Coordinate transformation' },
-    { t: 1.0, label: 'PLANAR MAP (K = 0)', desc: 'Equirectangular planar projection' },
+    { t: 1.0, label: 'PLANAR MAP (K = 0)', desc: 'Equirectangular planar' },
   ],
   1: [
     { t: 0.0, label: 'SPHERE (K > 0)', desc: 'Closed spherical cylinder' },
@@ -36,10 +36,10 @@ const MILESTONES_BY_MODE: Record<number, MilestoneStage[]> = {
     { t: 1.0, label: 'PLANAR MAP (K = 0)', desc: 'Unrolled Mercator cylinder' },
   ],
   2: [
-    { t: 0.0, label: 'SPHERE (K > 0)', desc: 'Hoop stress accumulating along seam' },
-    { t: 0.3, label: 'ANTIMERIDIAN RUPTURE', desc: 'Griffith LEFM crack opens at equator' },
+    { t: 0.0, label: 'SPHERE (K > 0)', desc: 'Hoop stress along seam' },
+    { t: 0.3, label: 'ANTIMERIDIAN RUPTURE', desc: 'Griffith LEFM equatorial crack' },
     { t: 0.7, label: 'FLAP PEELING', desc: 'Elastic stress dissipation' },
-    { t: 1.0, label: 'PLANAR MAP (K = 0)', desc: 'Unrolled planar fracture manifold' },
+    { t: 1.0, label: 'PLANAR MAP (K = 0)', desc: 'Unrolled planar fracture' },
   ],
   3: [
     { t: 0.0, label: 'SPHERE (K > 0)', desc: 'Viscous quiescence' },
@@ -189,7 +189,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   else if (alpha >= 0.15) currentMilestone = milestones[1];
 
   return (
-    <div className="flex flex-col items-center w-56 sm:w-64 select-none">
+    <div className="flex flex-col items-center w-72 sm:w-80 md:w-[350px] select-none">
       {/* Interactive Sextant Arc Scrubber */}
       <div
         ref={boxRef}
@@ -272,7 +272,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
       </div>
 
       {/* Stage Telemetry Tag */}
-      <div className="text-micro font-mono tracking-wider uppercase mt-0.5 w-full h-3.5 leading-tight text-center truncate">
+      <div className="text-nano sm:text-micro font-mono tracking-wider uppercase mt-0.5 w-full h-3.5 leading-tight text-center truncate">
         <span className="font-bold text-[var(--theme-text-accent)]">{currentMilestone.label}</span>
         <span className="opacity-70 text-[var(--theme-text-secondary)]"> • {currentMilestone.desc}</span>
       </div>

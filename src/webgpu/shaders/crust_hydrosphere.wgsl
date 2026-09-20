@@ -703,13 +703,14 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
     // Invariant §10: Grazing Horizon Parameterization for negative bathymetric displacement
     let viewDir = normalize(sim.u_cameraPos.xyz - basePos);
     let facing = dot(baseNormal, viewDir);
-    let limbAtten = smoothstep(0.000, 0.005, facing);
+    let limbAtten = select(1.0, smoothstep(0.000, 0.005, facing), sim.u_unfurl < 0.01);
     if (normalDisplacement < 0.0) {
         normalDisplacement = normalDisplacement * limbAtten;
     }
 
     let isCrust = inSurfaceType < 0.5;
-    let skirtDepth = select(0.0, max(0.015, inst.sizeUV.y * 0.35 * dispScale), isCrust && skirtFactor > 0.0);
+    let abyssalDrop = max(0.02, dispScale * 1.05 + 0.015);
+    let skirtDepth = select(0.0, max(abyssalDrop, inst.sizeUV.y * 0.35 * dispScale), isCrust && skirtFactor > 0.0);
 
     let worldP = basePos + baseNormal * (normalDisplacement - skirtDepth);
     output.worldPos = worldP;

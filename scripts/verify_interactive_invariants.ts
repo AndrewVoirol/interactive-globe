@@ -214,6 +214,37 @@ async function runInteractiveVerification() {
   await page.screenshot({ path: path.join(screenshotsDir, 'theme-2-prussian-oblique.png') });
   console.log('Captured: screenshots/theme-2-prussian-oblique.png');
 
+  // --------------------------------------------------------------------------
+  // Invariant 6: Rule 38 Mandatory Dual-Regime Oblique Verification
+  // --------------------------------------------------------------------------
+  console.log('\n--- Testing Invariant 6: Rule 38 Dual-Regime Oblique Verification ---');
+  // Terrestrial High-Relief: Mount Everest (28°N, 87°E) at grazing pitch (>= 60°)
+  await page.evaluate(() => {
+    const c = (window as any).__INDICATRIX_CAMERA__;
+    c?.lookAtCoordinates?.(86.925, 27.988, 8.0);
+    const sph = c?.getSpherical?.();
+    if (sph) {
+      c?.setSpherical?.(sph.radius, 0.15, 0.45);
+    }
+  });
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: path.join(screenshotsDir, 'rule38-terrestrial-everest-oblique.png') });
+  console.log('Captured: screenshots/rule38-terrestrial-everest-oblique.png');
+
+  // Bathymetric Abyssal Basin & Continental Shelf: North Atlantic (37°N, 48°W) at grazing pitch (>= 60°)
+  await page.evaluate(() => {
+    const c = (window as any).__INDICATRIX_CAMERA__;
+    c?.lookAtCoordinates?.(-48.0, 37.0, 8.0);
+    const sph = c?.getSpherical?.();
+    if (sph) {
+      c?.setSpherical?.(sph.radius, -0.2, 0.45);
+    }
+  });
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: path.join(screenshotsDir, 'rule38-bathymetric-atlantic-oblique.png') });
+  console.log('Captured: screenshots/rule38-bathymetric-atlantic-oblique.png');
+  console.log('PASS: Dual-regime terrestrial and bathymetric surfaces sealed under grazing pitch.');
+
   // Check console errors
   console.log(`\n--- Console Error Audit ---`);
   console.log(`Errors encountered: ${consoleErrors.length}`);

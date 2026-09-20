@@ -204,7 +204,7 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
     });
 
     it('INST-14: CurvatureUnfurlSextant enforces invariant width and height without layout shifts', () => {
-      expect(sextantCode).toContain('w-56 sm:w-64');
+      expect(sextantCode).toContain('w-72 sm:w-80 md:w-[350px]');
       expect(sextantCode).toContain('truncate');
       expect(sextantCode).toContain('h-3.5');
     });
