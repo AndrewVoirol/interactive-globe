@@ -738,7 +738,7 @@ export default function App() {
           layerMode={layerMode}
           onLayerModeChange={setLayerMode}
           mode={mode}
-          onModeChange={setMode}
+          onModeChange={glideToMode}
           cursorPhysicsEnabled={cursorPhysicsEnabled}
           onCursorPhysicsToggle={setCursorPhysicsEnabled}
           activeOverlay={activeOverlay}
@@ -849,6 +849,7 @@ export default function App() {
           onCancelGlide={cancelGlide}
           theme={theme}
           mode={mode}
+          isSidebarOpen={isSidebarActive}
         />
 
 

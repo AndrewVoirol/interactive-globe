@@ -209,7 +209,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
 
   const milestones = MILESTONES_BY_MODE[mode] || MILESTONES_BY_MODE[0];
   let currentMilestone = milestones[0];
-  if (effectiveAlpha >= 0.98) currentMilestone = milestones[3];
+  if (effectiveAlpha >= 0.85) currentMilestone = milestones[3];
   else if (effectiveAlpha >= 0.5) currentMilestone = milestones[2];
   else if (effectiveAlpha >= 0.15) currentMilestone = milestones[1];
 
@@ -265,8 +265,8 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
           {/* Magnetic tick markers */}
           <circle cx="15" cy="26" r="2" fill={effectiveAlpha < 0.15 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
           <circle cx="78" cy={tickY} r="2" fill={effectiveAlpha >= 0.15 && effectiveAlpha < 0.5 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
-          <circle cx="162" cy={tickY} r="2" fill={effectiveAlpha >= 0.5 && effectiveAlpha < 0.98 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
-          <circle cx="225" cy="26" r="2" fill={effectiveAlpha >= 0.98 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
+          <circle cx="162" cy={tickY} r="2" fill={effectiveAlpha >= 0.5 && effectiveAlpha < 0.85 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
+          <circle cx="225" cy="26" r="2" fill={effectiveAlpha >= 0.85 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
 
           {/* Curvature Unfurling Arc */}
           <path

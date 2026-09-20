@@ -86,6 +86,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
 
+    // Antimeridian seam split & topological stretch severance
+    if (sim.u_unfurl > 0.02 && (dWorld / dSphere > 8.0 * (1.0 + sim.u_unfurl))) {
+        discard;
+    }
+
     let densityFactor = sqrt(100000.0 / max(f32(sim.u_numParticles), 1.0));
     let sphereFactor = 1.0 - smoothstep(0.0, 0.35, sim.u_unfurl);
     let backfaceDimming = mix(1.0, horizonFalloff(in.vFacing, 0.15, 0.0, 0.08), sphereFactor);

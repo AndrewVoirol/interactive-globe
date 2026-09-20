@@ -271,11 +271,11 @@ describe('CurvatureUnfurlSextant: 120Hz Decoupled Scrubbing & Dynamic Ticks', ()
     expect(parseFloat(tickFlat0_70!.getAttribute('cy')!)).toBeCloseTo(26.0, 1);
   });
 
-  it('SEXTANT-06: milestone 4 triggers at alpha >= 0.98, not at alpha = 0.90', async () => {
+  it('SEXTANT-06: milestone 4 triggers at alpha >= 0.85, not at alpha = 0.80', async () => {
     await act(async () => {
       root.render(
         <CurvatureUnfurlSextant
-          alpha={0.90}
+          alpha={0.80}
           onAlphaChange={vi.fn()}
           onGlideToAlpha={vi.fn()}
           mode={0}
@@ -283,14 +283,14 @@ describe('CurvatureUnfurlSextant: 120Hz Decoupled Scrubbing & Dynamic Ticks', ()
         />
       );
     });
-    // At alpha=0.90 in mode 0, milestone is PLANAR TRANSITION, not milestone 4 (PLANAR MAP)
+    // At alpha=0.80 in mode 0, milestone is PLANAR TRANSITION, not milestone 4 (PLANAR MAP)
     expect(container.textContent).toContain('PLANAR TRANSITION');
     expect(container.textContent).not.toContain('PLANAR MAP (K = 0)');
 
     await act(async () => {
       root.render(
         <CurvatureUnfurlSextant
-          alpha={0.98}
+          alpha={0.85}
           onAlphaChange={vi.fn()}
           onGlideToAlpha={vi.fn()}
           mode={0}

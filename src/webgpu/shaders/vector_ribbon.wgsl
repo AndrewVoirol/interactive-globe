@@ -195,6 +195,12 @@ fn applyVectorDisplacement(basePos: vec3<f32>, baseNormal: vec3<f32>, pointType:
 fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
 
+    // Antimeridian line severance: cull cross-seam wrapping segments
+    if (abs(in.posA_target2d.x - in.posB_target2d.x) > PI * RADIUS) {
+        out.clipPos = vec4<f32>(0.0, 0.0, -1.0, 0.0);
+        return out;
+    }
+
     // 1. Manifold Deformations
     let defA = evaluateManifoldCore(
         in.posA_3d.xyz, in.posA_target2d.xy,
@@ -291,7 +297,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let effectiveHalfWidthCss = select(targetHalfWidthCss, sim.u_halfWidthPx, sim.u_halfWidthPx > 0.001);
 
     // Smooth limb horizon width taper: prevent ribbons from extruding past the planetary silhouette
-    let limbTaper = select(1.0, smoothstep(0.0, 0.08, max(0.0, facingEnd)), sphereFactor > 0.5);
+    let limbTaper = mix(1.0, horizonFalloff(max(0.0, facingEnd), 0.15, 0.0, 0.08), sphereFactor);
 
     let nominalHalfWidthPhys = effectiveHalfWidthCss * sim.u_dpr * widthScale;
     let geomHalfWidthPhys = max(nominalHalfWidthPhys, 0.25) * limbTaper;
@@ -340,17 +346,6 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     out.facing = facingEnd;
 
     return out;
-}
-
-// ----------------------------------------------------------------------------
-// Horizon Limb Falloff Specification (§1)
-// ----------------------------------------------------------------------------
-fn horizonFalloff(facing: f32, tau: f32, killEdge0: f32, killEdge1: f32) -> f32 {
-    let maxPath: f32 = 12.5; // ≈ sqrt(π·X/2) for engine atmosphere
-    let path = min(1.0 / max(facing, 1.0 / maxPath), maxPath);
-    let transmission = exp(-tau * path);
-    let killTerm = smoothstep(killEdge0, killEdge1, facing);
-    return transmission * killTerm;
 }
 
 // ----------------------------------------------------------------------------

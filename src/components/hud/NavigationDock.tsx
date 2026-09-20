@@ -17,6 +17,7 @@ export interface NavigationDockProps {
   mode?: SimulationMode;
   onGlideToMode?: (mode: SimulationMode) => void;
   onCancelGlide?: () => void;
+  isSidebarOpen?: boolean;
 }
 
 export const NavigationDock: React.FC<NavigationDockProps> = ({
@@ -34,6 +35,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
   mode = 0,
   onGlideToMode,
   onCancelGlide,
+  isSidebarOpen = false,
 }) => {
   const isLight = theme === 1;
 
@@ -41,7 +43,9 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
 
   return (
     <div
-      className="absolute bottom-8 inset-x-0 flex flex-col items-center gap-2 z-20 pointer-events-none font-mono select-none"
+      className={`absolute bottom-8 left-0 flex flex-col items-center gap-2 z-20 pointer-events-none font-mono select-none transition-all duration-300 ${
+        isSidebarOpen ? 'right-0 lg:right-[404px]' : 'right-0'
+      }`}
       style={{ fontFamily: 'var(--theme-font-telemetry)' }}
     >
       <div

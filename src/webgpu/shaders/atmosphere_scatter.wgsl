@@ -91,17 +91,6 @@ fn hash12(p: vec2<f32>) -> f32 {
     return fract((p3.x + p3.y) * p3.z);
 }
 
-// ----------------------------------------------------------------------------
-// Horizon Limb Falloff Specification (§1)
-// ----------------------------------------------------------------------------
-fn horizonFalloff(facing: f32, tau: f32, killEdge0: f32, killEdge1: f32) -> f32 {
-    let maxPath: f32 = 12.5; // ≈ sqrt(π·X/2) for engine atmosphere
-    let path = min(1.0 / max(facing, 1.0 / maxPath), maxPath);
-    let transmission = exp(-tau * path);
-    let killTerm = smoothstep(killEdge0, killEdge1, facing);
-    return transmission * killTerm;
-}
-
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Invariant §3: Mandatory Unconditional Derivative Evaluation

@@ -317,8 +317,8 @@ export function useEngineState() {
       if (typeof window !== 'undefined') {
         (window as any).__INDICATRIX_SCRUB_ALPHA__ = cur;
       }
-      // Throttled UI state sync at 20Hz (every 50ms) to eliminate VDOM diff storms
-      if (now - lastUiSync >= 50) {
+      // UI state sync at ~60Hz (every 16ms) for smooth sextant reticle tracking
+      if (now - lastUiSync >= 16) {
         setAlpha(cur);
         lastUiSync = now;
       }
@@ -344,6 +344,9 @@ export function useEngineState() {
     if (alphaRef.current < 0.01) {
       modeRef.current = targetMode;
       setMode(targetMode);
+      if (typeof window !== 'undefined') {
+        (window as any).__INDICATRIX_MODE__ = targetMode;
+      }
       return;
     }
 
@@ -363,20 +366,41 @@ export function useEngineState() {
         if (typeof window !== 'undefined') {
           (window as any).__INDICATRIX_SCRUB_ALPHA__ = curAlpha;
         }
-        if (now - lastUiSync >= 50) {
+        if (now - lastUiSync >= 16) {
           setAlpha(curAlpha);
           lastUiSync = now;
         }
         glideAnimRef.current = requestAnimationFrame(animate);
-      } else if (elapsed < 600) {
-        // Singularity point: uniform switch
+      } else if (elapsed < 280) {
+        // Singularity point: 30ms dwell window at alpha = 0.000 for clean mode handover
         if (!switchedMode) {
           modeRef.current = targetMode;
           setMode(targetMode);
+          if (typeof window !== 'undefined') {
+            (window as any).__INDICATRIX_MODE__ = targetMode;
+          }
           switchedMode = true;
         }
+        alphaRef.current = 0.0;
+        if (typeof window !== 'undefined') {
+          (window as any).__INDICATRIX_SCRUB_ALPHA__ = 0.0;
+        }
+        if (now - lastUiSync >= 16) {
+          setAlpha(0.0);
+          lastUiSync = now;
+        }
+        glideAnimRef.current = requestAnimationFrame(animate);
+      } else if (elapsed < 630) {
         // Phase 2: 350ms cubic ease-out restore to startAlpha
-        const p = Math.min(1.0, (elapsed - 250) / 350);
+        if (!switchedMode) {
+          modeRef.current = targetMode;
+          setMode(targetMode);
+          if (typeof window !== 'undefined') {
+            (window as any).__INDICATRIX_MODE__ = targetMode;
+          }
+          switchedMode = true;
+        }
+        const p = Math.min(1.0, (elapsed - 280) / 350);
         const q = 1.0 - p;
         const easeOut = 1.0 - q * q * q;
         const curAlpha = Math.min(1.0, startAlpha * easeOut);
@@ -384,7 +408,7 @@ export function useEngineState() {
         if (typeof window !== 'undefined') {
           (window as any).__INDICATRIX_SCRUB_ALPHA__ = curAlpha;
         }
-        if (now - lastUiSync >= 50) {
+        if (now - lastUiSync >= 16) {
           setAlpha(curAlpha);
           lastUiSync = now;
         }
@@ -393,10 +417,14 @@ export function useEngineState() {
         if (!switchedMode) {
           modeRef.current = targetMode;
           setMode(targetMode);
+          if (typeof window !== 'undefined') {
+            (window as any).__INDICATRIX_MODE__ = targetMode;
+          }
         }
         glideAnimRef.current = null;
         if (typeof window !== 'undefined') {
           (window as any).__INDICATRIX_SCRUB_ALPHA__ = undefined;
+          (window as any).__INDICATRIX_MODE__ = undefined;
         }
         alphaRef.current = startAlpha;
         setAlpha(startAlpha);

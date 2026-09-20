@@ -43,6 +43,17 @@ struct DeformedVertex {
     normal: vec3<f32>,
 };
 
+// ----------------------------------------------------------------------------
+// Horizon Limb Falloff Specification (§1)
+// ----------------------------------------------------------------------------
+fn horizonFalloff(facing: f32, tau: f32, killEdge0: f32, killEdge1: f32) -> f32 {
+    let maxPath: f32 = 12.5; // ≈ sqrt(π·X/2) for engine atmosphere
+    let path = min(1.0 / max(facing, 1.0 / maxPath), maxPath);
+    let transmission = exp(-tau * path);
+    let killTerm = smoothstep(killEdge0, killEdge1, facing);
+    return transmission * killTerm;
+}
+
 // Unified manifold deformation core evaluating Modes 0..3
 fn evaluateManifoldCore(
     pos3D: vec3<f32>,
@@ -114,15 +125,15 @@ fn evaluateManifoldCore(
 
         case 2u: {
             // ── Mode 2: Griffith Linear Elastic Fracture Mechanics ─────────
-            // Base manifold: Mode 1 Cylindrical Unroll (peeling shell kinematics)
-            // Superimposed: Griffith tensile strain, seam tearing, and normal flutter
+            // Active from alpha = 0.00: continuous shell peeling, progressive tensile
+            // crack opening, and flexural acoustic emissions along the antimeridian seam
             let lonRad = select(atan2(pos3D.x, pos3D.z), mercator2D.x / RADIUS, abs(mercator2D.x) > 0.00001 || abs(mercator2D.y) > 0.00001);
             let clampedY = clamp(pos3D.y / RADIUS, -0.9998, 0.9998);
             let latRad = asin(clampedY);
             let cosLat = cos(latRad);
             let sinLat = sin(latRad);
             let distToSeam = PI - abs(lonRad);
-            let seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
+            let seamFactor = 1.0 - smoothstep(0.0, 0.85, distToSeam);
             let tRupture: f32 = 0.18;
 
             let fracMult = select(1.0, hitPos.w, hitPos.w > 0.01);
@@ -131,19 +142,14 @@ fn evaluateManifoldCore(
             let hoopStress = cursorInfluence * 0.45 * fracMult
                            * (1.0 + 2.0 * cosLat * cosLat);
 
-            let tau = max(0.0, ease - tRupture);
-            let strainDecay = exp(-6.0 * tau);
-            let strainProgress = select(ease / tRupture, 1.0, ease >= tRupture);
-            let localStrain = seamFactor * strainProgress
-                            * max(0.2, cos(latRad * 0.85)) + hoopStress;
-
             // Sphere unit normal
             let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0),
                                     normalize(pos3D),
                                     length(pos3D) > 0.001);
 
-            // Post-rupture unroll progress: smoothstep starts at 0.0 at tRupture
-            let unrollProg = select(0.0, smoothstep(tRupture, 1.0, ease), ease >= tRupture);
+            // C1 continuous unroll progress starting smoothly at tRupture = 0.18
+            let tau = select(0.0, smoothstep(tRupture, 1.0, ease), ease >= tRupture);
+            let unrollProg = tau;
             let s = 1.0 - unrollProg;
             let r_phi = mix(RADIUS * cosLat, RADIUS, unrollProg);
             let u = s * lonRad;
@@ -187,20 +193,20 @@ fn evaluateManifoldCore(
                                   normLen > 0.0001);
 
             // Griffith Fracture Superimposed Dynamics:
-            // 1. Stored elastic strain outward displacement
-            let outwardTension = baseNorm * (localStrain * 0.30 * strainDecay * (1.0 - unrollProg));
+            // 1. Stored elastic strain outward displacement (active from alpha = 0.00 along seam flaring)
+            let localStrain = seamFactor * sin(PI * ease) * max(0.2, cos(latRad * 0.85)) + hoopStress * (1.0 - ease);
+            let outwardTension = baseNorm * (localStrain * 0.30 * (1.0 - unrollProg));
 
-            // 2. Antimeridian lateral rift separation (crack flanks pull apart)
+            // 2. Antimeridian lateral rift separation (crack flanks pull apart continuously with smooth C1 dilation)
             let crackSign = select(-1.0, 1.0, lonRad >= 0.0);
-            let crackOpen = seamFactor * (1.0 - unrollProg) * smoothstep(0.0, 0.35, tau);
+            let crackOpen = seamFactor * (1.0 - unrollProg) * sin(PI * 0.5 * tau);
             let tearOffset = vec3<f32>(crackSign * crackOpen * 0.60, 0.0, -crackOpen * 0.25);
 
-            // 3. Normal-aligned flexural flutter waves
-            let flutterWave = sin(distToSeam * 16.0) * sin(24.0 * tau);
-            let flutterDecay = exp(-4.2 * tau);
-            let flutterRamp = smoothstep(0.0, 0.04, tau);
-            let flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20)
-                           * flutterWave * flutterDecay * flutterRamp * fracMult * (1.0 - unrollProg);
+            // 3. Normal-aligned flexural flutter waves (smooth C1/C2 continuous acoustic emissions)
+            let flutterWave = sin(distToSeam * 16.0) * sin(8.0 * tau);
+            let flutterDecay = exp(-3.5 * tau);
+            let flutterAmp = (0.45 * seamFactor + cursorInfluence * 0.20)
+                           * flutterWave * flutterDecay * (tau * (1.0 - tau)) * fracMult;
             let flutterOffset = baseNorm * flutterAmp;
 
             out.pos = basePos + outwardTension + tearOffset + flutterOffset;
@@ -212,7 +218,7 @@ fn evaluateManifoldCore(
             // Orbital swelling ballooning factor eliminates interior volumetric collapse
             // Simulates silk fabric suspended and floating in a fluid medium
             let rawSin = sin(PI * clampedUnfurl);
-            let liquefaction = pow(max(0.0, rawSin), 1.15);
+            let liquefaction = pow(max(0.0, rawSin), 0.90);
             let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0),
                                     normalize(pos3D),
                                     length(pos3D) > 0.001);

@@ -235,19 +235,16 @@ export function evaluatePointMorph(
     const cosLat = Math.cos(phi);
     const sinLat = Math.sin(phi);
     const distToSeam = PI - Math.abs(lambda);
-    const seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
+    const seamFactor = 1.0 - smoothstep(0.0, 0.85, distToSeam);
     const tRupture = 0.18;
 
     const hitDist = cursorHitPos ? Math.hypot(p3D[0] - cursorHitPos[0], p3D[1] - cursorHitPos[1], p3D[2] - cursorHitPos[2]) : Infinity;
     const cursorInfluence = cursorActive * Math.exp(-hitDist * hitDist / (2.0 * 0.64));
     const hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cosLat * cosLat);
 
-    const tau = Math.max(0.0, ease - tRupture);
-    const strainDecay = Math.exp(-6.0 * tau);
-    const strainProgress = ease < tRupture ? ease / tRupture : 1.0;
-    const localStrain = seamFactor * strainProgress * Math.max(0.2, Math.cos(phi * 0.85)) + hoopStress;
-
-    const unrollProg = ease <= tRupture ? 0.0 : smoothstep(tRupture, 1.0, ease);
+    // C1 continuous unroll progress starting smoothly at tRupture = 0.18
+    const tau = ease >= tRupture ? smoothstep(tRupture, 1.0, ease) : 0.0;
+    const unrollProg = tau;
     const s = 1.0 - unrollProg;
     const r_phi = (1.0 - unrollProg) * (RADIUS * cosLat) + unrollProg * RADIUS;
     const uAngle = s * lambda;
@@ -295,16 +292,18 @@ export function evaluatePointMorph(
       : blendNorm;
 
     // Griffith Fracture Superimposed Dynamics:
-    const outwardTension = localStrain * 0.30 * strainDecay * (1.0 - unrollProg);
+    // 1. Stored elastic strain outward displacement (active from alpha = 0.00 along seam flaring)
+    const localStrain = seamFactor * Math.sin(PI * ease) * Math.max(0.2, Math.cos(phi * 0.85)) + hoopStress * (1.0 - ease);
+    const outwardTension = localStrain * 0.30 * (1.0 - unrollProg);
     const crackSign = lambda >= 0.0 ? 1.0 : -1.0;
-    const crackOpen = seamFactor * (1.0 - unrollProg) * smoothstep(0.0, 0.35, tau);
+    const crackOpen = seamFactor * (1.0 - unrollProg) * Math.sin(PI * 0.5 * tau);
     const tearX = crackSign * crackOpen * 0.60;
     const tearZ = -crackOpen * 0.25;
 
-    const flutterWave = Math.sin(distToSeam * 16.0) * Math.sin(24.0 * tau);
-    const flutterDecay = Math.exp(-4.2 * tau);
-    const flutterRamp = smoothstep(0.0, 0.04, tau);
-    const flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay * flutterRamp * (1.0 - unrollProg);
+    // 3. Normal-aligned flexural flutter waves (smooth C1/C2 continuous acoustic emissions)
+    const flutterWave = Math.sin(distToSeam * 16.0) * Math.sin(8.0 * tau);
+    const flutterDecay = Math.exp(-3.5 * tau);
+    const flutterAmp = (0.45 * seamFactor + cursorInfluence * 0.20) * flutterWave * flutterDecay * (tau * (1.0 - tau));
 
     return [
       baseX + baseNorm[0] * outwardTension + tearX + baseNorm[0] * flutterAmp,
@@ -315,7 +314,7 @@ export function evaluatePointMorph(
     // Mode 3: Incompressible Fluid Advection with Orbital Swelling
     const t = ease;
     const rawSin = Math.sin(PI * clampedAlpha);
-    const liquefaction = Math.pow(Math.max(0.0, rawSin), 1.15);
+    const liquefaction = Math.pow(Math.max(0.0, rawSin), 0.90);
     const p3DLen = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
     const sphereNorm: [number, number, number] = [p3D[0] / p3DLen, p3D[1] / p3DLen, p3D[2] / p3DLen];
     const unElevatedSphere: [number, number, number] = [

@@ -366,8 +366,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let orographicFactor = 1.0 + (windwardBoost - leewardShadow) * stratumCoupling;
 
     // Invariant §10 standard: smoothstep(0.02, 0.20, in.facing)
-    // Tailored for elevated tropospheric cloud shells (RFC Mechanic 2):
-    let horizonAtten = smoothstep(-0.015, 0.04, in.facing);
+    // Horizon Limb Falloff Specification (§1) for tropospheric cloud shells:
+    let horizonAtten = horizonFalloff(in.facing, 0.08, -0.015, 0.04);
     if (cloud.u_unfurl < 0.20 && in.facing < -0.015) {
         discard;
     }

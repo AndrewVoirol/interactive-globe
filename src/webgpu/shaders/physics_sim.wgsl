@@ -110,24 +110,21 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let cosLat = cos(phi);
         let sinLat = sin(phi);
         let distToSeam = PI - abs(lambda);
-        let seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
+        let seamFactor = 1.0 - smoothstep(0.0, 0.85, distToSeam);
+        let tRupture: f32 = 0.18;
 
         // Passive cursor raycast distance and tensile hoop stress concentration
         let fracMult = select(1.0, sim.u_cursorHitPos.w, sim.u_cursorHitPos.w > 0.01);
         let hitDist = length(pos3D - sim.u_cursorHitPos.xyz);
         let cursorInfluence = sim.u_cursorActive * exp(-hitDist * hitDist / (2.0 * 0.64));
-        let hoopStress = cursorInfluence * 0.45 * (1.0 + 2.0 * cosLat * cosLat) * fracMult;
-
-        let tRupture: f32 = 0.18;
-        let tau = max(0.0, t - tRupture);
-        let strainDecay = exp(-6.0 * tau);
-        let strainProgress = select(t / tRupture, 1.0, t >= tRupture);
-        let localStrain = seamFactor * strainProgress * max(0.2, cos(phi * 0.85)) + hoopStress;
+        let hoopStress = cursorInfluence * 0.45 * fracMult
+                       * (1.0 + 2.0 * cosLat * cosLat);
 
         let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
 
-        // Post-rupture unroll progress: smoothstep starts at 0.0 at tRupture
-        let unrollProg = select(0.0, smoothstep(tRupture, 1.0, t), t >= tRupture);
+        // C1 continuous unroll progress starting smoothly at tRupture = 0.18
+        let tau = select(0.0, smoothstep(tRupture, 1.0, ease), ease >= tRupture);
+        let unrollProg = tau;
         let s = 1.0 - unrollProg;
         let r_phi = mix(RADIUS * cosLat, RADIUS, unrollProg);
         let u = s * lambda;
@@ -171,20 +168,20 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                               normLen > 0.0001);
 
         // Griffith Fracture Superimposed Dynamics:
-        // 1. Stored elastic strain outward displacement
-        let outwardTension = baseNorm * (localStrain * 0.30 * strainDecay * (1.0 - unrollProg));
+        // 1. Stored elastic strain outward displacement (active from alpha = 0.00 along seam flaring)
+        let localStrain = seamFactor * sin(PI * ease) * max(0.2, cos(phi * 0.85)) + hoopStress * (1.0 - ease);
+        let outwardTension = baseNorm * (localStrain * 0.30 * (1.0 - unrollProg));
 
-        // 2. Antimeridian lateral rift separation (crack flanks pull apart)
+        // 2. Antimeridian lateral rift separation (crack flanks pull apart continuously with smooth C1 dilation)
         let crackSign = select(-1.0, 1.0, lambda >= 0.0);
-        let crackOpen = seamFactor * (1.0 - unrollProg) * smoothstep(0.0, 0.35, tau);
+        let crackOpen = seamFactor * (1.0 - unrollProg) * sin(PI * 0.5 * tau);
         let tearOffset = vec3<f32>(crackSign * crackOpen * 0.60, 0.0, -crackOpen * 0.25);
 
-        // 3. Normal-aligned flexural flutter waves
-        let flutterWave = sin(distToSeam * 16.0) * sin(24.0 * tau);
-        let flutterDecay = exp(-4.2 * tau);
-        let flutterRamp = smoothstep(0.0, 0.04, tau);
-        let flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20)
-                       * flutterWave * flutterDecay * flutterRamp * fracMult * (1.0 - unrollProg);
+        // 3. Normal-aligned flexural flutter waves (smooth C1/C2 continuous acoustic emissions)
+        let flutterWave = sin(distToSeam * 16.0) * sin(8.0 * tau);
+        let flutterDecay = exp(-3.5 * tau);
+        let flutterAmp = (0.45 * seamFactor + cursorInfluence * 0.20)
+                       * flutterWave * flutterDecay * (tau * (1.0 - tau)) * fracMult;
         let flutterOffset = baseNorm * flutterAmp;
 
         finalPos = basePos + outwardTension + tearOffset + flutterOffset;
@@ -195,7 +192,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Mode 3: Fluid Flow + Lamb-Oseen Trailing Vortex Wake (Continuous Hermite Formulation)
     else if (sim.u_mode == 3u) {
         let rawSin = sin(PI * clampedUnfurl);
-        let liquefaction = pow(max(0.0, rawSin), 1.15);
+        let liquefaction = pow(max(0.0, rawSin), 0.90);
 
         // Continuous un-elevated spherical projection avoiding interior chord contraction
         let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos3D), length(pos3D) > 0.001);
@@ -248,7 +245,7 @@ fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Write computed state to output storage buffer (halved VRAM bandwidth write)
     var pOut: Particle;
     pOut.position = vec4<f32>(finalPos, pointType);
-    pOut.velocity = vec4<f32>(finalVel, metric);
+    pOut.velocity = vec4<f32>(pos3D, metric);
 
     particlesOut[index] = pOut;
 }

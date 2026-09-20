@@ -153,8 +153,7 @@ export function evaluateManifoldCore(
       const cosLat = Math.cos(latRad);
       const sinLat = Math.sin(latRad);
       const distToSeam = PI - Math.abs(lonRad);
-      const seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
-      const tRupture = 0.18;
+      const seamFactor = 1.0 - smoothstep(0.0, 0.85, distToSeam);
 
       const fracMult = hitPos[3] > 0.01 ? hitPos[3] : 1.0;
       const hitDx = pos3D[0] - hitPos[0];
@@ -164,14 +163,14 @@ export function evaluateManifoldCore(
       const cursorInfluence = curActive * Math.exp(-hitDist * hitDist / (2.0 * 0.64));
       const hoopStress = cursorInfluence * 0.45 * fracMult * (1.0 + 2.0 * cosLat * cosLat);
 
-      const tau = Math.max(0.0, ease - tRupture);
-      const strainDecay = Math.exp(-6.0 * tau);
-      const strainProgress = ease < tRupture ? ease / tRupture : 1.0;
-      const localStrain = seamFactor * strainProgress * Math.max(0.2, Math.cos(latRad * 0.85)) + hoopStress;
       const pLen = Math.hypot(pos3D[0], pos3D[1], pos3D[2]);
       const sphereNorm: [number, number, number] = pLen > 0.001 ? normalize3(pos3D) : [0.0, 0.0, 1.0];
 
-      const unrollProg = ease <= tRupture ? 0.0 : smoothstep(tRupture, 1.0, ease);
+      const tRupture = 0.18;
+
+      // C1 continuous unroll progress starting smoothly at tRupture = 0.18
+      const tau = ease >= tRupture ? smoothstep(tRupture, 1.0, ease) : 0.0;
+      const unrollProg = tau;
       const s = 1.0 - unrollProg;
       const r_phi = (1.0 - unrollProg) * (RADIUS * cosLat) + unrollProg * RADIUS;
       const u = s * lonRad;
@@ -215,17 +214,20 @@ export function evaluateManifoldCore(
         ? normalize3(rawNorm)
         : normalize3(blendNorm);
 
-      const outwardTension = localStrain * 0.30 * strainDecay * (1.0 - unrollProg);
+      // Griffith Fracture Superimposed Dynamics:
+      // 1. Stored elastic strain outward displacement (active from alpha = 0.00 along seam flaring)
+      const localStrain = seamFactor * Math.sin(PI * ease) * Math.max(0.2, Math.cos(latRad * 0.85)) + hoopStress * (1.0 - ease);
+      const outwardTension = localStrain * 0.30 * (1.0 - unrollProg);
       const crackSign = lonRad >= 0.0 ? 1.0 : -1.0;
-      const crackOpen = seamFactor * (1.0 - unrollProg) * smoothstep(0.0, 0.35, tau);
+      const crackOpen = seamFactor * (1.0 - unrollProg) * Math.sin(PI * 0.5 * tau);
       const tearX = crackSign * crackOpen * 0.60;
       const tearZ = -crackOpen * 0.25;
 
-      const flutterWave = Math.sin(distToSeam * 16.0) * Math.sin(24.0 * tau);
-      const flutterDecay = Math.exp(-4.2 * tau);
-      const flutterRamp = smoothstep(0.0, 0.04, tau);
-      const flutterAmp = (0.50 * seamFactor + cursorInfluence * 0.20)
-                       * flutterWave * flutterDecay * flutterRamp * fracMult * (1.0 - unrollProg);
+      // 3. Normal-aligned flexural flutter waves (smooth C1/C2 continuous acoustic emissions)
+      const flutterWave = Math.sin(distToSeam * 16.0) * Math.sin(8.0 * tau);
+      const flutterDecay = Math.exp(-3.5 * tau);
+      const flutterAmp = (0.45 * seamFactor + cursorInfluence * 0.20)
+                       * flutterWave * flutterDecay * (tau * (1.0 - tau)) * fracMult;
 
       outPos = [
         basePos[0] + baseNorm[0] * outwardTension + tearX + baseNorm[0] * flutterAmp,
@@ -240,7 +242,7 @@ export function evaluateManifoldCore(
     case 3: {
       // ── Mode 3: Fluid Advection & Lamb-Oseen Vortex Wake ──────────
       const rawSin = Math.sin(PI * clampedUnfurl);
-      const liquefaction = Math.pow(Math.max(0.0, rawSin), 1.15);
+      const liquefaction = Math.pow(Math.max(0.0, rawSin), 0.90);
       const pLen = Math.hypot(pos3D[0], pos3D[1], pos3D[2]);
       const sphereNorm: [number, number, number] = pLen > 0.001 ? normalize3(pos3D) : [0.0, 0.0, 1.0];
       const unElevatedSphere: [number, number, number] = [

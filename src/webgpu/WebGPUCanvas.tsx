@@ -338,6 +338,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     lon: 0,
   });
   const lastUnfurlRef = useRef(0);
+  const lastScrubAlphaRef = useRef<number | undefined>(undefined);
+  const scrubReleaseFramesRef = useRef<number>(0);
 
   // Inertial momentum velocities matching Drei OrbitControls glide (decay factor 0.05)
   const velocityRef = useRef<{
@@ -2312,7 +2314,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       const tracker = cursorTrackerRef.current;
       const {
         unfurlProgress: curUnfurlProp,
-        mode: curMode,
+        mode: curModeProp,
         layerMode: curLayer,
         theme: curTheme,
         showSoundings: curShowSoundings,
@@ -2326,9 +2328,25 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         fractureIntensity: curFractureIntensity,
       } = stateRef.current;
 
+      const directMode = typeof window !== 'undefined' ? (window as any).__INDICATRIX_MODE__ : undefined;
+      const curMode = directMode !== undefined ? directMode : curModeProp;
+
       const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
       const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
-      const curUnfurl = scrubAlpha !== undefined ? scrubAlpha : (animAlpha !== undefined ? animAlpha : curUnfurlProp);
+
+      if (scrubAlpha !== undefined) {
+        lastScrubAlphaRef.current = scrubAlpha;
+        scrubReleaseFramesRef.current = 0;
+      } else if (lastScrubAlphaRef.current !== undefined) {
+        scrubReleaseFramesRef.current += 1;
+        // Hold scrub value for up to 3 frames or until React prop catches up to eliminate pointerup flicker
+        if (scrubReleaseFramesRef.current > 3 || Math.abs(curUnfurlProp - lastScrubAlphaRef.current) < 0.001) {
+          lastScrubAlphaRef.current = undefined;
+        }
+      }
+
+      const activeScrub = scrubAlpha !== undefined ? scrubAlpha : lastScrubAlphaRef.current;
+      const curUnfurl = activeScrub !== undefined ? activeScrub : (animAlpha !== undefined ? animAlpha : curUnfurlProp);
 
       if (engine.initialized) {
         const appStartTime = startTime !== undefined ? startTime : startTimeRef.current;
@@ -2493,7 +2511,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           if (isUnfurlAnimating && !isPanning) {
             const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
             const ease = clampedUnfurl;
-            const targetBlend = clampedUnfurl <= 0.0 ? 0.0 : (clampedUnfurl >= 0.05 ? 1.0 : (clampedUnfurl / 0.05) * (clampedUnfurl / 0.05) * (3.0 - 2.0 * (clampedUnfurl / 0.05)));
+            const targetBlend = clampedUnfurl <= 0.0 ? 0.0 : (clampedUnfurl >= 0.10 ? 1.0 : (clampedUnfurl / 0.10) * (clampedUnfurl / 0.10) * (3.0 - 2.0 * (clampedUnfurl / 0.10)));
 
             if (targetBlend <= 0.0) {
               if (targetRef.current.lengthSq() > 1e-6) {
@@ -2898,12 +2916,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
               const projectPoint = (x3: number, y3: number, z3: number): [number, number, boolean] => {
                 _scratchProjVec.set(x3, y3, z3);
                 let isFront = true;
-                // Strict horizon backface culling in spherical/globe regime
-                if (curUnfurl < 0.35) {
+                // Progressive horizon backface culling transitioning smoothly into planar regime
+                const sphereWeight = 1.0 - Math.min(1.0, curUnfurl / 0.50);
+                if (sphereWeight > 0.0) {
                   _scratchNorm.copy(_scratchProjVec).normalize();
                   _scratchVDir.subVectors(camera.position, _scratchProjVec).normalize();
                   const facing = _scratchNorm.dot(_scratchVDir);
-                  if (facing < 0.05) {
+                  const facingThreshold = 0.05 * sphereWeight - 0.40 * (1.0 - sphereWeight);
+                  if (facing < facingThreshold) {
                     isFront = false;
                   }
                 }

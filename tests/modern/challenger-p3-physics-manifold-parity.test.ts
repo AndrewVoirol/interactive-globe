@@ -114,20 +114,18 @@ function simulatePhysicsParticle(
       const v = Math.max(0.0, Math.min(1.0, (x - e0) / (e1 - e0)));
       return v * v * (3.0 - 2.0 * v);
     };
-    const seamFactor = 1.0 - smoothstep(0.0, 0.75, distToSeam);
-
-    const tRupture = 0.18;
-    const tau = Math.max(0.0, t - tRupture);
-    const strainDecay = Math.exp(-6.0 * tau);
-    const strainProgress = t < tRupture ? t / tRupture : 1.0;
-    const localStrain = seamFactor * strainProgress * Math.max(0.2, Math.cos(phi * 0.85));
+    const seamFactor = 1.0 - smoothstep(0.0, 0.85, distToSeam);
 
     const pLen = Math.hypot(pos3D[0], pos3D[1], pos3D[2]);
     const sphereNorm: [number, number, number] = pLen > 0.001
       ? [pos3D[0] / pLen, pos3D[1] / pLen, pos3D[2] / pLen]
       : [0.0, 0.0, 1.0];
 
-    const unrollProg = t >= tRupture ? smoothstep(tRupture, 1.0, t) : 0.0;
+    const tRupture = 0.18;
+
+    // C1 continuous unroll progress starting smoothly at tRupture = 0.18
+    const tau = ease >= tRupture ? smoothstep(tRupture, 1.0, ease) : 0.0;
+    const unrollProg = tau;
     const s = 1.0 - unrollProg;
     const r_phi = (1.0 - unrollProg) * (RADIUS * cosLat) + unrollProg * RADIUS;
     const u = s * lambda;
@@ -171,16 +169,19 @@ function simulatePhysicsParticle(
       ? [rawNx / normLen, rawNy / normLen, rawNz / normLen]
       : blendNorm;
 
-    const outwardTension = localStrain * 0.30 * strainDecay * (1.0 - unrollProg);
+    // Griffith Fracture Superimposed Dynamics:
+    // 1. Stored elastic strain outward displacement (active from alpha = 0.00 along seam flaring)
+    const localStrain = seamFactor * Math.sin(PI * ease) * Math.max(0.2, Math.cos(phi * 0.85));
+    const outwardTension = localStrain * 0.30 * (1.0 - unrollProg);
     const crackSign = lambda >= 0.0 ? 1.0 : -1.0;
-    const crackOpen = seamFactor * (1.0 - unrollProg) * smoothstep(0.0, 0.35, tau);
+    const crackOpen = seamFactor * (1.0 - unrollProg) * Math.sin(PI * 0.5 * tau);
     const tearX = crackSign * crackOpen * 0.60;
     const tearZ = -crackOpen * 0.25;
 
-    const flutterWave = Math.sin(distToSeam * 16.0) * Math.sin(24.0 * tau);
-    const flutterDecay = Math.exp(-4.2 * tau);
-    const flutterRamp = smoothstep(0.0, 0.04, tau);
-    const flutterAmp = 0.50 * seamFactor * flutterWave * flutterDecay * flutterRamp * (1.0 - unrollProg);
+    // 3. Normal-aligned flexural flutter waves (smooth C1/C2 continuous acoustic emissions)
+    const flutterWave = Math.sin(distToSeam * 16.0) * Math.sin(8.0 * tau);
+    const flutterDecay = Math.exp(-3.5 * tau);
+    const flutterAmp = 0.45 * seamFactor * flutterWave * flutterDecay * (tau * (1.0 - tau));
 
     return [
       baseX + baseNorm[0] * outwardTension + tearX + baseNorm[0] * flutterAmp,
@@ -189,7 +190,7 @@ function simulatePhysicsParticle(
     ];
   } else if (mode === 3) {
     const rawSin = Math.sin(PI * clampedUnfurl);
-    const liquefaction = Math.pow(Math.max(0.0, rawSin), 1.15);
+    const liquefaction = Math.pow(Math.max(0.0, rawSin), 0.90);
 
     const pLen = Math.hypot(pos3D[0], pos3D[1], pos3D[2]);
     const sphereNorm: [number, number, number] = pLen > 0.001
