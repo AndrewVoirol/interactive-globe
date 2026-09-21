@@ -113,7 +113,7 @@
    - **Resolved Polar Point Buckling & Layer Inversion**:
      - *Root Cause*: Adding fixed $+Z$ curl offsets at the antimeridian ($\lambda = \pm 180^\circ$, where the outward normal is $-\hat{\mathbf{z}}$) pushed cut margins inward into the globe body, and exceeding the local parallel radius ($R \cos\phi$) near the poles caused the surface to fold over and crease onto itself.
      - *Remedy*: Replaced rogue $+Z$ with the true outward horizontal radial normal $\mathbf{n}_{\text{horiz}}$ (strictly directed away from the globe core) and modulated all peel/lift displacements by $\cos\phi$, guaranteeing displacement vanishes to zero at the polar points ($|\phi| \to \pm 90^\circ$).
-      - *Happy Middle Space Peel*: Implemented progressive peeling front. Calibrated Option C (Continuous Power-Law Decay across 100% of longitude via dynamic exponent peelExp = 3.5 -> 1.8), delivering seamless whole-manifold unrolling curvature without any artificial step threshold, decaying smoothly to zero at the prime meridian.
+      - *Happy Middle Space Peel*: Implemented progressive peeling front. Calibrated Option B (peelFront rolling from 0.90 to 0.25), expanding peeling kinematics across the outer 75% of longitude (|lon| >= 45°) to deliver deep organic unrolling propagation across all continents while keeping the 45° prime meridian strip as the stable baseline flat axis.
 
 ### Active Priority Roadmap
 1. **Visual Style Noise Stripping & Medium Clarification**:

@@ -429,13 +429,12 @@ fn evaluateManifoldCore(
             let alphaPeel = smoothstep(0.0, 0.45, uAlpha);
             let ePeel = sin(PI * alphaPeel) * (1.0 - uAlpha);
 
-            // 2. Continuous power-law peel propagation (Option C: Whole-Manifold Participation):
-            // Smooth dynamic exponent rolls curvature wave from seam inward across 100% of the globe.
-            // Eliminates any artificial step threshold; curvature decays continuously to zero at prime meridian.
+            // 2. Progressive peeling front (Option B: Deep Unrolling Wave):
+            // Rolls inward across the outer 75% of longitude (|lon| >= 45° at peak alpha),
+            // giving deep unrolling propagation across all continents while keeping the 45° prime meridian strip stable.
             let lonNorm = abs(lonRad) / PI;
-            let tPeel = smoothstep(0.0, 0.50, uAlpha);
-            let peelExp = 3.5 - tPeel * 1.7;
-            let fPeel = select(0.0, pow(lonNorm, peelExp), lonNorm > 0.0001);
+            let peelFront = 0.90 - smoothstep(0.0, 0.55, uAlpha) * 0.65;
+            let fPeel = smoothstep(peelFront, 1.0, lonNorm);
 
             // 3. Strict polar attenuation (proportional to cosLat):
             // Ensures peeling displacement vanishes at the polar singularities (cosLat -> 0).
