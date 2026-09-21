@@ -233,3 +233,10 @@ An automated test suite, CDLOD pass, or visual verification harness CANNOT certi
 - **Flat-Map Regime Mandate ($\text{unfurl} = 1.0$)**: Skirt watertightness must be verified in planar projection ($K=0$) across oceanic shelves. Perimeter skirts must drop sufficiently below abyssal depths ($-11,000\text{m}$) regardless of `displacementScale` to prevent white background canvas bleed.
 - **HUD Scrubber & Neatline Framing Gate**: Screen captures must verify that the chronometric scrubber labels render without mid-word truncation (e.g. `EQUIRECTANGULAR PLANAR`), and that sheet neatline borders prevent 3D canvas background void leaks in the viewport corners.
 
+## 39. Foundational Crust Opaque Invariant (Zero CDLOD Seam Translucency)
+In multi-pass WebGPU engines where spatial LOD acceleration structures (CDLOD quadtree, instanced patches, chunked tessellation) render the base planetary crust and hydrosphere with hardware blending (`srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha'`) against a transparent swapchain clear color (`clearValue: { r: 0, g: 0, b: 0, a: 0 }`):
+- **100% Solid Crust Invariant**: The foundational crust and ocean fragment shader (`crust_hydrosphere.wgsl`) MUST return full opacity (`vec4<f32>(finalCrust, 1.0)`). Never modulate base crust alpha via layer opacity uniforms (`sim.u_layerOpacity`).
+- **The CDLOD Seam Translucency Phenomenon**: Because CDLOD quadtree patches meet at discrete geometric tile boundaries and share overlap/skirt margins, returning $A < 1.0$ makes the solid planet translucent against the transparent canvas, causing edge overlaps and boundary differentials to compound. This manifests as prominent straight-line horizontal, vertical, and diagonal swaths across land and oceans.
+- **Double-Alpha Premultiplication Prohibition**: When a render pipeline targets hardware `src-alpha` blending, returning premultiplied color `finalColor * finalAlpha, finalAlpha` squares the alpha ($C \cdot \alpha^2$), dulling ink contrast and Swiss relief against the archival substrate.
+
+
