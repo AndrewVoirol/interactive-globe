@@ -110,10 +110,10 @@
    - Eliminated polar bat/cat ears via polar attenuation ($\cos\phi$).
    - Eliminated normal collapse at the antimeridian equator via rotational unrolling normal.
    - Decoupled intermediate parallel expansion ($t_{\text{parallel}} = \text{smoothstep}(0.18, 0.82, \text{ease})$) from vertical Mercator stretching ($t_{\text{Mercator}} = \text{smoothstep}(0.60, 1.0, \text{ease})$), eliminating the intermediate $\alpha \approx 0.62$ diamond / rhombus silhouette while retaining closed spherical caps at $\alpha \le 0.20$.
-   - Eliminated ninja-star / shuriken silhouette and orange-peel overextension:
-     - Replaced dual-zone subpolar corner splitting (`wCorner`) and $Y$-deflections with a continuous monotonic meridional taper $W_{\text{profile}}(\phi) = \cos(0.40 \phi)$.
-     - Confined peeling and petal curl strictly to the outer cut boundary ($|\lambda| \ge 145^\circ$, `lonNorm >= 0.80`), ensuring the interior $80\%$ of the globe unrolls as a continuous geometric manifold resting on the drafting sheet.
-     - Preserved tactile boundary petal lip curling forward in $+Z$ and outward in $+X$, allowing the 4 rectangular map corners to emerge cleanly and migrate toward the 4 neatline corners of the drafting sheet without sawtooth notches.
+   - **Resolved Polar Point Buckling & Layer Inversion**:
+     - *Root Cause*: Adding fixed $+Z$ curl offsets at the antimeridian ($\lambda = \pm 180^\circ$, where the outward normal is $-\hat{\mathbf{z}}$) pushed cut margins inward into the globe body, and exceeding the local parallel radius ($R \cos\phi$) near the poles caused the surface to fold over and crease onto itself.
+     - *Remedy*: Replaced rogue $+Z$ with the true outward horizontal radial normal $\mathbf{n}_{\text{horiz}}$ (strictly directed away from the globe core) and modulated all peel/lift displacements by $\cos\phi$, guaranteeing displacement vanishes to zero at the polar points ($|\phi| \to \pm 90^\circ$).
+     - *Happy Middle Space Peel*: Implemented a progressive peeling front ($peelFront \in [0.88, 0.72]$) rolling across the outer $25\%$ of longitude, delivering the tactile orange-peel sensation without penetrating continental landmasses or buckling polar corners.
 
 ### Active Priority Roadmap
 1. **Visual Style Noise Stripping & Medium Clarification**:

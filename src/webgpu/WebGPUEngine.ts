@@ -1924,39 +1924,42 @@ export class WebGPUEngine {
       const chordLiftZ = cosLat * radius * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
       const curZ = p3D[2] * (1.0 - ease) + chordLiftZ;
 
-      // ── Tactile Boundary Petal Lip Envelope ──
+      // ── Tactile Boundary Peel Envelope (Happy Middle Space) ──
       // 1. Time envelope: smooth C1 onset (smoothstep 0.0 to 0.45) and relaxation back to planar map
       const uAlpha = Math.max(0.0, Math.min(1.0, unfurl));
       const alphaPeel = smoothstep(0.0, 0.45, uAlpha);
       const ePeel = Math.sin(PI * alphaPeel) * (1.0 - uAlpha);
 
-      // 2. Confined cut margin mask (|lon| >= 145° / lonNorm >= 0.80)
-      // Confines curl strictly to the boundary seam so interior continents unroll smoothly
+      // 2. Progressive peeling front (happy middle space between static lip and deep rind):
+      // Rolls inward across the outer 25% of longitude (|lon| >= 135° at peak alpha),
+      // giving the organic tactile peel feel without penetrating into continental landmasses.
       const lonNorm = Math.abs(lonRad) / PI;
-      const fLip = smoothstep(0.80, 1.0, lonNorm);
+      const peelFront = 0.88 - smoothstep(0.0, 0.55, uAlpha) * 0.16;
+      const fPeel = smoothstep(peelFront, 1.0, lonNorm);
 
-      // 3. Continuous monotonic meridional profile:
-      // Single gentle cosine taper cos(lat * 0.40) from equator to pole.
-      // Eliminates dual-zone subpolar spikes (ninja star) and Y-deflection.
-      const wProfile = Math.cos(latRad * 0.40);
+      // 3. Strict polar attenuation (proportional to cosLat):
+      // Ensures peeling displacement vanishes at the polar singularities (cosLat -> 0).
+      // Completely eliminates layer buckling, folding over into itself, and inverted polar points!
+      const polarScale = cosLat;
 
-      // 4. Boundary curl and flare (curls forward in +Z and flares in X):
-      const thetaCurl = fLip * ePeel * wProfile * 1.35;
-      const flareSign = lonRad >= 0.0 ? 1.0 : -1.0;
-      const deltaXFlare = flareSign * radius * Math.sin(thetaCurl) * 0.22;
-      const deltaZCurl = radius * (1.0 - Math.cos(thetaCurl)) * 0.38;
-
-      // 5. Horizontal radial lift along cut margin:
+      // 4. Outward radial normal in horizontal plane (points strictly AWAY from globe core):
       const horizLen = Math.hypot(p3D[0], p3D[2]);
       const horizNorm: [number, number, number] = horizLen > 0.001
         ? [p3D[0] / horizLen, 0.0, p3D[2] / horizLen]
-        : [0.0, 0.0, 1.0];
-      const liftScale = radius * 0.10 * ePeel * fLip * cosLat;
+        : [0.0, 0.0, -1.0];
+
+      // 5. Outward radial lift (lifts peel outward from the body):
+      const liftMag = radius * 0.14 * ePeel * fPeel * polarScale;
+      const liftVec = [horizNorm[0] * liftMag, 0.0, horizNorm[2] * liftMag];
+
+      // 6. Tangent parallel flare (peel margins flare outward along latitude lines):
+      const flareSign = lonRad >= 0.0 ? 1.0 : -1.0;
+      const flareMag = flareSign * radius * 0.16 * ePeel * fPeel * polarScale;
 
       return [
-        curX + horizNorm[0] * liftScale + deltaXFlare,
+        curX + liftVec[0] + flareMag,
         curY,
-        curZ + horizNorm[2] * liftScale + deltaZCurl,
+        curZ + liftVec[2],
       ];
     }
   }

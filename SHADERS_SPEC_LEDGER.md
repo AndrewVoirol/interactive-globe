@@ -423,36 +423,39 @@ fn evaluateManifoldCore(
             let curZ = mix(pos3D.z, 0.0, ease) + chordLiftZ;
             let basePos = vec3<f32>(curX, curY, curZ);
 
-            // ── Tactile Boundary Petal Lip Envelope ──
+            // ── Tactile Boundary Peel Envelope (Happy Middle Space) ──
             // 1. Time envelope: smooth C1 onset (smoothstep 0.0 to 0.45) and relaxation back to planar map
             let uAlpha = clampedUnfurl;
             let alphaPeel = smoothstep(0.0, 0.45, uAlpha);
             let ePeel = sin(PI * alphaPeel) * (1.0 - uAlpha);
 
-            // 2. Confined cut margin mask (|lon| >= 145° / lonNorm >= 0.80)
-            // Confines curl strictly to the boundary seam so interior continents unroll smoothly
+            // 2. Progressive peeling front (happy middle space between static lip and deep rind):
+            // Rolls inward across the outer 25% of longitude (|lon| >= 135° at peak alpha),
+            // giving the organic tactile peel feel without penetrating into continental landmasses.
             let lonNorm = abs(lonRad) / PI;
-            let fLip = smoothstep(0.80, 1.0, lonNorm);
+            let peelFront = 0.88 - smoothstep(0.0, 0.55, uAlpha) * 0.16;
+            let fPeel = smoothstep(peelFront, 1.0, lonNorm);
 
-            // 3. Continuous monotonic meridional profile:
-            // Single gentle cosine taper cos(lat * 0.40) from equator to pole.
-            // Eliminates dual-zone subpolar spikes (ninja star) and Y-deflection.
-            let wProfile = cos(latRad * 0.40);
+            // 3. Strict polar attenuation (proportional to cosLat):
+            // Ensures peeling displacement vanishes at the polar singularities (cosLat -> 0).
+            // Completely eliminates layer buckling, folding over into itself, and inverted polar points!
+            let polarScale = cosLat;
 
-            // 4. Boundary curl and flare (curls forward in +Z and flares in X):
-            let thetaCurl = fLip * ePeel * wProfile * 1.35;
-            let flareSign = select(-1.0, 1.0, lonRad >= 0.0);
-            let deltaXFlare = flareSign * RADIUS * sin(thetaCurl) * 0.22;
-            let deltaZCurl = RADIUS * (1.0 - cos(thetaCurl)) * 0.38;
-
-            // 5. Horizontal radial lift along cut margin:
+            // 4. Outward radial normal in horizontal plane (points strictly AWAY from globe core):
             let horizLen = length(vec2<f32>(pos3D.x, pos3D.z));
-            let horizNorm = select(vec3<f32>(0.0, 0.0, 1.0),
+            let horizNorm = select(vec3<f32>(0.0, 0.0, -1.0),
                                    vec3<f32>(pos3D.x / horizLen, 0.0, pos3D.z / horizLen),
                                    horizLen > 0.001);
-            let liftVec = horizNorm * (RADIUS * 0.10 * ePeel * fLip * cosLat);
 
-            out.pos = basePos + liftVec + vec3<f32>(deltaXFlare, 0.0, deltaZCurl);
+            // 5. Outward radial lift (lifts peel outward from the body):
+            let liftMag = RADIUS * 0.14 * ePeel * fPeel * polarScale;
+            let liftVec = horizNorm * liftMag;
+
+            // 6. Tangent parallel flare (peel margins flare outward along latitude lines):
+            let flareSign = select(-1.0, 1.0, lonRad >= 0.0);
+            let flareMag = flareSign * RADIUS * 0.16 * ePeel * fPeel * polarScale;
+
+            out.pos = basePos + liftVec + vec3<f32>(flareMag, 0.0, 0.0);
 
             // Unrolling rotational surface normal:
             // Eliminates (0,0,0) normal collapse at antimeridian equator at alpha=0.5
