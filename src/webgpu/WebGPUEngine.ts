@@ -1930,11 +1930,11 @@ export class WebGPUEngine {
       const alphaPeel = smoothstep(0.0, 0.45, uAlpha);
       const ePeel = Math.sin(PI * alphaPeel) * (1.0 - uAlpha);
 
-      // 2. Progressive peeling front (happy middle space between static lip and deep rind):
-      // Rolls inward across the outer 25% of longitude (|lon| >= 135° at peak alpha),
-      // giving the organic tactile peel feel without penetrating into continental landmasses.
+      // 2. Progressive peeling front (Option A: Half-Globe Peel Front):
+      // Rolls inward across the outer 50% of longitude (|lon| >= 90° at peak alpha),
+      // giving the organic tactile peel feel across continents while keeping the prime meridian stable.
       const lonNorm = Math.abs(lonRad) / PI;
-      const peelFront = 0.88 - smoothstep(0.0, 0.55, uAlpha) * 0.16;
+      const peelFront = 0.88 - smoothstep(0.0, 0.55, uAlpha) * 0.38;
       const fPeel = smoothstep(peelFront, 1.0, lonNorm);
 
       // 3. Strict polar attenuation (proportional to cosLat):
