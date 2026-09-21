@@ -273,7 +273,8 @@ export function evaluateManifoldCore(
     }
 
     default: {
-      // ── Mode 0: Polar-Convergent Geodesic Unfolding with Early-Onset Peeling Lip (§2) ──
+      // ── Mode 0: Polar-Convergent Geodesic Unfolding with Tactile Peeling Lip (§2) ──
+      // Eliminates polar bat/cat ears, needle spindle, and normal collapse at antimeridian
       const lonRad = (Math.abs(mercator2D[0]) > 0.00001 || Math.abs(mercator2D[1]) > 0.00001)
         ? mercator2D[0] / RADIUS
         : Math.atan2(pos3D[0], pos3D[2]);
@@ -281,12 +282,12 @@ export function evaluateManifoldCore(
       const latRad = Math.asin(clampedY);
       const cosLat = Math.cos(latRad);
 
-      const pLen = Math.hypot(pos3D[0], pos3D[1], pos3D[2]);
-      const sphereNorm: [number, number, number] = pLen > 0.001 ? normalize3(pos3D) : [0.0, 0.0, 1.0];
-
-      // Two-phase meridional unbending (prevents vertical polar horn elongation):
-      const yUnbend = pos3D[1] * (1.0 - ease) + (RADIUS * latRad) * ease;
-      const curY = yUnbend * (1.0 - ease * ease) + pos2D[1] * (ease * ease);
+      // Staged meridional unbending:
+      // Prevents premature polar height explosion and vertical cat ears/spikes
+      const tUnbend = smoothstep(0.15, 0.85, ease);
+      const yPhysical = pos3D[1] * (1.0 - tUnbend) + (RADIUS * latRad) * tUnbend;
+      const tMercator = smoothstep(0.60, 1.0, ease);
+      const curY = yPhysical * (1.0 - tMercator) + pos2D[1] * tMercator;
 
       // Harmonic parallel expansion (prevents polar necking / bottle silhouette):
       const parallelWidth = cosLat * (1.0 - ease) + 1.0 * ease;
@@ -296,24 +297,27 @@ export function evaluateManifoldCore(
       const chordLiftZ = cosLat * RADIUS * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
       const curZ = pos3D[2] * (1.0 - ease) + chordLiftZ;
 
-      // Early-Onset Asymmetric Peeling Lip Envelope (smooth C1 onset):
+      // Early-Onset Asymmetric Peeling Lip Envelope:
       const uAlpha = Math.max(0.0, Math.min(1.0, unfurl));
-      const alphaPeel = smoothstep(0.0, 0.40, uAlpha);
+      const alphaPeel = smoothstep(0.0, 0.45, uAlpha);
       const ePeel = Math.sin(PI * alphaPeel) * (1.0 - uAlpha);
 
-      // Antimeridian boundary margin mask (|lon| -> PI)
+      // Antimeridian boundary margin mask (|lon| -> PI):
       const lonNorm = Math.abs(lonRad) / PI;
-      const fLip = smoothstep(0.50, 1.0, lonNorm);
+      const fLip = smoothstep(0.60, 1.0, lonNorm);
 
-      // Horizontal radial lift (lifts cut edges outward without vertical polar distortion):
+      // Polar Curl Attenuation: strictly zero curl at poles eliminates bat/cat ears!
+      const latAtten = cosLat * cosLat;
+
+      // Horizontal radial lift (tapered to zero at poles):
       const horizLen = Math.hypot(pos3D[0], pos3D[2]);
       const horizNorm: [number, number, number] = horizLen > 0.001
         ? [pos3D[0] / horizLen, 0.0, pos3D[2] / horizLen]
         : [0.0, 0.0, 1.0];
-      const liftScale = RADIUS * 0.12 * ePeel * fLip;
+      const liftScale = RADIUS * 0.12 * ePeel * fLip * latAtten;
 
-      // 3D Margin Peeling Curl (+Z forward peel catching rim lighting)
-      const thetaCurl = fLip * ePeel * 1.25 * Math.cos(latRad * 0.35);
+      // 3D Margin Peeling Curl (+Z forward peel catching rim lighting, tapered to zero at poles):
+      const thetaCurl = fLip * ePeel * 1.25 * latAtten;
       const flareSign = lonRad >= 0.0 ? 1.0 : -1.0;
       const deltaXFlare = flareSign * RADIUS * Math.sin(thetaCurl) * 0.25;
       const deltaZCurl = RADIUS * (1.0 - Math.cos(thetaCurl)) * 0.35;
@@ -324,13 +328,17 @@ export function evaluateManifoldCore(
         curZ + horizNorm[2] * liftScale + deltaZCurl,
       ];
 
-      const rawNorm: [number, number, number] = [
-        sphereNorm[0] * (1.0 - ease),
-        sphereNorm[1] * (1.0 - ease),
-        sphereNorm[2] * (1.0 - ease) + 1.0 * ease,
-      ];
-      const rawLen = Math.hypot(rawNorm[0], rawNorm[1], rawNorm[2]);
-      outNormal = rawLen > 0.001 ? normalize3(rawNorm) : [0.0, 0.0, 1.0];
+      // Unrolling rotational surface normal:
+      // Eliminates (0,0,0) normal collapse at antimeridian equator at alpha=0.5
+      const thetaNormLon = (1.0 - ease) * lonRad;
+      const thetaNormLat = (1.0 - ease) * latRad;
+      const cp = Math.cos(thetaNormLat);
+      const sp = Math.sin(thetaNormLat);
+      const cl = Math.cos(thetaNormLon);
+      const sl = Math.sin(thetaNormLon);
+      const unrollNorm: [number, number, number] = [cp * sl, sp, cp * cl];
+      const unrollLen = Math.hypot(unrollNorm[0], unrollNorm[1], unrollNorm[2]);
+      outNormal = unrollLen > 0.001 ? normalize3(unrollNorm) : [0.0, 0.0, 1.0];
       break;
     }
   }
@@ -656,14 +664,17 @@ describe('Challenger Phase 2.3: evaluateManifold Unification Stress Harness', ()
       // At pos3D = [0, 0, -5.0] (antimeridian equator):
       // sphereNorm = [0, 0, -1]
       // At alpha = 0.5: ease = 0.5
-      // Linear mix([0, 0, -1], [0, 0, 1], 0.5) = [0, 0, 0] (COLLAPSE AVOIDED via fallback to [0, 0, 1])
+      // Rotational unrolling normal rotates continuously from [0, 0, -1] to [0, 0, 1] without collapse:
+      // At alpha = 0.5, thetaNormLon = (1 - 0.5) * PI = PI / 2 -> unrollNorm = [1, 0, 0]
       const antimeridianPos: [number, number, number] = [0.0, 0.0, -RADIUS];
       const resMode0 = evaluateManifoldCore(antimeridianPos, [PI * RADIUS, 0.0], 0.5, 0);
       const lenMode0 = Math.hypot(resMode0.normal[0], resMode0.normal[1], resMode0.normal[2]);
 
-      // Confirms normal length is strictly unit normalized (>= 0.99) and equals [0, 0, 1]
+      // Confirms normal length is strictly unit normalized (>= 0.99) and oriented along tangent [1, 0, 0]
       expect(lenMode0).toBeGreaterThanOrEqual(0.99);
-      expect(resMode0.normal).toEqual([0.0, 0.0, 1.0]);
+      expect(resMode0.normal[0]).toBeCloseTo(1.0, 2);
+      expect(resMode0.normal[1]).toBeCloseTo(0.0, 2);
+      expect(resMode0.normal[2]).toBeCloseTo(0.0, 2);
     });
   });
 

@@ -399,58 +399,66 @@ fn evaluateManifoldCore(
         }
 
         default: {
-            // ── Mode 0: Polar-Convergent Geodesic Unfolding with Early-Onset Peeling Lip (§2) ──
-            // Eliminates polar pear/vase necking and provides prominent tactile edge peeling
+            // ── Mode 0: Polar-Convergent Geodesic Unfolding with Tactile Peeling Lip (§2) ──
+            // Eliminates polar bat/cat ears, needle spindle, and normal collapse at antimeridian
             let lonRad = select(atan2(pos3D.x, pos3D.z), mercator2D.x / RADIUS, abs(mercator2D.x) > 0.00001 || abs(mercator2D.y) > 0.00001);
             let clampedY = clamp(pos3D.y / RADIUS, -0.9998, 0.9998);
             let latRad = asin(clampedY);
             let cosLat = cos(latRad);
 
-            let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0),
-                                    normalize(pos3D),
-                                    length(pos3D) > 0.001);
-
-            // Two-phase meridional unbending (prevents vertical polar horn elongation):
-            // Phase 1: Unbend circular meridian to true geodesic arc length (RADIUS * latRad)
-            let yUnbend = mix(pos3D.y, RADIUS * latRad, ease);
-            // Phase 2: Smooth conformal dilation to Mercator coordinates
-            let curY = mix(yUnbend, pos2D.y, ease * ease);
+            // Staged meridional unbending:
+            // Prevents premature polar height explosion and vertical cat ears/spikes
+            let tUnbend = smoothstep(0.15, 0.85, ease);
+            let yPhysical = mix(pos3D.y, RADIUS * latRad, tUnbend);
+            let tMercator = smoothstep(0.60, 1.0, ease);
+            let curY = mix(yPhysical, pos2D.y, tMercator);
 
             // Harmonic parallel expansion (prevents polar necking / bottle silhouette):
             let parallelWidth = mix(cosLat, 1.0, ease);
             let curX = mix(pos3D.x, pos2D.x * parallelWidth, ease);
 
-            // Planar depth convergence with latitude-tapered chord lift (avoids polar lift):
+            // Planar depth convergence with latitude-tapered chord lift:
             let chordLiftZ = cosLat * RADIUS * (1.0 - ease) * sin(PI * ease) * 0.28;
             let curZ = mix(pos3D.z, 0.0, ease) + chordLiftZ;
             let basePos = vec3<f32>(curX, curY, curZ);
 
-            // Early-Onset Asymmetric Peeling Lip Envelope (smooth C1 onset):
+            // Early-Onset Asymmetric Peeling Lip Envelope:
             let uAlpha = clampedUnfurl;
-            let alphaPeel = smoothstep(0.0, 0.40, uAlpha);
+            let alphaPeel = smoothstep(0.0, 0.45, uAlpha);
             let ePeel = sin(PI * alphaPeel) * (1.0 - uAlpha);
 
-            // Antimeridian boundary margin mask (|lon| -> PI)
+            // Antimeridian boundary margin mask (|lon| -> PI):
             let lonNorm = abs(lonRad) / PI;
-            let fLip = smoothstep(0.50, 1.0, lonNorm);
+            let fLip = smoothstep(0.60, 1.0, lonNorm);
 
-            // Horizontal radial lift (lifts cut edges outward without vertical polar distortion):
+            // Polar Curl Attenuation: strictly zero curl at poles eliminates bat/cat ears!
+            let latAtten = cosLat * cosLat;
+
+            // Horizontal radial lift (tapered to zero at poles):
             let horizLen = length(vec2<f32>(pos3D.x, pos3D.z));
             let horizNorm = select(vec3<f32>(0.0, 0.0, 1.0),
                                    vec3<f32>(pos3D.x / horizLen, 0.0, pos3D.z / horizLen),
                                    horizLen > 0.001);
-            let liftVec = horizNorm * (RADIUS * 0.12 * ePeel * fLip);
+            let liftVec = horizNorm * (RADIUS * 0.12 * ePeel * fLip * latAtten);
 
-            // 3D Margin Peeling Curl (+Z forward peel catching rim lighting):
-            let thetaCurl = fLip * ePeel * 1.25 * cos(latRad * 0.35);
+            // 3D Margin Peeling Curl (+Z forward peel catching rim lighting, tapered to zero at poles):
+            let thetaCurl = fLip * ePeel * 1.25 * latAtten;
             let flareSign = select(-1.0, 1.0, lonRad >= 0.0);
             let deltaXFlare = flareSign * RADIUS * sin(thetaCurl) * 0.25;
             let deltaZCurl = RADIUS * (1.0 - cos(thetaCurl)) * 0.35;
 
             out.pos = basePos + liftVec + vec3<f32>(deltaXFlare, 0.0, deltaZCurl);
 
-            let rawNorm = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
-            out.normal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(rawNorm), length(rawNorm) > 0.001);
+            // Unrolling rotational surface normal:
+            // Eliminates (0,0,0) normal collapse at antimeridian equator at alpha=0.5
+            let thetaNormLon = (1.0 - ease) * lonRad;
+            let thetaNormLat = (1.0 - ease) * latRad;
+            let cp = cos(thetaNormLat);
+            let sp = sin(thetaNormLat);
+            let cl = cos(thetaNormLon);
+            let sl = sin(thetaNormLon);
+            let unrollNorm = vec3<f32>(cp * sl, sp, cp * cl);
+            out.normal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(unrollNorm), length(unrollNorm) > 0.001);
         }
     }
 
@@ -469,14 +477,15 @@ fn evaluateManifoldCore(
    $\text{out.pos} = \text{pos2D}$.
    $\text{out.normal} = (0, 0, 1)$.
    **Exact Planar Map Invariant: PASS.**
-3. **At $\alpha = 0.12$ (Initial split onset):**
-   $uAlpha = 0.12$, $alphaPeel = 0.12^{0.55} \approx 0.312$.
-   $ePeel = \sin(\pi \cdot 0.312) \cdot (1 - 0.12) \approx 0.832 \cdot 0.88 \approx 0.732$.
-   At antimeridian ($lonNorm = 1.0$), $fLip = 1.0$.
-   $liftVec = \vec{n}_{\text{sphere}} \cdot (5.0 \cdot 0.20 \cdot 0.732) \approx \vec{n}_{\text{sphere}} \cdot 0.732$ (strong outward lift).
-   $\theta_{\text{curl}} \approx 0.732 \cdot 1.15 \approx 0.842\text{ rad} \approx 48^\circ$.
-   $\delta_z = 5.0 \cdot (1 - \cos(0.842)) \cdot 0.40 \approx 0.67$ (prominent peeling forward curl).
-   **Early-Onset Peeling Invariant: PASS.**
+3. **At $\text{lat} \to \pm\pi/2$ (Poles across all $\alpha$):**
+   $\cos(\text{latRad}) \to 0 \implies latAtten = \cos^2(\text{latRad}) \to 0$.
+   $liftVec \to \vec{0}$, $\theta_{\text{curl}} \to 0$, $\delta_x \to 0$, $\delta_z \to 0$.
+   **Zero-Polar-Distortion Invariant (Bat/Cat Ears Eliminated): PASS.**
+4. **At $\alpha = 0.5$, $\lambda = \pm\pi, \phi = 0$ (Antimeridian Equator):**
+   $\theta_{\text{normLon}} = (1 - 0.5)\pi = \pi/2$, $\theta_{\text{normLat}} = 0$.
+   $\hat{n} = (\cos(0)\sin(\pi/2), \sin(0), \cos(0)\cos(\pi/2)) = (1, 0, 0)$.
+   $\|\hat{n}\| = 1.0$ strictly unit normalized, zero collapse.
+   **Non-Vanishing Normal Invariant: PASS.**
 ```
 
 **Grid Adapter** (for `crust_hydrosphere.wgsl`):

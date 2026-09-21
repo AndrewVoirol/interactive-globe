@@ -1902,13 +1902,18 @@ export class WebGPUEngine {
         basePos[2] + surfaceNormal[2] * zCapillary,
       ];
     } else {
-      // Mode 0: Polar-Convergent Geodesic Unfolding with Early-Onset Peeling Lip (§2)
-      const p3DLen = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
-      const sphereNorm: [number, number, number] = [p3D[0] / p3DLen, p3D[1] / p3DLen, p3D[2] / p3DLen];
+      // Mode 0: Polar-Convergent Geodesic Unfolding with Tactile Peeling Lip (§2)
+      const smoothstep = (e0: number, e1: number, x: number): number => {
+        const t = Math.max(0.0, Math.min(1.0, (x - e0) / (e1 - e0)));
+        return t * t * (3.0 - 2.0 * t);
+      };
 
-      // Two-phase meridional unbending (prevents vertical polar horn elongation):
-      const yUnbend = p3D[1] * (1.0 - ease) + (radius * latRad) * ease;
-      const curY = yUnbend * (1.0 - ease * ease) + p2D[1] * (ease * ease);
+      // Staged meridional unbending:
+      // Prevents premature polar height explosion and vertical cat ears/spikes
+      const tUnbend = smoothstep(0.15, 0.85, ease);
+      const yPhysical = p3D[1] * (1.0 - tUnbend) + (radius * latRad) * tUnbend;
+      const tMercator = smoothstep(0.60, 1.0, ease);
+      const curY = yPhysical * (1.0 - tMercator) + p2D[1] * tMercator;
 
       // Harmonic parallel expansion (prevents polar necking / bottle silhouette):
       const parallelWidth = cosLat * (1.0 - ease) + 1.0 * ease;
@@ -1918,28 +1923,27 @@ export class WebGPUEngine {
       const chordLiftZ = cosLat * radius * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
       const curZ = p3D[2] * (1.0 - ease) + chordLiftZ;
 
-      // Early-Onset Asymmetric Peeling Lip Envelope (smooth C1 onset):
+      // Early-Onset Asymmetric Peeling Lip Envelope:
       const uAlpha = Math.max(0.0, Math.min(1.0, unfurl));
-      const smoothstep = (e0: number, e1: number, x: number): number => {
-        const t = Math.max(0.0, Math.min(1.0, (x - e0) / (e1 - e0)));
-        return t * t * (3.0 - 2.0 * t);
-      };
-      const alphaPeel = smoothstep(0.0, 0.40, uAlpha);
+      const alphaPeel = smoothstep(0.0, 0.45, uAlpha);
       const ePeel = Math.sin(PI * alphaPeel) * (1.0 - uAlpha);
 
-      // Antimeridian boundary margin mask (|lon| -> PI)
+      // Antimeridian boundary margin mask (|lon| -> PI):
       const lonNorm = Math.abs(lonRad) / PI;
-      const fLip = smoothstep(0.50, 1.0, lonNorm);
+      const fLip = smoothstep(0.60, 1.0, lonNorm);
 
-      // Horizontal radial lift (lifts cut edges outward without vertical polar distortion):
+      // Polar Curl Attenuation: strictly zero curl at poles eliminates bat/cat ears!
+      const latAtten = cosLat * cosLat;
+
+      // Horizontal radial lift (tapered to zero at poles):
       const horizLen = Math.hypot(p3D[0], p3D[2]);
       const horizNorm: [number, number, number] = horizLen > 0.001
         ? [p3D[0] / horizLen, 0.0, p3D[2] / horizLen]
         : [0.0, 0.0, 1.0];
-      const liftScale = radius * 0.12 * ePeel * fLip;
+      const liftScale = radius * 0.12 * ePeel * fLip * latAtten;
 
-      // 3D Margin Peeling Curl (+Z forward peel catching rim lighting)
-      const thetaCurl = fLip * ePeel * 1.25 * Math.cos(latRad * 0.35);
+      // 3D Margin Peeling Curl (+Z forward peel catching rim lighting, tapered to zero at poles):
+      const thetaCurl = fLip * ePeel * 1.25 * latAtten;
       const flareSign = lonRad >= 0.0 ? 1.0 : -1.0;
       const deltaXFlare = flareSign * radius * Math.sin(thetaCurl) * 0.25;
       const deltaZCurl = radius * (1.0 - Math.cos(thetaCurl)) * 0.35;
