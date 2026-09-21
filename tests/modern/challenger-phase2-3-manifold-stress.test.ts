@@ -304,11 +304,11 @@ export function evaluateManifoldCore(
       const alphaPeel = smoothstep(0.0, 0.45, uAlpha);
       const ePeel = Math.sin(PI * alphaPeel) * (1.0 - uAlpha);
 
-      // 2. Progressive peeling front (Option A: Half-Globe Peel Front):
-      // Rolls inward across the outer 50% of longitude (|lon| >= 90° at peak alpha),
-      // giving the organic tactile peel feel across continents while keeping the prime meridian stable.
+      // 2. Progressive peeling front (Option B: Deep Unrolling Wave):
+      // Rolls inward across the outer 75% of longitude (|lon| >= 45° at peak alpha),
+      // giving deep unrolling propagation across all continents while keeping the 45° prime meridian strip stable.
       const lonNorm = Math.abs(lonRad) / PI;
-      const peelFront = 0.88 - smoothstep(0.0, 0.55, uAlpha) * 0.38;
+      const peelFront = 0.90 - smoothstep(0.0, 0.55, uAlpha) * 0.65;
       const fPeel = smoothstep(peelFront, 1.0, lonNorm);
 
       // 3. Strict polar attenuation (proportional to cosLat):
