@@ -235,50 +235,36 @@ fn evaluateManifoldCore(
             let curZ = mix(pos3D.z, 0.0, ease) + chordLiftZ;
             let basePos = vec3<f32>(curX, curY, curZ);
 
-            // ── Organic Orange-Peel Tactile Kinematics ──
-            // 1. Time envelope: immediate onset (alpha^0.65), exaggerated peak, smooth relaxation ((1-alpha)^1.2)
+            // ── Tactile Boundary Petal Lip Envelope ──
+            // 1. Time envelope: smooth C1 onset (smoothstep 0.0 to 0.45) and relaxation back to planar map
             let uAlpha = clampedUnfurl;
-            let alphaPow = select(0.0, pow(uAlpha, 0.65), uAlpha > 0.0001);
-            let oneMinusAlphaPow = select(0.0, pow(1.0 - uAlpha, 1.2), (1.0 - uAlpha) > 0.0001);
-            let ePeel = sin(PI * alphaPow) * oneMinusAlphaPow;
+            let alphaPeel = smoothstep(0.0, 0.45, uAlpha);
+            let ePeel = sin(PI * alphaPeel) * (1.0 - uAlpha);
 
-            // 2. Progressive peeling propagation front (the rest of the peel "catching up")
+            // 2. Confined cut margin mask (|lon| >= 145° / lonNorm >= 0.80)
+            // Confines curl strictly to the boundary seam so interior continents unroll smoothly
             let lonNorm = abs(lonRad) / PI;
-            let peelFront = 0.88 - smoothstep(0.0, 0.70, uAlpha) * 0.48;
-            let fPeel = smoothstep(peelFront, 1.0, lonNorm);
+            let fLip = smoothstep(0.80, 1.0, lonNorm);
 
-            // 3. Spatial zone weights:
-            // Center edge (equatorial belt): peaks at equator, tapers to zero at poles
-            let wCenter = cosLat;
-            // Corner flaps (subpolar margins): peaks around |phi| = 60°, zero at equator and singular poles
-            let sinLat = sin(latRad);
-            let wCorner = cosLat * sinLat * sinLat * 2.6;
+            // 3. Continuous monotonic meridional profile:
+            // Single gentle cosine taper cos(lat * 0.40) from equator to pole.
+            // Eliminates dual-zone subpolar spikes (ninja star) and Y-deflection.
+            let wProfile = cos(latRad * 0.40);
 
-            // 4. Center edge horizontal unrolling curl:
-            let thetaCenter = fPeel * ePeel * wCenter * 1.25;
+            // 4. Boundary curl and flare (curls forward in +Z and flares in X):
+            let thetaCurl = fLip * ePeel * wProfile * 1.35;
             let flareSign = select(-1.0, 1.0, lonRad >= 0.0);
-            let deltaXCenter = flareSign * RADIUS * sin(thetaCenter) * 0.22;
-            let deltaZCenter = RADIUS * (1.0 - cos(thetaCenter)) * 0.40;
+            let deltaXFlare = flareSign * RADIUS * sin(thetaCurl) * 0.22;
+            let deltaZCurl = RADIUS * (1.0 - cos(thetaCurl)) * 0.38;
 
-            // 5. Corner 3D diagonal roll (flaring in X, rolling toward equator in Y, curling forward in +Z):
-            let thetaCorner = fPeel * ePeel * wCorner * 1.40;
-            let deltaXCorner = flareSign * RADIUS * sin(thetaCorner) * 0.26;
-            let latSign = select(-1.0, 1.0, latRad >= 0.0);
-            let deltaYCorner = -latSign * RADIUS * (1.0 - cos(thetaCorner)) * 0.20;
-            let deltaZCorner = RADIUS * sin(thetaCorner) * 0.35;
-
-            // 6. Outward radial peel lift (fingers pushing outward from behind the globe):
+            // 5. Horizontal radial lift along cut margin:
             let horizLen = length(vec2<f32>(pos3D.x, pos3D.z));
             let horizNorm = select(vec3<f32>(0.0, 0.0, 1.0),
                                    vec3<f32>(pos3D.x / horizLen, 0.0, pos3D.z / horizLen),
                                    horizLen > 0.001);
-            let liftVec = horizNorm * (RADIUS * 0.12 * ePeel * fPeel * cosLat);
+            let liftVec = horizNorm * (RADIUS * 0.10 * ePeel * fLip * cosLat);
 
-            out.pos = basePos + liftVec + vec3<f32>(
-                deltaXCenter + deltaXCorner,
-                deltaYCorner,
-                deltaZCenter + deltaZCorner
-            );
+            out.pos = basePos + liftVec + vec3<f32>(deltaXFlare, 0.0, deltaZCurl);
 
             // Unrolling rotational surface normal:
             // Eliminates (0,0,0) normal collapse at antimeridian equator at alpha=0.5

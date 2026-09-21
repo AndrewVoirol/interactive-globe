@@ -110,11 +110,10 @@
    - Eliminated polar bat/cat ears via polar attenuation ($\cos\phi$).
    - Eliminated normal collapse at the antimeridian equator via rotational unrolling normal.
    - Decoupled intermediate parallel expansion ($t_{\text{parallel}} = \text{smoothstep}(0.18, 0.82, \text{ease})$) from vertical Mercator stretching ($t_{\text{Mercator}} = \text{smoothstep}(0.60, 1.0, \text{ease})$), eliminating the intermediate $\alpha \approx 0.62$ diamond / rhombus silhouette while retaining closed spherical caps at $\alpha \le 0.20$.
-   - Calibrated **Organic Orange-Peel Kinematics**:
-     - *Immediate Onset & Normalizing Envelope*: $E_{\text{peel}}(\alpha) = \sin(\pi \alpha^{0.65}) \cdot (1 - \alpha)^{1.2}$ initiates peel at $\alpha = 0.05$, peaks at $\alpha \approx 0.30$, and relaxes flat at $\alpha \to 1.0$.
-     - *Progressive Peeling Front*: $\lambda_{\text{front}}(\alpha) = 0.88 - \text{smoothstep}(0.0, 0.70, \alpha) \cdot 0.48$ rolls inward from the seam across the hemisphere as the rest of the peel "catches up".
-     - *Dual-Zone Peeling (Center Edges vs. Corner Flaps)*: Center edges curl horizontally ($\theta_{\text{center}} \approx 1.25 W_{\text{center}}$) with forward $+Z$ lift, while subpolar corners perform a 3D diagonal roll ($\theta_{\text{corner}} \approx 1.40 W_{\text{corner}}$) curling forward in $+Z$, flaring in $X$, and curling toward the equator in $-\text{sign}(\phi) Y$.
-     - *Outward Radial Peel Lift*: $\mathbf{v}_{\text{lift}} = \mathbf{n}_{\text{horiz}} \cdot 0.12 R E_{\text{peel}} f_{\text{peel}} \cos\phi$ lifts the flaps forward into front view instead of sliding along a hidden chord.
+   - Eliminated ninja-star / shuriken silhouette and orange-peel overextension:
+     - Replaced dual-zone subpolar corner splitting (`wCorner`) and $Y$-deflections with a continuous monotonic meridional taper $W_{\text{profile}}(\phi) = \cos(0.40 \phi)$.
+     - Confined peeling and petal curl strictly to the outer cut boundary ($|\lambda| \ge 145^\circ$, `lonNorm >= 0.80`), ensuring the interior $80\%$ of the globe unrolls as a continuous geometric manifold resting on the drafting sheet.
+     - Preserved tactile boundary petal lip curling forward in $+Z$ and outward in $+X$, allowing the 4 rectangular map corners to emerge cleanly and migrate toward the 4 neatline corners of the drafting sheet without sawtooth notches.
 
 ### Active Priority Roadmap
 1. **Visual Style Noise Stripping & Medium Clarification**:

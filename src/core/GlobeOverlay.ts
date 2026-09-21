@@ -360,49 +360,39 @@ export function evaluatePointMorph(
     const chordLiftZ = cosLat * RADIUS * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
     const curZ = p3D[2] * (1.0 - ease) + chordLiftZ;
 
-    // ── Organic Orange-Peel Tactile Kinematics ──
-    // 1. Time envelope: immediate onset (alpha^0.65), exaggerated peak, smooth relaxation ((1-alpha)^1.2)
+    // ── Tactile Boundary Petal Lip Envelope ──
+    // 1. Time envelope: smooth C1 onset (smoothstep 0.0 to 0.45) and relaxation back to planar map
     const uAlpha = clampedAlpha;
-    const alphaPow = uAlpha > 0.0001 ? Math.pow(uAlpha, 0.65) : 0.0;
-    const oneMinusAlphaPow = (1.0 - uAlpha) > 0.0001 ? Math.pow(1.0 - uAlpha, 1.2) : 0.0;
-    const ePeel = Math.sin(PI * alphaPow) * oneMinusAlphaPow;
+    const alphaPeel = smoothstep(0.0, 0.45, uAlpha);
+    const ePeel = Math.sin(PI * alphaPeel) * (1.0 - uAlpha);
 
-    // 2. Progressive peeling propagation front (the rest of the peel "catching up")
+    // 2. Confined cut margin mask (|lon| >= 145° / lonNorm >= 0.80)
+    // Confines curl strictly to the boundary seam so interior continents unroll smoothly
     const lonNorm = Math.abs(lambda) / PI;
-    const peelFront = 0.88 - smoothstep(0.0, 0.70, uAlpha) * 0.48;
-    const fPeel = smoothstep(peelFront, 1.0, lonNorm);
+    const fLip = smoothstep(0.80, 1.0, lonNorm);
 
-    // 3. Spatial zone weights:
-    // Center edge (equatorial belt): peaks at equator, tapers to zero at poles
-    const wCenter = cosLat;
-    // Corner flaps (subpolar margins): peaks around |phi| = 60°, zero at equator and singular poles
-    const sinLat = Math.sin(phi);
-    const wCorner = cosLat * sinLat * sinLat * 2.6;
+    // 3. Continuous monotonic meridional profile:
+    // Single gentle cosine taper cos(lat * 0.40) from equator to pole.
+    // Eliminates dual-zone subpolar spikes (ninja star) and Y-deflection.
+    const wProfile = Math.cos(phi * 0.40);
 
-    // 4. Center edge horizontal unrolling curl:
-    const thetaCenter = fPeel * ePeel * wCenter * 1.25;
+    // 4. Boundary curl and flare (curls forward in +Z and flares in X):
+    const thetaCurl = fLip * ePeel * wProfile * 1.35;
     const flareSign = lambda >= 0.0 ? 1.0 : -1.0;
-    const deltaXCenter = flareSign * RADIUS * Math.sin(thetaCenter) * 0.22;
-    const deltaZCenter = RADIUS * (1.0 - Math.cos(thetaCenter)) * 0.40;
+    const deltaXFlare = flareSign * RADIUS * Math.sin(thetaCurl) * 0.22;
+    const deltaZCurl = RADIUS * (1.0 - Math.cos(thetaCurl)) * 0.38;
 
-    // 5. Corner 3D diagonal roll (flaring in X, rolling toward equator in Y, curling forward in +Z):
-    const thetaCorner = fPeel * ePeel * wCorner * 1.40;
-    const deltaXCorner = flareSign * RADIUS * Math.sin(thetaCorner) * 0.26;
-    const latSign = phi >= 0.0 ? 1.0 : -1.0;
-    const deltaYCorner = -latSign * RADIUS * (1.0 - Math.cos(thetaCorner)) * 0.20;
-    const deltaZCorner = RADIUS * Math.sin(thetaCorner) * 0.35;
-
-    // 6. Outward radial peel lift (fingers pushing outward from behind the globe):
+    // 5. Horizontal radial lift along cut margin:
     const horizLen = Math.hypot(p3D[0], p3D[2]);
     const horizNorm: [number, number, number] = horizLen > 0.001
       ? [p3D[0] / horizLen, 0.0, p3D[2] / horizLen]
       : [0.0, 0.0, 1.0];
-    const liftScale = RADIUS * 0.12 * ePeel * fPeel * cosLat;
+    const liftScale = RADIUS * 0.10 * ePeel * fLip * cosLat;
 
     return [
-      curX + horizNorm[0] * liftScale + deltaXCenter + deltaXCorner,
-      curY + deltaYCorner,
-      curZ + horizNorm[2] * liftScale + deltaZCenter + deltaZCorner,
+      curX + horizNorm[0] * liftScale + deltaXFlare,
+      curY,
+      curZ + horizNorm[2] * liftScale + deltaZCurl,
     ];
   }
 }
