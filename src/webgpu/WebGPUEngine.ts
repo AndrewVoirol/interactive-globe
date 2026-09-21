@@ -1902,35 +1902,52 @@ export class WebGPUEngine {
         basePos[2] + surfaceNormal[2] * zCapillary,
       ];
     } else {
-      // Mode 0: Polar-Convergent Geodesic Unfolding with Boundary Petal Curl (§2)
-      const s3 = ease * ease * (3.0 - 2.0 * ease);
-      const lonEff = lonRad * (cosLat + (1.0 - cosLat) * s3);
-      const p2DEffX = lonEff * radius;
-
+      // Mode 0: Polar-Convergent Geodesic Unfolding with Early-Onset Peeling Lip (§2)
       const p3DLen = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
       const sphereNorm: [number, number, number] = [p3D[0] / p3DLen, p3D[1] / p3DLen, p3D[2] / p3DLen];
-      const chordLift = radius * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
 
-      const baseX = p3D[0] * (1.0 - ease) + p2DEffX * ease + sphereNorm[0] * chordLift;
-      const baseY = p3D[1] * (1.0 - ease) + p2D[1] * ease + sphereNorm[1] * chordLift;
-      const baseZ = p3D[2] * (1.0 - ease) + p2D[2] * ease + sphereNorm[2] * chordLift;
+      // Two-phase meridional unbending (prevents vertical polar horn elongation):
+      const yUnbend = p3D[1] * (1.0 - ease) + (radius * latRad) * ease;
+      const curY = yUnbend * (1.0 - ease * ease) + p2D[1] * (ease * ease);
 
-      // Boundary Petal Curl & Margin Flap Flare on antimeridian flaps (|lon| -> PI)
-      const lonNorm = Math.abs(lonRad) / PI;
+      // Harmonic parallel expansion (prevents polar necking / bottle silhouette):
+      const parallelWidth = cosLat * (1.0 - ease) + 1.0 * ease;
+      const curX = p3D[0] * (1.0 - ease) + (p2D[0] * parallelWidth) * ease;
+
+      // Planar depth convergence with latitude-tapered chord lift:
+      const chordLiftZ = cosLat * radius * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
+      const curZ = p3D[2] * (1.0 - ease) + chordLiftZ;
+
+      // Early-Onset Asymmetric Peeling Lip Envelope (smooth C1 onset):
+      const uAlpha = Math.max(0.0, Math.min(1.0, unfurl));
       const smoothstep = (e0: number, e1: number, x: number): number => {
         const t = Math.max(0.0, Math.min(1.0, (x - e0) / (e1 - e0)));
         return t * t * (3.0 - 2.0 * t);
       };
-      const fPetal = smoothstep(0.35, 1.0, lonNorm);
-      const thetaPetal = fPetal * Math.cos(latRad * 0.75) * Math.sin(PI * ease) * 1.45;
+      const alphaPeel = smoothstep(0.0, 0.40, uAlpha);
+      const ePeel = Math.sin(PI * alphaPeel) * (1.0 - uAlpha);
+
+      // Antimeridian boundary margin mask (|lon| -> PI)
+      const lonNorm = Math.abs(lonRad) / PI;
+      const fLip = smoothstep(0.50, 1.0, lonNorm);
+
+      // Horizontal radial lift (lifts cut edges outward without vertical polar distortion):
+      const horizLen = Math.hypot(p3D[0], p3D[2]);
+      const horizNorm: [number, number, number] = horizLen > 0.001
+        ? [p3D[0] / horizLen, 0.0, p3D[2] / horizLen]
+        : [0.0, 0.0, 1.0];
+      const liftScale = radius * 0.12 * ePeel * fLip;
+
+      // 3D Margin Peeling Curl (+Z forward peel catching rim lighting)
+      const thetaCurl = fLip * ePeel * 1.25 * Math.cos(latRad * 0.35);
       const flareSign = lonRad >= 0.0 ? 1.0 : -1.0;
-      const deltaXFlare = flareSign * radius * Math.sin(thetaPetal) * 0.32;
-      const deltaZCurl = -radius * (1.0 - Math.cos(thetaPetal)) * 0.48 * (1.0 - 0.4 * ease);
+      const deltaXFlare = flareSign * radius * Math.sin(thetaCurl) * 0.25;
+      const deltaZCurl = radius * (1.0 - Math.cos(thetaCurl)) * 0.35;
 
       return [
-        baseX + deltaXFlare,
-        baseY,
-        baseZ + deltaZCurl,
+        curX + horizNorm[0] * liftScale + deltaXFlare,
+        curY,
+        curZ + horizNorm[2] * liftScale + deltaZCurl,
       ];
     }
   }

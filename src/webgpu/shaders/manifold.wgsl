@@ -211,35 +211,55 @@ fn evaluateManifoldCore(
         }
 
         default: {
-            // ── Mode 0: Polar-Convergent Geodesic Unfolding with Boundary Petal Curl (§2) ──
-            // Eliminates polar circular hole tearing and interior chord deflation
+            // ── Mode 0: Polar-Convergent Geodesic Unfolding with Early-Onset Peeling Lip (§2) ──
+            // Eliminates polar pear necking and horn spikes while delivering prominent tactile edge peeling
             let lonRad = select(atan2(pos3D.x, pos3D.z), mercator2D.x / RADIUS, abs(mercator2D.x) > 0.00001 || abs(mercator2D.y) > 0.00001);
             let clampedY = clamp(pos3D.y / RADIUS, -0.9998, 0.9998);
             let latRad = asin(clampedY);
             let cosLat = cos(latRad);
 
-            // Effective longitude dilation: S3(alpha) = 3*alpha^2 - 2*alpha^3
-            let s3 = ease * ease * (3.0 - 2.0 * ease);
-            let lonEff = lonRad * (cosLat + (1.0 - cosLat) * s3);
-            let pos2DEff = vec3<f32>(lonEff * RADIUS, pos2D.y, 0.0);
-
             let sphereNorm = select(vec3<f32>(0.0, 0.0, 1.0),
                                     normalize(pos3D),
                                     length(pos3D) > 0.001);
 
-            // Radial elevation preservation: prevents interior chord deflation
-            let chordLift = sphereNorm * (RADIUS * (1.0 - ease) * sin(PI * ease) * 0.28);
-            let basePos = mix(pos3D, pos2DEff, ease) + chordLift;
+            // Two-phase meridional unbending (prevents vertical polar horn elongation):
+            // Phase 1: Unbend circular meridian to true geodesic arc length (RADIUS * latRad)
+            let yUnbend = mix(pos3D.y, RADIUS * latRad, ease);
+            // Phase 2: Smooth conformal dilation to Mercator coordinates
+            let curY = mix(yUnbend, pos2D.y, ease * ease);
 
-            // Boundary Petal Curl & Margin Flap Flare on antimeridian flaps (|lon| -> PI)
+            // Harmonic parallel expansion (prevents polar necking / bottle silhouette):
+            let parallelWidth = mix(cosLat, 1.0, ease);
+            let curX = mix(pos3D.x, pos2D.x * parallelWidth, ease);
+
+            // Planar depth convergence with latitude-tapered chord lift (avoids polar lift):
+            let chordLiftZ = cosLat * RADIUS * (1.0 - ease) * sin(PI * ease) * 0.28;
+            let curZ = mix(pos3D.z, 0.0, ease) + chordLiftZ;
+            let basePos = vec3<f32>(curX, curY, curZ);
+
+            // Early-Onset Asymmetric Peeling Lip Envelope (smooth C1 onset):
+            let uAlpha = clampedUnfurl;
+            let alphaPeel = smoothstep(0.0, 0.40, uAlpha);
+            let ePeel = sin(PI * alphaPeel) * (1.0 - uAlpha);
+
+            // Antimeridian boundary margin mask (|lon| -> PI)
             let lonNorm = abs(lonRad) / PI;
-            let fPetal = smoothstep(0.35, 1.0, lonNorm);
-            let thetaPetal = fPetal * cos(latRad * 0.75) * sin(PI * ease) * 1.45;
-            let flareSign = select(-1.0, 1.0, lonRad >= 0.0);
-            let deltaXFlare = flareSign * RADIUS * sin(thetaPetal) * 0.32;
-            let deltaZCurl = -RADIUS * (1.0 - cos(thetaPetal)) * 0.48 * (1.0 - 0.4 * ease);
+            let fLip = smoothstep(0.50, 1.0, lonNorm);
 
-            out.pos = basePos + vec3<f32>(deltaXFlare, 0.0, deltaZCurl);
+            // Horizontal radial lift (lifts cut edges outward without vertical polar distortion):
+            let horizLen = length(vec2<f32>(pos3D.x, pos3D.z));
+            let horizNorm = select(vec3<f32>(0.0, 0.0, 1.0),
+                                   vec3<f32>(pos3D.x / horizLen, 0.0, pos3D.z / horizLen),
+                                   horizLen > 0.001);
+            let liftVec = horizNorm * (RADIUS * 0.12 * ePeel * fLip);
+
+            // 3D Margin Peeling Curl (+Z forward peel catching rim lighting):
+            let thetaCurl = fLip * ePeel * 1.25 * cos(latRad * 0.35);
+            let flareSign = select(-1.0, 1.0, lonRad >= 0.0);
+            let deltaXFlare = flareSign * RADIUS * sin(thetaCurl) * 0.25;
+            let deltaZCurl = RADIUS * (1.0 - cos(thetaCurl)) * 0.35;
+
+            out.pos = basePos + liftVec + vec3<f32>(deltaXFlare, 0.0, deltaZCurl);
 
             let rawNorm = mix(sphereNorm, vec3<f32>(0.0, 0.0, 1.0), ease);
             out.normal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(rawNorm), length(rawNorm) > 0.001);
