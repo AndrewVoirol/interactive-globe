@@ -1915,7 +1915,7 @@ export class WebGPUEngine {
       const tMercator = smoothstep(0.60, 1.0, ease);
       const curY = yPhysical * (1.0 - tMercator) + p2D[1] * tMercator;
 
-      // Decoupled intermediate parallel expansion (eliminates intermediate diamond/rhombus silhouette):
+      // Intermediate parallel expansion:
       const tParallel = smoothstep(0.18, 0.82, ease);
       const parallelWidth = cosLat * (1.0 - tParallel) + 1.0 * tParallel;
       const curX = p3D[0] * (1.0 - ease) + (p2D[0] * parallelWidth) * ease;
@@ -1924,31 +1924,30 @@ export class WebGPUEngine {
       const chordLiftZ = cosLat * radius * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
       const curZ = p3D[2] * (1.0 - ease) + chordLiftZ;
 
-      // ── Tactile Boundary Peel Envelope (Happy Middle Space) ──
-      // 1. Time envelope: smooth C1 onset (smoothstep 0.0 to 0.45) and relaxation back to planar map
+      // ── Tactile 3D Sticker Peel Envelope ──
       const uAlpha = Math.max(0.0, Math.min(1.0, unfurl));
-      const alphaPeel = smoothstep(0.0, 0.45, uAlpha);
-      const ePeel = Math.sin(PI * alphaPeel) * (1.0 - uAlpha);
-
-      // 2. Progressive peeling front (Option B: Deep Unrolling Wave):
-      // Rolls inward across the outer 75% of longitude (|lon| >= 45° at peak alpha),
-      // giving deep unrolling propagation across all continents while keeping the 45° prime meridian strip stable.
       const lonNorm = Math.abs(lonRad) / PI;
-      const peelFront = 0.90 - smoothstep(0.0, 0.55, uAlpha) * 0.65;
-      const fPeel = smoothstep(peelFront, 1.0, lonNorm);
 
-      // 3. Strict polar attenuation (proportional to cosLat):
-      // Ensures peeling displacement vanishes at the polar singularities (cosLat -> 0).
-      // Completely eliminates layer buckling, folding over into itself, and inverted polar points!
+      // 1. Dynamic Traveling Peel Line:
+      const peelLine = 1.0 - smoothstep(0.0, 0.68, uAlpha);
+
+      // 2. Local Detachment Coordinate along peeled flap:
+      const sPeel = lonNorm > peelLine ? smoothstep(peelLine, 1.0, lonNorm) : 0.0;
+
+      // 4. Responsive Tactile Time Envelope (Immediate Fingernail Seam Crack):
+      const tOnset = Math.max(0.0, Math.min(1.0, uAlpha / 0.48));
+      const ePeel = Math.sin(PI * tOnset) * (1.0 - uAlpha);
+
+      // 5. Strict Polar Attenuation:
       const polarScale = cosLat;
 
-      // 4. Outward radial normal in horizontal plane (points strictly AWAY from globe core):
+      // 6. Outward radial normal in horizontal plane:
       const horizLen = Math.hypot(p3D[0], p3D[2]);
       const horizNorm: [number, number, number] = horizLen > 0.001
         ? [p3D[0] / horizLen, 0.0, p3D[2] / horizLen]
         : [0.0, 0.0, -1.0];
 
-      // 5. Intrinsic parallel tangent vector (curves along the circle of latitude):
+      // 7. Intrinsic parallel tangent vector:
       const horizTan: [number, number, number] = horizLen > 0.001
         ? [horizNorm[2], 0.0, -horizNorm[0]]
         : [1.0, 0.0, 0.0];
@@ -1959,8 +1958,8 @@ export class WebGPUEngine {
         horizTan[2] * rollSign,
       ];
 
-      // 6. Tangential Involute Barrel Roll (Chopes Slab Lip Curvature):
-      const thetaRoll = fPeel * 1.0;
+      // 8. Tangential Involute Barrel Roll (Fingernail Lip + Arched Flap Curvature):
+      const thetaRoll = sPeel * 1.1;
       const liftBarrel = radius * 0.35 * ePeel * (1.0 - Math.cos(thetaRoll)) * polarScale;
       const flareBarrel = radius * 0.22 * ePeel * Math.sin(thetaRoll) * polarScale;
 

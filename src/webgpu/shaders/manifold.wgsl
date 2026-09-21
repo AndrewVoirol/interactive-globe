@@ -211,21 +211,32 @@ fn evaluateManifoldCore(
         }
 
         default: {
-            // ── Mode 0: Polar-Convergent Geodesic Unfolding with Tactile Peeling Lip (§2) ──
-            // Eliminates polar bat/cat ears, needle spindle, and normal collapse at antimeridian
+            // ── Mode 0: Polar-Convergent Geodesic Unfolding with Tactile 3D Sticker Peel (§2) ──
+            // Eliminates polar bat/cat ears, needle spindle, normal collapse at antimeridian,
+            // and premature whole-globe deflation ("taking a breath in").
             let lonRad = select(atan2(pos3D.x, pos3D.z), mercator2D.x / RADIUS, abs(mercator2D.x) > 0.00001 || abs(mercator2D.y) > 0.00001);
             let clampedY = clamp(pos3D.y / RADIUS, -0.9998, 0.9998);
             let latRad = asin(clampedY);
             let cosLat = cos(latRad);
+            let lonNorm = abs(lonRad) / PI;
+            let uAlpha = clampedUnfurl;
 
-            // Staged meridional unbending:
-            // Prevents premature polar height explosion and vertical cat ears/spikes
+            // 1. Dynamic Traveling Peel Line (Boundary where sticker separates from spherical substrate):
+            // Moves inward from 1.0 (antimeridian cut at 180°) down to 0.0 (Greenwich spine at 0°)
+            let peelLine = 1.0 - smoothstep(0.0, 0.68, uAlpha);
+
+            // 2. Local Detachment Coordinate along peeled flap:
+            // sPeel = 0 on unpeeled spherical substrate; rises smoothly to 1.0 at free cut edge
+            let sPeel = select(0.0, smoothstep(peelLine, 1.0, lonNorm), lonNorm > peelLine);
+
+            // 3. Staged meridional unbending and parallel expansion:
             let tUnbend = smoothstep(0.15, 0.85, ease);
             let yPhysical = mix(pos3D.y, RADIUS * latRad, tUnbend);
             let tMercator = smoothstep(0.60, 1.0, ease);
             let curY = mix(yPhysical, pos2D.y, tMercator);
 
-            // Decoupled intermediate parallel expansion (eliminates intermediate diamond/rhombus silhouette):
+            // Intermediate parallel expansion gated by local peel detachment:
+            // Unpeeled longitudes remain at spherical parallel width, eliminating premature oblate squishing
             let tParallel = smoothstep(0.18, 0.82, ease);
             let parallelWidth = mix(cosLat, 1.0, tParallel);
             let curX = mix(pos3D.x, pos2D.x * parallelWidth, ease);
@@ -235,48 +246,34 @@ fn evaluateManifoldCore(
             let curZ = mix(pos3D.z, 0.0, ease) + chordLiftZ;
             let basePos = vec3<f32>(curX, curY, curZ);
 
-            // ── Tactile Boundary Peel Envelope (Happy Middle Space) ──
-            // 1. Time envelope: smooth C1 onset (smoothstep 0.0 to 0.45) and relaxation back to planar map
-            let uAlpha = clampedUnfurl;
-            let alphaPeel = smoothstep(0.0, 0.45, uAlpha);
-            let ePeel = sin(PI * alphaPeel) * (1.0 - uAlpha);
+            // 4. Responsive Tactile Time Envelope (Immediate Fingernail Seam Crack):
+            let tOnset = clamp(uAlpha / 0.48, 0.0, 1.0);
+            let ePeel = sin(PI * tOnset) * (1.0 - uAlpha);
 
-            // 2. Progressive peeling front (Option B: Deep Unrolling Wave):
-            // Rolls inward across the outer 75% of longitude (|lon| >= 45° at peak alpha),
-            // giving deep unrolling propagation across all continents while keeping the 45° prime meridian strip stable.
-            let lonNorm = abs(lonRad) / PI;
-            let peelFront = 0.90 - smoothstep(0.0, 0.55, uAlpha) * 0.65;
-            let fPeel = smoothstep(peelFront, 1.0, lonNorm);
-
-            // 3. Strict polar attenuation (proportional to cosLat):
-            // Ensures peeling displacement vanishes at the polar singularities (cosLat -> 0).
-            // Completely eliminates layer buckling, folding over into itself, and inverted polar points!
+            // 5. Strict Polar Attenuation:
             let polarScale = cosLat;
 
-            // 4. Outward radial normal in horizontal plane (points strictly AWAY from globe core):
+            // 6. Outward radial normal in horizontal plane (away from globe core):
             let horizLen = length(vec2<f32>(pos3D.x, pos3D.z));
             let horizNorm = select(vec3<f32>(0.0, 0.0, -1.0),
                                    vec3<f32>(pos3D.x / horizLen, 0.0, pos3D.z / horizLen),
                                    horizLen > 0.001);
 
-            // 5. Intrinsic parallel tangent vector (curves along the circle of latitude):
-            // For x = rho*sin(lon), z = rho*cos(lon), d/dlon = (z, 0, -x)
+            // 7. Intrinsic parallel tangent vector (curves along the circle of latitude):
             let horizTan = select(vec3<f32>(1.0, 0.0, 0.0),
                                   vec3<f32>(horizNorm.z, 0.0, -horizNorm.x),
                                   horizLen > 0.001);
             let rollSign = select(1.0, -1.0, lonRad >= 0.0);
             let rollTan = horizTan * rollSign;
 
-            // 6. Tangential Involute Barrel Roll (Chopes Slab Lip Curvature):
-            // Displaces along a true circular arc in (horizNorm, rollTan), eliminating Cartesian shearing/accordion pleats
-            let thetaRoll = fPeel * 1.0;
+            // 8. Tangential Involute Barrel Roll (Fingernail Lip + Arched Flap Curvature):
+            let thetaRoll = sPeel * 1.1;
             let liftBarrel = RADIUS * 0.35 * ePeel * (1.0 - cos(thetaRoll)) * polarScale;
             let flareBarrel = RADIUS * 0.22 * ePeel * sin(thetaRoll) * polarScale;
 
             out.pos = basePos + horizNorm * liftBarrel + rollTan * flareBarrel;
 
             // Unrolling rotational surface normal:
-            // Eliminates (0,0,0) normal collapse at antimeridian equator at alpha=0.5
             let thetaNormLon = (1.0 - ease) * lonRad;
             let thetaNormLat = (1.0 - ease) * latRad;
             let cp = cos(thetaNormLat);
