@@ -107,10 +107,14 @@
    - Cross-Session Discovery Ledger & Parameter Retention (113).
 
 5. **Mode 0 Unfurl Geometry & Intermediate Trajectory Calibration**:
-   - Eliminated polar bat/cat ears via quadratic polar attenuation ($\cos^2\phi$).
+   - Eliminated polar bat/cat ears via polar attenuation ($\cos\phi$).
    - Eliminated normal collapse at the antimeridian equator via rotational unrolling normal.
-   - Eliminated rectangular wings/shelves via geodesic parallel expansion.
-   - *Pending Investigation*: At $\alpha \approx 0.62$, the manifold exhibits a diamond / rhombus silhouette (equator dilated wide while poles remain pinched narrow), and the peeling/petal action along the antimeridian cut requires heightened visibility and organic tactile presence.
+   - Decoupled intermediate parallel expansion ($t_{\text{parallel}} = \text{smoothstep}(0.18, 0.82, \text{ease})$) from vertical Mercator stretching ($t_{\text{Mercator}} = \text{smoothstep}(0.60, 1.0, \text{ease})$), eliminating the intermediate $\alpha \approx 0.62$ diamond / rhombus silhouette while retaining closed spherical caps at $\alpha \le 0.20$.
+   - Calibrated **Organic Orange-Peel Kinematics**:
+     - *Immediate Onset & Normalizing Envelope*: $E_{\text{peel}}(\alpha) = \sin(\pi \alpha^{0.65}) \cdot (1 - \alpha)^{1.2}$ initiates peel at $\alpha = 0.05$, peaks at $\alpha \approx 0.30$, and relaxes flat at $\alpha \to 1.0$.
+     - *Progressive Peeling Front*: $\lambda_{\text{front}}(\alpha) = 0.88 - \text{smoothstep}(0.0, 0.70, \alpha) \cdot 0.48$ rolls inward from the seam across the hemisphere as the rest of the peel "catches up".
+     - *Dual-Zone Peeling (Center Edges vs. Corner Flaps)*: Center edges curl horizontally ($\theta_{\text{center}} \approx 1.25 W_{\text{center}}$) with forward $+Z$ lift, while subpolar corners perform a 3D diagonal roll ($\theta_{\text{corner}} \approx 1.40 W_{\text{corner}}$) curling forward in $+Z$, flaring in $X$, and curling toward the equator in $-\text{sign}(\phi) Y$.
+     - *Outward Radial Peel Lift*: $\mathbf{v}_{\text{lift}} = \mathbf{n}_{\text{horiz}} \cdot 0.12 R E_{\text{peel}} f_{\text{peel}} \cos\phi$ lifts the flaps forward into front view instead of sliding along a hidden chord.
 
 ### Active Priority Roadmap
 1. **Visual Style Noise Stripping & Medium Clarification**:

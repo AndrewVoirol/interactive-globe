@@ -1915,43 +1915,58 @@ export class WebGPUEngine {
       const tMercator = smoothstep(0.60, 1.0, ease);
       const curY = yPhysical * (1.0 - tMercator) + p2D[1] * tMercator;
 
-      // Geodesic parallel expansion (parallels maintain natural cosine taper during 3D unbending):
-      const parallelWidth = cosLat * (1.0 - tMercator) + 1.0 * tMercator;
+      // Decoupled intermediate parallel expansion (eliminates intermediate diamond/rhombus silhouette):
+      const tParallel = smoothstep(0.18, 0.82, ease);
+      const parallelWidth = cosLat * (1.0 - tParallel) + 1.0 * tParallel;
       const curX = p3D[0] * (1.0 - ease) + (p2D[0] * parallelWidth) * ease;
 
       // Planar depth convergence with latitude-tapered chord lift:
       const chordLiftZ = cosLat * radius * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
       const curZ = p3D[2] * (1.0 - ease) + chordLiftZ;
 
-      // Early-Onset Tactile Peeling Lip Envelope:
+      // ── Organic Orange-Peel Tactile Kinematics ──
+      // 1. Time envelope: immediate onset (alpha^0.65), exaggerated peak, smooth relaxation ((1-alpha)^1.2)
       const uAlpha = Math.max(0.0, Math.min(1.0, unfurl));
-      const alphaPeel = smoothstep(0.0, 0.45, uAlpha);
-      const ePeel = Math.sin(PI * alphaPeel) * (1.0 - uAlpha);
+      const alphaPow = uAlpha > 0.0001 ? Math.pow(uAlpha, 0.65) : 0.0;
+      const oneMinusAlphaPow = (1.0 - uAlpha) > 0.0001 ? Math.pow(1.0 - uAlpha, 1.2) : 0.0;
+      const ePeel = Math.sin(PI * alphaPow) * oneMinusAlphaPow;
 
-      // Boundary-confined antimeridian cut margin mask (|lon| > 153°):
+      // 2. Progressive peeling propagation front (the rest of the peel "catching up")
       const lonNorm = Math.abs(lonRad) / PI;
-      const fLip = smoothstep(0.85, 1.0, lonNorm);
+      const peelFront = 0.88 - smoothstep(0.0, 0.70, uAlpha) * 0.48;
+      const fPeel = smoothstep(peelFront, 1.0, lonNorm);
 
-      // Polar Curl Attenuation: strictly zero curl at poles eliminates bat/cat ears!
-      const latAtten = cosLat * cosLat;
+      // 3. Spatial zone weights:
+      // Center edge (equatorial belt): peaks at equator, tapers to zero at poles
+      const wCenter = cosLat;
+      // Corner flaps (subpolar margins): peaks around |phi| = 60°, zero at equator and singular poles
+      const sinLat = Math.sin(latRad);
+      const wCorner = cosLat * sinLat * sinLat * 2.6;
 
-      // Horizontal radial lift (tapered to zero at poles):
+      // 4. Center edge horizontal unrolling curl:
+      const thetaCenter = fPeel * ePeel * wCenter * 1.25;
+      const flareSign = lonRad >= 0.0 ? 1.0 : -1.0;
+      const deltaXCenter = flareSign * radius * Math.sin(thetaCenter) * 0.22;
+      const deltaZCenter = radius * (1.0 - Math.cos(thetaCenter)) * 0.40;
+
+      // 5. Corner 3D diagonal roll (flaring in X, rolling toward equator in Y, curling forward in +Z):
+      const thetaCorner = fPeel * ePeel * wCorner * 1.40;
+      const deltaXCorner = flareSign * radius * Math.sin(thetaCorner) * 0.26;
+      const latSign = latRad >= 0.0 ? 1.0 : -1.0;
+      const deltaYCorner = -latSign * radius * (1.0 - Math.cos(thetaCorner)) * 0.20;
+      const deltaZCorner = radius * Math.sin(thetaCorner) * 0.35;
+
+      // 6. Outward radial peel lift (fingers pushing outward from behind the globe):
       const horizLen = Math.hypot(p3D[0], p3D[2]);
       const horizNorm: [number, number, number] = horizLen > 0.001
         ? [p3D[0] / horizLen, 0.0, p3D[2] / horizLen]
         : [0.0, 0.0, 1.0];
-      const liftScale = radius * 0.08 * ePeel * fLip * latAtten;
-
-      // 3D Margin Peeling Curl (+Z forward peel catching rim lighting, tapered to zero at poles):
-      const thetaCurl = fLip * ePeel * 0.85 * latAtten;
-      const flareSign = lonRad >= 0.0 ? 1.0 : -1.0;
-      const deltaXFlare = flareSign * radius * Math.sin(thetaCurl) * 0.15;
-      const deltaZCurl = radius * (1.0 - Math.cos(thetaCurl)) * 0.25;
+      const liftScale = radius * 0.12 * ePeel * fPeel * cosLat;
 
       return [
-        curX + horizNorm[0] * liftScale + deltaXFlare,
-        curY,
-        curZ + horizNorm[2] * liftScale + deltaZCurl,
+        curX + horizNorm[0] * liftScale + deltaXCenter + deltaXCorner,
+        curY + deltaYCorner,
+        curZ + horizNorm[2] * liftScale + deltaZCenter + deltaZCorner,
       ];
     }
   }

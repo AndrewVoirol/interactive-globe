@@ -225,8 +225,9 @@ fn evaluateManifoldCore(
             let tMercator = smoothstep(0.60, 1.0, ease);
             let curY = mix(yPhysical, pos2D.y, tMercator);
 
-            // Geodesic parallel expansion (parallels maintain natural cosine taper during 3D unbending):
-            let parallelWidth = mix(cosLat, 1.0, tMercator);
+            // Decoupled intermediate parallel expansion (eliminates intermediate diamond/rhombus silhouette):
+            let tParallel = smoothstep(0.18, 0.82, ease);
+            let parallelWidth = mix(cosLat, 1.0, tParallel);
             let curX = mix(pos3D.x, pos2D.x * parallelWidth, ease);
 
             // Planar depth convergence with latitude-tapered chord lift:
@@ -234,32 +235,50 @@ fn evaluateManifoldCore(
             let curZ = mix(pos3D.z, 0.0, ease) + chordLiftZ;
             let basePos = vec3<f32>(curX, curY, curZ);
 
-            // Early-Onset Tactile Peeling Lip Envelope:
+            // ── Organic Orange-Peel Tactile Kinematics ──
+            // 1. Time envelope: immediate onset (alpha^0.65), exaggerated peak, smooth relaxation ((1-alpha)^1.2)
             let uAlpha = clampedUnfurl;
-            let alphaPeel = smoothstep(0.0, 0.45, uAlpha);
-            let ePeel = sin(PI * alphaPeel) * (1.0 - uAlpha);
+            let alphaPow = select(0.0, pow(uAlpha, 0.65), uAlpha > 0.0001);
+            let oneMinusAlphaPow = select(0.0, pow(1.0 - uAlpha, 1.2), (1.0 - uAlpha) > 0.0001);
+            let ePeel = sin(PI * alphaPow) * oneMinusAlphaPow;
 
-            // Boundary-confined antimeridian cut margin mask (|lon| > 153°):
+            // 2. Progressive peeling propagation front (the rest of the peel "catching up")
             let lonNorm = abs(lonRad) / PI;
-            let fLip = smoothstep(0.85, 1.0, lonNorm);
+            let peelFront = 0.88 - smoothstep(0.0, 0.70, uAlpha) * 0.48;
+            let fPeel = smoothstep(peelFront, 1.0, lonNorm);
 
-            // Polar Curl Attenuation: strictly zero curl at poles eliminates bat/cat ears!
-            let latAtten = cosLat * cosLat;
+            // 3. Spatial zone weights:
+            // Center edge (equatorial belt): peaks at equator, tapers to zero at poles
+            let wCenter = cosLat;
+            // Corner flaps (subpolar margins): peaks around |phi| = 60°, zero at equator and singular poles
+            let sinLat = sin(latRad);
+            let wCorner = cosLat * sinLat * sinLat * 2.6;
 
-            // Horizontal radial lift (tapered to zero at poles):
+            // 4. Center edge horizontal unrolling curl:
+            let thetaCenter = fPeel * ePeel * wCenter * 1.25;
+            let flareSign = select(-1.0, 1.0, lonRad >= 0.0);
+            let deltaXCenter = flareSign * RADIUS * sin(thetaCenter) * 0.22;
+            let deltaZCenter = RADIUS * (1.0 - cos(thetaCenter)) * 0.40;
+
+            // 5. Corner 3D diagonal roll (flaring in X, rolling toward equator in Y, curling forward in +Z):
+            let thetaCorner = fPeel * ePeel * wCorner * 1.40;
+            let deltaXCorner = flareSign * RADIUS * sin(thetaCorner) * 0.26;
+            let latSign = select(-1.0, 1.0, latRad >= 0.0);
+            let deltaYCorner = -latSign * RADIUS * (1.0 - cos(thetaCorner)) * 0.20;
+            let deltaZCorner = RADIUS * sin(thetaCorner) * 0.35;
+
+            // 6. Outward radial peel lift (fingers pushing outward from behind the globe):
             let horizLen = length(vec2<f32>(pos3D.x, pos3D.z));
             let horizNorm = select(vec3<f32>(0.0, 0.0, 1.0),
                                    vec3<f32>(pos3D.x / horizLen, 0.0, pos3D.z / horizLen),
                                    horizLen > 0.001);
-            let liftVec = horizNorm * (RADIUS * 0.08 * ePeel * fLip * latAtten);
+            let liftVec = horizNorm * (RADIUS * 0.12 * ePeel * fPeel * cosLat);
 
-            // 3D Margin Peeling Curl (+Z forward peel catching rim lighting, tapered to zero at poles):
-            let thetaCurl = fLip * ePeel * 0.85 * latAtten;
-            let flareSign = select(-1.0, 1.0, lonRad >= 0.0);
-            let deltaXFlare = flareSign * RADIUS * sin(thetaCurl) * 0.15;
-            let deltaZCurl = RADIUS * (1.0 - cos(thetaCurl)) * 0.25;
-
-            out.pos = basePos + liftVec + vec3<f32>(deltaXFlare, 0.0, deltaZCurl);
+            out.pos = basePos + liftVec + vec3<f32>(
+                deltaXCenter + deltaXCorner,
+                deltaYCorner,
+                deltaZCenter + deltaZCorner
+            );
 
             // Unrolling rotational surface normal:
             // Eliminates (0,0,0) normal collapse at antimeridian equator at alpha=0.5

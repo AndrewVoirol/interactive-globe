@@ -36,7 +36,7 @@ describe('Milestone M6: Comprehensive WebGPU WGSL Compute & Render Pipeline Test
       expect(physicsSimWGSL).toContain('sim.u_mode == 3u');
 
       // Mode 0: Linear geodesic unfolding in manifold.wgsl
-      expect(manifoldWGSL).toContain('parallelWidth = mix(cosLat, 1.0, tMercator);');
+      expect(manifoldWGSL).toContain('parallelWidth = mix(cosLat, 1.0, tParallel);');
       // Mode 1: Cylindrical scroll
       expect(manifoldWGSL).toContain('case 1u:');
       // Mode 2: Griffith LEFM & Tectonic Fracture
