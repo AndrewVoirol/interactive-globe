@@ -225,8 +225,8 @@ fn evaluateManifoldCore(
             let tMercator = smoothstep(0.60, 1.0, ease);
             let curY = mix(yPhysical, pos2D.y, tMercator);
 
-            // Harmonic parallel expansion (prevents polar necking / bottle silhouette):
-            let parallelWidth = mix(cosLat, 1.0, ease);
+            // Geodesic parallel expansion (parallels maintain natural cosine taper during 3D unbending):
+            let parallelWidth = mix(cosLat, 1.0, tMercator);
             let curX = mix(pos3D.x, pos2D.x * parallelWidth, ease);
 
             // Planar depth convergence with latitude-tapered chord lift:
@@ -234,14 +234,14 @@ fn evaluateManifoldCore(
             let curZ = mix(pos3D.z, 0.0, ease) + chordLiftZ;
             let basePos = vec3<f32>(curX, curY, curZ);
 
-            // Early-Onset Asymmetric Peeling Lip Envelope:
+            // Early-Onset Tactile Peeling Lip Envelope:
             let uAlpha = clampedUnfurl;
             let alphaPeel = smoothstep(0.0, 0.45, uAlpha);
             let ePeel = sin(PI * alphaPeel) * (1.0 - uAlpha);
 
-            // Antimeridian boundary margin mask (|lon| -> PI):
+            // Boundary-confined antimeridian cut margin mask (|lon| > 153°):
             let lonNorm = abs(lonRad) / PI;
-            let fLip = smoothstep(0.60, 1.0, lonNorm);
+            let fLip = smoothstep(0.85, 1.0, lonNorm);
 
             // Polar Curl Attenuation: strictly zero curl at poles eliminates bat/cat ears!
             let latAtten = cosLat * cosLat;
@@ -251,13 +251,13 @@ fn evaluateManifoldCore(
             let horizNorm = select(vec3<f32>(0.0, 0.0, 1.0),
                                    vec3<f32>(pos3D.x / horizLen, 0.0, pos3D.z / horizLen),
                                    horizLen > 0.001);
-            let liftVec = horizNorm * (RADIUS * 0.12 * ePeel * fLip * latAtten);
+            let liftVec = horizNorm * (RADIUS * 0.08 * ePeel * fLip * latAtten);
 
             // 3D Margin Peeling Curl (+Z forward peel catching rim lighting, tapered to zero at poles):
-            let thetaCurl = fLip * ePeel * 1.25 * latAtten;
+            let thetaCurl = fLip * ePeel * 0.85 * latAtten;
             let flareSign = select(-1.0, 1.0, lonRad >= 0.0);
-            let deltaXFlare = flareSign * RADIUS * sin(thetaCurl) * 0.25;
-            let deltaZCurl = RADIUS * (1.0 - cos(thetaCurl)) * 0.35;
+            let deltaXFlare = flareSign * RADIUS * sin(thetaCurl) * 0.15;
+            let deltaZCurl = RADIUS * (1.0 - cos(thetaCurl)) * 0.25;
 
             out.pos = basePos + liftVec + vec3<f32>(deltaXFlare, 0.0, deltaZCurl);
 

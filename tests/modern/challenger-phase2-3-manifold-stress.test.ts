@@ -289,22 +289,22 @@ export function evaluateManifoldCore(
       const tMercator = smoothstep(0.60, 1.0, ease);
       const curY = yPhysical * (1.0 - tMercator) + pos2D[1] * tMercator;
 
-      // Harmonic parallel expansion (prevents polar necking / bottle silhouette):
-      const parallelWidth = cosLat * (1.0 - ease) + 1.0 * ease;
+      // Geodesic parallel expansion (parallels maintain natural cosine taper during 3D unbending):
+      const parallelWidth = cosLat * (1.0 - tMercator) + 1.0 * tMercator;
       const curX = pos3D[0] * (1.0 - ease) + (pos2D[0] * parallelWidth) * ease;
 
       // Planar depth convergence with latitude-tapered chord lift:
       const chordLiftZ = cosLat * RADIUS * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
       const curZ = pos3D[2] * (1.0 - ease) + chordLiftZ;
 
-      // Early-Onset Asymmetric Peeling Lip Envelope:
+      // Early-Onset Tactile Peeling Lip Envelope:
       const uAlpha = Math.max(0.0, Math.min(1.0, unfurl));
       const alphaPeel = smoothstep(0.0, 0.45, uAlpha);
       const ePeel = Math.sin(PI * alphaPeel) * (1.0 - uAlpha);
 
-      // Antimeridian boundary margin mask (|lon| -> PI):
+      // Boundary-confined antimeridian cut margin mask (|lon| > 153°):
       const lonNorm = Math.abs(lonRad) / PI;
-      const fLip = smoothstep(0.60, 1.0, lonNorm);
+      const fLip = smoothstep(0.85, 1.0, lonNorm);
 
       // Polar Curl Attenuation: strictly zero curl at poles eliminates bat/cat ears!
       const latAtten = cosLat * cosLat;
@@ -314,13 +314,13 @@ export function evaluateManifoldCore(
       const horizNorm: [number, number, number] = horizLen > 0.001
         ? [pos3D[0] / horizLen, 0.0, pos3D[2] / horizLen]
         : [0.0, 0.0, 1.0];
-      const liftScale = RADIUS * 0.12 * ePeel * fLip * latAtten;
+      const liftScale = RADIUS * 0.08 * ePeel * fLip * latAtten;
 
       // 3D Margin Peeling Curl (+Z forward peel catching rim lighting, tapered to zero at poles):
-      const thetaCurl = fLip * ePeel * 1.25 * latAtten;
+      const thetaCurl = fLip * ePeel * 0.85 * latAtten;
       const flareSign = lonRad >= 0.0 ? 1.0 : -1.0;
-      const deltaXFlare = flareSign * RADIUS * Math.sin(thetaCurl) * 0.25;
-      const deltaZCurl = RADIUS * (1.0 - Math.cos(thetaCurl)) * 0.35;
+      const deltaXFlare = flareSign * RADIUS * Math.sin(thetaCurl) * 0.15;
+      const deltaZCurl = RADIUS * (1.0 - Math.cos(thetaCurl)) * 0.25;
 
       outPos = [
         curX + horizNorm[0] * liftScale + deltaXFlare,
