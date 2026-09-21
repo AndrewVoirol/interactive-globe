@@ -106,6 +106,12 @@
    - Full Data Provenance & Curator Colophon (112).
    - Cross-Session Discovery Ledger & Parameter Retention (113).
 
+5. **Mode 0 Unfurl Geometry & Intermediate Trajectory Calibration**:
+   - Eliminated polar bat/cat ears via quadratic polar attenuation ($\cos^2\phi$).
+   - Eliminated normal collapse at the antimeridian equator via rotational unrolling normal.
+   - Eliminated rectangular wings/shelves via geodesic parallel expansion.
+   - *Pending Investigation*: At $\alpha \approx 0.62$, the manifold exhibits a diamond / rhombus silhouette (equator dilated wide while poles remain pinched narrow), and the peeling/petal action along the antimeridian cut requires heightened visibility and organic tactile presence.
+
 ### Active Priority Roadmap
 1. **Visual Style Noise Stripping & Medium Clarification**:
    - Refactor `crust_hydrosphere.wgsl` for all 3 mediums (Cream Rag Swiss relief, Marie Tharp bathymetry, Prussian Cyanotype blueprint).
