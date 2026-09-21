@@ -447,15 +447,21 @@ fn evaluateManifoldCore(
                                    vec3<f32>(pos3D.x / horizLen, 0.0, pos3D.z / horizLen),
                                    horizLen > 0.001);
 
-            // 5. Outward radial lift (lifts peel outward from the body):
-            let liftMag = RADIUS * 0.14 * ePeel * fPeel * polarScale;
-            let liftVec = horizNorm * liftMag;
+            // 5. Intrinsic parallel tangent vector (curves along the circle of latitude):
+            // For x = rho*sin(lon), z = rho*cos(lon), d/dlon = (z, 0, -x)
+            let horizTan = select(vec3<f32>(1.0, 0.0, 0.0),
+                                  vec3<f32>(horizNorm.z, 0.0, -horizNorm.x),
+                                  horizLen > 0.001);
+            let rollSign = select(1.0, -1.0, lonRad >= 0.0);
+            let rollTan = horizTan * rollSign;
 
-            // 6. Tangent parallel flare (peel margins flare outward along latitude lines):
-            let flareSign = select(-1.0, 1.0, lonRad >= 0.0);
-            let flareMag = flareSign * RADIUS * 0.16 * ePeel * fPeel * polarScale;
+            // 6. Tangential Involute Barrel Roll (Chopes Slab Lip Curvature):
+            // Displaces along a true circular arc in (horizNorm, rollTan), eliminating Cartesian shearing/accordion pleats
+            let thetaRoll = fPeel * 1.0;
+            let liftBarrel = RADIUS * 0.35 * ePeel * (1.0 - cos(thetaRoll)) * polarScale;
+            let flareBarrel = RADIUS * 0.22 * ePeel * sin(thetaRoll) * polarScale;
 
-            out.pos = basePos + liftVec + vec3<f32>(flareMag, 0.0, 0.0);
+            out.pos = basePos + horizNorm * liftBarrel + rollTan * flareBarrel;
 
             // Unrolling rotational surface normal:
             // Eliminates (0,0,0) normal collapse at antimeridian equator at alpha=0.5

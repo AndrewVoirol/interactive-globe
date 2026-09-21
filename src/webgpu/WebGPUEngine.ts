@@ -1948,18 +1948,26 @@ export class WebGPUEngine {
         ? [p3D[0] / horizLen, 0.0, p3D[2] / horizLen]
         : [0.0, 0.0, -1.0];
 
-      // 5. Outward radial lift (lifts peel outward from the body):
-      const liftMag = radius * 0.14 * ePeel * fPeel * polarScale;
-      const liftVec = [horizNorm[0] * liftMag, 0.0, horizNorm[2] * liftMag];
+      // 5. Intrinsic parallel tangent vector (curves along the circle of latitude):
+      const horizTan: [number, number, number] = horizLen > 0.001
+        ? [horizNorm[2], 0.0, -horizNorm[0]]
+        : [1.0, 0.0, 0.0];
+      const rollSign = lonRad >= 0.0 ? -1.0 : 1.0;
+      const rollTan: [number, number, number] = [
+        horizTan[0] * rollSign,
+        0.0,
+        horizTan[2] * rollSign,
+      ];
 
-      // 6. Tangent parallel flare (peel margins flare outward along latitude lines):
-      const flareSign = lonRad >= 0.0 ? 1.0 : -1.0;
-      const flareMag = flareSign * radius * 0.16 * ePeel * fPeel * polarScale;
+      // 6. Tangential Involute Barrel Roll (Chopes Slab Lip Curvature):
+      const thetaRoll = fPeel * 1.0;
+      const liftBarrel = radius * 0.35 * ePeel * (1.0 - Math.cos(thetaRoll)) * polarScale;
+      const flareBarrel = radius * 0.22 * ePeel * Math.sin(thetaRoll) * polarScale;
 
       return [
-        curX + liftVec[0] + flareMag,
+        curX + horizNorm[0] * liftBarrel + rollTan[0] * flareBarrel,
         curY,
-        curZ + liftVec[2],
+        curZ + horizNorm[2] * liftBarrel + rollTan[2] * flareBarrel,
       ];
     }
   }
