@@ -12,30 +12,38 @@ The physical relief must never be squashed into a 2D planar decal mid-flight.
 
 ---
 
-## §2: Mode 0 — Polar-Convergent Geodesic Unfolding with Boundary Petal Curl
+## §2: Mode 0 — Polar-Convergent Geodesic Unfolding with Boundary Seam Lip
 **Target**: `src/webgpu/shaders/manifold.wgsl` (`default:`)
 
 ### 2.1 Problem Solved
-Eliminates the gaping circular hole at the North and South Poles while delivering an authentic circular arc petal curl and flap flare along the opening margins instead of flat interior chord sliding.
+Eliminates polar bat/cat ears, needle spindle, traveling peel shockwaves through inner continents, depth squishing into almond/ellipsoid, cylindrical slab appearance, and polar holes, via polar-convergent developable circular arc curvature relaxation and boundary-anchored fingernail seam lip.
 
 ### 2.2 Mathematical Formulation
-- Effective longitude dilation:
-  $$\lambda_{\text{eff}}(\lambda, \phi, \alpha) = \lambda \cdot \left(\cos\phi + (1.0 - \cos\phi) \cdot S_3(\alpha)\right)$$
-  where $S_3(\alpha) = 3\alpha^2 - 2\alpha^3$.
-- Radial elevation preservation (prevents interior chord deflation):
-  $$\mathbf{n}_{\text{sphere}} = \frac{\mathbf{p}_{3D}}{|\mathbf{p}_{3D}|}$$
-  $$\mathbf{p}_{\text{base}} = \text{mix}(\mathbf{p}_{3D}, \mathbf{p}_{2D}(\lambda_{\text{eff}}), \alpha) + \mathbf{n}_{\text{sphere}} \cdot R \cdot (1.0 - \alpha) \cdot \sin(\pi \alpha) \cdot 0.28$$
-- Circular Arc Boundary Petal Curl (margins $|\lambda| \to \pi$):
-  $$f_{\text{petal}} = \text{smoothstep}(0.35, 1.0, |\lambda|/\pi)$$
-  $$\theta_{\text{petal}} = f_{\text{petal}} \cdot \cos(0.75\phi) \cdot \sin(\pi \alpha) \cdot 1.45$$
-  $$\Delta x = \text{sign}(\lambda) \cdot R \cdot \sin(\theta_{\text{petal}}) \cdot 0.32$$
-  $$\Delta z = -R \cdot (1.0 - \cos(\theta_{\text{petal}})) \cdot 0.48 \cdot (1.0 - 0.4\alpha)$$
-  $$\mathbf{p}_{\text{unfurl}} = \mathbf{p}_{\text{base}} + (\Delta x, 0, \Delta z)$$
+- Staged meridional unbending and parallel expansion:
+  $$t_{\text{unbend}} = \text{smoothstep}(0.15, 0.85, \alpha)$$
+  $$y_{\text{physical}} = \text{mix}(pos3D.y, R \cdot \phi, t_{\text{unbend}})$$
+  $$curY = \text{mix}(y_{\text{physical}}, pos2D.y, \text{smoothstep}(0.60, 1.0, \alpha))$$
+  $$t_{\text{parallel}} = \text{smoothstep}(0.18, 0.82, \alpha)$$
+  $$\text{parallelWidth} = \text{mix}(\cos\phi, 1.0, t_{\text{parallel}})$$
+  $$curX = \text{mix}(pos3D.x, pos2D.x \cdot \text{parallelWidth}, \alpha)$$
+- Planar depth convergence with uniform chord lift (eliminates Antarctica depression bowl):
+  $$\text{chordLiftZ} = (0.5 + 0.5 \cos\phi) \cdot R \cdot (1.0 - \alpha) \cdot \sin(\pi \alpha) \cdot 0.28$$
+  $$curZ = \text{mix}(pos3D.z, 0.0, \alpha) + \text{chordLiftZ}$$
+  $$\mathbf{p}_{\text{base}} = (curX, curY, curZ)$$
+- Boundary-Seam Confined Lip Detachment ($|\lambda| > 150^\circ$, i.e. $\text{lonNorm} \in [0.85, 1.0]$):
+  $$s_{\text{peel}} = \text{select}\left(0.0, \text{smoothstep}(0.85, 1.0, \text{lonNorm}), \text{lonNorm} > 0.85\right)$$
+  $$e_{\text{peel}} = \sin(\pi \cdot \alpha^{0.70}) \cdot (1.0 - \alpha)$$
+  $$\theta_{\text{roll}} = s_{\text{peel}} \cdot 1.1$$
+  $$\text{liftBarrel} = R \cdot 0.35 \cdot e_{\text{peel}} \cdot (1.0 - \cos\theta_{\text{roll}}) \cdot \cos\phi$$
+- Outward Radial Displacement (zero tangential compression toward Greenwich):
+  $$\mathbf{n}_{\text{horiz}} = \text{normalize}(pos3D.x, 0, pos3D.z)$$
+  $$\mathbf{p}_{\text{final}} = \mathbf{p}_{\text{base}} + \mathbf{n}_{\text{horiz}} \cdot \text{liftBarrel}$$
 
 ### 2.3 Boundary Invariants
 - At $\alpha = 0.0$: $\mathbf{p} = \mathbf{p}_{3D}$, $\mathbf{n} = \mathbf{n}_{\text{sphere}}$ (exact sphere).
 - At $\alpha = 1.0$: $\mathbf{p} = \mathbf{p}_{2D}$, $\mathbf{n} = (0, 0, 1)$ (exact flat Mercator sheet).
-- At $\phi = \pm \pi/2$ (Poles) for $\alpha \in [0, 0.5]$: $|\mathbf{p}_x| < 0.15 R$, keeping the polar caps sealed.
+- At $\phi = \pm \pi/2$ (Poles) for all $\alpha$: $\cos\phi = 0 \implies \text{liftBarrel} = 0$, completely preventing polar ear distortion.
+- At inner longitudes ($|\lambda| \le 150^\circ$): $s_{\text{peel}} = 0.0 \implies \text{liftBarrel} = 0.0$, guaranteeing smooth monotonic unrolling with zero traveling waves.
 
 ---
 

@@ -282,65 +282,43 @@ export function evaluateManifoldCore(
       const latRad = Math.asin(clampedY);
       const cosLat = Math.cos(latRad);
 
-      // Staged meridional unbending:
-      // Prevents premature polar height explosion and vertical cat ears/spikes
-      const tUnbend = smoothstep(0.15, 0.85, ease);
-      const yPhysical = pos3D[1] * (1.0 - tUnbend) + (RADIUS * latRad) * tUnbend;
-      const tMercator = smoothstep(0.60, 1.0, ease);
-      const curY = yPhysical * (1.0 - tMercator) + pos2D[1] * tMercator;
-
-      // Decoupled intermediate parallel expansion (eliminates intermediate diamond/rhombus silhouette):
-      const tParallel = smoothstep(0.18, 0.82, ease);
-      const parallelWidth = cosLat * (1.0 - tParallel) + 1.0 * tParallel;
-      const curX = pos3D[0] * (1.0 - ease) + (pos2D[0] * parallelWidth) * ease;
-
-      // Planar depth convergence with latitude-tapered chord lift:
-      const chordLiftZ = cosLat * RADIUS * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
-      const curZ = pos3D[2] * (1.0 - ease) + chordLiftZ;
-
-      // ── Tactile 3D Sticker Peel Envelope ──
       const uAlpha = Math.max(0.0, Math.min(1.0, unfurl));
+      const ease = uAlpha;
       const lonNorm = Math.abs(lonRad) / PI;
 
-      // 1. Dynamic Traveling Peel Line:
-      const peelLine = 1.0 - smoothstep(0.0, 0.68, uAlpha);
+      // 1. Boundary seam lip detachment (confined strictly to |lon| > 150° / lonNorm in [0.85, 1.0]):
+      const sPeel = lonNorm > 0.85 ? smoothstep(0.85, 1.0, lonNorm) : 0.0;
 
-      // 2. Local Detachment Coordinate along peeled flap:
-      const sPeel = lonNorm > peelLine ? smoothstep(peelLine, 1.0, lonNorm) : 0.0;
+      // 2. Staged meridional unbending and parallel expansion:
+      const tUnbend = smoothstep(0.15, 0.85, ease);
+      const yPhysical = (1.0 - tUnbend) * pos3D[1] + tUnbend * (RADIUS * latRad);
+      const tMercator = smoothstep(0.60, 1.0, ease);
+      const curY = (1.0 - tMercator) * yPhysical + tMercator * pos2D[1];
 
-      // 4. Responsive Tactile Time Envelope (Immediate Fingernail Seam Crack):
-      const tOnset = Math.max(0.0, Math.min(1.0, uAlpha / 0.48));
-      const ePeel = Math.sin(PI * tOnset) * (1.0 - uAlpha);
+      const tParallel = smoothstep(0.18, 0.82, ease);
+      const parallelWidth = (1.0 - tParallel) * cosLat + tParallel * 1.0;
+      const curX = (1.0 - ease) * pos3D[0] + ease * (pos2D[0] * parallelWidth);
 
-      // 5. Strict Polar Attenuation:
-      const polarScale = cosLat;
+      // Planar depth convergence with uniform chord lift (eliminates Antarctica depression bowl):
+      const chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
+      const curZ = (1.0 - ease) * pos3D[2] + chordLiftZ;
+      const basePos = [curX, curY, curZ];
 
-      // 6. Outward radial normal in horizontal plane:
-      const horizLen = Math.hypot(pos3D[0], pos3D[2]);
-      const horizNorm: [number, number, number] = horizLen > 0.001
+      // 3. Tactile Fingernail Lip at Boundary Seam (pure outward radial curl, no tangential compression):
+      const alphaPow = uAlpha > 0.0001 ? Math.pow(uAlpha, 0.70) : 0.0;
+      const ePeel = uAlpha > 0.0001 ? Math.sin(PI * alphaPow) * (1.0 - uAlpha) : 0.0;
+      const thetaRoll = sPeel * 1.1;
+      const liftBarrel = RADIUS * 0.35 * ePeel * (1.0 - Math.cos(thetaRoll)) * cosLat;
+
+      const horizLen = Math.sqrt(pos3D[0] * pos3D[0] + pos3D[2] * pos3D[2]);
+      const horizNorm = horizLen > 0.001
         ? [pos3D[0] / horizLen, 0.0, pos3D[2] / horizLen]
         : [0.0, 0.0, -1.0];
 
-      // 7. Intrinsic parallel tangent vector:
-      const horizTan: [number, number, number] = horizLen > 0.001
-        ? [horizNorm[2], 0.0, -horizNorm[0]]
-        : [1.0, 0.0, 0.0];
-      const rollSign = lonRad >= 0.0 ? -1.0 : 1.0;
-      const rollTan: [number, number, number] = [
-        horizTan[0] * rollSign,
-        0.0,
-        horizTan[2] * rollSign,
-      ];
-
-      // 8. Tangential Involute Barrel Roll (Fingernail Lip + Arched Flap Curvature):
-      const thetaRoll = sPeel * 1.1;
-      const liftBarrel = RADIUS * 0.35 * ePeel * (1.0 - Math.cos(thetaRoll)) * polarScale;
-      const flareBarrel = RADIUS * 0.22 * ePeel * Math.sin(thetaRoll) * polarScale;
-
       outPos = [
-        curX + horizNorm[0] * liftBarrel + rollTan[0] * flareBarrel,
-        curY,
-        curZ + horizNorm[2] * liftBarrel + rollTan[2] * flareBarrel,
+        basePos[0] + horizNorm[0] * liftBarrel,
+        basePos[1],
+        basePos[2] + horizNorm[2] * liftBarrel,
       ];
 
       // Unrolling rotational surface normal:

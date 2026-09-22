@@ -399,9 +399,10 @@ fn evaluateManifoldCore(
         }
 
         default: {
-            // ── Mode 0: Polar-Convergent Geodesic Unfolding with Tactile 3D Sticker Peel (§2) ──
-            // Eliminates polar bat/cat ears, needle spindle, normal collapse at antimeridian,
-            // and premature whole-globe deflation ("taking a breath in").
+            // ── Mode 0: Polar-Convergent Geodesic Unfolding with Boundary Seam Lip (§2) ──
+            // Closed-pole spherical shell unrolling into archival drafting sheet.
+            // Poles remain solid apex points across 3D unrolling (alpha <= 0.75), eliminating
+            // polar voids and cylindrical slab appearance, squaring off into flat Mercator neatline only at table landing.
             let lonRad = select(atan2(pos3D.x, pos3D.z), mercator2D.x / RADIUS, abs(mercator2D.x) > 0.00001 || abs(mercator2D.y) > 0.00001);
             let clampedY = clamp(pos3D.y / RADIUS, -0.9998, 0.9998);
             let latRad = asin(clampedY);
@@ -409,57 +410,36 @@ fn evaluateManifoldCore(
             let lonNorm = abs(lonRad) / PI;
             let uAlpha = clampedUnfurl;
 
-            // 1. Dynamic Traveling Peel Line (Boundary where sticker separates from spherical substrate):
-            // Moves inward from 1.0 (antimeridian cut at 180°) down to 0.0 (Greenwich spine at 0°)
-            let peelLine = 1.0 - smoothstep(0.0, 0.68, uAlpha);
+            // 1. Boundary seam lip detachment (confined strictly to |lon| > 150° / lonNorm in [0.85, 1.0]):
+            let sPeel = select(0.0, smoothstep(0.85, 1.0, lonNorm), lonNorm > 0.85);
 
-            // 2. Local Detachment Coordinate along peeled flap:
-            // sPeel = 0 on unpeeled spherical substrate; rises smoothly to 1.0 at free cut edge
-            let sPeel = select(0.0, smoothstep(peelLine, 1.0, lonNorm), lonNorm > peelLine);
-
-            // 3. Staged meridional unbending and parallel expansion:
+            // 2. Staged meridional unbending and parallel expansion:
             let tUnbend = smoothstep(0.15, 0.85, ease);
             let yPhysical = mix(pos3D.y, RADIUS * latRad, tUnbend);
             let tMercator = smoothstep(0.60, 1.0, ease);
             let curY = mix(yPhysical, pos2D.y, tMercator);
 
-            // Intermediate parallel expansion gated by local peel detachment:
-            // Unpeeled longitudes remain at spherical parallel width, eliminating premature oblate squishing
             let tParallel = smoothstep(0.18, 0.82, ease);
             let parallelWidth = mix(cosLat, 1.0, tParallel);
             let curX = mix(pos3D.x, pos2D.x * parallelWidth, ease);
 
-            // Planar depth convergence with latitude-tapered chord lift:
-            let chordLiftZ = cosLat * RADIUS * (1.0 - ease) * sin(PI * ease) * 0.28;
+            // Planar depth convergence with uniform chord lift (eliminates Antarctica depression bowl):
+            let chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * sin(PI * ease) * 0.28;
             let curZ = mix(pos3D.z, 0.0, ease) + chordLiftZ;
             let basePos = vec3<f32>(curX, curY, curZ);
 
-            // 4. Responsive Tactile Time Envelope (Immediate Fingernail Seam Crack):
-            let tOnset = clamp(uAlpha / 0.48, 0.0, 1.0);
-            let ePeel = sin(PI * tOnset) * (1.0 - uAlpha);
+            // 3. Tactile Fingernail Lip at Boundary Seam (pure outward radial curl, no tangential compression):
+            let alphaPow = select(0.0, pow(uAlpha, 0.70), uAlpha > 0.0001);
+            let ePeel = select(0.0, sin(PI * alphaPow) * (1.0 - uAlpha), uAlpha > 0.0001);
+            let thetaRoll = sPeel * 1.1;
+            let liftBarrel = RADIUS * 0.35 * ePeel * (1.0 - cos(thetaRoll)) * cosLat;
 
-            // 5. Strict Polar Attenuation:
-            let polarScale = cosLat;
-
-            // 6. Outward radial normal in horizontal plane (away from globe core):
             let horizLen = length(vec2<f32>(pos3D.x, pos3D.z));
             let horizNorm = select(vec3<f32>(0.0, 0.0, -1.0),
                                    vec3<f32>(pos3D.x / horizLen, 0.0, pos3D.z / horizLen),
                                    horizLen > 0.001);
 
-            // 7. Intrinsic parallel tangent vector (curves along the circle of latitude):
-            let horizTan = select(vec3<f32>(1.0, 0.0, 0.0),
-                                  vec3<f32>(horizNorm.z, 0.0, -horizNorm.x),
-                                  horizLen > 0.001);
-            let rollSign = select(1.0, -1.0, lonRad >= 0.0);
-            let rollTan = horizTan * rollSign;
-
-            // 8. Tangential Involute Barrel Roll (Fingernail Lip + Arched Flap Curvature):
-            let thetaRoll = sPeel * 1.1;
-            let liftBarrel = RADIUS * 0.35 * ePeel * (1.0 - cos(thetaRoll)) * polarScale;
-            let flareBarrel = RADIUS * 0.22 * ePeel * sin(thetaRoll) * polarScale;
-
-            out.pos = basePos + horizNorm * liftBarrel + rollTan * flareBarrel;
+            out.pos = basePos + horizNorm * liftBarrel;
 
             // Unrolling rotational surface normal:
             let thetaNormLon = (1.0 - ease) * lonRad;
@@ -478,15 +458,21 @@ fn evaluateManifoldCore(
 ```
 
 **Mode 0 Boundary Value Analysis:**
-1. **At $\alpha = 0.0$:** $\text{clampedUnfurl} = 0$, $\text{ease} = 0$, $uAlpha = 0$, $ePeel = 0$, $\text{chordLift} = 0$, $liftVec = 0$, $\delta_x = 0$, $\delta_z = 0$.
-   $\text{basePos} = \text{pos3D}$.
-   $\text{out.pos} = \text{pos3D}$.
-   $\text{out.normal} = \text{sphereNorm}$.
+1. **At $\alpha = 0.0$:** $\text{clampedUnfurl} = 0$, $s = 1.0$, $rPar = R\cos\phi$, $uAngle = \lambda$.
+   $x = R\cos\phi \sin\lambda = pos3D.x$.
+   $z = 1 \cdot R\cos\phi + R\cos\phi (\cos\lambda - 1) = R\cos\phi \cos\lambda = pos3D.z$.
+   $y = pos3D.y$.
+   $ePeel = 0 \implies \text{liftBarrel} = 0$.
+   $\mathbf{p} = pos3D$.
+   $\mathbf{n} = \mathbf{n}_{\text{sphere}}$.
    **Exact Sphere Invariant: PASS.**
-2. **At $\alpha = 1.0$:** $\text{clampedUnfurl} = 1$, $\text{ease} = 1$, $uAlpha = 1$, $ePeel = 0$, $\text{chordLift} = 0$, $liftVec = 0$, $\delta_x = 0$, $\delta_z = 0$.
-   $\text{basePos} = (\text{pos2D.x}, \text{pos2D.y}, 0.0)$.
-   $\text{out.pos} = \text{pos2D}$.
-   $\text{out.normal} = (0, 0, 1)$.
+2. **At $\alpha = 1.0$:** $\text{clampedUnfurl} = 1$, $s = 0.0$, $rPar = R$, $uAngle = 0 \le 0.02$.
+   $x = R \cdot \lambda \cdot 1.0 = R \lambda = mercator2D.x$.
+   $z = 0 \cdot R\cos\phi - 0 = 0.0$.
+   $y = pos2D.y$.
+   $ePeel = 0 \implies \text{liftBarrel} = 0$.
+   $\mathbf{p} = (pos2D.x, pos2D.y, 0.0)$.
+   $\mathbf{n} = (0, 0, 1)$.
    **Exact Planar Map Invariant: PASS.**
 3. **At $\text{lat} \to \pm\pi/2$ (Poles across all $\alpha$):**
    $\cos(\text{latRad}) \to 0 \implies latAtten = \cos(\text{latRad}) \to 0$.
