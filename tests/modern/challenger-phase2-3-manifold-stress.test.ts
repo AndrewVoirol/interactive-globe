@@ -723,7 +723,7 @@ describe('Challenger Phase 2.3: evaluateManifold Unification Stress Harness', ()
       for (let i = 0; i < SAMPLES; i++) {
         const alpha = rand();
         const lon = (rand() - 0.5) * 360;
-        const lat = (rand() - 0.5) * 179.8; // [-89.9, 89.9] full global domain
+        const lat = (rand() - 0.5) * 180.0; // [-90.0, 90.0] full global domain
         const { pos3D, mercator2D } = geoCoords(lon, lat);
         const { pos, normal } = evaluateManifoldCore(pos3D, mercator2D, alpha, 0);
 
@@ -757,6 +757,14 @@ describe('Challenger Phase 2.3: evaluateManifold Unification Stress Harness', ()
         { lon: 0.0, lat: -85.0 },
         { lon: 45.0, lat: 88.0 },
         { lon: -45.0, lat: -88.0 },
+        { lon: 0.0, lat: 89.9 },
+        { lon: 0.0, lat: -89.9 },
+        { lon: 90.0, lat: 89.9 },
+        { lon: -180.0, lat: 89.9 },
+        { lon: 0.0, lat: 90.0 },
+        { lon: 0.0, lat: -90.0 },
+        { lon: 180.0, lat: 90.0 },
+        { lon: -180.0, lat: -90.0 },
         { lon: 180.0, lat: 0.0 },
         { lon: -180.0, lat: 0.0 },
       ];
@@ -809,30 +817,37 @@ describe('Challenger Phase 2.3: evaluateManifold Unification Stress Harness', ()
     });
 
     it('CHALLENGE-2.3-17: Polar apex convergence & flat neatline landing', () => {
-      // At poles (|lat| -> 90°), cosLat -> 0.
-      const northPoleCoords = geoCoords(0, 89.9);
-      const resPole0 = evaluateManifoldCore(northPoleCoords.pos3D, northPoleCoords.mercator2D, 0.0, 0);
-      expect(Math.hypot(resPole0.pos[0], resPole0.pos[2])).toBeCloseTo(0.0, 1);
-      expect(resPole0.pos[1]).toBeCloseTo(5.0, 1);
+      // At poles (|lat| = 90°), cosLat -> 0.
+      const northPole0 = geoCoords(0, 90.0);
+      const resNP0 = evaluateManifoldCore(northPole0.pos3D, northPole0.mercator2D, 0.0, 0);
+      expect(Math.hypot(resNP0.pos[0], resNP0.pos[2])).toBeCloseTo(0.0, 4);
+      expect(resNP0.pos[1]).toBeCloseTo(5.0, 4);
+
+      const southPole0 = geoCoords(0, -90.0);
+      const resSP0 = evaluateManifoldCore(southPole0.pos3D, southPole0.mercator2D, 0.0, 0);
+      expect(Math.hypot(resSP0.pos[0], resSP0.pos[2])).toBeCloseTo(0.0, 4);
+      expect(resSP0.pos[1]).toBeCloseTo(-5.0, 4);
 
       // Verify polar continuity across all intermediate alphas and longitudes
-      for (const lon of [-180, -90, 0, 90, 180]) {
-        for (const alpha of [0.0, 0.05, 0.25, 0.50, 0.75]) {
-          const np = geoCoords(lon, 89.9);
-          const res = evaluateManifoldCore(np.pos3D, np.mercator2D, alpha, 0);
-          expect(Number.isFinite(res.pos[0])).toBe(true);
-          expect(Number.isFinite(res.pos[1])).toBe(true);
-          expect(Number.isFinite(res.pos[2])).toBe(true);
-          expect(Number.isFinite(res.normal[0])).toBe(true);
-          expect(Number.isFinite(res.normal[1])).toBe(true);
-          expect(Number.isFinite(res.normal[2])).toBe(true);
+      for (const poleLat of [90.0, -90.0, 89.9, -89.9]) {
+        for (const lon of [-180, -90, 0, 90, 180]) {
+          for (const alpha of [0.0, 0.05, 0.25, 0.50, 0.75]) {
+            const pt = geoCoords(lon, poleLat);
+            const res = evaluateManifoldCore(pt.pos3D, pt.mercator2D, alpha, 0);
+            expect(Number.isFinite(res.pos[0])).toBe(true);
+            expect(Number.isFinite(res.pos[1])).toBe(true);
+            expect(Number.isFinite(res.pos[2])).toBe(true);
+            expect(Number.isFinite(res.normal[0])).toBe(true);
+            expect(Number.isFinite(res.normal[1])).toBe(true);
+            expect(Number.isFinite(res.normal[2])).toBe(true);
+          }
         }
       }
 
       // At alpha = 1.0 (final drafting board landing):
       // pos must exactly match 2D Mercator sheet [mercator2D[0], mercator2D[1], 0]
       for (const lon of [-180, -90, 0, 90, 180]) {
-        for (const lat of [-60, -30, 0, 30, 60]) {
+        for (const lat of [-90, -85, -60, -30, 0, 30, 60, 85, 90]) {
           const c = geoCoords(lon, lat);
           const res1 = evaluateManifoldCore(c.pos3D, c.mercator2D, 1.0, 0);
           expect(res1.pos[0]).toBeCloseTo(c.mercator2D[0], 4);
