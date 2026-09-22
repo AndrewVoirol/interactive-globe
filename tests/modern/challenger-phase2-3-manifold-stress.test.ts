@@ -280,7 +280,7 @@ export function evaluateManifoldCore(
       const lonRad = (Math.abs(mercator2D[0]) > 0.00001 || Math.abs(mercator2D[1]) > 0.00001)
         ? mercator2D[0] / RADIUS
         : Math.atan2(pos3D[0], pos3D[2]);
-      const clampedY = Math.max(-0.9998, Math.min(0.9998, pos3D[1] / RADIUS));
+      const clampedY = Math.max(-1.0, Math.min(1.0, pos3D[1] / RADIUS));
       const latRad = Math.asin(clampedY);
       const cosLat = Math.cos(latRad);
 
@@ -288,45 +288,59 @@ export function evaluateManifoldCore(
       const ease = uAlpha;
       const lonNorm = Math.abs(lonRad) / PI;
 
-      // 1. Boundary seam lip detachment (confined strictly to |lon| > 150° / lonNorm in [0.85, 1.0]):
-      const sPeel = lonNorm > 0.85 ? smoothstep(0.85, 1.0, lonNorm) : 0.0;
 
-      // 2. Staged meridional unbending and parallel expansion:
-      const tUnbend = smoothstep(0.15, 0.85, ease);
+      // 1. Staged meridional unbending and parallel width expansion:
+      const tUnbend = smoothstep(0.10, 0.80, ease);
       const yPhysical = (1.0 - tUnbend) * pos3D[1] + tUnbend * (RADIUS * latRad);
-      const tMercator = smoothstep(0.60, 1.0, ease);
+      const tMercator = smoothstep(0.65, 1.0, ease);
       const curY = (1.0 - tMercator) * yPhysical + tMercator * pos2D[1];
 
-      const tParallel = smoothstep(0.18, 0.82, ease);
+      const tParallel = smoothstep(0.35, 0.90, ease);
       const parallelWidth = (1.0 - tParallel) * cosLat + tParallel * 1.0;
-      const curX = (1.0 - ease) * pos3D[0] + ease * (pos2D[0] * parallelWidth);
+      const rPar = RADIUS * parallelWidth;
 
-      // Planar depth convergence with uniform chord lift (eliminates Antarctica depression bowl):
-      const chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
-      const curZ = (1.0 - ease) * pos3D[2] + chordLiftZ;
+      // 2. Developable circular arc unrolling along parallels:
+      const s = Math.max(0.0, 1.0 - ease);
+      const u = s * lonRad;
+
+      let curX: number;
+      let curZ: number;
+      if (Math.abs(u) > 0.02) {
+        const sDiv = Math.max(0.0001, s);
+        curX = rPar * (Math.sin(u) / sDiv);
+        curZ = rPar * ((Math.cos(u) - 1.0) / sDiv + s);
+      } else {
+        const u2 = u * u;
+        curX = rPar * lonRad * (1.0 - u2 / 6.0);
+        curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
+      }
+
+      // Uniform drafting board chord lift:
+      const chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * Math.sin(PI * ease) * 0.20;
+      curZ = curZ + chordLiftZ;
       const basePos = [curX, curY, curZ];
 
-      // 3. Tactile Fingernail Lip at Boundary Seam (pure outward radial curl, no tangential compression):
+      // 3. Tactile Fingernail Lip at Boundary Seam (confined to |lon| > 150° / lonNorm in [0.833, 1.0]):
+      const sPeel = lonNorm > 0.833 ? smoothstep(0.833, 1.0, lonNorm) : 0.0;
       const alphaPow = uAlpha > 0.0001 ? Math.pow(uAlpha, 0.70) : 0.0;
       const ePeel = uAlpha > 0.0001 ? Math.sin(PI * alphaPow) * (1.0 - uAlpha) : 0.0;
       const thetaRoll = sPeel * 1.1;
-      const liftBarrel = RADIUS * 0.35 * ePeel * (1.0 - Math.cos(thetaRoll)) * cosLat;
+      const liftBarrel = RADIUS * 0.25 * ePeel * (1.0 - Math.cos(thetaRoll)) * cosLat;
 
-      const horizLen = Math.sqrt(pos3D[0] * pos3D[0] + pos3D[2] * pos3D[2]);
-      const horizNorm = horizLen > 0.001
-        ? [pos3D[0] / horizLen, 0.0, pos3D[2] / horizLen]
-        : [0.0, 0.0, -1.0];
+      const sinU = Math.abs(u) > 0.0001 ? Math.sin(u) : lonRad * (1.0 - u * u / 6.0);
+      const cosU = Math.abs(u) > 0.0001 ? Math.cos(u) : 1.0;
+      const normLen = Math.hypot(sinU, cosU) || 1.0;
+      const arcNorm = [sinU / normLen, 0.0, cosU / normLen];
 
       outPos = [
-        basePos[0] + horizNorm[0] * liftBarrel,
+        basePos[0] + arcNorm[0] * liftBarrel,
         basePos[1],
-        basePos[2] + horizNorm[2] * liftBarrel,
+        basePos[2] + arcNorm[2] * liftBarrel,
       ];
 
       // Unrolling rotational surface normal:
-      // Eliminates (0,0,0) normal collapse at antimeridian equator at alpha=0.5
-      const thetaNormLon = (1.0 - ease) * lonRad;
-      const thetaNormLat = (1.0 - ease) * latRad;
+      const thetaNormLon = s * lonRad;
+      const thetaNormLat = s * latRad;
       const cp = Math.cos(thetaNormLat);
       const sp = Math.sin(thetaNormLat);
       const cl = Math.cos(thetaNormLon);
@@ -794,23 +808,33 @@ describe('Challenger Phase 2.3: evaluateManifold Unification Stress Harness', ()
 
     it('CHALLENGE-2.3-16: Seam-confined tactile lip detachment: crack opens immediately by alpha=0.05 with outward radial curl (liftBarrel > 0), while inner longitudes (|lon| <= 150 deg) remain completely undisturbed', () => {
       // At alpha = 0.05:
-      // Seam zone (|lon| = 175° > 150°, lonNorm = 175/180 = 0.972 > 0.85):
+      // Seam zone (|lon| = 175° > 150°, lonNorm = 175/180 = 0.972 > 0.833):
       const seamCoords = geoCoords(175, 0);
       const seamAt005 = evaluateManifoldCore(seamCoords.pos3D, seamCoords.mercator2D, 0.05, 0);
-      const baseExpectedZ = (1.0 - 0.05) * seamCoords.pos3D[2] + (0.5 + 0.5) * RADIUS * (1.0 - 0.05) * Math.sin(Math.PI * 0.05) * 0.28;
-      // Inward/outward displacement delta from basePos:
-      expect(seamAt005.pos[2]).toBeLessThan(baseExpectedZ); // outward away from origin (more negative Z)
+      const s005 = 1.0 - 0.05;
+      const u005 = s005 * ((175 * Math.PI) / 180);
+      const baseExpectedZ005 = RADIUS * ((Math.cos(u005) - 1.0) / s005 + s005) + (0.5 + 0.5) * RADIUS * (1.0 - 0.05) * Math.sin(Math.PI * 0.05) * 0.20;
+      // Outward tactile lip curls away from center of curvature:
+      expect(seamAt005.pos[2]).toBeLessThan(baseExpectedZ005);
 
       // Inner continental longitudes (|lon| <= 150°):
+      // sPeel is strictly 0.0 for |lon| <= 150°, ensuring zero lip displacement disturbance
       const innerLons = [-150, -120, -90, -45, 0, 45, 90, 120, 150];
       for (const lon of innerLons) {
         const coords = geoCoords(lon, 20);
         for (const alpha of [0.05, 0.25, 0.50, 0.75]) {
           const res = evaluateManifoldCore(coords.pos3D, coords.mercator2D, alpha, 0);
-          const tParallel = smoothstep(0.18, 0.82, alpha);
-          const cosLat = Math.cos((20 * Math.PI) / 180);
+          const s = 1.0 - alpha;
+          const lambda = (lon * Math.PI) / 180;
+          const u = s * lambda;
+          const latRad = (20 * Math.PI) / 180;
+          const cosLat = Math.cos(latRad);
+          const tParallel = smoothstep(0.35, 0.90, alpha);
           const parallelWidth = (1.0 - tParallel) * cosLat + tParallel * 1.0;
-          const expectedX = (1.0 - alpha) * coords.pos3D[0] + alpha * (coords.mercator2D[0] * parallelWidth);
+          const rPar = RADIUS * parallelWidth;
+          const expectedX = Math.abs(u) > 0.02
+            ? rPar * (Math.sin(u) / s)
+            : rPar * lambda * (1.0 - u * u / 6.0);
           expect(res.pos[0]).toBeCloseTo(expectedX, 4);
         }
       }

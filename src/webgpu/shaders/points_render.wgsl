@@ -56,6 +56,20 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     var dynamicNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos), length(pos) > 0.001);
     dynamicNormal = normalize(mix(dynamicNormal, vec3<f32>(0.0, 0.0, 1.0), sim.u_unfurl));
 
+    let p3D = in.velocity.xyz;
+    let rSphere = length(p3D);
+    if (rSphere > 0.1 && sim.u_mode == 0u) {
+        let lonRad = atan2(p3D.x, p3D.z);
+        let latRad = asin(clamp(p3D.y / rSphere, -1.0, 1.0));
+        let s = max(0.0, 1.0 - sim.u_unfurl);
+        let u = s * lonRad;
+        let sLat = s * latRad;
+        let unrollNorm = vec3<f32>(cos(sLat) * sin(u), sin(sLat), cos(sLat) * cos(u));
+        if (length(unrollNorm) > 0.001) {
+            dynamicNormal = normalize(unrollNorm);
+        }
+    }
+
     // Rule 7: Zero geometric standoff conformance to DEM elevation surface
     let offsetPos = pos;
     let worldPos = vec4<f32>(offsetPos, 1.0);
@@ -75,12 +89,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if (sim.u_layerMode == 2u) {
         discard;
     }
-    let sphereFactor = 1.0 - smoothstep(0.0, 0.35, sim.u_unfurl);
-    let backfaceDimming = mix(1.0, horizonFalloff(in.vFacing, 0.15, 0.0, 0.08), sphereFactor);
-
-    if (sphereFactor > 0.0 && in.vFacing <= 0.0) {
+    if (in.vFacing <= 0.02) {
         discard;
     }
+    let sphereFactor = 1.0 - smoothstep(0.0, 0.35, sim.u_unfurl);
+    let falloff = smoothstep(0.02, 0.20, in.vFacing);
+    let backfaceDimming = mix(falloff, 1.0, smoothstep(0.80, 1.0, sim.u_unfurl));
 
     // Theme Palette: 0 = Obsidian & Celestial Platinum, 1 = Light Monochrome
     var geographicColor = vec3<f32>(0.49, 0.827, 0.988);
@@ -94,7 +108,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     } else if (sim.u_theme == 1u) {
         // Light Monochrome: Architectural Charcoal Land on Misty Silver Ocean (Cream Rag)
         geographicColor = vec3<f32>(0.08, 0.09, 0.11);
-        structuralColor = vec3<f32>(0.82, 0.85, 0.89);
+        structuralColor = vec3<f32>(0.28, 0.32, 0.38);
         baseAlpha = select(mix(0.02, 0.35, in.vPointType), mix(0.10, 0.95, in.vPointType), sim.u_layerMode == 1u);
     } else if (sim.u_theme == 2u) {
         // Theme 2: Prussian Cyanotype (Washed Cerulean #A5D5FF on Prussian Indigo #162B42 Ground)

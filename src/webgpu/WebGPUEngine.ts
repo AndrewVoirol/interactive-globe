@@ -1912,43 +1912,57 @@ export class WebGPUEngine {
       const ease = uAlpha;
       const lonNorm = Math.abs(lonRad) / PI;
 
-      const clampedY = Math.max(-0.9998, Math.min(0.9998, p3D[1] / radius));
+      const clampedY = Math.max(-1.0, Math.min(1.0, p3D[1] / radius));
       const latRadMode0 = Math.asin(clampedY);
       const cosLatMode0 = Math.cos(latRadMode0);
 
-      // 1. Boundary seam lip detachment (confined strictly to |lon| > 150° / lonNorm in [0.85, 1.0]):
-      const sPeel = lonNorm > 0.85 ? smoothstep(0.85, 1.0, lonNorm) : 0.0;
-
-      // 2. Staged meridional unbending and parallel expansion:
-      const tUnbend = smoothstep(0.15, 0.85, ease);
+      // 1. Staged meridional unbending and parallel width expansion:
+      const tUnbend = smoothstep(0.10, 0.80, ease);
       const yPhysical = (1.0 - tUnbend) * p3D[1] + tUnbend * (radius * latRadMode0);
-      const tMercator = smoothstep(0.60, 1.0, ease);
+      const tMercator = smoothstep(0.65, 1.0, ease);
       const curY = (1.0 - tMercator) * yPhysical + tMercator * p2D[1];
 
-      const tParallel = smoothstep(0.18, 0.82, ease);
+      const tParallel = smoothstep(0.35, 0.90, ease);
       const parallelWidth = (1.0 - tParallel) * cosLatMode0 + tParallel * 1.0;
-      const curX = (1.0 - ease) * p3D[0] + ease * (p2D[0] * parallelWidth);
+      const rPar = radius * parallelWidth;
 
-      // Planar depth convergence with uniform chord lift (eliminates Antarctica depression bowl):
-      const chordLiftZ = (0.5 + 0.5 * cosLatMode0) * radius * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
-      const curZ = (1.0 - ease) * p3D[2] + chordLiftZ;
+      // 2. Developable circular arc unrolling along parallels:
+      const s = Math.max(0.0, 1.0 - ease);
+      const u = s * lonRad;
+
+      let curX: number;
+      let curZ: number;
+      if (Math.abs(u) > 0.02) {
+        const sDiv = Math.max(0.0001, s);
+        curX = rPar * (Math.sin(u) / sDiv);
+        curZ = rPar * ((Math.cos(u) - 1.0) / sDiv + s);
+      } else {
+        const u2 = u * u;
+        curX = rPar * lonRad * (1.0 - u2 / 6.0);
+        curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
+      }
+
+      // Uniform drafting board chord lift:
+      const chordLiftZ = (0.5 + 0.5 * cosLatMode0) * radius * (1.0 - ease) * Math.sin(PI * ease) * 0.20;
+      curZ = curZ + chordLiftZ;
       const basePos = [curX, curY, curZ];
 
-      // 3. Tactile Fingernail Lip at Boundary Seam (pure outward radial curl, no tangential compression):
+      // 3. Tactile Fingernail Lip at Boundary Seam (confined to |lon| > 150° / lonNorm in [0.833, 1.0]):
+      const sPeel = lonNorm > 0.833 ? smoothstep(0.833, 1.0, lonNorm) : 0.0;
       const alphaPow = uAlpha > 0.0001 ? Math.pow(uAlpha, 0.70) : 0.0;
       const ePeel = uAlpha > 0.0001 ? Math.sin(PI * alphaPow) * (1.0 - uAlpha) : 0.0;
       const thetaRoll = sPeel * 1.1;
-      const liftBarrel = radius * 0.35 * ePeel * (1.0 - Math.cos(thetaRoll)) * cosLatMode0;
+      const liftBarrel = radius * 0.25 * ePeel * (1.0 - Math.cos(thetaRoll)) * cosLatMode0;
 
-      const horizLen = Math.sqrt(p3D[0] * p3D[0] + p3D[2] * p3D[2]);
-      const horizNorm = horizLen > 0.001
-        ? [p3D[0] / horizLen, 0.0, p3D[2] / horizLen]
-        : [0.0, 0.0, -1.0];
+      const sinU = Math.abs(u) > 0.0001 ? Math.sin(u) : lonRad * (1.0 - u * u / 6.0);
+      const cosU = Math.abs(u) > 0.0001 ? Math.cos(u) : 1.0;
+      const normLen = Math.hypot(sinU, cosU) || 1.0;
+      const arcNorm = [sinU / normLen, 0.0, cosU / normLen];
 
       return [
-        basePos[0] + horizNorm[0] * liftBarrel,
+        basePos[0] + arcNorm[0] * liftBarrel,
         basePos[1],
-        basePos[2] + horizNorm[2] * liftBarrel,
+        basePos[2] + arcNorm[2] * liftBarrel,
       ];
     }
   }
@@ -1969,7 +1983,7 @@ export class WebGPUEngine {
     const PI = Math.PI;
     const lonRad = (u - 0.5) * TWO_PI;
     const latRad = (0.5 - v) * PI;
-    const clampedY = Math.max(-0.9998, Math.min(0.9998, Math.sin(latRad)));
+    const clampedY = Math.max(-1.0, Math.min(1.0, Math.sin(latRad)));
     const latRadClamped = Math.asin(clampedY);
     const clampedUnfurl = Math.max(0.0, Math.min(1.0, unfurl));
     const ease = clampedUnfurl;

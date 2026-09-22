@@ -211,52 +211,66 @@ fn evaluateManifoldCore(
         }
 
         default: {
-            // ── Mode 0: Polar-Convergent Geodesic Unfolding with Boundary Seam Lip (§2) ──
-            // Closed-pole spherical shell unrolling into archival drafting sheet.
-            // Poles remain solid apex points across 3D unrolling (alpha <= 0.75), eliminating
-            // polar voids and cylindrical slab appearance, squaring off into flat Mercator neatline only at table landing.
+            // ── Mode 0: Developable Geodesic Arc Unrolling with Boundary Seam Lip ──
+            // Eliminates Cartesian foldover compression by unrolling parallels as developable circular arcs.
+            // Metric ds = rPar * dλ is strictly conserved across all longitudes (zero bunching/compression).
+            // Poles remain closed apex points during 3D unrolling (alpha <= 0.75), opening smoothly to neatline.
             let lonRad = select(atan2(pos3D.x, pos3D.z), mercator2D.x / RADIUS, abs(mercator2D.x) > 0.00001 || abs(mercator2D.y) > 0.00001);
-            let clampedY = clamp(pos3D.y / RADIUS, -0.9998, 0.9998);
+            let clampedY = clamp(pos3D.y / RADIUS, -1.0, 1.0);
             let latRad = asin(clampedY);
             let cosLat = cos(latRad);
             let lonNorm = abs(lonRad) / PI;
             let uAlpha = clampedUnfurl;
-            let s = 1.0 - uAlpha;
 
-            // 1. Boundary seam lip detachment (confined strictly to |lon| > 150° / lonNorm in [0.85, 1.0]):
-            let sPeel = select(0.0, smoothstep(0.85, 1.0, lonNorm), lonNorm > 0.85);
-
-            // 2. Staged meridional unbending and parallel expansion:
-            let tUnbend = smoothstep(0.15, 0.85, ease);
+            // 1. Staged meridional unbending and parallel width expansion:
+            let tUnbend = smoothstep(0.10, 0.80, ease);
             let yPhysical = mix(pos3D.y, RADIUS * latRad, tUnbend);
-            let tMercator = smoothstep(0.60, 1.0, ease);
+            let tMercator = smoothstep(0.65, 1.0, ease);
             let curY = mix(yPhysical, pos2D.y, tMercator);
 
-            let tParallel = smoothstep(0.18, 0.82, ease);
+            let tParallel = smoothstep(0.35, 0.90, ease);
             let parallelWidth = mix(cosLat, 1.0, tParallel);
-            let curX = mix(pos3D.x, pos2D.x * parallelWidth, ease);
+            let rPar = RADIUS * parallelWidth;
 
-            // Planar depth convergence with uniform chord lift (eliminates Antarctica depression bowl):
-            let chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * sin(PI * ease) * 0.28;
-            let curZ = mix(pos3D.z, 0.0, ease) + chordLiftZ;
+            // 2. Developable circular arc unrolling along parallels:
+            // Arc curvature relaxes from 1/rPar down to 0 (flat).
+            let s = max(0.0, 1.0 - ease);
+            let u = s * lonRad;
+
+            var curX: f32;
+            var curZ: f32;
+            if (abs(u) > 0.02) {
+                let sDiv = max(0.0001, s);
+                curX = rPar * (sin(u) / sDiv);
+                curZ = rPar * ((cos(u) - 1.0) / sDiv + s);
+            } else {
+                let u2 = u * u;
+                curX = rPar * lonRad * (1.0 - u2 / 6.0);
+                curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
+            }
+
+            // Uniform drafting board chord lift:
+            let chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * sin(PI * ease) * 0.20;
+            curZ = curZ + chordLiftZ;
             let basePos = vec3<f32>(curX, curY, curZ);
 
-            // 3. Tactile Fingernail Lip at Boundary Seam (pure outward radial curl, no tangential compression):
+            // 3. Tactile Fingernail Lip at Boundary Seam (confined to |lon| > 150° / lonNorm in [0.833, 1.0]):
+            let sPeel = select(0.0, smoothstep(0.833, 1.0, lonNorm), lonNorm > 0.833);
             let alphaPow = select(0.0, pow(uAlpha, 0.70), uAlpha > 0.0001);
             let ePeel = select(0.0, sin(PI * alphaPow) * (1.0 - uAlpha), uAlpha > 0.0001);
             let thetaRoll = sPeel * 1.1;
-            let liftBarrel = RADIUS * 0.35 * ePeel * (1.0 - cos(thetaRoll)) * cosLat;
+            let liftBarrel = RADIUS * 0.25 * ePeel * (1.0 - cos(thetaRoll)) * cosLat;
 
-            let horizLen = length(vec2<f32>(pos3D.x, pos3D.z));
-            let horizNorm = select(vec3<f32>(0.0, 0.0, -1.0),
-                                   vec3<f32>(pos3D.x / horizLen, 0.0, pos3D.z / horizLen),
-                                   horizLen > 0.001);
+            // Arc normal frame for outward lip lift:
+            let sinU = select(lonRad * (1.0 - u * u / 6.0), sin(u), abs(u) > 0.0001);
+            let cosU = select(1.0, cos(u), abs(u) > 0.0001);
+            let arcNorm = normalize(vec3<f32>(sinU, 0.0, cosU));
 
-            out.pos = basePos + horizNorm * liftBarrel;
+            out.pos = basePos + arcNorm * liftBarrel;
 
-            // Unrolling rotational surface normal:
-            let thetaNormLon = (1.0 - ease) * lonRad;
-            let thetaNormLat = (1.0 - ease) * latRad;
+            // Continuous analytical surface normal:
+            let thetaNormLon = s * lonRad;
+            let thetaNormLat = s * latRad;
             let cp = cos(thetaNormLat);
             let sp = sin(thetaNormLat);
             let cl = cos(thetaNormLon);

@@ -58,6 +58,21 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
     var dynamicNormal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(pos), length(pos) > 0.001);
     dynamicNormal = normalize(mix(dynamicNormal, vec3<f32>(0.0, 0.0, 1.0), sim.u_unfurl));
+
+    let p3D = in.velocity.xyz;
+    let rSphere = length(p3D);
+    if (rSphere > 0.1 && sim.u_mode == 0u) {
+        let lonRad = atan2(p3D.x, p3D.z);
+        let latRad = asin(clamp(p3D.y / rSphere, -1.0, 1.0));
+        let s = max(0.0, 1.0 - sim.u_unfurl);
+        let u = s * lonRad;
+        let sLat = s * latRad;
+        let unrollNorm = vec3<f32>(cos(sLat) * sin(u), sin(sLat), cos(sLat) * cos(u));
+        if (length(unrollNorm) > 0.001) {
+            dynamicNormal = normalize(unrollNorm);
+        }
+    }
+
     let viewDir = normalize(sim.u_cameraPos.xyz - pos);
     out.vFacing = dot(dynamicNormal, viewDir);
     out.vPointType = pointType;
@@ -91,13 +106,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
 
-    let densityFactor = sqrt(100000.0 / max(f32(sim.u_numParticles), 1.0));
-    let sphereFactor = 1.0 - smoothstep(0.0, 0.35, sim.u_unfurl);
-    let backfaceDimming = mix(1.0, horizonFalloff(in.vFacing, 0.15, 0.0, 0.08), sphereFactor);
-
-    if (sphereFactor > 0.0 && in.vFacing <= 0.0) {
+    if (in.vFacing <= 0.02) {
         discard;
     }
+
+    let densityFactor = sqrt(100000.0 / max(f32(sim.u_numParticles), 1.0));
+    let sphereFactor = 1.0 - smoothstep(0.0, 0.35, sim.u_unfurl);
+    let falloff = smoothstep(0.02, 0.20, in.vFacing);
+    let backfaceDimming = mix(falloff, 1.0, smoothstep(0.80, 1.0, sim.u_unfurl));
 
     var wireColor = vec3<f32>(0.35, 0.42, 0.52);
     var alpha = 0.35;

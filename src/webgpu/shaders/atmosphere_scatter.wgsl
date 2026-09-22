@@ -100,8 +100,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let dUv = fwidth(in.uv);
     let derivAnchor = (du_dx + du_dy + dv_dx + dv_dy + dUv.x) * 1.0e-7;
 
-    // Planar unroll attenuation: fade out atmospheric 3D shell in flat map modes
-    let unfurlAtten = 1.0 - smoothstep(0.05, 0.40, atmosphere.u_unfurl);
+    // Planar unroll attenuation: fade out atmospheric 3D shell as soon as unroll begins
+    let unfurlAtten = 1.0 - smoothstep(0.01, 0.08, atmosphere.u_unfurl);
     if (unfurlAtten <= 0.001) {
         discard;
     }
