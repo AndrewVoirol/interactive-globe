@@ -140,10 +140,10 @@ export function geoToSphere(lon: number, lat: number, r = RADIUS): [number, numb
  */
 export function geoToMercator(lon: number, lat: number, r = RADIUS): [number, number] {
   const lambda = (lon * PI) / 180;
-  const clampedLat = Math.max(-MAX_LAT, Math.min(MAX_LAT, lat));
-  const phi = (clampedLat * PI) / 180;
+  const rawPhi = (lat * PI) / 180;
+  const clampedPhi = Math.max(-1.4835, Math.min(1.4835, rawPhi));
   const x = lambda * r;
-  const y = r * Math.log(Math.tan(PI / 4 + phi / 2));
+  const y = r * Math.log(Math.tan(PI / 4 + clampedPhi / 2));
   return [x, y];
 }
 
@@ -336,8 +336,10 @@ export function evaluatePointMorph(
   } else {
     // Mode 0: Polar-Convergent Geodesic Unfolding with Boundary Seam Lip (§2)
     const lambda = (lon * PI) / 180;
-    const phi = (Math.max(-MAX_LAT, Math.min(MAX_LAT, lat)) * PI) / 180;
-    const cosLat = Math.cos(phi);
+    const rawPhi = (lat * PI) / 180;
+    const clampedY = Math.max(-0.9998, Math.min(0.9998, Math.sin(rawPhi)));
+    const latRad = Math.asin(clampedY);
+    const cosLat = Math.cos(latRad);
 
     const smoothstep = (e0: number, e1: number, x: number): number => {
       const t = Math.max(0.0, Math.min(1.0, (x - e0) / (e1 - e0)));
@@ -353,7 +355,7 @@ export function evaluatePointMorph(
 
     // 2. Staged meridional unbending and parallel expansion:
     const tUnbend = smoothstep(0.15, 0.85, ease);
-    const yPhysical = (1.0 - tUnbend) * p3D[1] + tUnbend * (RADIUS * phi);
+    const yPhysical = (1.0 - tUnbend) * p3D[1] + tUnbend * (RADIUS * latRad);
     const tMercator = smoothstep(0.60, 1.0, ease);
     const curY = (1.0 - tMercator) * yPhysical + tMercator * p2D[1];
 
@@ -471,8 +473,11 @@ export function evaluatePointMorphNormal(
     return [rawNx / rawLen, rawNy / rawLen, rawNz / rawLen];
   } else {
     // Mode 0: Polar-Convergent Geodesic Unfolding with Boundary Seam Lip (§2)
+    const rawPhi = (lat * PI) / 180;
+    const clampedY = Math.max(-0.9998, Math.min(0.9998, Math.sin(rawPhi)));
+    const latRad = Math.asin(clampedY);
     const thetaNormLon = (1.0 - ease) * lambda;
-    const thetaNormLat = (1.0 - ease) * phi;
+    const thetaNormLat = (1.0 - ease) * latRad;
     const cp = Math.cos(thetaNormLat);
     const sp = Math.sin(thetaNormLat);
     const cl = Math.cos(thetaNormLon);

@@ -723,7 +723,7 @@ describe('Challenger Phase 2.3: evaluateManifold Unification Stress Harness', ()
       for (let i = 0; i < SAMPLES; i++) {
         const alpha = rand();
         const lon = (rand() - 0.5) * 360;
-        const lat = (rand() - 0.5) * 170; // [-85, 85]
+        const lat = (rand() - 0.5) * 179.8; // [-89.9, 89.9] full global domain
         const { pos3D, mercator2D } = geoCoords(lon, lat);
         const { pos, normal } = evaluateManifoldCore(pos3D, mercator2D, alpha, 0);
 
@@ -753,6 +753,12 @@ describe('Challenger Phase 2.3: evaluateManifold Unification Stress Harness', ()
         { lon: 0.0, lat: 80.0 },
         { lon: 0.0, lat: -80.0 },
         { lon: 90.0, lat: -45.0 },
+        { lon: 0.0, lat: 85.0 },
+        { lon: 0.0, lat: -85.0 },
+        { lon: 45.0, lat: 88.0 },
+        { lon: -45.0, lat: -88.0 },
+        { lon: 180.0, lat: 0.0 },
+        { lon: -180.0, lat: 0.0 },
       ];
       const alphas = [0.0, 0.05, 0.25, 0.50, 0.75, 0.95, 1.0];
 
@@ -808,6 +814,20 @@ describe('Challenger Phase 2.3: evaluateManifold Unification Stress Harness', ()
       const resPole0 = evaluateManifoldCore(northPoleCoords.pos3D, northPoleCoords.mercator2D, 0.0, 0);
       expect(Math.hypot(resPole0.pos[0], resPole0.pos[2])).toBeCloseTo(0.0, 1);
       expect(resPole0.pos[1]).toBeCloseTo(5.0, 1);
+
+      // Verify polar continuity across all intermediate alphas and longitudes
+      for (const lon of [-180, -90, 0, 90, 180]) {
+        for (const alpha of [0.0, 0.05, 0.25, 0.50, 0.75]) {
+          const np = geoCoords(lon, 89.9);
+          const res = evaluateManifoldCore(np.pos3D, np.mercator2D, alpha, 0);
+          expect(Number.isFinite(res.pos[0])).toBe(true);
+          expect(Number.isFinite(res.pos[1])).toBe(true);
+          expect(Number.isFinite(res.pos[2])).toBe(true);
+          expect(Number.isFinite(res.normal[0])).toBe(true);
+          expect(Number.isFinite(res.normal[1])).toBe(true);
+          expect(Number.isFinite(res.normal[2])).toBe(true);
+        }
+      }
 
       // At alpha = 1.0 (final drafting board landing):
       // pos must exactly match 2D Mercator sheet [mercator2D[0], mercator2D[1], 0]

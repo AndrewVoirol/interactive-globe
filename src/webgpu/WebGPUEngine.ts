@@ -1912,21 +1912,25 @@ export class WebGPUEngine {
       const ease = uAlpha;
       const lonNorm = Math.abs(lonRad) / PI;
 
+      const clampedY = Math.max(-0.9998, Math.min(0.9998, p3D[1] / radius));
+      const latRadMode0 = Math.asin(clampedY);
+      const cosLatMode0 = Math.cos(latRadMode0);
+
       // 1. Boundary seam lip detachment (confined strictly to |lon| > 150° / lonNorm in [0.85, 1.0]):
       const sPeel = lonNorm > 0.85 ? smoothstep(0.85, 1.0, lonNorm) : 0.0;
 
       // 2. Staged meridional unbending and parallel expansion:
       const tUnbend = smoothstep(0.15, 0.85, ease);
-      const yPhysical = (1.0 - tUnbend) * p3D[1] + tUnbend * (radius * latRad);
+      const yPhysical = (1.0 - tUnbend) * p3D[1] + tUnbend * (radius * latRadMode0);
       const tMercator = smoothstep(0.60, 1.0, ease);
       const curY = (1.0 - tMercator) * yPhysical + tMercator * p2D[1];
 
       const tParallel = smoothstep(0.18, 0.82, ease);
-      const parallelWidth = (1.0 - tParallel) * cosLat + tParallel * 1.0;
+      const parallelWidth = (1.0 - tParallel) * cosLatMode0 + tParallel * 1.0;
       const curX = (1.0 - ease) * p3D[0] + ease * (p2D[0] * parallelWidth);
 
       // Planar depth convergence with uniform chord lift (eliminates Antarctica depression bowl):
-      const chordLiftZ = (0.5 + 0.5 * cosLat) * radius * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
+      const chordLiftZ = (0.5 + 0.5 * cosLatMode0) * radius * (1.0 - ease) * Math.sin(PI * ease) * 0.28;
       const curZ = (1.0 - ease) * p3D[2] + chordLiftZ;
       const basePos = [curX, curY, curZ];
 
@@ -1934,7 +1938,7 @@ export class WebGPUEngine {
       const alphaPow = uAlpha > 0.0001 ? Math.pow(uAlpha, 0.70) : 0.0;
       const ePeel = uAlpha > 0.0001 ? Math.sin(PI * alphaPow) * (1.0 - uAlpha) : 0.0;
       const thetaRoll = sPeel * 1.1;
-      const liftBarrel = radius * 0.35 * ePeel * (1.0 - Math.cos(thetaRoll)) * cosLat;
+      const liftBarrel = radius * 0.35 * ePeel * (1.0 - Math.cos(thetaRoll)) * cosLatMode0;
 
       const horizLen = Math.sqrt(p3D[0] * p3D[0] + p3D[2] * p3D[2]);
       const horizNorm = horizLen > 0.001
