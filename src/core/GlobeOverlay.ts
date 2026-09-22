@@ -386,6 +386,104 @@ export function evaluatePointMorph(
 }
 
 /**
+ * Evaluates the analytical surface normal of a geographic point (lon, lat) at morph progress alpha
+ * across any of the 4 simulation paradigms (0=Linear/Arc, 1=Scroll, 2=Griffith, 3=Fluid)
+ */
+export function evaluatePointMorphNormal(
+  lon: number,
+  lat: number,
+  alpha: number,
+  mode: number,
+  time = 0
+): [number, number, number] {
+  const lambda = (lon * PI) / 180;
+  const clampedLat = Math.max(-MAX_LAT, Math.min(MAX_LAT, lat));
+  const phi = (clampedLat * PI) / 180;
+  const cosLat = Math.cos(phi);
+  const sinLat = Math.sin(phi);
+  const clampedAlpha = Math.max(0, Math.min(1, alpha));
+  const ease = clampedAlpha;
+
+  if (mode === 1) {
+    const oneMinusT = 1.0 - ease;
+    if (oneMinusT > 0.001) {
+      const invOneMinusT = 1.0 / oneMinusT;
+      const curAngle = oneMinusT * lambda;
+      const tLambda: [number, number, number] = [
+        RADIUS * Math.cos(curAngle),
+        0.0,
+        -RADIUS * cosLat * Math.sin(curAngle),
+      ];
+      const tPhi: [number, number, number] = [
+        0.0,
+        (1.0 - ease) * (RADIUS * cosLat) + ease * (RADIUS / Math.max(cosLat, 0.05)),
+        -RADIUS * sinLat * invOneMinusT * (Math.cos(curAngle) - 1.0) - RADIUS * sinLat * oneMinusT,
+      ];
+      const rawNorm: [number, number, number] = [
+        tLambda[1] * tPhi[2] - tLambda[2] * tPhi[1],
+        tLambda[2] * tPhi[0] - tLambda[0] * tPhi[2],
+        tLambda[0] * tPhi[1] - tLambda[1] * tPhi[0],
+      ];
+      const rawLen = Math.hypot(rawNorm[0], rawNorm[1], rawNorm[2]);
+      if (rawLen > 0.0001) {
+        return [rawNorm[0] / rawLen, rawNorm[1] / rawLen, rawNorm[2] / rawLen];
+      }
+      const pLen = Math.hypot(cosLat * Math.sin(lambda), sinLat, cosLat * Math.cos(lambda)) || 1.0;
+      return [cosLat * Math.sin(lambda) / pLen, sinLat / pLen, cosLat * Math.cos(lambda) / pLen];
+    } else {
+      return [0.0, 0.0, 1.0];
+    }
+  } else if (mode === 2) {
+    const pLen = Math.hypot(cosLat * Math.sin(lambda), sinLat, cosLat * Math.cos(lambda)) || 1.0;
+    const sphereNorm: [number, number, number] = [
+      cosLat * Math.sin(lambda) / pLen,
+      sinLat / pLen,
+      cosLat * Math.cos(lambda) / pLen,
+    ];
+    if (ease <= 0.15) {
+      return sphereNorm;
+    } else {
+      const tPeel = smoothstep(0.15, 1.0, ease);
+      const rawNx = sphereNorm[0] * (1.0 - tPeel);
+      const rawNy = sphereNorm[1] * (1.0 - tPeel);
+      const rawNz = sphereNorm[2] * (1.0 - tPeel) + 1.0 * tPeel;
+      const nLen = Math.hypot(rawNx, rawNy, rawNz) || 1.0;
+      return [rawNx / nLen, rawNy / nLen, rawNz / nLen];
+    }
+  } else if (mode === 3) {
+    const p3D = geoToSphere(lon, lat, RADIUS);
+    const p2D = geoToMercator(lon, lat, RADIUS);
+    const rawSin = Math.sin(PI * clampedAlpha);
+    const volumePreserve = RADIUS * 0.50 * rawSin;
+    const p3DLen = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
+    const sphereNorm: [number, number, number] = [p3D[0] / p3DLen, p3D[1] / p3DLen, p3D[2] / p3DLen];
+    const basePos: [number, number, number] = [
+      p3D[0] * (1.0 - ease) + p2D[0] * ease + sphereNorm[0] * volumePreserve,
+      p3D[1] * (1.0 - ease) + p2D[1] * ease + sphereNorm[1] * volumePreserve,
+      p3D[2] * (1.0 - ease) + sphereNorm[2] * volumePreserve,
+    ];
+    const baseLen = Math.hypot(basePos[0], basePos[1], basePos[2]) || 1.0;
+    const surfaceNormal: [number, number, number] = [basePos[0] / baseLen, basePos[1] / baseLen, basePos[2] / baseLen];
+    const rawNx = surfaceNormal[0] * (1.0 - ease);
+    const rawNy = surfaceNormal[1] * (1.0 - ease);
+    const rawNz = surfaceNormal[2] * (1.0 - ease) + 1.0 * ease;
+    const rawLen = Math.hypot(rawNx, rawNy, rawNz) || 1.0;
+    return [rawNx / rawLen, rawNy / rawLen, rawNz / rawLen];
+  } else {
+    // Mode 0: Polar-Convergent Geodesic Unfolding with Boundary Seam Lip (§2)
+    const thetaNormLon = (1.0 - ease) * lambda;
+    const thetaNormLat = (1.0 - ease) * phi;
+    const cp = Math.cos(thetaNormLat);
+    const sp = Math.sin(thetaNormLat);
+    const cl = Math.cos(thetaNormLon);
+    const sl = Math.sin(thetaNormLon);
+    const unrollNorm: [number, number, number] = [cp * sl, sp, cp * cl];
+    const unrollLen = Math.hypot(unrollNorm[0], unrollNorm[1], unrollNorm[2]);
+    return unrollLen > 0.001 ? [unrollNorm[0] / unrollLen, unrollNorm[1] / unrollLen, unrollNorm[2] / unrollLen] : [0.0, 0.0, 1.0];
+  }
+}
+
+/**
  * Samples a Great Circle arc between two geographic coordinates using spherical slerp
  * @param from Starting coordinate
  * @param to Ending coordinate

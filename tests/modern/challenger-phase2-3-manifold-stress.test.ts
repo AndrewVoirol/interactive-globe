@@ -17,6 +17,8 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import { WebGPUEngine } from '../../src/webgpu/WebGPUEngine';
+import { evaluatePointMorph, evaluatePointMorphNormal } from '../../src/core/GlobeOverlay';
 
 const PI = 3.14159265358979;
 const RADIUS = 5.0;
@@ -699,6 +701,138 @@ describe('Challenger Phase 2.3: evaluateManifold Unification Stress Harness', ()
       expect(content).toContain('fn computeCurlNoise');
       expect(content).toContain('fn evaluateManifoldCore');
       expect(content).toContain('switch (mode)');
+    });
+  });
+
+  // ==========================================================================
+  // Pillar 7: Mode 0 Perfect Kinematics & Mathematical Acceptance Criteria
+  // ==========================================================================
+  describe('Pillar 7: Mode 0 Perfect Kinematics & Mathematical Acceptance Criteria', () => {
+    it('CHALLENGE-2.3-14: Monte Carlo fuzzing (20,000 samples) in Mode 0 produces zero NaN, zero Inf, and strictly normalized normals (||n|| in [0.999, 1.001])', () => {
+      let seed = 987654321;
+      const rand = () => {
+        seed = (1103515245 * seed + 12345) & 0x7fffffff;
+        return seed / 0x7fffffff;
+      };
+
+      let nanCount = 0;
+      let infCount = 0;
+      let unnormalizedCount = 0;
+      const SAMPLES = 20000;
+
+      for (let i = 0; i < SAMPLES; i++) {
+        const alpha = rand();
+        const lon = (rand() - 0.5) * 360;
+        const lat = (rand() - 0.5) * 170; // [-85, 85]
+        const { pos3D, mercator2D } = geoCoords(lon, lat);
+        const { pos, normal } = evaluateManifoldCore(pos3D, mercator2D, alpha, 0);
+
+        for (let j = 0; j < 3; j++) {
+          if (Number.isNaN(pos[j]) || Number.isNaN(normal[j])) nanCount++;
+          if (!Number.isFinite(pos[j]) || !Number.isFinite(normal[j])) infCount++;
+        }
+
+        const len = Math.hypot(normal[0], normal[1], normal[2]);
+        if (len < 0.999 || len > 1.001) {
+          unnormalizedCount++;
+        }
+      }
+
+      expect(nanCount).toBe(0);
+      expect(infCount).toBe(0);
+      expect(unnormalizedCount).toBe(0);
+    });
+
+    it('CHALLENGE-2.3-15: CPU/GPU parity <= 1e-5 relative tolerance across all coordinate samples in Mode 0', () => {
+      const testCoordinates = [
+        { lon: 0.0, lat: 0.0 },
+        { lon: 45.0, lat: 30.0 },
+        { lon: -120.0, lat: 60.0 },
+        { lon: 179.9, lat: -15.0 },
+        { lon: -179.9, lat: 45.0 },
+        { lon: 0.0, lat: 80.0 },
+        { lon: 0.0, lat: -80.0 },
+        { lon: 90.0, lat: -45.0 },
+      ];
+      const alphas = [0.0, 0.05, 0.25, 0.50, 0.75, 0.95, 1.0];
+
+      for (const { lon, lat } of testCoordinates) {
+        const u = lon / 360.0 + 0.5;
+        const v = 0.5 - lat / 180.0;
+        const { pos3D, mercator2D } = geoCoords(lon, lat);
+
+        for (const alpha of alphas) {
+          const core = evaluateManifoldCore(pos3D, mercator2D, alpha, 0);
+          const gpuPos = WebGPUEngine.evaluateManifoldPosition(u, v, 0, alpha, RADIUS);
+          const gpuNorm = WebGPUEngine.evaluateManifoldNormal(u, v, 0, alpha, RADIUS);
+          const overlayPos = evaluatePointMorph(lon, lat, alpha, 0, 0, 0.0);
+          const overlayNorm = evaluatePointMorphNormal(lon, lat, alpha, 0, 0);
+
+          for (let j = 0; j < 3; j++) {
+            expect(Math.abs(core.pos[j] - gpuPos[j])).toBeLessThanOrEqual(1e-5);
+            expect(Math.abs(core.pos[j] - overlayPos[j])).toBeLessThanOrEqual(1e-5);
+            expect(Math.abs(core.normal[j] - gpuNorm[j])).toBeLessThanOrEqual(1e-5);
+            expect(Math.abs(core.normal[j] - overlayNorm[j])).toBeLessThanOrEqual(1e-5);
+          }
+        }
+      }
+    });
+
+    it('CHALLENGE-2.3-16: Seam-confined tactile lip detachment: crack opens immediately by alpha=0.05 with outward radial curl (liftBarrel > 0), while inner longitudes (|lon| <= 150 deg) remain completely undisturbed', () => {
+      // At alpha = 0.05:
+      // Seam zone (|lon| = 175° > 150°, lonNorm = 175/180 = 0.972 > 0.85):
+      const seamCoords = geoCoords(175, 0);
+      const seamAt005 = evaluateManifoldCore(seamCoords.pos3D, seamCoords.mercator2D, 0.05, 0);
+      const baseExpectedZ = (1.0 - 0.05) * seamCoords.pos3D[2] + (0.5 + 0.5) * RADIUS * (1.0 - 0.05) * Math.sin(Math.PI * 0.05) * 0.28;
+      // Inward/outward displacement delta from basePos:
+      expect(seamAt005.pos[2]).toBeLessThan(baseExpectedZ); // outward away from origin (more negative Z)
+
+      // Inner continental longitudes (|lon| <= 150°):
+      const innerLons = [-150, -120, -90, -45, 0, 45, 90, 120, 150];
+      for (const lon of innerLons) {
+        const coords = geoCoords(lon, 20);
+        for (const alpha of [0.05, 0.25, 0.50, 0.75]) {
+          const res = evaluateManifoldCore(coords.pos3D, coords.mercator2D, alpha, 0);
+          const tParallel = smoothstep(0.18, 0.82, alpha);
+          const cosLat = Math.cos((20 * Math.PI) / 180);
+          const parallelWidth = (1.0 - tParallel) * cosLat + tParallel * 1.0;
+          const expectedX = (1.0 - alpha) * coords.pos3D[0] + alpha * (coords.mercator2D[0] * parallelWidth);
+          expect(res.pos[0]).toBeCloseTo(expectedX, 4);
+        }
+      }
+    });
+
+    it('CHALLENGE-2.3-17: Polar apex convergence & flat neatline landing', () => {
+      // At poles (|lat| -> 90°), cosLat -> 0.
+      const northPoleCoords = geoCoords(0, 89.9);
+      const resPole0 = evaluateManifoldCore(northPoleCoords.pos3D, northPoleCoords.mercator2D, 0.0, 0);
+      expect(Math.hypot(resPole0.pos[0], resPole0.pos[2])).toBeCloseTo(0.0, 1);
+      expect(resPole0.pos[1]).toBeCloseTo(5.0, 1);
+
+      // At alpha = 1.0 (final drafting board landing):
+      // pos must exactly match 2D Mercator sheet [mercator2D[0], mercator2D[1], 0]
+      for (const lon of [-180, -90, 0, 90, 180]) {
+        for (const lat of [-60, -30, 0, 30, 60]) {
+          const c = geoCoords(lon, lat);
+          const res1 = evaluateManifoldCore(c.pos3D, c.mercator2D, 1.0, 0);
+          expect(res1.pos[0]).toBeCloseTo(c.mercator2D[0], 4);
+          expect(res1.pos[1]).toBeCloseTo(c.mercator2D[1], 4);
+          expect(res1.pos[2]).toBeCloseTo(0.0, 4);
+          expect(res1.normal[0]).toBeCloseTo(0.0, 4);
+          expect(res1.normal[1]).toBeCloseTo(0.0, 4);
+          expect(res1.normal[2]).toBeCloseTo(1.0, 4);
+        }
+      }
+    });
+
+    it('CHALLENGE-2.3-18: Developable arc kinematics & depth preservation', () => {
+      // Verifies intermediate transition states (alpha in {0.25, 0.50, 0.75}) maintain depth via chord lift
+      const equatorNull = geoCoords(0, 0);
+      for (const alpha of [0.25, 0.50, 0.75]) {
+        const res = evaluateManifoldCore(equatorNull.pos3D, equatorNull.mercator2D, alpha, 0);
+        const unliftedZ = (1.0 - alpha) * 5.0;
+        expect(res.pos[2]).toBeGreaterThan(unliftedZ);
+      }
     });
   });
 });

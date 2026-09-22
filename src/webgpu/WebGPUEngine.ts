@@ -1950,6 +1950,125 @@ export class WebGPUEngine {
   }
 
   /**
+   * Evaluates analytical manifold surface normal vector on CPU across all 4 modes (0, 1, 2, 3),
+   * maintaining exact mathematical parity with evaluateManifoldCore in manifold.wgsl.
+   */
+  public static evaluateManifoldNormal(
+    u: number,
+    v: number,
+    mode: number,
+    unfurl: number,
+    radius = 5.0,
+    simTime = 0.0
+  ): [number, number, number] {
+    const TWO_PI = 2.0 * Math.PI;
+    const PI = Math.PI;
+    const lonRad = (u - 0.5) * TWO_PI;
+    const latRad = (0.5 - v) * PI;
+    const clampedY = Math.max(-0.9998, Math.min(0.9998, Math.sin(latRad)));
+    const latRadClamped = Math.asin(clampedY);
+    const clampedUnfurl = Math.max(0.0, Math.min(1.0, unfurl));
+    const ease = clampedUnfurl;
+
+    if (mode === 1) {
+      // Mode 1: Parchment Scroll
+      const oneMinusT = 1.0 - ease;
+      const cosLat = Math.cos(latRadClamped);
+      const sinLat = Math.sin(latRadClamped);
+      if (oneMinusT > 0.001) {
+        const invOneMinusT = 1.0 / oneMinusT;
+        const curAngle = oneMinusT * lonRad;
+        const tLambda: [number, number, number] = [
+          radius * Math.cos(curAngle),
+          0.0,
+          -radius * cosLat * Math.sin(curAngle),
+        ];
+        const tPhi: [number, number, number] = [
+          0.0,
+          (1.0 - ease) * (radius * cosLat) + ease * (radius / Math.max(cosLat, 0.05)),
+          -radius * sinLat * invOneMinusT * (Math.cos(curAngle) - 1.0) - radius * sinLat * oneMinusT,
+        ];
+        const rawNorm: [number, number, number] = [
+          tLambda[1] * tPhi[2] - tLambda[2] * tPhi[1],
+          tLambda[2] * tPhi[0] - tLambda[0] * tPhi[2],
+          tLambda[0] * tPhi[1] - tLambda[1] * tPhi[0],
+        ];
+        const rawLen = Math.hypot(rawNorm[0], rawNorm[1], rawNorm[2]);
+        if (rawLen > 0.0001) {
+          return [rawNorm[0] / rawLen, rawNorm[1] / rawLen, rawNorm[2] / rawLen];
+        }
+        const pLen = Math.hypot(cosLat * Math.sin(lonRad), sinLat, cosLat * Math.cos(lonRad)) || 1.0;
+        return [cosLat * Math.sin(lonRad) / pLen, sinLat / pLen, cosLat * Math.cos(lonRad) / pLen];
+      } else {
+        return [0.0, 0.0, 1.0];
+      }
+    } else if (mode === 2) {
+      // Mode 2: Fracture
+      const cosLat = Math.cos(latRadClamped);
+      const sinLat = Math.sin(latRadClamped);
+      const pLen = Math.hypot(cosLat * Math.sin(lonRad), sinLat, cosLat * Math.cos(lonRad)) || 1.0;
+      const sphereNorm: [number, number, number] = [
+        cosLat * Math.sin(lonRad) / pLen,
+        sinLat / pLen,
+        cosLat * Math.cos(lonRad) / pLen,
+      ];
+      if (ease <= 0.15) {
+        return sphereNorm;
+      } else {
+        const smoothstep = (e0: number, e1: number, x: number): number => {
+          const t = Math.max(0.0, Math.min(1.0, (x - e0) / (e1 - e0)));
+          return t * t * (3.0 - 2.0 * t);
+        };
+        const tPeel = smoothstep(0.15, 1.0, ease);
+        const rawNx = sphereNorm[0] * (1.0 - tPeel);
+        const rawNy = sphereNorm[1] * (1.0 - tPeel);
+        const rawNz = sphereNorm[2] * (1.0 - tPeel) + 1.0 * tPeel;
+        const nLen = Math.hypot(rawNx, rawNy, rawNz) || 1.0;
+        return [rawNx / nLen, rawNy / nLen, rawNz / nLen];
+      }
+    } else if (mode === 3) {
+      // Mode 3: Fluid
+      const cosLat = Math.cos(latRadClamped);
+      const sinLat = Math.sin(latRadClamped);
+      const p3D: [number, number, number] = [
+        radius * cosLat * Math.sin(lonRad),
+        radius * sinLat,
+        radius * cosLat * Math.cos(lonRad),
+      ];
+      const clampedLat = Math.max(-1.4835, Math.min(1.4835, latRad));
+      const mercatorY = Math.log(Math.tan(PI * 0.25 + clampedLat * 0.5)) * radius;
+      const mercatorX = lonRad * radius;
+      const rawSin = Math.sin(PI * clampedUnfurl);
+      const volumePreserve = radius * 0.50 * rawSin;
+      const p3DLen = Math.hypot(p3D[0], p3D[1], p3D[2]) || 1.0;
+      const sphereNorm: [number, number, number] = [p3D[0] / p3DLen, p3D[1] / p3DLen, p3D[2] / p3DLen];
+      const basePos: [number, number, number] = [
+        p3D[0] * (1.0 - ease) + mercatorX * ease + sphereNorm[0] * volumePreserve,
+        p3D[1] * (1.0 - ease) + mercatorY * ease + sphereNorm[1] * volumePreserve,
+        p3D[2] * (1.0 - ease) + sphereNorm[2] * volumePreserve,
+      ];
+      const baseLen = Math.hypot(basePos[0], basePos[1], basePos[2]) || 1.0;
+      const surfaceNormal: [number, number, number] = [basePos[0] / baseLen, basePos[1] / baseLen, basePos[2] / baseLen];
+      const rawNx = surfaceNormal[0] * (1.0 - ease);
+      const rawNy = surfaceNormal[1] * (1.0 - ease);
+      const rawNz = surfaceNormal[2] * (1.0 - ease) + 1.0 * ease;
+      const rawLen = Math.hypot(rawNx, rawNy, rawNz) || 1.0;
+      return [rawNx / rawLen, rawNy / rawLen, rawNz / rawLen];
+    } else {
+      // Mode 0: Polar-Convergent Geodesic Unfolding with Boundary Seam Lip (§2)
+      const thetaNormLon = (1.0 - ease) * lonRad;
+      const thetaNormLat = (1.0 - ease) * latRadClamped;
+      const cp = Math.cos(thetaNormLat);
+      const sp = Math.sin(thetaNormLat);
+      const cl = Math.cos(thetaNormLon);
+      const sl = Math.sin(thetaNormLon);
+      const unrollNorm: [number, number, number] = [cp * sl, sp, cp * cl];
+      const unrollLen = Math.hypot(unrollNorm[0], unrollNorm[1], unrollNorm[2]);
+      return unrollLen > 0.001 ? [unrollNorm[0] / unrollLen, unrollNorm[1] / unrollLen, unrollNorm[2] / unrollLen] : [0.0, 0.0, 1.0];
+    }
+  }
+
+  /**
    * Evaluates nominal range and Riemannian metric calibration factor for CDLOD LOD selection.
    *
    * Nominal range:
