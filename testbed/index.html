@@ -1,0 +1,823 @@
+<!--
+  Mode 0 Manifold Testbed — Indicatrix Engine
+  ─────────────────────────────────────────────
+  Standalone WebGPU geometry testbed for iterating on the globe→map unfurl.
+  No React, no build system, no DEM. Just the manifold, a slider, and a camera.
+
+  To serve:  python3 -m http.server 8080 -d testbed
+  Then open: http://localhost:8080
+
+  Keyboard shortcuts:
+    Space   Play/Pause auto-scrub
+    G       Snap to Globe (α=0)
+    M       Snap to Map (α=1)
+    W       Toggle wireframe
+    N       Toggle normals
+    C       Toggle chord lift (current math only)
+    1       Switch to Current math
+    2       Switch to Proposed math
+    E       Toggle endpoint (Mercator / Equirectangular)
+    P       Pin current state
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mode 0 Manifold Testbed</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f1a; color: #d0d0d8; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 12px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+
+#top-bar { background: rgba(20,20,35,0.95); border-bottom: 1px solid #2a2a44; padding: 8px 14px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; z-index: 10; user-select: none; }
+#top-bar label { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+#top-bar input[type="range"] { width: 200px; accent-color: #4a9eff; }
+#alpha-slider { width: 320px !important; }
+
+.btn { background: #2a2a44; border: 1px solid #3a3a5a; color: #a0a0b8; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 11px; transition: all 0.15s; }
+.btn:hover { background: #3a3a5a; color: #d0d0e8; }
+.btn.active { background: #1a3a6a; border-color: #4a9eff; color: #8ac4ff; }
+.btn.play { background: #1a4a2a; border-color: #4aff6e; color: #8affaa; }
+.btn.play.active { background: #2a6a3a; }
+.btn-group { display: flex; gap: 0; }
+.btn-group .btn { border-radius: 0; border-right: none; }
+.btn-group .btn:first-child { border-radius: 4px 0 0 4px; }
+.btn-group .btn:last-child { border-radius: 0 4px 4px 0; border-right: 1px solid #3a3a5a; }
+.disabled { opacity: 0.35; pointer-events: none; }
+
+#canvas-wrap { flex: 1; position: relative; min-height: 0; }
+canvas { width: 100%; height: 100%; display: block; }
+
+#state-bar { background: rgba(20,20,35,0.95); border-top: 1px solid #2a2a44; padding: 6px 14px; display: flex; gap: 16px; align-items: center; z-index: 10; user-select: none; }
+#state-text { flex: 1; font-size: 11px; color: #8888a8; letter-spacing: 0.5px; }
+#state-text span { color: #c0c0d8; }
+
+#pin-bar { background: rgba(15,15,25,0.95); border-top: 1px solid #2a2a44; padding: 4px 14px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-height: 28px; z-index: 10; }
+#pin-bar:empty { display: none; }
+.pin { background: #1a2a3a; border: 1px solid #2a3a5a; border-radius: 3px; padding: 2px 8px; font-size: 10px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.pin:hover { background: #2a3a5a; }
+.pin .pin-del { color: #ff6a6a; cursor: pointer; font-weight: bold; }
+
+#no-webgpu { display: none; position: fixed; inset: 0; background: #0f0f1a; color: #ff6a6a; font-size: 18px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; z-index: 100; }
+#no-webgpu.show { display: flex; }
+
+#help-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(20,20,35,0.85); border: 1px solid #2a2a44; border-radius: 6px; padding: 8px 12px; font-size: 10px; line-height: 1.6; color: #666688; z-index: 5; pointer-events: none; }
+#help-badge kbd { background: #2a2a44; border: 1px solid #3a3a5a; border-radius: 2px; padding: 0 4px; color: #8888a8; }
+</style>
+</head>
+<body>
+
+<div id="top-bar">
+  <label>α <input type="range" id="alpha-slider" min="0" max="1" step="0.001" value="0"> <span id="alpha-val">0.000</span></label>
+  <button class="btn play" id="btn-play" title="Space">▶</button>
+  <div class="btn-group">
+    <button class="btn active" id="btn-current" title="1">Current</button>
+    <button class="btn" id="btn-proposed" title="2">Progressive</button>
+  </div>
+  <div class="btn-group">
+    <button class="btn active" id="btn-mercator" title="E">Mercator</button>
+    <button class="btn" id="btn-equirect" title="E">Equirect</button>
+  </div>
+  <button class="btn active" id="btn-wire" title="W">Wire</button>
+  <button class="btn" id="btn-normals" title="N">Normals</button>
+  <button class="btn active" id="btn-chord" title="C">Chord Lift</button>
+  <label id="tsplit-group">Peel W <input type="range" id="tsplit-slider" min="0.10" max="0.80" step="0.01" value="0.35"> <span id="tsplit-val">0.35</span></label>
+  <label>Speed <input type="range" id="speed-slider" min="0.1" max="2.0" step="0.1" value="0.5"> <span id="speed-val">0.5</span></label>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="canvas"></canvas>
+  <div id="help-badge">
+    <kbd>Drag</kbd> Rotate &nbsp; <kbd>Scroll</kbd> Zoom &nbsp; <kbd>Space</kbd> Play &nbsp;
+    <kbd>G</kbd> Globe &nbsp; <kbd>M</kbd> Map &nbsp; <kbd>W</kbd> Wire &nbsp;
+    <kbd>N</kbd> Normals &nbsp; <kbd>C</kbd> Chord &nbsp; <kbd>1</kbd>/<kbd>2</kbd> Math &nbsp;
+    <kbd>E</kbd> Endpoint &nbsp; <kbd>P</kbd> Pin
+  </div>
+</div>
+
+<div id="state-bar">
+  <div id="state-text"></div>
+  <button class="btn" id="btn-pin" title="P">📌 Pin</button>
+  <button class="btn" id="btn-copy-url">📋 Copy URL</button>
+  <button class="btn" id="btn-copy-pins">📋 Copy Pins</button>
+</div>
+<div id="pin-bar"></div>
+
+<div id="no-webgpu">
+  <div>⚠️ WebGPU is not available in this browser.</div>
+  <div style="font-size:13px;color:#888">Use Chrome 113+ or Edge 113+ with WebGPU enabled.</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONSTANTS & STATE
+// ═══════════════════════════════════════════════════════════════
+const PI = Math.PI;
+const TWO_PI = 2.0 * PI;
+const RADIUS = 5.0;
+const GRID_RES_U = 180;
+const GRID_RES_V = 90;
+
+const state = {
+  alpha: 0.0,
+  mathMode: 0,      // 0=current, 1=proposed
+  endpoint: 1,      // 0=equirect, 1=mercator
+  wireframe: true,
+  normals: false,
+  chordLift: true,
+  tSplit: 0.35,
+  playing: false,
+  playSpeed: 0.5,   // full sweep per second
+  playDir: 1,
+  gridLines: 12,    // wireframe grid density
+};
+
+const camera = { theta: 0.35, phi: 0.45, distance: 15.0 };
+const pins = [];
+
+// ═══════════════════════════════════════════════════════════════
+// MATH UTILITIES
+// ═══════════════════════════════════════════════════════════════
+function mat4_perspective(fovY, aspect, near, far) {
+  const f = 1.0 / Math.tan(fovY / 2);
+  const nf = 1.0 / (near - far);
+  // WebGPU clip space: Z in [0, 1], Y up
+  return new Float32Array([
+    f / aspect, 0, 0, 0,
+    0, f, 0, 0,
+    0, 0, far * nf, -1,
+    0, 0, near * far * nf, 0
+  ]);
+}
+
+function mat4_lookAt(eye, target, up) {
+  const zx = eye[0] - target[0], zy = eye[1] - target[1], zz = eye[2] - target[2];
+  const zl = Math.hypot(zx, zy, zz) || 1;
+  const fz = [zx/zl, zy/zl, zz/zl];
+  const sx = up[1]*fz[2] - up[2]*fz[1], sy = up[2]*fz[0] - up[0]*fz[2], sz = up[0]*fz[1] - up[1]*fz[0];
+  const sl = Math.hypot(sx, sy, sz) || 1;
+  const s = [sx/sl, sy/sl, sz/sl];
+  const u = [s[1]*fz[2] - s[2]*fz[1], s[2]*fz[0] - s[0]*fz[2], s[0]*fz[1] - s[1]*fz[0]];
+  return new Float32Array([
+    s[0], u[0], fz[0], 0,
+    s[1], u[1], fz[1], 0,
+    s[2], u[2], fz[2], 0,
+    -(s[0]*eye[0]+s[1]*eye[1]+s[2]*eye[2]),
+    -(u[0]*eye[0]+u[1]*eye[1]+u[2]*eye[2]),
+    -(fz[0]*eye[0]+fz[1]*eye[1]+fz[2]*eye[2]),
+    1
+  ]);
+}
+
+function mat4_multiply(a, b) {
+  const out = new Float32Array(16);
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      out[j*4+i] = a[i]*b[j*4] + a[4+i]*b[j*4+1] + a[8+i]*b[j*4+2] + a[12+i]*b[j*4+3];
+    }
+  }
+  return out;
+}
+
+function getCameraPosition() {
+  return [
+    camera.distance * Math.cos(camera.phi) * Math.sin(camera.theta),
+    camera.distance * Math.sin(camera.phi),
+    camera.distance * Math.cos(camera.phi) * Math.cos(camera.theta),
+  ];
+}
+
+function getViewProjectionMatrix(aspect) {
+  const eye = getCameraPosition();
+  const view = mat4_lookAt(eye, [0, 0, 0], [0, 1, 0]);
+  const proj = mat4_perspective(PI / 4, aspect, 0.1, 200);
+  return mat4_multiply(proj, view);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MESH GENERATION
+// ═══════════════════════════════════════════════════════════════
+function createGridMesh() {
+  const cols = GRID_RES_U, rows = GRID_RES_V;
+  const vertCount = (cols + 1) * (rows + 1);
+  const verts = new Float32Array(vertCount * 2);
+  for (let r = 0; r <= rows; r++) {
+    for (let c = 0; c <= cols; c++) {
+      const idx = (r * (cols + 1) + c) * 2;
+      verts[idx]     = c / cols;
+      verts[idx + 1] = r / rows;
+    }
+  }
+  const idxCount = cols * rows * 6;
+  const indices = new Uint32Array(idxCount);
+  let i = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const a = r * (cols + 1) + c;
+      const b = a + 1;
+      const d = a + (cols + 1);
+      const e = d + 1;
+      indices[i++] = a; indices[i++] = d; indices[i++] = b;
+      indices[i++] = b; indices[i++] = d; indices[i++] = e;
+    }
+  }
+  return { verts, indices, vertCount, idxCount };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WGSL SHADER
+// ═══════════════════════════════════════════════════════════════
+const SHADER_CODE = `
+const PI: f32 = 3.14159265358979;
+const TWO_PI: f32 = 6.28318530717959;
+const RADIUS: f32 = 5.0;
+
+struct Uniforms {
+    viewProj: mat4x4<f32>,
+    alpha: f32,
+    mathMode: u32,
+    endpoint: u32,
+    flags: u32,
+    tSplit: f32,
+    gridLines: f32,
+    _pad1: f32,
+    _pad2: f32,
+    cameraPos: vec4<f32>,
+};
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+struct VsOut {
+    @builtin(position) clipPos: vec4<f32>,
+    @location(0) normal: vec3<f32>,
+    @location(1) uv: vec2<f32>,
+    @location(2) worldPos: vec3<f32>,
+};
+
+// ─── Current Mode 0 (matches production manifold.wgsl) ───
+fn evalCurrent(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
+    let ease = alpha;
+
+    // Y: staged unbending + Mercator stretch
+    let tUnbend = smoothstep(0.10, 0.80, ease);
+    let yPhysical = mix(RADIUS * sinLat, RADIUS * latRad, tUnbend);
+    let clampedLat = clamp(latRad, -1.4835, 1.4835);
+    let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
+    let tMercator = smoothstep(0.65, 1.0, ease);
+    let curY = mix(yPhysical, mercatorY, tMercator);
+
+    // X: parallel width expansion
+    let tParallel = smoothstep(0.35, 0.90, ease);
+    let parallelWidth = mix(cosLat, 1.0, tParallel);
+    let rPar = RADIUS * parallelWidth;
+
+    // Arc unrolling
+    let s = max(0.0, 1.0 - ease);
+    let uAngle = s * lonRad;
+    var curX: f32;
+    var curZ: f32;
+    if (abs(uAngle) > 0.02) {
+        let sDiv = max(0.0001, s);
+        curX = rPar * (sin(uAngle) / sDiv);
+        curZ = rPar * ((cos(uAngle) - 1.0) / sDiv + s);
+    } else {
+        let u2 = uAngle * uAngle;
+        curX = rPar * lonRad * (1.0 - u2 / 6.0);
+        curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
+    }
+
+    // Chord lift (uniform-driven toggle, no branch around fwidth)
+    let chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * sin(PI * ease) * 0.20;
+    let chordActive = f32((u.flags & 1u) != 0u);
+    curZ = curZ + chordLiftZ * chordActive;
+
+    return vec3<f32>(curX, curY, curZ);
+}
+
+// ─── Production math, continuous staging (v9) ───
+// Same arc formula as production (sin(s·λ)/s), which creates bounded intermediates.
+// All staged smoothsteps replaced with continuous alpha-driven parameters.
+// No fold, no gather, no per-point curvature — just smooth global unbend.
+fn evalProposed(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
+    let ease = alpha;
+
+    // Y: continuous unbending (production uses smoothstep 0.10→0.80)
+    let yPhysical = mix(RADIUS * sinLat, RADIUS * latRad, ease);
+    let clampedLat = clamp(latRad, -1.4835, 1.4835);
+    let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
+    var curY = yPhysical;
+    if (u.endpoint == 1u) {
+        let tMerc = smoothstep(0.70, 1.0, ease);
+        curY = mix(yPhysical, mercatorY, tMerc);
+    }
+
+    // X width: continuous parallel expansion (production uses smoothstep 0.35→0.90)
+    let parallelWidth = mix(cosLat, 1.0, ease);
+    let rPar = RADIUS * parallelWidth;
+
+    // Arc unrolling: IDENTICAL to production
+    let s = max(0.0, 1.0 - ease);
+    let uAngle = s * lonRad;
+    var curX: f32;
+    var curZ: f32;
+    if (abs(uAngle) > 0.02) {
+        let sDiv = max(0.0001, s);
+        curX = rPar * (sin(uAngle) / sDiv);
+        curZ = rPar * ((cos(uAngle) - 1.0) / sDiv + s);
+    } else {
+        let u2 = uAngle * uAngle;
+        curX = rPar * lonRad * (1.0 - u2 / 6.0);
+        curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
+    }
+
+    // Chord lift (same as production)
+    let chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * sin(PI * ease) * 0.20;
+    let chordActive = f32((u.flags & 1u) != 0u);
+    curZ = curZ + chordLiftZ * chordActive;
+
+    return vec3<f32>(curX, curY, curZ);
+}
+
+fn evalManifold(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
+    if (u.mathMode == 0u) {
+        return evalCurrent(lonRad, latRad, cosLat, sinLat, alpha);
+    } else {
+        return evalProposed(lonRad, latRad, cosLat, sinLat, alpha);
+    }
+}
+
+fn uvToGeo(uv: vec2<f32>) -> vec4<f32> {
+    let lonRad = (uv.x - 0.5) * TWO_PI;
+    let latRad = (0.5 - uv.y) * PI;
+    return vec4<f32>(lonRad, latRad, cos(latRad), sin(latRad));
+}
+
+@vertex
+fn vs_main(@location(0) uv: vec2<f32>) -> VsOut {
+    var out: VsOut;
+    let geo = uvToGeo(uv);
+    let pos = evalManifold(geo.x, geo.y, geo.z, geo.w, u.alpha);
+
+    // Finite-difference surface normals (geometrically accurate)
+    let eps = 0.0008;
+    let geoU = uvToGeo(uv + vec2<f32>(eps, 0.0));
+    let geoV = uvToGeo(uv + vec2<f32>(0.0, eps));
+    let posU = evalManifold(geoU.x, geoU.y, geoU.z, geoU.w, u.alpha);
+    let posV = evalManifold(geoV.x, geoV.y, geoV.z, geoV.w, u.alpha);
+    let tangentU = posU - pos;
+    let tangentV = posV - pos;
+    let rawN = cross(tangentV, tangentU);
+    let normal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(rawN), length(rawN) > 0.00001);
+
+    out.clipPos = u.viewProj * vec4<f32>(pos, 1.0);
+    out.normal = normal;
+    out.uv = uv;
+    out.worldPos = pos;
+    return out;
+}
+
+@fragment
+fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
+    let normalViz = (u.flags & 2u) != 0u;
+
+    var baseColor: vec3<f32>;
+    if (normalViz) {
+        baseColor = abs(in.normal) * 0.85 + 0.15;
+    } else {
+        // Checkerboard: 30° lon × 30° lat cells
+        let lonCell = floor(in.uv.x * 12.0);
+        let latCell = floor(in.uv.y * 6.0);
+        let checker = (lonCell + latCell) % 2.0;
+        let warmColor = vec3<f32>(0.82, 0.75, 0.65);
+        let coolColor = vec3<f32>(0.60, 0.72, 0.80);
+        baseColor = mix(warmColor, coolColor, checker);
+
+        // Simple hemisphere lighting
+        let lightDir = normalize(vec3<f32>(0.4, 0.85, 0.6));
+        let ndotl = max(dot(in.normal, lightDir), 0.0);
+        let ambient = 0.32;
+        baseColor = baseColor * (ambient + (1.0 - ambient) * ndotl);
+    }
+
+    // Wireframe overlay — computed unconditionally for Rule 4
+    let gl = u.gridLines;
+    let uvScaled = in.uv * gl;
+    let gridFrac = fract(uvScaled);
+    let dU = fwidth(uvScaled.x);
+    let dV = fwidth(uvScaled.y);
+    let lw = 1.5;
+    let wireU = 1.0 - smoothstep(0.0, dU * lw, gridFrac.x) * smoothstep(0.0, dU * lw, 1.0 - gridFrac.x);
+    let wireV = 1.0 - smoothstep(0.0, dV * lw, gridFrac.y) * smoothstep(0.0, dV * lw, 1.0 - gridFrac.y);
+
+    // Equator & prime meridian emphasis
+    let eqDist = abs(in.uv.y - 0.5);
+    let pmDist = abs(in.uv.x - 0.5);
+    let eqLine = 1.0 - smoothstep(0.0, fwidth(in.uv.y) * 2.5, eqDist);
+    let pmLine = 1.0 - smoothstep(0.0, fwidth(in.uv.x) * 2.5, pmDist);
+    let majorLine = max(eqLine, pmLine);
+
+    let wire = max(max(wireU, wireV), majorLine);
+    let wireColor = select(vec3<f32>(0.18, 0.18, 0.28), vec3<f32>(0.45, 0.25, 0.25), majorLine > 0.5);
+    let wireActive = f32((u.flags & 4u) != 0u);
+    baseColor = mix(baseColor, wireColor, wire * 0.75 * wireActive);
+
+    return vec4<f32>(baseColor, 1.0);
+}
+`;
+
+// ═══════════════════════════════════════════════════════════════
+// URL HASH & STATE PERSISTENCE
+// ═══════════════════════════════════════════════════════════════
+function stateToHash() {
+  const p = new URLSearchParams();
+  p.set('a', state.alpha.toFixed(3));
+  p.set('t', (camera.theta * 180 / PI).toFixed(1));
+  p.set('p', (camera.phi * 180 / PI).toFixed(1));
+  p.set('d', camera.distance.toFixed(1));
+  p.set('m', state.mathMode === 0 ? 'current' : 'progressive');
+  p.set('e', state.endpoint === 0 ? 'equirect' : 'mercator');
+  p.set('w', state.wireframe ? '1' : '0');
+  p.set('n', state.normals ? '1' : '0');
+  p.set('c', state.chordLift ? '1' : '0');
+  p.set('ts', state.tSplit.toFixed(2));
+  return '#' + p.toString();
+}
+
+function hashToState() {
+  const hash = location.hash.slice(1);
+  if (!hash) return;
+  const p = new URLSearchParams(hash);
+  if (p.has('a')) { state.alpha = parseFloat(p.get('a')); alphaSlider.value = state.alpha; }
+  if (p.has('t')) camera.theta = parseFloat(p.get('t')) * PI / 180;
+  if (p.has('p')) camera.phi = parseFloat(p.get('p')) * PI / 180;
+  if (p.has('d')) camera.distance = parseFloat(p.get('d'));
+  if (p.has('m')) state.mathMode = (p.get('m') === 'progressive' || p.get('m') === 'proposed') ? 1 : 0;
+  if (p.has('e')) state.endpoint = p.get('e') === 'equirect' ? 0 : 1;
+  if (p.has('w')) state.wireframe = p.get('w') === '1';
+  if (p.has('n')) state.normals = p.get('n') === '1';
+  if (p.has('c')) state.chordLift = p.get('c') === '1';
+  if (p.has('ts')) { state.tSplit = parseFloat(p.get('ts')); tsplitSlider.value = state.tSplit; }
+}
+
+function updateStateDisplay() {
+  const tDeg = (camera.theta * 180 / PI).toFixed(1);
+  const pDeg = (camera.phi * 180 / PI).toFixed(1);
+  const dVal = camera.distance.toFixed(1);
+  const mName = state.mathMode === 0 ? 'current' : 'progressive';
+  const eName = state.endpoint === 0 ? 'equirect' : 'mercator';
+  stateText.innerHTML = `α=<span>${state.alpha.toFixed(3)}</span> &nbsp; θ=<span>${tDeg}°</span> &nbsp; φ=<span>${pDeg}°</span> &nbsp; d=<span>${dVal}</span> &nbsp; math=<span>${mName}</span> &nbsp; end=<span>${eName}</span>`;
+}
+
+function copyURL() {
+  const url = location.origin + location.pathname + stateToHash();
+  navigator.clipboard.writeText(url).then(() => {
+    btnCopyUrl.textContent = '✅ Copied';
+    setTimeout(() => { btnCopyUrl.textContent = '📋 Copy URL'; }, 1200);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PIN SYSTEM (localStorage-persisted, exportable)
+// ═══════════════════════════════════════════════════════════════
+function savePinsToStorage() {
+  try { localStorage.setItem('indicatrix_testbed_pins', JSON.stringify(pins)); } catch(e) {}
+}
+
+function loadPinsFromStorage() {
+  try {
+    const raw = localStorage.getItem('indicatrix_testbed_pins');
+    if (raw) { pins.length = 0; pins.push(...JSON.parse(raw)); }
+  } catch(e) {}
+}
+
+function addPin() {
+  const name = prompt('Pin name:', `pin_${pins.length + 1}`);
+  if (!name) return;
+  pins.push({
+    name,
+    alpha: state.alpha,
+    theta: camera.theta,
+    phi: camera.phi,
+    distance: camera.distance,
+    mathMode: state.mathMode,
+    endpoint: state.endpoint,
+    wireframe: state.wireframe,
+    normals: state.normals,
+    chordLift: state.chordLift,
+    tSplit: state.tSplit,
+  });
+  savePinsToStorage();
+  renderPins();
+}
+
+function gotoPin(pin) {
+  state.alpha = pin.alpha;
+  camera.theta = pin.theta;
+  camera.phi = pin.phi;
+  camera.distance = pin.distance;
+  state.mathMode = pin.mathMode;
+  state.endpoint = pin.endpoint;
+  if (pin.wireframe !== undefined) state.wireframe = pin.wireframe;
+  if (pin.normals !== undefined) state.normals = pin.normals;
+  if (pin.chordLift !== undefined) state.chordLift = pin.chordLift;
+  if (pin.tSplit !== undefined) { state.tSplit = pin.tSplit; tsplitSlider.value = state.tSplit; }
+  alphaSlider.value = state.alpha;
+  syncToggles();
+}
+
+function copyPinsJSON() {
+  const exportData = pins.map(p => ({
+    name: p.name,
+    alpha: +p.alpha.toFixed(4),
+    theta_deg: +(p.theta * 180 / PI).toFixed(1),
+    phi_deg: +(p.phi * 180 / PI).toFixed(1),
+    distance: +p.distance.toFixed(1),
+    math: p.mathMode === 0 ? 'current' : 'progressive',
+    endpoint: p.endpoint === 0 ? 'equirect' : 'mercator',
+    wireframe: !!p.wireframe,
+    normals: !!p.normals,
+    chordLift: !!p.chordLift,
+    tSplit: +(p.tSplit || 0.85).toFixed(2),
+  }));
+  const json = JSON.stringify(exportData, null, 2);
+  navigator.clipboard.writeText(json).then(() => {
+    btnCopyPins.textContent = '✅ Copied';
+    setTimeout(() => { btnCopyPins.textContent = '📋 Copy Pins'; }, 1200);
+  });
+}
+
+function renderPins() {
+  pinBar.innerHTML = '';
+  pins.forEach((pin, i) => {
+    const el = document.createElement('div');
+    el.className = 'pin';
+    const mLabel = pin.mathMode === 0 ? 'cur' : 'prog';
+    el.innerHTML = `<span>${pin.name}</span> <span style="color:#666">(α=${pin.alpha.toFixed(3)} ${mLabel})</span> <span class="pin-del" data-i="${i}">×</span>`;
+    el.addEventListener('click', (e) => {
+      if (e.target.classList.contains('pin-del')) { pins.splice(i, 1); savePinsToStorage(); renderPins(); return; }
+      gotoPin(pin);
+    });
+    pinBar.appendChild(el);
+  });
+}
+
+// Load persisted pins on startup
+loadPinsFromStorage();
+
+// ═══════════════════════════════════════════════════════════════
+// UI ELEMENTS & EVENT HANDLERS
+// ═══════════════════════════════════════════════════════════════
+const canvas = document.getElementById('canvas');
+const alphaSlider = document.getElementById('alpha-slider');
+const alphaVal = document.getElementById('alpha-val');
+const tsplitSlider = document.getElementById('tsplit-slider');
+const tsplitVal = document.getElementById('tsplit-val');
+const speedSlider = document.getElementById('speed-slider');
+const speedVal = document.getElementById('speed-val');
+const stateText = document.getElementById('state-text');
+const pinBar = document.getElementById('pin-bar');
+const btnPlay = document.getElementById('btn-play');
+const btnCurrent = document.getElementById('btn-current');
+const btnProposed = document.getElementById('btn-proposed');
+const btnMercator = document.getElementById('btn-mercator');
+const btnEquirect = document.getElementById('btn-equirect');
+const btnWire = document.getElementById('btn-wire');
+const btnNormals = document.getElementById('btn-normals');
+const btnChord = document.getElementById('btn-chord');
+const btnPin = document.getElementById('btn-pin');
+const btnCopyUrl = document.getElementById('btn-copy-url');
+const btnCopyPins = document.getElementById('btn-copy-pins');
+const tsplitGroup = document.getElementById('tsplit-group');
+
+function syncToggles() {
+  btnCurrent.classList.toggle('active', state.mathMode === 0);
+  btnProposed.classList.toggle('active', state.mathMode === 1);
+  btnMercator.classList.toggle('active', state.endpoint === 1);
+  btnEquirect.classList.toggle('active', state.endpoint === 0);
+  btnWire.classList.toggle('active', state.wireframe);
+  btnNormals.classList.toggle('active', state.normals);
+  btnChord.classList.toggle('active', state.chordLift);
+  btnChord.classList.toggle('disabled', state.mathMode === 1);
+  tsplitGroup.classList.toggle('disabled', state.mathMode === 0);
+  alphaVal.textContent = state.alpha.toFixed(3);
+  tsplitVal.textContent = state.tSplit.toFixed(2);
+  speedVal.textContent = state.playSpeed.toFixed(1);
+}
+
+alphaSlider.addEventListener('input', () => { state.alpha = parseFloat(alphaSlider.value); syncToggles(); });
+tsplitSlider.addEventListener('input', () => { state.tSplit = parseFloat(tsplitSlider.value); syncToggles(); });
+speedSlider.addEventListener('input', () => { state.playSpeed = parseFloat(speedSlider.value); syncToggles(); });
+
+btnPlay.addEventListener('click', () => { state.playing = !state.playing; btnPlay.textContent = state.playing ? '⏸' : '▶'; btnPlay.classList.toggle('active', state.playing); });
+btnCurrent.addEventListener('click', () => { state.mathMode = 0; syncToggles(); });
+btnProposed.addEventListener('click', () => { state.mathMode = 1; syncToggles(); });
+btnMercator.addEventListener('click', () => { state.endpoint = 1; syncToggles(); });
+btnEquirect.addEventListener('click', () => { state.endpoint = 0; syncToggles(); });
+btnWire.addEventListener('click', () => { state.wireframe = !state.wireframe; syncToggles(); });
+btnNormals.addEventListener('click', () => { state.normals = !state.normals; syncToggles(); });
+btnChord.addEventListener('click', () => { if (state.mathMode === 0) { state.chordLift = !state.chordLift; syncToggles(); } });
+btnPin.addEventListener('click', addPin);
+btnCopyUrl.addEventListener('click', copyURL);
+btnCopyPins.addEventListener('click', copyPinsJSON);
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  switch(e.key.toLowerCase()) {
+    case ' ': e.preventDefault(); btnPlay.click(); break;
+    case 'g': state.alpha = 0; alphaSlider.value = 0; syncToggles(); break;
+    case 'm': state.alpha = 1; alphaSlider.value = 1; syncToggles(); break;
+    case 'w': btnWire.click(); break;
+    case 'n': btnNormals.click(); break;
+    case 'c': btnChord.click(); break;
+    case '1': btnCurrent.click(); break;
+    case '2': btnProposed.click(); break;
+    case 'e': if (state.endpoint === 1) btnEquirect.click(); else btnMercator.click(); break;
+    case 'p': addPin(); break;
+  }
+});
+
+// Camera drag & zoom
+let isDragging = false, lastX = 0, lastY = 0;
+canvas.addEventListener('pointerdown', (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  camera.theta -= dx * 0.008;
+  camera.phi = Math.max(-PI/2 + 0.02, Math.min(PI/2 - 0.02, camera.phi + dy * 0.008));
+  lastX = e.clientX; lastY = e.clientY;
+});
+canvas.addEventListener('pointerup', () => { isDragging = false; });
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  camera.distance = Math.max(2.5, Math.min(60, camera.distance * (1 + e.deltaY * 0.001)));
+}, { passive: false });
+
+// ═══════════════════════════════════════════════════════════════
+// WEBGPU INITIALIZATION
+// ═══════════════════════════════════════════════════════════════
+async function init() {
+  if (!navigator.gpu) {
+    document.getElementById('no-webgpu').classList.add('show');
+    return;
+  }
+
+  const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+  if (!adapter) { document.getElementById('no-webgpu').classList.add('show'); return; }
+  const device = await adapter.requestDevice();
+
+  // Canvas setup
+  const ctx = canvas.getContext('webgpu');
+  const format = navigator.gpu.getPreferredCanvasFormat();
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.floor(rect.width * dpr);
+    canvas.height = Math.floor(rect.height * dpr);
+    ctx.configure({ device, format, alphaMode: 'opaque' });
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  // Mesh
+  const mesh = createGridMesh();
+  const vertBuffer = device.createBuffer({ size: mesh.verts.byteLength, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+  device.queue.writeBuffer(vertBuffer, 0, mesh.verts);
+  const idxBuffer = device.createBuffer({ size: mesh.indices.byteLength, usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST });
+  device.queue.writeBuffer(idxBuffer, 0, mesh.indices);
+
+  // Uniform buffer (112 bytes)
+  const uniformBuf = device.createBuffer({ size: 112, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  const uniformData = new ArrayBuffer(112);
+  const uFloats = new Float32Array(uniformData);
+  const uUints = new Uint32Array(uniformData);
+
+  // Depth texture
+  let depthTex = null;
+  function ensureDepthTexture() {
+    if (depthTex && depthTex.width === canvas.width && depthTex.height === canvas.height) return;
+    if (depthTex) depthTex.destroy();
+    depthTex = device.createTexture({
+      size: [canvas.width, canvas.height],
+      format: 'depth32float',
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+  }
+
+  // Shader module & pipeline
+  const shaderModule = device.createShaderModule({ code: SHADER_CODE });
+  const bindGroupLayout = device.createBindGroupLayout({
+    entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }],
+  });
+  const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] });
+
+  const pipeline = device.createRenderPipeline({
+    layout: pipelineLayout,
+    vertex: {
+      module: shaderModule,
+      entryPoint: 'vs_main',
+      buffers: [{
+        arrayStride: 8,
+        attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x2' }],
+      }],
+    },
+    fragment: {
+      module: shaderModule,
+      entryPoint: 'fs_main',
+      targets: [{ format }],
+    },
+    primitive: { topology: 'triangle-list', cullMode: 'none' },
+    depthStencil: { format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less' },
+  });
+
+  const bindGroup = device.createBindGroup({
+    layout: bindGroupLayout,
+    entries: [{ binding: 0, resource: { buffer: uniformBuf } }],
+  });
+
+  // Load state from URL hash
+  hashToState();
+  syncToggles();
+  renderPins();
+
+  // ─── Render Loop ───
+  let lastTime = performance.now();
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dt = (now - lastTime) / 1000;
+    lastTime = now;
+
+    // Auto-scrub
+    if (state.playing) {
+      state.alpha += state.playDir * state.playSpeed * dt;
+      if (state.alpha >= 1.0) { state.alpha = 1.0; state.playDir = -1; }
+      if (state.alpha <= 0.0) { state.alpha = 0.0; state.playDir = 1; }
+      alphaSlider.value = state.alpha;
+    }
+
+    // Resize check
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const w = Math.floor(rect.width * dpr);
+    const h = Math.floor(rect.height * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w; canvas.height = h;
+      ctx.configure({ device, format, alphaMode: 'opaque' });
+    }
+    ensureDepthTexture();
+
+    const aspect = canvas.width / canvas.height;
+    const vp = getViewProjectionMatrix(aspect);
+    const camPos = getCameraPosition();
+
+    // Pack uniforms
+    uFloats.set(vp, 0);        // viewProj [0..15]
+    uFloats[16] = state.alpha;
+    uUints[17] = state.mathMode;
+    uUints[18] = state.endpoint;
+    uUints[19] = (state.chordLift ? 1 : 0) | (state.normals ? 2 : 0) | (state.wireframe ? 4 : 0);
+    uFloats[20] = state.tSplit;
+    uFloats[21] = state.gridLines;
+    uFloats[22] = 0;
+    uFloats[23] = 0;
+    uFloats[24] = camPos[0];
+    uFloats[25] = camPos[1];
+    uFloats[26] = camPos[2];
+    uFloats[27] = 1.0;
+    device.queue.writeBuffer(uniformBuf, 0, uniformData);
+
+    // Render
+    const colorTex = ctx.getCurrentTexture();
+    const encoder = device.createCommandEncoder();
+    const pass = encoder.beginRenderPass({
+      colorAttachments: [{
+        view: colorTex.createView(),
+        clearValue: { r: 0.06, g: 0.06, b: 0.10, a: 1.0 },
+        loadOp: 'clear', storeOp: 'store',
+      }],
+      depthStencilAttachment: {
+        view: depthTex.createView(),
+        depthClearValue: 1.0,
+        depthLoadOp: 'clear', depthStoreOp: 'store',
+      },
+    });
+    pass.setPipeline(pipeline);
+    pass.setBindGroup(0, bindGroup);
+    pass.setVertexBuffer(0, vertBuffer);
+    pass.setIndexBuffer(idxBuffer, 'uint32');
+    pass.drawIndexed(mesh.idxCount);
+    pass.end();
+    device.queue.submit([encoder.finish()]);
+
+    // Update UI
+    syncToggles();
+    updateStateDisplay();
+    history.replaceState(null, '', stateToHash());
+  }
+
+  requestAnimationFrame(frame);
+}
+
+init();
+</script>
+</body>
+</html>
