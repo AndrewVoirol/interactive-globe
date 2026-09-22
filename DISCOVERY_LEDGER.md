@@ -133,3 +133,35 @@
 2. **Artisanal Weather Overlays ("Holy Shit" Experience)**:
    - Harmonize live weather and Doppler radar layers with the physical medium inking profiles (e.g. pencil-stippled storm cells, blueprint isobars).
 
+---
+
+## 8. Mode 0 Manifold Mechanics — Session Summary (2026-09-22)
+
+**Conversation**: `e63e0c35-2cd6-46ae-b6f3-c7ebf93383a8`  
+**Duration**: ~80 hours  
+**Branch**: `perfect_mode_zero_mechanics`  
+**Commit**: `0a061e5`
+
+### What Was Built
+- Self-contained WebGPU testbed at `testbed/index.html` for isolated manifold geometry iteration
+- Pin system, URL hash state encoding, auto-scrub, keyboard shortcuts
+- 9 versions of proposed manifold math (v1–v9)
+
+### Critical Discovery: Why Progressive Peel Always Fails
+The equirectangular map is **π× wider** than the sphere. Any progressive approach (fold, gather, per-point curvature) that flattens back-facing points to their equirect positions creates flat extensions 3.14× wider than the sphere — manifesting as butterfly wings, rugby balls, or giant intermediate shapes. The production formula `sin(s·λ)/s` avoids this because it naturally bounds intermediate width.
+
+### Current State (v9)
+Production arc formula with all 5 staged smoothsteps replaced by continuous alpha parameters. User confirmed "Progressive seems smoother." This is the clean foundation for further iteration.
+
+### What v9 Needs
+- Directional character (unfurl feel, not just uniform unbend)
+- Seam lip (surf-break curl)
+- Easing curve exploration
+
+### DO NOT RETRY
+- Geodesic-distance peel timing (Saturn rings)
+- Per-point curvature via localAlpha (rugby balls)
+- Cartesian lerp to distant flat target (interior traversal)
+- R/s cylinder radius scaling with per-point s (explosive width)
+- Quadratic fold acceleration (butterfly wings)
+- Dynamic peel narrowing at low alpha (premature flaps)
