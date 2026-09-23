@@ -226,23 +226,27 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
 
   // Softened Hermite envelope: zero velocity derivatives at alpha=0 and alpha=1
   const sZero = smoothstep(0.0, 0.10, alpha);
-  const sOne = 1.0 - smoothstep(0.85, 1.0, alpha);
+  const sOne = 1.0 - smoothstep(0.90, 1.0, alpha);
   const env = Math.sin(PI * alpha) * sZero * sOne;
 
   // Pin #1: C2 smooth ease-in eliminates initial seam "thunk" / pop at alpha -> 0
   const alphaEased = alpha * alpha * (3.0 - 2.0 * alpha);
 
-  // Developable cylinder unroll: uniform unrolling across all latitudes (eliminates conical cap/dome look)
-  const easeLocal = alphaEased;
+  // Living directional peel: subtle 4% phase shift across the sheet
+  const waveBias = normLon * 0.040 * env;
+  // Organic latitude differential: living peel between equator and poles
+  const latWeight = 1.0 - cosLat;
+  const latFactor = 1.0 - 0.14 * env * latWeight;
+  const easeLocal = Math.max(0.0, Math.min(1.0, alphaEased * latFactor - waveBias));
 
-  // Synchronized parallel expansion and vertical straightening (0.05 to 0.58)
-  const tParallel = smoothstep(0.05, 0.58, easeLocal);
+  // Synchronized parallel expansion & vertical straightening across full living range (0.08 to 0.78)
+  // Keeps the spherical unfurl dynamic through mid-flight (alpha=0.40 - 0.65) while preventing can rim necking
+  const tParallel = smoothstep(0.08, 0.78, easeLocal);
   const rPar = RADIUS * (cosLat * (1.0 - tParallel) + tParallel);
 
   // Developable circular arc unroll
   const s = Math.max(0.0, 1.0 - easeLocal);
   const uAngle = s * lonRad;
-
   let curX, curZ;
   if (Math.abs(uAngle) > 0.02) {
     const sDiv = Math.max(0.0001, s);
@@ -254,48 +258,36 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
     curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
   }
 
-  // Cylindrical outward normal in the X-Z plane
-  const nx = Math.sin(uAngle);
-  const nz = Math.cos(uAngle);
-  const tx = Math.cos(uAngle);
-  const tz = -Math.sin(uAngle);
+  // Nested harmonic lip curl: "lip within a lip" (Pins #1, #2, #5, #6)
+  const macroLip = Math.sin(smoothstep(0.62, 1.0, absNormLon) * PI * 0.5);
+  const microRim = Math.sin(smoothstep(0.80, 1.0, absNormLon) * PI * 0.5);
+  const cornerTaper = 0.45 + 0.55 * cosLat;
+  const eqRatio = 1.1 + 0.7 * cosLat; // living uncurl ratio between equator and polar margin
+  const lipCurl = -(macroLip * 0.034 + microRim * 0.020 * eqRatio) * RADIUS * env * cornerTaper;
+  curZ += lipCurl;
 
-  // Pin #1: Tactile seam edge curl (tangential roll + normal lift, pure additive without poles)
-  const edgeZone = smoothstep(0.60, 1.0, absNormLon);
-  const microRim = smoothstep(0.82, 1.0, absNormLon);
-  const lipLift = (edgeZone * 0.040 + microRim * 0.035) * RADIUS * env;
-  const lipRoll = -Math.sign(normLon) * (edgeZone * edgeZone * 0.030) * RADIUS * env;
-  curX += nx * lipLift + tx * lipRoll;
-  curZ += nz * lipLift + tz * lipRoll;
+  // Polar corner chiral curl: balanced S-twist flare (North up/out, South down/in)
+  const edgeZone = smoothstep(0.72, 1.0, absNormLon);
+  const chiralCurl = sinLat * Math.sin(edgeZone * PI * 0.5) * RADIUS * 0.025 * env;
+  curZ += chiralCurl;
 
-  // Pins #2 & #3: Tandem polar corner flare
-  // North Pole (+sinLat) lifts UP in +Y, South Pole (-sinLat) drops DOWN in -Y
-  const cornerLon = smoothstep(0.55, 1.0, absNormLon);
-  const cornerLat = Math.abs(sinLat) * Math.abs(sinLat);
-  const cornerWeight = cornerLon * cornerLat;
-  const yFlare = sinLat * cornerWeight * RADIUS * 0.070 * env;
-  // Outward normal flare at corners
-  const normFlare = cornerWeight * RADIUS * 0.040 * env;
-  curX += nx * normFlare;
-  curZ += nz * normFlare;
-
-  // Subtle living folio wave across the sheet
-  const waveFlex = env * (1.0 - alpha) * Math.sin(lonRad * 0.5) * RADIUS * 0.020;
+  // Organic living folio wave across the sheet
+  const waveFlex = env * (1.0 - alpha) * Math.sin(lonRad * 0.5 + 0.3) * RADIUS * 0.030 * cornerTaper;
   curZ += waveFlex;
 
   // Two-stage vertical transformation:
-  // 1. Unbend sphere to developable arc yArc (alpha 0.05 to 0.58)
+  // 1. Unbend sphere to developable arc yArc (alpha 0.08 to 0.78, synchronized with tParallel)
   // 2. Conformal Web Mercator expansion strictly in late landing (alpha 0.58 to 0.98)
   const clampedLat = Math.max(-1.4835, Math.min(1.4835, latRad));
   const mercatorY = Math.log(Math.tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
   const yArc = RADIUS * latRad;
-  const tStraighten = smoothstep(0.05, 0.58, easeLocal);
+  const tStraighten = smoothstep(0.08, 0.78, easeLocal);
   const yStraight = RADIUS * sinLat * (1.0 - tStraighten) + yArc * tStraighten;
   const tMerc = smoothstep(0.58, 0.98, easeLocal);
-  const curY = yStraight * (1.0 - tMerc) + mercatorY * tMerc + yFlare;
+  const curY = yStraight * (1.0 - tMerc) + mercatorY * tMerc;
 
-  // Central sheet loft: uniform across latitude, gently rolling off at seam edges
-  const chordLiftZ = RADIUS * (1.0 - alpha) * env * chordLiftMag * (1.0 - absNormLon * 0.35);
+  // Central sheet loft
+  const chordLiftZ = (0.35 + 0.65 * cosLat) * RADIUS * (1.0 - alpha) * env * chordLiftMag;
   curZ += chordLiftZ;
 
   return [curX, curY, curZ];
@@ -656,17 +648,22 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
     
     // Boundary envelope: zero derivatives at alpha=0 and alpha=1 (zero thunk on close)
     let sZero = smoothstep(0.0, 0.10, alpha);
-    let sOne = 1.0 - smoothstep(0.85, 1.0, alpha);
+    let sOne = 1.0 - smoothstep(0.90, 1.0, alpha);
     let env = sin(PI * alpha) * sZero * sOne;
     
     // Pin #1: C2 smooth ease-in eliminates initial seam "thunk" / pop at alpha -> 0
     let alphaEased = alpha * alpha * (3.0 - 2.0 * alpha);
 
-    // Developable cylinder unroll: uniform unrolling across all latitudes (eliminates conical cap/dome look)
-    let easeLocal = alphaEased;
+    // Living directional peel: subtle 4% phase shift across the sheet
+    let waveBias = normLon * 0.040 * env;
+    // Organic latitude differential: living peel between equator and poles
+    let latWeight = 1.0 - cosLat;
+    let latFactor = 1.0 - 0.14 * env * latWeight;
+    let easeLocal = clamp(alphaEased * latFactor - waveBias, 0.0, 1.0);
     
-    // Synchronized parallel expansion and vertical straightening (0.05 to 0.58)
-    let tParallel = smoothstep(0.05, 0.58, easeLocal);
+    // Synchronized parallel expansion & vertical straightening across full living range (0.08 to 0.78)
+    // Keeps the spherical unfurl dynamic through mid-flight (alpha=0.40 - 0.65) while preventing can rim necking
+    let tParallel = smoothstep(0.08, 0.78, easeLocal);
     let rPar = RADIUS * mix(cosLat, 1.0, tParallel);
 
     // Developable circular arc unroll:
@@ -685,48 +682,36 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
         curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
     }
 
-    // Cylindrical outward normal in the X-Z plane
-    let nx = sin(uAngle);
-    let nz = cos(uAngle);
-    let tx = cos(uAngle);
-    let tz = -sin(uAngle);
+    // Nested harmonic lip curl: "lip within a lip" (Pins #1, #2, #5, #6)
+    let macroLip = sin(smoothstep(0.62, 1.0, absNormLon) * PI * 0.5);
+    let microRim = sin(smoothstep(0.80, 1.0, absNormLon) * PI * 0.5);
+    let cornerTaper = 0.45 + 0.55 * cosLat;
+    let eqRatio = 1.1 + 0.7 * cosLat; // living uncurl ratio between equator and polar margin
+    let lipCurl = -(macroLip * 0.034 + microRim * 0.020 * eqRatio) * RADIUS * env * cornerTaper;
+    curZ = curZ + lipCurl;
 
-    // Pin #1: Tactile seam edge curl (tangential roll + normal lift, pure additive without poles)
-    let edgeZone = smoothstep(0.60, 1.0, absNormLon);
-    let microRim = smoothstep(0.82, 1.0, absNormLon);
-    let lipLift = (edgeZone * 0.040 + microRim * 0.035) * RADIUS * env;
-    let lipRoll = -sign(normLon) * (edgeZone * edgeZone * 0.030) * RADIUS * env;
-    curX = curX + nx * lipLift + tx * lipRoll;
-    curZ = curZ + nz * lipLift + tz * lipRoll;
+    // Polar corner chiral curl: balanced S-twist flare (North up/out, South down/in)
+    let edgeZone = smoothstep(0.72, 1.0, absNormLon);
+    let chiralCurl = sinLat * sin(edgeZone * PI * 0.5) * RADIUS * 0.025 * env;
+    curZ = curZ + chiralCurl;
 
-    // Pins #2 & #3: Tandem polar corner flare
-    // North Pole (+sinLat) lifts UP in +Y, South Pole (-sinLat) drops DOWN in -Y
-    let cornerLon = smoothstep(0.55, 1.0, absNormLon);
-    let cornerLat = abs(sinLat) * abs(sinLat);
-    let cornerWeight = cornerLon * cornerLat;
-    let yFlare = sinLat * cornerWeight * RADIUS * 0.070 * env;
-    // Outward normal flare at corners
-    let normFlare = cornerWeight * RADIUS * 0.040 * env;
-    curX = curX + nx * normFlare;
-    curZ = curZ + nz * normFlare;
-
-    // Subtle living folio wave across the sheet
-    let waveFlex = env * (1.0 - alpha) * sin(lonRad * 0.5) * RADIUS * 0.020;
+    // Organic living folio wave across the sheet:
+    let waveFlex = env * (1.0 - alpha) * sin(lonRad * 0.5 + 0.3) * RADIUS * 0.030 * cornerTaper;
     curZ = curZ + waveFlex;
 
     // Two-stage vertical transformation:
-    // 1. Unbend sphere to developable arc yArc (alpha 0.05 to 0.58)
+    // 1. Unbend sphere to developable arc yArc (alpha 0.08 to 0.78, synchronized with tParallel)
     // 2. Conformal Web Mercator expansion strictly in late landing (alpha 0.58 to 0.98)
     let clampedLat = clamp(latRad, -1.4835, 1.4835);
     let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
     let yArc = RADIUS * latRad;
-    let tStraighten = smoothstep(0.05, 0.58, easeLocal);
+    let tStraighten = smoothstep(0.08, 0.78, easeLocal);
     let yStraight = mix(RADIUS * sinLat, yArc, tStraighten);
     let tMerc = smoothstep(0.58, 0.98, easeLocal);
-    let curY = mix(yStraight, mercatorY, tMerc) + yFlare;
+    let curY = mix(yStraight, mercatorY, tMerc);
 
-    // Central sheet loft: uniform across latitude, gently rolling off at seam edges
-    let chordLiftZ = RADIUS * (1.0 - alpha) * env * CHORD_LIFT_MAG * (1.0 - absNormLon * 0.35);
+    // Central sheet loft:
+    let chordLiftZ = (0.35 + 0.65 * cosLat) * RADIUS * (1.0 - alpha) * env * CHORD_LIFT_MAG;
     curZ = curZ + chordLiftZ;
 
     return vec3<f32>(curX, curY, curZ);
