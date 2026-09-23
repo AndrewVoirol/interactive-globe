@@ -319,10 +319,10 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
 
   // Directional folio flow: subtle 4% phase shift (living wave without nautilus bulge)
   const waveBias = normLon * 0.040 * env;
-  // Coupled Equatorial-to-Polar uncurl ratio (Pins #2, #5, #6: breaks rigid pie-chart straight edges into organic curved peel)
+  // Multiplicative latitude scaling: C-infinity smooth across all latitudes (eliminates crease kinks & radiating ripples, Pins #1, #2, #3)
   const latWeight = 1.0 - cosLat;
-  const latLag = latWeight * 0.18 * env;
-  const easeLocal = Math.max(0.0, Math.min(1.0, alphaEased - waveBias - latLag));
+  const latFactor = 1.0 - 0.14 * env * latWeight;
+  const easeLocal = Math.max(0.0, Math.min(1.0, alphaEased * latFactor - waveBias));
 
   // Balanced parallel expansion without artificial vertex mesh tearing
   const tParallel = smoothstep(0.08, 0.88, easeLocal);
@@ -342,17 +342,18 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
     curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
   }
 
-  // Pins #5 & #6: Nested harmonic lip curl ("lip and curl within a lip and curl")
-  const macroLip = Math.sin(smoothstep(0.65, 1.0, absNormLon) * PI * 0.5);
-  const microRim = Math.sin(smoothstep(0.85, 1.0, absNormLon) * PI);
-  const cornerTaper = 0.45 + 0.55 * cosLat;
-  const eqRatio = 1.0 + 0.6 * cosLat; // coupled uncurl ratio between equator and polar spiral
-  const lipCurl = -(macroLip * 0.028 + microRim * 0.016 * eqRatio) * RADIUS * env * cornerTaper;
+  // Pins #5 & #6 (tamed polar curl) and Pins #4 & #7 (boosted equatorial tactile curl):
+  // Monotonic micro-rim curl eliminates speedbump ridging; coupled eqRatio provides living wrap
+  const macroLip = Math.sin(smoothstep(0.62, 1.0, absNormLon) * PI * 0.5);
+  const microRim = Math.sin(smoothstep(0.80, 1.0, absNormLon) * PI * 0.5);
+  const cornerTaper = 0.40 + 0.60 * cosLat;
+  const eqRatio = 1.1 + 0.7 * cosLat; // enhanced equatorial curl ratio (Pin #4 & #7)
+  const lipCurl = -(macroLip * 0.034 + microRim * 0.020 * eqRatio) * RADIUS * env * cornerTaper;
   curZ += lipCurl;
 
-  // Pins #3 & #4: Chiral / anti-symmetric polar corner flare (North flares up/out, South curls down/in)
+  // Pins #5 & #6: Tamed polar chiral corner flare (0.022R prevents premature polar whip at alpha=0.35)
   const edgeZone = smoothstep(0.72, 1.0, absNormLon);
-  const chiralCurl = sinLat * Math.sin(edgeZone * PI * 0.5) * RADIUS * 0.035 * env;
+  const chiralCurl = sinLat * Math.sin(edgeZone * PI * 0.5) * RADIUS * 0.022 * env;
   curZ += chiralCurl;
 
   // Organic directional folio wave across the sheet
@@ -811,10 +812,10 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
 
     // Directional folio flow: subtle 4% phase shift (living wave without nautilus bulge)
     let waveBias = normLon * 0.040 * env;
-    // Coupled Equatorial-to-Polar uncurl ratio (Pins #2, #5, #6: breaks rigid pie-chart straight edges into organic curved peel)
+    // Multiplicative latitude scaling: C-infinity smooth across all latitudes (eliminates crease kinks & radiating ripples, Pins #1, #2, #3)
     let latWeight = 1.0 - cosLat;
-    let latLag = latWeight * 0.18 * env;
-    let easeLocal = clamp(alphaEased - waveBias - latLag, 0.0, 1.0);
+    let latFactor = 1.0 - 0.14 * env * latWeight;
+    let easeLocal = clamp(alphaEased * latFactor - waveBias, 0.0, 1.0);
     
     // Balanced parallel expansion without artificial vertex mesh tearing
     let tParallel = smoothstep(0.08, 0.88, easeLocal);
@@ -835,17 +836,18 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
         curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
     }
 
-    // Pins #5 & #6: Nested harmonic lip curl ("lip and curl within a lip and curl")
-    let macroLip = sin(smoothstep(0.65, 1.0, absNormLon) * PI * 0.5);
-    let microRim = sin(smoothstep(0.85, 1.0, absNormLon) * PI);
-    let cornerTaper = 0.45 + 0.55 * cosLat;
-    let eqRatio = 1.0 + 0.6 * cosLat; // coupled uncurl ratio between equator and polar spiral
-    let lipCurl = -(macroLip * 0.028 + microRim * 0.016 * eqRatio) * RADIUS * env * cornerTaper;
+    // Pins #5 & #6 (tamed polar curl) and Pins #4 & #7 (boosted equatorial tactile curl):
+    // Monotonic micro-rim curl eliminates speedbump ridging; coupled eqRatio provides living wrap
+    let macroLip = sin(smoothstep(0.62, 1.0, absNormLon) * PI * 0.5);
+    let microRim = sin(smoothstep(0.80, 1.0, absNormLon) * PI * 0.5);
+    let cornerTaper = 0.40 + 0.60 * cosLat;
+    let eqRatio = 1.1 + 0.7 * cosLat; // enhanced equatorial curl ratio (Pin #4 & #7)
+    let lipCurl = -(macroLip * 0.034 + microRim * 0.020 * eqRatio) * RADIUS * env * cornerTaper;
     curZ = curZ + lipCurl;
 
-    // Pins #3 & #4: Chiral / anti-symmetric polar corner flare (North flares up/out, South curls down/in)
+    // Pins #5 & #6: Tamed polar chiral corner flare (0.022R prevents premature polar whip at alpha=0.35)
     let edgeZone = smoothstep(0.72, 1.0, absNormLon);
-    let chiralCurl = sinLat * sin(edgeZone * PI * 0.5) * RADIUS * 0.035 * env;
+    let chiralCurl = sinLat * sin(edgeZone * PI * 0.5) * RADIUS * 0.022 * env;
     curZ = curZ + chiralCurl;
 
     // Organic directional folio wave across the sheet:
