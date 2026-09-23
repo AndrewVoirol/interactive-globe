@@ -109,14 +109,6 @@ canvas#canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
 
   <button class="btn play" id="btn-play" title="Space">▶ Play</button>
   
-  <div class="btn-group">
-    <button class="btn" id="btn-opt-a" title="Key A">Option A</button>
-    <button class="btn" id="btn-opt-b" title="Key B">Option B</button>
-    <button class="btn active" id="btn-opt-c" title="Key C">Option C</button>
-  </div>
-
-  <div class="divider"></div>
-
   <!-- Camera Presets -->
   <span style="font-size:10px; color:#8888a8; font-weight:600;">CAM:</span>
   <div class="btn-group">
@@ -139,8 +131,7 @@ canvas#canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
   <button class="btn pin" id="btn-drop-pin" title="P">📌 Drop Pin [P]</button>
   <button class="btn copy-chat" id="btn-copy-chat" title="Copy markdown summary for chat">📋 Copy for Chat (0)</button>
 
-  <label style="margin-left:auto;">Loft <input type="range" id="loft-slider" min="0.00" max="0.50" step="0.01" value="0.26"> <span id="loft-val">0.26</span></label>
-  <label>Spd <input type="range" id="speed-slider" min="0.1" max="2.0" step="0.1" value="0.5"> <span id="speed-val">0.5</span></label>
+  <label style="margin-left:auto;">Spd <input type="range" id="speed-slider" min="0.1" max="2.0" step="0.1" value="0.5"> <span id="speed-val">0.5</span></label>
 </div>
 
 <div id="canvas-wrap">
@@ -157,10 +148,9 @@ canvas#canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
 
   <div id="hud-card">
     <h4>
-      <span id="hud-title">Option C: Centered Folio Wave</span>
-      <span style="font-size:10px; font-family:monospace; color:#58a6ff;">[Key C]</span>
+      <span id="hud-title">Mode 0: Globe-to-Map Manifold</span>
     </h4>
-    <p id="hud-desc">Centered folio wave with natural polar retention and organic directional breath. Click surface or press [P] to capture and annotate details.</p>
+    <p id="hud-desc">Calibrated developable folio wave with synchronized cylindrical expansion, C² zero-velocity boundary ease, and tactile chiral corner flare.</p>
   </div>
 
   <div id="help-badge">
@@ -194,22 +184,9 @@ const RADIUS = 5.0;
 const GRID_RES_U = 180;
 const GRID_RES_V = 90;
 
-const OPTIONS = {
-  a: {
-    mode: 0,
-    name: 'Option A: Pure Developable',
-    desc: 'Symmetric developable arc unrolling — antimeridian splits down the back and parallels relax along circular arcs. Clean, architectural, and mathematically pure.'
-  },
-  b: {
-    mode: 1,
-    name: 'Option B: Unzipping Peel',
-    desc: 'Equator leads, polar corners lag — equatorial seam splits first and pushes out, while high latitudes hold closed spherical caps, unzipping only near landing.'
-  },
-  c: {
-    mode: 2,
-    name: 'Option C: Centered Folio Wave',
-    desc: 'Centered folio wave with natural polar retention and organic directional breath. Guaranteed 100% closed seamless globe at α=0.000, flat Web Mercator at α=1.000.'
-  }
+const MANIFOLD_INFO = {
+  name: 'Mode 0: Globe-to-Map Manifold',
+  desc: 'Calibrated developable folio wave with synchronized cylindrical expansion, C² zero-velocity boundary ease, and tactile chiral corner flare.'
 };
 
 const CAMERA_PRESETS = {
@@ -221,12 +198,9 @@ const CAMERA_PRESETS = {
 
 const state = {
   alpha: 0.0,
-  option: 'c',
-  endpoint: 1,      // locked Web Mercator
   wireframe: true,
   normals: false,
   edgeHighlight: true,
-  chordLiftMag: 0.26,
   playing: false,
   playSpeed: 0.5,
   playDir: 1,
@@ -244,65 +218,6 @@ let activePinId = null;
 function smoothstep(e0, e1, x) {
   const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
   return t * t * (3 - 2 * t);
-}
-
-function evalOptionACPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
-  const ease = alpha;
-  const tParallel = smoothstep(0.35, 0.90, ease);
-  const rPar = RADIUS * (cosLat * (1 - tParallel) + tParallel);
-  const s = Math.max(0.0, 1.0 - ease);
-  const uAngle = s * lonRad;
-  let curX, curZ;
-  if (Math.abs(uAngle) > 0.02) {
-    const sDiv = Math.max(0.0001, s);
-    curX = rPar * (Math.sin(uAngle) / sDiv);
-    curZ = rPar * ((Math.cos(uAngle) - 1.0) / sDiv + s);
-  } else {
-    const u2 = uAngle * uAngle;
-    curX = rPar * lonRad * (1.0 - u2 / 6.0);
-    curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
-  }
-  const clampedLat = Math.max(-1.4835, Math.min(1.4835, latRad));
-  const mercatorY = Math.log(Math.tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
-  const yArc = RADIUS * latRad;
-  const tStraighten = smoothstep(0.05, 0.70, ease);
-  const yStraight = RADIUS * sinLat * (1 - tStraighten) + yArc * tStraighten;
-  const tMerc = smoothstep(0.35, 1.00, ease);
-  const curY = yStraight * (1 - tMerc) + mercatorY * tMerc;
-  const chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * Math.sin(PI * ease) * chordLiftMag;
-  curZ += chordLiftZ;
-  return [curX, curY, curZ];
-}
-
-function evalOptionBCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
-  const latWeight = 1.0 - cosLat;
-  const easeEquator = smoothstep(0.0, 0.90, alpha);
-  const easePoles = smoothstep(0.40, 1.00, alpha);
-  const localEase = easeEquator * (1 - latWeight * 0.70) + easePoles * (latWeight * 0.70);
-  const tParallel = smoothstep(0.15, 0.85, alpha) * (1 - latWeight) + smoothstep(0.55, 0.95, alpha) * latWeight;
-  const rPar = RADIUS * (cosLat * (1 - tParallel) + tParallel);
-  const s = Math.max(0.0, 1.0 - localEase);
-  const uAngle = s * lonRad;
-  let curX, curZ;
-  if (Math.abs(uAngle) > 0.02) {
-    const sDiv = Math.max(0.0001, s);
-    curX = rPar * (Math.sin(uAngle) / sDiv);
-    curZ = rPar * ((Math.cos(uAngle) - 1.0) / sDiv + s);
-  } else {
-    const u2 = uAngle * uAngle;
-    curX = rPar * lonRad * (1.0 - u2 / 6.0);
-    curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
-  }
-  const clampedLat = Math.max(-1.4835, Math.min(1.4835, latRad));
-  const mercatorY = Math.log(Math.tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
-  const yArc = RADIUS * latRad;
-  const tStraighten = smoothstep(0.05, 0.70, localEase);
-  const yStraight = RADIUS * sinLat * (1 - tStraighten) + yArc * tStraighten;
-  const tMerc = smoothstep(0.35, 1.00, localEase);
-  const curY = yStraight * (1 - tMerc) + mercatorY * tMerc;
-  const chordLiftZ = (0.3 + 0.7 * cosLat) * RADIUS * (1.0 - alpha) * Math.sin(PI * alpha) * chordLiftMag;
-  curZ += chordLiftZ;
-  return [curX, curY, curZ];
 }
 
 function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
@@ -324,8 +239,8 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
   const latFactor = 1.0 - 0.14 * env * latWeight;
   const easeLocal = Math.max(0.0, Math.min(1.0, alphaEased * latFactor - waveBias));
 
-  // Balanced parallel expansion without artificial vertex mesh tearing
-  const tParallel = smoothstep(0.08, 0.88, easeLocal);
+  // Coupled developable cylinder unroll (Pins #1 & #2: tParallel synchronized with tStraighten eliminates soda-can rim necking)
+  const tParallel = smoothstep(0.10, 0.70, easeLocal);
   const rPar = RADIUS * (cosLat * (1.0 - tParallel) + tParallel);
 
   // Developable circular arc unroll
@@ -342,18 +257,17 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
     curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
   }
 
-  // Pins #5 & #6 (tamed polar curl) and Pins #4 & #7 (boosted equatorial tactile curl):
-  // Monotonic micro-rim curl eliminates speedbump ridging; coupled eqRatio provides living wrap
-  const macroLip = Math.sin(smoothstep(0.62, 1.0, absNormLon) * PI * 0.5);
-  const microRim = Math.sin(smoothstep(0.80, 1.0, absNormLon) * PI * 0.5);
-  const cornerTaper = 0.40 + 0.60 * cosLat;
-  const eqRatio = 1.1 + 0.7 * cosLat; // enhanced equatorial curl ratio (Pin #4 & #7)
-  const lipCurl = -(macroLip * 0.034 + microRim * 0.020 * eqRatio) * RADIUS * env * cornerTaper;
+  // Nested harmonic lip curl: restored polar lip nuance with cornerTaper keeping 55% at poles
+  const macroLip = Math.sin(smoothstep(0.60, 1.0, absNormLon) * PI * 0.5);
+  const microRim = Math.sin(smoothstep(0.78, 1.0, absNormLon) * PI * 0.5);
+  const cornerTaper = 0.55 + 0.45 * cosLat;
+  const eqRatio = 1.0 + 0.5 * cosLat;
+  const lipCurl = -(macroLip * 0.040 + microRim * 0.024 * eqRatio) * RADIUS * env * cornerTaper;
   curZ += lipCurl;
 
-  // Pins #5 & #6: Tamed polar chiral corner flare (0.022R prevents premature polar whip at alpha=0.35)
+  // Polar corner chiral curl: balanced S-twist flare
   const edgeZone = smoothstep(0.72, 1.0, absNormLon);
-  const chiralCurl = sinLat * Math.sin(edgeZone * PI * 0.5) * RADIUS * 0.022 * env;
+  const chiralCurl = sinLat * Math.sin(edgeZone * PI * 0.5) * RADIUS * 0.030 * env;
   curZ += chiralCurl;
 
   // Organic directional folio wave across the sheet
@@ -377,12 +291,10 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
   return [curX, curY, curZ];
 }
 
-function evalManifoldCPU(lonRad, latRad, alpha, mode, chordLiftMag) {
+function evalManifoldCPU(lonRad, latRad, alpha) {
   const cosLat = Math.cos(latRad);
   const sinLat = Math.sin(latRad);
-  if (mode === 0) return evalOptionACPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag);
-  if (mode === 1) return evalOptionBCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag);
-  return evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag);
+  return evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, 0.26);
 }
 
 function getGeographicLabel(lonDeg, latDeg) {
@@ -504,7 +416,6 @@ function raycastSurface(ray) {
   let bestDistSq = Infinity;
   let bestProj = Infinity;
   let bestPos = null;
-  const mode = OPTIONS[state.option].mode;
 
   // Step 1: Coarse grid 40 x 20
   for (let gu = 0; gu <= 40; gu++) {
@@ -513,7 +424,7 @@ function raycastSurface(ray) {
     for (let gv = 0; gv <= 20; gv++) {
       const v = gv / 20;
       const latRad = (0.5 - v) * PI;
-      const pos = evalManifoldCPU(lonRad, latRad, state.alpha, mode, state.chordLiftMag);
+      const pos = evalManifoldCPU(lonRad, latRad, state.alpha);
       const vx = pos[0] - ray.origin[0];
       const vy = pos[1] - ray.origin[1];
       const vz = pos[2] - ray.origin[2];
@@ -540,7 +451,7 @@ function raycastSurface(ray) {
     for (let fv = -5; fv <= 5; fv++) {
       const v = Math.max(0, Math.min(1, bestV + fv * (deltaV / 5)));
       const latRad = (0.5 - v) * PI;
-      const pos = evalManifoldCPU(lonRad, latRad, state.alpha, mode, state.chordLiftMag);
+      const pos = evalManifoldCPU(lonRad, latRad, state.alpha);
       const vx = pos[0] - ray.origin[0];
       const vy = pos[1] - ray.origin[1];
       const vz = pos[2] - ray.origin[2];
@@ -727,77 +638,8 @@ struct VsOut {
     @location(2) worldPos: vec3<f32>,
 };
 
-// ─── OPTION A: Pure Developable Arc (Symmetric) ───
-fn evalOptionA(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
-    let ease = alpha;
-    let tParallel = smoothstep(0.35, 0.90, ease);
-    let rPar = RADIUS * mix(cosLat, 1.0, tParallel);
-
-    let s = max(0.0, 1.0 - ease);
-    let uAngle = s * lonRad;
-    var curX: f32;
-    var curZ: f32;
-    if (abs(uAngle) > 0.02) {
-        let sDiv = max(0.0001, s);
-        curX = rPar * (sin(uAngle) / sDiv);
-        curZ = rPar * ((cos(uAngle) - 1.0) / sDiv + s);
-    } else {
-        let u2 = uAngle * uAngle;
-        curX = rPar * lonRad * (1.0 - u2 / 6.0);
-        curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
-    }
-
-    let clampedLat = clamp(latRad, -1.4835, 1.4835);
-    let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
-    let yArc = RADIUS * latRad;
-    let tStraighten = smoothstep(0.05, 0.70, ease);
-    let yStraight = mix(RADIUS * sinLat, yArc, tStraighten);
-    let tMerc = smoothstep(0.35, 1.00, ease);
-    let curY = mix(yStraight, mercatorY, tMerc);
-
-    let chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * sin(PI * ease) * u.chordLiftMag;
-    curZ = curZ + chordLiftZ;
-    return vec3<f32>(curX, curY, curZ);
-}
-
-// ─── OPTION B: Unzipping Peel (Equator leads, polar corners lag) ───
-fn evalOptionB(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
-    let latWeight = 1.0 - cosLat;
-    let easeEquator = smoothstep(0.0, 0.90, alpha);
-    let easePoles = smoothstep(0.40, 1.00, alpha);
-    let localEase = mix(easeEquator, easePoles, latWeight * 0.70);
-
-    let tParallel = mix(smoothstep(0.15, 0.85, alpha), smoothstep(0.55, 0.95, alpha), latWeight);
-    let rPar = RADIUS * mix(cosLat, 1.0, tParallel);
-
-    let s = max(0.0, 1.0 - localEase);
-    let uAngle = s * lonRad;
-    var curX: f32;
-    var curZ: f32;
-    if (abs(uAngle) > 0.02) {
-        let sDiv = max(0.0001, s);
-        curX = rPar * (sin(uAngle) / sDiv);
-        curZ = rPar * ((cos(uAngle) - 1.0) / sDiv + s);
-    } else {
-        let u2 = uAngle * uAngle;
-        curX = rPar * lonRad * (1.0 - u2 / 6.0);
-        curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
-    }
-
-    let clampedLat = clamp(latRad, -1.4835, 1.4835);
-    let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
-    let yArc = RADIUS * latRad;
-    let tStraighten = smoothstep(0.05, 0.70, localEase);
-    let yStraight = mix(RADIUS * sinLat, yArc, tStraighten);
-    let tMerc = smoothstep(0.35, 1.00, localEase);
-    let curY = mix(yStraight, mercatorY, tMerc);
-
-    let chordLiftZ = (0.3 + 0.7 * cosLat) * RADIUS * (1.0 - alpha) * sin(PI * alpha) * u.chordLiftMag;
-    curZ = curZ + chordLiftZ;
-    return vec3<f32>(curX, curY, curZ);
-}
-
-// ─── OPTION C: Calibrated Folio Wave (Harmonized & Living Wave) ───
+// ─── MODE 0: Calibrated Globe-to-Map Developable Folio Wave ───
+const CHORD_LIFT_MAG: f32 = 0.26;
 fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
     let normLon = lonRad / PI; // -1.0 (West) to +1.0 (East)
     let absNormLon = abs(normLon); // 0 at Greenwich, 1.0 at Antimeridian
@@ -817,8 +659,8 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
     let latFactor = 1.0 - 0.14 * env * latWeight;
     let easeLocal = clamp(alphaEased * latFactor - waveBias, 0.0, 1.0);
     
-    // Balanced parallel expansion without artificial vertex mesh tearing
-    let tParallel = smoothstep(0.08, 0.88, easeLocal);
+    // Coupled developable cylinder unroll (Pins #1 & #2: tParallel synchronized with tStraighten eliminates soda-can rim necking)
+    let tParallel = smoothstep(0.10, 0.70, easeLocal);
     let rPar = RADIUS * mix(cosLat, 1.0, tParallel);
 
     // Developable circular arc unroll:
@@ -836,18 +678,17 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
         curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
     }
 
-    // Pins #5 & #6 (tamed polar curl) and Pins #4 & #7 (boosted equatorial tactile curl):
-    // Monotonic micro-rim curl eliminates speedbump ridging; coupled eqRatio provides living wrap
-    let macroLip = sin(smoothstep(0.62, 1.0, absNormLon) * PI * 0.5);
-    let microRim = sin(smoothstep(0.80, 1.0, absNormLon) * PI * 0.5);
-    let cornerTaper = 0.40 + 0.60 * cosLat;
-    let eqRatio = 1.1 + 0.7 * cosLat; // enhanced equatorial curl ratio (Pin #4 & #7)
-    let lipCurl = -(macroLip * 0.034 + microRim * 0.020 * eqRatio) * RADIUS * env * cornerTaper;
+    // Nested harmonic lip curl: restored polar lip nuance with cornerTaper keeping 55% at poles
+    let macroLip = sin(smoothstep(0.60, 1.0, absNormLon) * PI * 0.5);
+    let microRim = sin(smoothstep(0.78, 1.0, absNormLon) * PI * 0.5);
+    let cornerTaper = 0.55 + 0.45 * cosLat;
+    let eqRatio = 1.0 + 0.5 * cosLat;
+    let lipCurl = -(macroLip * 0.040 + microRim * 0.024 * eqRatio) * RADIUS * env * cornerTaper;
     curZ = curZ + lipCurl;
 
-    // Pins #5 & #6: Tamed polar chiral corner flare (0.022R prevents premature polar whip at alpha=0.35)
+    // Polar corner chiral curl: balanced S-twist flare
     let edgeZone = smoothstep(0.72, 1.0, absNormLon);
-    let chiralCurl = sinLat * sin(edgeZone * PI * 0.5) * RADIUS * 0.022 * env;
+    let chiralCurl = sinLat * sin(edgeZone * PI * 0.5) * RADIUS * 0.030 * env;
     curZ = curZ + chiralCurl;
 
     // Organic directional folio wave across the sheet:
@@ -866,20 +707,14 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
     let curY = mix(yStraight, mercatorY, tMerc);
 
     // Central sheet loft:
-    let chordLiftZ = (0.35 + 0.65 * cosLat) * RADIUS * (1.0 - alpha) * env * u.chordLiftMag;
+    let chordLiftZ = (0.35 + 0.65 * cosLat) * RADIUS * (1.0 - alpha) * env * CHORD_LIFT_MAG;
     curZ = curZ + chordLiftZ;
 
     return vec3<f32>(curX, curY, curZ);
 }
 
 fn evalManifold(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
-    if (u.optionMode == 0u) {
-        return evalOptionA(lonRad, latRad, cosLat, sinLat, alpha);
-    } else if (u.optionMode == 1u) {
-        return evalOptionB(lonRad, latRad, cosLat, sinLat, alpha);
-    } else {
-        return evalOptionC(lonRad, latRad, cosLat, sinLat, alpha);
-    }
+    return evalOptionC(lonRad, latRad, cosLat, sinLat, alpha);
 }
 
 fn uvToGeo(uv: vec2<f32>) -> vec4<f32> {
@@ -994,11 +829,9 @@ function stateToHash() {
   p.set('t', (camera.theta * 180 / PI).toFixed(1));
   p.set('p', (camera.phi * 180 / PI).toFixed(1));
   p.set('d', camera.distance.toFixed(1));
-  p.set('opt', state.option);
   p.set('w', state.wireframe ? '1' : '0');
   p.set('n', state.normals ? '1' : '0');
   p.set('h', state.edgeHighlight ? '1' : '0');
-  p.set('loft', state.chordLiftMag.toFixed(2));
   return '#' + p.toString();
 }
 
@@ -1010,17 +843,14 @@ function hashToState() {
   if (p.has('t')) camera.theta = parseFloat(p.get('t')) * PI / 180;
   if (p.has('p')) camera.phi = parseFloat(p.get('p')) * PI / 180;
   if (p.has('d')) camera.distance = parseFloat(p.get('d'));
-  if (p.has('opt') && OPTIONS[p.get('opt')]) selectOption(p.get('opt'));
-  if (p.has('loft')) { state.chordLiftMag = parseFloat(p.get('loft')); loftSlider.value = state.chordLiftMag; }
 }
 
 function updateStateDisplay() {
   const tDeg = ((camera.theta * 180 / PI) % 360 + 360) % 360;
   const pDeg = (camera.phi * 180 / PI);
   const dVal = camera.distance.toFixed(1);
-  const optName = OPTIONS[state.option].name.split(':')[0];
   const camName = getCameraPresetName(camera);
-  stateText.innerHTML = `α=<span>${state.alpha.toFixed(3)}</span> &nbsp; view=<span>${camName}</span> (θ=<span>${tDeg.toFixed(1)}°</span>, φ=<span>${pDeg.toFixed(1)}°</span>) &nbsp; motion=<span>${optName}</span> &nbsp; pins=<span>${pins.length}</span>`;
+  stateText.innerHTML = `α=<span>${state.alpha.toFixed(3)}</span> &nbsp; view=<span>${camName}</span> (θ=<span>${tDeg.toFixed(1)}°</span>, φ=<span>${pDeg.toFixed(1)}°</span>) &nbsp; manifold=<span>Mode 0 (Folio Wave)</span> &nbsp; pins=<span>${pins.length}</span>`;
 }
 
 function copyURL() {
@@ -1048,17 +878,16 @@ function addPin(point = null) {
     const lonDeg = (u - 0.5) * 360;
     const latDeg = (0.5 - v) * 180;
     const label = getGeographicLabel(lonDeg, latDeg);
-    const mode = OPTIONS[state.option].mode;
     const lonRad = (u - 0.5) * TWO_PI;
     const latRad = (0.5 - v) * PI;
-    const worldPos = evalManifoldCPU(lonRad, latRad, state.alpha, mode, state.chordLiftMag);
+    const worldPos = evalManifoldCPU(lonRad, latRad, state.alpha);
     point = { u, v, lonDeg, latDeg, label, worldPos };
   }
   const id = pins.length > 0 ? Math.max(...pins.map(p => p.id)) + 1 : 1;
   const pin = {
     id,
     alpha: state.alpha,
-    option: state.option,
+    option: 'Mode 0',
     camera: { theta: camera.theta, phi: camera.phi, distance: camera.distance },
     point,
     note: ''
@@ -1082,7 +911,6 @@ function jumpToPin(id) {
   activePinId = id;
   state.alpha = pin.alpha;
   alphaSlider.value = pin.alpha;
-  if (pin.option !== state.option) selectOption(pin.option);
   
   // Smoothly animate camera
   setCameraPresetCustom(pin.camera.theta, pin.camera.phi, pin.camera.distance);
@@ -1134,7 +962,6 @@ function renderPins() {
     card.className = `pin-card ${pin.id === activePinId ? 'active' : ''}`;
     
     const camName = getCameraPresetName(pin.camera);
-    const optName = OPTIONS[pin.option].name.split(':')[0];
     
     card.innerHTML = `
       <div class="pin-card-header">
@@ -1149,7 +976,7 @@ function renderPins() {
       </div>
       <div class="pin-badges">
         <span class="pin-badge">α=${pin.alpha.toFixed(3)}</span>
-        <span class="pin-badge">${optName}</span>
+        <span class="pin-badge">Mode 0</span>
         <span class="pin-badge">${camName}</span>
       </div>
       <div class="pin-input-wrap">
@@ -1209,12 +1036,11 @@ function copyForChat() {
   let text = `### Mode 0 Feedback Pins:\n`;
   pins.forEach(pin => {
     const loc = pin.point ? pin.point.label : 'General State';
-    const optName = OPTIONS[pin.option].name;
     const camName = getCameraPresetName(pin.camera);
     const thetaDeg = (((pin.camera.theta * 180 / PI) % 360 + 360) % 360).toFixed(1);
     const phiDeg = (pin.camera.phi * 180 / PI).toFixed(1);
     text += `- **Pin #${pin.id}** [${loc}]:\n`;
-    text += `  - **State**: α = ${pin.alpha.toFixed(3)} | ${optName}\n`;
+    text += `  - **State**: α = ${pin.alpha.toFixed(3)} | Mode 0 (Folio Wave)\n`;
     text += `  - **Camera**: ${camName} (θ=${thetaDeg}°, φ=${phiDeg}°, d=${pin.camera.distance.toFixed(1)})\n`;
     text += `  - **Observation**: ${pin.note.trim() ? pin.note.trim() : '(No note added)'}\n`;
   });
@@ -1232,9 +1058,6 @@ const canvas = document.getElementById('canvas');
 const alphaSlider = document.getElementById('alpha-slider');
 const alphaVal = document.getElementById('alpha-val');
 const btnPlay = document.getElementById('btn-play');
-const btnOptA = document.getElementById('btn-opt-a');
-const btnOptB = document.getElementById('btn-opt-b');
-const btnOptC = document.getElementById('btn-opt-c');
 
 const btnCamFront = document.getElementById('btn-cam-front');
 const btnCamSeam = document.getElementById('btn-cam-seam');
@@ -1250,8 +1073,6 @@ const pinTrayEl = document.getElementById('pin-tray');
 const pinMarkerEl = document.getElementById('pin-marker');
 const pinMarkerText = document.getElementById('pin-marker-text');
 
-const loftSlider = document.getElementById('loft-slider');
-const loftVal = document.getElementById('loft-val');
 const speedSlider = document.getElementById('speed-slider');
 const speedVal = document.getElementById('speed-val');
 const stateText = document.getElementById('state-text');
@@ -1259,30 +1080,14 @@ const btnCopyUrl = document.getElementById('btn-copy-url');
 const hudTitle = document.getElementById('hud-title');
 const hudDesc = document.getElementById('hud-desc');
 
-function selectOption(key) {
-  state.option = key;
-  const opt = OPTIONS[key];
-  hudTitle.textContent = opt.name;
-  hudDesc.textContent = opt.desc;
-  syncToggles();
-}
-
 function syncToggles() {
-  btnOptA.classList.toggle('active', state.option === 'a');
-  btnOptB.classList.toggle('active', state.option === 'b');
-  btnOptC.classList.toggle('active', state.option === 'c');
   btnHighlight.classList.toggle('active', state.edgeHighlight);
   btnWire.classList.toggle('active', state.wireframe);
   btnNormals.classList.toggle('active', state.normals);
 
   alphaVal.textContent = state.alpha.toFixed(3);
-  loftVal.textContent = state.chordLiftMag.toFixed(2);
   speedVal.textContent = state.playSpeed.toFixed(1);
 }
-
-btnOptA.addEventListener('click', () => selectOption('a'));
-btnOptB.addEventListener('click', () => selectOption('b'));
-btnOptC.addEventListener('click', () => selectOption('c'));
 
 btnCamFront.addEventListener('click', () => setCameraPreset('front'));
 btnCamSeam.addEventListener('click', () => setCameraPreset('seam'));
@@ -1298,7 +1103,6 @@ document.querySelectorAll('.btn-step').forEach(btn => {
 });
 
 alphaSlider.addEventListener('input', () => { state.alpha = parseFloat(alphaSlider.value); syncToggles(); });
-loftSlider.addEventListener('input', () => { state.chordLiftMag = parseFloat(loftSlider.value); syncToggles(); });
 speedSlider.addEventListener('input', () => { state.playSpeed = parseFloat(speedSlider.value); syncToggles(); });
 
 btnPlay.addEventListener('click', () => { state.playing = !state.playing; btnPlay.textContent = state.playing ? '⏸ Pause' : '▶ Play'; btnPlay.classList.toggle('active', state.playing); });
@@ -1314,9 +1118,6 @@ document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
   switch(e.key.toLowerCase()) {
     case ' ': e.preventDefault(); btnPlay.click(); break;
-    case 'a': selectOption('a'); break;
-    case 'b': selectOption('b'); break;
-    case 'c': selectOption('c'); break;
     case '1': setCameraPreset('front'); break;
     case '2': setCameraPreset('seam'); break;
     case '3': setCameraPreset('polar'); break;
@@ -1530,7 +1331,7 @@ async function init() {
       pinActive = true;
       const lonRad = (activePin.point.u - 0.5) * TWO_PI;
       const latRad = (0.5 - activePin.point.v) * PI;
-      pinWorldPos = evalManifoldCPU(lonRad, latRad, state.alpha, OPTIONS[state.option].mode, state.chordLiftMag);
+      pinWorldPos = evalManifoldCPU(lonRad, latRad, state.alpha);
 
       // Update screen overlay marker
       const cx = vp[0]*pinWorldPos[0] + vp[4]*pinWorldPos[1] + vp[8]*pinWorldPos[2] + vp[12];
@@ -1557,8 +1358,8 @@ async function init() {
     // Pack uniforms (160 bytes)
     uFloats.set(vp, 0);        // 0..15  (viewProj)
     uFloats[16] = state.alpha;
-    uUints[17] = OPTIONS[state.option].mode; // 0=A, 1=B, 2=C
-    uUints[18] = state.endpoint;
+    uUints[17] = 2;            // Mode 0 (Folio Wave)
+    uUints[18] = 1;            // Web Mercator endpoint
     
     // Flags: bit 0=chord, 1=normals, 2=wire, 3=highlight
     const flags = 1 | 
@@ -1566,7 +1367,7 @@ async function init() {
                   (state.wireframe ? 4 : 0) | 
                   (state.edgeHighlight ? 8 : 0);
     uUints[19] = flags;
-    uFloats[20] = state.chordLiftMag;
+    uFloats[20] = 0.26;        // calibrated chordLiftMag constant
     uFloats[21] = pinActive ? 1.0 : 0.0;
     uFloats[22] = 0.0;
     uFloats[23] = 0.0;
