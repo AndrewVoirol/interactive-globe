@@ -165,3 +165,29 @@ Production arc formula with all 5 staged smoothsteps replaced by continuous alph
 - R/s cylinder radius scaling with per-point s (explosive width)
 - Quadratic fold acceleration (butterfly wings)
 - Dynamic peel narrowing at low alpha (premature flaps)
+- Division-by-s angular injection: Never add angular offsets inside `sin(uAngle + offset)/s`. As $s \to 0$ ($\alpha \to 1.0$), $\sin(\text{offset})/s \to \infty$, creating a catastrophic coordinate explosion and an 18-unit discontinuous jump at the Taylor threshold ($uAngle \approx 0.02$, $\alpha \approx 0.958$). Edge perturbations must ALWAYS be additive vectors along unit normal/tangent vectors.
+- Premature parallel expansion compression: Compressing $tParallel$ down to $0.05 \to 0.58$ causes the sphere to collapse into a rigid extruded 2D circle by $\alpha = 0.45$, making it feel like "stiff cardboard". Keep $tParallel$ and $tStraighten$ synchronized over $0.08 \to 0.78$ to retain living 3D spherical volume throughout mid-flight.
+
+---
+
+## Mode 0 Calibrated Master Mechanics (Commit 84fe4fc)
+
+### The 5 Scales of the Nested Harmonic Roll
+1. **Scale 1 (Macro Developable Arc)**:
+   $$X = rPar \cdot \frac{\sin(s\lambda)}{s}, \quad Z = rPar \cdot \left(\frac{\cos(s\lambda) - 1}{s} + s\right)$$
+   Bounded by Taylor expansion guard at $|s\lambda| \le 0.02$.
+2. **Scale 2 (Margin Folio Wave, $|\lambda| > 0.62\pi$)**:
+   $$\text{macroLip} = \sin\left(\text{smoothstep}(0.62, 1.0, |\lambda/\pi|) \cdot 0.5\pi\right) \cdot 0.034 R$$
+3. **Scale 3 (Micro-Rim Edge Curl, $|\lambda| > 0.80\pi$)**:
+   $$\text{microRim} = \sin\left(\text{smoothstep}(0.80, 1.0, |\lambda/\pi|) \cdot 0.5\pi\right) \cdot 0.020 R \cdot (1.1 + 0.7\cos\phi)$$
+4. **Scale 4 (Organic Latitude Differential & Living Wave)**:
+   $$\text{latFactor} = 1.0 - 0.14 \cdot \text{env} \cdot (1 - \cos\phi), \quad \text{waveBias} = \frac{\lambda}{\pi} \cdot 0.040 \cdot \text{env}$$
+   $$\text{waveFlex} = \text{env} \cdot (1 - \alpha) \cdot \sin(0.5\lambda + 0.3) \cdot 0.030 R \cdot (0.45 + 0.55\cos\phi)$$
+5. **Scale 5 (Chiral Polar S-Twist Flare)**:
+   $$\text{chiralCurl} = \sin\phi \cdot \sin\left(\text{smoothstep}(0.72, 1.0, |\lambda/\pi|) \cdot 0.5\pi\right) \cdot 0.025 R \cdot \text{env}$$
+
+### Synchronized Kinematics & UI
+- $tParallel = tStraighten = \text{smoothstep}(0.08, 0.78, \text{easeLocal})$ completely eliminates the $\alpha = 0.663$ soda-can rim necking.
+- Softened Hermite envelope: $\text{env} = \sin(\pi\alpha) \cdot \text{smoothstep}(0.0, 0.10, \alpha) \cdot (1.0 - \text{smoothstep}(0.90, 1.0, \alpha))$ ensures zero boundary thunk at $\alpha = 0.0$ and flat landing at $\alpha = 1.0$.
+- Options A & B removed from testbed; Loft slider retired to constant $\text{CHORD\_LIFT\_MAG} = 0.26$. Mode 0 is the unified archetype.
+
