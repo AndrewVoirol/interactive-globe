@@ -309,20 +309,23 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
   const normLon = lonRad / PI;
   const absNormLon = Math.abs(normLon);
 
-  // Softened Hermite envelope: zero velocity derivatives at alpha=0 and alpha=1 (Pin #4)
+  // Softened Hermite envelope: zero velocity derivatives at alpha=0 and alpha=1
   const sZero = smoothstep(0.0, 0.10, alpha);
   const sOne = 1.0 - smoothstep(0.90, 1.0, alpha);
   const env = Math.sin(PI * alpha) * sZero * sOne;
 
+  // Pin #1: C2 smooth ease-in eliminates initial seam "thunk" / pop at alpha -> 0
+  const alphaEased = alpha * alpha * (3.0 - 2.0 * alpha);
+
   // Directional folio flow: subtle 4% phase shift (living wave without nautilus bulge)
   const waveBias = normLon * 0.040 * env;
+  // Coupled Equatorial-to-Polar uncurl ratio (Pins #2, #5, #6: breaks rigid pie-chart straight edges into organic curved peel)
   const latWeight = 1.0 - cosLat;
-  const latLag = latWeight * 0.06 * env;
-  const easeLocal = Math.max(0.0, Math.min(1.0, alpha - waveBias - latLag));
+  const latLag = latWeight * 0.18 * env;
+  const easeLocal = Math.max(0.0, Math.min(1.0, alphaEased - waveBias - latLag));
 
-  // Balanced developable unroll:
-  // Uniform parallel expansion preserves natural planetary proportions (eliminates vase necking)
-  const tParallel = smoothstep(0.15, 0.85, easeLocal);
+  // Balanced parallel expansion without artificial vertex mesh tearing
+  const tParallel = smoothstep(0.08, 0.88, easeLocal);
   const rPar = RADIUS * (cosLat * (1.0 - tParallel) + tParallel);
 
   // Developable circular arc unroll
@@ -339,11 +342,18 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
     curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
   }
 
-  // Tactile corner & seam lip curl: retains flare into polar corners, avoiding flat-topping (Pins 7-8)
-  const edgeZone = smoothstep(0.72, 1.0, absNormLon);
+  // Pins #5 & #6: Nested harmonic lip curl ("lip and curl within a lip and curl")
+  const macroLip = Math.sin(smoothstep(0.65, 1.0, absNormLon) * PI * 0.5);
+  const microRim = Math.sin(smoothstep(0.85, 1.0, absNormLon) * PI);
   const cornerTaper = 0.45 + 0.55 * cosLat;
-  const lipCurl = -Math.sin(edgeZone * PI * 0.5) * RADIUS * 0.040 * env * cornerTaper;
+  const eqRatio = 1.0 + 0.6 * cosLat; // coupled uncurl ratio between equator and polar spiral
+  const lipCurl = -(macroLip * 0.028 + microRim * 0.016 * eqRatio) * RADIUS * env * cornerTaper;
   curZ += lipCurl;
+
+  // Pins #3 & #4: Chiral / anti-symmetric polar corner flare (North flares up/out, South curls down/in)
+  const edgeZone = smoothstep(0.72, 1.0, absNormLon);
+  const chiralCurl = sinLat * Math.sin(edgeZone * PI * 0.5) * RADIUS * 0.035 * env;
+  curZ += chiralCurl;
 
   // Organic directional folio wave across the sheet
   const waveFlex = env * (1.0 - alpha) * Math.sin(lonRad * 0.5 + 0.3) * RADIUS * 0.030 * cornerTaper;
@@ -796,15 +806,18 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
     let sOne = 1.0 - smoothstep(0.90, 1.0, alpha);
     let env = sin(PI * alpha) * sZero * sOne;
     
+    // Pin #1: C2 smooth ease-in eliminates initial seam "thunk" / pop at alpha -> 0
+    let alphaEased = alpha * alpha * (3.0 - 2.0 * alpha);
+
     // Directional folio flow: subtle 4% phase shift (living wave without nautilus bulge)
     let waveBias = normLon * 0.040 * env;
+    // Coupled Equatorial-to-Polar uncurl ratio (Pins #2, #5, #6: breaks rigid pie-chart straight edges into organic curved peel)
     let latWeight = 1.0 - cosLat;
-    let latLag = latWeight * 0.06 * env;
-    let easeLocal = clamp(alpha - waveBias - latLag, 0.0, 1.0);
+    let latLag = latWeight * 0.18 * env;
+    let easeLocal = clamp(alphaEased - waveBias - latLag, 0.0, 1.0);
     
-    // Balanced developable unroll:
-    // Uniform parallel expansion preserves natural planetary proportions (eliminates vase necking)
-    let tParallel = smoothstep(0.15, 0.85, easeLocal);
+    // Balanced parallel expansion without artificial vertex mesh tearing
+    let tParallel = smoothstep(0.08, 0.88, easeLocal);
     let rPar = RADIUS * mix(cosLat, 1.0, tParallel);
 
     // Developable circular arc unroll:
@@ -822,11 +835,18 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
         curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
     }
 
-    // Tactile corner & seam lip curl: retains flare into polar corners, avoiding flat-topping (Pins 7-8)
-    let edgeZone = smoothstep(0.72, 1.0, absNormLon);
+    // Pins #5 & #6: Nested harmonic lip curl ("lip and curl within a lip and curl")
+    let macroLip = sin(smoothstep(0.65, 1.0, absNormLon) * PI * 0.5);
+    let microRim = sin(smoothstep(0.85, 1.0, absNormLon) * PI);
     let cornerTaper = 0.45 + 0.55 * cosLat;
-    let lipCurl = -sin(edgeZone * PI * 0.5) * RADIUS * 0.040 * env * cornerTaper;
+    let eqRatio = 1.0 + 0.6 * cosLat; // coupled uncurl ratio between equator and polar spiral
+    let lipCurl = -(macroLip * 0.028 + microRim * 0.016 * eqRatio) * RADIUS * env * cornerTaper;
     curZ = curZ + lipCurl;
+
+    // Pins #3 & #4: Chiral / anti-symmetric polar corner flare (North flares up/out, South curls down/in)
+    let edgeZone = smoothstep(0.72, 1.0, absNormLon);
+    let chiralCurl = sinLat * sin(edgeZone * PI * 0.5) * RADIUS * 0.035 * env;
+    curZ = curZ + chiralCurl;
 
     // Organic directional folio wave across the sheet:
     let waveFlex = env * (1.0 - alpha) * sin(lonRad * 0.5 + 0.3) * RADIUS * 0.030 * cornerTaper;
