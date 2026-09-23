@@ -226,7 +226,7 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
 
   // Softened Hermite envelope: zero velocity derivatives at alpha=0 and alpha=1
   const sZero = smoothstep(0.0, 0.10, alpha);
-  const sOne = 1.0 - smoothstep(0.90, 1.0, alpha);
+  const sOne = 1.0 - smoothstep(0.85, 1.0, alpha);
   const env = Math.sin(PI * alpha) * sZero * sOne;
 
   // Pin #1: C2 smooth ease-in eliminates initial seam "thunk" / pop at alpha -> 0
@@ -239,35 +239,34 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
   const tParallel = smoothstep(0.05, 0.58, easeLocal);
   const rPar = RADIUS * (cosLat * (1.0 - tParallel) + tParallel);
 
-  // Pin #1: Tactile seam edge curl (tangential angular roll + normal lift)
-  const edgeZone = smoothstep(0.60, 1.0, absNormLon);
-  const microRim = smoothstep(0.82, 1.0, absNormLon);
-  const curlAngle = normLon * (edgeZone * 0.12 + microRim * 0.18) * env;
-
   // Developable circular arc unroll
   const s = Math.max(0.0, 1.0 - easeLocal);
   const uAngle = s * lonRad;
-  const finalAngle = uAngle + curlAngle;
 
   let curX, curZ;
   if (Math.abs(uAngle) > 0.02) {
     const sDiv = Math.max(0.0001, s);
-    curX = rPar * (Math.sin(finalAngle) / sDiv);
-    curZ = rPar * ((Math.cos(finalAngle) - 1.0) / sDiv + s);
+    curX = rPar * (Math.sin(uAngle) / sDiv);
+    curZ = rPar * ((Math.cos(uAngle) - 1.0) / sDiv + s);
   } else {
-    const u2 = finalAngle * finalAngle;
+    const u2 = uAngle * uAngle;
     curX = rPar * lonRad * (1.0 - u2 / 6.0);
     curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
   }
 
   // Cylindrical outward normal in the X-Z plane
-  const nx = Math.sin(finalAngle);
-  const nz = Math.cos(finalAngle);
+  const nx = Math.sin(uAngle);
+  const nz = Math.cos(uAngle);
+  const tx = Math.cos(uAngle);
+  const tz = -Math.sin(uAngle);
 
-  // Pin #1: Outward normal lift at the seam edge
-  const lipLift = (edgeZone * 0.030 + microRim * 0.035) * RADIUS * env;
-  curX += nx * lipLift;
-  curZ += nz * lipLift;
+  // Pin #1: Tactile seam edge curl (tangential roll + normal lift, pure additive without poles)
+  const edgeZone = smoothstep(0.60, 1.0, absNormLon);
+  const microRim = smoothstep(0.82, 1.0, absNormLon);
+  const lipLift = (edgeZone * 0.040 + microRim * 0.035) * RADIUS * env;
+  const lipRoll = -Math.sign(normLon) * (edgeZone * edgeZone * 0.030) * RADIUS * env;
+  curX += nx * lipLift + tx * lipRoll;
+  curZ += nz * lipLift + tz * lipRoll;
 
   // Pins #2 & #3: Tandem polar corner flare
   // North Pole (+sinLat) lifts UP in +Y, South Pole (-sinLat) drops DOWN in -Y
@@ -657,7 +656,7 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
     
     // Boundary envelope: zero derivatives at alpha=0 and alpha=1 (zero thunk on close)
     let sZero = smoothstep(0.0, 0.10, alpha);
-    let sOne = 1.0 - smoothstep(0.90, 1.0, alpha);
+    let sOne = 1.0 - smoothstep(0.85, 1.0, alpha);
     let env = sin(PI * alpha) * sZero * sOne;
     
     // Pin #1: C2 smooth ease-in eliminates initial seam "thunk" / pop at alpha -> 0
@@ -670,36 +669,35 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
     let tParallel = smoothstep(0.05, 0.58, easeLocal);
     let rPar = RADIUS * mix(cosLat, 1.0, tParallel);
 
-    // Pin #1: Tactile seam edge curl (tangential angular roll + normal lift)
-    let edgeZone = smoothstep(0.60, 1.0, absNormLon);
-    let microRim = smoothstep(0.82, 1.0, absNormLon);
-    let curlAngle = normLon * (edgeZone * 0.12 + microRim * 0.18) * env;
-
     // Developable circular arc unroll:
     let s = max(0.0, 1.0 - easeLocal);
     let uAngle = s * lonRad;
-    let finalAngle = uAngle + curlAngle;
 
     var curX: f32;
     var curZ: f32;
     if (abs(uAngle) > 0.02) {
         let sDiv = max(0.0001, s);
-        curX = rPar * (sin(finalAngle) / sDiv);
-        curZ = rPar * ((cos(finalAngle) - 1.0) / sDiv + s);
+        curX = rPar * (sin(uAngle) / sDiv);
+        curZ = rPar * ((cos(uAngle) - 1.0) / sDiv + s);
     } else {
-        let u2 = finalAngle * finalAngle;
+        let u2 = uAngle * uAngle;
         curX = rPar * lonRad * (1.0 - u2 / 6.0);
         curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
     }
 
     // Cylindrical outward normal in the X-Z plane
-    let nx = sin(finalAngle);
-    let nz = cos(finalAngle);
+    let nx = sin(uAngle);
+    let nz = cos(uAngle);
+    let tx = cos(uAngle);
+    let tz = -sin(uAngle);
 
-    // Pin #1: Outward normal lift at the seam edge
-    let lipLift = (edgeZone * 0.030 + microRim * 0.035) * RADIUS * env;
-    curX = curX + nx * lipLift;
-    curZ = curZ + nz * lipLift;
+    // Pin #1: Tactile seam edge curl (tangential roll + normal lift, pure additive without poles)
+    let edgeZone = smoothstep(0.60, 1.0, absNormLon);
+    let microRim = smoothstep(0.82, 1.0, absNormLon);
+    let lipLift = (edgeZone * 0.040 + microRim * 0.035) * RADIUS * env;
+    let lipRoll = -sign(normLon) * (edgeZone * edgeZone * 0.030) * RADIUS * env;
+    curX = curX + nx * lipLift + tx * lipRoll;
+    curZ = curZ + nz * lipLift + tz * lipRoll;
 
     // Pins #2 & #3: Tandem polar corner flare
     // North Pole (+sinLat) lifts UP in +Y, South Pole (-sinLat) drops DOWN in -Y
