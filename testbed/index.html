@@ -1,106 +1,110 @@
 <!--
   Mode 0 Manifold Testbed — Indicatrix Engine
   ─────────────────────────────────────────────
-  Standalone WebGPU geometry testbed for iterating on the globe→map unfurl.
-  No React, no build system, no DEM. Just the manifold, a slider, and a camera.
+  Motion Archetypes Explorer:
+  Option A: Pure Developable Arc (Symmetric)
+  Option B: Unzipping Peel (Equator leads, corners lag)
+  Option C: Folio Scroll (Directional West-to-East unroll)
 
   To serve:  python3 -m http.server 8080 -d testbed
   Then open: http://localhost:8080
 
   Keyboard shortcuts:
     Space   Play/Pause auto-scrub
+    A       Switch to Option A (Pure Developable)
+    B       Switch to Option B (Unzipping Peel)
+    C       Switch to Option C (Folio Scroll)
     G       Snap to Globe (α=0)
     M       Snap to Map (α=1)
     W       Toggle wireframe
     N       Toggle normals
-    C       Toggle chord lift (current math only)
-    1       Switch to Current math
-    2       Switch to Proposed math
-    E       Toggle endpoint (Mercator / Equirectangular)
-    P       Pin current state
+    H       Toggle edge glow
 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Mode 0 Manifold Testbed</title>
+<title>Mode 0 Motion Archetypes — Options A, B, C</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #0f0f1a; color: #d0d0d8; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 12px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+body { background: #0a0a12; color: #d0d0d8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, monospace; font-size: 12px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 
-#top-bar { background: rgba(20,20,35,0.95); border-bottom: 1px solid #2a2a44; padding: 8px 14px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; z-index: 10; user-select: none; }
-#top-bar label { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
-#top-bar input[type="range"] { width: 200px; accent-color: #4a9eff; }
-#alpha-slider { width: 320px !important; }
+#top-bar { background: rgba(16, 16, 26, 0.96); border-bottom: 1px solid #26263a; padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; z-index: 10; user-select: none; }
+#top-bar label { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 11px; color: #a4a4be; }
+#top-bar input[type="range"] { width: 110px; accent-color: #58a6ff; cursor: pointer; }
+#alpha-slider { width: 220px !important; accent-color: #58a6ff; }
 
-.btn { background: #2a2a44; border: 1px solid #3a3a5a; color: #a0a0b8; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 11px; transition: all 0.15s; }
-.btn:hover { background: #3a3a5a; color: #d0d0e8; }
-.btn.active { background: #1a3a6a; border-color: #4a9eff; color: #8ac4ff; }
-.btn.play { background: #1a4a2a; border-color: #4aff6e; color: #8affaa; }
-.btn.play.active { background: #2a6a3a; }
+.btn { background: #202034; border: 1px solid #32324c; color: #a0a0c0; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: 600; transition: all 0.15s; }
+.btn:hover { background: #30304c; color: #ffffff; }
+.btn.active { background: #1c365c; border-color: #58a6ff; color: #8ac4ff; }
+.btn.play { background: #183e26; border-color: #3fb950; color: #7ee787; }
+.btn.play.active { background: #245c37; }
 .btn-group { display: flex; gap: 0; }
 .btn-group .btn { border-radius: 0; border-right: none; }
 .btn-group .btn:first-child { border-radius: 4px 0 0 4px; }
-.btn-group .btn:last-child { border-radius: 0 4px 4px 0; border-right: 1px solid #3a3a5a; }
-.disabled { opacity: 0.35; pointer-events: none; }
+.btn-group .btn:last-child { border-radius: 0 4px 4px 0; border-right: 1px solid #32324c; }
 
 #canvas-wrap { flex: 1; position: relative; min-height: 0; }
-canvas { width: 100%; height: 100%; display: block; }
+canvas#canvas { width: 100%; height: 100%; display: block; }
 
-#state-bar { background: rgba(20,20,35,0.95); border-top: 1px solid #2a2a44; padding: 6px 14px; display: flex; gap: 16px; align-items: center; z-index: 10; user-select: none; }
-#state-text { flex: 1; font-size: 11px; color: #8888a8; letter-spacing: 0.5px; }
-#state-text span { color: #c0c0d8; }
+#state-bar { background: rgba(16, 16, 26, 0.96); border-top: 1px solid #26263a; padding: 6px 16px; display: flex; gap: 16px; align-items: center; z-index: 10; user-select: none; }
+#state-text { flex: 1; font-size: 11px; color: #8888a8; letter-spacing: 0.4px; font-family: monospace; }
+#state-text span { color: #d0d0e8; font-weight: 600; }
 
-#pin-bar { background: rgba(15,15,25,0.95); border-top: 1px solid #2a2a44; padding: 4px 14px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-height: 28px; z-index: 10; }
-#pin-bar:empty { display: none; }
-.pin { background: #1a2a3a; border: 1px solid #2a3a5a; border-radius: 3px; padding: 2px 8px; font-size: 10px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
-.pin:hover { background: #2a3a5a; }
-.pin .pin-del { color: #ff6a6a; cursor: pointer; font-weight: bold; }
+#hud-card { position: absolute; left: 16px; bottom: 44px; background: rgba(14, 16, 26, 0.92); backdrop-filter: blur(10px); border: 1px solid #283046; border-radius: 10px; padding: 14px 16px; width: 380px; z-index: 5; box-shadow: 0 6px 20px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 8px; }
+#hud-card h4 { color: #58a6ff; font-size: 13px; margin: 0; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+#hud-card p { font-size: 11px; color: #a0b0c8; line-height: 1.4; margin: 0; }
 
-#no-webgpu { display: none; position: fixed; inset: 0; background: #0f0f1a; color: #ff6a6a; font-size: 18px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; z-index: 100; }
+#help-badge { position: absolute; bottom: 44px; right: 16px; background: rgba(14, 16, 26, 0.88); backdrop-filter: blur(8px); border: 1px solid #283046; border-radius: 8px; padding: 8px 12px; font-size: 10px; line-height: 1.6; color: #6b7d96; z-index: 5; pointer-events: none; }
+#help-badge kbd { background: #1e2434; border: 1px solid #303a50; border-radius: 3px; padding: 1px 4px; color: #9bb0ce; font-family: monospace; }
+
+#no-webgpu { display: none; position: fixed; inset: 0; background: #0a0a12; color: #f85149; font-size: 18px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; z-index: 100; }
 #no-webgpu.show { display: flex; }
-
-#help-badge { position: absolute; bottom: 8px; right: 8px; background: rgba(20,20,35,0.85); border: 1px solid #2a2a44; border-radius: 6px; padding: 8px 12px; font-size: 10px; line-height: 1.6; color: #666688; z-index: 5; pointer-events: none; }
-#help-badge kbd { background: #2a2a44; border: 1px solid #3a3a5a; border-radius: 2px; padding: 0 4px; color: #8888a8; }
 </style>
 </head>
 <body>
 
 <div id="top-bar">
-  <label>α <input type="range" id="alpha-slider" min="0" max="1" step="0.001" value="0"> <span id="alpha-val">0.000</span></label>
-  <button class="btn play" id="btn-play" title="Space">▶</button>
+  <label>α <input type="range" id="alpha-slider" min="0" max="1" step="0.001" value="0.0"> <span id="alpha-val" style="font-family:monospace;font-weight:600;color:#fff;">0.000</span></label>
+  <button class="btn play" id="btn-play" title="Space">▶ Play</button>
+  
   <div class="btn-group">
-    <button class="btn active" id="btn-current" title="1">Current</button>
-    <button class="btn" id="btn-proposed" title="2">Progressive</button>
+    <button class="btn" id="btn-opt-a" title="A">Option A: Pure Developable</button>
+    <button class="btn" id="btn-opt-b" title="B">Option B: Unzipping Peel</button>
+    <button class="btn active" id="btn-opt-c" title="C">Option C: Centered Folio Wave</button>
   </div>
-  <div class="btn-group">
-    <button class="btn active" id="btn-mercator" title="E">Mercator</button>
-    <button class="btn" id="btn-equirect" title="E">Equirect</button>
-  </div>
+
+  <span style="font-size:11px; font-family:monospace; color:#8888b0; background:#181828; padding:5px 10px; border-radius:4px; border:1px solid #2c2c44;">Target: Web Mercator (EPSG:3857)</span>
+
+  <button class="btn active" id="btn-highlight" title="H">Edge Glow</button>
   <button class="btn active" id="btn-wire" title="W">Wire</button>
   <button class="btn" id="btn-normals" title="N">Normals</button>
-  <button class="btn active" id="btn-chord" title="C">Chord Lift</button>
-  <label id="tsplit-group">Peel W <input type="range" id="tsplit-slider" min="0.10" max="0.80" step="0.01" value="0.35"> <span id="tsplit-val">0.35</span></label>
+
+  <label>Loft <input type="range" id="loft-slider" min="0.00" max="0.50" step="0.01" value="0.26"> <span id="loft-val">0.26</span></label>
   <label>Speed <input type="range" id="speed-slider" min="0.1" max="2.0" step="0.1" value="0.5"> <span id="speed-val">0.5</span></label>
 </div>
 
 <div id="canvas-wrap">
   <canvas id="canvas"></canvas>
+  
+  <div id="hud-card">
+    <h4>
+      <span id="hud-title">Option C: Centered Folio Wave</span>
+      <span style="font-size:10px; font-family:monospace; color:#58a6ff;">[Key C]</span>
+    </h4>
+    <p id="hud-desc">Centered folio wave with natural polar retention and organic directional breath. Guaranteed 100% closed seamless globe at α=0.000, perfectly flat Web Mercator sheet at α=1.000, with continuous fluid staging and zero clunkiness.</p>
+  </div>
+
   <div id="help-badge">
-    <kbd>Drag</kbd> Rotate &nbsp; <kbd>Scroll</kbd> Zoom &nbsp; <kbd>Space</kbd> Play &nbsp;
-    <kbd>G</kbd> Globe &nbsp; <kbd>M</kbd> Map &nbsp; <kbd>W</kbd> Wire &nbsp;
-    <kbd>N</kbd> Normals &nbsp; <kbd>C</kbd> Chord &nbsp; <kbd>1</kbd>/<kbd>2</kbd> Math &nbsp;
-    <kbd>E</kbd> Endpoint &nbsp; <kbd>P</kbd> Pin
+    <kbd>A</kbd> Option A &nbsp; <kbd>B</kbd> Option B &nbsp; <kbd>C</kbd> Option C &nbsp;
+    <kbd>Space</kbd> Play &nbsp; <kbd>G</kbd> Globe &nbsp; <kbd>M</kbd> Map &nbsp; <kbd>H</kbd> Glow
   </div>
 </div>
 
 <div id="state-bar">
   <div id="state-text"></div>
-  <button class="btn" id="btn-pin" title="P">📌 Pin</button>
   <button class="btn" id="btn-copy-url">📋 Copy URL</button>
-  <button class="btn" id="btn-copy-pins">📋 Copy Pins</button>
 </div>
-<div id="pin-bar"></div>
 
 <div id="no-webgpu">
   <div>⚠️ WebGPU is not available in this browser.</div>
@@ -117,22 +121,38 @@ const RADIUS = 5.0;
 const GRID_RES_U = 180;
 const GRID_RES_V = 90;
 
-const state = {
-  alpha: 0.0,
-  mathMode: 0,      // 0=current, 1=proposed
-  endpoint: 1,      // 0=equirect, 1=mercator
-  wireframe: true,
-  normals: false,
-  chordLift: true,
-  tSplit: 0.35,
-  playing: false,
-  playSpeed: 0.5,   // full sweep per second
-  playDir: 1,
-  gridLines: 12,    // wireframe grid density
+const OPTIONS = {
+  a: {
+    mode: 0,
+    name: 'Option A: Pure Developable',
+    desc: 'Symmetric developable arc unrolling — the antimeridian splits down the back and parallels relax along circular arcs. Clean, architectural, and mathematically pure.'
+  },
+  b: {
+    mode: 1,
+    name: 'Option B: Unzipping Peel',
+    desc: 'Equator leads, polar corners lag — the equatorial seam splits first and pushes out, while high latitudes hold closed spherical caps, unzipping into flat map corners only near landing.'
+  },
+  c: {
+    mode: 2,
+    name: 'Option C: Centered Folio Wave',
+    desc: 'Centered folio wave with natural polar retention and organic directional breath. Guaranteed 100% closed seamless globe at α=0.000, perfectly flat Web Mercator sheet at α=1.000, with continuous fluid staging and zero clunkiness.'
+  }
 };
 
-const camera = { theta: 0.35, phi: 0.45, distance: 15.0 };
-const pins = [];
+const state = {
+  alpha: 0.0,
+  option: 'c',      // 'a', 'b', 'c'
+  endpoint: 1,      // 1=mercator (locked)
+  wireframe: true,
+  normals: false,
+  edgeHighlight: true,
+  chordLiftMag: 0.26,
+  playing: false,
+  playSpeed: 0.5,
+  playDir: 1,
+};
+
+const camera = { theta: 0.85, phi: 0.35, distance: 18.0 };
 
 // ═══════════════════════════════════════════════════════════════
 // MATH UTILITIES
@@ -140,7 +160,6 @@ const pins = [];
 function mat4_perspective(fovY, aspect, near, far) {
   const f = 1.0 / Math.tan(fovY / 2);
   const nf = 1.0 / (near - far);
-  // WebGPU clip space: Z in [0, 1], Y up
   return new Float32Array([
     f / aspect, 0, 0, 0,
     0, f, 0, 0,
@@ -232,16 +251,24 @@ const TWO_PI: f32 = 6.28318530717959;
 const RADIUS: f32 = 5.0;
 
 struct Uniforms {
-    viewProj: mat4x4<f32>,
-    alpha: f32,
-    mathMode: u32,
-    endpoint: u32,
-    flags: u32,
-    tSplit: f32,
-    gridLines: f32,
-    _pad1: f32,
-    _pad2: f32,
-    cameraPos: vec4<f32>,
+    viewProj: mat4x4<f32>,      // 0..15  (64 bytes)
+    alpha: f32,                  // 16     (4 bytes)
+    optionMode: u32,             // 17     (4 bytes, 0=A, 1=B, 2=C)
+    endpoint: u32,               // 18     (4 bytes)
+    flags: u32,                  // 19     (4 bytes, bit 0=chord, 1=normals, 2=wire, 3=highlight)
+    chordLiftMag: f32,           // 20     (4 bytes)
+    _pad0: f32,                  // 21
+    _pad1: f32,                  // 22
+    _pad2: f32,                  // 23
+    _pad3: f32,                  // 24
+    _pad4: f32,                  // 25
+    _pad5: f32,                  // 26
+    _pad6: f32,                  // 27
+    _pad7: f32,                  // 28
+    _pad8: f32,                  // 29
+    _pad9: f32,                  // 30
+    _pad10: f32,                 // 31
+    cameraPos: vec4<f32>,        // 32..35 (16 bytes, offset 128 bytes - aligns to 16 bytes)
 };
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
@@ -252,24 +279,15 @@ struct VsOut {
     @location(2) worldPos: vec3<f32>,
 };
 
-// ─── Current Mode 0 (matches production manifold.wgsl) ───
-fn evalCurrent(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
+// ─── OPTION A: Pure Developable Arc (Symmetric) ───
+fn evalOptionA(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
     let ease = alpha;
 
-    // Y: staged unbending + Mercator stretch
-    let tUnbend = smoothstep(0.10, 0.80, ease);
-    let yPhysical = mix(RADIUS * sinLat, RADIUS * latRad, tUnbend);
-    let clampedLat = clamp(latRad, -1.4835, 1.4835);
-    let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
-    let tMercator = smoothstep(0.65, 1.0, ease);
-    let curY = mix(yPhysical, mercatorY, tMercator);
-
-    // X: parallel width expansion
+    // Parallel expansion:
     let tParallel = smoothstep(0.35, 0.90, ease);
-    let parallelWidth = mix(cosLat, 1.0, tParallel);
-    let rPar = RADIUS * parallelWidth;
+    let rPar = RADIUS * mix(cosLat, 1.0, tParallel);
 
-    // Arc unrolling
+    // Developable circular arc:
     let s = max(0.0, 1.0 - ease);
     let uAngle = s * lonRad;
     var curX: f32;
@@ -284,37 +302,35 @@ fn evalCurrent(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
         curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
     }
 
-    // Chord lift (uniform-driven toggle, no branch around fwidth)
-    let chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * sin(PI * ease) * 0.20;
-    let chordActive = f32((u.flags & 1u) != 0u);
-    curZ = curZ + chordLiftZ * chordActive;
+    // Continuous Web Mercator unbending (zero jerk, zero stage collision):
+    let clampedLat = clamp(latRad, -1.4835, 1.4835);
+    let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
+    let yArc = RADIUS * latRad;
+    let tStraighten = smoothstep(0.05, 0.70, ease);
+    let yStraight = mix(RADIUS * sinLat, yArc, tStraighten);
+    let tMerc = smoothstep(0.35, 1.00, ease);
+    let curY = mix(yStraight, mercatorY, tMerc);
+
+    // Chord lift:
+    let chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * sin(PI * ease) * u.chordLiftMag;
+    curZ = curZ + chordLiftZ;
 
     return vec3<f32>(curX, curY, curZ);
 }
 
-// ─── Production math, continuous staging (v9) ───
-// Same arc formula as production (sin(s·λ)/s), which creates bounded intermediates.
-// All staged smoothsteps replaced with continuous alpha-driven parameters.
-// No fold, no gather, no per-point curvature — just smooth global unbend.
-fn evalProposed(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
-    let ease = alpha;
+// ─── OPTION B: Unzipping Peel (Equator leads, polar corners lag) ───
+fn evalOptionB(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
+    let latWeight = 1.0 - cosLat; // 0.0 at Equator, 1.0 at Poles
+    let easeEquator = smoothstep(0.0, 0.90, alpha);
+    let easePoles = smoothstep(0.40, 1.00, alpha);
+    let localEase = mix(easeEquator, easePoles, latWeight * 0.70);
 
-    // Y: continuous unbending (production uses smoothstep 0.10→0.80)
-    let yPhysical = mix(RADIUS * sinLat, RADIUS * latRad, ease);
-    let clampedLat = clamp(latRad, -1.4835, 1.4835);
-    let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
-    var curY = yPhysical;
-    if (u.endpoint == 1u) {
-        let tMerc = smoothstep(0.70, 1.0, ease);
-        curY = mix(yPhysical, mercatorY, tMerc);
-    }
+    // Parallel radius: keeps poles closed apex points until late landing
+    let tParallel = mix(smoothstep(0.15, 0.85, alpha), smoothstep(0.55, 0.95, alpha), latWeight);
+    let rPar = RADIUS * mix(cosLat, 1.0, tParallel);
 
-    // X width: continuous parallel expansion (production uses smoothstep 0.35→0.90)
-    let parallelWidth = mix(cosLat, 1.0, ease);
-    let rPar = RADIUS * parallelWidth;
-
-    // Arc unrolling: IDENTICAL to production
-    let s = max(0.0, 1.0 - ease);
+    // Arc unroll with latitude-dependent unzipping:
+    let s = max(0.0, 1.0 - localEase);
     let uAngle = s * lonRad;
     var curX: f32;
     var curZ: f32;
@@ -328,19 +344,84 @@ fn evalProposed(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) 
         curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
     }
 
-    // Chord lift (same as production)
-    let chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * sin(PI * ease) * 0.20;
-    let chordActive = f32((u.flags & 1u) != 0u);
-    curZ = curZ + chordLiftZ * chordActive;
+    // Continuous Web Mercator unbending:
+    let clampedLat = clamp(latRad, -1.4835, 1.4835);
+    let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
+    let yArc = RADIUS * latRad;
+    let tStraighten = smoothstep(0.05, 0.70, localEase);
+    let yStraight = mix(RADIUS * sinLat, yArc, tStraighten);
+    let tMerc = smoothstep(0.35, 1.00, localEase);
+    let curY = mix(yStraight, mercatorY, tMerc);
+
+    // Dynamic unzipping chord lift:
+    let chordLiftZ = (0.3 + 0.7 * cosLat) * RADIUS * (1.0 - alpha) * sin(PI * alpha) * u.chordLiftMag;
+    curZ = curZ + chordLiftZ;
+
+    return vec3<f32>(curX, curY, curZ);
+}
+
+// ─── OPTION C: Centered Folio Wave (Organic Directional Unroll) ───
+fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
+    // Both edges open (East and West), centered at Greenwich (lon=0).
+    let normLon = lonRad / PI; // -1.0 (West) to +1.0 (East)
+    
+    // Wave envelope: strictly 0 at alpha=0.0 and alpha=1.0.
+    // Guarantees 100% closed seamless globe at alpha=0.000, and 100% flat sheet at alpha=1.000.
+    let env = sin(PI * alpha);
+    let waveBias = normLon * 0.10 * env;
+    let latWeight = 1.0 - cosLat; // 0 at equator, 1 at poles
+    let latLag = latWeight * 0.12 * env;
+    let easeLocal = clamp(alpha - waveBias - latLag, 0.0, 1.0);
+    
+    // Parallel expansion: smooth continuum derived purely from easeLocal (no stage clunkiness)
+    let tEq = smoothstep(0.10, 0.85, easeLocal);
+    let tPol = smoothstep(0.25, 0.95, easeLocal);
+    let tParallel = mix(tEq, tPol, latWeight * 0.65);
+    let rPar = RADIUS * mix(cosLat, 1.0, tParallel);
+
+    // Developable circular arc unroll:
+    let s = max(0.0, 1.0 - easeLocal);
+    let uAngle = s * lonRad;
+    var curX: f32;
+    var curZ: f32;
+    if (abs(uAngle) > 0.02) {
+        let sDiv = max(0.0001, s);
+        curX = rPar * (sin(uAngle) / sDiv);
+        curZ = rPar * ((cos(uAngle) - 1.0) / sDiv + s);
+    } else {
+        let u2 = uAngle * uAngle;
+        curX = rPar * lonRad * (1.0 - u2 / 6.0);
+        curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
+    }
+
+    // Subtle natural folio wave across surface (strictly polar-attenuated by cosLat):
+    // Zero at Greenwich (lon=0), zero at poles, zero at alpha=0 and alpha=1
+    let waveFlex = env * (1.0 - alpha) * sin(lonRad * 0.5) * RADIUS * 0.05 * cosLat;
+    curZ = curZ + waveFlex;
+
+    // Continuous Web Mercator unbending:
+    let clampedLat = clamp(latRad, -1.4835, 1.4835);
+    let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
+    let yArc = RADIUS * latRad;
+    let tStraighten = smoothstep(0.05, 0.70, easeLocal);
+    let yStraight = mix(RADIUS * sinLat, yArc, tStraighten);
+    let tMerc = smoothstep(0.35, 1.00, easeLocal);
+    let curY = mix(yStraight, mercatorY, tMerc);
+
+    // Central sheet loft:
+    let chordLiftZ = (0.4 + 0.6 * cosLat) * RADIUS * (1.0 - alpha) * env * u.chordLiftMag;
+    curZ = curZ + chordLiftZ;
 
     return vec3<f32>(curX, curY, curZ);
 }
 
 fn evalManifold(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
-    if (u.mathMode == 0u) {
-        return evalCurrent(lonRad, latRad, cosLat, sinLat, alpha);
+    if (u.optionMode == 0u) {
+        return evalOptionA(lonRad, latRad, cosLat, sinLat, alpha);
+    } else if (u.optionMode == 1u) {
+        return evalOptionB(lonRad, latRad, cosLat, sinLat, alpha);
     } else {
-        return evalProposed(lonRad, latRad, cosLat, sinLat, alpha);
+        return evalOptionC(lonRad, latRad, cosLat, sinLat, alpha);
     }
 }
 
@@ -356,7 +437,7 @@ fn vs_main(@location(0) uv: vec2<f32>) -> VsOut {
     let geo = uvToGeo(uv);
     let pos = evalManifold(geo.x, geo.y, geo.z, geo.w, u.alpha);
 
-    // Finite-difference surface normals (geometrically accurate)
+    // Finite-difference surface normals
     let eps = 0.0008;
     let geoU = uvToGeo(uv + vec2<f32>(eps, 0.0));
     let geoV = uvToGeo(uv + vec2<f32>(0.0, eps));
@@ -386,19 +467,27 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
         let lonCell = floor(in.uv.x * 12.0);
         let latCell = floor(in.uv.y * 6.0);
         let checker = (lonCell + latCell) % 2.0;
-        let warmColor = vec3<f32>(0.82, 0.75, 0.65);
-        let coolColor = vec3<f32>(0.60, 0.72, 0.80);
+        let warmColor = vec3<f32>(0.84, 0.78, 0.68);
+        let coolColor = vec3<f32>(0.65, 0.74, 0.82);
         baseColor = mix(warmColor, coolColor, checker);
 
         // Simple hemisphere lighting
         let lightDir = normalize(vec3<f32>(0.4, 0.85, 0.6));
         let ndotl = max(dot(in.normal, lightDir), 0.0);
-        let ambient = 0.32;
+        let ambient = 0.35;
         baseColor = baseColor * (ambient + (1.0 - ambient) * ndotl);
     }
 
-    // Wireframe overlay — computed unconditionally for Rule 4
-    let gl = u.gridLines;
+    // Edge highlight (glowing amber boundary seam lines to visualize lip flare)
+    let lonNorm = abs((in.uv.x - 0.5) * 2.0);
+    let edgeDist = 1.0 - lonNorm;
+    let edgeGlow = 1.0 - smoothstep(0.0, fwidth(lonNorm) * 6.0, edgeDist);
+    let highlightActive = f32((u.flags & 8u) != 0u);
+    let glowColor = vec3<f32>(1.0, 0.55, 0.08); // glowing copper amber
+    baseColor = mix(baseColor, glowColor, edgeGlow * 0.90 * highlightActive);
+
+    // Wireframe overlay
+    let gl = 12.0;
     let uvScaled = in.uv * gl;
     let gridFrac = fract(uvScaled);
     let dU = fwidth(uvScaled.x);
@@ -407,7 +496,6 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
     let wireU = 1.0 - smoothstep(0.0, dU * lw, gridFrac.x) * smoothstep(0.0, dU * lw, 1.0 - gridFrac.x);
     let wireV = 1.0 - smoothstep(0.0, dV * lw, gridFrac.y) * smoothstep(0.0, dV * lw, 1.0 - gridFrac.y);
 
-    // Equator & prime meridian emphasis
     let eqDist = abs(in.uv.y - 0.5);
     let pmDist = abs(in.uv.x - 0.5);
     let eqLine = 1.0 - smoothstep(0.0, fwidth(in.uv.y) * 2.5, eqDist);
@@ -415,7 +503,7 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
     let majorLine = max(eqLine, pmLine);
 
     let wire = max(max(wireU, wireV), majorLine);
-    let wireColor = select(vec3<f32>(0.18, 0.18, 0.28), vec3<f32>(0.45, 0.25, 0.25), majorLine > 0.5);
+    let wireColor = select(vec3<f32>(0.20, 0.20, 0.30), vec3<f32>(0.50, 0.25, 0.25), majorLine > 0.5);
     let wireActive = f32((u.flags & 4u) != 0u);
     baseColor = mix(baseColor, wireColor, wire * 0.75 * wireActive);
 
@@ -432,12 +520,11 @@ function stateToHash() {
   p.set('t', (camera.theta * 180 / PI).toFixed(1));
   p.set('p', (camera.phi * 180 / PI).toFixed(1));
   p.set('d', camera.distance.toFixed(1));
-  p.set('m', state.mathMode === 0 ? 'current' : 'progressive');
-  p.set('e', state.endpoint === 0 ? 'equirect' : 'mercator');
+  p.set('opt', state.option);
   p.set('w', state.wireframe ? '1' : '0');
   p.set('n', state.normals ? '1' : '0');
-  p.set('c', state.chordLift ? '1' : '0');
-  p.set('ts', state.tSplit.toFixed(2));
+  p.set('h', state.edgeHighlight ? '1' : '0');
+  p.set('loft', state.chordLiftMag.toFixed(2));
   return '#' + p.toString();
 }
 
@@ -449,21 +536,16 @@ function hashToState() {
   if (p.has('t')) camera.theta = parseFloat(p.get('t')) * PI / 180;
   if (p.has('p')) camera.phi = parseFloat(p.get('p')) * PI / 180;
   if (p.has('d')) camera.distance = parseFloat(p.get('d'));
-  if (p.has('m')) state.mathMode = (p.get('m') === 'progressive' || p.get('m') === 'proposed') ? 1 : 0;
-  if (p.has('e')) state.endpoint = p.get('e') === 'equirect' ? 0 : 1;
-  if (p.has('w')) state.wireframe = p.get('w') === '1';
-  if (p.has('n')) state.normals = p.get('n') === '1';
-  if (p.has('c')) state.chordLift = p.get('c') === '1';
-  if (p.has('ts')) { state.tSplit = parseFloat(p.get('ts')); tsplitSlider.value = state.tSplit; }
+  if (p.has('opt') && OPTIONS[p.get('opt')]) selectOption(p.get('opt'));
+  if (p.has('loft')) { state.chordLiftMag = parseFloat(p.get('loft')); loftSlider.value = state.chordLiftMag; }
 }
 
 function updateStateDisplay() {
   const tDeg = (camera.theta * 180 / PI).toFixed(1);
   const pDeg = (camera.phi * 180 / PI).toFixed(1);
   const dVal = camera.distance.toFixed(1);
-  const mName = state.mathMode === 0 ? 'current' : 'progressive';
-  const eName = state.endpoint === 0 ? 'equirect' : 'mercator';
-  stateText.innerHTML = `α=<span>${state.alpha.toFixed(3)}</span> &nbsp; θ=<span>${tDeg}°</span> &nbsp; φ=<span>${pDeg}°</span> &nbsp; d=<span>${dVal}</span> &nbsp; math=<span>${mName}</span> &nbsp; end=<span>${eName}</span>`;
+  const optName = OPTIONS[state.option].name;
+  stateText.innerHTML = `α=<span>${state.alpha.toFixed(3)}</span> &nbsp; θ=<span>${tDeg}°</span> &nbsp; φ=<span>${pDeg}°</span> &nbsp; d=<span>${dVal}</span> &nbsp; motion=<span>${optName}</span> &nbsp; target=<span>Web Mercator</span>`;
 }
 
 function copyURL() {
@@ -475,163 +557,78 @@ function copyURL() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// PIN SYSTEM (localStorage-persisted, exportable)
-// ═══════════════════════════════════════════════════════════════
-function savePinsToStorage() {
-  try { localStorage.setItem('indicatrix_testbed_pins', JSON.stringify(pins)); } catch(e) {}
-}
-
-function loadPinsFromStorage() {
-  try {
-    const raw = localStorage.getItem('indicatrix_testbed_pins');
-    if (raw) { pins.length = 0; pins.push(...JSON.parse(raw)); }
-  } catch(e) {}
-}
-
-function addPin() {
-  const name = prompt('Pin name:', `pin_${pins.length + 1}`);
-  if (!name) return;
-  pins.push({
-    name,
-    alpha: state.alpha,
-    theta: camera.theta,
-    phi: camera.phi,
-    distance: camera.distance,
-    mathMode: state.mathMode,
-    endpoint: state.endpoint,
-    wireframe: state.wireframe,
-    normals: state.normals,
-    chordLift: state.chordLift,
-    tSplit: state.tSplit,
-  });
-  savePinsToStorage();
-  renderPins();
-}
-
-function gotoPin(pin) {
-  state.alpha = pin.alpha;
-  camera.theta = pin.theta;
-  camera.phi = pin.phi;
-  camera.distance = pin.distance;
-  state.mathMode = pin.mathMode;
-  state.endpoint = pin.endpoint;
-  if (pin.wireframe !== undefined) state.wireframe = pin.wireframe;
-  if (pin.normals !== undefined) state.normals = pin.normals;
-  if (pin.chordLift !== undefined) state.chordLift = pin.chordLift;
-  if (pin.tSplit !== undefined) { state.tSplit = pin.tSplit; tsplitSlider.value = state.tSplit; }
-  alphaSlider.value = state.alpha;
-  syncToggles();
-}
-
-function copyPinsJSON() {
-  const exportData = pins.map(p => ({
-    name: p.name,
-    alpha: +p.alpha.toFixed(4),
-    theta_deg: +(p.theta * 180 / PI).toFixed(1),
-    phi_deg: +(p.phi * 180 / PI).toFixed(1),
-    distance: +p.distance.toFixed(1),
-    math: p.mathMode === 0 ? 'current' : 'progressive',
-    endpoint: p.endpoint === 0 ? 'equirect' : 'mercator',
-    wireframe: !!p.wireframe,
-    normals: !!p.normals,
-    chordLift: !!p.chordLift,
-    tSplit: +(p.tSplit || 0.85).toFixed(2),
-  }));
-  const json = JSON.stringify(exportData, null, 2);
-  navigator.clipboard.writeText(json).then(() => {
-    btnCopyPins.textContent = '✅ Copied';
-    setTimeout(() => { btnCopyPins.textContent = '📋 Copy Pins'; }, 1200);
-  });
-}
-
-function renderPins() {
-  pinBar.innerHTML = '';
-  pins.forEach((pin, i) => {
-    const el = document.createElement('div');
-    el.className = 'pin';
-    const mLabel = pin.mathMode === 0 ? 'cur' : 'prog';
-    el.innerHTML = `<span>${pin.name}</span> <span style="color:#666">(α=${pin.alpha.toFixed(3)} ${mLabel})</span> <span class="pin-del" data-i="${i}">×</span>`;
-    el.addEventListener('click', (e) => {
-      if (e.target.classList.contains('pin-del')) { pins.splice(i, 1); savePinsToStorage(); renderPins(); return; }
-      gotoPin(pin);
-    });
-    pinBar.appendChild(el);
-  });
-}
-
-// Load persisted pins on startup
-loadPinsFromStorage();
-
-// ═══════════════════════════════════════════════════════════════
 // UI ELEMENTS & EVENT HANDLERS
 // ═══════════════════════════════════════════════════════════════
 const canvas = document.getElementById('canvas');
 const alphaSlider = document.getElementById('alpha-slider');
 const alphaVal = document.getElementById('alpha-val');
-const tsplitSlider = document.getElementById('tsplit-slider');
-const tsplitVal = document.getElementById('tsplit-val');
+const btnPlay = document.getElementById('btn-play');
+const btnOptA = document.getElementById('btn-opt-a');
+const btnOptB = document.getElementById('btn-opt-b');
+const btnOptC = document.getElementById('btn-opt-c');
+const btnHighlight = document.getElementById('btn-highlight');
+const btnWire = document.getElementById('btn-wire');
+const btnNormals = document.getElementById('btn-normals');
+const loftSlider = document.getElementById('loft-slider');
+const loftVal = document.getElementById('loft-val');
 const speedSlider = document.getElementById('speed-slider');
 const speedVal = document.getElementById('speed-val');
 const stateText = document.getElementById('state-text');
-const pinBar = document.getElementById('pin-bar');
-const btnPlay = document.getElementById('btn-play');
-const btnCurrent = document.getElementById('btn-current');
-const btnProposed = document.getElementById('btn-proposed');
-const btnMercator = document.getElementById('btn-mercator');
-const btnEquirect = document.getElementById('btn-equirect');
-const btnWire = document.getElementById('btn-wire');
-const btnNormals = document.getElementById('btn-normals');
-const btnChord = document.getElementById('btn-chord');
-const btnPin = document.getElementById('btn-pin');
 const btnCopyUrl = document.getElementById('btn-copy-url');
-const btnCopyPins = document.getElementById('btn-copy-pins');
-const tsplitGroup = document.getElementById('tsplit-group');
+const hudTitle = document.getElementById('hud-title');
+const hudDesc = document.getElementById('hud-desc');
+
+function selectOption(key) {
+  state.option = key;
+  const opt = OPTIONS[key];
+  btnOptA.classList.toggle('active', key === 'a');
+  btnOptB.classList.toggle('active', key === 'b');
+  btnOptC.classList.toggle('active', key === 'c');
+  hudTitle.textContent = opt.name;
+  hudDesc.textContent = opt.desc;
+  syncToggles();
+}
 
 function syncToggles() {
-  btnCurrent.classList.toggle('active', state.mathMode === 0);
-  btnProposed.classList.toggle('active', state.mathMode === 1);
-  btnMercator.classList.toggle('active', state.endpoint === 1);
-  btnEquirect.classList.toggle('active', state.endpoint === 0);
+  btnOptA.classList.toggle('active', state.option === 'a');
+  btnOptB.classList.toggle('active', state.option === 'b');
+  btnOptC.classList.toggle('active', state.option === 'c');
+  btnHighlight.classList.toggle('active', state.edgeHighlight);
   btnWire.classList.toggle('active', state.wireframe);
   btnNormals.classList.toggle('active', state.normals);
-  btnChord.classList.toggle('active', state.chordLift);
-  btnChord.classList.toggle('disabled', state.mathMode === 1);
-  tsplitGroup.classList.toggle('disabled', state.mathMode === 0);
+
   alphaVal.textContent = state.alpha.toFixed(3);
-  tsplitVal.textContent = state.tSplit.toFixed(2);
+  loftVal.textContent = state.chordLiftMag.toFixed(2);
   speedVal.textContent = state.playSpeed.toFixed(1);
 }
 
+btnOptA.addEventListener('click', () => selectOption('a'));
+btnOptB.addEventListener('click', () => selectOption('b'));
+btnOptC.addEventListener('click', () => selectOption('c'));
+
 alphaSlider.addEventListener('input', () => { state.alpha = parseFloat(alphaSlider.value); syncToggles(); });
-tsplitSlider.addEventListener('input', () => { state.tSplit = parseFloat(tsplitSlider.value); syncToggles(); });
+loftSlider.addEventListener('input', () => { state.chordLiftMag = parseFloat(loftSlider.value); syncToggles(); });
 speedSlider.addEventListener('input', () => { state.playSpeed = parseFloat(speedSlider.value); syncToggles(); });
 
-btnPlay.addEventListener('click', () => { state.playing = !state.playing; btnPlay.textContent = state.playing ? '⏸' : '▶'; btnPlay.classList.toggle('active', state.playing); });
-btnCurrent.addEventListener('click', () => { state.mathMode = 0; syncToggles(); });
-btnProposed.addEventListener('click', () => { state.mathMode = 1; syncToggles(); });
-btnMercator.addEventListener('click', () => { state.endpoint = 1; syncToggles(); });
-btnEquirect.addEventListener('click', () => { state.endpoint = 0; syncToggles(); });
+btnPlay.addEventListener('click', () => { state.playing = !state.playing; btnPlay.textContent = state.playing ? '⏸ Pause' : '▶ Play'; btnPlay.classList.toggle('active', state.playing); });
+btnHighlight.addEventListener('click', () => { state.edgeHighlight = !state.edgeHighlight; syncToggles(); });
 btnWire.addEventListener('click', () => { state.wireframe = !state.wireframe; syncToggles(); });
 btnNormals.addEventListener('click', () => { state.normals = !state.normals; syncToggles(); });
-btnChord.addEventListener('click', () => { if (state.mathMode === 0) { state.chordLift = !state.chordLift; syncToggles(); } });
-btnPin.addEventListener('click', addPin);
 btnCopyUrl.addEventListener('click', copyURL);
-btnCopyPins.addEventListener('click', copyPinsJSON);
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
   switch(e.key.toLowerCase()) {
     case ' ': e.preventDefault(); btnPlay.click(); break;
-    case 'g': state.alpha = 0; alphaSlider.value = 0; syncToggles(); break;
-    case 'm': state.alpha = 1; alphaSlider.value = 1; syncToggles(); break;
+    case 'a': selectOption('a'); break;
+    case 'b': selectOption('b'); break;
+    case 'c': selectOption('c'); break;
+    case 'g': state.alpha = 0; alphaSlider.value = 0; camera.distance = 15.0; camera.theta = 0.35; camera.phi = 0.45; syncToggles(); break;
+    case 'm': state.alpha = 1; alphaSlider.value = 1; camera.distance = 28.0; camera.theta = 0.0; camera.phi = 0.0; syncToggles(); break;
+    case 'h': btnHighlight.click(); break;
     case 'w': btnWire.click(); break;
     case 'n': btnNormals.click(); break;
-    case 'c': btnChord.click(); break;
-    case '1': btnCurrent.click(); break;
-    case '2': btnProposed.click(); break;
-    case 'e': if (state.endpoint === 1) btnEquirect.click(); else btnMercator.click(); break;
-    case 'p': addPin(); break;
   }
 });
 
@@ -664,7 +661,6 @@ async function init() {
   if (!adapter) { document.getElementById('no-webgpu').classList.add('show'); return; }
   const device = await adapter.requestDevice();
 
-  // Canvas setup
   const ctx = canvas.getContext('webgpu');
   const format = navigator.gpu.getPreferredCanvasFormat();
   function resizeCanvas() {
@@ -677,38 +673,51 @@ async function init() {
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
 
-  // Mesh
   const mesh = createGridMesh();
   const vertBuffer = device.createBuffer({ size: mesh.verts.byteLength, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
   device.queue.writeBuffer(vertBuffer, 0, mesh.verts);
+
   const idxBuffer = device.createBuffer({ size: mesh.indices.byteLength, usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST });
   device.queue.writeBuffer(idxBuffer, 0, mesh.indices);
 
-  // Uniform buffer (112 bytes)
-  const uniformBuf = device.createBuffer({ size: 112, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-  const uniformData = new ArrayBuffer(112);
+  const uniformBuf = device.createBuffer({ size: 160, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  const uniformData = new ArrayBuffer(160);
   const uFloats = new Float32Array(uniformData);
   const uUints = new Uint32Array(uniformData);
 
-  // Depth texture
-  let depthTex = null;
+  let depthTexture = null;
+  let depthView = null;
   function ensureDepthTexture() {
-    if (depthTex && depthTex.width === canvas.width && depthTex.height === canvas.height) return;
-    if (depthTex) depthTex.destroy();
-    depthTex = device.createTexture({
-      size: [canvas.width, canvas.height],
-      format: 'depth32float',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT,
-    });
+    if (!depthTexture || depthTexture.width !== canvas.width || depthTexture.height !== canvas.height) {
+      if (depthTexture) depthTexture.destroy();
+      depthTexture = device.createTexture({
+        size: [canvas.width, canvas.height],
+        format: 'depth24plus',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+      });
+      depthView = depthTexture.createView();
+    }
   }
 
-  // Shader module & pipeline
+  device.pushErrorScope("validation"); 
   const shaderModule = device.createShaderModule({ code: SHADER_CODE });
+  shaderModule.getCompilationInfo().then(info => {
+    if (info.messages.length > 0) {
+      document.getElementById('state-text').textContent = info.messages[0].message + ' at line ' + info.messages[0].lineNum;
+      document.getElementById('state-text').style.color = '#f85149';
+    }
+  });
+  device.popErrorScope().then(e => { if(e) console.error("WebGPU Validation Error:", e.message); });
+
   const bindGroupLayout = device.createBindGroupLayout({
     entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }],
   });
-  const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] });
+  const bindGroup = device.createBindGroup({
+    layout: bindGroupLayout,
+    entries: [{ binding: 0, resource: { buffer: uniformBuf } }],
+  });
 
+  const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] });
   const pipeline = device.createRenderPipeline({
     layout: pipelineLayout,
     vertex: {
@@ -724,43 +733,42 @@ async function init() {
       entryPoint: 'fs_main',
       targets: [{ format }],
     },
-    primitive: { topology: 'triangle-list', cullMode: 'none' },
-    depthStencil: { format: 'depth32float', depthWriteEnabled: true, depthCompare: 'less' },
+    primitive: {
+      topology: 'triangle-list',
+      cullMode: 'none',
+    },
+    depthStencil: {
+      depthWriteEnabled: true,
+      depthCompare: 'less',
+      format: 'depth24plus',
+    },
   });
 
-  const bindGroup = device.createBindGroup({
-    layout: bindGroupLayout,
-    entries: [{ binding: 0, resource: { buffer: uniformBuf } }],
-  });
-
-  // Load state from URL hash
   hashToState();
   syncToggles();
-  renderPins();
 
-  // ─── Render Loop ───
   let lastTime = performance.now();
-
   function frame(now) {
-    requestAnimationFrame(frame);
     const dt = (now - lastTime) / 1000;
     lastTime = now;
 
-    // Auto-scrub
     if (state.playing) {
       state.alpha += state.playDir * state.playSpeed * dt;
       if (state.alpha >= 1.0) { state.alpha = 1.0; state.playDir = -1; }
       if (state.alpha <= 0.0) { state.alpha = 0.0; state.playDir = 1; }
       alphaSlider.value = state.alpha;
+      syncToggles();
     }
 
-    // Resize check
+    updateStateDisplay();
+
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.parentElement.getBoundingClientRect();
-    const w = Math.floor(rect.width * dpr);
-    const h = Math.floor(rect.height * dpr);
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w; canvas.height = h;
+    const targetW = Math.floor(rect.width * dpr);
+    const targetH = Math.floor(rect.height * dpr);
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
       ctx.configure({ device, format, alphaMode: 'opaque' });
     }
     ensureDepthTexture();
@@ -769,33 +777,39 @@ async function init() {
     const vp = getViewProjectionMatrix(aspect);
     const camPos = getCameraPosition();
 
-    // Pack uniforms
-    uFloats.set(vp, 0);        // viewProj [0..15]
+    // Pack uniforms (160 bytes)
+    uFloats.set(vp, 0);        // 0..15  (viewProj)
     uFloats[16] = state.alpha;
-    uUints[17] = state.mathMode;
+    uUints[17] = OPTIONS[state.option].mode; // 0=A, 1=B, 2=C
     uUints[18] = state.endpoint;
-    uUints[19] = (state.chordLift ? 1 : 0) | (state.normals ? 2 : 0) | (state.wireframe ? 4 : 0);
-    uFloats[20] = state.tSplit;
-    uFloats[21] = state.gridLines;
-    uFloats[22] = 0;
-    uFloats[23] = 0;
-    uFloats[24] = camPos[0];
-    uFloats[25] = camPos[1];
-    uFloats[26] = camPos[2];
-    uFloats[27] = 1.0;
+    
+    // Flags: bit 0=chord, 1=normals, 2=wire, 3=highlight
+    const flags = 1 | 
+                  (state.normals ? 2 : 0) | 
+                  (state.wireframe ? 4 : 0) | 
+                  (state.edgeHighlight ? 8 : 0);
+    uUints[19] = flags;
+    uFloats[20] = state.chordLiftMag;
+    
+    // Padding
+    for (let k = 21; k <= 31; k++) uFloats[k] = 0.0;
+    
+    uFloats[32] = camPos[0];
+    uFloats[33] = camPos[1];
+    uFloats[34] = camPos[2];
+    uFloats[35] = 1.0;
     device.queue.writeBuffer(uniformBuf, 0, uniformData);
 
-    // Render
     const colorTex = ctx.getCurrentTexture();
     const encoder = device.createCommandEncoder();
     const pass = encoder.beginRenderPass({
       colorAttachments: [{
         view: colorTex.createView(),
-        clearValue: { r: 0.06, g: 0.06, b: 0.10, a: 1.0 },
+        clearValue: { r: 0.04, g: 0.04, b: 0.07, a: 1.0 },
         loadOp: 'clear', storeOp: 'store',
       }],
       depthStencilAttachment: {
-        view: depthTex.createView(),
+        view: depthView,
         depthClearValue: 1.0,
         depthLoadOp: 'clear', depthStoreOp: 'store',
       },
@@ -808,16 +822,12 @@ async function init() {
     pass.end();
     device.queue.submit([encoder.finish()]);
 
-    // Update UI
-    syncToggles();
-    updateStateDisplay();
-    history.replaceState(null, '', stateToHash());
+    requestAnimationFrame(frame);
   }
-
   requestAnimationFrame(frame);
 }
 
-init();
+init().catch(e => { console.error("INIT ERROR:", e.message || e); });
 </script>
 </body>
 </html>
