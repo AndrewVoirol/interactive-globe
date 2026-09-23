@@ -310,17 +310,19 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
   const absNormLon = Math.abs(normLon);
 
   // Softened Hermite envelope: zero velocity derivatives at alpha=0 and alpha=1 (Pin #4)
-  const sZero = smoothstep(0.0, 0.12, alpha);
-  const sOne = 1.0 - smoothstep(0.88, 1.0, alpha);
+  const sZero = smoothstep(0.0, 0.10, alpha);
+  const sOne = 1.0 - smoothstep(0.90, 1.0, alpha);
   const env = Math.sin(PI * alpha) * sZero * sOne;
 
-  // Bilateral symmetric unroll (Pins #5 & #7: eliminates nautilus spiral)
+  // Directional folio flow: subtle 4% phase shift (living wave without nautilus bulge)
+  const waveBias = normLon * 0.040 * env;
   const latWeight = 1.0 - cosLat;
-  const latLag = latWeight * 0.08 * env;
-  const easeLocal = Math.max(0.0, Math.min(1.0, alpha - latLag));
+  const latLag = latWeight * 0.06 * env;
+  const easeLocal = Math.max(0.0, Math.min(1.0, alpha - waveBias - latLag));
 
-  // Harmonized parallel expansion (Pins #2 & #3: eliminates equatorial pointed snout & polar tube)
-  const tParallel = smoothstep(0.18, 0.84, easeLocal) * (1.0 - latWeight * 0.50) + smoothstep(0.28, 0.92, easeLocal) * (latWeight * 0.50);
+  // Balanced developable unroll:
+  // Uniform parallel expansion preserves natural planetary proportions (eliminates vase necking)
+  const tParallel = smoothstep(0.15, 0.85, easeLocal);
   const rPar = RADIUS * (cosLat * (1.0 - tParallel) + tParallel);
 
   // Developable circular arc unroll
@@ -337,22 +339,25 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
     curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
   }
 
-  // Inward tactile lip curve at free edges (Pin #6: prevents horn flare, softens nautilus)
-  const edgeZone = smoothstep(0.78, 1.0, absNormLon);
-  const lipCurl = -Math.sin(edgeZone * PI * 0.5) * RADIUS * 0.045 * env * cosLat;
+  // Tactile corner & seam lip curl: retains flare into polar corners, avoiding flat-topping (Pins 7-8)
+  const edgeZone = smoothstep(0.72, 1.0, absNormLon);
+  const cornerTaper = 0.45 + 0.55 * cosLat;
+  const lipCurl = -Math.sin(edgeZone * PI * 0.5) * RADIUS * 0.040 * env * cornerTaper;
   curZ += lipCurl;
 
-  // Organic bilateral breathing wave across the sheet
-  const waveFlex = env * (1.0 - alpha) * Math.cos(lonRad * 0.5) * RADIUS * 0.035 * cosLat;
+  // Organic directional folio wave across the sheet
+  const waveFlex = env * (1.0 - alpha) * Math.sin(lonRad * 0.5 + 0.3) * RADIUS * 0.030 * cornerTaper;
   curZ += waveFlex;
 
-  // Continuous Web Mercator unbending
+  // Two-stage vertical transformation:
+  // 1. Unbend sphere to developable arc yArc (alpha 0.10 to 0.70)
+  // 2. Conformal Web Mercator expansion strictly in late landing (alpha 0.58 to 0.98)
   const clampedLat = Math.max(-1.4835, Math.min(1.4835, latRad));
   const mercatorY = Math.log(Math.tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
   const yArc = RADIUS * latRad;
-  const tStraighten = smoothstep(0.10, 0.78, easeLocal);
+  const tStraighten = smoothstep(0.10, 0.70, easeLocal);
   const yStraight = RADIUS * sinLat * (1.0 - tStraighten) + yArc * tStraighten;
-  const tMerc = smoothstep(0.28, 0.96, easeLocal);
+  const tMerc = smoothstep(0.58, 0.98, easeLocal);
   const curY = yStraight * (1.0 - tMerc) + mercatorY * tMerc;
 
   // Central sheet loft
@@ -781,24 +786,25 @@ fn evalOptionB(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
     return vec3<f32>(curX, curY, curZ);
 }
 
-// ─── OPTION C: Centered Folio Wave (Harmonized & Tactile) ───
+// ─── OPTION C: Calibrated Folio Wave (Harmonized & Living Wave) ───
 fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
     let normLon = lonRad / PI; // -1.0 (West) to +1.0 (East)
     let absNormLon = abs(normLon); // 0 at Greenwich, 1.0 at Antimeridian
     
-    // Softened Hermite envelope: zero velocity derivatives at alpha=0 and alpha=1
-    // Completely eliminates the boundary "thunk" / shell-clamp on close (Pin #4)
-    let sZero = smoothstep(0.0, 0.12, alpha);
-    let sOne = 1.0 - smoothstep(0.88, 1.0, alpha);
+    // Boundary envelope: zero derivatives at alpha=0 and alpha=1 (zero thunk on close)
+    let sZero = smoothstep(0.0, 0.10, alpha);
+    let sOne = 1.0 - smoothstep(0.90, 1.0, alpha);
     let env = sin(PI * alpha) * sZero * sOne;
     
-    // Bilateral symmetric unroll (Pins #5 & #7: eliminates nautilus spiral & lopsided lag)
+    // Directional folio flow: subtle 4% phase shift (living wave without nautilus bulge)
+    let waveBias = normLon * 0.040 * env;
     let latWeight = 1.0 - cosLat;
-    let latLag = latWeight * 0.08 * env;
-    let easeLocal = clamp(alpha - latLag, 0.0, 1.0);
+    let latLag = latWeight * 0.06 * env;
+    let easeLocal = clamp(alpha - waveBias - latLag, 0.0, 1.0);
     
-    // Harmonized parallel expansion (Pins #2 & #3: eliminates equatorial pointed snout & polar tube)
-    let tParallel = mix(smoothstep(0.18, 0.84, easeLocal), smoothstep(0.28, 0.92, easeLocal), latWeight * 0.50);
+    // Balanced developable unroll:
+    // Uniform parallel expansion preserves natural planetary proportions (eliminates vase necking)
+    let tParallel = smoothstep(0.15, 0.85, easeLocal);
     let rPar = RADIUS * mix(cosLat, 1.0, tParallel);
 
     // Developable circular arc unroll:
@@ -816,22 +822,25 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
         curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
     }
 
-    // Inward tactile lip curve at free edges (Pin #6: prevents horn flare, softens nautilus)
-    let edgeZone = smoothstep(0.78, 1.0, absNormLon);
-    let lipCurl = -sin(edgeZone * PI * 0.5) * RADIUS * 0.045 * env * cosLat;
+    // Tactile corner & seam lip curl: retains flare into polar corners, avoiding flat-topping (Pins 7-8)
+    let edgeZone = smoothstep(0.72, 1.0, absNormLon);
+    let cornerTaper = 0.45 + 0.55 * cosLat;
+    let lipCurl = -sin(edgeZone * PI * 0.5) * RADIUS * 0.040 * env * cornerTaper;
     curZ = curZ + lipCurl;
 
-    // Organic bilateral breathing wave across the sheet:
-    let waveFlex = env * (1.0 - alpha) * cos(lonRad * 0.5) * RADIUS * 0.035 * cosLat;
+    // Organic directional folio wave across the sheet:
+    let waveFlex = env * (1.0 - alpha) * sin(lonRad * 0.5 + 0.3) * RADIUS * 0.030 * cornerTaper;
     curZ = curZ + waveFlex;
 
-    // Continuous Web Mercator unbending (harmonized vertical profile):
+    // Two-stage vertical transformation:
+    // 1. Unbend sphere to developable arc yArc (alpha 0.10 to 0.70)
+    // 2. Conformal Web Mercator expansion strictly in late landing (alpha 0.58 to 0.98)
     let clampedLat = clamp(latRad, -1.4835, 1.4835);
     let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
     let yArc = RADIUS * latRad;
-    let tStraighten = smoothstep(0.10, 0.78, easeLocal);
+    let tStraighten = smoothstep(0.10, 0.70, easeLocal);
     let yStraight = mix(RADIUS * sinLat, yArc, tStraighten);
-    let tMerc = smoothstep(0.28, 0.96, easeLocal);
+    let tMerc = smoothstep(0.58, 0.98, easeLocal);
     let curY = mix(yStraight, mercatorY, tMerc);
 
     // Central sheet loft:
