@@ -4,21 +4,20 @@
   Motion Archetypes Explorer:
   Option A: Pure Developable Arc (Symmetric)
   Option B: Unzipping Peel (Equator leads, corners lag)
-  Option C: Folio Scroll (Directional West-to-East unroll)
+  Option C: Centered Folio Wave (Directional West-to-East unroll)
 
   To serve:  python3 -m http.server 8080 -d testbed
   Then open: http://localhost:8080
 
   Keyboard shortcuts:
-    Space   Play/Pause auto-scrub
-    A       Switch to Option A (Pure Developable)
-    B       Switch to Option B (Unzipping Peel)
-    C       Switch to Option C (Folio Scroll)
-    G       Snap to Globe (α=0)
-    M       Snap to Map (α=1)
-    W       Toggle wireframe
-    N       Toggle normals
-    H       Toggle edge glow
+    Space      Play/Pause auto-scrub
+    A, B, C    Switch Motion Option
+    1, 2, 3, 4 Camera Presets (Front, Seam, Polar, Profile)
+    G, M       Snap to Globe (α=0) / Map (α=1)
+    ← / →      Fine scrub (±0.01, Shift for ±0.001)
+    W, N, H    Toggle Wireframe, Normals, Edge Glow
+    P          Pin current state / selected surface area
+    Click      Click on 3D surface to pin exact area
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -29,34 +28,66 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: #0a0a12; color: #d0d0d8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, monospace; font-size: 12px; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 
-#top-bar { background: rgba(16, 16, 26, 0.96); border-bottom: 1px solid #26263a; padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; z-index: 10; user-select: none; }
+#top-bar { background: rgba(16, 16, 26, 0.98); border-bottom: 1px solid #26263a; padding: 8px 14px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; z-index: 10; user-select: none; }
 #top-bar label { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 11px; color: #a4a4be; }
-#top-bar input[type="range"] { width: 110px; accent-color: #58a6ff; cursor: pointer; }
-#alpha-slider { width: 220px !important; accent-color: #58a6ff; }
+#top-bar input[type="range"] { width: 100px; accent-color: #58a6ff; cursor: pointer; }
+#alpha-slider { width: 170px !important; accent-color: #58a6ff; }
 
-.btn { background: #202034; border: 1px solid #32324c; color: #a0a0c0; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: 600; transition: all 0.15s; }
+.btn { background: #202034; border: 1px solid #32324c; color: #a0a0c0; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: 600; transition: all 0.15s; }
 .btn:hover { background: #30304c; color: #ffffff; }
 .btn.active { background: #1c365c; border-color: #58a6ff; color: #8ac4ff; }
 .btn.play { background: #183e26; border-color: #3fb950; color: #7ee787; }
 .btn.play.active { background: #245c37; }
+.btn.pin { background: #3d1c1c; border-color: #f85149; color: #ff8b8b; }
+.btn.pin.active { background: #5c2424; }
+.btn.copy-chat { background: #1a3324; border-color: #2ea043; color: #56d364; }
+.btn.copy-chat:hover { background: #234631; color: #7ee787; }
+.btn-xs { padding: 2px 6px; font-size: 10px; }
+
 .btn-group { display: flex; gap: 0; }
 .btn-group .btn { border-radius: 0; border-right: none; }
 .btn-group .btn:first-child { border-radius: 4px 0 0 4px; }
 .btn-group .btn:last-child { border-radius: 0 4px 4px 0; border-right: 1px solid #32324c; }
 
+.divider { width: 1px; height: 18px; background: #2a2a3e; margin: 0 2px; }
+
 #canvas-wrap { flex: 1; position: relative; min-height: 0; }
-canvas#canvas { width: 100%; height: 100%; display: block; }
+canvas#canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
 
-#state-bar { background: rgba(16, 16, 26, 0.96); border-top: 1px solid #26263a; padding: 6px 16px; display: flex; gap: 16px; align-items: center; z-index: 10; user-select: none; }
-#state-text { flex: 1; font-size: 11px; color: #8888a8; letter-spacing: 0.4px; font-family: monospace; }
-#state-text span { color: #d0d0e8; font-weight: 600; }
+#hud-card { position: absolute; left: 16px; bottom: 16px; background: rgba(14, 16, 26, 0.92); backdrop-filter: blur(10px); border: 1px solid #283046; border-radius: 10px; padding: 12px 14px; width: 360px; z-index: 5; box-shadow: 0 6px 20px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+#hud-card h4 { color: #58a6ff; font-size: 12px; margin: 0; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+#hud-card p { font-size: 11px; color: #a0b0c8; line-height: 1.35; margin: 0; }
 
-#hud-card { position: absolute; left: 16px; bottom: 44px; background: rgba(14, 16, 26, 0.92); backdrop-filter: blur(10px); border: 1px solid #283046; border-radius: 10px; padding: 14px 16px; width: 380px; z-index: 5; box-shadow: 0 6px 20px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 8px; }
-#hud-card h4 { color: #58a6ff; font-size: 13px; margin: 0; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
-#hud-card p { font-size: 11px; color: #a0b0c8; line-height: 1.4; margin: 0; }
-
-#help-badge { position: absolute; bottom: 44px; right: 16px; background: rgba(14, 16, 26, 0.88); backdrop-filter: blur(8px); border: 1px solid #283046; border-radius: 8px; padding: 8px 12px; font-size: 10px; line-height: 1.6; color: #6b7d96; z-index: 5; pointer-events: none; }
+#help-badge { position: absolute; bottom: 16px; right: 16px; background: rgba(14, 16, 26, 0.88); backdrop-filter: blur(8px); border: 1px solid #283046; border-radius: 8px; padding: 8px 12px; font-size: 10px; line-height: 1.6; color: #6b7d96; z-index: 5; pointer-events: none; }
 #help-badge kbd { background: #1e2434; border: 1px solid #303a50; border-radius: 3px; padding: 1px 4px; color: #9bb0ce; font-family: monospace; }
+
+#pin-marker { display: none; position: absolute; pointer-events: none; z-index: 6; transform: translate(-50%, -100%); transition: transform 0.05s linear; }
+.pin-marker-body { background: #ff3b30; color: #fff; font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: 4px; box-shadow: 0 3px 12px rgba(255,59,48,0.4); white-space: nowrap; border: 1px solid #ff7777; display: flex; align-items: center; gap: 4px; }
+.pin-marker-pole { width: 2px; height: 10px; background: #ff3b30; margin: 0 auto; box-shadow: 0 0 6px rgba(255,59,48,0.8); }
+.pin-marker-dot { width: 6px; height: 6px; background: #ffffff; border: 2px solid #ff3b30; border-radius: 50%; margin: -3px auto 0; box-shadow: 0 0 8px #ff3b30; }
+
+#pin-tray { background: rgba(14, 15, 24, 0.98); border-top: 1px solid #242438; padding: 6px 14px; display: flex; gap: 10px; align-items: center; overflow-x: auto; min-height: 52px; z-index: 10; user-select: none; }
+#pin-tray::-webkit-scrollbar { height: 4px; }
+#pin-tray::-webkit-scrollbar-thumb { background: #2e2e46; border-radius: 2px; }
+
+.pin-card { background: #181928; border: 1px solid #2c2d46; border-radius: 6px; padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; min-width: 270px; max-width: 330px; flex-shrink: 0; cursor: pointer; transition: all 0.15s; }
+.pin-card:hover { border-color: #4a4a70; background: #1e1f32; }
+.pin-card.active { border-color: #f85149; background: #221c26; box-shadow: 0 0 8px rgba(248,81,73,0.25); }
+.pin-card-header { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.pin-num { background: #f85149; color: #fff; font-size: 9px; font-weight: 800; border-radius: 3px; padding: 1px 4px; }
+.pin-title { font-size: 11px; font-weight: 600; color: #e0e0f0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.pin-badges { display: flex; gap: 4px; font-size: 9px; font-family: monospace; color: #8888b0; }
+.pin-badge { background: #12121e; border: 1px solid #26263a; padding: 1px 4px; border-radius: 3px; }
+.pin-input-wrap { display: flex; gap: 4px; margin-top: 2px; }
+.pin-note-input { flex: 1; background: #10101c; border: 1px solid #2b2c44; border-radius: 3px; color: #d0d0e8; font-size: 10px; padding: 3px 6px; font-family: inherit; }
+.pin-note-input:focus { outline: none; border-color: #58a6ff; }
+.pin-tags { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 1px; }
+.btn-tag { background: #141522; border: 1px solid #242538; color: #8282a8; font-size: 9px; padding: 1px 5px; border-radius: 3px; cursor: pointer; }
+.btn-tag:hover { background: #222338; color: #c0c0e8; border-color: #3e3f60; }
+
+#state-bar { background: rgba(16, 16, 26, 0.98); border-top: 1px solid #26263a; padding: 5px 14px; display: flex; gap: 14px; align-items: center; z-index: 10; user-select: none; }
+#state-text { flex: 1; font-size: 11px; color: #8888a8; letter-spacing: 0.3px; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#state-text span { color: #d0d0e8; font-weight: 600; }
 
 #no-webgpu { display: none; position: fixed; inset: 0; background: #0a0a12; color: #f85149; font-size: 18px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; z-index: 100; }
 #no-webgpu.show { display: flex; }
@@ -65,45 +96,87 @@ canvas#canvas { width: 100%; height: 100%; display: block; }
 <body>
 
 <div id="top-bar">
+  <!-- Transition scrub & options -->
   <label>α <input type="range" id="alpha-slider" min="0" max="1" step="0.001" value="0.0"> <span id="alpha-val" style="font-family:monospace;font-weight:600;color:#fff;">0.000</span></label>
+  
+  <div class="btn-group">
+    <button class="btn btn-xs btn-step" data-step="0.000">0.0</button>
+    <button class="btn btn-xs btn-step" data-step="0.250">.25</button>
+    <button class="btn btn-xs btn-step" data-step="0.500">.50</button>
+    <button class="btn btn-xs btn-step" data-step="0.750">.75</button>
+    <button class="btn btn-xs btn-step" data-step="1.000">1.0</button>
+  </div>
+
   <button class="btn play" id="btn-play" title="Space">▶ Play</button>
   
   <div class="btn-group">
-    <button class="btn" id="btn-opt-a" title="A">Option A: Pure Developable</button>
-    <button class="btn" id="btn-opt-b" title="B">Option B: Unzipping Peel</button>
-    <button class="btn active" id="btn-opt-c" title="C">Option C: Centered Folio Wave</button>
+    <button class="btn" id="btn-opt-a" title="Key A">Option A</button>
+    <button class="btn" id="btn-opt-b" title="Key B">Option B</button>
+    <button class="btn active" id="btn-opt-c" title="Key C">Option C</button>
   </div>
 
-  <span style="font-size:11px; font-family:monospace; color:#8888b0; background:#181828; padding:5px 10px; border-radius:4px; border:1px solid #2c2c44;">Target: Web Mercator (EPSG:3857)</span>
+  <div class="divider"></div>
 
-  <button class="btn active" id="btn-highlight" title="H">Edge Glow</button>
-  <button class="btn active" id="btn-wire" title="W">Wire</button>
-  <button class="btn" id="btn-normals" title="N">Normals</button>
+  <!-- Camera Presets -->
+  <span style="font-size:10px; color:#8888a8; font-weight:600;">CAM:</span>
+  <div class="btn-group">
+    <button class="btn btn-xs active" id="btn-cam-front" title="Key 1">Front [1]</button>
+    <button class="btn btn-xs" id="btn-cam-seam" title="Key 2">Seam [2]</button>
+    <button class="btn btn-xs" id="btn-cam-polar" title="Key 3">Polar [3]</button>
+    <button class="btn btn-xs" id="btn-cam-profile" title="Key 4">Profile [4]</button>
+  </div>
 
-  <label>Loft <input type="range" id="loft-slider" min="0.00" max="0.50" step="0.01" value="0.26"> <span id="loft-val">0.26</span></label>
-  <label>Speed <input type="range" id="speed-slider" min="0.1" max="2.0" step="0.1" value="0.5"> <span id="speed-val">0.5</span></label>
+  <div class="divider"></div>
+
+  <!-- Inspection Toggles -->
+  <button class="btn active btn-xs" id="btn-highlight" title="H">Glow</button>
+  <button class="btn active btn-xs" id="btn-wire" title="W">Wire</button>
+  <button class="btn btn-xs" id="btn-normals" title="N">Normals</button>
+  
+  <div class="divider"></div>
+
+  <!-- Pin & Feedback Tools -->
+  <button class="btn pin" id="btn-drop-pin" title="P">📌 Drop Pin [P]</button>
+  <button class="btn copy-chat" id="btn-copy-chat" title="Copy markdown summary for chat">📋 Copy for Chat (0)</button>
+
+  <label style="margin-left:auto;">Loft <input type="range" id="loft-slider" min="0.00" max="0.50" step="0.01" value="0.26"> <span id="loft-val">0.26</span></label>
+  <label>Spd <input type="range" id="speed-slider" min="0.1" max="2.0" step="0.1" value="0.5"> <span id="speed-val">0.5</span></label>
 </div>
 
 <div id="canvas-wrap">
   <canvas id="canvas"></canvas>
   
+  <!-- 3D Surface Pin Floating Marker -->
+  <div id="pin-marker">
+    <div class="pin-marker-body">
+      <span id="pin-marker-text">📌 Pin</span>
+    </div>
+    <div class="pin-marker-pole"></div>
+    <div class="pin-marker-dot"></div>
+  </div>
+
   <div id="hud-card">
     <h4>
       <span id="hud-title">Option C: Centered Folio Wave</span>
       <span style="font-size:10px; font-family:monospace; color:#58a6ff;">[Key C]</span>
     </h4>
-    <p id="hud-desc">Centered folio wave with natural polar retention and organic directional breath. Guaranteed 100% closed seamless globe at α=0.000, perfectly flat Web Mercator sheet at α=1.000, with continuous fluid staging and zero clunkiness.</p>
+    <p id="hud-desc">Centered folio wave with natural polar retention and organic directional breath. Click surface or press [P] to capture and annotate details.</p>
   </div>
 
   <div id="help-badge">
-    <kbd>A</kbd> Option A &nbsp; <kbd>B</kbd> Option B &nbsp; <kbd>C</kbd> Option C &nbsp;
-    <kbd>Space</kbd> Play &nbsp; <kbd>G</kbd> Globe &nbsp; <kbd>M</kbd> Map &nbsp; <kbd>H</kbd> Glow
+    <kbd>Click</kbd> Pin Area &nbsp; <kbd>1</kbd> Front &nbsp; <kbd>2</kbd> Seam &nbsp; <kbd>3</kbd> Polar &nbsp; <kbd>4</kbd> Profile &nbsp;
+    <kbd>←/→</kbd> Scrub &nbsp; <kbd>Space</kbd> Play &nbsp; <kbd>P</kbd> Pin
   </div>
+</div>
+
+<!-- Pin & Landmark Observation Tray -->
+<div id="pin-tray">
+  <!-- Dynamically injected pin cards -->
 </div>
 
 <div id="state-bar">
   <div id="state-text"></div>
-  <button class="btn" id="btn-copy-url">📋 Copy URL</button>
+  <button class="btn btn-xs" id="btn-copy-url">📋 Copy URL</button>
 </div>
 
 <div id="no-webgpu">
@@ -125,24 +198,31 @@ const OPTIONS = {
   a: {
     mode: 0,
     name: 'Option A: Pure Developable',
-    desc: 'Symmetric developable arc unrolling — the antimeridian splits down the back and parallels relax along circular arcs. Clean, architectural, and mathematically pure.'
+    desc: 'Symmetric developable arc unrolling — antimeridian splits down the back and parallels relax along circular arcs. Clean, architectural, and mathematically pure.'
   },
   b: {
     mode: 1,
     name: 'Option B: Unzipping Peel',
-    desc: 'Equator leads, polar corners lag — the equatorial seam splits first and pushes out, while high latitudes hold closed spherical caps, unzipping into flat map corners only near landing.'
+    desc: 'Equator leads, polar corners lag — equatorial seam splits first and pushes out, while high latitudes hold closed spherical caps, unzipping only near landing.'
   },
   c: {
     mode: 2,
     name: 'Option C: Centered Folio Wave',
-    desc: 'Centered folio wave with natural polar retention and organic directional breath. Guaranteed 100% closed seamless globe at α=0.000, perfectly flat Web Mercator sheet at α=1.000, with continuous fluid staging and zero clunkiness.'
+    desc: 'Centered folio wave with natural polar retention and organic directional breath. Guaranteed 100% closed seamless globe at α=0.000, flat Web Mercator at α=1.000.'
   }
+};
+
+const CAMERA_PRESETS = {
+  front:   { theta: 0.0,             phi: 0.0,            distance: 18.0, name: 'Front (Greenwich 0°)' },
+  seam:    { theta: Math.PI,         phi: 0.25,           distance: 22.0, name: 'Seam (Antimeridian 180°)' },
+  polar:   { theta: 0.0,             phi: Math.PI * 0.48, distance: 20.0, name: 'Polar (Top-Down 90°N)' },
+  profile: { theta: Math.PI * 0.5,   phi: 0.0,            distance: 22.0, name: 'Profile (Side 90°W)' }
 };
 
 const state = {
   alpha: 0.0,
-  option: 'c',      // 'a', 'b', 'c'
-  endpoint: 1,      // 1=mercator (locked)
+  option: 'c',
+  endpoint: 1,      // locked Web Mercator
   wireframe: true,
   normals: false,
   edgeHighlight: true,
@@ -152,10 +232,326 @@ const state = {
   playDir: 1,
 };
 
-const camera = { theta: 0.85, phi: 0.35, distance: 18.0 };
+const camera = { theta: 0.0, phi: 0.0, distance: 18.0 };
+let camAnim = null;
+
+let pins = [];
+let activePinId = null;
 
 // ═══════════════════════════════════════════════════════════════
-// MATH UTILITIES
+// CPU MANIFOLD EVALUATION (For Synchronous Surface Raycasting & Pin Tracking)
+// ═══════════════════════════════════════════════════════════════
+function smoothstep(e0, e1, x) {
+  const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+}
+
+function evalOptionACPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
+  const ease = alpha;
+  const tParallel = smoothstep(0.35, 0.90, ease);
+  const rPar = RADIUS * (cosLat * (1 - tParallel) + tParallel);
+  const s = Math.max(0.0, 1.0 - ease);
+  const uAngle = s * lonRad;
+  let curX, curZ;
+  if (Math.abs(uAngle) > 0.02) {
+    const sDiv = Math.max(0.0001, s);
+    curX = rPar * (Math.sin(uAngle) / sDiv);
+    curZ = rPar * ((Math.cos(uAngle) - 1.0) / sDiv + s);
+  } else {
+    const u2 = uAngle * uAngle;
+    curX = rPar * lonRad * (1.0 - u2 / 6.0);
+    curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
+  }
+  const clampedLat = Math.max(-1.4835, Math.min(1.4835, latRad));
+  const mercatorY = Math.log(Math.tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
+  const yArc = RADIUS * latRad;
+  const tStraighten = smoothstep(0.05, 0.70, ease);
+  const yStraight = RADIUS * sinLat * (1 - tStraighten) + yArc * tStraighten;
+  const tMerc = smoothstep(0.35, 1.00, ease);
+  const curY = yStraight * (1 - tMerc) + mercatorY * tMerc;
+  const chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * Math.sin(PI * ease) * chordLiftMag;
+  curZ += chordLiftZ;
+  return [curX, curY, curZ];
+}
+
+function evalOptionBCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
+  const latWeight = 1.0 - cosLat;
+  const easeEquator = smoothstep(0.0, 0.90, alpha);
+  const easePoles = smoothstep(0.40, 1.00, alpha);
+  const localEase = easeEquator * (1 - latWeight * 0.70) + easePoles * (latWeight * 0.70);
+  const tParallel = smoothstep(0.15, 0.85, alpha) * (1 - latWeight) + smoothstep(0.55, 0.95, alpha) * latWeight;
+  const rPar = RADIUS * (cosLat * (1 - tParallel) + tParallel);
+  const s = Math.max(0.0, 1.0 - localEase);
+  const uAngle = s * lonRad;
+  let curX, curZ;
+  if (Math.abs(uAngle) > 0.02) {
+    const sDiv = Math.max(0.0001, s);
+    curX = rPar * (Math.sin(uAngle) / sDiv);
+    curZ = rPar * ((Math.cos(uAngle) - 1.0) / sDiv + s);
+  } else {
+    const u2 = uAngle * uAngle;
+    curX = rPar * lonRad * (1.0 - u2 / 6.0);
+    curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
+  }
+  const clampedLat = Math.max(-1.4835, Math.min(1.4835, latRad));
+  const mercatorY = Math.log(Math.tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
+  const yArc = RADIUS * latRad;
+  const tStraighten = smoothstep(0.05, 0.70, localEase);
+  const yStraight = RADIUS * sinLat * (1 - tStraighten) + yArc * tStraighten;
+  const tMerc = smoothstep(0.35, 1.00, localEase);
+  const curY = yStraight * (1 - tMerc) + mercatorY * tMerc;
+  const chordLiftZ = (0.3 + 0.7 * cosLat) * RADIUS * (1.0 - alpha) * Math.sin(PI * alpha) * chordLiftMag;
+  curZ += chordLiftZ;
+  return [curX, curY, curZ];
+}
+
+function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag) {
+  const normLon = lonRad / PI;
+  const absNormLon = Math.abs(normLon);
+
+  // Softened Hermite envelope: zero velocity derivatives at alpha=0 and alpha=1 (Pin #4)
+  const sZero = smoothstep(0.0, 0.12, alpha);
+  const sOne = 1.0 - smoothstep(0.88, 1.0, alpha);
+  const env = Math.sin(PI * alpha) * sZero * sOne;
+
+  // Bilateral symmetric unroll (Pins #5 & #7: eliminates nautilus spiral)
+  const latWeight = 1.0 - cosLat;
+  const latLag = latWeight * 0.08 * env;
+  const easeLocal = Math.max(0.0, Math.min(1.0, alpha - latLag));
+
+  // Harmonized parallel expansion (Pins #2 & #3: eliminates equatorial pointed snout & polar tube)
+  const tParallel = smoothstep(0.18, 0.84, easeLocal) * (1.0 - latWeight * 0.50) + smoothstep(0.28, 0.92, easeLocal) * (latWeight * 0.50);
+  const rPar = RADIUS * (cosLat * (1.0 - tParallel) + tParallel);
+
+  // Developable circular arc unroll
+  const s = Math.max(0.0, 1.0 - easeLocal);
+  const uAngle = s * lonRad;
+  let curX, curZ;
+  if (Math.abs(uAngle) > 0.02) {
+    const sDiv = Math.max(0.0001, s);
+    curX = rPar * (Math.sin(uAngle) / sDiv);
+    curZ = rPar * ((Math.cos(uAngle) - 1.0) / sDiv + s);
+  } else {
+    const u2 = uAngle * uAngle;
+    curX = rPar * lonRad * (1.0 - u2 / 6.0);
+    curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
+  }
+
+  // Inward tactile lip curve at free edges (Pin #6: prevents horn flare, softens nautilus)
+  const edgeZone = smoothstep(0.78, 1.0, absNormLon);
+  const lipCurl = -Math.sin(edgeZone * PI * 0.5) * RADIUS * 0.045 * env * cosLat;
+  curZ += lipCurl;
+
+  // Organic bilateral breathing wave across the sheet
+  const waveFlex = env * (1.0 - alpha) * Math.cos(lonRad * 0.5) * RADIUS * 0.035 * cosLat;
+  curZ += waveFlex;
+
+  // Continuous Web Mercator unbending
+  const clampedLat = Math.max(-1.4835, Math.min(1.4835, latRad));
+  const mercatorY = Math.log(Math.tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
+  const yArc = RADIUS * latRad;
+  const tStraighten = smoothstep(0.10, 0.78, easeLocal);
+  const yStraight = RADIUS * sinLat * (1.0 - tStraighten) + yArc * tStraighten;
+  const tMerc = smoothstep(0.28, 0.96, easeLocal);
+  const curY = yStraight * (1.0 - tMerc) + mercatorY * tMerc;
+
+  // Central sheet loft
+  const chordLiftZ = (0.35 + 0.65 * cosLat) * RADIUS * (1.0 - alpha) * env * chordLiftMag;
+  curZ += chordLiftZ;
+  return [curX, curY, curZ];
+}
+
+function evalManifoldCPU(lonRad, latRad, alpha, mode, chordLiftMag) {
+  const cosLat = Math.cos(latRad);
+  const sinLat = Math.sin(latRad);
+  if (mode === 0) return evalOptionACPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag);
+  if (mode === 1) return evalOptionBCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag);
+  return evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, chordLiftMag);
+}
+
+function getGeographicLabel(lonDeg, latDeg) {
+  const absLat = Math.abs(latDeg);
+  const absLon = Math.abs(lonDeg);
+  const lonHem = lonDeg >= 0 ? 'E' : 'W';
+  const latHem = latDeg >= 0 ? 'N' : 'S';
+  const coordStr = `${absLat.toFixed(0)}°${latHem}, ${absLon.toFixed(0)}°${lonHem}`;
+
+  let region = '';
+  if (latDeg > 65) region = 'North Polar Cap';
+  else if (latDeg < -60) region = 'Antarctic Shelf';
+  else if (Math.abs(absLon - 180) < 30) {
+    if (absLat < 20) region = 'Equatorial Antimeridian Seam';
+    else if (latDeg >= 20) region = 'North Pacific Seam Lip';
+    else region = 'South Pacific Seam Lip';
+  } else if (absLon < 25) {
+    if (absLat < 20) region = 'Greenwich Anchor Hinge';
+    else if (latDeg >= 20) region = 'European/Arctic Meridian';
+    else region = 'South Atlantic Meridian';
+  } else if (lonDeg < -25) {
+    if (latDeg > 20) region = 'North American Interior';
+    else if (latDeg < -20) region = 'South American Interior';
+    else region = 'Equatorial Atlantic / Amazon';
+  } else {
+    if (latDeg > 20) region = 'Eurasian Interior';
+    else if (latDeg < -20) region = 'Indian Ocean / Australia';
+    else region = 'African Equatorial Interior';
+  }
+  return `${region} (${coordStr})`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SURFACE RAYCASTING & CLICK PICKING (Exact Matrix Inverse Unprojection)
+// ═══════════════════════════════════════════════════════════════
+function mat4_invert(m) {
+  const inv = new Float32Array(16);
+  const m0 = m[0], m1 = m[1], m2 = m[2], m3 = m[3];
+  const m4 = m[4], m5 = m[5], m6 = m[6], m7 = m[7];
+  const m8 = m[8], m9 = m[9], m10 = m[10], m11 = m[11];
+  const m12 = m[12], m13 = m[13], m14 = m[14], m15 = m[15];
+
+  const t0 = m10 * m15 - m11 * m14;
+  const t1 = m9 * m15 - m11 * m13;
+  const t2 = m9 * m14 - m10 * m13;
+  const t3 = m8 * m15 - m11 * m12;
+  const t4 = m8 * m14 - m10 * m12;
+  const t5 = m8 * m13 - m9 * m12;
+
+  inv[0] =  (m5 * t0 - m6 * t1 + m7 * t2);
+  inv[4] = -(m4 * t0 - m6 * t3 + m7 * t4);
+  inv[8] =  (m4 * t1 - m5 * t3 + m7 * t5);
+  inv[12] = -(m4 * t2 - m5 * t4 + m6 * t5);
+
+  inv[1] = -(m1 * t0 - m2 * t1 + m3 * t2);
+  inv[5] =  (m0 * t0 - m2 * t3 + m3 * t4);
+  inv[9] = -(m0 * t1 - m1 * t3 + m3 * t5);
+  inv[13] =  (m0 * t2 - m1 * t4 + m2 * t5);
+
+  const t6 = m6 * m15 - m7 * m14;
+  const t7 = m5 * m15 - m7 * m13;
+  const t8 = m5 * m14 - m6 * m13;
+  const t9 = m4 * m15 - m7 * m12;
+  const t10 = m4 * m14 - m6 * m12;
+  const t11 = m4 * m13 - m5 * m12;
+
+  inv[2] =  (m1 * t6 - m2 * t7 + m3 * t8);
+  inv[6] = -(m0 * t6 - m2 * t9 + m3 * t10);
+  inv[10] =  (m0 * t7 - m1 * t9 + m3 * t11);
+  inv[14] = -(m0 * t8 - m1 * t10 + m2 * t11);
+
+  const t12 = m6 * m11 - m7 * m10;
+  const t13 = m5 * m11 - m7 * m9;
+  const t14 = m5 * m10 - m6 * m9;
+  const t15 = m4 * m11 - m7 * m8;
+  const t16 = m4 * m10 - m6 * m8;
+  const t17 = m4 * m9 - m5 * m8;
+
+  inv[3] = -(m1 * t12 - m2 * t13 + m3 * t14);
+  inv[7] =  (m0 * t12 - m2 * t15 + m3 * t16);
+  inv[11] = -(m0 * t13 - m1 * t15 + m3 * t17);
+  inv[15] =  (m0 * t14 - m1 * t16 + m2 * t17);
+
+  const det = m0 * inv[0] + m1 * inv[4] + m2 * inv[8] + m3 * inv[12];
+  if (Math.abs(det) < 1e-8) return null;
+  const invDet = 1.0 / det;
+  for (let i = 0; i < 16; i++) inv[i] *= invDet;
+  return inv;
+}
+
+function getRayFromScreen(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const ndcX = ((clientX - rect.left) / rect.width) * 2.0 - 1.0;
+  const ndcY = 1.0 - ((clientY - rect.top) / rect.height) * 2.0;
+
+  const aspect = canvas.width / canvas.height;
+  const vp = getViewProjectionMatrix(aspect);
+  const invVP = mat4_invert(vp);
+  if (!invVP) return { origin: getCameraPosition(), dir: [0, 0, -1] };
+
+  function unprojectPoint(x, y, z) {
+    const rx = invVP[0]*x + invVP[4]*y + invVP[8]*z + invVP[12];
+    const ry = invVP[1]*x + invVP[5]*y + invVP[9]*z + invVP[13];
+    const rz = invVP[2]*x + invVP[6]*y + invVP[10]*z + invVP[14];
+    const rw = invVP[3]*x + invVP[7]*y + invVP[11]*z + invVP[15];
+    const w = rw !== 0 ? 1 / rw : 1;
+    return [rx * w, ry * w, rz * w];
+  }
+
+  const near = unprojectPoint(ndcX, ndcY, 0.0);
+  const far = unprojectPoint(ndcX, ndcY, 1.0);
+  const dir = [far[0] - near[0], far[1] - near[1], far[2] - near[2]];
+  const len = Math.hypot(dir[0], dir[1], dir[2]) || 1;
+  return { origin: near, dir: [dir[0]/len, dir[1]/len, dir[2]/len] };
+}
+
+function raycastSurface(ray) {
+  let bestU = 0.5, bestV = 0.5;
+  let bestDistSq = Infinity;
+  let bestProj = Infinity;
+  let bestPos = null;
+  const mode = OPTIONS[state.option].mode;
+
+  // Step 1: Coarse grid 40 x 20
+  for (let gu = 0; gu <= 40; gu++) {
+    const u = gu / 40;
+    const lonRad = (u - 0.5) * TWO_PI;
+    for (let gv = 0; gv <= 20; gv++) {
+      const v = gv / 20;
+      const latRad = (0.5 - v) * PI;
+      const pos = evalManifoldCPU(lonRad, latRad, state.alpha, mode, state.chordLiftMag);
+      const vx = pos[0] - ray.origin[0];
+      const vy = pos[1] - ray.origin[1];
+      const vz = pos[2] - ray.origin[2];
+      const proj = vx * ray.dir[0] + vy * ray.dir[1] + vz * ray.dir[2];
+      if (proj <= 0) continue;
+      const distSq = (vx * vx + vy * vy + vz * vz) - (proj * proj);
+      
+      // Select closest ray distance, favoring front-facing points (smaller proj)
+      if (distSq < bestDistSq || (distSq < 0.25 && proj < bestProj)) {
+        bestDistSq = distSq;
+        bestProj = proj;
+        bestU = u;
+        bestV = v;
+        bestPos = pos;
+      }
+    }
+  }
+
+  // Step 2: Fine local grid refinement
+  const deltaU = 1 / 40, deltaV = 1 / 20;
+  for (let fu = -5; fu <= 5; fu++) {
+    const u = Math.max(0, Math.min(1, bestU + fu * (deltaU / 5)));
+    const lonRad = (u - 0.5) * TWO_PI;
+    for (let fv = -5; fv <= 5; fv++) {
+      const v = Math.max(0, Math.min(1, bestV + fv * (deltaV / 5)));
+      const latRad = (0.5 - v) * PI;
+      const pos = evalManifoldCPU(lonRad, latRad, state.alpha, mode, state.chordLiftMag);
+      const vx = pos[0] - ray.origin[0];
+      const vy = pos[1] - ray.origin[1];
+      const vz = pos[2] - ray.origin[2];
+      const proj = vx * ray.dir[0] + vy * ray.dir[1] + vz * ray.dir[2];
+      if (proj <= 0) continue;
+      const distSq = (vx * vx + vy * vy + vz * vz) - (proj * proj);
+      if (distSq < bestDistSq || (distSq < 0.15 && proj < bestProj)) {
+        bestDistSq = distSq;
+        bestProj = proj;
+        bestU = u;
+        bestV = v;
+        bestPos = pos;
+      }
+    }
+  }
+
+  if (Math.sqrt(bestDistSq) < 0.65) {
+    const lonDeg = (bestU - 0.5) * 360;
+    const latDeg = (0.5 - bestV) * 180;
+    const label = getGeographicLabel(lonDeg, latDeg);
+    return { u: bestU, v: bestV, lonDeg, latDeg, label, worldPos: bestPos };
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MATRIX & CAMERA UTILITIES
 // ═══════════════════════════════════════════════════════════════
 function mat4_perspective(fovY, aspect, near, far) {
   const f = 1.0 / Math.tan(fovY / 2);
@@ -212,6 +608,48 @@ function getViewProjectionMatrix(aspect) {
   return mat4_multiply(proj, view);
 }
 
+function setCameraPreset(key) {
+  const p = CAMERA_PRESETS[key];
+  if (!p) return;
+  const startTheta = camera.theta;
+  const startPhi = camera.phi;
+  const startDist = camera.distance;
+  const targetTheta = p.theta;
+  const targetPhi = p.phi;
+  const targetDist = p.distance;
+  const startTime = performance.now();
+  const dur = 280;
+
+  let deltaTheta = (targetTheta - startTheta) % TWO_PI;
+  if (deltaTheta > PI) deltaTheta -= TWO_PI;
+  if (deltaTheta < -PI) deltaTheta += TWO_PI;
+
+  camAnim = (now) => {
+    const elapsed = now - startTime;
+    const t = Math.min(1.0, elapsed / dur);
+    const ease = t * t * (3 - 2 * t);
+    camera.theta = startTheta + deltaTheta * ease;
+    camera.phi = startPhi + (targetPhi - startPhi) * ease;
+    camera.distance = startDist + (targetDist - startDist) * ease;
+    if (t >= 1.0) {
+      camAnim = null;
+      camera.theta = targetTheta;
+      camera.phi = targetPhi;
+      camera.distance = targetDist;
+    }
+  };
+}
+
+function getCameraPresetName(cam) {
+  const tDeg = ((cam.theta * 180 / PI) % 360 + 360) % 360;
+  const pDeg = (cam.phi * 180 / PI);
+  if (pDeg > 65) return 'Polar View (Top)';
+  if (Math.abs(tDeg - 180) < 35) return 'Seam View (Back)';
+  if (Math.abs(tDeg - 90) < 35 || Math.abs(tDeg - 270) < 35) return 'Profile View (Side)';
+  if (Math.abs(tDeg) < 35 || Math.abs(tDeg - 360) < 35) return 'Front View (Greenwich)';
+  return `Angle (${tDeg.toFixed(0)}°, ${pDeg.toFixed(0)}°)`;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // MESH GENERATION
 // ═══════════════════════════════════════════════════════════════
@@ -251,24 +689,18 @@ const TWO_PI: f32 = 6.28318530717959;
 const RADIUS: f32 = 5.0;
 
 struct Uniforms {
-    viewProj: mat4x4<f32>,      // 0..15  (64 bytes)
-    alpha: f32,                  // 16     (4 bytes)
-    optionMode: u32,             // 17     (4 bytes, 0=A, 1=B, 2=C)
-    endpoint: u32,               // 18     (4 bytes)
-    flags: u32,                  // 19     (4 bytes, bit 0=chord, 1=normals, 2=wire, 3=highlight)
-    chordLiftMag: f32,           // 20     (4 bytes)
-    _pad0: f32,                  // 21
-    _pad1: f32,                  // 22
-    _pad2: f32,                  // 23
-    _pad3: f32,                  // 24
-    _pad4: f32,                  // 25
-    _pad5: f32,                  // 26
-    _pad6: f32,                  // 27
-    _pad7: f32,                  // 28
-    _pad8: f32,                  // 29
-    _pad9: f32,                  // 30
-    _pad10: f32,                 // 31
-    cameraPos: vec4<f32>,        // 32..35 (16 bytes, offset 128 bytes - aligns to 16 bytes)
+    viewProj: mat4x4<f32>,      // 0..15  (64 bytes, offset 0)
+    alpha: f32,                  // 16     (4 bytes, offset 64)
+    optionMode: u32,             // 17     (4 bytes, offset 68)
+    endpoint: u32,               // 18     (4 bytes, offset 72)
+    flags: u32,                  // 19     (4 bytes, offset 76)
+    chordLiftMag: f32,           // 20     (4 bytes, offset 80)
+    pinActive: f32,              // 21     (4 bytes, offset 84)
+    _pad0: f32,                  // 22     (4 bytes, offset 88)
+    _pad1: f32,                  // 23     (4 bytes, offset 92)
+    pinWorldPos: vec4<f32>,      // 24..27 (16 bytes, offset 96)
+    _pad2: vec4<f32>,            // 28..31 (16 bytes, offset 112)
+    cameraPos: vec4<f32>,        // 32..35 (16 bytes, offset 128)
 };
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
@@ -282,12 +714,9 @@ struct VsOut {
 // ─── OPTION A: Pure Developable Arc (Symmetric) ───
 fn evalOptionA(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
     let ease = alpha;
-
-    // Parallel expansion:
     let tParallel = smoothstep(0.35, 0.90, ease);
     let rPar = RADIUS * mix(cosLat, 1.0, tParallel);
 
-    // Developable circular arc:
     let s = max(0.0, 1.0 - ease);
     let uAngle = s * lonRad;
     var curX: f32;
@@ -302,7 +731,6 @@ fn evalOptionA(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
         curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
     }
 
-    // Continuous Web Mercator unbending (zero jerk, zero stage collision):
     let clampedLat = clamp(latRad, -1.4835, 1.4835);
     let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
     let yArc = RADIUS * latRad;
@@ -311,25 +739,21 @@ fn evalOptionA(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
     let tMerc = smoothstep(0.35, 1.00, ease);
     let curY = mix(yStraight, mercatorY, tMerc);
 
-    // Chord lift:
     let chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * sin(PI * ease) * u.chordLiftMag;
     curZ = curZ + chordLiftZ;
-
     return vec3<f32>(curX, curY, curZ);
 }
 
 // ─── OPTION B: Unzipping Peel (Equator leads, polar corners lag) ───
 fn evalOptionB(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
-    let latWeight = 1.0 - cosLat; // 0.0 at Equator, 1.0 at Poles
+    let latWeight = 1.0 - cosLat;
     let easeEquator = smoothstep(0.0, 0.90, alpha);
     let easePoles = smoothstep(0.40, 1.00, alpha);
     let localEase = mix(easeEquator, easePoles, latWeight * 0.70);
 
-    // Parallel radius: keeps poles closed apex points until late landing
     let tParallel = mix(smoothstep(0.15, 0.85, alpha), smoothstep(0.55, 0.95, alpha), latWeight);
     let rPar = RADIUS * mix(cosLat, 1.0, tParallel);
 
-    // Arc unroll with latitude-dependent unzipping:
     let s = max(0.0, 1.0 - localEase);
     let uAngle = s * lonRad;
     var curX: f32;
@@ -344,7 +768,6 @@ fn evalOptionB(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
         curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
     }
 
-    // Continuous Web Mercator unbending:
     let clampedLat = clamp(latRad, -1.4835, 1.4835);
     let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
     let yArc = RADIUS * latRad;
@@ -353,30 +776,29 @@ fn evalOptionB(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
     let tMerc = smoothstep(0.35, 1.00, localEase);
     let curY = mix(yStraight, mercatorY, tMerc);
 
-    // Dynamic unzipping chord lift:
     let chordLiftZ = (0.3 + 0.7 * cosLat) * RADIUS * (1.0 - alpha) * sin(PI * alpha) * u.chordLiftMag;
     curZ = curZ + chordLiftZ;
-
     return vec3<f32>(curX, curY, curZ);
 }
 
-// ─── OPTION C: Centered Folio Wave (Organic Directional Unroll) ───
+// ─── OPTION C: Centered Folio Wave (Harmonized & Tactile) ───
 fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -> vec3<f32> {
-    // Both edges open (East and West), centered at Greenwich (lon=0).
     let normLon = lonRad / PI; // -1.0 (West) to +1.0 (East)
+    let absNormLon = abs(normLon); // 0 at Greenwich, 1.0 at Antimeridian
     
-    // Wave envelope: strictly 0 at alpha=0.0 and alpha=1.0.
-    // Guarantees 100% closed seamless globe at alpha=0.000, and 100% flat sheet at alpha=1.000.
-    let env = sin(PI * alpha);
-    let waveBias = normLon * 0.10 * env;
-    let latWeight = 1.0 - cosLat; // 0 at equator, 1 at poles
-    let latLag = latWeight * 0.12 * env;
-    let easeLocal = clamp(alpha - waveBias - latLag, 0.0, 1.0);
+    // Softened Hermite envelope: zero velocity derivatives at alpha=0 and alpha=1
+    // Completely eliminates the boundary "thunk" / shell-clamp on close (Pin #4)
+    let sZero = smoothstep(0.0, 0.12, alpha);
+    let sOne = 1.0 - smoothstep(0.88, 1.0, alpha);
+    let env = sin(PI * alpha) * sZero * sOne;
     
-    // Parallel expansion: smooth continuum derived purely from easeLocal (no stage clunkiness)
-    let tEq = smoothstep(0.10, 0.85, easeLocal);
-    let tPol = smoothstep(0.25, 0.95, easeLocal);
-    let tParallel = mix(tEq, tPol, latWeight * 0.65);
+    // Bilateral symmetric unroll (Pins #5 & #7: eliminates nautilus spiral & lopsided lag)
+    let latWeight = 1.0 - cosLat;
+    let latLag = latWeight * 0.08 * env;
+    let easeLocal = clamp(alpha - latLag, 0.0, 1.0);
+    
+    // Harmonized parallel expansion (Pins #2 & #3: eliminates equatorial pointed snout & polar tube)
+    let tParallel = mix(smoothstep(0.18, 0.84, easeLocal), smoothstep(0.28, 0.92, easeLocal), latWeight * 0.50);
     let rPar = RADIUS * mix(cosLat, 1.0, tParallel);
 
     // Developable circular arc unroll:
@@ -394,22 +816,26 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32) -
         curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
     }
 
-    // Subtle natural folio wave across surface (strictly polar-attenuated by cosLat):
-    // Zero at Greenwich (lon=0), zero at poles, zero at alpha=0 and alpha=1
-    let waveFlex = env * (1.0 - alpha) * sin(lonRad * 0.5) * RADIUS * 0.05 * cosLat;
+    // Inward tactile lip curve at free edges (Pin #6: prevents horn flare, softens nautilus)
+    let edgeZone = smoothstep(0.78, 1.0, absNormLon);
+    let lipCurl = -sin(edgeZone * PI * 0.5) * RADIUS * 0.045 * env * cosLat;
+    curZ = curZ + lipCurl;
+
+    // Organic bilateral breathing wave across the sheet:
+    let waveFlex = env * (1.0 - alpha) * cos(lonRad * 0.5) * RADIUS * 0.035 * cosLat;
     curZ = curZ + waveFlex;
 
-    // Continuous Web Mercator unbending:
+    // Continuous Web Mercator unbending (harmonized vertical profile):
     let clampedLat = clamp(latRad, -1.4835, 1.4835);
     let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
     let yArc = RADIUS * latRad;
-    let tStraighten = smoothstep(0.05, 0.70, easeLocal);
+    let tStraighten = smoothstep(0.10, 0.78, easeLocal);
     let yStraight = mix(RADIUS * sinLat, yArc, tStraighten);
-    let tMerc = smoothstep(0.35, 1.00, easeLocal);
+    let tMerc = smoothstep(0.28, 0.96, easeLocal);
     let curY = mix(yStraight, mercatorY, tMerc);
 
     // Central sheet loft:
-    let chordLiftZ = (0.4 + 0.6 * cosLat) * RADIUS * (1.0 - alpha) * env * u.chordLiftMag;
+    let chordLiftZ = (0.35 + 0.65 * cosLat) * RADIUS * (1.0 - alpha) * env * u.chordLiftMag;
     curZ = curZ + chordLiftZ;
 
     return vec3<f32>(curX, curY, curZ);
@@ -437,7 +863,6 @@ fn vs_main(@location(0) uv: vec2<f32>) -> VsOut {
     let geo = uvToGeo(uv);
     let pos = evalManifold(geo.x, geo.y, geo.z, geo.w, u.alpha);
 
-    // Finite-difference surface normals
     let eps = 0.0008;
     let geoU = uvToGeo(uv + vec2<f32>(eps, 0.0));
     let geoV = uvToGeo(uv + vec2<f32>(0.0, eps));
@@ -457,13 +882,25 @@ fn vs_main(@location(0) uv: vec2<f32>) -> VsOut {
 
 @fragment
 fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
+    // Unconditional uniform control flow derivatives at top of fs_main (Rule 4)
+    let lonNorm = abs((in.uv.x - 0.5) * 2.0);
+    let edgeDist = 1.0 - lonNorm;
+    let dLonNorm = fwidth(lonNorm);
+
+    let gl = 12.0;
+    let uvScaled = in.uv * gl;
+    let gridFrac = fract(uvScaled);
+    let dU = fwidth(uvScaled.x);
+    let dV = fwidth(uvScaled.y);
+    let dUvY = fwidth(in.uv.y);
+    let dUvX = fwidth(in.uv.x);
+
     let normalViz = (u.flags & 2u) != 0u;
 
     var baseColor: vec3<f32>;
     if (normalViz) {
         baseColor = abs(in.normal) * 0.85 + 0.15;
     } else {
-        // Checkerboard: 30° lon × 30° lat cells
         let lonCell = floor(in.uv.x * 12.0);
         let latCell = floor(in.uv.y * 6.0);
         let checker = (lonCell + latCell) % 2.0;
@@ -471,35 +908,41 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
         let coolColor = vec3<f32>(0.65, 0.74, 0.82);
         baseColor = mix(warmColor, coolColor, checker);
 
-        // Simple hemisphere lighting
         let lightDir = normalize(vec3<f32>(0.4, 0.85, 0.6));
         let ndotl = max(dot(in.normal, lightDir), 0.0);
         let ambient = 0.35;
         baseColor = baseColor * (ambient + (1.0 - ambient) * ndotl);
     }
 
-    // Edge highlight (glowing amber boundary seam lines to visualize lip flare)
-    let lonNorm = abs((in.uv.x - 0.5) * 2.0);
-    let edgeDist = 1.0 - lonNorm;
-    let edgeGlow = 1.0 - smoothstep(0.0, fwidth(lonNorm) * 6.0, edgeDist);
+    // 3D Surface Pin Beacon
+    if (u.pinActive > 0.5) {
+        let pinDist = length(in.worldPos - u.pinWorldPos.xyz);
+        if (pinDist < 0.70) {
+            let ringGlow = 1.0 - smoothstep(0.0, 0.70, pinDist);
+            let ring = 0.5 + 0.5 * sin(pinDist * 22.0);
+            let beaconColor = vec3<f32>(1.0, 0.22, 0.20);
+            baseColor = mix(baseColor, beaconColor, ringGlow * (0.60 + 0.40 * ring));
+            if (pinDist < 0.12) {
+                baseColor = vec3<f32>(1.0, 1.0, 1.0);
+            }
+        }
+    }
+
+    // Edge highlight
+    let edgeGlow = 1.0 - smoothstep(0.0, dLonNorm * 6.0, edgeDist);
     let highlightActive = f32((u.flags & 8u) != 0u);
-    let glowColor = vec3<f32>(1.0, 0.55, 0.08); // glowing copper amber
+    let glowColor = vec3<f32>(1.0, 0.55, 0.08);
     baseColor = mix(baseColor, glowColor, edgeGlow * 0.90 * highlightActive);
 
     // Wireframe overlay
-    let gl = 12.0;
-    let uvScaled = in.uv * gl;
-    let gridFrac = fract(uvScaled);
-    let dU = fwidth(uvScaled.x);
-    let dV = fwidth(uvScaled.y);
     let lw = 1.5;
     let wireU = 1.0 - smoothstep(0.0, dU * lw, gridFrac.x) * smoothstep(0.0, dU * lw, 1.0 - gridFrac.x);
     let wireV = 1.0 - smoothstep(0.0, dV * lw, gridFrac.y) * smoothstep(0.0, dV * lw, 1.0 - gridFrac.y);
 
     let eqDist = abs(in.uv.y - 0.5);
     let pmDist = abs(in.uv.x - 0.5);
-    let eqLine = 1.0 - smoothstep(0.0, fwidth(in.uv.y) * 2.5, eqDist);
-    let pmLine = 1.0 - smoothstep(0.0, fwidth(in.uv.x) * 2.5, pmDist);
+    let eqLine = 1.0 - smoothstep(0.0, dUvY * 2.5, eqDist);
+    let pmLine = 1.0 - smoothstep(0.0, dUvX * 2.5, pmDist);
     let majorLine = max(eqLine, pmLine);
 
     let wire = max(max(wireU, wireV), majorLine);
@@ -541,11 +984,12 @@ function hashToState() {
 }
 
 function updateStateDisplay() {
-  const tDeg = (camera.theta * 180 / PI).toFixed(1);
-  const pDeg = (camera.phi * 180 / PI).toFixed(1);
+  const tDeg = ((camera.theta * 180 / PI) % 360 + 360) % 360;
+  const pDeg = (camera.phi * 180 / PI);
   const dVal = camera.distance.toFixed(1);
-  const optName = OPTIONS[state.option].name;
-  stateText.innerHTML = `α=<span>${state.alpha.toFixed(3)}</span> &nbsp; θ=<span>${tDeg}°</span> &nbsp; φ=<span>${pDeg}°</span> &nbsp; d=<span>${dVal}</span> &nbsp; motion=<span>${optName}</span> &nbsp; target=<span>Web Mercator</span>`;
+  const optName = OPTIONS[state.option].name.split(':')[0];
+  const camName = getCameraPresetName(camera);
+  stateText.innerHTML = `α=<span>${state.alpha.toFixed(3)}</span> &nbsp; view=<span>${camName}</span> (θ=<span>${tDeg.toFixed(1)}°</span>, φ=<span>${pDeg.toFixed(1)}°</span>) &nbsp; motion=<span>${optName}</span> &nbsp; pins=<span>${pins.length}</span>`;
 }
 
 function copyURL() {
@@ -553,6 +997,200 @@ function copyURL() {
   navigator.clipboard.writeText(url).then(() => {
     btnCopyUrl.textContent = '✅ Copied';
     setTimeout(() => { btnCopyUrl.textContent = '📋 Copy URL'; }, 1200);
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PIN MANAGEMENT & CHAT COPY
+// ═══════════════════════════════════════════════════════════════
+function addPin(point = null) {
+  if (!point) {
+    const isBack = Math.abs(camera.theta - PI) < PI * 0.5;
+    const isTop = camera.phi > 1.0;
+    let u = 0.5, v = 0.5;
+    if (isTop) { u = 0.5; v = 0.05; }
+    else if (isBack) { u = 0.98; v = 0.5; }
+    const lonDeg = (u - 0.5) * 360;
+    const latDeg = (0.5 - v) * 180;
+    const label = getGeographicLabel(lonDeg, latDeg);
+    const mode = OPTIONS[state.option].mode;
+    const lonRad = (u - 0.5) * TWO_PI;
+    const latRad = (0.5 - v) * PI;
+    const worldPos = evalManifoldCPU(lonRad, latRad, state.alpha, mode, state.chordLiftMag);
+    point = { u, v, lonDeg, latDeg, label, worldPos };
+  }
+  const id = pins.length > 0 ? Math.max(...pins.map(p => p.id)) + 1 : 1;
+  const pin = {
+    id,
+    alpha: state.alpha,
+    option: state.option,
+    camera: { theta: camera.theta, phi: camera.phi, distance: camera.distance },
+    point,
+    note: ''
+  };
+  pins.push(pin);
+  activePinId = id;
+  renderPins();
+}
+
+function deletePin(id) {
+  pins = pins.filter(p => p.id !== id);
+  if (activePinId === id) {
+    activePinId = pins.length > 0 ? pins[pins.length - 1].id : null;
+  }
+  renderPins();
+}
+
+function jumpToPin(id) {
+  const pin = pins.find(p => p.id === id);
+  if (!pin) return;
+  activePinId = id;
+  state.alpha = pin.alpha;
+  alphaSlider.value = pin.alpha;
+  if (pin.option !== state.option) selectOption(pin.option);
+  
+  // Smoothly animate camera
+  setCameraPresetCustom(pin.camera.theta, pin.camera.phi, pin.camera.distance);
+  syncToggles();
+  renderPins();
+}
+
+function setCameraPresetCustom(targetTheta, targetPhi, targetDist) {
+  const startTheta = camera.theta;
+  const startPhi = camera.phi;
+  const startDist = camera.distance;
+  const startTime = performance.now();
+  const dur = 280;
+
+  let deltaTheta = (targetTheta - startTheta) % TWO_PI;
+  if (deltaTheta > PI) deltaTheta -= TWO_PI;
+  if (deltaTheta < -PI) deltaTheta += TWO_PI;
+
+  camAnim = (now) => {
+    const elapsed = now - startTime;
+    const t = Math.min(1.0, elapsed / dur);
+    const ease = t * t * (3 - 2 * t);
+    camera.theta = startTheta + deltaTheta * ease;
+    camera.phi = startPhi + (targetPhi - startPhi) * ease;
+    camera.distance = startDist + (targetDist - startDist) * ease;
+    if (t >= 1.0) {
+      camAnim = null;
+      camera.theta = targetTheta;
+      camera.phi = targetPhi;
+      camera.distance = targetDist;
+    }
+  };
+}
+
+function renderPins() {
+  pinTrayEl.innerHTML = '';
+  if (pins.length === 0) {
+    pinTrayEl.innerHTML = `<div style="font-size:11px;color:#78789a;padding:6px 4px;display:flex;align-items:center;gap:8px;">
+      <span>💡 <b>Pinning Enabled:</b> Click directly on any area of the 3D surface or press <kbd style="background:#1e2434;padding:1px 5px;border-radius:3px;color:#9bb0ce;">P</kbd> to bookmark an observation.</span>
+    </div>`;
+    btnCopyChat.innerHTML = '📋 Copy for Chat (0)';
+    return;
+  }
+
+  btnCopyChat.innerHTML = `📋 Copy for Chat (${pins.length})`;
+
+  pins.forEach(pin => {
+    const card = document.createElement('div');
+    card.className = `pin-card ${pin.id === activePinId ? 'active' : ''}`;
+    
+    const camName = getCameraPresetName(pin.camera);
+    const optName = OPTIONS[pin.option].name.split(':')[0];
+    
+    card.innerHTML = `
+      <div class="pin-card-header">
+        <div style="display:flex;align-items:center;gap:6px;overflow:hidden;">
+          <span class="pin-num">#${pin.id}</span>
+          <span class="pin-title" title="${pin.point ? pin.point.label : 'General State'}">${pin.point ? pin.point.label : 'General State'}</span>
+        </div>
+        <div style="display:flex;gap:4px;">
+          <button class="btn btn-xs pin-jump" style="padding:1px 5px;" title="Jump to view">Jump</button>
+          <button class="btn btn-xs pin-del" style="padding:1px 5px;color:#ff7777;" title="Delete">✕</button>
+        </div>
+      </div>
+      <div class="pin-badges">
+        <span class="pin-badge">α=${pin.alpha.toFixed(3)}</span>
+        <span class="pin-badge">${optName}</span>
+        <span class="pin-badge">${camName}</span>
+      </div>
+      <div class="pin-input-wrap">
+        <input type="text" class="pin-note-input" placeholder="Type observation note..." value="${escapeHtml(pin.note || '')}">
+      </div>
+      <div class="pin-tags">
+        <button class="btn-tag" data-tag="Needs more curl">Curl +</button>
+        <button class="btn-tag" data-tag="Curling too fast">Curl -</button>
+        <button class="btn-tag" data-tag="Edges too stiff">Too Stiff</button>
+        <button class="btn-tag" data-tag="Clunky stage">Clunky</button>
+        <button class="btn-tag" data-tag="Lift too high">Too High</button>
+        <button class="btn-tag" data-tag="Looks clean">Clean</button>
+      </div>
+    `;
+
+    card.querySelector('.pin-jump').addEventListener('click', (e) => {
+      e.stopPropagation();
+      jumpToPin(pin.id);
+    });
+    card.querySelector('.pin-del').addEventListener('click', (e) => {
+      e.stopPropagation();
+      deletePin(pin.id);
+    });
+    card.addEventListener('click', () => {
+      jumpToPin(pin.id);
+    });
+    const input = card.querySelector('.pin-note-input');
+    input.addEventListener('input', (e) => {
+      pin.note = e.target.value;
+    });
+    input.addEventListener('click', (e) => e.stopPropagation());
+    
+    card.querySelectorAll('.btn-tag').forEach(tagBtn => {
+      tagBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tagText = tagBtn.getAttribute('data-tag');
+        if (pin.note) {
+          if (!pin.note.includes(tagText)) pin.note += `, ${tagText}`;
+        } else {
+          pin.note = tagText;
+        }
+        input.value = pin.note;
+      });
+    });
+
+    pinTrayEl.appendChild(card);
+  });
+}
+
+function copyForChat() {
+  if (pins.length === 0) {
+    btnCopyChat.textContent = '⚠️ Drop a pin first!';
+    setTimeout(() => { btnCopyChat.textContent = '📋 Copy for Chat (0)'; }, 1500);
+    return;
+  }
+
+  let text = `### Mode 0 Feedback Pins:\n`;
+  pins.forEach(pin => {
+    const loc = pin.point ? pin.point.label : 'General State';
+    const optName = OPTIONS[pin.option].name;
+    const camName = getCameraPresetName(pin.camera);
+    const thetaDeg = (((pin.camera.theta * 180 / PI) % 360 + 360) % 360).toFixed(1);
+    const phiDeg = (pin.camera.phi * 180 / PI).toFixed(1);
+    text += `- **Pin #${pin.id}** [${loc}]:\n`;
+    text += `  - **State**: α = ${pin.alpha.toFixed(3)} | ${optName}\n`;
+    text += `  - **Camera**: ${camName} (θ=${thetaDeg}°, φ=${phiDeg}°, d=${pin.camera.distance.toFixed(1)})\n`;
+    text += `  - **Observation**: ${pin.note.trim() ? pin.note.trim() : '(No note added)'}\n`;
+  });
+
+  navigator.clipboard.writeText(text).then(() => {
+    btnCopyChat.innerHTML = '✅ Copied to Clipboard!';
+    setTimeout(() => { btnCopyChat.innerHTML = `📋 Copy for Chat (${pins.length})`; }, 1800);
   });
 }
 
@@ -566,9 +1204,21 @@ const btnPlay = document.getElementById('btn-play');
 const btnOptA = document.getElementById('btn-opt-a');
 const btnOptB = document.getElementById('btn-opt-b');
 const btnOptC = document.getElementById('btn-opt-c');
+
+const btnCamFront = document.getElementById('btn-cam-front');
+const btnCamSeam = document.getElementById('btn-cam-seam');
+const btnCamPolar = document.getElementById('btn-cam-polar');
+const btnCamProfile = document.getElementById('btn-cam-profile');
+
 const btnHighlight = document.getElementById('btn-highlight');
 const btnWire = document.getElementById('btn-wire');
 const btnNormals = document.getElementById('btn-normals');
+const btnDropPin = document.getElementById('btn-drop-pin');
+const btnCopyChat = document.getElementById('btn-copy-chat');
+const pinTrayEl = document.getElementById('pin-tray');
+const pinMarkerEl = document.getElementById('pin-marker');
+const pinMarkerText = document.getElementById('pin-marker-text');
+
 const loftSlider = document.getElementById('loft-slider');
 const loftVal = document.getElementById('loft-val');
 const speedSlider = document.getElementById('speed-slider');
@@ -581,9 +1231,6 @@ const hudDesc = document.getElementById('hud-desc');
 function selectOption(key) {
   state.option = key;
   const opt = OPTIONS[key];
-  btnOptA.classList.toggle('active', key === 'a');
-  btnOptB.classList.toggle('active', key === 'b');
-  btnOptC.classList.toggle('active', key === 'c');
   hudTitle.textContent = opt.name;
   hudDesc.textContent = opt.desc;
   syncToggles();
@@ -606,6 +1253,19 @@ btnOptA.addEventListener('click', () => selectOption('a'));
 btnOptB.addEventListener('click', () => selectOption('b'));
 btnOptC.addEventListener('click', () => selectOption('c'));
 
+btnCamFront.addEventListener('click', () => setCameraPreset('front'));
+btnCamSeam.addEventListener('click', () => setCameraPreset('seam'));
+btnCamPolar.addEventListener('click', () => setCameraPreset('polar'));
+btnCamProfile.addEventListener('click', () => setCameraPreset('profile'));
+
+document.querySelectorAll('.btn-step').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.alpha = parseFloat(btn.getAttribute('data-step'));
+    alphaSlider.value = state.alpha;
+    syncToggles();
+  });
+});
+
 alphaSlider.addEventListener('input', () => { state.alpha = parseFloat(alphaSlider.value); syncToggles(); });
 loftSlider.addEventListener('input', () => { state.chordLiftMag = parseFloat(loftSlider.value); syncToggles(); });
 speedSlider.addEventListener('input', () => { state.playSpeed = parseFloat(speedSlider.value); syncToggles(); });
@@ -614,6 +1274,8 @@ btnPlay.addEventListener('click', () => { state.playing = !state.playing; btnPla
 btnHighlight.addEventListener('click', () => { state.edgeHighlight = !state.edgeHighlight; syncToggles(); });
 btnWire.addEventListener('click', () => { state.wireframe = !state.wireframe; syncToggles(); });
 btnNormals.addEventListener('click', () => { state.normals = !state.normals; syncToggles(); });
+btnDropPin.addEventListener('click', () => addPin());
+btnCopyChat.addEventListener('click', copyForChat);
 btnCopyUrl.addEventListener('click', copyURL);
 
 // Keyboard shortcuts
@@ -624,17 +1286,50 @@ document.addEventListener('keydown', (e) => {
     case 'a': selectOption('a'); break;
     case 'b': selectOption('b'); break;
     case 'c': selectOption('c'); break;
-    case 'g': state.alpha = 0; alphaSlider.value = 0; camera.distance = 15.0; camera.theta = 0.35; camera.phi = 0.45; syncToggles(); break;
+    case '1': setCameraPreset('front'); break;
+    case '2': setCameraPreset('seam'); break;
+    case '3': setCameraPreset('polar'); break;
+    case '4': setCameraPreset('profile'); break;
+    case 'g': state.alpha = 0; alphaSlider.value = 0; setCameraPreset('front'); syncToggles(); break;
     case 'm': state.alpha = 1; alphaSlider.value = 1; camera.distance = 28.0; camera.theta = 0.0; camera.phi = 0.0; syncToggles(); break;
     case 'h': btnHighlight.click(); break;
     case 'w': btnWire.click(); break;
     case 'n': btnNormals.click(); break;
+    case 'p': addPin(); break;
+    case 'arrowleft': {
+      e.preventDefault();
+      const step = e.shiftKey ? 0.001 : 0.01;
+      state.alpha = Math.max(0.0, state.alpha - step);
+      alphaSlider.value = state.alpha;
+      syncToggles();
+      break;
+    }
+    case 'arrowright': {
+      e.preventDefault();
+      const step = e.shiftKey ? 0.001 : 0.01;
+      state.alpha = Math.min(1.0, state.alpha + step);
+      alphaSlider.value = state.alpha;
+      syncToggles();
+      break;
+    }
   }
 });
 
-// Camera drag & zoom
+// Camera drag & surface click
 let isDragging = false, lastX = 0, lastY = 0;
-canvas.addEventListener('pointerdown', (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId); });
+let downX = 0, downY = 0, downTime = 0;
+
+canvas.addEventListener('pointerdown', (e) => {
+  isDragging = true;
+  lastX = e.clientX;
+  lastY = e.clientY;
+  downX = e.clientX;
+  downY = e.clientY;
+  downTime = performance.now();
+  camAnim = null; // cancel camera animation on user interaction
+  canvas.setPointerCapture(e.pointerId);
+});
+
 canvas.addEventListener('pointermove', (e) => {
   if (!isDragging) return;
   const dx = e.clientX - lastX, dy = e.clientY - lastY;
@@ -642,14 +1337,29 @@ canvas.addEventListener('pointermove', (e) => {
   camera.phi = Math.max(-PI/2 + 0.02, Math.min(PI/2 - 0.02, camera.phi + dy * 0.008));
   lastX = e.clientX; lastY = e.clientY;
 });
-canvas.addEventListener('pointerup', () => { isDragging = false; });
+
+canvas.addEventListener('pointerup', (e) => {
+  isDragging = false;
+  const dist = Math.hypot(e.clientX - downX, e.clientY - downY);
+  const dur = performance.now() - downTime;
+  if (dist < 6 && dur < 400) {
+    // Clean click on canvas: raycast surface to place or select pin
+    const ray = getRayFromScreen(e.clientX, e.clientY);
+    const hit = raycastSurface(ray);
+    if (hit) {
+      addPin(hit);
+    }
+  }
+});
+
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
+  camAnim = null;
   camera.distance = Math.max(2.5, Math.min(60, camera.distance * (1 + e.deltaY * 0.001)));
 }, { passive: false });
 
 // ═══════════════════════════════════════════════════════════════
-// WEBGPU INITIALIZATION
+// WEBGPU INITIALIZATION & RENDER LOOP
 // ═══════════════════════════════════════════════════════════════
 async function init() {
   if (!navigator.gpu) {
@@ -746,11 +1456,14 @@ async function init() {
 
   hashToState();
   syncToggles();
+  renderPins();
 
   let lastTime = performance.now();
   function frame(now) {
     const dt = (now - lastTime) / 1000;
     lastTime = now;
+
+    if (camAnim) camAnim(now);
 
     if (state.playing) {
       state.alpha += state.playDir * state.playSpeed * dt;
@@ -777,6 +1490,39 @@ async function init() {
     const vp = getViewProjectionMatrix(aspect);
     const camPos = getCameraPosition();
 
+    // Find active pin for 3D beacon
+    const activePin = pins.find(p => p.id === activePinId);
+    let pinWorldPos = [0, 0, 0];
+    let pinActive = false;
+
+    if (activePin && activePin.point) {
+      pinActive = true;
+      const lonRad = (activePin.point.u - 0.5) * TWO_PI;
+      const latRad = (0.5 - activePin.point.v) * PI;
+      pinWorldPos = evalManifoldCPU(lonRad, latRad, state.alpha, OPTIONS[state.option].mode, state.chordLiftMag);
+
+      // Update screen overlay marker
+      const cx = vp[0]*pinWorldPos[0] + vp[4]*pinWorldPos[1] + vp[8]*pinWorldPos[2] + vp[12];
+      const cy = vp[1]*pinWorldPos[0] + vp[5]*pinWorldPos[1] + vp[9]*pinWorldPos[2] + vp[13];
+      const cz = vp[2]*pinWorldPos[0] + vp[6]*pinWorldPos[1] + vp[10]*pinWorldPos[2] + vp[14];
+      const cw = vp[3]*pinWorldPos[0] + vp[7]*pinWorldPos[1] + vp[11]*pinWorldPos[2] + vp[15];
+
+      if (cw > 0.01 && cz / cw > 0.0 && cz / cw < 1.0) {
+        const ndcX = cx / cw;
+        const ndcY = cy / cw;
+        const screenX = (ndcX * 0.5 + 0.5) * rect.width;
+        const screenY = (1.0 - (ndcY * 0.5 + 0.5)) * rect.height;
+        pinMarkerEl.style.display = 'block';
+        pinMarkerEl.style.left = `${screenX}px`;
+        pinMarkerEl.style.top = `${screenY}px`;
+        pinMarkerText.textContent = `#${activePin.id}: ${activePin.point.label.split('(')[0].trim()}`;
+      } else {
+        pinMarkerEl.style.display = 'none';
+      }
+    } else {
+      pinMarkerEl.style.display = 'none';
+    }
+
     // Pack uniforms (160 bytes)
     uFloats.set(vp, 0);        // 0..15  (viewProj)
     uFloats[16] = state.alpha;
@@ -790,10 +1536,20 @@ async function init() {
                   (state.edgeHighlight ? 8 : 0);
     uUints[19] = flags;
     uFloats[20] = state.chordLiftMag;
+    uFloats[21] = pinActive ? 1.0 : 0.0;
+    uFloats[22] = 0.0;
+    uFloats[23] = 0.0;
     
-    // Padding
-    for (let k = 21; k <= 31; k++) uFloats[k] = 0.0;
+    // pinWorldPos (vec4) offset 96 bytes (indices 24..27)
+    uFloats[24] = pinWorldPos[0];
+    uFloats[25] = pinWorldPos[1];
+    uFloats[26] = pinWorldPos[2];
+    uFloats[27] = pinActive ? 1.0 : 0.0;
+
+    // Padding (indices 28..31)
+    for (let k = 28; k <= 31; k++) uFloats[k] = 0.0;
     
+    // cameraPos (vec4) offset 128 bytes (indices 32..35)
     uFloats[32] = camPos[0];
     uFloats[33] = camPos[1];
     uFloats[34] = camPos[2];
