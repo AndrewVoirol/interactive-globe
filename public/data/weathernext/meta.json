@@ -2,9 +2,9 @@
   "source": "Google DeepMind WeatherNext 3",
   "model": "weathernext_3_0_0_statistics",
   "dataset": "gs://weathernext3_statistics_spatial/weathernext_3_0_0_statistics/zarr/2026_to_present/",
-  "forecastInitTimestamp": "2026-09-12T11:00:00Z",
-  "forecastRunCycle": "20260912_11hr_01_preds",
-  "ingestedAtUTC": "2026-09-12T18:30:01.392831+00:00",
+  "forecastInitTimestamp": "2026-09-24T10:00:00Z",
+  "forecastRunCycle": "20260924_10hr_01_preds",
+  "ingestedAtUTC": "2026-09-24T17:21:34.997979+00:00",
   "billingProject": "antigravity-agent-1765655548",
   "gridDimensions": {
     "width": 3600,
@@ -40,12 +40,34 @@
   "variables": [
     "low_cloud_cover_mean",
     "medium_cloud_cover_mean",
-    "high_cloud_cover_mean"
+    "high_cloud_cover_mean",
+    "wind_10m_vector"
   ],
   "variableMetadata": {
-    "low_cloud_cover_mean": {},
-    "medium_cloud_cover_mean": {},
-    "high_cloud_cover_mean": {}
+    "low_cloud_cover_mean": {
+      "longName": "Low Cloud Cover Fraction (0-2000m)",
+      "units": "fraction",
+      "canonicalMin": 0.0,
+      "canonicalMax": 1.0
+    },
+    "medium_cloud_cover_mean": {
+      "longName": "Medium Cloud Cover Fraction (2000-6000m)",
+      "units": "fraction",
+      "canonicalMin": 0.0,
+      "canonicalMax": 1.0
+    },
+    "high_cloud_cover_mean": {
+      "longName": "High Cloud Cover Fraction (6000-12000m)",
+      "units": "fraction",
+      "canonicalMin": 0.0,
+      "canonicalMax": 1.0
+    },
+    "wind_10m_vector": {
+      "longName": "10m Wind Velocity Vector Field (rg16float)",
+      "units": "m/s",
+      "canonicalMin": -45.0,
+      "canonicalMax": 45.0
+    }
   },
   "textureEncoding": {
     "format": "r16float",
@@ -69,7 +91,7 @@
   },
   "filePattern": "/data/weathernext/{variable}-{hour}.bin",
   "provenance": {
-    "sourceBucket": "gs://weathernext3_statistics_spatial/weathernext_3_0_0_statistics/zarr/2026_to_present/20260912_11hr_01_preds/predictions.zarr",
+    "sourceBucket": "gs://weathernext3_statistics_spatial/weathernext_3_0_0_statistics/zarr/2026_to_present/20260924_10hr_01_preds/predictions.zarr",
     "chunkShape": [
       1,
       1801,

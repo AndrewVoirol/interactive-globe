@@ -581,6 +581,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         weatherNextDS.setTime(bracketHour, tau).catch(() => {});
       }
     }
+    const isWn =
+      prognosticModel === 'weathernext3' ||
+      prognosticModel === 'google-weathernext3' ||
+      prognosticModel === 'weathernext';
+    if (isWn && engineRef.current && timelineMinutes !== undefined && timelineMinutes >= 0) {
+      const targetHour = Math.min(11, Math.max(0, Math.floor(timelineMinutes / 60)));
+      engineRef.current.loadWeatherNextCloudLayers(targetHour).catch(() => {});
+    }
     const radarDS = (window as any).__INDICATRIX_LIVE_RADAR_DATA_SOURCE__;
     if (radarDS && !radarDS.disposed && timelineMinutes !== undefined && timelineMinutes < 0) {
       radarDS.setAbsoluteMinutes(timelineMinutes);
@@ -590,7 +598,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       }
       radarDS.uploadToRingBuffer();
     }
-  }, [timelineMinutes, scrubTau, weatherTau]);
+  }, [timelineMinutes, scrubTau, weatherTau, prognosticModel]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -824,6 +832,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   // DevTools Camera Navigation Hook for Automated Verification
   useEffect(() => {
     (window as any).__INDICATRIX_CAMERA__ = {
+      get activeCoords() { return activeCoordsRef.current; },
+      getActiveCoords: () => activeCoordsRef.current,
       setSpherical: (r: number, theta?: number, phi?: number, target?: [number, number, number]) => {
         cameraRef.current.up.set(0, 1, 0);
         const curTheta = theta !== undefined ? theta : sphericalRef.current.theta;

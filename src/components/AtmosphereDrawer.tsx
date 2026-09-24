@@ -598,6 +598,46 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
               78.0° Oblique
             </span>
           </button>
+
+          {/* Tropospheric Altitude Presets (Matching Testbed Presets) */}
+          <div className="space-y-1 pt-1 border-t border-[var(--theme-card-border)]">
+            <div className="flex items-center justify-between text-nano">
+              <span className="font-mono uppercase tracking-wider text-[var(--theme-text-muted)]">
+                Tropospheric Altitude Presets
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-1">
+              {[
+                { label: 'Orbital', alt: 16.0, pitch: 0.0, hdg: 0.0, title: 'Orbital (14,000 km)' },
+                { label: 'Stratosphere', alt: 5.012, pitch: 52.0, hdg: 20.0, title: 'Stratosphere (15 km)' },
+                { label: 'Cirrus', alt: 5.007, pitch: 68.0, hdg: 45.0, title: 'Cirrus Deck (9 km)' },
+                { label: 'Altocumulus', alt: 5.0035, pitch: 78.0, hdg: 90.0, title: 'Altocumulus Deck (4 km)' },
+                { label: 'Sub-Cloud', alt: 5.0009, pitch: 84.0, hdg: 135.0, title: 'Sub-Cloud Ceiling (1.2 km)' },
+                { label: 'Peak (300m)', alt: 5.0003, pitch: 98.0, hdg: 180.0, title: 'Ground / Peak (300 m)' },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_CAMERA__?.setObliqueView) {
+                      const coords = (window as any).__INDICATRIX_CAMERA__?.activeCoords || { lon: -121.76, lat: 46.85 };
+                      (window as any).__INDICATRIX_CAMERA__.setObliqueView(
+                        coords.lon ?? -121.76,
+                        coords.lat ?? 46.85,
+                        preset.alt,
+                        preset.pitch,
+                        preset.hdg
+                      );
+                    }
+                  }}
+                  className="py-1 px-1 rounded-[2px] border text-center font-mono text-[9px] uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text)] border-[var(--theme-control-border)] transition-colors cursor-pointer truncate"
+                  title={preset.title}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

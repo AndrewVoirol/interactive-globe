@@ -103,6 +103,13 @@ CORE_VARIABLES = [
     "total_cloud_cover_mean",
 ]
 
+CLOUD_STRATA_VARIABLES = [
+    "low_cloud_cover_mean",
+    "medium_cloud_cover_mean",
+    "high_cloud_cover_mean",
+    "wind_10m_vector",
+]
+
 VARIABLE_METADATA = {
     "u_component_of_wind_10m_mean": {
         "longName": "10m Eastward Wind Velocity",
@@ -142,6 +149,24 @@ VARIABLE_METADATA = {
     },
     "total_cloud_cover_mean": {
         "longName": "Column-Integrated Total Cloud Fraction",
+        "units": "fraction",
+        "canonicalMin": 0.0,
+        "canonicalMax": 1.0,
+    },
+    "low_cloud_cover_mean": {
+        "longName": "Low Cloud Cover Fraction (0-2000m)",
+        "units": "fraction",
+        "canonicalMin": 0.0,
+        "canonicalMax": 1.0,
+    },
+    "medium_cloud_cover_mean": {
+        "longName": "Medium Cloud Cover Fraction (2000-6000m)",
+        "units": "fraction",
+        "canonicalMin": 0.0,
+        "canonicalMax": 1.0,
+    },
+    "high_cloud_cover_mean": {
+        "longName": "High Cloud Cover Fraction (6000-12000m)",
         "units": "fraction",
         "canonicalMin": 0.0,
         "canonicalMax": 1.0,
@@ -879,6 +904,11 @@ def main():
         help=f"Target directory for binary slices and meta.json (default: {DEFAULT_OUTPUT_DIR}).",
     )
     parser.add_argument(
+        "--cloud-strata",
+        action="store_true",
+        help="Extract the 3 cloud strata (low, medium, high) and 10m wind vector field for volumetric rendering.",
+    )
+    parser.add_argument(
         "--mock",
         action="store_true",
         help="Generate physically plausible demonstration slices and metadata locally without querying GCS.",
@@ -891,11 +921,15 @@ def main():
         parser.error("--hours must be an integer between 1 and 360.")
 
     # Parse variable selection
-    if args.variables:
+    if args.cloud_strata:
+        selected_vars = CLOUD_STRATA_VARIABLES
+        if not any(a.startswith("--hours") for a in sys.argv):
+            args.hours = 12
+    elif args.variables:
         selected_vars = [v.strip() for v in args.variables.split(",") if v.strip()]
         for v in selected_vars:
-            if v not in CORE_VARIABLES and v != "wind_10m_vector":
-                print(f"[WARN] Requested variable '{v}' is outside the standard core 6 fields.")
+            if v not in CORE_VARIABLES and v not in CLOUD_STRATA_VARIABLES:
+                print(f"[WARN] Requested variable '{v}' is outside standard fields.")
     else:
         selected_vars = CORE_VARIABLES
 

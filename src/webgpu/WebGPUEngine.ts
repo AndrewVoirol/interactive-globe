@@ -617,6 +617,7 @@ export class WebGPUEngine {
     new Float32Array(72),
   ];
   public cloudBuffersInitialized: boolean = false;
+  private lastLoadedWeatherNextHour: number = -1;
   private cloudStagingBuffer: GPUBuffer | null = null;
   private cloudSphereVertexBuffer: GPUBuffer | null = null;
   private cloudSphereIndexBuffer: GPUBuffer | null = null;
@@ -9067,12 +9068,14 @@ export class WebGPUEngine {
           this.loadCloudData('mid', '/data/weathernext/medium_cloud_cover_mean-0.bin', 3600, 1801),
           this.loadCloudData('high', '/data/weathernext/high_cloud_cover_mean-0.bin', 3600, 1801),
         ]);
+        this.lastLoadedWeatherNextHour = 0;
         return;
       } catch (e) {
         console.warn('WeatherNext cloud layers failed to load, falling back to GFS');
       }
     }
     
+    this.lastLoadedWeatherNextHour = -1;
     await Promise.all([
       this.loadCloudData('low'),
       this.loadCloudData('mid'),
@@ -9081,10 +9084,13 @@ export class WebGPUEngine {
   }
 
   public async loadWeatherNextCloudLayers(hour: number): Promise<void> {
+    const clampedHour = Math.max(0, Math.min(11, Math.floor(hour)));
+    if (this.lastLoadedWeatherNextHour === clampedHour) return;
+    this.lastLoadedWeatherNextHour = clampedHour;
     await Promise.all([
-      this.loadCloudData('low', `/data/weathernext/low_cloud_cover_mean-${hour}.bin`, 3600, 1801),
-      this.loadCloudData('mid', `/data/weathernext/medium_cloud_cover_mean-${hour}.bin`, 3600, 1801),
-      this.loadCloudData('high', `/data/weathernext/high_cloud_cover_mean-${hour}.bin`, 3600, 1801),
+      this.loadCloudData('low', `/data/weathernext/low_cloud_cover_mean-${clampedHour}.bin`, 3600, 1801),
+      this.loadCloudData('mid', `/data/weathernext/medium_cloud_cover_mean-${clampedHour}.bin`, 3600, 1801),
+      this.loadCloudData('high', `/data/weathernext/high_cloud_cover_mean-${clampedHour}.bin`, 3600, 1801),
     ]);
   }
 

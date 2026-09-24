@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Indicatrix Engine — Weather & Stratified Volumetric Cloud Testbed</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a12;
+  color: #d0d0d8;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, monospace;
+  font-size: 12px;
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#top-bar {
+  background: rgba(16, 16, 26, 0.98);
+  border-bottom: 1px solid #26263a;
+  padding: 8px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  z-index: 10;
+  user-select: none;
+}
+#top-bar label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #a4a4be;
+}
+#top-bar input[type="range"] {
+  width: 90px;
+  accent-color: #58a6ff;
+  cursor: pointer;
+}
+
+.btn {
+  background: #202034;
+  border: 1px solid #32324c;
+  color: #a0a0c0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.btn:hover { background: #30304c; color: #ffffff; }
+.btn.active { background: #1c365c; border-color: #58a6ff; color: #8ac4ff; }
+.btn.play { background: #183e26; border-color: #3fb950; color: #7ee787; }
+.btn.play.active { background: #245c37; }
+.btn.pin { background: #3d1c1c; border-color: #f85149; color: #ff8b8b; }
+.btn.copy-chat { background: #1a3324; border-color: #2ea043; color: #56d364; }
+.btn.copy-chat:hover { background: #234631; color: #7ee787; }
+.btn-xs { padding: 2px 6px; font-size: 10px; }
+
+.btn-group { display: flex; gap: 0; }
+.btn-group .btn { border-radius: 0; border-right: none; }
+.btn-group .btn:first-child { border-radius: 4px 0 0 4px; }
+.btn-group .btn:last-child { border-radius: 0 4px 4px 0; border-right: 1px solid #32324c; }
+
+.divider { width: 1px; height: 18px; background: #2a2a3e; margin: 0 2px; }
+
+#canvas-wrap { flex: 1; position: relative; min-height: 0; }
+canvas#canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+#hud-card {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  background: rgba(14, 16, 26, 0.94);
+  backdrop-filter: blur(10px);
+  border: 1px solid #283046;
+  border-radius: 10px;
+  padding: 12px 14px;
+  width: 360px;
+  z-index: 5;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#hud-card h4 {
+  color: #58a6ff;
+  font-size: 12px;
+  margin: 0;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.hud-section { display: flex; flex-direction: column; gap: 4px; }
+.hud-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+
+#caliper-card {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  background: rgba(14, 18, 30, 0.94);
+  backdrop-filter: blur(10px);
+  border: 1px solid #324c70;
+  border-radius: 8px;
+  padding: 10px 14px;
+  width: 330px;
+  z-index: 15;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: monospace;
+  font-size: 11px;
+  color: #c0d0e8;
+  pointer-events: none;
+}
+#caliper-card h5 {
+  margin: 0 0 4px 0;
+  font-size: 11px;
+  color: #58a6ff;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.caliper-row { display: flex; justify-content: space-between; align-items: center; }
+.caliper-label { color: #788ca8; font-size: 10px; }
+.caliper-val { color: #ffffff; font-weight: 600; font-size: 11px; }
+.caliper-highlight { color: #3fb950; font-weight: 700; }
+.caliper-stratum { color: #e3b341; font-weight: 700; }
+
+#pin-tray {
+  background: rgba(14, 15, 24, 0.98);
+  border-top: 1px solid #242438;
+  padding: 6px 14px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  overflow-x: auto;
+  min-height: 52px;
+  z-index: 10;
+  user-select: none;
+}
+#pin-tray::-webkit-scrollbar { height: 4px; }
+#pin-tray::-webkit-scrollbar-thumb { background: #2e2e46; border-radius: 2px; }
+
+.pin-card {
+  background: #181928;
+  border: 1px solid #2c2d46;
+  border-radius: 6px;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 270px;
+  max-width: 320px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pin-card:hover { border-color: #4a4a70; background: #1e1f32; }
+.pin-card.active { border-color: #f85149; background: #221c26; box-shadow: 0 0 8px rgba(248,81,73,0.25); }
+.pin-card-header { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.pin-num { background: #f85149; color: #fff; font-size: 9px; font-weight: 800; border-radius: 3px; padding: 1px 4px; }
+.pin-title { font-size: 11px; font-weight: 600; color: #e0e0f0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.pin-badges { display: flex; gap: 4px; font-size: 9px; font-family: monospace; color: #8888b0; }
+.pin-badge { background: #12121e; border: 1px solid #26263a; padding: 1px 4px; border-radius: 3px; }
+.pin-note-input { flex: 1; background: #10101c; border: 1px solid #2b2c44; border-radius: 3px; color: #d0d0e8; font-size: 10px; padding: 3px 6px; font-family: inherit; }
+
+#state-bar {
+  background: rgba(16, 16, 26, 0.98);
+  border-top: 1px solid #26263a;
+  padding: 5px 14px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  z-index: 10;
+  user-select: none;
+}
+#state-text {
+  flex: 1;
+  font-size: 11px;
+  color: #8888a8;
+  letter-spacing: 0.3px;
+  font-family: monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#state-text span { color: #d0d0e8; font-weight: 600; }
+
+#no-webgpu {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #0a0a12;
+  color: #f85149;
+  font-size: 18px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 100;
+}
+#no-webgpu.show { display: flex; }
+</style>
+</head>
+<body>
+
+<div id="top-bar">
+  <!-- Altitude Presets & Scrubber -->
+  <span style="font-size:10px; color:#8888a8; font-weight:700;">ALTITUDE:</span>
+  <div class="btn-group">
+    <button class="btn btn-xs active" id="btn-alt-orb" title="Key 1">Orbital [1]</button>
+    <button class="btn btn-xs" id="btn-alt-strat" title="Key 2">Stratosphere [2]</button>
+    <button class="btn btn-xs" id="btn-alt-cirr" title="Key 3">Cirrus [3]</button>
+    <button class="btn btn-xs" id="btn-alt-alto" title="Key 4">Altocumulus [4]</button>
+    <button class="btn btn-xs" id="btn-alt-sub" title="Key 5">Sub-Cloud [5]</button>
+    <button class="btn btn-xs" id="btn-alt-peak" title="Key 6">Peak [6]</button>
+  </div>
+
+  <label>Zoom <input type="range" id="alt-slider" min="5.0003" max="22.0" step="0.0005" value="15.0"> <span id="alt-val" style="font-family:monospace;font-weight:600;color:#fff;">14,000 km</span></label>
+  <label>Pitch <input type="range" id="pitch-slider" min="0" max="105" step="0.5" value="0"> <span id="pitch-val" style="font-family:monospace;font-weight:600;color:#fff;">0°</span></label>
+  <label>Hdg <input type="range" id="heading-slider" min="0" max="360" step="1" value="0"> <span id="heading-val" style="font-family:monospace;font-weight:600;color:#fff;">0°</span></label>
+
+  <div class="divider"></div>
+
+  <!-- Forecast Timeline -->
+  <span style="font-size:10px; color:#8888a8; font-weight:700;">FORECAST:</span>
+  <label>+<span id="forecast-hour-val" style="font-family:monospace;font-weight:700;color:#fff;">0</span>h <input type="range" id="forecast-slider" min="0" max="11" step="0.05" value="0"></label>
+  <button class="btn play" id="btn-play" title="Space">▶ Play</button>
+
+  <div class="divider"></div>
+
+  <!-- Medium Theme -->
+  <span style="font-size:10px; color:#8888a8; font-weight:700;">THEME:</span>
+  <div class="btn-group">
+    <button class="btn btn-xs" id="btn-theme-0">Tharp (0)</button>
+    <button class="btn btn-xs active" id="btn-theme-1">Cream (1)</button>
+    <button class="btn btn-xs" id="btn-theme-2">Prussian (2)</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Mode 0 Unfurl -->
+  <label>α Unfurl <input type="range" id="unfurl-slider" min="0" max="1" step="0.01" value="0.0"> <span id="unfurl-val" style="font-family:monospace;color:#fff;">0.00</span></label>
+
+  <button class="btn pin" id="btn-pin" title="Pin current viewpoint (Key P)">📌 Pin View</button>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="canvas"></canvas>
+
+  <!-- Caliper Diagnostics HUD -->
+  <div id="caliper-card">
+    <h5>Stratospheric Telemetry <span id="caliper-fps" class="caliper-highlight">120 FPS</span></h5>
+    <div class="caliper-row"><span class="caliper-label">Camera Elevation:</span><span class="caliper-val" id="caliper-alt">14,000 km</span></div>
+    <div class="caliper-row"><span class="caliper-label">Camera Pitch / Hdg:</span><span class="caliper-val" id="caliper-pitch">0.0° (Hdg 0°)</span></div>
+    <div class="caliper-row"><span class="caliper-label">Tropospheric Regime:</span><span class="caliper-stratum" id="caliper-regime">REGIME 1: ORBITAL SPACE</span></div>
+    <div class="caliper-row"><span class="caliper-label">Current Stratum:</span><span class="caliper-stratum" id="caliper-stratum">ORBITAL VIEW</span></div>
+    <div class="caliper-row"><span class="caliper-label">Raymarch Interval:</span><span class="caliper-val" id="caliper-ray-range">0.0 km</span></div>
+    <div class="caliper-row"><span class="caliper-label">WeatherNext Cycle:</span><span class="caliper-val" id="caliper-cycle">20260924_10hr_01</span></div>
+    <div class="caliper-row"><span class="caliper-label">Grid Resolution:</span><span class="caliper-val">3600 × 1801 (0.1°)</span></div>
+    <div class="caliper-row"><span class="caliper-label">Wind Vector Field:</span><span class="caliper-val" id="caliper-wind">rg16float (Active)</span></div>
+  </div>
+
+  <!-- Cloud Controls Floating HUD -->
+  <div id="hud-card">
+    <h4>WeatherNext 3 Cloud Strata <span style="font-size:10px;color:#8888b0;">10 km Resolution</span></h4>
+    <div class="hud-section">
+      <div class="hud-row">
+        <label><input type="checkbox" id="chk-cloud-low" checked> Low Deck (0-2 km)</label>
+        <input type="range" id="slider-dens-low" min="0" max="2.5" step="0.05" value="1.0">
+      </div>
+      <div class="hud-row">
+        <label><input type="checkbox" id="chk-cloud-mid" checked> Mid Deck (2-6 km)</label>
+        <input type="range" id="slider-dens-mid" min="0" max="2.5" step="0.05" value="0.8">
+      </div>
+      <div class="hud-row">
+        <label><input type="checkbox" id="chk-cloud-high" checked> High Cirrus (6-12 km)</label>
+        <input type="range" id="slider-dens-high" min="0" max="2.5" step="0.05" value="0.6">
+      </div>
+      <div class="hud-row">
+        <span>Global Cloud Opacity</span>
+        <input type="range" id="slider-cloud-opacity" min="0" max="1.0" step="0.02" value="0.88">
+      </div>
+      <div class="hud-row">
+        <span>Wind Advection Speed</span>
+        <input type="range" id="slider-advection-speed" min="0" max="4.0" step="0.1" value="1.2">
+      </div>
+      <div class="hud-row">
+        <span>Vertical Wind Shear</span>
+        <label><input type="checkbox" id="chk-wind-shear" checked> Cirrus 3.5× Drift</label>
+      </div>
+      <div class="hud-row">
+        <span>Sun Altitude / Azimuth</span>
+        <div style="display:flex;gap:4px;">
+          <input type="range" id="slider-sun-alt" min="5" max="85" step="1" value="45" style="width:50px;">
+          <input type="range" id="slider-sun-az" min="0" max="360" step="5" value="315" style="width:50px;">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="pin-tray">
+  <span style="font-size:10px; color:#788ca8; font-weight:700; white-space:nowrap;">OBSERVATION PINS:</span>
+  <div id="pin-cards-wrap" style="display:flex; gap:8px;"></div>
+</div>
+
+<div id="state-bar">
+  <div id="state-text">Ready. Ingested 12 hourly slices of DeepMind WeatherNext 3 (0.1° / 10 km). Use keys 1–6 to transition altitude strata.</div>
+  <button class="btn btn-xs copy-chat" id="btn-copy-chat">📋 Copy State to Chat</button>
+</div>
+
+<div id="no-webgpu">
+  <h2>WebGPU Unsupported</h2>
+  <p>Please use a browser with WebGPU enabled (Chrome 113+ or Safari on macOS Sonoma+).</p>
+</div>
+
+<script type="module">
+import {
+  CRUST_TERRAIN_WGSL,
+  VOLUMETRIC_CLOUD_WGSL,
+  CLOUD_NOISE_COMPUTE_WGSL,
+} from './weather-shaders.js';
+
+// Application state
+const state = {
+  theme: 1, // 0: Tharp, 1: Cream Rag, 2: Cyanotype
+  unfurl: 0.0,
+  forecastHour: 0.0,
+  isPlaying: false,
+  camDistance: 15.0, // Globe radius is 5.0
+  camTheta: 0.0,
+  camPhi: 0.25,
+  camPitch: 0.0,    // 0 = nadir, 90 = horizon, 105 = looking up
+  camHeading: 0.0,  // 0 = north, 90 = east, 180 = south, 270 = west
+  sunAlt: 45.0,
+  sunAz: 315.0,
+  lowEnabled: true,
+  lowDens: 1.0,
+  midEnabled: true,
+  midDens: 0.8,
+  highEnabled: true,
+  highDens: 0.6,
+  cloudOpacity: 0.88,
+  advectionSpeed: 1.2,
+  windShear: true,
+  pins: [],
+  activePinId: null,
+};
+
+const RADIUS = 5.0;
+const EARTH_RADIUS_KM = 6371.0;
+const KM_PER_UNIT = EARTH_RADIUS_KM / RADIUS; // ~1274.2 km per unit
+
+function unitDistToKm(d) {
+  const elevUnits = Math.max(0.00001, d - RADIUS);
+  return elevUnits * KM_PER_UNIT;
+}
+
+function getStratumName(km) {
+  if (km > 100.0) return 'ORBITAL SPACE';
+  if (km > 20.0) return 'STRATOSPHERE';
+  if (km > 12.0) return 'UPPER TROPOSPHERE (ABOVE CIRRUS)';
+  if (km > 6.0)  return 'HIGH STRATA (INSIDE CIRRUS DECK)';
+  if (km > 2.0)  return 'MID STRATA (ALTOCUMULUS FLIGHT)';
+  if (km > 0.8)  return 'LOW STRATA (MARINE STRATUS BASE)';
+  return 'SUB-CLOUD CEILING (ON TERRAIN)';
+}
+
+// UI bindings
+const canvas = document.getElementById('canvas');
+const altSlider = document.getElementById('alt-slider');
+const altVal = document.getElementById('alt-val');
+const pitchSlider = document.getElementById('pitch-slider');
+const pitchVal = document.getElementById('pitch-val');
+const headingSlider = document.getElementById('heading-slider');
+const headingVal = document.getElementById('heading-val');
+const forecastSlider = document.getElementById('forecast-slider');
+const forecastHourVal = document.getElementById('forecast-hour-val');
+const btnPlay = document.getElementById('btn-play');
+const unfurlSlider = document.getElementById('unfurl-slider');
+const unfurlVal = document.getElementById('unfurl-val');
+const caliperAlt = document.getElementById('caliper-alt');
+const caliperPitch = document.getElementById('caliper-pitch');
+const caliperRegime = document.getElementById('caliper-regime');
+const caliperStratum = document.getElementById('caliper-stratum');
+const caliperRayRange = document.getElementById('caliper-ray-range');
+const caliperFps = document.getElementById('caliper-fps');
+const pinCardsWrap = document.getElementById('pin-cards-wrap');
+const btnPin = document.getElementById('btn-pin');
+const btnCopyChat = document.getElementById('btn-copy-chat');
+
+function updateAltitudeUI() {
+  const km = unitDistToKm(state.camDistance);
+  const kmStr = km >= 10.0 ? `${km.toLocaleString(undefined, {maximumFractionDigits: 0})} km` : `${(km * 1000).toLocaleString(undefined, {maximumFractionDigits: 0})} m`;
+  altVal.textContent = kmStr;
+  caliperAlt.textContent = kmStr;
+  caliperStratum.textContent = getStratumName(km);
+  altSlider.value = state.camDistance;
+
+  if (pitchSlider) pitchSlider.value = state.camPitch;
+  if (pitchVal) pitchVal.textContent = `${state.camPitch.toFixed(0)}°`;
+  if (headingSlider) headingSlider.value = state.camHeading;
+  if (headingVal) headingVal.textContent = `${state.camHeading.toFixed(0)}°`;
+  if (caliperPitch) caliperPitch.textContent = `${state.camPitch.toFixed(1)}° (Hdg ${state.camHeading.toFixed(0)}°)`;
+
+  if (caliperRegime) {
+    const rOuter = RADIUS + 0.035;
+    if (state.camDistance > rOuter) {
+      caliperRegime.textContent = 'REGIME 1: ORBITAL SPACE';
+      caliperRegime.style.color = '#58a6ff';
+    } else if (state.camDistance >= RADIUS) {
+      caliperRegime.textContent = 'REGIME 2: INSIDE TROPOSPHERE';
+      caliperRegime.style.color = '#3fb950';
+    } else {
+      caliperRegime.textContent = 'REGIME 3: SUB-CLOUD CEILING';
+      caliperRegime.style.color = '#e3b341';
+    }
+  }
+}
+
+// Quick-Snap Altitude & Oblique Pitch Presets (Keys 1-6)
+function snapAltitude(units, label, pitch = 0, heading = 0) {
+  state.camDistance = units;
+  state.camPitch = pitch;
+  state.camHeading = heading;
+  updateAltitudeUI();
+  document.querySelectorAll('#top-bar .btn-group button').forEach(b => b.classList.remove('active'));
+  if (label) {
+    const btn = document.getElementById(`btn-alt-${label}`);
+    if (btn) btn.classList.add('active');
+  }
+}
+
+document.getElementById('btn-alt-orb').onclick = () => snapAltitude(16.0, 'orb', 0.0, 0.0);
+document.getElementById('btn-alt-strat').onclick = () => snapAltitude(5.012, 'strat', 52.0, 20.0);
+document.getElementById('btn-alt-cirr').onclick = () => snapAltitude(5.007, 'cirr', 68.0, 45.0);
+document.getElementById('btn-alt-alto').onclick = () => snapAltitude(5.0035, 'alto', 78.0, 90.0);
+document.getElementById('btn-alt-sub').onclick = () => snapAltitude(5.0009, 'sub', 84.0, 135.0);
+document.getElementById('btn-alt-peak').onclick = () => snapAltitude(5.0003, 'peak', 98.0, 180.0);
+
+altSlider.oninput = (e) => {
+  state.camDistance = parseFloat(e.target.value);
+  updateAltitudeUI();
+};
+
+pitchSlider.oninput = (e) => {
+  state.camPitch = parseFloat(e.target.value);
+  updateAltitudeUI();
+};
+
+headingSlider.oninput = (e) => {
+  state.camHeading = parseFloat(e.target.value);
+  updateAltitudeUI();
+};
+
+forecastSlider.oninput = (e) => {
+  state.forecastHour = parseFloat(e.target.value);
+  forecastHourVal.textContent = state.forecastHour.toFixed(1);
+};
+
+btnPlay.onclick = () => {
+  state.isPlaying = !state.isPlaying;
+  btnPlay.classList.toggle('active', state.isPlaying);
+  btnPlay.textContent = state.isPlaying ? '⏸ Pause' : '▶ Play';
+};
+
+unfurlSlider.oninput = (e) => {
+  state.unfurl = parseFloat(e.target.value);
+  unfurlVal.textContent = state.unfurl.toFixed(2);
+};
+
+// Theme switcher
+const themeBtns = [document.getElementById('btn-theme-0'), document.getElementById('btn-theme-1'), document.getElementById('btn-theme-2')];
+themeBtns.forEach((btn, idx) => {
+  btn.onclick = () => {
+    state.theme = idx;
+    themeBtns.forEach((b, i) => b.classList.toggle('active', i === idx));
+  };
+});
+
+// Cloud checkboxes and sliders
+document.getElementById('chk-cloud-low').onchange = (e) => { state.lowEnabled = e.target.checked; };
+document.getElementById('slider-dens-low').oninput = (e) => { state.lowDens = parseFloat(e.target.value); };
+document.getElementById('chk-cloud-mid').onchange = (e) => { state.midEnabled = e.target.checked; };
+document.getElementById('slider-dens-mid').oninput = (e) => { state.midDens = parseFloat(e.target.value); };
+document.getElementById('chk-cloud-high').onchange = (e) => { state.highEnabled = e.target.checked; };
+document.getElementById('slider-dens-high').oninput = (e) => { state.highDens = parseFloat(e.target.value); };
+document.getElementById('slider-cloud-opacity').oninput = (e) => { state.cloudOpacity = parseFloat(e.target.value); };
+document.getElementById('slider-advection-speed').oninput = (e) => { state.advectionSpeed = parseFloat(e.target.value); };
+document.getElementById('chk-wind-shear').onchange = (e) => { state.windShear = e.target.checked; };
+document.getElementById('slider-sun-alt').oninput = (e) => { state.sunAlt = parseFloat(e.target.value); };
+document.getElementById('slider-sun-az').oninput = (e) => { state.sunAz = parseFloat(e.target.value); };
+
+// Pin system
+function addObservationPin(hit) {
+  const pinId = Date.now();
+  const km = unitDistToKm(state.camDistance);
+  const pin = {
+    id: pinId,
+    altitudeKm: km.toFixed(1),
+    stratum: getStratumName(km),
+    pitchDeg: state.camPitch.toFixed(0),
+    headingDeg: state.camHeading.toFixed(0),
+    forecastHour: state.forecastHour.toFixed(1),
+    theme: state.theme === 0 ? 'Tharp' : state.theme === 1 ? 'Cream' : 'Prussian',
+    camDistance: state.camDistance,
+    camTheta: state.camTheta,
+    camPhi: state.camPhi,
+    camPitch: state.camPitch,
+    camHeading: state.camHeading,
+    note: `Observed at ${km >= 10 ? km.toFixed(0) + ' km' : (km * 1000).toFixed(0) + ' m'}, pitch ${state.camPitch.toFixed(0)}°`,
+  };
+  state.pins.push(pin);
+  renderPins();
+}
+
+function renderPins() {
+  pinCardsWrap.innerHTML = '';
+  state.pins.forEach((p, idx) => {
+    const card = document.createElement('div');
+    card.className = 'pin-card' + (p.id === state.activePinId ? ' active' : '');
+    card.innerHTML = `
+      <div class="pin-card-header">
+        <span class="pin-num">#${idx + 1}</span>
+        <span class="pin-title">${p.stratum}</span>
+        <span style="font-size:9px;color:#788ca8;">+${p.forecastHour}h</span>
+      </div>
+      <div class="pin-badges">
+        <span class="pin-badge">${p.altitudeKm} km</span>
+        <span class="pin-badge">${p.pitchDeg}° pitch</span>
+        <span class="pin-badge">${p.theme}</span>
+      </div>
+      <input class="pin-note-input" value="${p.note}" placeholder="Observation notes...">
+    `;
+    card.onclick = () => {
+      state.camDistance = p.camDistance;
+      state.camTheta = p.camTheta;
+      state.camPhi = p.camPhi;
+      state.camPitch = p.camPitch || 0;
+      state.camHeading = p.camHeading || 0;
+      state.activePinId = p.id;
+      updateAltitudeUI();
+      renderPins();
+    };
+    const input = card.querySelector('input');
+    input.onchange = (e) => { p.note = e.target.value; };
+    input.onclick = (e) => e.stopPropagation();
+    pinCardsWrap.appendChild(card);
+  });
+}
+
+btnPin.onclick = () => addObservationPin();
+
+btnCopyChat.onclick = () => {
+  const payload = {
+    elevationKm: unitDistToKm(state.camDistance).toFixed(2),
+    pitchDeg: state.camPitch.toFixed(1),
+    headingDeg: state.camHeading.toFixed(1),
+    stratum: getStratumName(unitDistToKm(state.camDistance)),
+    forecastHour: state.forecastHour.toFixed(2),
+    theme: state.theme,
+    densities: { low: state.lowDens, mid: state.midDens, high: state.highDens },
+    pins: state.pins,
+    urlHash: window.location.hash,
+  };
+  const jsonStr = JSON.stringify(payload, null, 2);
+  navigator.clipboard.writeText(jsonStr).then(() => {
+    btnCopyChat.textContent = '✓ Copied!';
+    setTimeout(() => { btnCopyChat.textContent = '📋 Copy State to Chat'; }, 2000);
+  });
+};
+
+// Keyboard hotkeys
+window.addEventListener('keydown', (e) => {
+  switch (e.key.toLowerCase()) {
+    case ' ': e.preventDefault(); btnPlay.click(); break;
+    case '1': snapAltitude(16.0, 'orb', 0.0, 0.0); break;
+    case '2': snapAltitude(5.012, 'strat', 52.0, 20.0); break;
+    case '3': snapAltitude(5.007, 'cirr', 68.0, 45.0); break;
+    case '4': snapAltitude(5.0035, 'alto', 78.0, 90.0); break;
+    case '5': snapAltitude(5.0009, 'sub', 84.0, 135.0); break;
+    case '6': snapAltitude(5.0003, 'peak', 98.0, 180.0); break;
+    case 'p': addObservationPin(); break;
+  }
+});
+
+// Mouse dragging & zoom
+let isDragging = false, lastX = 0, lastY = 0, dragButton = 0;
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+canvas.addEventListener('pointerdown', (e) => {
+  isDragging = true;
+  lastX = e.clientX;
+  lastY = e.clientY;
+  dragButton = e.button;
+  canvas.setPointerCapture(e.pointerId);
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (isDragging) {
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    if (dragButton === 2 || e.shiftKey) {
+      // Oblique Tilt & Heading
+      state.camPitch = Math.max(0, Math.min(105, state.camPitch + dy * 0.25));
+      state.camHeading = (state.camHeading + dx * 0.25 + 360) % 360;
+    } else {
+      // Spherical Orbit
+      state.camTheta -= dx * 0.006;
+      state.camPhi = Math.max(-Math.PI * 0.48, Math.min(Math.PI * 0.48, state.camPhi + dy * 0.006));
+    }
+    updateAltitudeUI();
+    lastX = e.clientX;
+    lastY = e.clientY;
+  }
+});
+
+canvas.addEventListener('pointerup', () => { isDragging = false; });
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  // Exponential zooming for smooth transitions across both 20,000 km and 300 m scales
+  const elevUnits = Math.max(0.0002, state.camDistance - RADIUS);
+  const factor = e.deltaY > 0 ? 1.08 : 0.925;
+  const newElev = Math.max(0.0002, Math.min(20.0, elevUnits * factor));
+  state.camDistance = RADIUS + newElev;
+  updateAltitudeUI();
+}, { passive: false });
+
+// ═══════════════════════════════════════════════════════════════
+// WEBGPU INITIALIZATION & RENDER PIPELINE
+// ═══════════════════════════════════════════════════════════════
+async function initWebGPU() {
+  if (!navigator.gpu) {
+    document.getElementById('no-webgpu').classList.add('show');
+    return;
+  }
+
+  const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+  if (!adapter) {
+    document.getElementById('no-webgpu').classList.add('show');
+    return;
+  }
+  const device = await adapter.requestDevice();
+
+  const ctx = canvas.getContext('webgpu');
+  const format = navigator.gpu.getPreferredCanvasFormat();
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.floor(rect.width * dpr);
+    canvas.height = Math.floor(rect.height * dpr);
+    ctx.configure({ device, format, alphaMode: 'premultiplied' });
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // 1. Generate 3D Perlin-Worley Noise Texture (128x128x128) via Compute Shader
+  const noiseSize = 128;
+  const noiseTexture = device.createTexture({
+    label: 'cloud_noise_3d_texture',
+    size: [noiseSize, noiseSize, noiseSize],
+    dimension: '3d',
+    format: 'rgba8unorm',
+    usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING,
+  });
+
+  const noiseCompModule = device.createShaderModule({ code: CLOUD_NOISE_COMPUTE_WGSL });
+  const noiseCompPipeline = device.createComputePipeline({
+    layout: 'auto',
+    compute: { module: noiseCompModule, entryPoint: 'cs_main' },
+  });
+
+  const noiseCompBindGroup = device.createBindGroup({
+    layout: noiseCompPipeline.getBindGroupLayout(0),
+    entries: [{ binding: 0, resource: noiseTexture.createView() }],
+  });
+
+  const noiseEncoder = device.createCommandEncoder();
+  const noisePass = noiseEncoder.beginComputePass();
+  noisePass.setPipeline(noiseCompPipeline);
+  noisePass.setBindGroup(0, noiseCompBindGroup);
+  noisePass.dispatchWorkgroups(noiseSize / 4, noiseSize / 4, noiseSize / 4);
+  noisePass.end();
+  device.queue.submit([noiseEncoder.finish()]);
+
+  const noiseSampler = device.createSampler({
+    addressModeU: 'repeat',
+    addressModeV: 'repeat',
+    addressModeW: 'repeat',
+    minFilter: 'linear',
+    magFilter: 'linear',
+  });
+
+  // 2. Load Real DEM Elevation Texture (earth-elevation-dem.webp, 2048x1024, RGBA8)
+  const demTexture = device.createTexture({
+    label: 'earth_elevation_dem_texture',
+    size: [2048, 1024, 1],
+    format: 'rgba8unorm',
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+  });
+
+  fetch('/earth-elevation-dem.webp')
+    .then(r => r.blob())
+    .then(blob => createImageBitmap(blob))
+    .then(bitmap => {
+      device.queue.copyExternalImageToTexture(
+        { source: bitmap },
+        { texture: demTexture },
+        [bitmap.width, bitmap.height, 1]
+      );
+    })
+    .catch(err => console.warn('DEM load fallback error:', err));
+
+  const demSampler = device.createSampler({ minFilter: 'linear', magFilter: 'linear' });
+
+  // 3. Staged WeatherNext 3 Texture Ring Buffer (3600x1801, 7424 bytes padded row)
+  const WN_W = 3600, WN_H = 1801, WN_PADDED_ROW = 7424;
+  const cloudTextures = {
+    low: [createWnTexture(device, 'low0'), createWnTexture(device, 'low1')],
+    mid: [createWnTexture(device, 'mid0'), createWnTexture(device, 'mid1')],
+    high: [createWnTexture(device, 'high0'), createWnTexture(device, 'high1')],
+  };
+
+  const windTexture = device.createTexture({
+    label: 'wind_10m_vector_texture',
+    size: [WN_W, WN_H, 1],
+    format: 'rg16float',
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+  });
+
+  function createWnTexture(dev, label) {
+    return dev.createTexture({
+      label: `weathernext_${label}`,
+      size: [WN_W, WN_H, 1],
+      format: 'r16float',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+  }
+
+  // Load initial WeatherNext forecast hours 0 and 1
+  async function loadWnHour(hour, slot) {
+    const safeH = Math.min(11, Math.max(0, Math.floor(hour)));
+    const loads = [
+      fetch(`/data/weathernext/low_cloud_cover_mean-${safeH}.bin`).then(r => r.arrayBuffer()),
+      fetch(`/data/weathernext/medium_cloud_cover_mean-${safeH}.bin`).then(r => r.arrayBuffer()),
+      fetch(`/data/weathernext/high_cloud_cover_mean-${safeH}.bin`).then(r => r.arrayBuffer()),
+    ];
+    if (slot === 0) {
+      loads.push(fetch(`/data/weathernext/wind_10m_vector-${safeH}.bin`).then(r => r.arrayBuffer()));
+    }
+    const bufs = await Promise.all(loads);
+    device.queue.writeTexture({ texture: cloudTextures.low[slot] }, bufs[0], { bytesPerRow: WN_PADDED_ROW, rowsPerImage: WN_H }, [WN_W, WN_H, 1]);
+    device.queue.writeTexture({ texture: cloudTextures.mid[slot] }, bufs[1], { bytesPerRow: WN_PADDED_ROW, rowsPerImage: WN_H }, [WN_W, WN_H, 1]);
+    device.queue.writeTexture({ texture: cloudTextures.high[slot] }, bufs[2], { bytesPerRow: WN_PADDED_ROW, rowsPerImage: WN_H }, [WN_W, WN_H, 1]);
+    if (bufs[3]) {
+      device.queue.writeTexture({ texture: windTexture }, bufs[3], { bytesPerRow: 14592, rowsPerImage: WN_H }, [WN_W, WN_H, 1]);
+    }
+  }
+
+  await loadWnHour(0, 0);
+  await loadWnHour(1, 1);
+
+  const cloudSampler = device.createSampler({ minFilter: 'linear', magFilter: 'linear' });
+  const windSampler = device.createSampler({ minFilter: 'linear', magFilter: 'linear' });
+
+  // 4. Mesh for planetary crust (lat-lon grid sphere, 128x256 for crisp relief)
+  const sphereMesh = createSphereMesh(128, 256, RADIUS);
+  const crustVertBuffer = device.createBuffer({ size: sphereMesh.verts.byteLength, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+  device.queue.writeBuffer(crustVertBuffer, 0, sphereMesh.verts);
+
+  const crustIdxBuffer = device.createBuffer({ size: sphereMesh.indices.byteLength, usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST });
+  device.queue.writeBuffer(crustIdxBuffer, 0, sphereMesh.indices);
+
+  // 5. Crust Render Pipeline
+  const crustCamBuffer = device.createBuffer({ size: 384, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  const crustTerrainBuffer = device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+
+  const crustModule = device.createShaderModule({ code: CRUST_TERRAIN_WGSL });
+  const crustPipeline = device.createRenderPipeline({
+    layout: 'auto',
+    vertex: {
+      module: crustModule,
+      entryPoint: 'vs_main',
+      buffers: [{
+        arrayStride: 32,
+        attributes: [
+          { shaderLocation: 0, offset: 0, format: 'float32x3' }, // pos
+          { shaderLocation: 1, offset: 12, format: 'float32x2' }, // uv
+          { shaderLocation: 2, offset: 20, format: 'float32x3' }, // normal
+        ],
+      }],
+    },
+    fragment: {
+      module: crustModule,
+      entryPoint: 'fs_main',
+      targets: [{ format }],
+    },
+    primitive: { topology: 'triangle-list', cullMode: 'none' },
+    depthStencil: {
+      format: 'depth32float',
+      depthWriteEnabled: true,
+      depthCompare: 'less',
+    },
+  });
+
+  const crustBindGroup = device.createBindGroup({
+    layout: crustPipeline.getBindGroupLayout(0),
+    entries: [
+      { binding: 0, resource: { buffer: crustCamBuffer } },
+      { binding: 1, resource: { buffer: crustTerrainBuffer } },
+      { binding: 2, resource: demTexture.createView() },
+      { binding: 3, resource: demSampler },
+      { binding: 4, resource: cloudTextures.low[0].createView() },
+      { binding: 5, resource: cloudSampler },
+    ],
+  });
+
+  // 6. Volumetric Cloud Raymarching Pipeline
+  const volCamBuffer = device.createBuffer({ size: 192, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  const volCloudBuffer = device.createBuffer({ size: 176, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+
+  const volModule = device.createShaderModule({ code: VOLUMETRIC_CLOUD_WGSL });
+  const volPipeline = device.createRenderPipeline({
+    layout: 'auto',
+    vertex: { module: volModule, entryPoint: 'vs_main' },
+    fragment: {
+      module: volModule,
+      entryPoint: 'fs_main',
+      targets: [{
+        format,
+        blend: {
+          color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+          alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+        },
+      }],
+    },
+    primitive: { topology: 'triangle-list' },
+  });
+
+  let depthTexture = null;
+  let depthView = null;
+  function ensureDepth() {
+    if (!depthTexture || depthTexture.width !== canvas.width || depthTexture.height !== canvas.height) {
+      if (depthTexture) depthTexture.destroy();
+      depthTexture = device.createTexture({
+        size: [canvas.width, canvas.height, 1],
+        format: 'depth32float',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+      });
+      depthView = depthTexture.createView();
+    }
+  }
+
+  // Preallocated buffer arrays (Invariant §26: Zero-GC frame loop)
+  const camFloats = new Float32Array(96);
+  const terrainFloats = new Float32Array(16);
+  const volCamFloats = new Float32Array(48);
+  const volCloudFloats = new Float32Array(44);
+
+  // Preallocated matrices for Zero-GC frame loop (Rule 26)
+  const viewMatrix = new Float32Array(16);
+  const projMatrix = new Float32Array(16);
+  const invView = new Float32Array(16);
+  const invProj = new Float32Array(16);
+
+  let frameCount = 0;
+  let lastTime = performance.now();
+  let lastLoadedHour = 0;
+
+  function render(now) {
+    const dt = (now - lastTime) * 0.001;
+    lastTime = now;
+    frameCount++;
+    if (frameCount % 30 === 0) {
+      caliperFps.textContent = `${Math.round(1.0 / Math.max(0.001, dt))} FPS`;
+    }
+
+    if (state.isPlaying) {
+      state.forecastHour = (state.forecastHour + dt * 0.25) % 11.0;
+      forecastSlider.value = state.forecastHour;
+      forecastHourVal.textContent = state.forecastHour.toFixed(1);
+    }
+
+    const currentSlot0Hour = Math.min(11, Math.max(0, Math.floor(state.forecastHour)));
+    if (currentSlot0Hour !== lastLoadedHour) {
+      lastLoadedHour = currentSlot0Hour;
+      loadWnHour(currentSlot0Hour, 0);
+      loadWnHour(Math.min(11, currentSlot0Hour + 1), 1);
+    }
+
+    ensureDepth();
+
+    // Topocentric Orthonormal Camera Basis
+    const cosPhi = Math.cos(state.camPhi);
+    const sinPhi = Math.sin(state.camPhi);
+    const cosTheta = Math.cos(state.camTheta);
+    const sinTheta = Math.sin(state.camTheta);
+
+    // Surface normal vector pointing up away from globe center
+    const nx = cosPhi * sinTheta;
+    const ny = sinPhi;
+    const nz = cosPhi * cosTheta;
+
+    const eyeX = state.camDistance * nx;
+    const eyeY = state.camDistance * ny;
+    const eyeZ = state.camDistance * nz;
+
+    // Local North and East ground tangent vectors
+    const northX = -sinPhi * sinTheta;
+    const northY = cosPhi;
+    const northZ = -sinPhi * cosTheta;
+
+    const eastX = cosTheta;
+    const eastY = 0;
+    const eastZ = -sinTheta;
+
+    // Heading vector along tangent plane
+    const hRad = (state.camHeading * Math.PI) / 180;
+    const fwdX = northX * Math.cos(hRad) + eastX * Math.sin(hRad);
+    const fwdY = northY * Math.cos(hRad) + eastY * Math.sin(hRad);
+    const fwdZ = northZ * Math.cos(hRad) + eastZ * Math.sin(hRad);
+
+    // View direction vector with pitch (0 = nadir, 90 = horizon, 105 = looking up)
+    const pRad = (state.camPitch * Math.PI) / 180;
+    const vDirX = -Math.cos(pRad) * nx + Math.sin(pRad) * fwdX;
+    const vDirY = -Math.cos(pRad) * ny + Math.sin(pRad) * fwdY;
+    const vDirZ = -Math.cos(pRad) * nz + Math.sin(pRad) * fwdZ;
+
+    // Camera Up vector (orthogonal to vDir in vertical plane)
+    const vUpX = Math.sin(pRad) * nx + Math.cos(pRad) * fwdX;
+    const vUpY = Math.sin(pRad) * ny + Math.cos(pRad) * fwdY;
+    const vUpZ = Math.sin(pRad) * nz + Math.cos(pRad) * fwdZ;
+
+    const targetX = eyeX + vDirX * 2.0;
+    const targetY = eyeY + vDirY * 2.0;
+    const targetZ = eyeZ + vDirZ * 2.0;
+
+    lookAt(viewMatrix, [eyeX, eyeY, eyeZ], [targetX, targetY, targetZ], [vUpX, vUpY, vUpZ]);
+    const aspect = canvas.width / canvas.height;
+    const near = Math.max(0.0001, (state.camDistance - RADIUS) * 0.25);
+    const far = Math.max(50.0, state.camDistance * 3.0);
+    perspective(projMatrix, 45 * Math.PI / 180, aspect, near, far);
+
+    invert4x4(invView, viewMatrix);
+    invert4x4(invProj, projMatrix);
+
+    // Update crust camera uniforms
+    camFloats.set(viewMatrix, 0);
+    camFloats.set(projMatrix, 16);
+    camFloats.set(invView, 32);
+    camFloats.set(invProj, 48);
+    camFloats[64] = eyeX; camFloats[65] = eyeY; camFloats[66] = eyeZ; camFloats[67] = unitDistToKm(state.camDistance);
+    camFloats[68] = canvas.width; camFloats[69] = canvas.height; camFloats[70] = 1 / canvas.width; camFloats[71] = 1 / canvas.height;
+    device.queue.writeBuffer(crustCamBuffer, 0, camFloats.buffer, 0, 72 * 4);
+
+    // Update terrain uniforms
+    const sunAltRad = state.sunAlt * Math.PI / 180;
+    const sunAzRad = state.sunAz * Math.PI / 180;
+    const sunX = Math.cos(sunAltRad) * Math.sin(sunAzRad);
+    const sunY = Math.sin(sunAltRad);
+    const sunZ = Math.cos(sunAltRad) * Math.cos(sunAzRad);
+    terrainFloats[0] = sunX; terrainFloats[1] = sunY; terrainFloats[2] = sunZ; terrainFloats[3] = state.sunAlt;
+    terrainFloats[4] = 0.055; // dispScale
+    terrainFloats[5] = 0.50;  // shadowIntensity
+    terrainFloats[6] = state.theme;
+    terrainFloats[7] = state.unfurl;
+    device.queue.writeBuffer(crustTerrainBuffer, 0, terrainFloats.buffer);
+
+    // Update volumetric cloud camera uniforms
+    volCamFloats.set(invView, 0);
+    volCamFloats.set(invProj, 16);
+    volCamFloats[32] = eyeX; volCamFloats[33] = eyeY; volCamFloats[34] = eyeZ; volCamFloats[35] = unitDistToKm(state.camDistance);
+    volCamFloats[36] = canvas.width; volCamFloats[37] = canvas.height; volCamFloats[38] = 1 / canvas.width; volCamFloats[39] = 1 / canvas.height;
+    volCamFloats[40] = near; volCamFloats[41] = far;
+    device.queue.writeBuffer(volCamBuffer, 0, volCamFloats.buffer);
+
+    // Update volumetric cloud physics & optics
+    const rInner = RADIUS;
+    const tropoThickness = 0.035; // ~45 km atmospheric thickness scaled for visual legibility
+    const rOuter = rInner + tropoThickness;
+    volCloudFloats[0] = rInner;
+    volCloudFloats[1] = rOuter;
+    volCloudFloats[2] = tropoThickness;
+    volCloudFloats[3] = 0.0;
+
+    volCloudFloats[4] = sunX; volCloudFloats[5] = sunY; volCloudFloats[6] = sunZ; volCloudFloats[7] = state.sunAlt;
+
+    volCloudFloats[8] = 0.18; volCloudFloats[9] = 0.20; volCloudFloats[10] = 0.55; volCloudFloats[11] = 0.60;
+    volCloudFloats[12] = state.lowEnabled ? state.lowDens : 0.0;
+    volCloudFloats[13] = state.midEnabled ? state.midDens : 0.0;
+    volCloudFloats[14] = state.highEnabled ? state.highDens : 0.0;
+    volCloudFloats[15] = state.cloudOpacity;
+
+    volCloudFloats[16] = 500.0; volCloudFloats[17] = 500.0 / 15000.0; volCloudFloats[18] = 0.0065; volCloudFloats[19] = 1.0;
+    volCloudFloats[20] = 26.0; volCloudFloats[21] = 0.65; volCloudFloats[22] = 0.35; volCloudFloats[23] = 0.002;
+    volCloudFloats[24] = 7.5; volCloudFloats[25] = 0.98; volCloudFloats[26] = 0.82; volCloudFloats[27] = -0.25;
+    volCloudFloats[28] = state.theme; volCloudFloats[29] = 1.0; volCloudFloats[30] = 1.0; volCloudFloats[31] = 1.0;
+
+    volCloudFloats[32] = now * 0.001;
+    volCloudFloats[33] = state.unfurl;
+    volCloudFloats[34] = state.forecastHour - Math.floor(state.forecastHour); // blend fraction
+    volCloudFloats[35] = 64.0; // maxSteps
+
+    volCloudFloats[36] = state.windShear ? 3.5 : 1.0;
+    volCloudFloats[37] = state.advectionSpeed;
+    device.queue.writeBuffer(volCloudBuffer, 0, volCloudFloats.buffer);
+
+    // Update Caliper ray range
+    if (caliperRayRange) {
+      let intervalKm = 0;
+      if (state.camDistance > rOuter) {
+        intervalKm = tropoThickness * KM_PER_UNIT;
+      } else if (state.camDistance >= rInner) {
+        intervalKm = (state.camDistance - rInner) * KM_PER_UNIT;
+      } else {
+        intervalKm = (rOuter - state.camDistance) * KM_PER_UNIT;
+      }
+      caliperRayRange.textContent = `${intervalKm.toFixed(1)} km`;
+    }
+
+    // Pass 1: Render Crust
+    const encoder = device.createCommandEncoder();
+    const crustPass = encoder.beginRenderPass({
+      colorAttachments: [{
+        view: ctx.getCurrentTexture().createView(),
+        clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 0.0 },
+        loadOp: 'clear',
+        storeOp: 'store',
+      }],
+      depthStencilAttachment: {
+        view: depthView,
+        depthClearValue: 1.0,
+        depthLoadOp: 'clear',
+        depthStoreOp: 'store',
+      },
+    });
+    crustPass.setPipeline(crustPipeline);
+    crustPass.setBindGroup(0, crustBindGroup);
+    crustPass.setVertexBuffer(0, crustVertBuffer);
+    crustPass.setIndexBuffer(crustIdxBuffer, 'uint32');
+    crustPass.drawIndexed(sphereMesh.indices.length);
+    crustPass.end();
+
+    // Pass 2: Volumetric Raymarcher
+    const volBindGroup = device.createBindGroup({
+      layout: volPipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: volCamBuffer } },
+        { binding: 1, resource: { buffer: volCloudBuffer } },
+        { binding: 2, resource: depthView },
+        { binding: 3, resource: noiseTexture.createView() },
+        { binding: 4, resource: noiseSampler },
+        { binding: 5, resource: cloudTextures.low[0].createView() },
+        { binding: 6, resource: cloudTextures.mid[0].createView() },
+        { binding: 7, resource: cloudTextures.high[0].createView() },
+        { binding: 8, resource: cloudTextures.low[1].createView() },
+        { binding: 9, resource: cloudTextures.mid[1].createView() },
+        { binding: 10, resource: cloudTextures.high[1].createView() },
+        { binding: 11, resource: cloudSampler },
+        { binding: 12, resource: windTexture.createView() },
+        { binding: 13, resource: windSampler },
+      ],
+    });
+
+    const volPass = encoder.beginRenderPass({
+      colorAttachments: [{
+        view: ctx.getCurrentTexture().createView(),
+        loadOp: 'load',
+        storeOp: 'store',
+      }],
+    });
+    volPass.setPipeline(volPipeline);
+    volPass.setBindGroup(0, volBindGroup);
+    volPass.draw(3); // Full-screen triangle
+    volPass.end();
+
+    device.queue.submit([encoder.finish()]);
+    requestAnimationFrame(render);
+  }
+
+  updateAltitudeUI();
+  requestAnimationFrame(render);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MATH & MESH GENERATION HELPERS
+// ═══════════════════════════════════════════════════════════════
+function createSphereMesh(latBands, lonBands, radius) {
+  const verts = [];
+  const indices = [];
+  for (let lat = 0; lat <= latBands; lat++) {
+    const theta = (lat * Math.PI) / latBands;
+    const sinTheta = Math.sin(theta);
+    const cosTheta = Math.cos(theta);
+
+    for (let lon = 0; lon <= lonBands; lon++) {
+      const phi = (lon * 2 * Math.PI) / lonBands;
+      const sinPhi = Math.sin(phi);
+      const cosPhi = Math.cos(phi);
+
+      const x = cosPhi * sinTheta;
+      const y = cosTheta;
+      const z = sinPhi * sinTheta;
+      const u = lon / lonBands;
+      const v = lat / latBands;
+
+      verts.push(x * radius, y * radius, z * radius, u, v, x, y, z);
+    }
+  }
+
+  for (let lat = 0; lat < latBands; lat++) {
+    for (let lon = 0; lon < lonBands; lon++) {
+      const first = lat * (lonBands + 1) + lon;
+      const second = first + lonBands + 1;
+      indices.push(first, first + 1, second);
+      indices.push(second, first + 1, second + 1);
+    }
+  }
+
+  return {
+    verts: new Float32Array(verts),
+    indices: new Uint32Array(indices),
+  };
+}
+
+function lookAt(out, eye, center, up) {
+  const z0 = eye[0] - center[0], z1 = eye[1] - center[1], z2 = eye[2] - center[2];
+  let len = 1 / Math.hypot(z0, z1, z2);
+  const zx = z0 * len, zy = z1 * len, zz = z2 * len;
+
+  const x0 = up[1] * zz - up[2] * zy, x1 = up[2] * zx - up[0] * zz, x2 = up[0] * zy - up[1] * zx;
+  len = 1 / Math.hypot(x0, x1, x2);
+  const xx = x0 * len, xy = x1 * len, xz = x2 * len;
+
+  const yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
+
+  out[0] = xx; out[1] = yx; out[2] = zx; out[3] = 0;
+  out[4] = xy; out[5] = yy; out[6] = zy; out[7] = 0;
+  out[8] = xz; out[9] = yz; out[10] = zz; out[11] = 0;
+  out[12] = -(xx * eye[0] + xy * eye[1] + xz * eye[2]);
+  out[13] = -(yx * eye[0] + yy * eye[1] + yz * eye[2]);
+  out[14] = -(zx * eye[0] + zy * eye[1] + zz * eye[2]);
+  out[15] = 1;
+  return out;
+}
+
+function perspective(out, fovy, aspect, near, far) {
+  const f = 1.0 / Math.tan(fovy / 2);
+  const rangeInv = 1.0 / (near - far);
+  out[0] = f / aspect; out[1] = 0; out[2] = 0; out[3] = 0;
+  out[4] = 0; out[5] = f; out[6] = 0; out[7] = 0;
+  out[8] = 0; out[9] = 0; out[10] = far * rangeInv; out[11] = -1;
+  out[12] = 0; out[13] = 0; out[14] = near * far * rangeInv; out[15] = 0;
+  return out;
+}
+
+function invert4x4(out, m) {
+  const m00 = m[0],  m01 = m[1],  m02 = m[2],  m03 = m[3];
+  const m10 = m[4],  m11 = m[5],  m12 = m[6],  m13 = m[7];
+  const m20 = m[8],  m21 = m[9],  m22 = m[10], m23 = m[11];
+  const m30 = m[12], m31 = m[13], m32 = m[14], m33 = m[15];
+
+  const b00 = m00 * m11 - m01 * m10;
+  const b01 = m00 * m12 - m02 * m10;
+  const b02 = m00 * m13 - m03 * m10;
+  const b03 = m01 * m12 - m02 * m11;
+  const b04 = m01 * m13 - m03 * m11;
+  const b05 = m02 * m13 - m03 * m12;
+  const b06 = m20 * m31 - m21 * m30;
+  const b07 = m20 * m32 - m22 * m30;
+  const b08 = m20 * m33 - m23 * m30;
+  const b09 = m21 * m32 - m22 * m31;
+  const b10 = m21 * m33 - m23 * m31;
+  const b11 = m22 * m33 - m23 * m32;
+
+  const det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+  if (Math.abs(det) < 1e-12) return out;
+  const invDet = 1.0 / det;
+
+  out[0]  = (m11 * b11 - m12 * b10 + m13 * b09) * invDet;
+  out[1]  = (-m01 * b11 + m02 * b10 - m03 * b09) * invDet;
+  out[2]  = (m31 * b05 - m32 * b04 + m33 * b03) * invDet;
+  out[3]  = (-m21 * b05 + m22 * b04 - m23 * b03) * invDet;
+
+  out[4]  = (-m10 * b11 + m12 * b08 - m13 * b07) * invDet;
+  out[5]  = (m00 * b11 - m02 * b08 + m03 * b07) * invDet;
+  out[6]  = (-m30 * b05 + m32 * b02 - m33 * b01) * invDet;
+  out[7]  = (m20 * b05 - m22 * b02 + m23 * b01) * invDet;
+
+  out[8]  = (m10 * b10 - m11 * b08 + m13 * b06) * invDet;
+  out[9]  = (-m00 * b10 + m01 * b08 - m03 * b06) * invDet;
+  out[10] = (m30 * b04 - m31 * b02 + m33 * b00) * invDet;
+  out[11] = (-m20 * b04 + m21 * b02 - m23 * b00) * invDet;
+
+  out[12] = (-m10 * b09 + m11 * b07 - m12 * b06) * invDet;
+  out[13] = (m00 * b09 - m01 * b07 + m02 * b06) * invDet;
+  out[14] = (-m30 * b03 + m31 * b01 - m32 * b00) * invDet;
+  out[15] = (m20 * b03 - m21 * b01 + m22 * b00) * invDet;
+
+  return out;
+}
+
+initWebGPU();
+</script>
+</body>
+</html>

@@ -118,7 +118,7 @@ fn intersectSphere(rayOrigin: vec3<f32>, rayDir: vec3<f32>, radius: f32) -> vec2
 }
 
 // Tropospheric Bounding Shell Intersection [rInner, rOuter]
-// Handles both orbital (rCam > rOuter) and ground/aerial (rCam in [rInner, rOuter]) views
+// Handles orbital (rCam > rOuter), inside strata (rCam in [rInner, rOuter]), and sub-cloud ceiling (rCam < rInner)
 fn intersectTroposphericShell(
     rayOrigin: vec3<f32>,
     rayDir: vec3<f32>,
@@ -126,40 +126,29 @@ fn intersectTroposphericShell(
     rOuter: f32
 ) -> vec2<f32> {
     let hitOuter = intersectSphere(rayOrigin, rayDir, rOuter);
-    if (hitOuter.y < 0.0) {
-        // Outer sphere is completely behind camera
-        return vec2<f32>(-1.0, -1.0);
-    }
+    let hitInner = intersectSphere(rayOrigin, rayDir, rInner);
 
     let rCam = length(rayOrigin);
-    var tStart: f32 = 0.0;
-    var tExit: f32 = 0.0;
+    var tStart: f32 = -1.0;
+    var tExit: f32 = -1.0;
 
     if (rCam > rOuter) {
-        // Camera in outer space looking in
-        tStart = max(hitOuter.x, 0.0);
-        let hitInner = intersectSphere(rayOrigin, rayDir, rInner);
-        if (hitInner.x > 0.0) {
-            // Ray hits planetary crust
-            tExit = hitInner.x;
-        } else {
-            // Ray grazes troposphere and exits back into space
-            tExit = hitOuter.y;
+        // Regime 1: Camera in outer space looking into troposphere
+        if (hitOuter.x > 0.0) {
+            tStart = hitOuter.x;
+            tExit = select(hitOuter.y, hitInner.x, hitInner.x > 0.0);
         }
     } else if (rCam >= rInner) {
-        // Camera is inside the troposphere!
+        // Regime 2: Camera is physically inside troposphere / cloud strata
         tStart = 0.0;
-        let hitInner = intersectSphere(rayOrigin, rayDir, rInner);
-        if (hitInner.x > 0.0) {
-            // Ray points down towards planet crust
-            tExit = hitInner.x;
-        } else {
-            // Ray points up or away into space
+        tExit = select(hitOuter.y, hitInner.x, hitInner.x > 0.0);
+    } else {
+        // Regime 3: Camera is below inner radius (ground level or beneath cloud base)
+        // Ray pointing up enters cloud base at hitInner.y and exits to space at hitOuter.y
+        if (hitInner.y > 0.0) {
+            tStart = hitInner.y;
             tExit = hitOuter.y;
         }
-    } else {
-        // Camera below inner radius
-        return vec2<f32>(-1.0, -1.0);
     }
 
     return vec2<f32>(tStart, tExit);
@@ -391,7 +380,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let ndcX = uv.x * 2.0 - 1.0;
     let ndcY = 1.0 - uv.y * 2.0;
 
-    let clipNear = vec4<f32>(ndcX, ndcY, -1.0, 1.0);
+    let clipNear = vec4<f32>(ndcX, ndcY, 0.0, 1.0);
     let clipFar  = vec4<f32>(ndcX, ndcY, 1.0, 1.0);
 
     let worldNearH = camera.u_invViewMatrix * (camera.u_invProjectionMatrix * clipNear);
@@ -467,7 +456,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
 
         let p = rayOrigin + rayDir * t;
-        let density = sampleCloudDensity(p, rInner, deltaR);
+        let rawDensity = sampleCloudDensity(p, rInner, deltaR);
+
+        // Near-Plane Camera Penetration Fade Envelope
+        let distFromCam = t;
+        let nearClipDist = max(0.005, camera.u_nearFar.x * 2.0);
+        let nearFade = smoothstep(nearClipDist, nearClipDist * 3.5, distFromCam);
+        let density = rawDensity * nearFade;
 
         if (density > 0.002) {
             // Beer-Lambert Transmittance over Step
