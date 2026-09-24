@@ -171,9 +171,47 @@ canvas#canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
 .pin-card-header { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
 .pin-num { background: #f85149; color: #fff; font-size: 9px; font-weight: 800; border-radius: 3px; padding: 1px 4px; }
 .pin-title { font-size: 11px; font-weight: 600; color: #e0e0f0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-.pin-badges { display: flex; gap: 4px; font-size: 9px; font-family: monospace; color: #8888b0; }
+.pin-actions { display: flex; gap: 4px; align-items: center; }
+.btn-pin-action { background: #24253a; border: 1px solid #363752; color: #9aaec8; cursor: pointer; font-size: 10px; padding: 2px 5px; border-radius: 3px; line-height: 1; }
+.btn-pin-action:hover { color: #fff; background: #383a5c; border-color: #58a6ff; }
+.btn-pin-action.pin-del:hover { background: #5c2020; border-color: #f85149; color: #ff9999; }
+.pin-badges { display: flex; flex-wrap: wrap; gap: 4px; font-size: 9px; font-family: monospace; color: #8888b0; }
 .pin-badge { background: #12121e; border: 1px solid #26263a; padding: 1px 4px; border-radius: 3px; }
+.pin-tags { display: flex; flex-wrap: wrap; gap: 3px; margin: 2px 0; }
+.btn-pin-tag { background: #151726; border: 1px solid #2d324d; color: #8fa0c0; font-size: 9px; padding: 1px 5px; border-radius: 3px; cursor: pointer; font-family: inherit; font-weight: 500; transition: all 0.1s; }
+.btn-pin-tag:hover { background: #232a48; border-color: #58a6ff; color: #fff; }
 .pin-note-input { flex: 1; background: #10101c; border: 1px solid #2b2c44; border-radius: 3px; color: #d0d0e8; font-size: 10px; padding: 3px 6px; font-family: inherit; }
+
+#pin-marker {
+  display: none;
+  position: absolute;
+  pointer-events: none;
+  z-index: 20;
+  transform: translate(-50%, -100%);
+  transition: transform 0.05s linear;
+}
+#pin-marker-body {
+  background: rgba(248,81,73,0.96);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.6);
+  font-family: monospace;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+#pin-marker-arrow {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid rgba(248,81,73,0.96);
+  margin: 0 auto;
+}
 
 #state-bar {
   background: rgba(16, 16, 26, 0.98);
@@ -259,9 +297,19 @@ canvas#canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
 <div id="canvas-wrap">
   <canvas id="canvas"></canvas>
 
+  <!-- Visual Screen Pin Marker Overlay -->
+  <div id="pin-marker">
+    <div id="pin-marker-body">
+      <span>📌</span>
+      <span id="pin-marker-text">Pin #1</span>
+    </div>
+    <div id="pin-marker-arrow"></div>
+  </div>
+
   <!-- Caliper Diagnostics HUD -->
   <div id="caliper-card">
     <h5>Stratospheric Telemetry <span id="caliper-fps" class="caliper-highlight">120 FPS</span></h5>
+    <div class="caliper-row"><span class="caliper-label">Cursor Target:</span><span class="caliper-val" id="caliper-hover" style="color:#7ee787;">Hover over globe...</span></div>
     <div class="caliper-row"><span class="caliper-label">Camera Elevation:</span><span class="caliper-val" id="caliper-alt">14,000 km</span></div>
     <div class="caliper-row"><span class="caliper-label">Camera Pitch / Hdg:</span><span class="caliper-val" id="caliper-pitch">0.0° (Hdg 0°)</span></div>
     <div class="caliper-row"><span class="caliper-label">Tropospheric Regime:</span><span class="caliper-stratum" id="caliper-regime">REGIME 1: ORBITAL SPACE</span></div>
@@ -379,6 +427,13 @@ function getStratumName(km) {
 }
 
 // UI bindings
+// Preallocated matrices & buffers accessible to raycasters & render loop (Zero-GC frame loop - Rule 26)
+const viewMatrix = new Float32Array(16);
+const projMatrix = new Float32Array(16);
+const invView = new Float32Array(16);
+const invProj = new Float32Array(16);
+const camFloats = new Float32Array(96);
+
 const canvas = document.getElementById('canvas');
 const altSlider = document.getElementById('alt-slider');
 const altVal = document.getElementById('alt-val');
@@ -397,9 +452,12 @@ const caliperRegime = document.getElementById('caliper-regime');
 const caliperStratum = document.getElementById('caliper-stratum');
 const caliperRayRange = document.getElementById('caliper-ray-range');
 const caliperFps = document.getElementById('caliper-fps');
+const caliperHover = document.getElementById('caliper-hover');
 const pinCardsWrap = document.getElementById('pin-cards-wrap');
 const btnPin = document.getElementById('btn-pin');
 const btnCopyChat = document.getElementById('btn-copy-chat');
+const pinMarkerEl = document.getElementById('pin-marker');
+const pinMarkerText = document.getElementById('pin-marker-text');
 
 function updateAltitudeUI() {
   const km = unitDistToKm(state.camDistance);
@@ -503,13 +561,207 @@ document.getElementById('chk-wind-shear').onchange = (e) => { state.windShear = 
 document.getElementById('slider-sun-alt').oninput = (e) => { state.sunAlt = parseFloat(e.target.value); };
 document.getElementById('slider-sun-az').oninput = (e) => { state.sunAz = parseFloat(e.target.value); };
 
-// Pin system
+// ═══════════════════════════════════════════════════════════════
+// GEOGRAPHIC LABELS, RAYCASTING & 3D OBSERVATION PINS
+// ═══════════════════════════════════════════════════════════════
+
+function getGeographicLabel(lonDeg, latDeg) {
+  const absLat = Math.abs(latDeg);
+  const absLon = Math.abs(lonDeg);
+  const lonHem = lonDeg >= 0 ? 'E' : 'W';
+  const latHem = latDeg >= 0 ? 'N' : 'S';
+  const coordStr = `${absLat.toFixed(1)}°${latHem}, ${absLon.toFixed(1)}°${lonHem}`;
+
+  let region = '';
+  if (latDeg > 66) region = 'Arctic Ocean / Polar Front';
+  else if (latDeg < -60) region = 'Antarctic Circumpolar Belt';
+  else if (Math.abs(latDeg) < 10) region = 'Intertropical Convergence Zone (ITCZ)';
+  else if (lonDeg >= -85 && lonDeg <= -10 && latDeg >= 10 && latDeg <= 45) region = 'North Atlantic Subtropical High';
+  else if (lonDeg >= -105 && lonDeg <= -60 && latDeg >= 25 && latDeg <= 55) region = 'North American Interior / Plains';
+  else if (lonDeg >= -135 && lonDeg <= -105 && latDeg >= 30 && latDeg <= 60) region = 'Pacific Northwest / Cascades';
+  else if (lonDeg >= -180 && lonDeg <= -120 && latDeg >= 10 && latDeg <= 50) region = 'North Pacific Storm Track';
+  else if (lonDeg >= -85 && lonDeg <= -35 && latDeg >= -55 && latDeg <= 10) region = 'South America / Amazon Basin';
+  else if (lonDeg >= -15 && lonDeg <= 45 && latDeg >= 35 && latDeg <= 65) region = 'European Maritime / Mediterranean';
+  else if (lonDeg >= -20 && lonDeg <= 55 && latDeg >= 10 && latDeg <= 35) region = 'Sahara / Arabian Deserts';
+  else if (lonDeg >= 10 && lonDeg <= 50 && latDeg >= -35 && latDeg <= 10) region = 'Equatorial Africa / Congo Basin';
+  else if (lonDeg >= 40 && lonDeg <= 110 && latDeg >= 15 && latDeg <= 45) region = 'Central Asia / Tibetan Plateau';
+  else if (lonDeg >= 60 && lonDeg <= 100 && latDeg >= -10 && latDeg <= 30) region = 'Indian Monsoon Basin';
+  else if (lonDeg >= 100 && lonDeg <= 155 && latDeg >= 15 && latDeg <= 50) region = 'East Asia / Kuroshio Current';
+  else if (lonDeg >= 110 && lonDeg <= 160 && latDeg >= -45 && latDeg <= -10) region = 'Australasia / Coral Sea';
+  else if (latDeg < 0) region = 'Southern Ocean Roaring Forties';
+  else region = 'Open Ocean Troposphere';
+
+  return `${coordStr} (${region})`;
+}
+
+function raycastCanvas(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const ndcX = ((clientX - rect.left) / rect.width) * 2.0 - 1.0;
+  const ndcY = 1.0 - ((clientY - rect.top) / rect.height) * 2.0;
+
+  function unproject(x, y, z) {
+    const vx = invProj[0]*x + invProj[4]*y + invProj[8]*z + invProj[12];
+    const vy = invProj[1]*x + invProj[5]*y + invProj[9]*z + invProj[13];
+    const vz = invProj[2]*x + invProj[6]*y + invProj[10]*z + invProj[14];
+    const vw = invProj[3]*x + invProj[7]*y + invProj[11]*z + invProj[15];
+
+    const wx = invView[0]*vx + invView[4]*vy + invView[8]*vz + invView[12]*vw;
+    const wy = invView[1]*vx + invView[5]*vy + invView[9]*vz + invView[13]*vw;
+    const wz = invView[2]*vx + invView[6]*vy + invView[10]*vz + invView[14]*vw;
+    const ww = invView[3]*vx + invView[7]*vy + invView[11]*vz + invView[15]*vw;
+    const invW = ww !== 0 ? 1 / ww : 1;
+    return [wx * invW, wy * invW, wz * invW];
+  }
+
+  const near = unproject(ndcX, ndcY, 0.0);
+  const far = unproject(ndcX, ndcY, 1.0);
+  const dx = far[0] - near[0], dy = far[1] - near[1], dz = far[2] - near[2];
+  const len = Math.hypot(dx, dy, dz) || 1;
+  const rayDir = [dx / len, dy / len, dz / len];
+
+  let rayOrigin = [camFloats[64], camFloats[65], camFloats[66]];
+  if (rayOrigin[0] === 0 && rayOrigin[1] === 0 && rayOrigin[2] === 0) {
+    const eyeDist = state.camDistance;
+    rayOrigin = [
+      eyeDist * Math.cos(state.camPhi) * Math.sin(state.camTheta),
+      eyeDist * Math.sin(state.camPhi),
+      eyeDist * Math.cos(state.camPhi) * Math.cos(state.camTheta),
+    ];
+  }
+
+  const rInner = RADIUS;
+  const rOuter = RADIUS + 0.035;
+
+  // Intersect inner sphere first (crust / terrain)
+  const bIn = rayOrigin[0]*rayDir[0] + rayOrigin[1]*rayDir[1] + rayOrigin[2]*rayDir[2];
+  const cIn = rayOrigin[0]*rayOrigin[0] + rayOrigin[1]*rayOrigin[1] + rayOrigin[2]*rayOrigin[2] - rInner * rInner;
+  const dIn = bIn * bIn - cIn;
+
+  if (dIn >= 0) {
+    const t = -bIn - Math.sqrt(dIn);
+    if (t > 0) {
+      const hx = rayOrigin[0] + t * rayDir[0];
+      const hy = rayOrigin[1] + t * rayDir[1];
+      const hz = rayOrigin[2] + t * rayDir[2];
+      const rHit = Math.hypot(hx, hy, hz);
+      const latRad = Math.asin(Math.max(-1, Math.min(1, hy / rHit)));
+      const lonRad = Math.atan2(hx, hz);
+      const latDeg = (latRad * 180) / Math.PI;
+      const lonDeg = (lonRad * 180) / Math.PI;
+      return {
+        worldPos: [hx, hy, hz],
+        lat: latDeg,
+        lon: lonDeg,
+        label: getGeographicLabel(lonDeg, latDeg),
+        targetType: 'crust',
+      };
+    }
+  }
+
+  // Intersect outer shell (limb / clouds)
+  const cOut = rayOrigin[0]*rayOrigin[0] + rayOrigin[1]*rayOrigin[1] + rayOrigin[2]*rayOrigin[2] - rOuter * rOuter;
+  const dOut = bIn * bIn - cOut;
+  if (dOut >= 0) {
+    const t = -bIn - Math.sqrt(dOut);
+    if (t > 0) {
+      const hx = rayOrigin[0] + t * rayDir[0];
+      const hy = rayOrigin[1] + t * rayDir[1];
+      const hz = rayOrigin[2] + t * rayDir[2];
+      const rHit = Math.hypot(hx, hy, hz);
+      const latRad = Math.asin(Math.max(-1, Math.min(1, hy / rHit)));
+      const lonRad = Math.atan2(hx, hz);
+      const latDeg = (latRad * 180) / Math.PI;
+      const lonDeg = (lonRad * 180) / Math.PI;
+      return {
+        worldPos: [hx, hy, hz],
+        lat: latDeg,
+        lon: lonDeg,
+        label: `Limb: ${getGeographicLabel(lonDeg, latDeg)}`,
+        targetType: 'limb',
+      };
+    }
+  }
+
+  // Fallback to camera sub-nadir point
+  const camPhi = state.camPhi;
+  const camTheta = state.camTheta;
+  const nadirLatDeg = (camPhi * 180) / Math.PI;
+  const nadirLonDeg = (camTheta * 180) / Math.PI;
+  const nx = Math.cos(camPhi) * Math.sin(camTheta);
+  const ny = Math.sin(camPhi);
+  const nz = Math.cos(camPhi) * Math.cos(camTheta);
+  return {
+    worldPos: [nx * rInner, ny * rInner, nz * rInner],
+    lat: nadirLatDeg,
+    lon: nadirLonDeg,
+    label: `Nadir: ${getGeographicLabel(nadirLonDeg, nadirLatDeg)}`,
+    targetType: 'nadir',
+  };
+}
+
+function projectToScreen(worldPos, viewMat, projMat, cvs) {
+  const vx = viewMat[0]*worldPos[0] + viewMat[4]*worldPos[1] + viewMat[8]*worldPos[2] + viewMat[12];
+  const vy = viewMat[1]*worldPos[0] + viewMat[5]*worldPos[1] + viewMat[9]*worldPos[2] + viewMat[13];
+  const vz = viewMat[2]*worldPos[0] + viewMat[6]*worldPos[1] + viewMat[10]*worldPos[2] + viewMat[14];
+  const vw = viewMat[3]*worldPos[0] + viewMat[7]*worldPos[1] + viewMat[11]*worldPos[2] + viewMat[15];
+
+  const cx = projMat[0]*vx + projMat[4]*vy + projMat[8]*vz + projMat[12]*vw;
+  const cy = projMat[1]*vx + projMat[5]*vy + projMat[9]*vz + projMat[13]*vw;
+  const cz = projMat[2]*vx + projMat[6]*vy + projMat[10]*vz + projMat[14]*vw;
+  const cw = projMat[3]*vx + projMat[7]*vy + projMat[11]*vz + projMat[15]*vw;
+
+  if (cw <= 0.001) return null;
+  const ndcX = cx / cw;
+  const ndcY = cy / cw;
+  const ndcZ = cz / cw;
+  if (ndcZ < 0.0 || ndcZ > 1.0) return null;
+
+  const rect = cvs.getBoundingClientRect();
+  const screenX = (ndcX * 0.5 + 0.5) * rect.width;
+  const screenY = (1.0 - (ndcY * 0.5 + 0.5)) * rect.height;
+  return { x: screenX, y: screenY };
+}
+
+function updateHoverProbe(clientX, clientY) {
+  if (!caliperHover) return;
+  const hit = raycastCanvas(clientX, clientY);
+  if (hit && hit.lat !== undefined) {
+    const absLat = Math.abs(hit.lat);
+    const absLon = Math.abs(hit.lon);
+    const latHem = hit.lat >= 0 ? 'N' : 'S';
+    const lonHem = hit.lon >= 0 ? 'E' : 'W';
+    caliperHover.textContent = `${absLat.toFixed(1)}°${latHem}, ${absLon.toFixed(1)}°${lonHem}`;
+  }
+}
+
+// 1-Click Volumetric Cloud Feedback Tags
+const CLOUD_FEEDBACK_TAGS = [
+  { label: 'Dense +', text: 'Too Dense' },
+  { label: 'Dense -', text: 'Too Wispy' },
+  { label: 'Banding', text: 'Raymarch Banding' },
+  { label: 'Limb Bleed', text: 'Limb Bleed' },
+  { label: 'Drift Fast', text: 'Advection Too Fast' },
+  { label: 'Drift Slow', text: 'Advection Too Slow' },
+  { label: 'Shear Break', text: 'Vertical Shear Disconnect' },
+  { label: 'Muddy', text: 'Low Contrast / Muddy' },
+  { label: 'Clean', text: 'Clean / Natural' },
+];
+
 function addObservationPin(hit) {
   const pinId = Date.now();
   const km = unitDistToKm(state.camDistance);
+
+  if (!hit) {
+    hit = raycastCanvas(canvas.clientWidth / 2, canvas.clientHeight / 2);
+  }
+
   const pin = {
     id: pinId,
-    altitudeKm: km.toFixed(1),
+    worldPos: hit.worldPos,
+    lat: hit.lat,
+    lon: hit.lon,
+    label: hit.label,
+    altitudeKm: km >= 10.0 ? `${km.toLocaleString(undefined, {maximumFractionDigits: 0})} km` : `${(km * 1000).toLocaleString(undefined, {maximumFractionDigits: 0})} m`,
     stratum: getStratumName(km),
     pitchDeg: state.camPitch.toFixed(0),
     headingDeg: state.camHeading.toFixed(0),
@@ -520,9 +772,20 @@ function addObservationPin(hit) {
     camPhi: state.camPhi,
     camPitch: state.camPitch,
     camHeading: state.camHeading,
-    note: `Observed at ${km >= 10 ? km.toFixed(0) + ' km' : (km * 1000).toFixed(0) + ' m'}, pitch ${state.camPitch.toFixed(0)}°`,
+    densities: {
+      low: state.lowDens.toFixed(2),
+      mid: state.midDens.toFixed(2),
+      high: state.highDens.toFixed(2),
+      opacity: state.cloudOpacity.toFixed(2),
+    },
+    advectionSpeed: state.advectionSpeed.toFixed(1),
+    sunAlt: state.sunAlt,
+    sunAz: state.sunAz,
+    note: '',
   };
+
   state.pins.push(pin);
+  state.activePinId = pin.id;
   renderPins();
 }
 
@@ -534,50 +797,121 @@ function renderPins() {
     card.innerHTML = `
       <div class="pin-card-header">
         <span class="pin-num">#${idx + 1}</span>
-        <span class="pin-title">${p.stratum}</span>
-        <span style="font-size:9px;color:#788ca8;">+${p.forecastHour}h</span>
+        <span class="pin-title" title="${p.label}">${p.label}</span>
+        <div class="pin-actions">
+          <button class="btn-pin-action pin-jump" title="Jump camera to pin">👁</button>
+          <button class="btn-pin-action pin-del" title="Delete pin">✕</button>
+        </div>
       </div>
       <div class="pin-badges">
-        <span class="pin-badge">${p.altitudeKm} km</span>
+        <span class="pin-badge">${p.altitudeKm}</span>
         <span class="pin-badge">${p.pitchDeg}° pitch</span>
-        <span class="pin-badge">${p.theme}</span>
+        <span class="pin-badge">${p.stratum.split(' ')[0]}</span>
+        <span class="pin-badge">+${p.forecastHour}h</span>
       </div>
-      <input class="pin-note-input" value="${p.note}" placeholder="Observation notes...">
+      <div class="pin-tags">
+        ${CLOUD_FEEDBACK_TAGS.map(t => `<button class="btn-pin-tag" data-tag="${t.text}">${t.label}</button>`).join('')}
+      </div>
+      <input class="pin-note-input" value="${p.note}" placeholder="Click tags above or type notes...">
     `;
-    card.onclick = () => {
-      state.camDistance = p.camDistance;
-      state.camTheta = p.camTheta;
-      state.camPhi = p.camPhi;
-      state.camPitch = p.camPitch || 0;
-      state.camHeading = p.camHeading || 0;
-      state.activePinId = p.id;
-      updateAltitudeUI();
-      renderPins();
+
+    // Jump to view
+    card.querySelector('.pin-jump').onclick = (e) => {
+      e.stopPropagation();
+      jumpToPin(p.id);
     };
+
+    // Delete pin
+    card.querySelector('.pin-del').onclick = (e) => {
+      e.stopPropagation();
+      deletePin(p.id);
+    };
+
+    card.onclick = () => {
+      jumpToPin(p.id);
+    };
+
+    // Quick feedback tags
+    card.querySelectorAll('.btn-pin-tag').forEach(tagBtn => {
+      tagBtn.onclick = (e) => {
+        e.stopPropagation();
+        const tagText = tagBtn.getAttribute('data-tag');
+        if (p.note) {
+          if (!p.note.includes(tagText)) p.note += `, ${tagText}`;
+        } else {
+          p.note = tagText;
+        }
+        card.querySelector('.pin-note-input').value = p.note;
+      };
+    });
+
     const input = card.querySelector('input');
-    input.onchange = (e) => { p.note = e.target.value; };
+    input.oninput = (e) => { p.note = e.target.value; };
     input.onclick = (e) => e.stopPropagation();
+
     pinCardsWrap.appendChild(card);
   });
 }
 
+function jumpToPin(pinId) {
+  const p = state.pins.find(pin => pin.id === pinId);
+  if (!p) return;
+  state.camDistance = p.camDistance;
+  state.camTheta = p.camTheta;
+  state.camPhi = p.camPhi;
+  state.camPitch = p.camPitch || 0;
+  state.camHeading = p.camHeading || 0;
+  state.forecastHour = parseFloat(p.forecastHour) || 0;
+  forecastSlider.value = state.forecastHour;
+  forecastHourVal.textContent = state.forecastHour.toFixed(1);
+  state.activePinId = p.id;
+  updateAltitudeUI();
+  renderPins();
+}
+
+function deletePin(pinId) {
+  state.pins = state.pins.filter(p => p.id !== pinId);
+  if (state.activePinId === pinId) {
+    state.activePinId = state.pins.length > 0 ? state.pins[state.pins.length - 1].id : null;
+  }
+  renderPins();
+}
+
 btnPin.onclick = () => addObservationPin();
 
+// Structured Markdown Clipboard Serializer for Pair Programming Chat
 btnCopyChat.onclick = () => {
-  const payload = {
-    elevationKm: unitDistToKm(state.camDistance).toFixed(2),
-    pitchDeg: state.camPitch.toFixed(1),
-    headingDeg: state.camHeading.toFixed(1),
-    stratum: getStratumName(unitDistToKm(state.camDistance)),
-    forecastHour: state.forecastHour.toFixed(2),
-    theme: state.theme,
-    densities: { low: state.lowDens, mid: state.midDens, high: state.highDens },
-    pins: state.pins,
-    urlHash: window.location.hash,
-  };
-  const jsonStr = JSON.stringify(payload, null, 2);
-  navigator.clipboard.writeText(jsonStr).then(() => {
-    btnCopyChat.textContent = '✓ Copied!';
+  if (state.pins.length === 0) {
+    const km = unitDistToKm(state.camDistance);
+    const stratum = getStratumName(km);
+    const themeName = state.theme === 0 ? 'Tharp (1977)' : state.theme === 1 ? 'Cream Rag' : 'Prussian Cyanotype';
+    const text = `### ☁️ Indicatrix Volumetric Cloud Viewport Snapshot:
+- **Regime & Camera**: ${caliperRegime.textContent} | Alt: ${altVal.textContent} | Pitch: ${state.camPitch.toFixed(1)}° | Heading: ${state.camHeading.toFixed(0)}° (θ=${state.camTheta.toFixed(3)}, φ=${state.camPhi.toFixed(3)})
+- **Atmosphere Strata**: ${stratum} | +${state.forecastHour.toFixed(1)}h Forecast | Opacity: ${state.cloudOpacity.toFixed(2)}
+- **Layer Densities**: Low: ${state.lowDens.toFixed(2)} (${state.lowEnabled ? 'ON' : 'OFF'}) | Mid: ${state.midDens.toFixed(2)} (${state.midEnabled ? 'ON' : 'OFF'}) | High: ${state.highDens.toFixed(2)} (${state.highEnabled ? 'ON' : 'OFF'})
+- **Wind & Sun**: Advection: ${state.advectionSpeed.toFixed(1)}× | Shear: ${state.windShear ? 'Cirrus 3.5×' : 'Uniform'} | Sun Alt: ${state.sunAlt}°, Az: ${state.sunAz}°
+- **Cartographic Medium**: ${themeName} | α Unfurl: ${state.unfurl.toFixed(2)}
+- **Observation / Query**: (Type your thoughts or concerns here)
+`;
+    navigator.clipboard.writeText(text).then(() => {
+      btnCopyChat.textContent = '✅ Copied Viewport to Clipboard!';
+      setTimeout(() => { btnCopyChat.textContent = '📋 Copy State to Chat'; }, 2000);
+    });
+    return;
+  }
+
+  let text = `### ☁️ Indicatrix Volumetric Cloud Feedback (${state.pins.length} Pins):\n`;
+  state.pins.forEach((p, idx) => {
+    const loc = p.label || `${p.lat.toFixed(1)}°, ${p.lon.toFixed(1)}°`;
+    text += `\n- **Pin #${idx + 1}** [${loc}]:\n`;
+    text += `  - **Camera**: ${p.stratum} | Alt: ${p.altitudeKm} | Pitch: ${p.pitchDeg}° | Hdg: ${p.headingDeg}° (θ=${p.camTheta.toFixed(3)}, φ=${p.camPhi.toFixed(3)})\n`;
+    text += `  - **Atmosphere**: +${p.forecastHour}h cycle | Low: ${p.densities.low} | Mid: ${p.densities.mid} | High: ${p.densities.high} | Opacity: ${p.densities.opacity}\n`;
+    text += `  - **Medium & Sun**: ${p.theme} | Sun Alt: ${p.sunAlt}°, Az: ${p.sunAz}° | α Unfurl: ${state.unfurl.toFixed(2)}\n`;
+    text += `  - **Observation**: ${p.note.trim() ? p.note.trim() : '(No tags selected)'}\n`;
+  });
+
+  navigator.clipboard.writeText(text).then(() => {
+    btnCopyChat.textContent = `✅ Copied ${state.pins.length} Pin(s) to Clipboard!`;
     setTimeout(() => { btnCopyChat.textContent = '📋 Copy State to Chat'; }, 2000);
   });
 };
@@ -596,14 +930,18 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// Mouse dragging & zoom
+// Mouse dragging, hover probing & canvas click-to-pin
 let isDragging = false, lastX = 0, lastY = 0, dragButton = 0;
+let downX = 0, downY = 0, downTime = 0;
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
 canvas.addEventListener('pointerdown', (e) => {
   isDragging = true;
   lastX = e.clientX;
   lastY = e.clientY;
+  downX = e.clientX;
+  downY = e.clientY;
+  downTime = performance.now();
   dragButton = e.button;
   canvas.setPointerCapture(e.pointerId);
 });
@@ -623,10 +961,24 @@ canvas.addEventListener('pointermove', (e) => {
     updateAltitudeUI();
     lastX = e.clientX;
     lastY = e.clientY;
+  } else {
+    // Caliper hover probe
+    updateHoverProbe(e.clientX, e.clientY);
   }
 });
 
-canvas.addEventListener('pointerup', () => { isDragging = false; });
+canvas.addEventListener('pointerup', (e) => {
+  isDragging = false;
+  const dist = Math.hypot(e.clientX - downX, e.clientY - downY);
+  const dur = performance.now() - downTime;
+  if (dist < 6 && dur < 400 && dragButton === 0) {
+    // Clean click on canvas: raycast surface / clouds and drop pin!
+    const hit = raycastCanvas(e.clientX, e.clientY);
+    if (hit) {
+      addObservationPin(hit);
+    }
+  }
+});
 
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
@@ -865,16 +1217,9 @@ async function initWebGPU() {
   }
 
   // Preallocated buffer arrays (Invariant §26: Zero-GC frame loop)
-  const camFloats = new Float32Array(96);
   const terrainFloats = new Float32Array(16);
   const volCamFloats = new Float32Array(48);
   const volCloudFloats = new Float32Array(44);
-
-  // Preallocated matrices for Zero-GC frame loop (Rule 26)
-  const viewMatrix = new Float32Array(16);
-  const projMatrix = new Float32Array(16);
-  const invView = new Float32Array(16);
-  const invProj = new Float32Array(16);
 
   let frameCount = 0;
   let lastTime = performance.now();
@@ -1088,6 +1433,27 @@ async function initWebGPU() {
     volPass.end();
 
     device.queue.submit([encoder.finish()]);
+
+    // Update 2D screen marker for active pin
+    if (pinMarkerEl) {
+      const activePin = state.pins.find(p => p.id === state.activePinId);
+      if (activePin && activePin.worldPos) {
+        const scr = projectToScreen(activePin.worldPos, viewMatrix, projMatrix, canvas);
+        if (scr) {
+          pinMarkerEl.style.display = 'block';
+          pinMarkerEl.style.left = `${scr.x}px`;
+          pinMarkerEl.style.top = `${scr.y}px`;
+          const idx = state.pins.indexOf(activePin) + 1;
+          const labelPrefix = activePin.label ? activePin.label.split('(')[0].trim() : 'Pin';
+          pinMarkerText.textContent = `#${idx}: ${labelPrefix}`;
+        } else {
+          pinMarkerEl.style.display = 'none';
+        }
+      } else {
+        pinMarkerEl.style.display = 'none';
+      }
+    }
+
     requestAnimationFrame(render);
   }
 
