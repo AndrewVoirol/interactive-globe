@@ -80,7 +80,10 @@ When in doubt, present 2-3 parameter options rather than picking one extreme.
 ## 13. Agent Directory, Server & Worktree Hygiene
 - **Clean up agent directories.** After each swarm, archive or delete agent working directories from `.agents/`. Only `skills/` persists.
 - **Kill dev servers.** Before ending any session or removing a worktree, kill all spawned dev servers. Run `lsof -i :3000 -i :5173` to verify ports are released.
-- **Ephemeral Worktrees**: Treat worktrees as temporary execution environments. Always complete the full lifecycle: `Commit -> Merge -> Post-Merge Test Verification -> Kill Dev Server -> Remove Worktree -> Prune`. Never leave uncommitted files or unmerged branches in linked worktrees.
+- **Ephemeral Worktrees & Remote Branch Pruning**: Treat worktrees and feature branches as temporary execution environments. Always complete the full lifecycle:
+  $$\text{Commit} \to \text{Merge to main} \to \text{Post-Merge Test Verification} \to \text{Kill Dev Server} \to \text{Remove Worktree / Symlink} \to \text{Remote Prune}$$
+  - **Remote Branch Pruning**: Once a feature branch is merged into `main` and verified, immediately delete the remote tracking branch on GitHub: `git push origin --delete <branch-name>`. Never leave merged feature branches dangling on `origin`.
+  - **Symlink vs. Worktree Verification**: Differentiate between registered git worktrees (`git worktree list`) and OS directory symlinks (`ls -ld`). Clean up ephemeral worktree symlinks in `~/.gemini/antigravity/worktrees/` once execution returns to the canonical repository.
 - **Commit and push.** Before launching complex refactoring, commit and push verified working state.
 
 ## 14. DEM-Coupled Hydrology
@@ -160,6 +163,10 @@ When a research phase (`/boost`) feeds a subsequent implementation phase (`/team
 - **Human gate between phases.** The user must review and approve the spec ledger before the implementation phase launches. If the formulas are wrong, the implementation swarm will implement wrong formulas with mechanical precision.
 - **Ephemeral reminder hook.** When a spec ledger exists on disk, a `PreInvocation` hook in `.agents/hooks.json` should inject an ephemeral reminder so every agent invocation is aware of the active contract.
 - **Boundary-condition gate.** Every formula in the spec ledger must include a numeric evaluation at extreme boundary values (e.g., α = 0.0, α = 1.0, facing = 0.0, latitude = ±90°). The evaluated result must be compared against the project's non-negotiable rules (Rule 7 zero-at-limb, Rule 4 uniform control flow, etc.). A formula that is mathematically correct but produces a rule-violating result at a boundary is a spec defect.
+- **Spec Ledger Checkbox & Milestone Synchronization**: An implementation phase is NOT complete based on passing tests alone. The completing worker or lead agent MUST reconcile all active specification ledgers (`*_SPEC_LEDGER.md`) and milestone trackers (`todo.md`):
+  1. Mark every implemented, verified specification item from `- [ ]` to `- [x]`.
+  2. Update headline test baseline numbers in `todo.md` (e.g., total test files and passing test count) to match current reality.
+  Leaving empty `- [ ]` checkboxes or frozen milestone statuses after merging code is strictly prohibited — it misleads users and future agents into believing verified work was "only a plan."
 
 ## 28. WGSL Shared Module Extraction Discipline
 When extracting WGSL functions from consumer shaders into a shared module (e.g., `manifold.wgsl`, `noise.wgsl`) that is concatenated via string injection:
