@@ -5,45 +5,70 @@
 
 This ledger defines the authoritative mathematical equations, boundary conditions, and physical kinematics for the Indicatrix projection engine, resolving the historical homogenization defect.
 
-### 1.1 Stratum Volume Preservation Invariant
+### 1.1 Four-Mode Architecture & Mode Excision (Rule 9 & Rule 30)
+The Indicatrix Engine operates under a strict 4-mode physical architecture (Modes 0..3: Mode 0 Developable Folio Wave, Mode 1 Parchment Scroll, Mode 2 Tectonic Fracture, Mode 3 Hydrodynamic Fluid). Pursuant to Rule 9 ("Feature cuts are permanent") and Rule 30 ("Excision audit hygiene"), Mode 4 (Fuller Dymaxion) has been permanently excised across all pipelines, shaders, types, and HUD controls.
+
+### 1.2 Stratum Volume Preservation Invariant
 In all deformation modes, the physical thickness of the crust (16-bit ETOPO DEM elevation), ocean bathymetry (abyssal trenches), and atmosphere (cloud shells and Rayleigh scattering) MUST displace along the evaluated manifold normal vector:
 $$\mathbf{p}_{\text{final}} = \mathbf{p}_{\text{manifold}} + \mathbf{n}_{\text{manifold}} \cdot z_{\text{elev}}$$
 The physical relief must never be squashed into a 2D planar decal mid-flight.
 
 ---
 
-## §2: Mode 0 — Polar-Convergent Geodesic Unfolding with Boundary Seam Lip
-**Target**: `src/webgpu/shaders/manifold.wgsl` (`default:`)
+## §2: Mode 0 — Equirectangular 2:1 Developable Folio Wave Kinematics & Analytical Normal
+**Target**: `src/webgpu/shaders/manifold.wgsl` (`default:` / `evaluateModeZero`)  
+**Authoritative Reference**: `SHADERS_SPEC_LEDGER.md §3`
 
 ### 2.1 Problem Solved
-Eliminates polar bat/cat ears, needle spindle, traveling peel shockwaves through inner continents, depth squishing into almond/ellipsoid, cylindrical slab appearance, and polar holes, via polar-convergent developable circular arc curvature relaxation and boundary-anchored fingernail seam lip.
+Eliminates polar bat/cat ears, needle spindle, traveling peel shockwaves through inner continents, depth squishing into almond/ellipsoid, cylindrical slab appearance, and polar holes, via polar-convergent developable circular arc curvature relaxation, 5-scale nested harmonic roll mechanics, and closed-form analytical normal derivation.
 
-### 2.2 Mathematical Formulation
-- Staged meridional unbending and parallel expansion:
-  $$t_{\text{unbend}} = \text{smoothstep}(0.15, 0.85, \alpha)$$
-  $$y_{\text{physical}} = \text{mix}(pos3D.y, R \cdot \phi, t_{\text{unbend}})$$
-  $$curY = \text{mix}(y_{\text{physical}}, pos2D.y, \text{smoothstep}(0.60, 1.0, \alpha))$$
-  $$t_{\text{parallel}} = \text{smoothstep}(0.18, 0.82, \alpha)$$
-  $$\text{parallelWidth} = \text{mix}(\cos\phi, 1.0, t_{\text{parallel}})$$
-  $$curX = \text{mix}(pos3D.x, pos2D.x \cdot \text{parallelWidth}, \alpha)$$
-- Planar depth convergence with uniform chord lift (eliminates Antarctica depression bowl):
-  $$\text{chordLiftZ} = (0.5 + 0.5 \cos\phi) \cdot R \cdot (1.0 - \alpha) \cdot \sin(\pi \alpha) \cdot 0.28$$
-  $$curZ = \text{mix}(pos3D.z, 0.0, \alpha) + \text{chordLiftZ}$$
-  $$\mathbf{p}_{\text{base}} = (curX, curY, curZ)$$
-- Boundary-Seam Confined Lip Detachment ($|\lambda| > 150^\circ$, i.e. $\text{lonNorm} \in [0.85, 1.0]$):
-  $$s_{\text{peel}} = \text{select}\left(0.0, \text{smoothstep}(0.85, 1.0, \text{lonNorm}), \text{lonNorm} > 0.85\right)$$
-  $$e_{\text{peel}} = \sin(\pi \cdot \alpha^{0.70}) \cdot (1.0 - \alpha)$$
-  $$\theta_{\text{roll}} = s_{\text{peel}} \cdot 1.1$$
-  $$\text{liftBarrel} = R \cdot 0.35 \cdot e_{\text{peel}} \cdot (1.0 - \cos\theta_{\text{roll}}) \cdot \cos\phi$$
-- Outward Radial Displacement (zero tangential compression toward Greenwich):
-  $$\mathbf{n}_{\text{horiz}} = \text{normalize}(pos3D.x, 0, pos3D.z)$$
-  $$\mathbf{p}_{\text{final}} = \mathbf{p}_{\text{base}} + \mathbf{n}_{\text{horiz}} \cdot \text{liftBarrel}$$
+### 2.2 Mathematical Formulation (The 5 Scales of Nested Harmonic Roll)
+
+1. **Boundary Envelopes & $C^2$ Smooth Ease-In**:
+   $$s_{\text{zero}} = \text{smoothstep}(0.0, 0.10, \alpha)$$
+   $$s_{\text{one}} = 1.0 - \text{smoothstep}(0.90, 1.0, \alpha)$$
+   $$\text{env} = \sin(\pi \alpha) \cdot s_{\text{zero}} \cdot s_{\text{one}}$$
+   $$\alpha_{\text{eased}} = \alpha^2 (3.0 - 2.0\alpha)$$
+
+2. **Living Directional Peel & Synchronized Parallel Expansion**:
+   $$\text{waveBias} = \text{normLon} \cdot 0.040 \cdot \text{env}$$
+   $$\text{latFactor} = 1.0 - 0.14 \cdot \text{env} \cdot (1.0 - \cos\phi)$$
+   $$\text{easeLocal} = \text{clamp}(\alpha_{\text{eased}} \cdot \text{latFactor} - \text{waveBias}, 0.0, 1.0)$$
+   $$t_{\text{parallel}} = \text{smoothstep}(0.05, 0.85, \text{easeLocal})$$
+   $$\text{parallelWidth} = \text{mix}(\cos\phi, 1.0, t_{\text{parallel}})$$
+   $$r_{\text{par}} = R \cdot \text{parallelWidth}$$
+
+3. **Developable Circular Arc Unroll with $C^\infty$ Smooth Spine Relaxation**:
+   $$s_{\text{base}} = \max(0.0, 1.0 - \text{easeLocal})$$
+   $$\text{spineWeight} = \cos^4(\lambda / 2)$$
+   $$s_{\text{local}} = s_{\text{base}} \cdot (1.0 - 0.10 \cdot \text{env} \cdot \text{spineWeight})$$
+   $$u = s_{\text{local}} \cdot \lambda$$
+   - For $|u| > 0.02$:
+     $$curX = r_{\text{par}} \cdot \frac{\sin(u)}{s_{\text{div}}}, \quad curZ = r_{\text{par}} \cdot \left(\frac{\cos(u) - 1.0}{s_{\text{div}}} + s_{\text{local}}\right)$$
+   - For small $|u| \le 0.02$ (Taylor series expansion):
+     $$curX = r_{\text{par}} \lambda (1 - u^2/6), \quad curZ = -s_{\text{local}} r_{\text{par}} \lambda^2 (0.5 - u^2/24) + r_{\text{par}} s_{\text{local}}$$
+
+4. **Tactile Lip, Polar Dog-Ear Curl, Margin Drape & Vertical Transformation**:
+   $$\text{envLate} = \text{select}(0.0, \sin(\pi \alpha^{0.72}) \cdot (1.0 - \text{smoothstep}(0.88, 1.0, \alpha)), \alpha > 0.0)$$
+   $$f_{\text{west}} = \sin(\pi \alpha^{0.60}) (1.0 - 0.25\alpha) \cdot 1.15, \quad f_{\text{east}} = (2.0\alpha - 0.34)(1.0 - 0.20\alpha) \cdot 1.05$$
+   $$\text{flapChiral} = \text{select}(f_{\text{west}}, f_{\text{east}}, \text{normLon} > 0.0)$$
+   $$\text{poleScale} = \cos\phi + (1.0 - \cos\phi) \cdot t_{\text{parallel}}$$
+   $$\text{lipMag} = (\text{seamZone} \cdot 0.150 \cdot \text{flapChiral} + \text{microRim} \cdot 0.070 \cdot \text{env}) \cdot R \cdot \text{envLate} \cdot \text{latTaper} \cdot \text{poleScale}$$
+   $$curX \mathrel{+}= \sin(u) \cdot \text{lipMag} \cdot 0.70 + \text{edgeFlexX}$$
+   $$curZ \mathrel{+}= (\cos(u) \cdot 0.80 + 0.65) \cdot \text{lipMag} + \text{cornerCurlZ} + \text{marginDrapeZ} + \text{polarDrapeZ} + \text{waveFlex} + \text{chordLiftZ}$$
+   $$y_{\text{straight}} = \text{mix}(R \sin\phi, R\phi, t_{\text{parallel}})$$
+   $$curY = y_{\text{straight}} + \text{polarRimFlexY}$$
+
+5. **Closed-Form Analytical Normal Vector**:
+   $$\mathbf{N}_{\text{base}} = \mathbf{T}_\lambda \times \mathbf{T}_\phi$$
+   $$\frac{\partial y}{\partial \phi} = R \cdot \text{mix}(\cos\phi, 1.0, t_{\text{parallel}}), \quad -\frac{\partial r}{\partial \phi} = R \sin\phi (1.0 - t_{\text{parallel}})$$
+   $$\mathbf{n} = \text{normalize}\left(\frac{\partial y}{\partial \phi} \sin(u),\, -\frac{\partial r}{\partial \phi} \cdot \text{bracket},\, \frac{\partial y}{\partial \phi} \cos(u)\right)$$
 
 ### 2.3 Boundary Invariants
-- At $\alpha = 0.0$: $\mathbf{p} = \mathbf{p}_{3D}$, $\mathbf{n} = \mathbf{n}_{\text{sphere}}$ (exact sphere).
-- At $\alpha = 1.0$: $\mathbf{p} = \mathbf{p}_{2D}$, $\mathbf{n} = (0, 0, 1)$ (exact flat Mercator sheet).
-- At $\phi = \pm \pi/2$ (Poles) for all $\alpha$: $\cos\phi = 0 \implies \text{liftBarrel} = 0$, completely preventing polar ear distortion.
-- At inner longitudes ($|\lambda| \le 150^\circ$): $s_{\text{peel}} = 0.0 \implies \text{liftBarrel} = 0.0$, guaranteeing smooth monotonic unrolling with zero traveling waves.
+- At $\alpha = 0.0$: $\text{env} = 0$, $t_{\text{parallel}} = 0$, $r_{\text{par}} = R\cos\phi \implies \mathbf{p} = \mathbf{p}_{3D}$, $\mathbf{n} = \mathbf{n}_{\text{sphere}}$ (**Exact Sphere Invariant: PASS**).
+- At $\alpha = 1.0$: $\text{env} = 0$, $t_{\text{parallel}} = 1$, $r_{\text{par}} = R$, $uAngle \le 0.02 \implies \mathbf{p} = (R\lambda, R\phi, 0.0) = \mathbf{p}_{2D}$, $\mathbf{n} = (0, 0, 1)$ (**Exact Planar Map Invariant: PASS**).
+- At $\phi \to \pm \pi/2$ (Poles for all $\alpha$): $\cos\phi \to 0 \implies \text{poleScale} \to t_{\text{parallel}}$, $lipMag \to 0$, $latWeight \to 1.0$, completely preventing polar ear distortion (**Zero-Polar-Distortion Invariant: PASS**).
+- At $\alpha = 0.5$, $\lambda = \pm\pi, \phi = 0$ (Antimeridian Equator): $\|\mathbf{n}\| = 1.0$ strictly unit normalized (**Non-Vanishing Normal Invariant: PASS**).
 
 ---
 

@@ -12,7 +12,7 @@
 - Milestone 4 ("PLANAR MAP (K = 0)") triggers prematurely at `alpha >= 0.85` while the planet still has 15% curvature.
 
 ### 1.2 Required Specifications
-- [ ] **SVG Responsive Stretch**: Add `preserveAspectRatio="none"` to `<svg>` or map pointer coordinates directly across the container width:
+- [x] **SVG Responsive Stretch**: Add `preserveAspectRatio="none"` to `<svg>` or map pointer coordinates directly across the container width:
   ```typescript
   // Direct client coordinate mapping to [0.0, 1.0] across full interactive width
   const rect = boxRef.current.getBoundingClientRect();
@@ -20,14 +20,14 @@
   const activeWidth = Math.max(1, rect.width - 2 * paddingX);
   const normX = Math.max(0.0, Math.min(1.0, (clientX - (rect.left + paddingX)) / activeWidth));
   ```
-- [ ] **Instant Reticle Drag Position**: Use local drag state (`dragAlphaRef` or local `normX`) for thumb rendering while dragging, bypassing the 30Hz React throttle:
+- [x] **Instant Reticle Drag Position**: Use local drag state (`dragAlphaRef` or local `normX`) for thumb rendering while dragging, bypassing the 30Hz React throttle:
   ```typescript
   const effectiveAlpha = isDragging ? localAlpha : alpha;
   const t = Math.max(0, Math.min(1, effectiveAlpha));
   const thumbX = 15 + t * 210;
   const thumbY = (1 - t) * (1 - t) * 26 + 2 * (1 - t) * t * peakY + t * t * 26;
   ```
-- [ ] **Remove CSS Transition Delay**: Remove `transition-all duration-150` from the reticle thumb circle so it responds instantly during playback and scrubbing:
+- [x] **Remove CSS Transition Delay**: Remove `transition-all duration-150` from the reticle thumb circle so it responds instantly during playback and scrubbing:
   ```tsx
   <circle
     cx={thumbX}
@@ -39,11 +39,11 @@
     className="shadow-sm pointer-events-none"
   />
   ```
-- [ ] **Dynamic Quadratic Bezier Ticks**: Compute intermediate tick $y$-coordinates using the Bezier formula at $t_1 = 0.30$ and $t_2 = 0.70$:
+- [x] **Dynamic Quadratic Bezier Ticks**: Compute intermediate tick $y$-coordinates using the Bezier formula at $t_1 = 0.30$ and $t_2 = 0.70$:
   $$y_{\text{tick}}(\alpha, t) = (1 - t)^2 \cdot 26 + 2(1 - t)t \cdot (6 + 20\alpha) + t^2 \cdot 26$$
   - At $\alpha = 0.0$ ($\text{peakY} = 6$): $y(0.30) = 17.6\text{px}$, $y(0.70) = 17.6\text{px}$.
   - At $\alpha = 1.0$ ($\text{peakY} = 26$): $y(0.30) = 26.0\text{px}$, $y(0.70) = 26.0\text{px}$ (conforms perfectly to flat line).
-- [ ] **Milestone 4 Threshold**: Adjust `alpha >= 0.85` to `alpha >= 0.98` so "PLANAR MAP" is not declared until the cylinder is virtually flat.
+- [x] **Milestone 4 Threshold**: Adjust `alpha >= 0.85` to `alpha >= 0.98` so "PLANAR MAP" is not declared until the cylinder is virtually flat.
 
 ---
 
@@ -60,7 +60,7 @@
 - `WebGPUCanvas.tsx:840` and `883` evaluate a third formula: cubic smoothstep ($3\alpha^2 - 2\alpha^3$).
 
 ### 2.2 Required Specifications
-- [ ] **Linear Camera Standoff**: Replace `WebGPUCanvas.tsx:2489`:
+- [x] **Linear Camera Standoff**: Replace `WebGPUCanvas.tsx:2489`:
   ```typescript
   // BEFORE:
   // const ease = clampedUnfurl * clampedUnfurl * clampedUnfurl * (clampedUnfurl * (clampedUnfurl * 6.0 - 15.0) + 10.0);
@@ -70,8 +70,8 @@
   const ease = clampedUnfurl;
   const standoff = 5.0 * (1.0 - clampedUnfurl);
   ```
-- [ ] **Harmonize Camera LookAt**: Ensure lines 840 and 883 in `WebGPUCanvas.tsx` use the identical linear standoff formula ($5.0 \times (1.0 - \text{clampedUnfurl})$).
-- [ ] **Playback Continuity**: Leave `animAlpha = S_5(t)` in `useEngineState.ts:257` so playback begins and ends smoothly, but because camera standoff is linear with respect to `curUnfurl`, both camera target and mesh surface will track identically with zero relative oscillation.
+- [x] **Harmonize Camera LookAt**: Ensure lines 840 and 883 in `WebGPUCanvas.tsx` use the identical linear standoff formula ($5.0 \times (1.0 - \text{clampedUnfurl})$).
+- [x] **Playback Continuity**: Leave `animAlpha = S_5(t)` in `useEngineState.ts:257` so playback begins and ends smoothly, but because camera standoff is linear with respect to `curUnfurl`, both camera target and mesh surface will track identically with zero relative oscillation.
 
 ---
 
@@ -88,12 +88,12 @@
   - `GlobeOverlay.ts:267` omits `balloonAmp`. The camera target stays 2.5 units inside the globe, pulling the camera into extreme close-up and submerging overlay markers.
 
 ### 3.2 Required Specifications
-- [ ] **Mode 2 Front-Hemisphere Reactivity**:
+- [x] **Mode 2 Front-Hemisphere Reactivity**:
   - Lower $t_{\text{rupture}}$ from $0.18$ to $0.05$ in both `manifold.wgsl` and `GlobeOverlay.ts`.
   - Add global pre-rupture hoop stress so the visible hemisphere exhibits tactile expansion/strain as soon as $\alpha > 0$.
-- [ ] **Mode 2 Manifold Alignment**:
+- [x] **Mode 2 Manifold Alignment**:
   - Update `GlobeOverlay.ts:253` to evaluate the cylindrical unroll base coordinates instead of `mix(p3D, p2D)`, matching `manifold.wgsl:151-170`.
-- [ ] **Mode 3 Volumetric Parity**:
+- [x] **Mode 3 Volumetric Parity**:
   - In `GlobeOverlay.ts:267`, add `balloonAmp`:
     ```typescript
     const rawSin = Math.sin(PI * clampedAlpha);
@@ -117,9 +117,9 @@
 - Users cannot select projection modes from the dock. The controls are isolated in `TelemetryHUD` or tied to keyboard shortcuts `1`, `2`, `3`, `4`. Because the sextant displays mode-specific milestones, mode switching should be accessible directly at the dock.
 
 ### 4.2 Required Specifications
-- [ ] Add a compact 4-segment button group (`[Linear]`, `[Scroll]`, `[Fracture]`, `[Fluid]`) into `NavigationDock.tsx`.
-- [ ] Style conforms to Cartographic HUD standard: mono typography, ivory vellum background, 10px breathing clearance, zero nested borders.
-- [ ] Clicking a segment calls `setProjectionMode(modeIndex)` and updates the active indicator.
+- [x] Add a compact 4-segment button group (`[Linear]`, `[Scroll]`, `[Fracture]`, `[Fluid]`) into `NavigationDock.tsx`.
+- [x] Style conforms to Cartographic HUD standard: mono typography, ivory vellum background, 10px breathing clearance, zero nested borders.
+- [x] Clicking a segment calls `setProjectionMode(modeIndex)` and updates the active indicator.
 
 ---
 
@@ -127,8 +127,8 @@
 **Target Files**: `tests/hud/CurvatureUnfurlSextant.test.tsx`, `tests/core/GlobeOverlay.test.ts`, `tests/unit/hud/NavigationDock.test.tsx`
 
 ### 5.1 Pre-Flight Grep & Rule 21 Compliance
-- [ ] Check for source-scanning tests that inspect `CurvatureUnfurlSextant.tsx` and `NavigationDock.tsx`.
-- [ ] Update any expected static strings or class names in test assertions without adding synthetic comments.
+- [x] Check for source-scanning tests that inspect `CurvatureUnfurlSextant.tsx` and `NavigationDock.tsx`.
+- [x] Update any expected static strings or class names in test assertions without adding synthetic comments.
 
 ### 5.2 Targeted Test Commands
 ```bash
@@ -138,7 +138,7 @@ npx vitest run tests/unit/hud/NavigationDock.test.tsx
 ```
 
 ### 5.3 Live Browser MCP Verification Checklist
-- [ ] At $\alpha = 0.05$, pointer click immediately registers deformation with zero dead zone.
-- [ ] At $\alpha = 1.00$, intermediate tick dots sit flush on the horizontal track line at $y = 26$ (no floating ticks).
-- [ ] At $\alpha = 0.50$ in Mode 3 (Fluid), camera framing remains comfortably centered on the whole planet (no close-up clipping).
-- [ ] In Mode 2 (Fracture), dragging from $0.0 \to 0.10$ produces visible deformation on the front hemisphere.
+- [x] At $\alpha = 0.05$, pointer click immediately registers deformation with zero dead zone.
+- [x] At $\alpha = 1.00$, intermediate tick dots sit flush on the horizontal track line at $y = 26$ (no floating ticks).
+- [x] At $\alpha = 0.50$ in Mode 3 (Fluid), camera framing remains comfortably centered on the whole planet (no close-up clipping).
+- [x] In Mode 2 (Fracture), dragging from $0.0 \to 0.10$ produces visible deformation on the front hemisphere.
