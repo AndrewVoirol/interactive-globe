@@ -268,3 +268,23 @@ All discovered invariants, parameters, and calibrations (such as the 5-Scale Nes
 
 ## 46. Mode 0 Nested Harmonic Roll
 Mode 0 uses the "5-Scale Nested Harmonic Roll" (Macro Developable Arc, Margin Folio Wave, Micro-Rim Edge Curl, Organic Latitude Differential, Chiral Polar S-Twist Flare). Never regress Mode 0 to the obsolete "Polar-Convergent Geodesic Unfolding" math.
+
+## 47. Antimeridian Polyline Seam Splitting & Continuity Invariant
+When rendering or projecting vector polylines (flight corridors, maritime routes, tectonic plate boundaries, elevation contours) across cylindrical or planar projections bounded by the antimeridian ($x = \pm \pi R$):
+- **Prohibition of Segment Dropping**: Never discard segments crossing the antimeridian via naive delta checks (`if (Math.abs(p1.lon - p0.lon) > 180) continue;`). Dropping segments punches large unrendered voids (e.g. 700+ km gaps across the Pacific Ocean on Trans-Pacific routes and subduction trenches).
+- **Mandatory Seam Interpolation**: Segments spanning across the seam must be split at $\lambda = \pm 180^\circ$ by linear interpolation of the crossing latitude $\phi_{\text{cross}}$:
+  $$\phi_{\text{cross}} = \phi_0 + (\phi_1 - \phi_0) \cdot \frac{180 - |\lambda_0|}{(180 - |\lambda_0|) + (180 - |\lambda_1|)}$$
+- **Dual Termination**: Emit two distinct sub-segments terminating flush at opposite sheet boundaries ($-\pi R$ and $+\pi R$).
+
+## 48. Diagnostic Testbed Quarantine & Staging Discipline
+Experimental instrumentation, analytical micro-loupes, space geodesy benchmarks, and adversarial audit fixtures developed in isolated testbeds (`testbed/`):
+- **Quarantine Invariant**: Must remain strictly quarantined within `testbed/` until the user explicitly directs integration into the primary application codebase (`src/`).
+- **Zero Premature Porting**: Agents must never proactively refactor or import testbed instruments into `src/components/`, `src/core/`, or `src/webgpu/` without an approved milestone plan and explicit user authorization.
+
+## 49. Infinitesimal Differential Metric Evaluation (Tissot Deformation Tensors)
+When evaluating projection distortion, strain ellipses, or Tissot indicatrices:
+- **Infinitesimal Invariant**: Tissot's theorem is strictly an infinitesimal differential metric ($d\lambda, d\phi \to 0$). Never approximate strain ellipses or distortion values by projecting finite-radius mesh circles or discrete neighborhood offsets, which produce asymmetric teardrops and false non-elliptical artifacts at high latitudes ($\ge 60^\circ$) due to nonlinear derivative acceleration ($\frac{d}{d\phi}\sec\phi = \sec\phi\tan\phi$).
+- **Analytical Closed-Form Evaluation**: Evaluate local metric tensor coefficients via closed-form partial derivatives of the projection mapping:
+  $$E = R^2 \cos^2\phi, \quad F = 0, \quad G = R^2$$
+  $$a = \sec\phi, \quad b = 1.000, \quad s = \sec\phi, \quad 2\omega = 2\arcsin\left(\frac{a - b}{a + b}\right)$$
+
