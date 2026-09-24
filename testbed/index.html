@@ -364,59 +364,58 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, endpoint) {
   // Living mid-to-late envelope: maintains tactile edge flexibility through alpha in [0.20, 0.85]
   const envLate = Math.sin(PI * Math.pow(alpha, 0.72)) * (1.0 - smoothstep(0.88, 1.0, alpha));
 
-  // Asymmetric Chiral Seam Dynamics (Pins #1, #2, #5):
-  // West flap (Pin #1): Curls outward early, peaks around alpha ≈ 0.20, stays tactile through alpha ≈ 0.80
+  // Asymmetric Chiral Seam Dynamics (Pins #1, #2, #3, #4):
+  // West flap: Curls outward early, stays tactile through mid-flight
   const safeAlpha = Math.max(0.0001, alpha);
-  const fWest = Math.sin(PI * Math.pow(safeAlpha, 0.55)) * (1.0 - 0.35 * alpha) * 1.55;
-  // East flap (Pin #2, Pin #5): Curls inward early (negative), flares outward strongly at alpha ≈ 0.20-0.75
-  const fEast = (2.2 * alpha - 0.32) * (1.0 - 0.30 * alpha) * 1.50;
+  const fWest = Math.sin(PI * Math.pow(safeAlpha, 0.60)) * (1.0 - 0.25 * alpha) * 1.15;
+  // East flap: Curls inward early (negative), flares outward by alpha ≈ 0.20-0.30
+  const fEast = (2.0 * alpha - 0.34) * (1.0 - 0.20 * alpha) * 1.05;
   const flapChiral = normLon < 0 ? fWest : fEast;
 
+  // Polar singularity protection: seam curl must taper with cosLat so poles stay closed
   const seamZone = smoothstep(0.50, 1.0, absNormLon);
   const microRim = Math.sin(smoothstep(0.75, 1.0, absNormLon) * PI * 0.5);
-  const marginTaper = 0.60 + 0.40 * Math.abs(sinLat);
+  const latTaper = cosLat;
 
-  // Amplified lip magnitude for prominent curl at alpha ≈ 0.25 (Pin #5)
-  const lipMag = (seamZone * 0.160 * flapChiral + microRim * 0.080 * env) * RADIUS * envLate * marginTaper;
-  curX += normX * lipMag;
-  curZ += normZ * lipMag;
+  // Calibrated folio lip curl: active at equator/tropics (Pins #2, #3, #4), strictly 0 at poles
+  // Rolls in arc-normal and lifts in Z for authentic out-of-plane tactile curl
+  const lipMag = (seamZone * 0.140 * flapChiral + microRim * 0.065 * env) * RADIUS * envLate * latTaper;
+  curX += normX * lipMag * 0.70;
+  curZ += (normZ * 0.80 + 0.65) * lipMag;
 
-  // Polar Corner Dihedral Curl (Pins #6, #7, #8, #9 - "Needs more curl"):
-  const cornerLon = smoothstep(0.40, 1.0, absNormLon);
-  const cornerLat = smoothstep(0.30, 1.0, absNormLat);
+  // Polar Corner Dog-Ear Curl: restricted to true corner zone and attenuated by cosLat (eliminates horns/spires)
+  const cornerLon = smoothstep(0.65, 1.0, absNormLon);
+  const cornerLat = smoothstep(0.55, 0.95, absNormLat);
   const cornerZone = cornerLon * cornerLat;
-
-  // Rich 3D diagonal corner curl (rolls in arc-normal and twists in Z)
-  const cornerCurlMag = Math.sin(cornerZone * PI * 0.5) * RADIUS * 0.20 * envLate;
-  curX += normX * cornerCurlMag * 0.60;
-  curZ += normZ * cornerCurlMag * 0.80;
-  const chiralCornerZ = sinLat * Math.sin(cornerZone * PI * 0.5) * RADIUS * 0.12 * envLate;
+  const cornerCurlMag = Math.sin(cornerZone * PI * 0.5) * RADIUS * 0.065 * envLate * cosLat;
+  curX += normX * cornerCurlMag * 0.50;
+  curZ += (normZ * 0.70 + 0.50) * cornerCurlMag;
+  const chiralCornerZ = sinLat * Math.sin(cornerZone * PI * 0.5) * RADIUS * 0.045 * envLate * cosLat;
   curZ += chiralCornerZ;
 
-  // Perimeter Edge Margin Drape & Anti-Stiffness (Pins #2, #3, #4, #10, #11):
+  // Perimeter Edge Margin Drape & Anti-Stiffness (Pins #1, #4 - equatorial continuous wave):
   const distEdgeLon = 1.0 - absNormLon;
   const distEdgeLat = 1.0 - absNormLat;
   const edgeDist = Math.min(distEdgeLon, distEdgeLat);
   const edgeMarginZone = 1.0 - smoothstep(0.0, 0.45, edgeDist);
-  const edgeWave = 0.65 * Math.cos(lonRad * 1.5 - 0.5 * alpha) * Math.sin(latRad * 2.0) + 0.35 * Math.cos(lonRad * 3.0) * Math.cos(latRad);
-  const marginDrapeZ = edgeMarginZone * edgeWave * RADIUS * 0.095 * envLate;
+  const edgeWave = 0.60 * Math.cos(lonRad * 2.0 - 0.4 * alpha) * Math.cos(latRad * 1.4) + 0.40 * Math.sin(lonRad * 3.0 + 0.5) * (0.40 + 0.60 * cosLat);
+  const marginDrapeZ = edgeMarginZone * edgeWave * RADIUS * 0.080 * envLate * (0.30 + 0.70 * cosLat);
   curZ += marginDrapeZ;
 
-  // In-plane organic boundary breathing (eliminates laser-cut silhouette stiffness):
-  const edgeFlexX = Math.sin(latRad * 2.5 + alpha * 1.2) * (1.0 - smoothstep(0.0, 0.35, distEdgeLon)) * RADIUS * 0.040 * envLate;
-  const edgeFlexY = Math.sin(lonRad * 2.5 - alpha * 0.8) * (1.0 - smoothstep(0.0, 0.35, distEdgeLat)) * RADIUS * 0.035 * envLate;
+  // In-plane organic boundary breathing (attenuated by cosLat to prevent polar tears):
+  const edgeFlexX = Math.sin(latRad * 2.5 + alpha * 1.2) * (1.0 - smoothstep(0.0, 0.35, distEdgeLon)) * RADIUS * 0.035 * envLate * cosLat;
   curX += edgeFlexX;
 
-  // Polar margin flex (softens top/bottom polar bands)
-  const polarZone = smoothstep(0.50, 1.0, absNormLat);
-  const polarFlexZ = Math.cos(lonRad) * Math.sin(polarZone * PI * 0.5) * RADIUS * 0.045 * envLate;
+  // Polar margin flex (softens top/bottom polar bands, attenuated by cosLat):
+  const polarZone = smoothstep(0.55, 0.92, absNormLat);
+  const polarFlexZ = Math.cos(lonRad) * Math.sin(polarZone * PI * 0.5) * RADIUS * 0.025 * envLate * cosLat;
   curZ += polarFlexZ;
 
-  // Subtle living wave across the sheet
-  const waveFlex = envLate * (1.0 - 0.5 * alpha) * Math.sin(lonRad * 0.5 + 0.3) * RADIUS * 0.050;
+  // Subtle living wave across the sheet:
+  const waveFlex = envLate * (1.0 - 0.5 * alpha) * Math.sin(lonRad * 0.5 + 0.3) * RADIUS * 0.030;
   curZ += waveFlex;
 
-  // Gentle uniform sheet loft (prevents table clipping, eliminates egg/ballcap snout)
+  // Gentle uniform sheet loft (prevents table clipping, eliminates egg/ballcap snout):
   const chordLiftZ = (0.60 + 0.40 * cosLat) * RADIUS * 0.06 * env;
   curZ += chordLiftZ;
 
@@ -425,7 +424,7 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, endpoint) {
   const tStraighten = tParallel;
   const yStraight = RADIUS * sinLat * (1.0 - tStraighten) + yArc * tStraighten;
 
-  let curY = yStraight + edgeFlexY;
+  let curY = yStraight;
   if (endpoint === 1) {
     // Web Mercator: smooth gradual expansion over [0.35, 1.0] (no late violent pop)
     const clampedLat = Math.max(-1.4835, Math.min(1.4835, latRad));
@@ -840,60 +839,59 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32, e
     // Living mid-to-late envelope: maintains tactile edge flexibility through alpha in [0.20, 0.85]
     let envLate = sin(PI * pow(alpha, 0.72)) * (1.0 - smoothstep(0.88, 1.0, alpha));
 
-    // Asymmetric Chiral Seam Dynamics (Pins #1, #2, #5):
-    // West flap (Pin #1): Curls outward early, peaks around alpha ≈ 0.20, stays tactile through alpha ≈ 0.80
+    // Asymmetric Chiral Seam Dynamics (Pins #1, #2, #3, #4):
+    // West flap: Curls outward early, stays tactile through mid-flight
     let safeAlpha = max(0.0001, alpha);
-    let fWest = sin(PI * pow(safeAlpha, 0.55)) * (1.0 - 0.35 * alpha) * 1.55;
-    // East flap (Pin #2, Pin #5): Curls inward early (negative), flares outward strongly at alpha ≈ 0.20-0.75
-    let fEast = (2.2 * alpha - 0.32) * (1.0 - 0.30 * alpha) * 1.50;
+    let fWest = sin(PI * pow(safeAlpha, 0.60)) * (1.0 - 0.25 * alpha) * 1.15;
+    // East flap: Curls inward early (negative), flares outward by alpha ≈ 0.20-0.30
+    let fEast = (2.0 * alpha - 0.34) * (1.0 - 0.20 * alpha) * 1.05;
     let flapChiral = select(fWest, fEast, normLon > 0.0);
 
+    // Polar singularity protection: seam curl must taper with cosLat so poles stay closed
     let seamZone = smoothstep(0.50, 1.0, absNormLon);
     let microRim = sin(smoothstep(0.75, 1.0, absNormLon) * PI * 0.5);
-    let marginTaper = 0.60 + 0.40 * abs(sinLat);
+    let latTaper = cosLat;
 
-    // Amplified lip magnitude for prominent curl at alpha ≈ 0.25 (Pin #5)
-    let lipMag = (seamZone * 0.160 * flapChiral + microRim * 0.080 * env) * RADIUS * envLate * marginTaper;
-    curX = curX + normX * lipMag;
-    curZ = curZ + normZ * lipMag;
+    // Calibrated folio lip curl: active at equator/tropics (Pins #2, #3, #4), strictly 0 at poles
+    // Rolls in arc-normal and lifts in Z for authentic out-of-plane tactile curl
+    let lipMag = (seamZone * 0.140 * flapChiral + microRim * 0.065 * env) * RADIUS * envLate * latTaper;
+    curX = curX + normX * lipMag * 0.70;
+    curZ = curZ + (normZ * 0.80 + 0.65) * lipMag;
 
-    // Polar Corner Dihedral Curl (Pins #6, #7, #8, #9 - "Needs more curl"):
-    let cornerLon = smoothstep(0.40, 1.0, absNormLon);
-    let cornerLat = smoothstep(0.30, 1.0, absNormLat);
+    // Polar Corner Dog-Ear Curl: restricted to true corner zone and attenuated by cosLat (eliminates horns/spires)
+    let cornerLon = smoothstep(0.65, 1.0, absNormLon);
+    let cornerLat = smoothstep(0.55, 0.95, absNormLat);
     let cornerZone = cornerLon * cornerLat;
-
-    // Rich 3D diagonal corner curl (rolls in arc-normal and twists in Z)
-    let cornerCurlMag = sin(cornerZone * PI * 0.5) * RADIUS * 0.20 * envLate;
-    curX = curX + normX * cornerCurlMag * 0.60;
-    curZ = curZ + normZ * cornerCurlMag * 0.80;
-    let chiralCornerZ = sinLat * sin(cornerZone * PI * 0.5) * RADIUS * 0.12 * envLate;
+    let cornerCurlMag = sin(cornerZone * PI * 0.5) * RADIUS * 0.065 * envLate * cosLat;
+    curX = curX + normX * cornerCurlMag * 0.50;
+    curZ = curZ + (normZ * 0.70 + 0.50) * cornerCurlMag;
+    let chiralCornerZ = sinLat * sin(cornerZone * PI * 0.5) * RADIUS * 0.045 * envLate * cosLat;
     curZ = curZ + chiralCornerZ;
 
-    // Perimeter Edge Margin Drape & Anti-Stiffness (Pins #2, #3, #4, #10, #11):
+    // Perimeter Edge Margin Drape & Anti-Stiffness (Pins #1, #4 - equatorial continuous wave):
     let distEdgeLon = 1.0 - absNormLon;
     let distEdgeLat = 1.0 - absNormLat;
     let edgeDist = min(distEdgeLon, distEdgeLat);
     let edgeMarginZone = 1.0 - smoothstep(0.0, 0.45, edgeDist);
-    let edgeWave = 0.65 * cos(lonRad * 1.5 - 0.5 * alpha) * sin(latRad * 2.0) + 0.35 * cos(lonRad * 3.0) * cos(latRad);
-    let marginDrapeZ = edgeMarginZone * edgeWave * RADIUS * 0.095 * envLate;
+    let edgeWave = 0.60 * cos(lonRad * 2.0 - 0.4 * alpha) * cos(latRad * 1.4) + 0.40 * sin(lonRad * 3.0 + 0.5) * (0.40 + 0.60 * cosLat);
+    let marginDrapeZ = edgeMarginZone * edgeWave * RADIUS * 0.080 * envLate * (0.30 + 0.70 * cosLat);
     curZ = curZ + marginDrapeZ;
 
-    // In-plane organic boundary breathing (eliminates laser-cut silhouette stiffness):
-    let edgeFlexX = sin(latRad * 2.5 + alpha * 1.2) * (1.0 - smoothstep(0.0, 0.35, distEdgeLon)) * RADIUS * 0.040 * envLate;
-    let edgeFlexY = sin(lonRad * 2.5 - alpha * 0.8) * (1.0 - smoothstep(0.0, 0.35, distEdgeLat)) * RADIUS * 0.035 * envLate;
+    // In-plane organic boundary breathing (attenuated by cosLat to prevent polar tears):
+    let edgeFlexX = sin(latRad * 2.5 + alpha * 1.2) * (1.0 - smoothstep(0.0, 0.35, distEdgeLon)) * RADIUS * 0.035 * envLate * cosLat;
     curX = curX + edgeFlexX;
 
-    // Polar margin flex (softens top/bottom polar bands):
-    let polarZone = smoothstep(0.50, 1.0, absNormLat);
-    let polarFlexZ = cos(lonRad) * sin(polarZone * PI * 0.5) * RADIUS * 0.045 * envLate;
+    // Polar margin flex (softens top/bottom polar bands, attenuated by cosLat):
+    let polarZone = smoothstep(0.55, 0.92, absNormLat);
+    let polarFlexZ = cos(lonRad) * sin(polarZone * PI * 0.5) * RADIUS * 0.025 * envLate * cosLat;
     curZ = curZ + polarFlexZ;
 
     // Subtle living wave across the sheet:
-    let waveFlex = envLate * (1.0 - 0.5 * alpha) * sin(lonRad * 0.5 + 0.3) * RADIUS * 0.050;
+    let waveFlex = envLate * (1.0 - 0.5 * alpha) * sin(lonRad * 0.5 + 0.3) * RADIUS * 0.030;
     curZ = curZ + waveFlex;
 
     // Gentle uniform sheet loft (prevents table clipping, eliminates egg/ballcap snout):
-    let chordLiftZ = (0.60 + 0.40 * cosLat) * RADIUS * CHORD_LIFT_MAG * env;
+    let chordLiftZ = (0.60 + 0.40 * cosLat) * RADIUS * 0.06 * env;
     curZ = curZ + chordLiftZ;
 
     // Vertical transformation: Equirectangular vs Web Mercator
@@ -901,13 +899,13 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32, e
     let tStraighten = tParallel;
     let yStraight = mix(RADIUS * sinLat, yArc, tStraighten);
 
-    var curY = yStraight + edgeFlexY;
+    var curY = yStraight;
     if (endpoint == 1u) {
         // Web Mercator: smooth gradual expansion over [0.35, 1.0] (no late violent pop)
         let clampedLat = clamp(latRad, -1.4835, 1.4835);
         let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
         let tMerc = smoothstep(0.35, 1.00, easeLocal);
-        curY = mix(yStraight + edgeFlexY, mercatorY, tMerc);
+        curY = mix(yStraight, mercatorY, tMerc);
     }
 
     return vec3<f32>(curX, curY, curZ);
