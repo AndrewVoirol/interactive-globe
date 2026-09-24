@@ -54,6 +54,151 @@ fn horizonFalloff(facing: f32, tau: f32, killEdge0: f32, killEdge1: f32) -> f32 
     return transmission * killTerm;
 }
 
+// ----------------------------------------------------------------------------
+// Mode 0: Equirectangular 2:1 Developable Folio Wave Kinematics & Analytical Normal
+// ----------------------------------------------------------------------------
+fn evaluateModeZero(pos3D: vec3<f32>, target2D: vec2<f32>, unfurl: f32) -> DeformedVertex {
+    var out: DeformedVertex;
+    let alpha = clamp(unfurl, 0.0, 1.0);
+    let lonRad = select(atan2(pos3D.x, pos3D.z), target2D.x / RADIUS, abs(target2D.x) > 0.00001 || abs(target2D.y) > 0.00001);
+    let clampedY = clamp(pos3D.y / RADIUS, -1.0, 1.0);
+    let latRad = asin(clampedY);
+    let cosLat = cos(latRad);
+    let sinLat = clampedY;
+
+    let normLon = lonRad / PI;
+    let absNormLon = abs(normLon);
+    let absNormLat = abs(latRad) / (PI * 0.5);
+
+    // Boundary envelope: zero derivatives at alpha=0 and alpha=1
+    let sZero = smoothstep(0.0, 0.10, alpha);
+    let sOne = 1.0 - smoothstep(0.90, 1.0, alpha);
+    let env = sin(PI * alpha) * sZero * sOne;
+
+    // Pin #1: C2 smooth ease-in
+    let alphaEased = alpha * alpha * (3.0 - 2.0 * alpha);
+
+    // Living directional peel: subtle 4% phase shift
+    let waveBias = normLon * 0.040 * env;
+    let latWeight = 1.0 - cosLat;
+    let latFactor = 1.0 - 0.14 * env * latWeight;
+    let easeLocal = clamp(alphaEased * latFactor - waveBias, 0.0, 1.0);
+
+    // Synchronized parallel expansion across full living range (0.05 to 0.85)
+    let tParallel = smoothstep(0.05, 0.85, easeLocal);
+    let parallelWidth = mix(cosLat, 1.0, tParallel);
+    let rPar = RADIUS * parallelWidth;
+
+    // Developable circular arc unroll with C^inf smooth spine relaxation:
+    let sBase = max(0.0, 1.0 - easeLocal);
+    let cosHalfLon = cos(lonRad * 0.5);
+    let spineWeight = cosHalfLon * cosHalfLon * cosHalfLon * cosHalfLon;
+    let sLocal = sBase * (1.0 - 0.10 * env * spineWeight);
+    let uAngle = sLocal * lonRad;
+
+    var curX: f32;
+    var curZ: f32;
+    if (abs(uAngle) > 0.02) {
+        let sDiv = max(0.0001, sLocal);
+        curX = rPar * (sin(uAngle) / sDiv);
+        curZ = rPar * ((cos(uAngle) - 1.0) / sDiv + sLocal);
+    } else {
+        let u2 = uAngle * uAngle;
+        curX = rPar * lonRad * (1.0 - u2 / 6.0);
+        curZ = -sLocal * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * sLocal;
+    }
+
+    // Direct arc normal for outward tactile lip curl
+    let normX = sin(uAngle);
+    let normZ = cos(uAngle);
+
+    // Living mid-to-late envelope: maintains tactile edge flexibility through alpha in [0.20, 0.85]
+    let safeAlpha = max(0.0001, alpha);
+    let envLate = select(0.0, sin(PI * pow(safeAlpha, 0.72)) * (1.0 - smoothstep(0.88, 1.0, alpha)), alpha > 0.0);
+
+    // Asymmetric Chiral Seam Dynamics (Pins #1, #2, #3, #4):
+    let fWest = select(0.0, sin(PI * pow(safeAlpha, 0.60)) * (1.0 - 0.25 * alpha) * 1.15, alpha > 0.0);
+    let fEast = (2.0 * alpha - 0.34) * (1.0 - 0.20 * alpha) * 1.05;
+    let flapChiral = select(fWest, fEast, normLon > 0.0);
+
+    // Seam Lip Dynamics with Unified Polar Scaling
+    let seamZone = smoothstep(0.50, 1.0, absNormLon);
+    let microRim = sin(smoothstep(0.75, 1.0, absNormLon) * PI * 0.5);
+    let latTaper = 0.35 + 0.65 * cosLat;
+    let poleScale = cosLat + (1.0 - cosLat) * tParallel;
+
+    let lipMag = (seamZone * 0.150 * flapChiral + microRim * 0.070 * env) * RADIUS * envLate * latTaper * poleScale;
+    curX = curX + normX * lipMag * 0.70;
+    curZ = curZ + (normZ * 0.80 + 0.65) * lipMag;
+
+    // Polar Corner Dog-Ear Curl (tParallel gated)
+    let cornerLon = smoothstep(0.68, 1.0, absNormLon);
+    let cornerLat = smoothstep(0.58, 0.98, absNormLat);
+    let cornerZone = cornerLon * cornerLat;
+    let cornerCurlMag = sin(cornerZone * PI * 0.5) * RADIUS * 0.095 * envLate * tParallel;
+    curX = curX + normX * cornerCurlMag * 0.45;
+    curZ = curZ + (normZ * 0.65 + 0.65) * cornerCurlMag;
+    let chiralCornerZ = sinLat * sin(cornerZone * PI * 0.5) * RADIUS * 0.060 * envLate * tParallel;
+    curZ = curZ + chiralCornerZ;
+
+    // Perimeter Edge Margin Drape & Anti-Stiffness (with poleScale)
+    let distEdgeLon = 1.0 - absNormLon;
+    let distEdgeLat = 1.0 - absNormLat;
+    let edgeDist = min(distEdgeLon, distEdgeLat);
+    let edgeMarginZone = 1.0 - smoothstep(0.0, 0.45, edgeDist);
+    let edgeWave = 0.55 * cos(lonRad * 2.0 - 0.4 * alpha) * cos(latRad * 1.3) + 0.45 * sin(lonRad * 3.0 + 0.5) * (0.45 + 0.55 * cosLat);
+    let marginDrapeZ = edgeMarginZone * edgeWave * RADIUS * 0.085 * envLate * (0.40 + 0.60 * cosLat) * poleScale;
+    curZ = curZ + marginDrapeZ;
+
+    // In-plane organic boundary breathing along seam (with poleScale)
+    let edgeFlexX = sin(latRad * 2.5 + alpha * 1.2) * (1.0 - smoothstep(0.0, 0.35, distEdgeLon)) * RADIUS * 0.035 * envLate * (0.40 + 0.60 * cosLat) * poleScale;
+    curX = curX + edgeFlexX;
+
+    // Polar Rim Undulation & Drape (tParallel gated)
+    let polarRimZone = 1.0 - smoothstep(0.0, 0.35, distEdgeLat);
+    let polarRimWaveZ = cos(lonRad * 2.5 - 0.3 * alpha) * sin(lonRad * 1.5 + 0.4);
+    let polarDrapeZ = polarRimZone * polarRimWaveZ * RADIUS * 0.045 * envLate * tParallel;
+    curZ = curZ + polarDrapeZ;
+
+    // Subtle living wave across the sheet (with poleScale)
+    let waveFlex = envLate * (1.0 - 0.5 * alpha) * sin(lonRad * 0.5 + 0.3) * RADIUS * 0.030 * poleScale;
+    curZ = curZ + waveFlex;
+
+    // Gentle uniform sheet loft
+    let chordLiftZ = (0.60 + 0.40 * cosLat) * RADIUS * 0.06 * env;
+    curZ = curZ + chordLiftZ;
+
+    // Vertical transformation: Pure Equirectangular 2:1
+    let yArc = RADIUS * latRad;
+    let tStraighten = tParallel;
+    let yStraight = mix(RADIUS * sinLat, yArc, tStraighten);
+
+    // Gentle polar rim breathing in Y
+    let polarRimFlexY = sinLat * polarRimZone * cos(lonRad * 2.0 - 0.2 * alpha) * RADIUS * 0.018 * envLate * tParallel;
+    let curY = yStraight + polarRimFlexY;
+
+    out.pos = vec3<f32>(curX, curY, curZ);
+
+    // Closed-form analytical normal N_base = T_lambda x T_phi
+    let dyDPhi = RADIUS * mix(cosLat, 1.0, tStraighten);
+    let negDrDPhi = RADIUS * sinLat * (1.0 - tParallel);
+    var bracket: f32;
+    if (abs(uAngle) > 0.02) {
+        let sDiv = max(0.0001, sLocal);
+        bracket = (1.0 - cos(uAngle)) / sDiv + sLocal * cos(uAngle);
+    } else {
+        let u2 = uAngle * uAngle;
+        bracket = sLocal * (lonRad * lonRad * (0.5 - u2 / 24.0) + (1.0 - u2 * 0.5));
+    }
+    let rawNx = dyDPhi * sin(uAngle);
+    let rawNy = negDrDPhi * bracket;
+    let rawNz = dyDPhi * cos(uAngle);
+    let rawNorm = vec3<f32>(rawNx, rawNy, rawNz);
+    out.normal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(rawNorm), length(rawNorm) > 0.00001);
+
+    return out;
+}
+
 // Unified manifold deformation core evaluating Modes 0..3
 fn evaluateManifoldCore(
     pos3D: vec3<f32>,
@@ -211,72 +356,7 @@ fn evaluateManifoldCore(
         }
 
         default: {
-            // ── Mode 0: Developable Geodesic Arc Unrolling with Boundary Seam Lip ──
-            // Eliminates Cartesian foldover compression by unrolling parallels as developable circular arcs.
-            // Metric ds = rPar * dλ is strictly conserved across all longitudes (zero bunching/compression).
-            // Poles remain closed apex points during 3D unrolling (alpha <= 0.75), opening smoothly to neatline.
-            let lonRad = select(atan2(pos3D.x, pos3D.z), mercator2D.x / RADIUS, abs(mercator2D.x) > 0.00001 || abs(mercator2D.y) > 0.00001);
-            let clampedY = clamp(pos3D.y / RADIUS, -1.0, 1.0);
-            let latRad = asin(clampedY);
-            let cosLat = cos(latRad);
-            let lonNorm = abs(lonRad) / PI;
-            let uAlpha = clampedUnfurl;
-
-            // 1. Staged meridional unbending and parallel width expansion:
-            let tUnbend = smoothstep(0.10, 0.80, ease);
-            let yPhysical = mix(pos3D.y, RADIUS * latRad, tUnbend);
-            let tMercator = smoothstep(0.65, 1.0, ease);
-            let curY = mix(yPhysical, pos2D.y, tMercator);
-
-            let tParallel = smoothstep(0.35, 0.90, ease);
-            let parallelWidth = mix(cosLat, 1.0, tParallel);
-            let rPar = RADIUS * parallelWidth;
-
-            // 2. Developable circular arc unrolling along parallels:
-            // Arc curvature relaxes from 1/rPar down to 0 (flat).
-            let s = max(0.0, 1.0 - ease);
-            let u = s * lonRad;
-
-            var curX: f32;
-            var curZ: f32;
-            if (abs(u) > 0.02) {
-                let sDiv = max(0.0001, s);
-                curX = rPar * (sin(u) / sDiv);
-                curZ = rPar * ((cos(u) - 1.0) / sDiv + s);
-            } else {
-                let u2 = u * u;
-                curX = rPar * lonRad * (1.0 - u2 / 6.0);
-                curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
-            }
-
-            // Uniform drafting board chord lift:
-            let chordLiftZ = (0.5 + 0.5 * cosLat) * RADIUS * (1.0 - ease) * sin(PI * ease) * 0.20;
-            curZ = curZ + chordLiftZ;
-            let basePos = vec3<f32>(curX, curY, curZ);
-
-            // 3. Tactile Fingernail Lip at Boundary Seam (confined to |lon| > 150° / lonNorm in [0.833, 1.0]):
-            let sPeel = select(0.0, smoothstep(0.833, 1.0, lonNorm), lonNorm > 0.833);
-            let alphaPow = select(0.0, pow(uAlpha, 0.70), uAlpha > 0.0001);
-            let ePeel = select(0.0, sin(PI * alphaPow) * (1.0 - uAlpha), uAlpha > 0.0001);
-            let thetaRoll = sPeel * 1.1;
-            let liftBarrel = RADIUS * 0.25 * ePeel * (1.0 - cos(thetaRoll)) * cosLat;
-
-            // Arc normal frame for outward lip lift:
-            let sinU = select(lonRad * (1.0 - u * u / 6.0), sin(u), abs(u) > 0.0001);
-            let cosU = select(1.0, cos(u), abs(u) > 0.0001);
-            let arcNorm = normalize(vec3<f32>(sinU, 0.0, cosU));
-
-            out.pos = basePos + arcNorm * liftBarrel;
-
-            // Continuous analytical surface normal:
-            let thetaNormLon = s * lonRad;
-            let thetaNormLat = s * latRad;
-            let cp = cos(thetaNormLat);
-            let sp = sin(thetaNormLat);
-            let cl = cos(thetaNormLon);
-            let sl = sin(thetaNormLon);
-            let unrollNorm = vec3<f32>(cp * sl, sp, cp * cl);
-            out.normal = select(vec3<f32>(0.0, 0.0, 1.0), normalize(unrollNorm), length(unrollNorm) > 0.001);
+            out = evaluateModeZero(pos3D, mercator2D, unfurl);
         }
     }
 

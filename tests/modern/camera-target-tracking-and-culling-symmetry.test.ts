@@ -177,7 +177,9 @@ describe('Application Hardening: Dual CPU/GPU Culling Symmetry & Manifold Camera
       for (const { lon, lat } of coords) {
         for (const mode of [0, 1, 2, 3]) {
           const { target, deformed } = computeCameraPose(lon, lat, 1.0, mode);
-          const p2D = geoToMercator(lon, lat, 5.0);
+          const p2D = mode === 0
+            ? [(lon * Math.PI / 180.0) * 5.0, (lat * Math.PI / 180.0) * 5.0]
+            : geoToMercator(lon, lat, 5.0);
           expect(target.x).toBeCloseTo(p2D[0], 4);
           expect(target.y).toBeCloseTo(p2D[1], 4);
           expect(target.z).toBeCloseTo(0.0, 4);
@@ -322,7 +324,7 @@ describe('Application Hardening: Dual CPU/GPU Culling Symmetry & Manifold Camera
     it('verifies easeToCoordinates mathematical target matches deformed manifold point on flat map (unfurl = 1)', () => {
       const lon = 139.77;
       const lat = 35.68;
-      const p2D = geoToMercator(lon, lat, 5.0);
+      const p2D = [(lon * Math.PI / 180.0) * 5.0, (lat * Math.PI / 180.0) * 5.0];
       const deformed = evaluatePointMorph(lon, lat, 1.0, 0, 0, 0.0);
       expect(deformed[0]).toBeCloseTo(p2D[0], 4);
       expect(deformed[1]).toBeCloseTo(p2D[1], 4);

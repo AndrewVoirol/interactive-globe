@@ -515,9 +515,10 @@ fn evaluateGridManifold(uv: vec2<f32>, unfurl: f32, mode: u32) -> DeformedVertex
     let clampedPhi = clamp(phi, -1.4835, 1.4835);
     let mercatorY = log(tan(PI_F32 * 0.25 + clampedPhi * 0.5)) * RADIUS;
     let mercatorX = lambda * RADIUS;
-    let mercator2D = vec2<f32>(mercatorX, mercatorY);
+    let targetY = select(mercatorY, phi * RADIUS, mode == 0u);
+    let target2D = vec2<f32>(mercatorX, targetY);
     return evaluateManifoldCore(
-        pos3D, mercator2D, unfurl, mode,
+        pos3D, target2D, unfurl, mode,
         sim.u_time, sim.u_cursorHitPos, sim.u_cursorActive, sim.u_cursorVel
     );
 }

@@ -135,10 +135,10 @@ fn sampleRegionalComposite(uv: vec2<f32>, globalSample: vec4<f32>, lod: f32) -> 
     return mix(globalSample, regSample, weight);
 }
 
-fn applyVectorDisplacement(basePos: vec3<f32>, baseNormal: vec3<f32>, pointType: f32) -> vec3<f32> {
+fn applyVectorDisplacement(basePos: vec3<f32>, baseNormal: vec3<f32>, pointType: f32, restPos3D: vec3<f32>) -> vec3<f32> {
     let curR = RADIUS;
-    let lambda = atan2(basePos.x, basePos.z);
-    let phi = asin(clamp(basePos.y / curR, -0.9998, 0.9998));
+    let lambda = atan2(restPos3D.x, restPos3D.z);
+    let phi = asin(clamp(restPos3D.y / curR, -0.9998, 0.9998));
     let demUv = vec2<f32>((lambda + PI) / (2.0 * PI), 0.5 - phi / PI);
     let patchDist = length(sim.u_cameraPos.xyz - basePos);
     let patchLOD = clamp(log2(max(1.0, patchDist * 0.2)), 0.0, 4.0);
@@ -207,14 +207,14 @@ fn vs_main(in: VertexInput) -> VertexOutput {
         sim.u_unfurl, sim.u_mode, sim.u_time,
         sim.u_cursorHitPos, sim.u_cursorActive, sim.u_cursorVel
     );
-    let dispPosA = applyVectorDisplacement(defA.pos, defA.normal, in.posA_3d.w);
+    let dispPosA = applyVectorDisplacement(defA.pos, defA.normal, in.posA_3d.w, in.posA_3d.xyz);
 
     let defB = evaluateManifoldCore(
         in.posB_3d.xyz, in.posB_target2d.xy,
         sim.u_unfurl, sim.u_mode, sim.u_time,
         sim.u_cursorHitPos, sim.u_cursorActive, sim.u_cursorVel
     );
-    let dispPosB = applyVectorDisplacement(defB.pos, defB.normal, in.posB_3d.w);
+    let dispPosB = applyVectorDisplacement(defB.pos, defB.normal, in.posB_3d.w, in.posB_3d.xyz);
 
     // Compute view-space positions, normals, and horizon facing for both endpoints
     let viewPosA = sim.u_viewMatrix * vec4<f32>(dispPosA, 1.0);

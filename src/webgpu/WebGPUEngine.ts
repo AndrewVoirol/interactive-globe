@@ -1902,68 +1902,125 @@ export class WebGPUEngine {
         basePos[2] + surfaceNormal[2] * zCapillary,
       ];
     } else {
-      // Mode 0: Polar-Convergent Geodesic Unfolding with Boundary Seam Lip (§2)
+      // Mode 0: Equirectangular 2:1 Developable Folio Wave Kinematics
       const smoothstep = (e0: number, e1: number, x: number): number => {
         const t = Math.max(0.0, Math.min(1.0, (x - e0) / (e1 - e0)));
         return t * t * (3.0 - 2.0 * t);
       };
 
-      const uAlpha = clampedUnfurl;
-      const ease = uAlpha;
-      const lonNorm = Math.abs(lonRad) / PI;
+      const alpha = clampedUnfurl;
+      const ease = clampedUnfurl;
+      const normLon = lonRad / PI;
+      const absNormLon = Math.abs(normLon);
+      const absNormLat = Math.abs(latRad) / (PI * 0.5);
 
-      const clampedY = Math.max(-1.0, Math.min(1.0, p3D[1] / radius));
-      const latRadMode0 = Math.asin(clampedY);
-      const cosLatMode0 = Math.cos(latRadMode0);
+      // Boundary envelope: zero derivatives at alpha=0 and alpha=1
+      const sZero = smoothstep(0.0, 0.10, alpha);
+      const sOne = 1.0 - smoothstep(0.90, 1.0, alpha);
+      const env = Math.sin(PI * alpha) * sZero * sOne;
 
-      // 1. Staged meridional unbending and parallel width expansion:
-      const tUnbend = smoothstep(0.10, 0.80, ease);
-      const yPhysical = (1.0 - tUnbend) * p3D[1] + tUnbend * (radius * latRadMode0);
-      const tMercator = smoothstep(0.65, 1.0, ease);
-      const curY = (1.0 - tMercator) * yPhysical + tMercator * p2D[1];
+      // Pin #1: C2 smooth ease-in
+      const alphaEased = alpha * alpha * (3.0 - 2.0 * alpha);
 
-      const tParallel = smoothstep(0.35, 0.90, ease);
-      const parallelWidth = (1.0 - tParallel) * cosLatMode0 + tParallel * 1.0;
-      const rPar = radius * parallelWidth;
+      // Living directional peel: subtle 4% phase shift
+      const waveBias = normLon * 0.040 * env;
+      const latWeight = 1.0 - cosLat;
+      const latFactor = 1.0 - 0.14 * env * latWeight;
+      const easeLocal = Math.max(0.0, Math.min(1.0, alphaEased * latFactor - waveBias));
 
-      // 2. Developable circular arc unrolling along parallels:
-      const s = Math.max(0.0, 1.0 - ease);
-      const u = s * lonRad;
+      // Synchronized parallel expansion across full living range (0.05 to 0.85)
+      const tParallel = smoothstep(0.05, 0.85, easeLocal);
+      const rPar = radius * (cosLat * (1.0 - tParallel) + tParallel);
+
+      // Developable circular arc unroll with C^inf smooth spine relaxation:
+      const sBase = Math.max(0.0, 1.0 - easeLocal);
+      const cosHalfLon = Math.cos(lonRad * 0.5);
+      const spineWeight = cosHalfLon * cosHalfLon * cosHalfLon * cosHalfLon;
+      const sLocal = sBase * (1.0 - 0.10 * env * spineWeight);
+      const uAngle = sLocal * lonRad;
 
       let curX: number;
       let curZ: number;
-      if (Math.abs(u) > 0.02) {
-        const sDiv = Math.max(0.0001, s);
-        curX = rPar * (Math.sin(u) / sDiv);
-        curZ = rPar * ((Math.cos(u) - 1.0) / sDiv + s);
+      if (Math.abs(uAngle) > 0.02) {
+        const sDiv = Math.max(0.0001, sLocal);
+        curX = rPar * (Math.sin(uAngle) / sDiv);
+        curZ = rPar * ((Math.cos(uAngle) - 1.0) / sDiv + sLocal);
       } else {
-        const u2 = u * u;
+        const u2 = uAngle * uAngle;
         curX = rPar * lonRad * (1.0 - u2 / 6.0);
-        curZ = -s * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * s;
+        curZ = -sLocal * rPar * (lonRad * lonRad) * (0.5 - u2 / 24.0) + rPar * sLocal;
       }
 
-      // Uniform drafting board chord lift:
-      const chordLiftZ = (0.5 + 0.5 * cosLatMode0) * radius * (1.0 - ease) * Math.sin(PI * ease) * 0.20;
-      curZ = curZ + chordLiftZ;
-      const basePos = [curX, curY, curZ];
+      // Direct arc normal for outward tactile lip curl
+      const normX = Math.sin(uAngle);
+      const normZ = Math.cos(uAngle);
 
-      // 3. Tactile Fingernail Lip at Boundary Seam (confined to |lon| > 150° / lonNorm in [0.833, 1.0]):
-      const sPeel = lonNorm > 0.833 ? smoothstep(0.833, 1.0, lonNorm) : 0.0;
-      const alphaPow = uAlpha > 0.0001 ? Math.pow(uAlpha, 0.70) : 0.0;
-      const ePeel = uAlpha > 0.0001 ? Math.sin(PI * alphaPow) * (1.0 - uAlpha) : 0.0;
-      const thetaRoll = sPeel * 1.1;
-      const liftBarrel = radius * 0.25 * ePeel * (1.0 - Math.cos(thetaRoll)) * cosLatMode0;
+      // Living mid-to-late envelope: maintains tactile edge flexibility through alpha in [0.20, 0.85]
+      const safeAlpha = Math.max(0.0001, alpha);
+      const envLate = alpha > 0.0 ? Math.sin(PI * Math.pow(safeAlpha, 0.72)) * (1.0 - smoothstep(0.88, 1.0, alpha)) : 0.0;
 
-      const sinU = Math.abs(u) > 0.0001 ? Math.sin(u) : lonRad * (1.0 - u * u / 6.0);
-      const cosU = Math.abs(u) > 0.0001 ? Math.cos(u) : 1.0;
-      const normLen = Math.hypot(sinU, cosU) || 1.0;
-      const arcNorm = [sinU / normLen, 0.0, cosU / normLen];
+      // Asymmetric Chiral Seam Dynamics (Pins #1, #2, #3, #4):
+      const fWest = alpha > 0.0 ? Math.sin(PI * Math.pow(safeAlpha, 0.60)) * (1.0 - 0.25 * alpha) * 1.15 : 0.0;
+      const fEast = (2.0 * alpha - 0.34) * (1.0 - 0.20 * alpha) * 1.05;
+      const flapChiral = normLon < 0 ? fWest : fEast;
 
-      return [
-        basePos[0] + arcNorm[0] * liftBarrel,
-        basePos[1],
-        basePos[2] + arcNorm[2] * liftBarrel,
-      ];
+      // Seam Lip Dynamics with Unified Polar Scaling
+      const seamZone = smoothstep(0.50, 1.0, absNormLon);
+      const microRim = Math.sin(smoothstep(0.75, 1.0, absNormLon) * PI * 0.5);
+      const latTaper = 0.35 + 0.65 * cosLat;
+      const poleScale = cosLat + (1.0 - cosLat) * tParallel;
+
+      const lipMag = (seamZone * 0.150 * flapChiral + microRim * 0.070 * env) * radius * envLate * latTaper * poleScale;
+      curX += normX * lipMag * 0.70;
+      curZ += (normZ * 0.80 + 0.65) * lipMag;
+
+      // Polar Corner Dog-Ear Curl (tParallel gated)
+      const cornerLon = smoothstep(0.68, 1.0, absNormLon);
+      const cornerLat = smoothstep(0.58, 0.98, absNormLat);
+      const cornerZone = cornerLon * cornerLat;
+      const cornerCurlMag = Math.sin(cornerZone * PI * 0.5) * radius * 0.095 * envLate * tParallel;
+      curX += normX * cornerCurlMag * 0.45;
+      curZ += (normZ * 0.65 + 0.65) * cornerCurlMag;
+      const chiralCornerZ = sinLat * Math.sin(cornerZone * PI * 0.5) * radius * 0.060 * envLate * tParallel;
+      curZ += chiralCornerZ;
+
+      // Perimeter Edge Margin Drape & Anti-Stiffness (with poleScale)
+      const distEdgeLon = 1.0 - absNormLon;
+      const distEdgeLat = 1.0 - absNormLat;
+      const edgeDist = Math.min(distEdgeLon, distEdgeLat);
+      const edgeMarginZone = 1.0 - smoothstep(0.0, 0.45, edgeDist);
+      const edgeWave = 0.55 * Math.cos(lonRad * 2.0 - 0.4 * alpha) * Math.cos(latRad * 1.3) + 0.45 * Math.sin(lonRad * 3.0 + 0.5) * (0.45 + 0.55 * cosLat);
+      const marginDrapeZ = edgeMarginZone * edgeWave * radius * 0.085 * envLate * (0.40 + 0.60 * cosLat) * poleScale;
+      curZ += marginDrapeZ;
+
+      // In-plane organic boundary breathing along seam (with poleScale)
+      const edgeFlexX = Math.sin(latRad * 2.5 + alpha * 1.2) * (1.0 - smoothstep(0.0, 0.35, distEdgeLon)) * radius * 0.035 * envLate * (0.40 + 0.60 * cosLat) * poleScale;
+      curX += edgeFlexX;
+
+      // Polar Rim Undulation & Drape (tParallel gated)
+      const polarRimZone = 1.0 - smoothstep(0.0, 0.35, distEdgeLat);
+      const polarRimWaveZ = Math.cos(lonRad * 2.5 - 0.3 * alpha) * Math.sin(lonRad * 1.5 + 0.4);
+      const polarDrapeZ = polarRimZone * polarRimWaveZ * radius * 0.045 * envLate * tParallel;
+      curZ += polarDrapeZ;
+
+      // Subtle living wave across the sheet (with poleScale)
+      const waveFlex = envLate * (1.0 - 0.5 * alpha) * Math.sin(lonRad * 0.5 + 0.3) * radius * 0.030 * poleScale;
+      curZ += waveFlex;
+
+      // Gentle uniform sheet loft
+      const chordLiftZ = (0.60 + 0.40 * cosLat) * radius * 0.06 * env;
+      curZ += chordLiftZ;
+
+      // Vertical transformation: Pure Equirectangular 2:1
+      const yArc = radius * latRad;
+      const tStraighten = tParallel;
+      const yStraight = radius * sinLat * (1.0 - tStraighten) + yArc * tStraighten;
+
+      // Gentle polar rim breathing in Y
+      const polarRimFlexY = sinLat * polarRimZone * Math.cos(lonRad * 2.0 - 0.2 * alpha) * radius * 0.018 * envLate * tParallel;
+      const curY = yStraight + polarRimFlexY;
+
+      return [curX, curY, curZ];
     }
   }
 
@@ -2073,16 +2130,50 @@ export class WebGPUEngine {
       const rawLen = Math.hypot(rawNx, rawNy, rawNz) || 1.0;
       return [rawNx / rawLen, rawNy / rawLen, rawNz / rawLen];
     } else {
-      // Mode 0: Polar-Convergent Geodesic Unfolding with Boundary Seam Lip (§2)
-      const thetaNormLon = (1.0 - ease) * lonRad;
-      const thetaNormLat = (1.0 - ease) * latRadClamped;
-      const cp = Math.cos(thetaNormLat);
-      const sp = Math.sin(thetaNormLat);
-      const cl = Math.cos(thetaNormLon);
-      const sl = Math.sin(thetaNormLon);
-      const unrollNorm: [number, number, number] = [cp * sl, sp, cp * cl];
-      const unrollLen = Math.hypot(unrollNorm[0], unrollNorm[1], unrollNorm[2]);
-      return unrollLen > 0.001 ? [unrollNorm[0] / unrollLen, unrollNorm[1] / unrollLen, unrollNorm[2] / unrollLen] : [0.0, 0.0, 1.0];
+      // Mode 0: Equirectangular 2:1 Closed-Form Analytical Surface Normal N_base = T_lambda x T_phi
+      const smoothstep = (e0: number, e1: number, x: number): number => {
+        const t = Math.max(0.0, Math.min(1.0, (x - e0) / (e1 - e0)));
+        return t * t * (3.0 - 2.0 * t);
+      };
+      const alpha = clampedUnfurl;
+      const cosLat = Math.cos(latRad);
+      const sinLat = Math.sin(latRad);
+      const normLon = lonRad / PI;
+
+      const sZero = smoothstep(0.0, 0.10, alpha);
+      const sOne = 1.0 - smoothstep(0.90, 1.0, alpha);
+      const env = Math.sin(PI * alpha) * sZero * sOne;
+      const alphaEased = alpha * alpha * (3.0 - 2.0 * alpha);
+      const waveBias = normLon * 0.040 * env;
+      const latWeight = 1.0 - cosLat;
+      const latFactor = 1.0 - 0.14 * env * latWeight;
+      const easeLocal = Math.max(0.0, Math.min(1.0, alphaEased * latFactor - waveBias));
+
+      const tParallel = smoothstep(0.05, 0.85, easeLocal);
+      const tStraighten = tParallel;
+      const sBase = Math.max(0.0, 1.0 - easeLocal);
+      const cosHalfLon = Math.cos(lonRad * 0.5);
+      const spineWeight = cosHalfLon * cosHalfLon * cosHalfLon * cosHalfLon;
+      const sLocal = sBase * (1.0 - 0.10 * env * spineWeight);
+      const uAngle = sLocal * lonRad;
+
+      const dyDPhi = radius * (cosLat * (1.0 - tStraighten) + tStraighten);
+      const negDrDPhi = radius * sinLat * (1.0 - tParallel);
+
+      let bracket: number;
+      if (Math.abs(uAngle) > 0.02) {
+        const sDiv = Math.max(0.0001, sLocal);
+        bracket = (1.0 - Math.cos(uAngle)) / sDiv + sLocal * Math.cos(uAngle);
+      } else {
+        const u2 = uAngle * uAngle;
+        bracket = sLocal * (lonRad * lonRad * (0.5 - u2 / 24.0) + (1.0 - u2 * 0.5));
+      }
+
+      const rawNx = dyDPhi * Math.sin(uAngle);
+      const rawNy = negDrDPhi * bracket;
+      const rawNz = dyDPhi * Math.cos(uAngle);
+      const nLen = Math.hypot(rawNx, rawNy, rawNz);
+      return nLen > 0.00001 ? [rawNx / nLen, rawNy / nLen, rawNz / nLen] : [0.0, 0.0, 1.0];
     }
   }
 

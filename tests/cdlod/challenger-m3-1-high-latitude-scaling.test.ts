@@ -321,11 +321,10 @@ describe('Challenger M3.1: High-Latitude Empirical Scaling & Riemannian Metric C
       for (let i = 0; i <= 50; i++) {
         const latDeg = -85 + (i / 50) * 170; // Sweep from -85° to +85°
         const latRad = (latDeg * Math.PI) / 180.0;
-        const clampedLat = Math.max(-1.4835, Math.min(1.4835, latRad));
-        const mercatorY = Math.log(Math.tan(Math.PI * 0.25 + clampedLat * 0.5)) * 5.0;
+        const targetY = latRad * 5.0;
 
-        camera.position.set(0, mercatorY, 4.5);
-        camera.lookAt(0, mercatorY, 0);
+        camera.position.set(0, targetY, 4.5);
+        camera.lookAt(0, targetY, 0);
         camera.updateMatrixWorld();
         camera.updateProjectionMatrix();
 

@@ -233,9 +233,9 @@ describe('R2 Topological 2:1 Restricted Quadtree Balancing Pass', () => {
     });
 
     it('enforces physical neatline sheet edge severing on flat map (t >= 0.01)', () => {
-      // Wide-angle camera focused on eastern neatline (x = 14.0, z = 3.5) with full sheet in frustum
+      // Wide-angle camera focused on eastern neatline (x = 14.0, z = 3.0) with full sheet in frustum
       const camera = new PerspectiveCamera(90, 3.5, 0.01, 100);
-      camera.position.set(14.0, 0, 3.5);
+      camera.position.set(14.0, 0, 3.0);
       camera.lookAt(14.0, 0, 0);
       camera.updateMatrixWorld();
       camera.updateProjectionMatrix();
