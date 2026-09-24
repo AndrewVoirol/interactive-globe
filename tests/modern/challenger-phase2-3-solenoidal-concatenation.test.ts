@@ -271,7 +271,10 @@ describe('Challenger 2: Solenoidal Vector Noise & Concatenation Suite (Phase 2.3
   // =========================================================================
   describe('Domain 5: Shader Pipeline Audit Script Gating', () => {
     it('C2-AUDIT-01: bash .agents/skills/shader-pipeline/scripts/audit-manifold.sh exits 0', () => {
-      const scriptPath = path.resolve(__dirname, '../../.agents/skills/shader-pipeline/scripts/audit-manifold.sh');
+      let scriptPath = path.resolve(__dirname, '../../.agents/skills/shader-pipeline/scripts/audit-manifold.sh');
+      if (!fs.existsSync(scriptPath)) {
+        scriptPath = path.resolve(__dirname, '../../scripts/audit-manifold.sh');
+      }
       expect(fs.existsSync(scriptPath)).toBe(true);
 
       const result = execSync(`bash "${scriptPath}"`, {

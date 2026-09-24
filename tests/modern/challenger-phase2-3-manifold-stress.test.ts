@@ -757,7 +757,10 @@ describe('Challenger Phase 2.3: evaluateManifold Unification Stress Harness', ()
   // ==========================================================================
   describe('Pillar 6: Audit Script & WGSL Structural Verification', () => {
     it('CHALLENGE-2.3-12: audit-manifold.sh exits with code 0 (exactly 1 evaluateManifold definition)', () => {
-      const scriptPath = path.resolve(__dirname, '../../.agents/skills/shader-pipeline/scripts/audit-manifold.sh');
+      let scriptPath = path.resolve(__dirname, '../../.agents/skills/shader-pipeline/scripts/audit-manifold.sh');
+      if (!fs.existsSync(scriptPath)) {
+        scriptPath = path.resolve(__dirname, '../../scripts/audit-manifold.sh');
+      }
       expect(fs.existsSync(scriptPath)).toBe(true);
 
       const output = execSync(`bash "${scriptPath}"`, {
