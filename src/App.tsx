@@ -499,8 +499,6 @@ export default function App() {
       } else if (e.key === '4') {
         cancelGlide();
         glideToMode(3);
-      } else if (e.key === '5') {
-        cancelGlide();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -842,6 +840,7 @@ export default function App() {
           onAlphaChange={(val) => {
             cancelGlide();
             setIsPlaying(false);
+            cancelGlide();
             setAlpha(val);
           }}
           onGlideToAlpha={glideToAlpha}
@@ -850,6 +849,8 @@ export default function App() {
           theme={theme}
           mode={mode}
           isSidebarOpen={isSidebarActive}
+          onModeChange={glideToMode}
+          onSelectMode={glideToMode}
         />
 
 
