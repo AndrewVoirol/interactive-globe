@@ -399,8 +399,13 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, endpoint) {
   const edgeDist = Math.min(distEdgeLon, distEdgeLat);
   const edgeMarginZone = 1.0 - smoothstep(0.0, 0.45, edgeDist);
   const edgeWave = 0.65 * Math.cos(lonRad * 1.5 - 0.5 * alpha) * Math.sin(latRad * 2.0) + 0.35 * Math.cos(lonRad * 3.0) * Math.cos(latRad);
-  const marginDrapeZ = edgeMarginZone * edgeWave * RADIUS * 0.075 * envLate;
+  const marginDrapeZ = edgeMarginZone * edgeWave * RADIUS * 0.095 * envLate;
   curZ += marginDrapeZ;
+
+  // In-plane organic boundary breathing (eliminates laser-cut silhouette stiffness):
+  const edgeFlexX = Math.sin(latRad * 2.5 + alpha * 1.2) * (1.0 - smoothstep(0.0, 0.35, distEdgeLon)) * RADIUS * 0.040 * envLate;
+  const edgeFlexY = Math.sin(lonRad * 2.5 - alpha * 0.8) * (1.0 - smoothstep(0.0, 0.35, distEdgeLat)) * RADIUS * 0.035 * envLate;
+  curX += edgeFlexX;
 
   // Polar margin flex (softens top/bottom polar bands)
   const polarZone = smoothstep(0.50, 1.0, absNormLat);
@@ -420,7 +425,7 @@ function evalOptionCCPU(lonRad, latRad, cosLat, sinLat, alpha, endpoint) {
   const tStraighten = tParallel;
   const yStraight = RADIUS * sinLat * (1.0 - tStraighten) + yArc * tStraighten;
 
-  let curY = yStraight;
+  let curY = yStraight + edgeFlexY;
   if (endpoint === 1) {
     // Web Mercator: smooth gradual expansion over [0.35, 1.0] (no late violent pop)
     const clampedLat = Math.max(-1.4835, Math.min(1.4835, latRad));
@@ -870,8 +875,13 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32, e
     let edgeDist = min(distEdgeLon, distEdgeLat);
     let edgeMarginZone = 1.0 - smoothstep(0.0, 0.45, edgeDist);
     let edgeWave = 0.65 * cos(lonRad * 1.5 - 0.5 * alpha) * sin(latRad * 2.0) + 0.35 * cos(lonRad * 3.0) * cos(latRad);
-    let marginDrapeZ = edgeMarginZone * edgeWave * RADIUS * 0.075 * envLate;
+    let marginDrapeZ = edgeMarginZone * edgeWave * RADIUS * 0.095 * envLate;
     curZ = curZ + marginDrapeZ;
+
+    // In-plane organic boundary breathing (eliminates laser-cut silhouette stiffness):
+    let edgeFlexX = sin(latRad * 2.5 + alpha * 1.2) * (1.0 - smoothstep(0.0, 0.35, distEdgeLon)) * RADIUS * 0.040 * envLate;
+    let edgeFlexY = sin(lonRad * 2.5 - alpha * 0.8) * (1.0 - smoothstep(0.0, 0.35, distEdgeLat)) * RADIUS * 0.035 * envLate;
+    curX = curX + edgeFlexX;
 
     // Polar margin flex (softens top/bottom polar bands):
     let polarZone = smoothstep(0.50, 1.0, absNormLat);
@@ -891,13 +901,13 @@ fn evalOptionC(lonRad: f32, latRad: f32, cosLat: f32, sinLat: f32, alpha: f32, e
     let tStraighten = tParallel;
     let yStraight = mix(RADIUS * sinLat, yArc, tStraighten);
 
-    var curY = yStraight;
+    var curY = yStraight + edgeFlexY;
     if (endpoint == 1u) {
         // Web Mercator: smooth gradual expansion over [0.35, 1.0] (no late violent pop)
         let clampedLat = clamp(latRad, -1.4835, 1.4835);
         let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
         let tMerc = smoothstep(0.35, 1.00, easeLocal);
-        curY = mix(yStraight, mercatorY, tMerc);
+        curY = mix(yStraight + edgeFlexY, mercatorY, tMerc);
     }
 
     return vec3<f32>(curX, curY, curZ);
