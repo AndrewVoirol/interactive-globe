@@ -315,7 +315,8 @@ canvas#canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
     <div class="caliper-row"><span class="caliper-label">Tropospheric Regime:</span><span class="caliper-stratum" id="caliper-regime">REGIME 1: ORBITAL SPACE</span></div>
     <div class="caliper-row"><span class="caliper-label">Current Stratum:</span><span class="caliper-stratum" id="caliper-stratum">ORBITAL VIEW</span></div>
     <div class="caliper-row"><span class="caliper-label">Raymarch Interval:</span><span class="caliper-val" id="caliper-ray-range">0.0 km</span></div>
-    <div class="caliper-row"><span class="caliper-label">WeatherNext Cycle:</span><span class="caliper-val" id="caliper-cycle">20260924_10hr_01</span></div>
+    <div class="caliper-row"><span class="caliper-label">Forecast Cycle:</span><span class="caliper-val" id="caliper-cycle" style="color:#f2cc60;">2026-09-24 10:00Z (+0–11h)</span></div>
+    <div class="caliper-row"><span class="caliper-label">Strata Color Mode:</span><span class="caliper-val" id="caliper-strata-mode" style="color:#a5d6ff;">Natural Cartographic</span></div>
     <div class="caliper-row"><span class="caliper-label">Grid Resolution:</span><span class="caliper-val">3600 × 1801 (0.1°)</span></div>
     <div class="caliper-row"><span class="caliper-label">Wind Vector Field:</span><span class="caliper-val" id="caliper-wind">rg16float (Active)</span></div>
   </div>
@@ -325,16 +326,22 @@ canvas#canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
     <h4>WeatherNext 3 Cloud Strata <span style="font-size:10px;color:#8888b0;">10 km Resolution</span></h4>
     <div class="hud-section">
       <div class="hud-row">
-        <label><input type="checkbox" id="chk-cloud-low" checked> Low Deck (0-2 km)</label>
+        <label><input type="checkbox" id="chk-cloud-low" checked> <span style="color:#ffa026;font-size:12px;">●</span> Low Deck (0-2 km)</label>
         <input type="range" id="slider-dens-low" min="0" max="2.5" step="0.05" value="1.0">
       </div>
       <div class="hud-row">
-        <label><input type="checkbox" id="chk-cloud-mid" checked> Mid Deck (2-6 km)</label>
+        <label><input type="checkbox" id="chk-cloud-mid" checked> <span style="color:#1fd9f5;font-size:12px;">●</span> Mid Deck (2-6 km)</label>
         <input type="range" id="slider-dens-mid" min="0" max="2.5" step="0.05" value="0.8">
       </div>
       <div class="hud-row">
-        <label><input type="checkbox" id="chk-cloud-high" checked> High Cirrus (6-12 km)</label>
+        <label><input type="checkbox" id="chk-cloud-high" checked> <span style="color:#f547e0;font-size:12px;">●</span> High Cirrus (6-12 km)</label>
         <input type="range" id="slider-dens-high" min="0" max="2.5" step="0.05" value="0.6">
+      </div>
+      <div class="hud-row" style="margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.08);">
+        <label style="cursor:pointer; display:flex; align-items:center; gap:6px; font-weight:700; color:#58a6ff;">
+          <input type="checkbox" id="chk-false-color">
+          <span>🎨 Strata False-Color Differentiator</span>
+        </label>
       </div>
       <div class="hud-row">
         <span>Global Cloud Opacity</span>
@@ -403,6 +410,7 @@ const state = {
   cloudOpacity: 0.88,
   advectionSpeed: 1.2,
   windShear: true,
+  falseColor: false,
   pins: [],
   activePinId: null,
 };
@@ -451,6 +459,7 @@ const caliperPitch = document.getElementById('caliper-pitch');
 const caliperRegime = document.getElementById('caliper-regime');
 const caliperStratum = document.getElementById('caliper-stratum');
 const caliperRayRange = document.getElementById('caliper-ray-range');
+const caliperStrataMode = document.getElementById('caliper-strata-mode');
 const caliperFps = document.getElementById('caliper-fps');
 const caliperHover = document.getElementById('caliper-hover');
 const pinCardsWrap = document.getElementById('pin-cards-wrap');
@@ -558,6 +567,13 @@ document.getElementById('slider-dens-high').oninput = (e) => { state.highDens = 
 document.getElementById('slider-cloud-opacity').oninput = (e) => { state.cloudOpacity = parseFloat(e.target.value); };
 document.getElementById('slider-advection-speed').oninput = (e) => { state.advectionSpeed = parseFloat(e.target.value); };
 document.getElementById('chk-wind-shear').onchange = (e) => { state.windShear = e.target.checked; };
+document.getElementById('chk-false-color').onchange = (e) => {
+  state.falseColor = e.target.checked;
+  if (caliperStrataMode) {
+    caliperStrataMode.textContent = state.falseColor ? 'Diagnostic False-Color RGB' : 'Natural Cartographic';
+    caliperStrataMode.style.color = state.falseColor ? '#ffa026' : '#a5d6ff';
+  }
+};
 document.getElementById('slider-sun-alt').oninput = (e) => { state.sunAlt = parseFloat(e.target.value); };
 document.getElementById('slider-sun-az').oninput = (e) => { state.sunAz = parseFloat(e.target.value); };
 
@@ -891,6 +907,7 @@ btnCopyChat.onclick = () => {
 - **Layer Densities**: Low: ${state.lowDens.toFixed(2)} (${state.lowEnabled ? 'ON' : 'OFF'}) | Mid: ${state.midDens.toFixed(2)} (${state.midEnabled ? 'ON' : 'OFF'}) | High: ${state.highDens.toFixed(2)} (${state.highEnabled ? 'ON' : 'OFF'})
 - **Wind & Sun**: Advection: ${state.advectionSpeed.toFixed(1)}× | Shear: ${state.windShear ? 'Cirrus 3.5×' : 'Uniform'} | Sun Alt: ${state.sunAlt}°, Az: ${state.sunAz}°
 - **Cartographic Medium**: ${themeName} | α Unfurl: ${state.unfurl.toFixed(2)}
+- **Strata Color Mode**: ${state.falseColor ? '🎨 Diagnostic False-Color RGB (Low=Amber, Mid=Cyan, High=Magenta)' : 'Natural Medium'}
 - **Observation / Query**: (Type your thoughts or concerns here)
 `;
     navigator.clipboard.writeText(text).then(() => {
@@ -906,7 +923,7 @@ btnCopyChat.onclick = () => {
     text += `\n- **Pin #${idx + 1}** [${loc}]:\n`;
     text += `  - **Camera**: ${p.stratum} | Alt: ${p.altitudeKm} | Pitch: ${p.pitchDeg}° | Hdg: ${p.headingDeg}° (θ=${p.camTheta.toFixed(3)}, φ=${p.camPhi.toFixed(3)})\n`;
     text += `  - **Atmosphere**: +${p.forecastHour}h cycle | Low: ${p.densities.low} | Mid: ${p.densities.mid} | High: ${p.densities.high} | Opacity: ${p.densities.opacity}\n`;
-    text += `  - **Medium & Sun**: ${p.theme} | Sun Alt: ${p.sunAlt}°, Az: ${p.sunAz}° | α Unfurl: ${state.unfurl.toFixed(2)}\n`;
+    text += `  - **Medium & Sun**: ${p.theme} | Sun Alt: ${p.sunAlt}°, Az: ${p.sunAz}° | Strata: ${state.falseColor ? 'Diagnostic False-Color' : 'Natural Medium'} | α Unfurl: ${state.unfurl.toFixed(2)}\n`;
     text += `  - **Observation**: ${p.note.trim() ? p.note.trim() : '(No tags selected)'}\n`;
   });
 
@@ -1351,7 +1368,7 @@ async function initWebGPU() {
 
     volCloudFloats[16] = 500.0; volCloudFloats[17] = 500.0 / 15000.0; volCloudFloats[18] = 0.0065; volCloudFloats[19] = 1.0;
     volCloudFloats[20] = 26.0; volCloudFloats[21] = 0.65; volCloudFloats[22] = 0.35; volCloudFloats[23] = 0.002;
-    volCloudFloats[24] = 7.5; volCloudFloats[25] = 0.98; volCloudFloats[26] = 0.82; volCloudFloats[27] = -0.25;
+    volCloudFloats[24] = 35.0; volCloudFloats[25] = 0.98; volCloudFloats[26] = 0.82; volCloudFloats[27] = -0.25;
     volCloudFloats[28] = state.theme; volCloudFloats[29] = 1.0; volCloudFloats[30] = 1.0; volCloudFloats[31] = 1.0;
 
     volCloudFloats[32] = now * 0.001;
@@ -1361,6 +1378,8 @@ async function initWebGPU() {
 
     volCloudFloats[36] = state.windShear ? 3.5 : 1.0;
     volCloudFloats[37] = state.advectionSpeed;
+    volCloudFloats[38] = state.falseColor ? 1.0 : 0.0;
+    volCloudFloats[39] = 0.0;
     device.queue.writeBuffer(volCloudBuffer, 0, volCloudFloats.buffer);
 
     // Update Caliper ray range

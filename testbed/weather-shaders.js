@@ -306,10 +306,10 @@ fn intersectTroposphericShell(
 
 fn worldToEquirectangularUV(pos3D: vec3<f32>) -> vec2<f32> {
     let curR = max(length(pos3D), 0.001);
-    let lambda = atan2(pos3D.x, pos3D.z);
-    let phi = asin(clamp(pos3D.y / curR, -0.9998, 0.9998));
-    let u = fract((lambda / TWO_PI) + 0.5);
-    let v = clamp(0.5 - (phi / PI), 0.001, 0.999);
+    let phi = atan2(pos3D.z, pos3D.x);
+    let theta = acos(clamp(pos3D.y / curR, -0.9998, 0.9998));
+    let u = fract((phi / TWO_PI) + 1.0);
+    let v = clamp(theta / PI, 0.001, 0.999);
     return vec2<f32>(u, v);
 }
 
@@ -319,9 +319,14 @@ fn layerHeightEnvelope(h: f32, hMin: f32, hMax: f32, feather: f32) -> f32 {
     return bottom * top;
 }
 
+struct CloudDensitySample {
+    density: f32,
+    strataRgb: vec3<f32>,
+};
+
 // Samples meteorological cloud density combining WeatherNext 3 prognostic strata
 // with living wind advection, vertical shear, and 3D Perlin-Worley micro-erosion.
-fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
+fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> CloudDensitySample {
     let r = length(pos);
     let hNorm = clamp((r - rInner) / deltaR, 0.0, 1.0);
 
@@ -368,10 +373,23 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let midWeight = layerHeightEnvelope(hNorm, midBottom, midTop, 0.05) * cloud.layerDensities.y;
     let highWeight = layerHeightEnvelope(hNorm, highBottom, 0.98, 0.07) * cloud.layerDensities.z;
 
-    let macroDensity = lowFraction * lowWeight + midFraction * midWeight + highFraction * highWeight;
+    let wLow = lowFraction * lowWeight;
+    let wMid = midFraction * midWeight;
+    let wHigh = highFraction * highWeight;
+    let macroDensity = wLow + wMid + wHigh;
+
+    // Strata Diagnostic False-Color Spectrum:
+    // Low Deck (0-2 km): Amber-Gold
+    // Mid Deck (2-6 km): Cyan-Aqua
+    // High Cirrus (6-12 km): Magenta-Orchid
+    let totalW = max(0.0001, wLow + wMid + wHigh);
+    let colLow = vec3<f32>(1.00, 0.62, 0.15);
+    let colMid = vec3<f32>(0.12, 0.85, 0.96);
+    let colHigh = vec3<f32>(0.96, 0.28, 0.88);
+    let strataRgb = (colLow * wLow + colMid * wMid + colHigh * wHigh) / totalW;
 
     if (macroDensity < 0.002) {
-        return 0.0;
+        return CloudDensitySample(0.0, strataRgb);
     }
 
     // 3D Periodic Perlin-Worley Erosion Noise
@@ -388,7 +406,7 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let shapedBase = clamp((macroDensity * 2.4 - noiseCarve * 0.5) / max(0.001, 1.0 - noiseCarve * 0.5), 0.0, 1.0);
     let finalDensity = clamp(shapedBase - (1.0 - shapedBase) * (worleyErosion * erosionStr * 0.5), 0.0, 1.0);
 
-    return finalDensity * cloud.layerDensities.w;
+    return CloudDensitySample(finalDensity * cloud.layerDensities.w, strataRgb);
 }
 
 // Dual-Lobe Henyey-Greenstein Phase Function
@@ -527,6 +545,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let sigmaT = cloud.opticalParams.x * pal.inkDensityFactor;
     let albedo = cloud.opticalParams.y;
 
+    let isFalseColor = cloud.shearParams.z > 0.5;
+
     var accumLight = vec3<f32>(0.0);
     var accumTransmittance: f32 = 1.0;
     var t: f32 = tStart + jitter;
@@ -541,18 +561,21 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
 
         let p = rayOrigin + rayDir * t;
-        let rawDensity = sampleCloudDensity(p, rInner, deltaR);
+        let cSample = sampleCloudDensity(p, rInner, deltaR);
 
         // Apply smooth near-plane dissolve when camera is inside
         let distFromCam = t;
         let nearFade = smoothstep(nearClipDist, nearClipDist * 3.5, distFromCam);
-        let density = rawDensity * nearFade;
+        let density = cSample.density * nearFade;
 
         if (density > 0.002) {
             let stepTau = sigmaT * density * baseStepSize;
             let stepT = exp(-stepTau);
 
             let sunT = sampleSunShadowTransmittance(p, sunDir, rInner, deltaR);
+
+            // In false-color diagnostic mode, tint scattered light by strata color
+            let stepTint = select(vec3<f32>(1.0), cSample.strataRgb, isFalseColor);
 
             // Wrenninge Multiple Scattering
             var directLight = vec3<f32>(0.0);
@@ -561,13 +584,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             for (var oct: i32 = 0; oct < 3; oct++) {
                 let octSunT = select(0.0, pow(clamp(sunT, 1e-6, 1.0), octExtinction), sunT > 1e-6);
                 let octPhaseTerm = max(0.20, phase * (4.0 * PI));
-                directLight += pal.sunColor * (octWeight * octPhaseTerm * octSunT);
+                directLight += pal.sunColor * stepTint * (octWeight * octPhaseTerm * octSunT);
                 octExtinction *= 0.5;
                 octWeight *= 0.5;
             }
 
-            let midLight = pal.midColor * ((1.0 - sunT) * 0.50);
-            let S = (directLight + midLight + pal.ambientColor * 0.35) * (albedo * (1.0 - stepT) / max(0.00001, baseStepSize));
+            let midLight = pal.midColor * stepTint * ((1.0 - sunT) * 0.50);
+            let ambientLight = pal.ambientColor * stepTint * 0.35;
+            let S = (directLight + midLight + ambientLight) * (albedo * (1.0 - stepT) / max(0.00001, baseStepSize));
 
             accumLight += accumTransmittance * S * baseStepSize;
             accumTransmittance *= stepT;
