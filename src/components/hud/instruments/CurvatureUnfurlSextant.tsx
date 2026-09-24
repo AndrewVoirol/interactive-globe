@@ -301,7 +301,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   else if (activeAlpha >= 0.15) currentMilestone = milestones[1];
 
   return (
-    <div className="flex flex-col items-center w-56 sm:w-64 select-none">
+    <div className="flex flex-col items-center w-72 sm:w-80 md:w-[350px] select-none">
       {/* Interactive Sextant Arc Scrubber */}
       <div
         ref={boxRef}
