@@ -83,7 +83,6 @@ function computeCurlNoiseOracle(p: THREE.Vector3, time: number): THREE.Vector3 {
 function evaluateManifoldOracle(
   pos3D: THREE.Vector3,
   target2D: THREE.Vector2,
-  dymaxion2D: THREE.Vector2,
   unfurl: number,
   mode: number,
   time = 0,
@@ -282,9 +281,8 @@ describe('Challenger 1: Cartographic Math & Singularities Challenger', () => {
         for (let mode = 0; mode <= 4; mode++) {
           for (const alpha of morphAlphas) {
             const target2D = new THREE.Vector2(0, pos.y > 0 ? 10 : -10);
-            const dymaxion2D = new THREE.Vector2(0, 0);
 
-            const result = evaluateManifoldOracle(pos, target2D, dymaxion2D, alpha, mode, 1.0);
+            const result = evaluateManifoldOracle(pos, target2D, alpha, mode, 1.0);
 
             // Assert 0 NaNs and strictly finite numbers
             expect(Number.isNaN(result.pos.x), `${name} mode ${mode} alpha ${alpha}: pos.x is NaN`).toBe(false);
@@ -330,17 +328,16 @@ describe('Challenger 1: Cartographic Math & Singularities Challenger', () => {
         for (let mode = 0; mode <= 4; mode++) {
           const t2DEast = new THREE.Vector2(PI * RADIUS, latDeg);
           const t2DWest = new THREE.Vector2(-PI * RADIUS, latDeg);
-          const d2D = new THREE.Vector2(0, 0);
 
-          const resEast = evaluateManifoldOracle(posEast, t2DEast, d2D, 0.5, mode);
-          const resWest = evaluateManifoldOracle(posWest, t2DWest, d2D, 0.5, mode);
+          const resEast = evaluateManifoldOracle(posEast, t2DEast, 0.5, mode);
+          const resWest = evaluateManifoldOracle(posWest, t2DWest, 0.5, mode);
 
           expect(Number.isNaN(resEast.pos.x)).toBe(false);
           expect(Number.isNaN(resWest.pos.x)).toBe(false);
 
           // On the sphere (alpha = 0.0), 3D positions at seam are physically coincident
-          const resEastSphere = evaluateManifoldOracle(posEast, t2DEast, d2D, 0.0, mode);
-          const resWestSphere = evaluateManifoldOracle(posWest, t2DWest, d2D, 0.0, mode);
+          const resEastSphere = evaluateManifoldOracle(posEast, t2DEast, 0.0, mode);
+          const resWestSphere = evaluateManifoldOracle(posWest, t2DWest, 0.0, mode);
           const sphereSeamDist = resEastSphere.pos.distanceTo(resWestSphere.pos);
           expect(sphereSeamDist).toBeLessThan(1e-4);
 
@@ -493,11 +490,10 @@ describe('Challenger 1: Cartographic Math & Singularities Challenger', () => {
 
       for (const pos of testCoordinates) {
         const target2D = new THREE.Vector2(pos.x, pos.y);
-        const dymaxion2D = new THREE.Vector2(pos.x, pos.y);
 
         for (let mode = 0; mode <= 4; mode++) {
           for (const alpha of morphStates) {
-            const deformed = evaluateManifoldOracle(pos, target2D, dymaxion2D, alpha, mode);
+            const deformed = evaluateManifoldOracle(pos, target2D, alpha, mode);
 
             // At shoreline (h = 0) and seaLevel = 0:
             // Liquid hydrosphere displacement = 0.0
@@ -767,13 +763,12 @@ describe('Challenger 1: Cartographic Math & Singularities Challenger', () => {
         );
 
         const target2D = new THREE.Vector2(theta * RADIUS, phi * RADIUS);
-        const dymaxion2D = new THREE.Vector2(theta * RADIUS * 0.8, phi * RADIUS * 0.8);
 
         const unfurl = ((i * 73 + 19) % 1000) / 1000.0;
         const mode = i % 5; // 0, 1, 2, 3, 4
         const time = (i * 0.05) % 100.0;
 
-        const res = evaluateManifoldOracle(pos, target2D, dymaxion2D, unfurl, mode, time);
+        const res = evaluateManifoldOracle(pos, target2D, unfurl, mode, time);
 
         if (Number.isNaN(res.pos.x) || Number.isNaN(res.pos.y) || Number.isNaN(res.pos.z)) {
           nanCount++;

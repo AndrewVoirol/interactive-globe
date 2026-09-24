@@ -240,3 +240,24 @@ In multi-pass WebGPU engines where spatial LOD acceleration structures (CDLOD qu
 - **Double-Alpha Premultiplication Prohibition**: When a render pipeline targets hardware `src-alpha` blending, returning premultiplied color `finalColor * finalAlpha, finalAlpha` squares the alpha ($C \cdot \alpha^2$), dulling ink contrast and Swiss relief against the archival substrate.
 
 
+
+## 40. Museum-Grade Zero-Whimsy Invariant
+The UI and interactions must reflect a serious cartographic instrument. All gamified, whimsical, or immersion-breaking elements (e.g., 3D inflatable tube men, novelty audio) are strictly prohibited and must be purged.
+
+## 41. Scale-Coupled Troposphere Ceiling Invariant
+Atmospheric shells and cloud layers must scale correctly with the planet radius. Do not use hardcoded world offsets that fail when the planet scales.
+
+## 42. Concrete Visual Comps in Discovery Invariant
+When proposing architectural or visual changes, always rely on concrete side-by-side screenshots or visual captures of real output, not just mathematical theory or clean compilation logs.
+
+## 43. Zero-Lingering Server Discipline
+Do not leave development servers running in the background when not actively debugging.
+
+## 44. Full Data Provenance & Curator Colophon
+All datasets, APIs, and rendering systems must have their provenance clearly listed in the UI (e.g., in a Curator's Colophon).
+
+## 45. Cross-Session Discovery Ledger & Parameter Retention
+All discovered invariants, parameters, and calibrations (such as the 5-Scale Nested Harmonic Roll for Mode 0) must be recorded in `DISCOVERY_LEDGER.md` and retained across sessions.
+
+## 46. Mode 0 Nested Harmonic Roll
+Mode 0 uses the "5-Scale Nested Harmonic Roll" (Macro Developable Arc, Margin Folio Wave, Micro-Rim Edge Curl, Organic Latitude Differential, Chiral Polar S-Twist Flare). Never regress Mode 0 to the obsolete "Polar-Convergent Geodesic Unfolding" math.

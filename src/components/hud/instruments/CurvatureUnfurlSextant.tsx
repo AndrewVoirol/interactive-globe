@@ -53,7 +53,6 @@ const MILESTONES_BY_MODE: Record<number, MilestoneStage[]> = {
     { t: 0.0, label: 'ICOSA CODES', desc: '20 spherical equilateral faces', sub: '20 spherical equilateral faces' },
     { t: 0.4, label: 'HINGE ROTATION', desc: 'Facet decoupling along edges', sub: 'Facet decoupling along edges' },
     { t: 0.8, label: 'NET DEPLOYMENT', desc: 'Planar triangular deployment', sub: 'Planar triangular deployment' },
-    { t: 1.0, label: 'DYMAXION (K = 0)', desc: 'Fuller zero-distortion net', sub: 'Fuller zero-distortion net' },
   ],
 };
 
