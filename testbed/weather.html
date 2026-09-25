@@ -288,6 +288,17 @@ canvas#canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
 
   <div class="divider"></div>
 
+  <!-- Geo Anchors / Evaluation Beacons -->
+  <span style="font-size:10px; color:#8888a8; font-weight:700;">BEACONS:</span>
+  <div class="btn-group">
+    <button class="btn btn-xs" id="btn-beacon-ca" title="California Marine Stratus (34°N, 120°W)">CA Stratus</button>
+    <button class="btn btn-xs" id="btn-beacon-itcz" title="ITCZ Convective Towers (2°N, 28°W)">ITCZ</button>
+    <button class="btn btn-xs" id="btn-beacon-cyclone" title="North Atlantic Cyclone (52°N, 35°W)">NA Cyclone</button>
+    <button class="btn btn-xs" id="btn-beacon-andes" title="Andean Divide / Atacama (22°S, 68°W)">Andes</button>
+  </div>
+
+  <div class="divider"></div>
+
   <!-- Mode 0 Unfurl -->
   <label>α Unfurl <input type="range" id="unfurl-slider" min="0" max="1" step="0.01" value="0.0"> <span id="unfurl-val" style="font-family:monospace;color:#fff;">0.00</span></label>
 
@@ -576,6 +587,70 @@ document.getElementById('chk-false-color').onchange = (e) => {
 };
 document.getElementById('slider-sun-alt').oninput = (e) => { state.sunAlt = parseFloat(e.target.value); };
 document.getElementById('slider-sun-az').oninput = (e) => { state.sunAz = parseFloat(e.target.value); };
+
+// ═══════════════════════════════════════════════════════════════
+// CAMERA FLIGHT ANIMATOR & QUICK-TELEPORT BEACONS
+// ═══════════════════════════════════════════════════════════════
+
+let flightAnim = null;
+function flyToTarget(targetLat, targetLon, targetDist = 7.5, targetPitch = 45.0, targetHeading = 0.0, duration = 1200) {
+  if (flightAnim) cancelAnimationFrame(flightAnim);
+  const startPhi = state.camPhi;
+  let startTheta = state.camTheta;
+  const targetPhi = (targetLat * Math.PI) / 180;
+  let targetTheta = (targetLon * Math.PI) / 180;
+
+  // Compute shortest path on longitude (modulo 2PI)
+  let dTheta = (targetTheta - startTheta) % (2 * Math.PI);
+  if (dTheta > Math.PI) dTheta -= 2 * Math.PI;
+  if (dTheta < -Math.PI) dTheta += 2 * Math.PI;
+  targetTheta = startTheta + dTheta;
+
+  const startDist = state.camDistance;
+  const startPitch = state.camPitch;
+  const startHeading = state.camHeading;
+  const startTime = performance.now();
+
+  function animate(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(1.0, elapsed / duration);
+    // Smooth cubic ease-in-out
+    const ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+    state.camPhi = startPhi + (targetPhi - startPhi) * ease;
+    state.camTheta = startTheta + (targetTheta - startTheta) * ease;
+    state.camDistance = startDist + (targetDist - startDist) * ease;
+    state.camPitch = startPitch + (targetPitch - startPitch) * ease;
+    state.camHeading = (startHeading + (targetHeading - startHeading) * ease + 360) % 360;
+
+    updateAltitudeUI();
+
+    if (progress < 1.0) {
+      flightAnim = requestAnimationFrame(animate);
+    } else {
+      flightAnim = null;
+    }
+  }
+  flightAnim = requestAnimationFrame(animate);
+}
+
+const beaconBtns = {
+  'btn-beacon-ca': { lat: 34.0, lon: -120.0, dist: 8.5, pitch: 20.0, hdg: 0.0 },
+  'btn-beacon-itcz': { lat: 2.0, lon: -28.0, dist: 8.5, pitch: 18.0, hdg: 45.0 },
+  'btn-beacon-cyclone': { lat: 52.0, lon: -35.0, dist: 9.0, pitch: 22.0, hdg: 90.0 },
+  'btn-beacon-andes': { lat: -22.0, lon: -68.0, dist: 8.5, pitch: 20.0, hdg: 315.0 },
+};
+
+Object.entries(beaconBtns).forEach(([btnId, p]) => {
+  const btn = document.getElementById(btnId);
+  if (btn) {
+    btn.onclick = () => {
+      document.querySelectorAll('#top-bar .btn-group button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      flyToTarget(p.lat, p.lon, p.dist, p.pitch, p.hdg, 1200);
+    };
+  }
+});
 
 // ═══════════════════════════════════════════════════════════════
 // GEOGRAPHIC LABELS, RAYCASTING & 3D OBSERVATION PINS

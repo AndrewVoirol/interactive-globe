@@ -641,6 +641,7 @@ export default function App() {
                 mode={mode}
                 layerMode={layerMode}
                 theme={theme}
+                volumetricClouds={true}
                 isolatedStratum={isolatedStratum}
                 showSoundings={showSoundings}
                 showTriangulation={showTriangulation}

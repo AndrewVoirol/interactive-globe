@@ -5853,7 +5853,7 @@ export class WebGPUEngine {
     const dt = params.dt !== undefined ? params.dt : 0.016667;
     const advectionSpeed = params.cloudAdvectionSpeed !== undefined
       ? params.cloudAdvectionSpeed
-      : (params.cloudDriftSpeed !== undefined ? params.cloudDriftSpeed : 1.0);
+      : 1.0;
     const condRate = params.condensationRate !== undefined ? params.condensationRate : 1.2;
     const evapRate = params.evaporationRate !== undefined ? params.evaporationRate : 0.8;
 

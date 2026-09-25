@@ -264,6 +264,16 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
         sculptedDensity = mix(finalDensity, lowBillow, lowEnvelope);
     }
 
+    // High Cirrus Stratum Directional Wind Shear & Fibrous Perlin Erosion Pass
+    let highEnvelope = layerHeightEnvelope(hNorm, highBottom, 0.95, 0.08);
+    if (highEnvelope > 0.01) {
+        let shearVec = advection.u_windAltitudeShear.xy;
+        let shearCoord = noiseCoord + vec3<f32>(shearVec.x * (hNorm - highBottom) * 0.4, 0.0, shearVec.y * (hNorm - highBottom) * 0.4);
+        let shearNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, shearCoord, 0.0);
+        let fibrousCirrus = clamp(finalDensity * (0.85 + (shearNoise.r - 0.45) * 0.65), 0.0, 1.0);
+        sculptedDensity = mix(sculptedDensity, fibrousCirrus, highEnvelope);
+    }
+
     return sculptedDensity * cloud.u_layerDensities.w;
 }
 
@@ -281,6 +291,23 @@ fn dualHenyeyGreenstein(cosTheta: f32, g1: f32, g2: f32, weight: f32) -> f32 {
     return INV_FOUR_PI * mix(p2, p1, weight);
 }
 
+// 3-Lobe Phase Function with Forward Mie Silver-Lining Diffraction Peak
+fn triplePhaseFunction(cosTheta: f32, g1: f32, g2: f32, gMie: f32, stepT: f32) -> f32 {
+    let baseHG = dualHenyeyGreenstein(cosTheta, g1, g2, 0.70);
+
+    // Sharp forward Mie diffraction lobe (gMie = 0.965)
+    let ct = clamp(cosTheta, -0.9999, 0.9999);
+    let gMieSq = gMie * gMie;
+    let denomMie = max(0.0001, 1.0 + gMieSq - 2.0 * gMie * ct);
+    let forwardMie = INV_FOUR_PI * ((1.0 - gMieSq) / pow(denomMie, 1.5));
+
+    // Fringe weight: peak silver lining along backlit, optically thin cloud boundaries
+    let fringeWeight = smoothstep(0.12, 0.55, stepT) * (1.0 - smoothstep(0.75, 0.98, stepT));
+    let forwardBoost = max(0.0, ct);
+
+    return baseHG + forwardMie * (fringeWeight * forwardBoost * 0.40);
+}
+
 struct SunShadowResult {
     transmittance: f32,
     density: f32,
@@ -290,7 +317,7 @@ struct SunShadowResult {
 // Evaluates tau_sun = sum_{k=1}^4 sigma_t * rho(pos + k * stepDist * sunDir) * stepDist
 // Returns SunShadowResult with transmittance = exp(-tau_sun) and averaged crevice density
 fn sampleSunShadowTransmittance(pos: vec3<f32>, sunDir: vec3<f32>, rInner: f32, deltaR: f32) -> SunShadowResult {
-    let stepDist = 0.00045; // ~573m base step along solar ray vector
+    let stepDist = 0.00045;
     var tauSun: f32 = 0.0;
     var avgDensity: f32 = 0.0;
     let sigmaT = cloud.u_opticalParams.x;
@@ -308,6 +335,59 @@ fn sampleSunShadowTransmittance(pos: vec3<f32>, sunDir: vec3<f32>, rInner: f32, 
     res.transmittance = exp(-tauSun);
     res.density = avgDensity;
     return res;
+}
+
+// Analytical Rayleigh Atmospheric Airglow Single-Scattering at Planetary Horizon Limb
+fn evaluateRayleighLimbAirglow(
+    rayOrigin: vec3<f32>,
+    rayDir: vec3<f32>,
+    sunDir: vec3<f32>,
+    rInner: f32,
+    theme: u32
+) -> vec4<f32> {
+    let rAtm = rInner + 0.050; // ~65 km atmospheric shell
+    let b = dot(rayOrigin, rayDir);
+    let cAtm = dot(rayOrigin, rayOrigin) - rAtm * rAtm;
+    let discAtm = b * b - cAtm;
+    if (discAtm < 0.0) {
+        return vec4<f32>(0.0);
+    }
+
+    let tAtmEnter = max(0.0, -b - sqrt(discAtm));
+    let tAtmExit = -b + sqrt(discAtm);
+    if (tAtmExit <= tAtmEnter) {
+        return vec4<f32>(0.0);
+    }
+
+    let dMin = sqrt(max(0.0, dot(rayOrigin, rayOrigin) - b * b));
+    if (dMin > rAtm || dMin < rInner) {
+        return vec4<f32>(0.0);
+    }
+
+    let altNorm = clamp((dMin - rInner) / 0.050, 0.0, 1.0);
+    let pathLen = min(0.6, tAtmExit - tAtmEnter);
+    let densityProfile = exp(-altNorm * 4.5);
+    let optDepth = pathLen * densityProfile * 2.2;
+
+    let cosSun = dot(rayDir, sunDir);
+    let rayleighPhase = 0.059683 * (1.0 + cosSun * cosSun); // 3/(16*pi)
+
+    let pClosest = rayOrigin + rayDir * (-b);
+    let sunDotWorld = dot(normalize(pClosest), sunDir);
+    let dayFactor = smoothstep(-0.25, 0.25, sunDotWorld);
+
+    var betaR: vec3<f32>;
+    if (theme == 0u) {
+        betaR = vec3<f32>(0.20, 0.46, 0.92);
+    } else if (theme == 1u) {
+        betaR = vec3<f32>(0.76, 0.82, 0.88);
+    } else {
+        betaR = vec3<f32>(0.35, 0.65, 0.95);
+    }
+
+    let airglow = betaR * (rayleighPhase * 4.0 * PI * dayFactor * 0.90);
+    let alpha = clamp(1.0 - exp(-optDepth), 0.0, 0.90);
+    return vec4<f32>(airglow, alpha);
 }
 
 // Medium Inking Palette (Conforms to Invariant §24 & §28)
@@ -497,6 +577,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
                 octaveG2 *= 0.5;
             }
 
+            // Pillar 2: Forward Mie Silver-Lining Diffraction Boost
+            let mieLobe = triplePhaseFunction(cosTheta, cloud.u_opticalParams.z, cloud.u_opticalParams.w, 0.965, stepT) - phase;
+            let forwardMieScattering = max(0.0, mieLobe) * (4.0 * PI) * sunT;
+            directLight += pal.sunColor * forwardMieScattering * 0.45;
+
             let midLight = pal.midColor * ((1.0 - sunT) * 0.55);
             let ao = clamp(1.0 - (0.50 * shadowDensity + 0.30 * density) * 0.75, 0.25, 1.0);
             let stepOpacity = 1.0 - stepT;
@@ -519,11 +604,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
     }
 
-    let alpha = (1.0 - accumTransmittance) * morphFade;
+    // Pillar 4: Atmospheric Rayleigh Airglow Limb Integration
+    let airglow = evaluateRayleighLimbAirglow(rayOrigin, rayDir, sunDir, rInner, theme);
+    accumLight += accumTransmittance * airglow.rgb * airglow.a;
+    accumTransmittance *= (1.0 - airglow.a);
 
-    // 7. Tactile Medium Surface Physics & Archival Inking (Invariant §6, §24, §28)
     var finalLight = accumLight;
-    var finalAlpha = alpha;
+    var finalAlpha = (1.0 - accumTransmittance) * morphFade;
 
     if (theme == 0u) {
         // Theme 0: Physiographic stipple absorption in crevice shadows

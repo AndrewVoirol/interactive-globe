@@ -155,6 +155,29 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let shadowIntensity = terrain.terrainParams.y;
     let shadowFactor = 1.0 - shadowIntensity * smoothstep(0.10, 0.40, shadowCloudDens);
 
+    // Multi-scale zero-crossing coastline boundaries (adaptive with screen-space dUv)
+    let coastStep = max(texStep * 1.5, dUv * 1.8);
+    let hR_coast = textureSampleLevel(u_demTexture, u_demSampler, in.uv + vec2<f32>(coastStep.x, 0.0), 0.0).a;
+    let hL_coast = textureSampleLevel(u_demTexture, u_demSampler, in.uv - vec2<f32>(coastStep.x, 0.0), 0.0).a;
+    let hD_coast = textureSampleLevel(u_demTexture, u_demSampler, in.uv + vec2<f32>(0.0, coastStep.y), 0.0).a;
+    let hU_coast = textureSampleLevel(u_demTexture, u_demSampler, in.uv - vec2<f32>(0.0, coastStep.y), 0.0).a;
+
+    let isLandC = elevMeters >= 0.0;
+    let isLandR = (hR_coast * 19772.0 - 10924.0) >= 0.0;
+    let isLandL = (hL_coast * 19772.0 - 10924.0) >= 0.0;
+    let isLandD = (hD_coast * 19772.0 - 10924.0) >= 0.0;
+    let isLandU = (hU_coast * 19772.0 - 10924.0) >= 0.0;
+    let isCoast = f32(isLandC != isLandR || isLandC != isLandL || isLandC != isLandD || isLandC != isLandU);
+
+    // Subtle cartographic graticule (30° grid lines + equator + prime meridian)
+    let lonDeg = in.uv.x * 360.0 - 180.0;
+    let latDeg = 90.0 - in.uv.y * 180.0;
+    let gridDegX = abs(fract(lonDeg / 30.0 + 0.5) - 0.5) * 30.0;
+    let gridDegY = abs(fract(latDeg / 30.0 + 0.5) - 0.5) * 30.0;
+    let gridWidth = max(0.35, dUv.y * 180.0 * 1.2);
+    let isGrid = f32(gridDegX < gridWidth || gridDegY < gridWidth);
+    let isMajor = f32(abs(latDeg) < gridWidth * 1.6 || abs(lonDeg) < gridWidth * 1.6);
+
     let theme = u32(terrain.terrainParams.z);
     var baseColor: vec3<f32>;
 
@@ -162,26 +185,35 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         // Theme 0: Marie Tharp (1977) Physiographic Bathymetry & Land
         if (elevMeters < 0.0) {
             let depthNorm = clamp(-elevMeters / 9000.0, 0.0, 1.0);
-            baseColor = mix(vec3<f32>(0.24, 0.52, 0.68), vec3<f32>(0.06, 0.16, 0.32), depthNorm);
+            baseColor = mix(vec3<f32>(0.14, 0.36, 0.54), vec3<f32>(0.04, 0.12, 0.24), depthNorm);
         } else {
             let landNorm = clamp(elevMeters / 6000.0, 0.0, 1.0);
             baseColor = mix(vec3<f32>(0.72, 0.68, 0.54), vec3<f32>(0.92, 0.90, 0.86), landNorm);
         }
+        // Dark navy intaglio coastline
+        baseColor = mix(baseColor, vec3<f32>(0.02, 0.04, 0.08), isCoast * 0.95);
+        baseColor = mix(baseColor, vec3<f32>(0.25, 0.40, 0.55), isGrid * 0.20 + isMajor * 0.35);
     } else if (theme == 1u) {
-        // Theme 1: Cream Rag (310 GSM Cotton Rag) Sepia / Warm Ivory
-        let paper = vec3<f32>(0.96, 0.93, 0.87);
-        let sepiaInk = vec3<f32>(0.22, 0.19, 0.16);
-        let landT = clamp((elevMeters + 2000.0) / 7000.0, 0.0, 1.0);
-        baseColor = mix(paper * 0.88, paper, landT);
+        // Theme 1: Cream Rag (310 GSM Cotton Rag) with Imhof Celadon coastal shelves
         if (elevMeters < 0.0) {
-            baseColor = mix(vec3<f32>(0.78, 0.84, 0.86), baseColor, 0.3);
+            let depthNorm = clamp(-elevMeters / 6000.0, 0.0, 1.0);
+            baseColor = mix(vec3<f32>(0.56, 0.68, 0.64), vec3<f32>(0.36, 0.48, 0.52), depthNorm);
+        } else {
+            let landNorm = clamp(elevMeters / 5000.0, 0.0, 1.0);
+            baseColor = mix(vec3<f32>(0.94, 0.91, 0.85), vec3<f32>(0.98, 0.96, 0.92), landNorm);
         }
+        // Sepia intaglio ink coastline
+        baseColor = mix(baseColor, vec3<f32>(0.15, 0.12, 0.08), isCoast * 0.95);
+        baseColor = mix(baseColor, vec3<f32>(0.35, 0.30, 0.25), isGrid * 0.18 + isMajor * 0.28);
     } else {
         // Theme 2: Prussian Cyanotype (1842 Blueprint)
         let prussian = vec3<f32>(0.02, 0.12, 0.28);
         let blueHighlight = vec3<f32>(0.55, 0.75, 0.92);
         let landT = clamp((elevMeters + 2000.0) / 7000.0, 0.0, 1.0);
         baseColor = mix(prussian, blueHighlight * 0.7, landT);
+        // Chalk-white blueprint coastline
+        baseColor = mix(baseColor, vec3<f32>(0.85, 0.94, 1.0), isCoast * 0.95);
+        baseColor = mix(baseColor, vec3<f32>(0.45, 0.65, 0.85), isGrid * 0.18 + isMajor * 0.28);
     }
 
     let litColor = baseColor * (NdotL * 0.85 + 0.15) * shadowFactor;
@@ -392,25 +424,38 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> CloudDensityS
         return CloudDensitySample(0.0, strataRgb);
     }
 
-    // 3D Periodic Perlin-Worley Erosion Noise
-    let noiseFreq = cloud.noiseParams.x;
-    let noiseCoord = pos * (noiseFreq / rInner) + vec3<f32>(timeSec * 0.004, 0.0, timeSec * 0.002);
+    // Stratum-conditioned morphological frequency and sampling
+    let isHighCirrus = smoothstep(0.48, 0.75, hNorm);
+    let isLowDeck    = 1.0 - smoothstep(0.18, 0.35, hNorm);
+
+    // Anisotropic shearing for high cirrus along the local wind vector
+    let shearDrift = vec3<f32>(windVec.x, 0.0, -windVec.y) * ((hNorm - 0.45) * 0.08 * cloud.shearParams.y);
+    let samplePos = pos - shearDrift * isHighCirrus;
+
+    let noiseFreq = mix(24.0, 32.0, isLowDeck);
+    let noiseCoord = samplePos * (noiseFreq / rInner) + vec3<f32>(timeSec * 0.004, 0.0, timeSec * 0.002);
     let noiseSample = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, noiseCoord, 0.0);
 
-    let perlinWorley = noiseSample.r;
-    let worleyErosion = noiseSample.g * 0.625 + noiseSample.b * 0.25 + noiseSample.a * 0.125;
+    let perlinWorleyBase = noiseSample.r;
+    let worleyOctaves = noiseSample.g * 0.625 + noiseSample.b * 0.25 + noiseSample.a * 0.125;
+
+    // Low: Worley billow dominance (puffy cauliflower lobes)
+    // High: Fibrous Perlin streak dominance (wispy fall-streaks)
+    let lowShaped = mix(perlinWorleyBase, 1.0 - noiseSample.g, 0.40);
+    let highShaped = mix(perlinWorleyBase, noiseSample.r * (1.0 - noiseSample.a * 0.35), 0.55);
+    let stratumNoise = mix(mix(perlinWorleyBase, lowShaped, isLowDeck), highShaped, isHighCirrus);
 
     let billowStr = cloud.noiseParams.y;
-    let erosionStr = cloud.noiseParams.z;
-    let noiseCarve = (1.0 - perlinWorley) * billowStr;
+    let erosionStr = mix(cloud.noiseParams.z, cloud.noiseParams.z * 1.4, isHighCirrus);
+    let noiseCarve = (1.0 - stratumNoise) * billowStr;
     let shapedBase = clamp((macroDensity * 2.4 - noiseCarve * 0.5) / max(0.001, 1.0 - noiseCarve * 0.5), 0.0, 1.0);
-    let finalDensity = clamp(shapedBase - (1.0 - shapedBase) * (worleyErosion * erosionStr * 0.5), 0.0, 1.0);
+    let finalDensity = clamp(shapedBase - (1.0 - shapedBase) * (worleyOctaves * erosionStr * 0.5), 0.0, 1.0);
 
     return CloudDensitySample(finalDensity * cloud.layerDensities.w, strataRgb);
 }
 
-// Dual-Lobe Henyey-Greenstein Phase Function
-fn dualHenyeyGreenstein(cosTheta: f32, g1: f32, g2: f32, weight: f32) -> f32 {
+// 3-Lobe Phase Function: Dual Henyey-Greenstein + Sharp Forward Mie Diffraction Peak (Silver Lining)
+fn triplePhaseFunction(cosTheta: f32, g1: f32, g2: f32, gMie: f32, stepT: f32) -> f32 {
     let ct = clamp(cosTheta, -0.9999, 0.9999);
     let g1Sq = g1 * g1;
     let denom1 = max(0.0001, 1.0 + g1Sq - 2.0 * g1 * ct);
@@ -420,22 +465,100 @@ fn dualHenyeyGreenstein(cosTheta: f32, g1: f32, g2: f32, weight: f32) -> f32 {
     let denom2 = max(0.0001, 1.0 + g2Sq - 2.0 * g2 * ct);
     let p2 = (1.0 - g2Sq) / pow(denom2, 1.5);
 
-    return INV_FOUR_PI * mix(p2, p1, weight);
+    let baseHG = INV_FOUR_PI * mix(p2, p1, 0.70);
+
+    // Forward Mie Diffraction Lobe (gMie = 0.965)
+    let gMieSq = gMie * gMie;
+    let denomMie = max(0.0001, 1.0 + gMieSq - 2.0 * gMie * ct);
+    let pMie = (1.0 - gMieSq) / pow(denomMie, 1.5);
+    let mieLobe = INV_FOUR_PI * pMie;
+
+    // Fringe Activation: peaks along thin optical boundaries (silver lining)
+    let fringeWeight = smoothstep(0.12, 0.55, stepT) * (1.0 - smoothstep(0.75, 0.98, stepT));
+    let forwardBoost = max(0.0, ct);
+
+    return baseHG + mieLobe * (fringeWeight * forwardBoost * 0.40);
 }
 
-// 3-Step Solar Crevice Shadow Raymarch
+// 4-Step Vertical Multi-Stratum Solar Crevice Shadow Raymarch (Cloud-on-Cloud)
 fn sampleSunShadowTransmittance(pos: vec3<f32>, sunDir: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
-    let stepDist = 0.003;
+    let stepDist = deltaR * 0.28;
     var tauSun: f32 = 0.0;
-    let sigmaT = cloud.opticalParams.x;
+    let sigmaT = cloud.opticalParams.x * 0.85;
 
-    for (var k: i32 = 1; k <= 3; k++) {
+    for (var k: i32 = 1; k <= 4; k++) {
         let sampleP = pos + sunDir * (stepDist * f32(k));
+        let rSample = length(sampleP);
+        let hSample = clamp((rSample - rInner) / deltaR, 0.0, 1.0);
+        if (hSample >= 0.999) {
+            break;
+        }
+
         let uv = worldToEquirectangularUV(sampleP);
-        let cloudDens = textureSampleLevel(u_cloudLowTexture0, u_cloudSampler, uv, 0.0).r;
-        tauSun += sigmaT * cloudDens * stepDist;
+        let lowD  = textureSampleLevel(u_cloudLowTexture0, u_cloudSampler, uv, 0.0).r * layerHeightEnvelope(hSample, 0.0, cloud.layerHeights.x, 0.03);
+        let midD  = textureSampleLevel(u_cloudMidTexture0, u_cloudSampler, uv, 0.0).r * layerHeightEnvelope(hSample, cloud.layerHeights.y, cloud.layerHeights.z, 0.05);
+        let highD = textureSampleLevel(u_cloudHighTexture0, u_cloudSampler, uv, 0.0).r * layerHeightEnvelope(hSample, cloud.layerHeights.w, 0.98, 0.07);
+
+        let aloftDensity = lowD * cloud.layerDensities.x + midD * cloud.layerDensities.y + highD * cloud.layerDensities.z;
+        tauSun += sigmaT * aloftDensity * stepDist;
     }
     return exp(-tauSun);
+}
+
+// Planetary Atmospheric Rayleigh Airglow Limb
+fn evaluateRayleighLimbAirglow(
+    rayOrigin: vec3<f32>,
+    rayDir: vec3<f32>,
+    sunDir: vec3<f32>,
+    rInner: f32,
+    theme: u32
+) -> vec4<f32> {
+    let rAtm = rInner + 0.050; // ~65 km atmospheric shell
+    let b = dot(rayOrigin, rayDir);
+    let cAtm = dot(rayOrigin, rayOrigin) - rAtm * rAtm;
+    let discAtm = b * b - cAtm;
+    if (discAtm < 0.0) {
+        return vec4<f32>(0.0);
+    }
+
+    let tAtmEnter = max(0.0, -b - sqrt(discAtm));
+    let tAtmExit  = -b + sqrt(discAtm);
+    if (tAtmExit <= tAtmEnter) {
+        return vec4<f32>(0.0);
+    }
+
+    let dMin = sqrt(max(0.0, dot(rayOrigin, rayOrigin) - b * b));
+    if (dMin > rAtm) {
+        return vec4<f32>(0.0);
+    }
+
+    let altNorm = clamp((dMin - rInner) / (rAtm - rInner), 0.0, 1.0);
+    let pathLen = min(0.6, tAtmExit - tAtmEnter);
+    let densityProfile = exp(-altNorm * 4.5);
+    let optDepth = pathLen * densityProfile * 2.2;
+
+    let cosTheta = dot(rayDir, sunDir);
+    let pRayleigh = (3.0 / (16.0 * PI)) * (1.0 + cosTheta * cosTheta);
+
+    let pClosest = rayOrigin + rayDir * (-b);
+    let sunDotWorld = dot(normalize(pClosest), sunDir);
+    let dayFactor = smoothstep(-0.25, 0.25, sunDotWorld);
+
+    var betaR: vec3<f32>;
+    if (theme == 0u) {
+        // Marie Tharp: luminous atmospheric azure
+        betaR = vec3<f32>(0.20, 0.46, 0.92);
+    } else if (theme == 1u) {
+        // Cream Rag: soft parchment atmospheric wash
+        betaR = vec3<f32>(0.76, 0.82, 0.88);
+    } else {
+        // Prussian Cyanotype: photochemical blueprint cyan
+        betaR = vec3<f32>(0.35, 0.65, 0.95);
+    }
+
+    let airglow = betaR * (pRayleigh * 4.0 * PI * dayFactor * 0.90);
+    let alpha = clamp(1.0 - exp(-optDepth), 0.0, 0.90);
+    return vec4<f32>(airglow, alpha);
 }
 
 struct CloudMediumPalette {
@@ -537,7 +660,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let sunDir = normalize(cloud.sunDirection.xyz);
     let cosTheta = dot(rayDir, sunDir);
-    let phase = dualHenyeyGreenstein(cosTheta, cloud.opticalParams.z, cloud.opticalParams.w, 0.70);
 
     let theme = u32(cloud.mediumParams.x);
     let pal = getMediumPalette(theme);
@@ -577,20 +699,23 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             // In false-color diagnostic mode, tint scattered light by strata color
             let stepTint = select(vec3<f32>(1.0), cSample.strataRgb, isFalseColor);
 
-            // Wrenninge Multiple Scattering
+            // 3-Lobe Phase Function with Forward Mie Silver-Lining Diffraction Peak
+            let stepPhase = triplePhaseFunction(cosTheta, cloud.opticalParams.z, cloud.opticalParams.w, 0.965, stepT);
+
+            // Wrenninge Multiple Scattering with Normalized Octaves
             var directLight = vec3<f32>(0.0);
             var octExtinction = 1.0;
-            var octWeight = 1.0;
+            var octWeight = 0.55;
             for (var oct: i32 = 0; oct < 3; oct++) {
                 let octSunT = select(0.0, pow(clamp(sunT, 1e-6, 1.0), octExtinction), sunT > 1e-6);
-                let octPhaseTerm = max(0.20, phase * (4.0 * PI));
+                let octPhaseTerm = max(0.15, stepPhase * 3.14159);
                 directLight += pal.sunColor * stepTint * (octWeight * octPhaseTerm * octSunT);
                 octExtinction *= 0.5;
                 octWeight *= 0.5;
             }
 
-            let midLight = pal.midColor * stepTint * ((1.0 - sunT) * 0.50);
-            let ambientLight = pal.ambientColor * stepTint * 0.35;
+            let midLight = pal.midColor * stepTint * ((1.0 - sunT) * 0.20);
+            let ambientLight = pal.ambientColor * stepTint * 0.10;
             let S = (directLight + midLight + ambientLight) * (albedo * (1.0 - stepT) / max(0.00001, baseStepSize));
 
             accumLight += accumTransmittance * S * baseStepSize;
@@ -606,6 +731,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             t += baseStepSize * 2.0;
         }
     }
+
+    // Composite planetary Rayleigh atmospheric airglow behind remaining cloud transmittance
+    let airglow = evaluateRayleighLimbAirglow(rayOrigin, rayDir, sunDir, rInner, theme);
+    accumLight += accumTransmittance * airglow.rgb * airglow.a;
+    accumTransmittance *= (1.0 - airglow.a);
 
     let alpha = 1.0 - accumTransmittance;
     if (alpha <= 0.002) {

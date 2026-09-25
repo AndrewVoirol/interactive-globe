@@ -249,7 +249,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   weatherTau = 0,
   thermodynamicGating = true,
   showAtmosphere,
-  volumetricClouds,
+  volumetricClouds = true,
   onShowCloudsChange,
   onTogglePlanetaryLayer,
   prognosticModel = 'weathernext3',
@@ -2786,7 +2786,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
         const effectiveVolumetricClouds = liveOverrides?.volumetricClouds !== undefined
           ? liveOverrides.volumetricClouds
-          : (stateRef.current.volumetricClouds ?? false);
+          : (stateRef.current.volumetricClouds ?? true);
 
         engine.render({
           unfurl: curUnfurl,
@@ -2819,6 +2819,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           showCloudMid: liveOverrides?.showCloudMid !== undefined ? liveOverrides.showCloudMid : stateRef.current.showCloudMid,
           showCloudHigh: liveOverrides?.showCloudHigh !== undefined ? liveOverrides.showCloudHigh : stateRef.current.showCloudHigh,
           showAtmosphere: effectiveShowAtmosphere,
+          cloudAdvectionSpeed: liveOverrides?.cloudAdvectionSpeed ?? 1.0,
           cloudDriftSpeed:
             liveOverrides?.cloudDriftSpeed !== undefined
               ? liveOverrides.cloudDriftSpeed
