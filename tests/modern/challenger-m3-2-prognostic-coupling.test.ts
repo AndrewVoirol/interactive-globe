@@ -118,7 +118,7 @@ describe('Challenger 2 M3: WeatherNext 3 Prognostic Coupling & Adaptive Raymarch
     it('CH-M3-2-06: Cauliflower Cumulus 2x frequency pass is isolated to low stratum (lowEnvelope > 0.01)', () => {
       expect(volumetricCloudWGSL).toContain('let lowEnvelope = layerHeightEnvelope(hNorm, lowBottom, lowTop, 0.04);');
       expect(volumetricCloudWGSL).toContain('if (lowEnvelope > 0.01) {');
-      expect(volumetricCloudWGSL).toContain('(pos * 2.0) * (noiseFreq / rInner)');
+      expect(volumetricCloudWGSL).toContain('sphericalNoiseCoord(pos, hNorm, freqHoriz * 2.2, freqVert * 2.2, timeDrift * 1.5)');
       expect(volumetricCloudWGSL).toContain('sculptedDensity = mix(finalDensity, lowBillow, lowEnvelope);');
     });
   });

@@ -187,6 +187,43 @@ fn layerHeightEnvelope(h: f32, hMin: f32, hMax: f32, feather: f32) -> f32 {
     return bottom * top;
 }
 
+// Safe Linear Remap with Division-by-Zero Protection
+fn remap(val: f32, inMin: f32, inMax: f32, outMin: f32, outMax: f32) -> f32 {
+    let denom = inMax - inMin;
+    let safeDenom = select(denom, 0.0001, abs(denom) < 0.0001);
+    let t = clamp((val - inMin) / safeDenom, 0.0, 1.0);
+    return outMin + t * (outMax - outMin);
+}
+
+// Analytical 1D Cumulus Height-Density Profile with Convective Buoyancy Expansion
+fn cumulusHeightProfile(hNorm: f32, lowBottom: f32, lowTop: f32) -> f32 {
+    if (hNorm <= lowBottom || hNorm >= lowTop) {
+        return 0.0;
+    }
+    let delta = max(0.0001, lowTop - lowBottom);
+    let z = clamp((hNorm - lowBottom) / delta, 0.0, 1.0);
+
+    let baseRise = smoothstep(0.0, 0.16, z);
+    let topDecay = 1.0 - smoothstep(0.28, 1.0, z);
+    let mushroomSpread = 1.0 + 0.22 * sin(3.14159265 * clamp((z - 0.35) / 0.65, 0.0, 1.0));
+
+    return clamp(baseRise * topDecay * mushroomSpread, 0.0, 1.0);
+}
+
+// Decoupled Spherical 3D Sampling Coordinate (True Planetary Anisotropic Noise Mapping)
+fn sphericalNoiseCoord(
+    pos: vec3<f32>,
+    hNorm: f32,
+    freqHoriz: f32,
+    freqVert: f32,
+    timeDrift: f32
+) -> vec3<f32> {
+    let n = normalize(pos);
+    let radialScale = freqHoriz + hNorm * freqVert;
+    let driftOffset = vec3<f32>(timeDrift * 0.10, 0.0, timeDrift * 0.05);
+    return n * radialScale + driftOffset;
+}
+
 // Sample Scalar Cloud Density at Point pos in World Space
 fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let p = pos;
@@ -240,41 +277,67 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
         return 0.0;
     }
 
-    // 3D Periodic Perlin-Worley Micro-Erosion Noise (Invariant §3: Explicit LOD)
-    let noiseFreq = cloud.u_noiseParams.x;
-    let noiseCoord = p * (noiseFreq / rInner) + vec3<f32>(timeDrift * 0.1, 0.0, timeDrift * 0.05);
-    let noiseSample = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, noiseCoord, 0.0);
+    // 3D Periodic Perlin-Worley Micro-Erosion Noise (True Spherical Anisotropic Mapping)
+    let freqHoriz = cloud.u_noiseParams.x;
+    let freqVert = cloud.u_noiseParams.y;
+    let erosionStr = cloud.u_noiseParams.z;
+
+    // Camera-Distance Adaptive LOD & Shimmer Suppression
+    let camDist = length(p - camera.u_cameraPos.xyz);
+    let camAlt = length(camera.u_cameraPos.xyz);
+    let distFade = 1.0 - smoothstep(0.12, 0.50, camDist);
+    let altFade = 1.0 - smoothstep(5.08, 5.40, camAlt);
+    let effErosionStr = erosionStr * max(0.20, distFade * altFade);
+
+    let baseCoord = sphericalNoiseCoord(p, hNorm, freqHoriz, freqVert, timeDrift);
+    let noiseSample = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, baseCoord, 0.0);
 
     let perlinWorley = noiseSample.r;
-    let worleyErosion = noiseSample.g * 0.625 + noiseSample.b * 0.25 + noiseSample.a * 0.125;
+    let worleyErosion = noiseSample.g * 0.625 + noiseSample.b * 0.250 + noiseSample.a * 0.125;
 
-    // Billowy Shape Construction & High-Frequency Rim Erosion
-    let billowStr = cloud.u_noiseParams.y;
-    let erosionStr = cloud.u_noiseParams.z;
-    let noiseCarve = (1.0 - perlinWorley) * billowStr;
+    // Macro Base Carving
+    let noiseCarve = (1.0 - perlinWorley) * 0.65;
     let shapedBase = clamp((effectiveMacroDensity * 1.85 - noiseCarve * 0.50) / max(0.001, 1.0 - noiseCarve * 0.50), 0.0, 1.0);
-    let finalDensity = clamp(shapedBase - (1.0 - shapedBase) * (worleyErosion * erosionStr * 0.5), 0.0, 1.0);
+    let finalDensity = clamp(shapedBase - (1.0 - shapedBase) * (worleyErosion * effErosionStr * 0.40), 0.0, 1.0);
 
-    // Low Cloud Stratum 2x Base Frequency Noise Pass (Billowy Cauliflower Cumulus)
+    // Low Cloud Stratum Convective Domain Warping & Schneider Cauliflower Cumulus Pass
     var sculptedDensity = finalDensity;
     let lowEnvelope = layerHeightEnvelope(hNorm, lowBottom, lowTop, 0.04);
     if (lowEnvelope > 0.01) {
-        let detailCoord = (pos * 2.0) * (noiseFreq / rInner) + vec3<f32>(timeDrift * 0.15, 0.0, timeDrift * 0.08);
+        let cumulusProf = cumulusHeightProfile(hNorm, lowBottom, lowTop);
+        let lowCoverage = (lowFraction * cloud.u_layerDensities.x) * advectionMod;
+        let targetCoverage = lowCoverage * cumulusProf;
+
+        // Decoupled 2.2x detail sampling coordinate with domain displacement
+        let detailCoord = sphericalNoiseCoord(pos, hNorm, freqHoriz * 2.2, freqVert * 2.2, timeDrift * 1.5);
         let detailNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, detailCoord, 0.0);
-        let detailErosion = detailNoise.g * 0.5 + detailNoise.b * 0.3 + detailNoise.a * 0.2;
         let cumulusWorley = 1.0 - detailNoise.g;
-        let lowBillow = clamp(
-            (finalDensity * (0.65 + cumulusWorley * 0.95) - (1.0 - cumulusWorley) * 0.75 * billowStr - detailErosion * 0.20)
-            / max(0.001, 1.0 - (1.0 - cumulusWorley) * 0.40 * billowStr),
-            0.0, 1.0
-        );
+
+        // Coordinate domain warping vector from high-frequency Worley (Nubis 3 displacement)
+        let warpDisp = (detailNoise.gba - vec3<f32>(0.5)) * 2.0;
+        let warpedBaseCoord = baseCoord + warpDisp * (0.045 * effErosionStr);
+        let warpedBaseSample = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, warpedBaseCoord, 0.0).r;
+
+        // Schneider dynamic threshold carving on warped base hull
+        let threshold = clamp(1.0 - targetCoverage * 1.35, 0.0, 0.85);
+        let baseHull = remap(warpedBaseSample, threshold, 1.0, 0.0, 1.0);
+
+        // Inverted altitude erosion: flat base at LCL, deep cauliflower crevices at dome top
+        let deltaLow = max(0.0001, lowTop - lowBottom);
+        let zCumulus = clamp((hNorm - lowBottom) / deltaLow, 0.0, 1.0);
+        let altitudeErosion = mix(0.08, 0.85, pow(zCumulus, 0.75));
+
+        // Cauliflower billow density with dynamic threshold remapping
+        let rawBillow = remap(baseHull, billowErosion, 1.0, 0.0, 1.0);
+        let sculptedLow = mix(baseHull * 0.75 + rawBillow * 0.25, rawBillow, effErosionStr);
+        let lowBillow = max(sculptedLow * 1.25, finalDensity * 0.50);
         sculptedDensity = mix(finalDensity, lowBillow, lowEnvelope);
     }
 
     // Mid Altocumulus Stratum 1.4x Frequency Wave Ripple & Cellular Undulatus Pass
     let midEnvelope = layerHeightEnvelope(hNorm, midBottom, midTop, 0.06);
     if (midEnvelope > 0.01) {
-        let midCoord = (pos * 1.4) * (noiseFreq / rInner) + vec3<f32>(timeDrift * 0.12, 0.0, timeDrift * 0.06);
+        let midCoord = sphericalNoiseCoord(pos, hNorm, freqHoriz * 1.4, freqVert * 1.4, timeDrift * 1.2);
         let midNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, midCoord, 0.0);
         let waveRipple = sin(uv.x * 240.0 + uv.y * 60.0 + cloud.u_simControl.x * 0.4) * 0.18;
         let altocumulus = clamp(sculptedDensity * (0.85 + (midNoise.g * 0.5 + midNoise.b * 0.5) * 0.40 + waveRipple), 0.0, 1.0);
@@ -285,7 +348,7 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let highEnvelope = layerHeightEnvelope(hNorm, highBottom, 0.95, 0.08);
     if (highEnvelope > 0.01) {
         let shearVec = advection.u_windAltitudeShear.xy;
-        let shearCoord = noiseCoord + vec3<f32>(shearVec.x * (hNorm - highBottom) * 0.4, 0.0, shearVec.y * (hNorm - highBottom) * 0.4);
+        let shearCoord = baseCoord + vec3<f32>(shearVec.x * (hNorm - highBottom) * 0.4, 0.0, shearVec.y * (hNorm - highBottom) * 0.4);
         let shearNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, shearCoord, 0.0);
         let cirrusWisp = pow(finalDensity, 1.4) * 0.75;
         let fibrousCirrus = clamp(cirrusWisp * (0.80 + (shearNoise.r - 0.40) * 0.80 + shearNoise.a * 0.30), 0.0, 1.0);

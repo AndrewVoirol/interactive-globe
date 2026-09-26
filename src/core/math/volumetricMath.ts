@@ -554,3 +554,94 @@ export function reconstructWorldPositionFromDepth(
   const invW = w !== 0.0 ? 1.0 / w : 1.0;
   return [x * invW, y * invW, z * invW];
 }
+
+/**
+ * Linear remap with division-by-zero protection and clamping to [outMin, outMax].
+ */
+export function remap(val: number, inMin: number, inMax: number, outMin: number, outMax: number): number {
+  const denom = inMax - inMin;
+  const safeDenom = Math.abs(denom) < 0.0001 ? (denom < 0 ? -0.0001 : 0.0001) : denom;
+  const t = Math.max(0.0, Math.min(1.0, (val - inMin) / safeDenom));
+  return outMin + t * (outMax - outMin);
+}
+
+/**
+ * Analytical 1D Cumulus Height-Density Profile with Convective Buoyancy Expansion.
+ * - Flat thermodynamic base at LCL (lowBottom).
+ * - Rapid rise in lower 16% of stratum.
+ * - Convective mushrooming lateral spread in the upper 40% before inversion cap.
+ * - Rounded dome decay terminating at lowTop.
+ */
+export function cumulusHeightProfile(hNorm: number, lowBottom: number, lowTop: number): number {
+  if (hNorm <= lowBottom || hNorm >= lowTop) {
+    return 0.0;
+  }
+  const delta = Math.max(0.0001, lowTop - lowBottom);
+  const z = Math.max(0.0, Math.min(1.0, (hNorm - lowBottom) / delta));
+
+  const baseRise = smoothstep(0.0, 0.16, z);
+  const topDecay = 1.0 - smoothstep(0.28, 1.0, z);
+  const mushroomSpread = 1.0 + 0.22 * Math.sin(Math.PI * Math.max(0.0, Math.min(1.0, (z - 0.35) / 0.65)));
+
+  return Math.max(0.0, Math.min(1.0, baseRise * topDecay * mushroomSpread));
+}
+
+/**
+ * Decoupled Spherical 3D Sampling Coordinate.
+ * Horizontally maps along the unit sphere normal n = p / |p| scaled by freqHoriz.
+ * Vertically scales along the radial normal by hNorm * freqVert, traversing multiple complete Worley periods.
+ */
+export function sphericalNoiseCoord(
+  pos: Vec3,
+  hNorm: number,
+  freqHoriz: number,
+  freqVert: number,
+  timeDrift: number
+): Vec3 {
+  const [px, py, pz] = pos;
+  const len = Math.hypot(px, py, pz);
+  const invLen = len > 1e-6 ? 1.0 / len : 1.0;
+  const nx = px * invLen;
+  const ny = py * invLen;
+  const nz = pz * invLen;
+
+  const radialScale = freqHoriz + hNorm * freqVert;
+  const driftX = timeDrift * 0.10;
+  const driftZ = timeDrift * 0.05;
+
+  return [
+    nx * radialScale + driftX,
+    ny * radialScale,
+    nz * radialScale + driftZ,
+  ];
+}
+
+/**
+ * Schneider Dynamic Threshold Remapping with Convective Domain Warping & Altitude Erosion.
+ */
+export function schneiderDensityRemap(
+  baseNoise: number,
+  macroCoverage: number,
+  heightProfile: number,
+  worleyDetail: number = 0.0,
+  erosionStrength: number = 0.0,
+  zNorm: number = 0.5
+): number {
+  const targetCoverage = macroCoverage * heightProfile;
+  if (targetCoverage <= 0.001) {
+    return 0.0;
+  }
+
+  const threshold = Math.max(0.0, Math.min(0.85, 1.0 - targetCoverage * 1.35));
+  const baseHull = remap(baseNoise, threshold, 1.0, 0.0, 1.0);
+
+  if (baseHull <= 0.0 || erosionStrength <= 0.0) {
+    return baseHull;
+  }
+
+  const altitudeErosion = 0.08 + 0.77 * Math.pow(Math.max(0.0, Math.min(1.0, zNorm)), 0.75);
+  const effectiveErosion = worleyDetail * altitudeErosion * erosionStrength * 0.35;
+
+  return remap(baseHull, effectiveErosion, 1.0, 0.0, 1.0);
+}
+
