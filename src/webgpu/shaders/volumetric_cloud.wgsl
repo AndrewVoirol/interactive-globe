@@ -141,7 +141,9 @@ fn intersectTroposphericShell(
     } else if (rCam >= rInner) {
         // Regime 2: Camera is physically inside troposphere / cloud strata
         tStart = 0.0;
-        tExit = select(hitOuter.y, hitInner.x, hitInner.x > 0.0);
+        let deltaR = rOuter - rInner;
+        let rawExit = select(hitOuter.y, hitInner.x, hitInner.x > 0.0);
+        tExit = min(rawExit, deltaR * 6.0);
     } else {
         // Regime 3: Camera is below inner radius (ground level or beneath cloud base)
         // Ray pointing up enters cloud base at hitInner.y and exits to space at hitOuter.y
@@ -197,7 +199,6 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let uv = worldToEquirectangularUV(p);
     let advectedUV = vec2<f32>(fract(uv.x + timeDrift), uv.y);
 
-    // Explicit LOD 0.0 Texture Sampling (Invariant §3)
     let lowFraction = textureSampleLevel(u_cloudLowTexture, u_cloud2DSampler, advectedUV, 0.0).r;
     let midFraction = textureSampleLevel(u_cloudMidTexture, u_cloud2DSampler, advectedUV, 0.0).r;
     let highFraction = textureSampleLevel(u_cloudHighTexture, u_cloud2DSampler, advectedUV, 0.0).r;
@@ -261,7 +262,8 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
         let detailCoord = (pos * 2.0) * (noiseFreq / rInner) + vec3<f32>(timeDrift * 0.15, 0.0, timeDrift * 0.08);
         let detailNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, detailCoord, 0.0);
         let detailErosion = detailNoise.g * 0.5 + detailNoise.b * 0.3 + detailNoise.a * 0.2;
-        let lowBillow = clamp(finalDensity * 1.25 - detailErosion * 0.30 * billowStr, 0.0, 1.0);
+        let cumulusWorley = 1.0 - detailNoise.g;
+        let lowBillow = clamp(finalDensity * 1.35 - (1.0 - cumulusWorley) * 0.45 * billowStr - detailErosion * 0.15, 0.0, 1.0);
         sculptedDensity = mix(finalDensity, lowBillow, lowEnvelope);
     }
 
@@ -270,8 +272,8 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     if (midEnvelope > 0.01) {
         let midCoord = (pos * 1.4) * (noiseFreq / rInner) + vec3<f32>(timeDrift * 0.12, 0.0, timeDrift * 0.06);
         let midNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, midCoord, 0.0);
-        let waveRipple = sin((pos.x + pos.z) * 60.0 + cloud.u_simControl.x * 0.4) * 0.15;
-        let altocumulus = clamp(sculptedDensity * (0.90 + midNoise.r * 0.40 + waveRipple), 0.0, 1.0);
+        let waveRipple = sin(uv.x * 240.0 + uv.y * 60.0 + cloud.u_simControl.x * 0.4) * 0.18;
+        let altocumulus = clamp(sculptedDensity * (0.85 + (midNoise.g * 0.5 + midNoise.b * 0.5) * 0.40 + waveRipple), 0.0, 1.0);
         sculptedDensity = mix(sculptedDensity, altocumulus, midEnvelope);
     }
 
@@ -281,7 +283,8 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
         let shearVec = advection.u_windAltitudeShear.xy;
         let shearCoord = noiseCoord + vec3<f32>(shearVec.x * (hNorm - highBottom) * 0.4, 0.0, shearVec.y * (hNorm - highBottom) * 0.4);
         let shearNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, shearCoord, 0.0);
-        let fibrousCirrus = clamp(finalDensity * (0.85 + (shearNoise.r - 0.45) * 0.65), 0.0, 1.0);
+        let cirrusWisp = pow(finalDensity, 1.4) * 0.75;
+        let fibrousCirrus = clamp(cirrusWisp * (0.80 + (shearNoise.r - 0.40) * 0.80 + shearNoise.a * 0.30), 0.0, 1.0);
         sculptedDensity = mix(sculptedDensity, fibrousCirrus, highEnvelope);
     }
 
@@ -574,7 +577,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let theme = u32(cloud.u_mediumParams.x);
     var pal = getMediumPalette(theme);
 
-    let isFalseColor = cloud.u_padCloud.x > 0.5;
+    let isFalseColor = cloud.u_padCloud.x > 0.5 || cloud.u_simControl.z > 1.5;
 
     let sigmaT = cloud.u_opticalParams.x * pal.inkDensityFactor;
     let albedo = cloud.u_opticalParams.y;
@@ -628,7 +631,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
                 let curG1 = select(octaveG1, 0.0, oct == 2);
                 let curG2 = select(octaveG2, 0.0, oct == 2);
                 let octPhase = select(dualHenyeyGreenstein(cosTheta, curG1, curG2, 0.70), phase, oct == 0);
-                let octPhaseTerm = max(0.20, octPhase * (4.0 * PI));
+                let octPhaseTerm = max(0.45, octPhase * (4.0 * PI));
                 // Accumulate radiance across octaves: scatterLobe += octaveWeight * phase * transmittance
                 let scatterLobe = octaveWeight * octPhaseTerm * octSunT;
                 directLight += pal.sunColor * scatterLobe;
@@ -644,10 +647,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let forwardMieScattering = max(0.0, mieLobe) * (4.0 * PI) * sunT;
             directLight += pal.sunColor * forwardMieScattering * 0.45;
 
+            // Energy-conserving multiple scattering normalization (1.0 / 1.75 = 0.5714)
+            let directNormalized = directLight * 0.5714;
             let midLight = pal.midColor * ((1.0 - sunT) * 0.55);
             let ao = clamp(1.0 - (0.50 * shadowDensity + 0.30 * density) * 0.75, 0.25, 1.0);
             let stepOpacity = 1.0 - stepT;
-            let S = (directLight + midLight + pal.ambientColor * ao) * (albedo * stepOpacity / max(0.00001, stepSize));
+            let S = (directNormalized + midLight + pal.ambientColor * ao) * (albedo * stepOpacity / max(0.00001, stepSize));
 
             // Front-to-Back Radiative Transfer Accumulation
             accumLight += accumTransmittance * S * stepSize;

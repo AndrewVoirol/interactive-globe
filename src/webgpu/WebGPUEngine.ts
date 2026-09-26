@@ -6466,7 +6466,7 @@ export class WebGPUEngine {
 
     // Shell Radii (dynamically scaled with DEM relief displacement to prevent mountain discard)
     const dispScale = ((params as any).displacementScale ?? 0.055) * 2.8;
-    const tropoThickness = 0.012 + dispScale * 1.5;
+    const tropoThickness = 0.035 + dispScale * 0.4;
     const rInner = 5.0;
     const rOuter = rInner + tropoThickness;
     const deltaR = tropoThickness;
@@ -6531,8 +6531,9 @@ export class WebGPUEngine {
     cloudFloats[23] = (this.cloudOptions.driftSpeed ?? 1.0) * 0.002;
 
     // Optical Params (base extinction calibrated for analytic step opacity)
-    cloudFloats[24] = 6.0;
-    cloudFloats[25] = 0.96;
+    const baseExtinction = (params as any).cloudExtinction ?? 26.0;
+    cloudFloats[24] = baseExtinction;
+    cloudFloats[25] = 0.98;
     cloudFloats[26] = 0.82;
     cloudFloats[27] = -0.25;
 
@@ -6571,7 +6572,7 @@ export class WebGPUEngine {
     cloudFloats[32] = (params.time ?? 0.0) + timelineOffsetSec;
     cloudFloats[33] = params.unfurl ?? 0.0;
     cloudFloats[34] = params.mode ?? 0.0;
-    cloudFloats[35] = 48.0;
+    cloudFloats[35] = 64.0;
 
     // Pad / Strata Diagnostic False-Color Mode (u_padCloud.x)
     const falseColor = Boolean(
@@ -8799,8 +8800,11 @@ export class WebGPUEngine {
     }
   }
 
-  public ensureCloudBuffers(width: number = 1440, height: number = 721): void {
+  public ensureCloudBuffers(width?: number, height?: number): void {
     if (!this.device) return;
+
+    const targetWidth = width ?? (this.cloudTextures.low?.width || 1440);
+    const targetHeight = height ?? (this.cloudTextures.low?.height || 721);
 
     if (!this.cloudUniformBuffers) {
       this.cloudUniformBuffers = [
@@ -8836,7 +8840,7 @@ export class WebGPUEngine {
       this.cloudIndexCount = sphereMesh.indices.length;
     }
 
-    let texturesNeedRecreation = !this.cloudTextures.low || this.cloudTextures.low.width !== width || this.cloudTextures.low.height !== height;
+    let texturesNeedRecreation = !this.cloudTextures.low || this.cloudTextures.low.width !== targetWidth || this.cloudTextures.low.height !== targetHeight;
 
     if (texturesNeedRecreation) {
       if (this.cloudTextures.low) this.cloudTextures.low.destroy();
@@ -8846,21 +8850,21 @@ export class WebGPUEngine {
       this.cloudTextures = {
         low: this.device.createTexture({
           label: 'cloud_texture_low',
-          size: [width, height, 1],
+          size: [targetWidth, targetHeight, 1],
           format: 'r16float',
-          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
         }),
         mid: this.device.createTexture({
           label: 'cloud_texture_mid',
-          size: [width, height, 1],
+          size: [targetWidth, targetHeight, 1],
           format: 'r16float',
-          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
         }),
         high: this.device.createTexture({
           label: 'cloud_texture_high',
-          size: [width, height, 1],
+          size: [targetWidth, targetHeight, 1],
           format: 'r16float',
-          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
         }),
       };
     }

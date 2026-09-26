@@ -154,10 +154,11 @@ export function generateProceduralCloudGrids(): {
       // ----------------------------------------------------------------------
       let midF = 0.08;
 
-      // Intertropical Convergence Zone (ITCZ) equatorial convective belt (~2°S to 12°N)
-      if (isITCZLat) {
-        const itczWave = 3.5 * Math.sin(lonRad * 3.0 + 0.4);
-        const itczProfile = Math.cos(((latDeg - (6.0 + itczWave)) / 7.5) * (Math.PI * 0.5));
+      // Intertropical Convergence Zone (ITCZ) equatorial convective belt (~2°S to 14°N)
+      const itczWave = 3.5 * Math.sin(lonRad * 3.0 + 0.4);
+      const itczDist = Math.abs(latDeg - (6.0 + itczWave));
+      if (itczDist < 8.5) {
+        const itczProfile = Math.cos((itczDist / 8.5) * (Math.PI * 0.5));
         midF += 0.55 * Math.max(0, itczProfile);
       }
 

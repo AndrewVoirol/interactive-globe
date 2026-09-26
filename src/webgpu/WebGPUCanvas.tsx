@@ -2775,11 +2775,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         (window as any).__INDICATRIX_CAMERA_OBJECT__ = camera;
 
         const cloudLayer = layerCache.cloudLayer;
+        const masterShowClouds = stateRef.current.showClouds ?? true;
         const effectiveShowClouds = liveOverrides?.showClouds !== undefined
-          ? liveOverrides.showClouds
+          ? (liveOverrides.showClouds && masterShowClouds)
           : (cloudLayer !== null
-            ? (cloudLayer.visible || (stateRef.current.showClouds ?? false))
-            : (stateRef.current.showClouds ?? false));
+            ? (masterShowClouds && cloudLayer.visible)
+            : masterShowClouds);
 
         const atmLayer = layerCache.atmLayer;
         const effectiveShowAtmosphere = liveOverrides?.showAtmosphere !== undefined

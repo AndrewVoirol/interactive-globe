@@ -107,7 +107,7 @@ describe('R13 Milestone 5: Atmospheric Cloud Strata HUD Controls & React State I
     it('R13-STATE-01: initializes with authentic atmospheric cloud default values', async () => {
       const state = await mountEngineState();
 
-      expect(state.showClouds).toBe(false);
+      expect(state.showClouds).toBe(true);
       expect(state.showCloudLow).toBe(true);
       expect(state.showCloudMid).toBe(true);
       expect(state.showCloudHigh).toBe(true);

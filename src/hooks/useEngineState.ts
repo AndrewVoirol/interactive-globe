@@ -50,7 +50,7 @@ export function useEngineState() {
   const [gpuReport, setGpuReport] = useState<any>(null);
 
   // Atmospheric Cloud Strata State (Milestone 5)
-  const [showClouds, setShowCloudsState] = useState<boolean>(false);
+  const [showClouds, setShowCloudsState] = useState<boolean>(true);
   const [showCloudLow, setShowCloudLowState] = useState<boolean>(true);
   const [showCloudMid, setShowCloudMidState] = useState<boolean>(true);
   const [showCloudHigh, setShowCloudHighState] = useState<boolean>(true);
@@ -59,7 +59,13 @@ export function useEngineState() {
   const [cloudFalseColor, setCloudFalseColorState] = useState<boolean>(false);
 
   const setShowClouds = (v: boolean | ((prev: boolean) => boolean)) => {
-    setShowCloudsState(v);
+    setShowCloudsState((prev) => {
+      const val = typeof v === 'function' ? v(prev) : v;
+      if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.showClouds = val;
+      }
+      return val;
+    });
   };
   const setShowCloudLow = (v: boolean | ((prev: boolean) => boolean)) => {
     setShowCloudLowState(v);
@@ -99,7 +105,12 @@ export function useEngineState() {
       cloudFalseColor: boolean;
     }>
   ) => {
-    if (options.showClouds !== undefined) setShowCloudsState(options.showClouds);
+    if (options.showClouds !== undefined) {
+      setShowCloudsState(options.showClouds);
+      if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.showClouds = options.showClouds;
+      }
+    }
     if (options.showCloudLow !== undefined) setShowCloudLowState(options.showCloudLow);
     if (options.showCloudMid !== undefined) setShowCloudMidState(options.showCloudMid);
     if (options.showCloudHigh !== undefined) setShowCloudHighState(options.showCloudHigh);

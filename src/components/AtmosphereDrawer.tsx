@@ -193,8 +193,13 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const handleToggleClouds = (val: boolean) => {
     setInternalShowClouds(val);
     onShowCloudsChange?.(val);
-    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
-      (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showClouds: val });
+    if (typeof window !== 'undefined') {
+      if ((window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.showClouds = val;
+      }
+      if ((window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+        (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showClouds: val });
+      }
     }
   };
 
