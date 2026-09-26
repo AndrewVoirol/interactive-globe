@@ -282,12 +282,12 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let freqVert = cloud.u_noiseParams.y;
     let erosionStr = cloud.u_noiseParams.z;
 
-    // Camera-Distance Adaptive LOD & Shimmer Suppression
+    // Camera-Distance Adaptive LOD & Shimmer Suppression (calibrated to world radius 5.0 and cam range 6.0-16.0)
     let camDist = length(p - camera.u_cameraPos.xyz);
     let camAlt = length(camera.u_cameraPos.xyz);
-    let distFade = 1.0 - smoothstep(0.12, 0.50, camDist);
-    let altFade = 1.0 - smoothstep(5.08, 5.40, camAlt);
-    let effErosionStr = erosionStr * max(0.20, distFade * altFade);
+    let distFade = 1.0 - smoothstep(0.5, 10.0, camDist);
+    let altFade = 1.0 - smoothstep(5.05, 14.0, camAlt);
+    let effErosionStr = erosionStr * max(0.45, distFade * altFade);
 
     let baseCoord = sphericalNoiseCoord(p, hNorm, freqHoriz, freqVert, timeDrift);
     let noiseSample = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, baseCoord, 0.0);
@@ -328,6 +328,7 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
         let altitudeErosion = mix(0.08, 0.85, pow(zCumulus, 0.75));
 
         // Cauliflower billow density with dynamic threshold remapping
+        let billowErosion = cumulusWorley * altitudeErosion * 0.35 * effErosionStr;
         let rawBillow = remap(baseHull, billowErosion, 1.0, 0.0, 1.0);
         let sculptedLow = mix(baseHull * 0.75 + rawBillow * 0.25, rawBillow, effErosionStr);
         let lowBillow = max(sculptedLow * 1.25, finalDensity * 0.50);
