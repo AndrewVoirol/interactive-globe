@@ -12,10 +12,12 @@ export interface AtmosphericColumnInstrumentProps {
   showCloudLow: boolean;
   showCloudMid: boolean;
   showCloudHigh: boolean;
+  cloudFalseColor?: boolean;
   atmosphericScale: number; // 1.0 to 12.0, default 3.5
   cloudOpacity: number; // 0.10 to 1.00, default 0.80
   theme?: 0 | 1 | 2; // 0: Tharp, 1: Cream Rag, 2: Prussian Cyanotype
   onToggleStrata: (stratum: 'low' | 'mid' | 'high', active: boolean) => void;
+  onToggleFalseColor?: (active: boolean) => void;
   onAtmosphericScaleChange: (scale: number) => void;
   onCloudOpacityChange?: (opacity: number) => void;
   className?: string;
@@ -25,10 +27,12 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
   showCloudLow = true,
   showCloudMid = true,
   showCloudHigh = true,
+  cloudFalseColor = false,
   atmosphericScale = 3.5,
   cloudOpacity = 0.80,
   theme = 0,
   onToggleStrata,
+  onToggleFalseColor,
   onAtmosphericScaleChange,
   onCloudOpacityChange,
   className = '',
@@ -497,7 +501,14 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
           }`}
           title="Low Stratus / Fog (1–2 km altitude)"
         >
-          <span className="font-bold text-nano">LOW</span>
+          <div className="flex items-center gap-1">
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+              style={{ backgroundColor: '#ffa026' }}
+              aria-hidden="true"
+            />
+            <span className="font-bold text-nano">LOW</span>
+          </div>
           <span className="text-nano opacity-75">1–2 km</span>
         </button>
         <button
@@ -510,7 +521,14 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
           }`}
           title="Mid Altocumulus (4–6 km altitude)"
         >
-          <span className="font-bold text-nano">MID</span>
+          <div className="flex items-center gap-1">
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+              style={{ backgroundColor: '#1fd9f5' }}
+              aria-hidden="true"
+            />
+            <span className="font-bold text-nano">MID</span>
+          </div>
           <span className="text-nano opacity-75">4–6 km</span>
         </button>
         <button
@@ -523,10 +541,39 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
           }`}
           title="High Cirrus (10–12 km altitude)"
         >
-          <span className="font-bold text-nano">HIGH</span>
+          <div className="flex items-center gap-1">
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+              style={{ backgroundColor: '#f547e0' }}
+              aria-hidden="true"
+            />
+            <span className="font-bold text-nano">HIGH</span>
+          </div>
           <span className="text-nano opacity-75">10–12 km</span>
         </button>
       </div>
+
+      {/* Strata Diagnostic False-Color Toggle */}
+      <button
+        type="button"
+        id="sidebar-strata-diagnostic-toggle"
+        onClick={() => onToggleFalseColor?.(!cloudFalseColor)}
+        className={`w-full py-1 px-2 mb-1 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 text-nano font-mono ${
+          cloudFalseColor
+            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-bold shadow-sm'
+            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+        }`}
+        title="Toggle multi-spectral false-color emission for tropospheric cloud strata (Amber/Cyan/Magenta)"
+      >
+        <span className="flex items-center gap-1" aria-hidden="true">
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#ffa026' }} />
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#1fd9f5' }} />
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#f547e0' }} />
+        </span>
+        <span className="tracking-wider uppercase">
+          {cloudFalseColor ? 'DIAGNOSTIC STRATA [ACTIVE]' : 'DIAGNOSTIC STRATA [RGB]'}
+        </span>
+      </button>
 
       {/* 4. Secondary Calibration Sliders & Steppers (100% Backward-Compatibility with Tests) */}
       <div className="space-y-1.5 pt-1 border-t border-[var(--theme-card-border)]/50">

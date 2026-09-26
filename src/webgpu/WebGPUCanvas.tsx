@@ -148,6 +148,7 @@ export interface WebGPUCanvasProps {
   showCloudLow?: boolean;
   showCloudMid?: boolean;
   showCloudHigh?: boolean;
+  cloudFalseColor?: boolean;
   cloudDriftSpeed?: number;
   cloudOpacity?: number;
   atmosphericScale?: number;
@@ -234,6 +235,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   showCloudLow = true,
   showCloudMid = true,
   showCloudHigh = true,
+  cloudFalseColor = false,
   cloudDriftSpeed = 1.0,
   cloudOpacity = 0.85,
   atmosphericScale = 3.5,
@@ -463,6 +465,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     showCloudLow,
     showCloudMid,
     showCloudHigh,
+    cloudFalseColor,
     cloudDriftSpeed,
     cloudOpacity,
     atmosphericScale,
@@ -515,6 +518,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       showCloudLow,
       showCloudMid,
       showCloudHigh,
+      cloudFalseColor,
       cloudDriftSpeed,
       cloudOpacity,
       atmosphericScale,
@@ -544,7 +548,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       cdlodDiagnosticMode,
     };
     cachedLayersRef.current = computeCachedLayers(dataLayers);
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -2774,8 +2778,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const effectiveShowClouds = liveOverrides?.showClouds !== undefined
           ? liveOverrides.showClouds
           : (cloudLayer !== null
-            ? cloudLayer.visible
-            : false);
+            ? (cloudLayer.visible || (stateRef.current.showClouds ?? false))
+            : (stateRef.current.showClouds ?? false));
 
         const atmLayer = layerCache.atmLayer;
         const effectiveShowAtmosphere = liveOverrides?.showAtmosphere !== undefined
@@ -2818,8 +2822,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           showCloudLow: liveOverrides?.showCloudLow !== undefined ? liveOverrides.showCloudLow : stateRef.current.showCloudLow,
           showCloudMid: liveOverrides?.showCloudMid !== undefined ? liveOverrides.showCloudMid : stateRef.current.showCloudMid,
           showCloudHigh: liveOverrides?.showCloudHigh !== undefined ? liveOverrides.showCloudHigh : stateRef.current.showCloudHigh,
+          cloudFalseColor: liveOverrides?.cloudFalseColor !== undefined ? liveOverrides.cloudFalseColor : stateRef.current.cloudFalseColor,
           showAtmosphere: effectiveShowAtmosphere,
-          cloudAdvectionSpeed: liveOverrides?.cloudAdvectionSpeed ?? 1.0,
           cloudDriftSpeed:
             liveOverrides?.cloudDriftSpeed !== undefined
               ? liveOverrides.cloudDriftSpeed

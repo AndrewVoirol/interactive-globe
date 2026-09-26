@@ -90,6 +90,7 @@ export interface WebGPUFrameParams {
   showCloudLow?: boolean;
   showCloudMid?: boolean;
   showCloudHigh?: boolean;
+  cloudFalseColor?: boolean;
   showAtmosphere?: boolean;
   cloudOpacity?: number;
   cloudDriftSpeed?: number;
@@ -174,6 +175,7 @@ export interface CloudOptions {
   showLow: boolean;
   showMid: boolean;
   showHigh: boolean;
+  falseColor?: boolean;
 }
 
 const U16_TO_F16_LUT = (() => {
@@ -644,6 +646,7 @@ export class WebGPUEngine {
     showLow: true,
     showMid: true,
     showHigh: true,
+    falseColor: false,
   };
   private atmosphereScatterPipeline: GPURenderPipeline | null = null;
   private atmosphereBindGroupLayout: GPUBindGroupLayout | null = null;
@@ -6570,8 +6573,13 @@ export class WebGPUEngine {
     cloudFloats[34] = params.mode ?? 0.0;
     cloudFloats[35] = 48.0;
 
-    // Pad
-    cloudFloats[36] = 0.0;
+    // Pad / Strata Diagnostic False-Color Mode (u_padCloud.x)
+    const falseColor = Boolean(
+      (params as any).cloudFalseColor ??
+      (params as any).falseColor ??
+      this.cloudOptions.falseColor
+    );
+    cloudFloats[36] = falseColor ? 1.0 : 0.0;
     cloudFloats[37] = 0.0;
     cloudFloats[38] = 0.0;
     cloudFloats[39] = 0.0;

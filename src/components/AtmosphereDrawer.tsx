@@ -37,6 +37,8 @@ export interface AtmosphereDrawerProps {
   onShowCloudMidChange?: (v: boolean) => void;
   showCloudHigh?: boolean;
   onShowCloudHighChange?: (v: boolean) => void;
+  cloudFalseColor?: boolean;
+  onCloudFalseColorChange?: (v: boolean) => void;
   cloudDriftSpeed?: number;
   onCloudDriftSpeedChange?: (v: number) => void;
   cloudOpacity?: number;
@@ -83,6 +85,8 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   onShowCloudMidChange,
   showCloudHigh: propShowCloudHigh,
   onShowCloudHighChange,
+  cloudFalseColor: propCloudFalseColor,
+  onCloudFalseColorChange,
   cloudDriftSpeed: propCloudDriftSpeed,
   onCloudDriftSpeedChange,
   cloudOpacity: propCloudOpacity,
@@ -117,6 +121,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const [internalShowCloudLow, setInternalShowCloudLow] = useState<boolean>(true);
   const [internalShowCloudMid, setInternalShowCloudMid] = useState<boolean>(true);
   const [internalShowCloudHigh, setInternalShowCloudHigh] = useState<boolean>(true);
+  const [internalCloudFalseColor, setInternalCloudFalseColor] = useState<boolean>(false);
   const [internalCloudDriftSpeed, setInternalCloudDriftSpeed] = useState<number>(500);
   const [internalCloudOpacity, setInternalCloudOpacity] = useState<number>(0.8);
   const [internalAtmosphericScale, setInternalAtmosphericScale] = useState<number>(3.5);
@@ -133,6 +138,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const curShowCloudLow = propShowCloudLow !== undefined ? propShowCloudLow : internalShowCloudLow;
   const curShowCloudMid = propShowCloudMid !== undefined ? propShowCloudMid : internalShowCloudMid;
   const curShowCloudHigh = propShowCloudHigh !== undefined ? propShowCloudHigh : internalShowCloudHigh;
+  const curCloudFalseColor = propCloudFalseColor !== undefined ? propCloudFalseColor : internalCloudFalseColor;
   const curCloudDriftSpeed = propCloudDriftSpeed !== undefined ? propCloudDriftSpeed : internalCloudDriftSpeed;
   const curCloudOpacity = propCloudOpacity !== undefined ? propCloudOpacity : internalCloudOpacity;
   const curAtmosphericScale = propAtmosphericScale !== undefined ? propAtmosphericScale : internalAtmosphericScale;
@@ -217,6 +223,13 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const handleToggleCloudLow = () => handleToggleStrata('low', !curShowCloudLow);
   const handleToggleCloudMid = () => handleToggleStrata('mid', !curShowCloudMid);
   const handleToggleCloudHigh = () => handleToggleStrata('high', !curShowCloudHigh);
+  const handleToggleFalseColor = (active: boolean) => {
+    setInternalCloudFalseColor(active);
+    onCloudFalseColorChange?.(active);
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+      (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ cloudFalseColor: active });
+    }
+  };
 
   const handleCloudDriftChange = (val: number) => {
     if (typeof val !== 'number' || !Number.isFinite(val)) return;
@@ -422,10 +435,12 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             showCloudLow={curShowCloudLow}
             showCloudMid={curShowCloudMid}
             showCloudHigh={curShowCloudHigh}
+            cloudFalseColor={curCloudFalseColor}
             atmosphericScale={curAtmosphericScale}
             cloudOpacity={curCloudOpacity}
             theme={theme}
             onToggleStrata={handleToggleStrata}
+            onToggleFalseColor={handleToggleFalseColor}
             onAtmosphericScaleChange={handleAtmosphericScaleChange}
             onCloudOpacityChange={handleCloudOpacityChange}
           />

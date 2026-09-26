@@ -225,8 +225,9 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let advectedSample = textureSampleLevel(u_advectedDensityTexture, u_advectedDensitySampler, advectionCoord, 0.0);
     let advectedRho = advectedSample.r;
 
-    // Morph macro density with the 3D advected fluid field:
-    let effectiveMacroDensity = select(macroDensity, advectedRho, isAdvectionActive && (advectedSample.a > 0.5));
+    // Stratified Advection Modulation (preserves fine-grained 3-layer WeatherNext 3 prognostic structures)
+    let advectionMod = select(1.0, 0.70 + advectedRho * 0.60, isAdvectionActive && (advectedSample.a > 0.5));
+    let effectiveMacroDensity = macroDensity * advectionMod;
 
     // Clear Skies & Density Threshold Early Exit (preserves CH-M3-2-04 static scan test)
     if (macroDensity < 0.002) {
@@ -264,6 +265,16 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
         sculptedDensity = mix(finalDensity, lowBillow, lowEnvelope);
     }
 
+    // Mid Altocumulus Stratum 1.4x Frequency Wave Ripple & Cellular Undulatus Pass
+    let midEnvelope = layerHeightEnvelope(hNorm, midBottom, midTop, 0.06);
+    if (midEnvelope > 0.01) {
+        let midCoord = (pos * 1.4) * (noiseFreq / rInner) + vec3<f32>(timeDrift * 0.12, 0.0, timeDrift * 0.06);
+        let midNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, midCoord, 0.0);
+        let waveRipple = sin((pos.x + pos.z) * 60.0 + cloud.u_simControl.x * 0.4) * 0.15;
+        let altocumulus = clamp(sculptedDensity * (0.90 + midNoise.r * 0.40 + waveRipple), 0.0, 1.0);
+        sculptedDensity = mix(sculptedDensity, altocumulus, midEnvelope);
+    }
+
     // High Cirrus Stratum Directional Wind Shear & Fibrous Perlin Erosion Pass
     let highEnvelope = layerHeightEnvelope(hNorm, highBottom, 0.95, 0.08);
     if (highEnvelope > 0.01) {
@@ -275,6 +286,47 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     }
 
     return sculptedDensity * cloud.u_layerDensities.w;
+}
+
+// Strata Diagnostic False-Color Evaluation
+// Low Deck (0–2 km): Amber-Gold (#ffa026)
+// Mid Deck (2–6 km): Cyan-Aqua (#1fd9f5)
+// High Cirrus (6–12 km): Magenta-Orchid (#f547e0)
+fn evaluateStrataDiagnosticColor(pos: vec3<f32>, rInner: f32, deltaR: f32) -> vec3<f32> {
+    let r = length(pos);
+    let hNorm = clamp((r - rInner) / deltaR, 0.0, 1.0);
+
+    let driftRate = cloud.u_noiseParams.w;
+    let timeDrift = cloud.u_simControl.x * driftRate;
+    let uv = worldToEquirectangularUV(pos);
+    let advectedUV = vec2<f32>(fract(uv.x + timeDrift), uv.y);
+
+    let lowFraction = textureSampleLevel(u_cloudLowTexture, u_cloud2DSampler, advectedUV, 0.0).r;
+    let midFraction = textureSampleLevel(u_cloudMidTexture, u_cloud2DSampler, advectedUV, 0.0).r;
+    let highFraction = textureSampleLevel(u_cloudHighTexture, u_cloud2DSampler, advectedUV, 0.0).r;
+
+    let lowTop = cloud.u_layerHeights.x;
+    let midBottom = cloud.u_layerHeights.y;
+    let midTop = cloud.u_layerHeights.z;
+    let highBottom = cloud.u_layerHeights.w;
+
+    let lclNorm = cloud.u_lclParams.y;
+    let lowBottom = max(0.0, lclNorm);
+
+    let lowWeight = layerHeightEnvelope(hNorm, lowBottom, lowTop, 0.04) * cloud.u_layerDensities.x;
+    let midWeight = layerHeightEnvelope(hNorm, midBottom, midTop, 0.06) * cloud.u_layerDensities.y;
+    let highWeight = layerHeightEnvelope(hNorm, highBottom, 0.95, 0.08) * cloud.u_layerDensities.z;
+
+    let wLow = lowFraction * lowWeight;
+    let wMid = midFraction * midWeight;
+    let wHigh = highFraction * highWeight;
+    let totalW = max(0.0001, wLow + wMid + wHigh);
+
+    let colLow = vec3<f32>(1.00, 0.62, 0.15); // Amber-Gold
+    let colMid = vec3<f32>(0.12, 0.85, 0.96); // Cyan-Aqua
+    let colHigh = vec3<f32>(0.96, 0.28, 0.88); // Magenta-Orchid
+
+    return (colLow * wLow + colMid * wMid + colHigh * wHigh) / totalW;
 }
 
 // Dual-Lobe Henyey-Greenstein Phase Function with Numerical Clamping
@@ -520,7 +572,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let phase = dualHenyeyGreenstein(cosTheta, cloud.u_opticalParams.z, cloud.u_opticalParams.w, 0.70);
 
     let theme = u32(cloud.u_mediumParams.x);
-    let pal = getMediumPalette(theme);
+    var pal = getMediumPalette(theme);
+
+    let isFalseColor = cloud.u_padCloud.x > 0.5;
 
     let sigmaT = cloud.u_opticalParams.x * pal.inkDensityFactor;
     let albedo = cloud.u_opticalParams.y;
@@ -545,6 +599,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let density = rawDensity * nearFade;
 
         if (density > 0.002) {
+            // In false-color diagnostic mode, evaluate vibrant emissive strata color per step
+            if (isFalseColor) {
+                let strataCol = evaluateStrataDiagnosticColor(p, rInner, deltaR);
+                pal.sunColor = strataCol * 1.6;
+                pal.midColor = strataCol * 0.9;
+                pal.ambientColor = strataCol * 0.45;
+            }
+
             // Beer-Lambert Transmittance over Step
             let stepTau = sigmaT * density * stepSize;
             let stepT = exp(-stepTau);
@@ -604,36 +666,41 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
     }
 
-    // Pillar 4: Atmospheric Rayleigh Airglow Limb Integration
-    let airglow = evaluateRayleighLimbAirglow(rayOrigin, rayDir, sunDir, rInner, theme);
-    accumLight += accumTransmittance * airglow.rgb * airglow.a;
-    accumTransmittance *= (1.0 - airglow.a);
-
     var finalLight = accumLight;
     var finalAlpha = (1.0 - accumTransmittance) * morphFade;
 
-    if (theme == 0u) {
-        // Theme 0: Physiographic stipple absorption in crevice shadows
-        let stippleCoord = in.position.xy * 1.65;
-        let stippleNoise = hashScreen(stippleCoord);
-        let stippleFactor = 1.0 - (stippleNoise - 0.5) * (cloud.u_mediumParams.y * 0.22);
-        finalLight = finalLight * stippleFactor;
-    } else if (theme == 1u) {
-        // Theme 1: High-frequency cellulose paper fiber tooth (u_paper_tooth)
-        let toothCoord = in.position.xy * 2.0;
-        let toothNoise = hashScreen(toothCoord);
-        let paperTooth = cloud.u_mediumParams.z; // u_paper_tooth (sim.paperTooth)
-        let toothFactor = 1.0 - (toothNoise - 0.5) * (paperTooth * 0.35);
-        finalLight = finalLight * toothFactor;
-        finalAlpha = finalAlpha * mix(0.85, 1.0, toothFactor);
-    } else if (theme == 2u) {
-        // Theme 2: Actinic exposure gamma response & blueprint linen tooth
-        let gamma = max(0.5, cloud.u_mediumParams.w);
-        let actinicCoord = in.position.xy * 2.4;
-        let actinicNoise = hashScreen(actinicCoord);
-        let grainFactor = 1.0 - (actinicNoise - 0.5) * 0.18;
-        finalLight = finalLight * grainFactor;
-        finalAlpha = pow(clamp(finalAlpha, 0.0, 1.0), 1.0 / gamma);
+    if (!isFalseColor) {
+        // Pillar 4: Atmospheric Rayleigh Airglow Limb Integration
+        let airglow = evaluateRayleighLimbAirglow(rayOrigin, rayDir, sunDir, rInner, theme);
+        accumLight += accumTransmittance * airglow.rgb * airglow.a;
+        accumTransmittance *= (1.0 - airglow.a);
+
+        finalLight = accumLight;
+        finalAlpha = (1.0 - accumTransmittance) * morphFade;
+
+        if (theme == 0u) {
+            // Theme 0: Physiographic stipple absorption in crevice shadows
+            let stippleCoord = in.position.xy * 1.65;
+            let stippleNoise = hashScreen(stippleCoord);
+            let stippleFactor = 1.0 - (stippleNoise - 0.5) * (cloud.u_mediumParams.y * 0.22);
+            finalLight = finalLight * stippleFactor;
+        } else if (theme == 1u) {
+            // Theme 1: High-frequency cellulose paper fiber tooth (u_paper_tooth)
+            let toothCoord = in.position.xy * 2.0;
+            let toothNoise = hashScreen(toothCoord);
+            let paperTooth = cloud.u_mediumParams.z; // u_paper_tooth (sim.paperTooth)
+            let toothFactor = 1.0 - (toothNoise - 0.5) * (paperTooth * 0.35);
+            finalLight = finalLight * toothFactor;
+            finalAlpha = finalAlpha * mix(0.85, 1.0, toothFactor);
+        } else if (theme == 2u) {
+            // Theme 2: Actinic exposure gamma response & blueprint linen tooth
+            let gamma = max(0.5, cloud.u_mediumParams.w);
+            let actinicCoord = in.position.xy * 2.4;
+            let actinicNoise = hashScreen(actinicCoord);
+            let grainFactor = 1.0 - (actinicNoise - 0.5) * 0.18;
+            finalLight = finalLight * grainFactor;
+            finalAlpha = pow(clamp(finalAlpha, 0.0, 1.0), 1.0 / gamma);
+        }
     }
 
     if (finalAlpha <= 0.001) {

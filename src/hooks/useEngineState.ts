@@ -56,6 +56,7 @@ export function useEngineState() {
   const [showCloudHigh, setShowCloudHighState] = useState<boolean>(true);
   const [cloudDriftSpeed, setCloudDriftSpeedState] = useState<number>(500);
   const [cloudOpacity, setCloudOpacityState] = useState<number>(0.8);
+  const [cloudFalseColor, setCloudFalseColorState] = useState<boolean>(false);
 
   const setShowClouds = (v: boolean | ((prev: boolean) => boolean)) => {
     setShowCloudsState(v);
@@ -68,6 +69,9 @@ export function useEngineState() {
   };
   const setShowCloudHigh = (v: boolean | ((prev: boolean) => boolean)) => {
     setShowCloudHighState(v);
+  };
+  const setCloudFalseColor = (v: boolean | ((prev: boolean) => boolean)) => {
+    setCloudFalseColorState(v);
   };
   const setCloudDriftSpeed = (v: number | ((prev: number) => number)) => {
     setCloudDriftSpeedState((prev) => {
@@ -92,12 +96,14 @@ export function useEngineState() {
       showCloudHigh: boolean;
       cloudDriftSpeed: number;
       cloudOpacity: number;
+      cloudFalseColor: boolean;
     }>
   ) => {
     if (options.showClouds !== undefined) setShowCloudsState(options.showClouds);
     if (options.showCloudLow !== undefined) setShowCloudLowState(options.showCloudLow);
     if (options.showCloudMid !== undefined) setShowCloudMidState(options.showCloudMid);
     if (options.showCloudHigh !== undefined) setShowCloudHighState(options.showCloudHigh);
+    if (options.cloudFalseColor !== undefined) setCloudFalseColorState(options.cloudFalseColor);
     if (options.cloudDriftSpeed !== undefined && typeof options.cloudDriftSpeed === 'number' && Number.isFinite(options.cloudDriftSpeed)) {
       setCloudDriftSpeedState(Math.max(0, Math.min(2000, options.cloudDriftSpeed)));
     }
@@ -115,10 +121,11 @@ export function useEngineState() {
         showCloudHigh,
         cloudDriftSpeed,
         cloudOpacity,
+        cloudFalseColor,
       };
       (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__ = setCloudOptions;
     }
-  }, [showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity]);
+  }, [showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, cloudFalseColor]);
 
   const [cdlodDiagnosticMode, setCdlodDiagnosticModeState] = useState<number>(0);
 
@@ -483,6 +490,7 @@ export function useEngineState() {
     showCloudHigh, setShowCloudHigh,
     cloudDriftSpeed, setCloudDriftSpeed,
     cloudOpacity, setCloudOpacity,
+    cloudFalseColor, setCloudFalseColor,
     setCloudOptions,
     cdlodDiagnosticMode, setCdlodDiagnosticMode,
     glideToAlpha,
