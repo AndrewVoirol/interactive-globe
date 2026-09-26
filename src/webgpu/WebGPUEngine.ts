@@ -564,7 +564,7 @@ export class WebGPUEngine {
   private volumetricCameraUniformBuffer: GPUBuffer | null = null;
   private volumetricCloudUniformBuffer: GPUBuffer | null = null;
   private volumetricNoiseSampler: GPUSampler | null = null;
-  private volumetricCloudsEnabled: boolean = false;
+  private volumetricCloudsEnabled: boolean = true;
   private volumetricPipelineDescriptor: GPURenderPipelineDescriptor | null = null;
   private dummyDepthTextureView: GPUTextureView | null = null;
   private dummy3DNoiseTextureView: GPUTextureView | null = null;
@@ -6528,7 +6528,11 @@ export class WebGPUEngine {
     cloudFloats[20] = 24.0;
     cloudFloats[21] = 0.65;
     cloudFloats[22] = 0.35;
-    cloudFloats[23] = (this.cloudOptions.driftSpeed ?? 1.0) * 0.002;
+    const rawVolDrift = params?.cloudDriftSpeed !== undefined
+      ? params.cloudDriftSpeed
+      : (this.cloudOptions?.driftSpeed ?? 500.0);
+    const normalizedVolDrift = rawVolDrift > 10.0 ? (rawVolDrift / 500.0) : rawVolDrift;
+    cloudFloats[23] = (rawVolDrift === 0 ? 0.0 : normalizedVolDrift) * 0.002;
 
     // Optical Params (base extinction calibrated for analytic step opacity)
     const baseExtinction = (params as any).cloudExtinction ?? 26.0;
@@ -7764,7 +7768,7 @@ export class WebGPUEngine {
 
     const showClouds = !isPurity && Boolean(params.showClouds) && this.cloudEnabled !== false && anyStrataActive;
     const useVolumetric = !isPurity && showClouds &&
-      (params.volumetricClouds === true || (Boolean(params.volumetricClouds) && this.volumetricCloudsEnabled)) &&
+      (params.volumetricClouds !== undefined ? Boolean(params.volumetricClouds) : this.volumetricCloudsEnabled) &&
       !!this.volumetricCloudPipeline;
     const isAdvectionActive = params.cloudAdvection !== undefined ? Boolean(params.cloudAdvection) : this.cloudAdvectionEnabled;
     const showCloudAdvection = !isPurity && useVolumetric && isAdvectionActive;
@@ -9174,7 +9178,11 @@ export class WebGPUEngine {
     ) * 60.0;
     const time = (params?.time ?? 0.0) + timelineOffsetSec;
     const dispScale = params?.displacementScale ?? 0.08;
-    const baseDrift = params?.cloudDriftSpeed ?? this.cloudOptions?.driftSpeed ?? 1.2;
+    const rawDrift = params?.cloudDriftSpeed !== undefined
+      ? params.cloudDriftSpeed
+      : (this.cloudOptions?.driftSpeed ?? 500.0);
+    const normalizedDrift = rawDrift > 10.0 ? (rawDrift / 500.0) : rawDrift;
+    const baseDrift = rawDrift === 0 ? 0.0 : normalizedDrift * 1.2;
     const masterOpacity = params?.cloudOpacity ?? this.cloudOptions?.opacity ?? 0.85;
     const peakExponent = params?.peakExponent ?? 1.4;
     const rawAtmScale = params?.atmosphericScale !== undefined ? params.atmosphericScale : this.atmosphericScale;

@@ -244,6 +244,30 @@
   - **Remediation**: Preallocated `_scratchProjResult` tuple, module-level scratch `Vector3` instances, converted loops to indexed loops, cached benchmark maps in `WebGPUCanvas.tsx`.
   - **Verification**: Rule 26 Zero-GC audit passed.
 
+- [x] **Task M7-T4**: Low-Stratum 3D Cumulus Cauliflower Morphology & Drift Multiplier Coupling
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: Volumetric Cloud & Atmospheric Shader Engineer
+  - **Target Files**: `src/webgpu/shaders/volumetric_cloud.wgsl`, `src/webgpu/WebGPUEngine.ts`
+  - **Specification**: Promoted `volumetricCloudsEnabled: true` by default. Coupled `cloudDriftSpeed` into live uniform floats (`cloudFloats[23]` and `cloudFloats[15]`) with zero freeze. Calibrated 3D Perlin-Worley noise carving contrast and low-stratum cauliflower cumulus billow carving (`cumulusWorley = 1.0 - detailNoise.g`).
+  - **Micro-Verification**: 53 passing tests across Milestone 3, Prognostic Coupling, and WGSL Uniform Control Flow stress suites.
+
+- [x] **Task M7-T5**: Low-Altitude Horizon Camera Pitch & Zoom Kinematics
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: Camera Kinematics & 3D Math Engineer
+  - **Target Files**: `src/webgpu/WebGPUCanvas.tsx`
+  - **Specification**: Decoupled minimum camera radius floor via `effectiveR` while strictly maintaining anti-cheating invariants. Solved nadir gimbal lock by deriving strictly orthogonal up-vectors $\mathbf{v}_{\text{up}} = \sin(p) \mathbf{n} + \cos(p) \mathbf{fwd}$ in `setObliqueView`, `easeToObliqueView`, and `snapHorizonCrossSection`. Added modifier drag (`Alt`/`Ctrl` + drag) and `(window as any).__INDICATRIX_CAMERA__.setPitch()`.
+  - **Micro-Verification**: Passed 10,000 Monte Carlo flight trajectories in `challenger-m1-kinematics-stress.test.ts` and `challenger-r14-m4-horizon-kinematics.test.ts`.
+
+- [x] **Task M7-T6**: Stratospheric Telemetry Caliper Instrument & Horizon HUD Docking
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: Cartographic Instrument & HUD Interface Engineer
+  - **Target Files**: `src/components/hud/instruments/StratosphericTelemetryInstrument.tsx`, `src/components/AtmosphereDrawer.tsx`, `tests/modern/stratospheric-telemetry-instrument.test.tsx`
+  - **Specification**: Ported `#caliper-card` from `testbed/weather.html` into a dedicated production React HUD card. Displays Cursor Target, Camera Elevation (km/m), Pitch/Heading ($0^\circ \to 85^\circ$), Tropospheric Regime, Current Stratum, Raymarch Interval, Forecast Cycle, Strata Color Mode, Grid Resolution, and interactive Vernier pitch slider with quick snap buttons. Conforms strictly to Rule 6 Single-Border HUD Enclosure and ivory vellum token palette.
+  - **Micro-Verification**: Verified 100% test pass rate across DOM, ARIA, and behavioral suites; verified live browser rendering across Themes 0, 1, and 2 via Chrome DevTools MCP.
+
 ---
 
 ## Future Research & Physical Medium Fidelity Backlog

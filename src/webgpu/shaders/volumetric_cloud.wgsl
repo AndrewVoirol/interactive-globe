@@ -252,7 +252,7 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let billowStr = cloud.u_noiseParams.y;
     let erosionStr = cloud.u_noiseParams.z;
     let noiseCarve = (1.0 - perlinWorley) * billowStr;
-    let shapedBase = clamp((effectiveMacroDensity * 2.2 - noiseCarve * 0.45) / max(0.001, 1.0 - noiseCarve * 0.45), 0.0, 1.0);
+    let shapedBase = clamp((effectiveMacroDensity * 1.85 - noiseCarve * 0.50) / max(0.001, 1.0 - noiseCarve * 0.50), 0.0, 1.0);
     let finalDensity = clamp(shapedBase - (1.0 - shapedBase) * (worleyErosion * erosionStr * 0.5), 0.0, 1.0);
 
     // Low Cloud Stratum 2x Base Frequency Noise Pass (Billowy Cauliflower Cumulus)
@@ -263,7 +263,11 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
         let detailNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, detailCoord, 0.0);
         let detailErosion = detailNoise.g * 0.5 + detailNoise.b * 0.3 + detailNoise.a * 0.2;
         let cumulusWorley = 1.0 - detailNoise.g;
-        let lowBillow = clamp(finalDensity * 1.35 - (1.0 - cumulusWorley) * 0.45 * billowStr - detailErosion * 0.15, 0.0, 1.0);
+        let lowBillow = clamp(
+            (finalDensity * (0.65 + cumulusWorley * 0.95) - (1.0 - cumulusWorley) * 0.75 * billowStr - detailErosion * 0.20)
+            / max(0.001, 1.0 - (1.0 - cumulusWorley) * 0.40 * billowStr),
+            0.0, 1.0
+        );
         sculptedDensity = mix(finalDensity, lowBillow, lowEnvelope);
     }
 

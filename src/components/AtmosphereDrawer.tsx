@@ -15,6 +15,7 @@ import { OrographicMoistureProfile } from './hud/instruments/OrographicMoistureP
 import { CloudShadowInstrument } from './hud/instruments/CloudShadowInstrument';
 import { CloudDriftSpeedInstrument } from './hud/instruments/CloudDriftSpeedInstrument';
 import { PrognosticModelCard } from './hud/instruments/PrognosticModelCard';
+import { StratosphericTelemetryInstrument } from './hud/instruments/StratosphericTelemetryInstrument';
 
 export type PrognosticModelBackend =
   | 'noaa-gfs'
@@ -678,6 +679,13 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
               ))}
             </div>
           </div>
+
+          {/* Stratospheric Telemetry Caliper Instrument */}
+          <StratosphericTelemetryInstrument
+            theme={theme}
+            isLight={isLight}
+            cloudFalseColor={curCloudFalseColor}
+          />
         </div>
       )}
     </div>
