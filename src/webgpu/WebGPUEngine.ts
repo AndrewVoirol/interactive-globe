@@ -6465,14 +6465,11 @@ export class WebGPUEngine {
     const cloudFloats = this.volumetricCloudFloats;
 
     // Shell Radii (dynamically scaled with DEM relief displacement to prevent mountain discard)
-    const dispScale = ((params as any).displacementScale ?? 0.055) * 2.8;
-    const baseThickness = 0.035 + dispScale * 0.4;
-    const rawAtmScale = (params as any).atmosphericScale !== undefined ? (params as any).atmosphericScale : this.atmosphericScale;
-    const atmScale = typeof rawAtmScale === 'number' && Number.isFinite(rawAtmScale) ? Math.max(1.0, Math.min(12.0, rawAtmScale)) : 1.0;
+    // Shell Radii (calibrated default: 0.19 provides tangible 3D vertical relief and parallax)
     const customThickness = (params as any).cloudThickness;
     const tropoThickness = customThickness !== undefined
       ? customThickness
-      : baseThickness * Math.max(1.0, atmScale * 0.85);
+      : 0.19;
     const rInner = 5.0;
     const rOuter = rInner + tropoThickness;
     const deltaR = tropoThickness;
@@ -6504,11 +6501,11 @@ export class WebGPUEngine {
     cloudFloats[6] = sunDirZ;
     cloudFloats[7] = sunAlt;
 
-    // Layer Heights
-    cloudFloats[8] = (params as any).cloudLowTop ?? 0.28;
-    cloudFloats[9] = (params as any).cloudMidBottom ?? 0.32;
-    cloudFloats[10] = (params as any).cloudMidTop ?? 0.65;
-    cloudFloats[11] = (params as any).cloudHighBottom ?? 0.70;
+    // Layer Heights (calibrated default: low cumulus occupies bottom 45% of troposphere)
+    cloudFloats[8] = (params as any).cloudLowTop ?? 0.45;
+    cloudFloats[9] = (params as any).cloudMidBottom ?? 0.48;
+    cloudFloats[10] = (params as any).cloudMidTop ?? 0.75;
+    cloudFloats[11] = (params as any).cloudHighBottom ?? 0.78;
 
     // Layer Densities
     const lowDens = (Boolean((params as any).showCloudLow ?? this.cloudOptions.showLow)) ? 1.0 : 0.0;
@@ -6530,18 +6527,18 @@ export class WebGPUEngine {
     cloudFloats[18] = 0.0065;
     cloudFloats[19] = 1.0;
 
-    // Noise Params
-    cloudFloats[20] = (params as any).cloudFreqHoriz ?? 28.0; // Horizontal noise frequency across planetary surface
-    cloudFloats[21] = (params as any).cloudFreqVert ?? 5.5;  // Vertical frequency multiplier across troposphere shell
-    cloudFloats[22] = (params as any).cloudErosionStr ?? 0.50; // High-frequency Worley displacement and erosion strength
+    // Noise Params (calibrated defaults: freqHoriz 32.0, freqVert 12.0, erosion 0.85)
+    cloudFloats[20] = (params as any).cloudFreqHoriz ?? 32.0; // Horizontal noise frequency across planetary surface
+    cloudFloats[21] = (params as any).cloudFreqVert ?? 12.0;  // Vertical frequency multiplier across troposphere shell
+    cloudFloats[22] = (params as any).cloudErosionStr ?? 0.85; // High-frequency Worley displacement and erosion strength
     const rawVolDrift = params?.cloudDriftSpeed !== undefined
       ? params.cloudDriftSpeed
       : (this.cloudOptions?.driftSpeed ?? 500.0);
     const normalizedVolDrift = rawVolDrift > 10.0 ? (rawVolDrift / 500.0) : rawVolDrift;
     cloudFloats[23] = (rawVolDrift === 0 ? 0.0 : normalizedVolDrift) * 0.002;
 
-    // Optical Params (base extinction calibrated for analytic step opacity)
-    const baseExtinction = (params as any).cloudExtinction ?? 26.0;
+    // Optical Params (calibrated default: base extinction 28.0 for crisp edge definition)
+    const baseExtinction = (params as any).cloudExtinction ?? 28.0;
     cloudFloats[24] = baseExtinction;
     cloudFloats[25] = 0.98;
     cloudFloats[26] = 0.82;

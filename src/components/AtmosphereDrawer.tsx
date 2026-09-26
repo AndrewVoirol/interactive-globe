@@ -71,6 +71,19 @@ export interface AtmosphereDrawerProps {
   isRadarActive?: boolean;
   hideScrubber?: boolean;
   className?: string;
+  // Beta Volumetric Cloud Physics & Raymarching Levers
+  cloudThickness?: number;
+  onCloudThicknessChange?: (v: number) => void;
+  cloudLowTop?: number;
+  onCloudLowTopChange?: (v: number) => void;
+  cloudErosion?: number;
+  onCloudErosionChange?: (v: number) => void;
+  cloudFreqHoriz?: number;
+  onCloudFreqHorizChange?: (v: number) => void;
+  cloudFreqVert?: number;
+  onCloudFreqVertChange?: (v: number) => void;
+  cloudExtinction?: number;
+  onCloudExtinctionChange?: (v: number) => void;
 }
 
 export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
@@ -117,6 +130,18 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   onSnapCamera,
   onTogglePlanetaryLayer,
   className = '',
+  cloudThickness: propCloudThickness,
+  onCloudThicknessChange,
+  cloudLowTop: propCloudLowTop,
+  onCloudLowTopChange,
+  cloudErosion: propCloudErosion,
+  onCloudErosionChange,
+  cloudFreqHoriz: propCloudFreqHoriz,
+  onCloudFreqHorizChange,
+  cloudFreqVert: propCloudFreqVert,
+  onCloudFreqVertChange,
+  cloudExtinction: propCloudExtinction,
+  onCloudExtinctionChange,
 }) => {
   const [internalShowClouds, setInternalShowClouds] = useState<boolean>(true);
   const [internalShowCloudLow, setInternalShowCloudLow] = useState<boolean>(true);
@@ -134,6 +159,127 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const [internalThermodynamicGating, setInternalThermodynamicGating] = useState<boolean>(true);
   const [internalPrognosticModel, setInternalPrognosticModel] = useState<PrognosticModelBackend>(propPrognosticModel ?? 'weathernext3');
   const [internalPrognosticVariable, setInternalPrognosticVariable] = useState<string>('total_precipitation_1hr_mean');
+
+  // Beta Volumetric Cloud Physics & Raymarching Levers (Rule 22)
+  const [isCloudBetaOpen, setIsCloudBetaOpen] = useState<boolean>(false);
+  const [internalCloudThickness, setInternalCloudThickness] = useState<number>(() => {
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__?.cloudThickness !== undefined) {
+      return (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudThickness;
+    }
+    return propCloudThickness ?? 0.19;
+  });
+  const [internalCloudLowTop, setInternalCloudLowTop] = useState<number>(() => {
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__?.cloudLowTop !== undefined) {
+      return (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudLowTop;
+    }
+    return propCloudLowTop ?? 0.45;
+  });
+  const [internalCloudErosion, setInternalCloudErosion] = useState<number>(() => {
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__?.cloudErosionStr !== undefined) {
+      return (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudErosionStr;
+    }
+    return propCloudErosion ?? 0.85;
+  });
+  const [internalCloudFreqHoriz, setInternalCloudFreqHoriz] = useState<number>(() => {
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__?.cloudFreqHoriz !== undefined) {
+      return (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudFreqHoriz;
+    }
+    return propCloudFreqHoriz ?? 32.0;
+  });
+  const [internalCloudFreqVert, setInternalCloudFreqVert] = useState<number>(() => {
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__?.cloudFreqVert !== undefined) {
+      return (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudFreqVert;
+    }
+    return propCloudFreqVert ?? 12.0;
+  });
+  const [internalCloudExtinction, setInternalCloudExtinction] = useState<number>(() => {
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__?.cloudExtinction !== undefined) {
+      return (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudExtinction;
+    }
+    return propCloudExtinction ?? 28.0;
+  });
+
+  const curCloudThickness = propCloudThickness !== undefined ? propCloudThickness : internalCloudThickness;
+  const curCloudLowTop = propCloudLowTop !== undefined ? propCloudLowTop : internalCloudLowTop;
+  const curCloudErosion = propCloudErosion !== undefined ? propCloudErosion : internalCloudErosion;
+  const curCloudFreqHoriz = propCloudFreqHoriz !== undefined ? propCloudFreqHoriz : internalCloudFreqHoriz;
+  const curCloudFreqVert = propCloudFreqVert !== undefined ? propCloudFreqVert : internalCloudFreqVert;
+  const curCloudExtinction = propCloudExtinction !== undefined ? propCloudExtinction : internalCloudExtinction;
+
+  const updateLiveUniforms = useCallback((delta: Record<string, any>) => {
+    if (typeof window !== 'undefined') {
+      (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {
+        ...((window as any).__INDICATRIX_LIVE_UNIFORMS__ || {}),
+        ...delta,
+      };
+    }
+  }, []);
+
+  const handleCloudThicknessChange = (val: number) => {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
+    setInternalCloudThickness(val);
+    onCloudThicknessChange?.(val);
+    updateLiveUniforms({ cloudThickness: val });
+  };
+
+  const handleCloudLowTopChange = (val: number) => {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
+    setInternalCloudLowTop(val);
+    onCloudLowTopChange?.(val);
+    updateLiveUniforms({ cloudLowTop: val });
+  };
+
+  const handleCloudErosionChange = (val: number) => {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
+    setInternalCloudErosion(val);
+    onCloudErosionChange?.(val);
+    updateLiveUniforms({ cloudErosionStr: val });
+  };
+
+  const handleCloudFreqHorizChange = (val: number) => {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
+    setInternalCloudFreqHoriz(val);
+    onCloudFreqHorizChange?.(val);
+    updateLiveUniforms({ cloudFreqHoriz: val });
+  };
+
+  const handleCloudFreqVertChange = (val: number) => {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
+    setInternalCloudFreqVert(val);
+    onCloudFreqVertChange?.(val);
+    updateLiveUniforms({ cloudFreqVert: val });
+  };
+
+  const handleCloudExtinctionChange = (val: number) => {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return;
+    setInternalCloudExtinction(val);
+    onCloudExtinctionChange?.(val);
+    updateLiveUniforms({ cloudExtinction: val });
+  };
+
+  const handleResetCloudDefaults = () => {
+    const defaults = {
+      cloudThickness: 0.19,
+      cloudLowTop: 0.45,
+      cloudErosionStr: 0.85,
+      cloudFreqHoriz: 32.0,
+      cloudFreqVert: 12.0,
+      cloudExtinction: 28.0,
+    };
+    setInternalCloudThickness(defaults.cloudThickness);
+    setInternalCloudLowTop(defaults.cloudLowTop);
+    setInternalCloudErosion(defaults.cloudErosionStr);
+    setInternalCloudFreqHoriz(defaults.cloudFreqHoriz);
+    setInternalCloudFreqVert(defaults.cloudFreqVert);
+    setInternalCloudExtinction(defaults.cloudExtinction);
+    onCloudThicknessChange?.(defaults.cloudThickness);
+    onCloudLowTopChange?.(defaults.cloudLowTop);
+    onCloudErosionChange?.(defaults.cloudErosionStr);
+    onCloudFreqHorizChange?.(defaults.cloudFreqHoriz);
+    onCloudFreqVertChange?.(defaults.cloudFreqVert);
+    onCloudExtinctionChange?.(defaults.cloudExtinction);
+    updateLiveUniforms(defaults);
+  };
 
   const curShowClouds = propShowClouds !== undefined ? propShowClouds : internalShowClouds;
   const curShowCloudLow = propShowCloudLow !== undefined ? propShowCloudLow : internalShowCloudLow;
@@ -686,6 +832,188 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             isLight={isLight}
             cloudFalseColor={curCloudFalseColor}
           />
+
+          {/* Volumetric Clouds [BETA] Tray (Rule 22) */}
+          <div className="rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] transition-all shadow-sm overflow-hidden mt-2">
+            <button
+              type="button"
+              onClick={() => setIsCloudBetaOpen(!isCloudBetaOpen)}
+              className="w-full p-2.5 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border)]/15 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border border-[var(--theme-status-amber)]/30">
+                  BETA
+                </span>
+                <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+                  Volumetric Cloud Physics & Raymarching
+                </span>
+              </div>
+              <span className="text-nano font-mono text-[var(--theme-text-muted)]">
+                {isCloudBetaOpen ? '▲ Collapse' : '▼ Expand'}
+              </span>
+            </button>
+
+            {isCloudBetaOpen && (
+              <div className="p-2.5 pt-0 space-y-3 border-t border-[var(--theme-card-border)]/50 mt-1">
+                {/* 1. Tropospheric Shell Thickness */}
+                <div className="pt-2">
+                  <VernierSlider
+                    id="beta-cloud-thickness"
+                    label="Vertical Thickness"
+                    sublabel="Expands tropospheric bounding shell for 3D vertical relief"
+                    tooltip="Troposphere vertical shell thickness (0.04 - 0.35, calibrated: 0.19)"
+                    value={curCloudThickness}
+                    min={0.04}
+                    max={0.35}
+                    step={0.01}
+                    readout={`${(curCloudThickness * 100).toFixed(1)}%`}
+                    onChange={handleCloudThicknessChange}
+                  />
+                </div>
+
+                {/* 2. Cumulus Low-Deck Ceiling */}
+                <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
+                  <VernierSlider
+                    id="beta-cloud-low-top"
+                    label="Cumulus Stratum Ceiling"
+                    sublabel="Vertical fraction of troposphere occupied by low cumulus"
+                    tooltip="Cumulus layer vertical ceiling (0.15 - 0.60, calibrated: 0.45)"
+                    value={curCloudLowTop}
+                    min={0.15}
+                    max={0.60}
+                    step={0.05}
+                    readout={`${Math.round(curCloudLowTop * 100)}%`}
+                    onChange={handleCloudLowTopChange}
+                  />
+                </div>
+
+                {/* 3. 3D Billow Erosion */}
+                <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
+                  <VernierSlider
+                    id="beta-cloud-erosion"
+                    label="3D Billow Erosion"
+                    sublabel="Worley noise carving strength on cauliflower cloud domes"
+                    tooltip="High-frequency 3D Worley displacement and erosion strength (calibrated: 0.85)"
+                    value={curCloudErosion}
+                    min={0.20}
+                    max={1.20}
+                    step={0.05}
+                    readout={curCloudErosion.toFixed(2)}
+                    onChange={handleCloudErosionChange}
+                  />
+                </div>
+
+                {/* 4. Horizontal Noise Frequency */}
+                <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
+                  <VernierSlider
+                    id="beta-cloud-freq-horiz"
+                    label="Horizontal Frequency"
+                    sublabel="Cellular billow density across planetary surface"
+                    tooltip="Planetary horizontal noise frequency (calibrated: 32.0)"
+                    value={curCloudFreqHoriz}
+                    min={12.0}
+                    max={56.0}
+                    step={2.0}
+                    readout={`${Math.round(curCloudFreqHoriz)}x`}
+                    onChange={handleCloudFreqHorizChange}
+                  />
+                </div>
+
+                {/* 5. Vertical Strata Frequency */}
+                <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
+                  <VernierSlider
+                    id="beta-cloud-freq-vert"
+                    label="Vertical Strata Frequency"
+                    sublabel="Vertical octave density across troposphere shell"
+                    tooltip="Vertical noise frequency across shell (calibrated: 12.0)"
+                    value={curCloudFreqVert}
+                    min={4.0}
+                    max={24.0}
+                    step={1.0}
+                    readout={`${Math.round(curCloudFreqVert)}x`}
+                    onChange={handleCloudFreqVertChange}
+                  />
+                </div>
+
+                {/* 6. Optical Extinction */}
+                <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
+                  <VernierSlider
+                    id="beta-cloud-extinction"
+                    label="Optical Extinction"
+                    sublabel="Raymarch absorption and scattering coefficient"
+                    tooltip="Volumetric extinction coefficient (calibrated: 28.0)"
+                    value={curCloudExtinction}
+                    min={10.0}
+                    max={50.0}
+                    step={2.0}
+                    readout={`${Math.round(curCloudExtinction)}`}
+                    onChange={handleCloudExtinctionChange}
+                  />
+                </div>
+
+                {/* 7. Quick Camera Pitch Buttons */}
+                <div className="pt-2 border-t border-[var(--theme-card-border)]/50 space-y-1">
+                  <span className="text-nano font-mono uppercase tracking-wider text-[var(--theme-text-muted)]">
+                    Camera Pitch Angle
+                  </span>
+                  <div className="grid grid-cols-4 gap-1">
+                    {[
+                      { label: '0° Nadir', pitch: 0 },
+                      { label: '45° Oblique', pitch: 45 },
+                      { label: '55° Limb', pitch: 55 },
+                      { label: '75° Horizon', pitch: 75 },
+                    ].map((btn) => (
+                      <button
+                        key={btn.label}
+                        type="button"
+                        onClick={() => {
+                          if (typeof window !== 'undefined' && (window as any).__INDICATRIX_CAMERA__?.setPitch) {
+                            (window as any).__INDICATRIX_CAMERA__.setPitch(btn.pitch);
+                          }
+                        }}
+                        className="py-1 px-1 rounded-[2px] border text-center font-mono text-[9px] uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text)] border-[var(--theme-control-border)] transition-colors cursor-pointer truncate"
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 8. Diagnostic Test Locations & Reset */}
+                <div className="pt-2 border-t border-[var(--theme-card-border)]/50 flex items-center justify-between gap-1">
+                  <div className="flex gap-1 flex-wrap">
+                    {[
+                      { label: 'Iceland', loc: 'iceland' },
+                      { label: 'Hawaii', loc: 'hawaii' },
+                      { label: 'Aleutians', loc: 'aleutians' },
+                      { label: 'Atlantic', loc: 'atlantic' },
+                    ].map((btn) => (
+                      <button
+                        key={btn.label}
+                        type="button"
+                        onClick={() => {
+                          if (typeof window !== 'undefined' && (window as any).tuneClouds) {
+                            (window as any).tuneClouds({ location: btn.loc });
+                          }
+                        }}
+                        className="py-0.5 px-1.5 rounded-[2px] border text-center font-mono text-[9px] uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text)] border-[var(--theme-control-border)] transition-colors cursor-pointer"
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResetCloudDefaults}
+                    className="py-0.5 px-2 rounded-[2px] border text-center font-mono text-[9px] uppercase font-bold tracking-wider bg-[var(--theme-status-amber)]/20 hover:bg-[var(--theme-status-amber)]/30 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40 transition-colors cursor-pointer shrink-0"
+                    title="Reset all volumetric cloud levers to calibrated defaults"
+                  >
+                    Reset Defaults
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
