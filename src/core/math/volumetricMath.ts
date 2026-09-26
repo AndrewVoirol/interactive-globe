@@ -645,3 +645,132 @@ export function schneiderDensityRemap(
   return remap(baseHull, effectiveErosion, 1.0, 0.0, 1.0);
 }
 
+/**
+ * Analytical intersection of a 3D ray with an axis-aligned bounding box / planar slab.
+ * Uses Kay-Kajiya slab method with division-by-zero protection.
+ */
+export function intersectRaySlab(
+  r0: Vec3,
+  dir: Vec3,
+  slabMin: Vec3,
+  slabMax: Vec3
+): RaySphereHit | null {
+  const eps = 1e-6;
+  const safeDir: Vec3 = [
+    Math.abs(dir[0]) < eps ? (dir[0] >= 0 ? eps : -eps) : dir[0],
+    Math.abs(dir[1]) < eps ? (dir[1] >= 0 ? eps : -eps) : dir[1],
+    Math.abs(dir[2]) < eps ? (dir[2] >= 0 ? eps : -eps) : dir[2],
+  ];
+
+  const invDir: Vec3 = [1.0 / safeDir[0], 1.0 / safeDir[1], 1.0 / safeDir[2]];
+
+  const t0: Vec3 = [
+    (slabMin[0] - r0[0]) * invDir[0],
+    (slabMin[1] - r0[1]) * invDir[1],
+    (slabMin[2] - r0[2]) * invDir[2],
+  ];
+  const t1: Vec3 = [
+    (slabMax[0] - r0[0]) * invDir[0],
+    (slabMax[1] - r0[1]) * invDir[1],
+    (slabMax[2] - r0[2]) * invDir[2],
+  ];
+
+  const tMinX = Math.min(t0[0], t1[0]);
+  const tMaxX = Math.max(t0[0], t1[0]);
+  const tMinY = Math.min(t0[1], t1[1]);
+  const tMaxY = Math.max(t0[1], t1[1]);
+  const tMinZ = Math.min(t0[2], t1[2]);
+  const tMaxZ = Math.max(t0[2], t1[2]);
+
+  const tNear = Math.max(Math.max(tMinX, tMinY), tMinZ);
+  const tFar = Math.min(Math.min(tMaxX, tMaxY), tMaxZ);
+
+  if (tNear > tFar || tFar < 0.0) {
+    return null;
+  }
+
+  return {
+    tNear,
+    tFar,
+  };
+}
+
+/**
+ * Computes the raymarch interval through a planar tropospheric slab.
+ * Safely handles camera positioned inside the slab (tNear <= 0.0).
+ */
+export function computePlanarTroposphericInterval(
+  r0: Vec3,
+  dir: Vec3,
+  slabMin: Vec3,
+  slabMax: Vec3
+): TroposphericInterval | null {
+  const hit = intersectRaySlab(r0, dir, slabMin, slabMax);
+  if (!hit) return null;
+
+  const tStart = Math.max(0.0, hit.tNear);
+  const tEnd = hit.tFar;
+
+  if (tStart >= tEnd) return null;
+  return { tStart, tEnd };
+}
+
+/**
+ * Maps world-space position in the planar slab to normalized coordinates:
+ * u, v in [0, 1] across the map sheet, and hNorm in [0, 1] vertical tropospheric altitude.
+ * Supports Mode 0 (Equirectangular 2:1) and Mode 1 (Mercator).
+ */
+export function mapPlanarCoordinates(
+  pos: Vec3,
+  radius: number = 5.0,
+  deltaZ: number = 0.19,
+  mode: number = 0
+): { u: number; v: number; hNorm: number } {
+  const [px, py, pz] = pos;
+  const hNorm = Math.max(0.0, Math.min(1.0, pz / Math.max(1e-5, deltaZ)));
+
+  const twoPiR = 2.0 * Math.PI * radius;
+  const rawU = (px / twoPiR) + 0.5;
+  const u = rawU - Math.floor(rawU); // fract in [0, 1)
+
+  let v = 0.5;
+  if (mode >= 1) {
+    // Mode 1..3: Mercator projection
+    const clampedY = Math.max(-2.5, Math.min(2.5, py / radius));
+    const phi = 2.0 * Math.atan(Math.exp(clampedY)) - Math.PI * 0.5;
+    v = Math.max(0.001, Math.min(0.999, 0.5 - (phi / Math.PI)));
+  } else {
+    // Mode 0: Equirectangular 2:1
+    const piR = Math.PI * radius;
+    v = Math.max(0.001, Math.min(0.999, 0.5 - (py / piR)));
+  }
+
+  return { u, v, hNorm };
+}
+
+/**
+ * Computes isotropic 3D procedural noise coordinate in the planar tropospheric slab.
+ * Scales the latitudinal axis by 0.5 to maintain square cells for the 2:1 equirectangular aspect ratio.
+ */
+export function computePlanarNoiseCoord(
+  u: number,
+  v: number,
+  hNorm: number,
+  freqHoriz: number,
+  freqVert: number,
+  timeDrift: number
+): Vec3 {
+  const nx = u * freqHoriz;
+  const ny = v * (freqHoriz * 0.5);
+  const nz = hNorm * freqVert;
+
+  const driftX = timeDrift * 0.10;
+  const driftZ = timeDrift * 0.05;
+
+  return [
+    nx + driftX,
+    ny,
+    nz + driftZ,
+  ];
+}
+

@@ -2,8 +2,8 @@
 
 **Master Orchestrator**: Antigravity 2.0 Multi-Agent Framework  
 **Target Codebase**: `ais-interactive-globe-to-map`  
-**Operational Status**: `[ALL MILESTONES COMPLETED - 3,685/3,685 TESTS PASSING]`  
-**Current Baseline**: 254 test files, 3,685 tests passing (100% pass rate, 0 failures, 0 regressions)  
+**Operational Status**: `[ALL MILESTONES COMPLETED - 3,697/3,697 TESTS PASSING]`  
+**Current Baseline**: 255 test files, 3,697 tests passing (100% pass rate, 0 failures, 0 regressions)  
 **Circuit Breaker Rule**: `MAX_RETRIES = 2` (Halts on 2 consecutive failed iterations per task ➔ `escalation.md`)
 
 ---
@@ -268,7 +268,16 @@
   - **Specification**: Ported `#caliper-card` from `testbed/weather.html` into a dedicated production React HUD card. Displays Cursor Target, Camera Elevation (km/m), Pitch/Heading ($0^\circ \to 85^\circ$), Tropospheric Regime, Current Stratum, Raymarch Interval, Forecast Cycle, Strata Color Mode, Grid Resolution, and interactive Vernier pitch slider with quick snap buttons. Conforms strictly to Rule 6 Single-Border HUD Enclosure and ivory vellum token palette.
   - **Micro-Verification**: Verified 100% test pass rate across DOM, ARIA, and behavioral suites; verified live browser rendering across Themes 0, 1, and 2 via Chrome DevTools MCP.
 
+- [x] **Task M7-T7**: 2D Planar & Unfurled Map Tropospheric Slab Raymarching
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: Volumetric Cloud & Atmospheric Shader Engineer
+  - **Target Files**: `src/core/math/volumetricMath.ts`, `src/webgpu/shaders/volumetric_cloud.wgsl`, `tests/modern/planar-volumetric-cloud.test.ts`
+  - **Specification**: Extended analytical raymarching to flat unfurled map projections ($\alpha \ge 0.50$) via a 3D bounding slab $[-\pi R, \pi R] \times [-y_{\max}, y_{\max}] \times [0, \Delta Z]$. Added Kay-Kajiya slab intersection (`intersectTroposphericSlab`), isotropic planar coordinate unwrapping (`planarToUV`), aspect-corrected 3D noise indexing (`planarNoiseCoord`), decoupled planar density integration (`sampleCloudDensityPlanar`), false-color diagnostic strata evaluation (`evaluateStrataDiagnosticColorPlanar`), and 4-step Beer-Lambert solar crevice shadows (`sampleSunShadowTransmittancePlanar`). Preserved Rule 4 uniform control flow (explicit LOD 0.0), Rule 15 premultiplied alpha, and bypassed spherical Rayleigh airglow in planar mode.
+  - **Micro-Verification**: 12/12 passing unit tests in `tests/modern/planar-volumetric-cloud.test.ts`; 160/160 passing tests across all targeted volumetric challenger suites; 0 WGSL linter errors across 20 shaders; live Chrome DevTools MCP visual verification capturing both spherical ($\alpha = 0.0$) and flat planar map ($\alpha = 1.0$) across Marie Tharp (Theme 0), Cream Rag (Theme 1), and Prussian Cyanotype (Theme 2) with zero console errors.
+
 ---
+
 
 ## Future Research & Physical Medium Fidelity Backlog
 
