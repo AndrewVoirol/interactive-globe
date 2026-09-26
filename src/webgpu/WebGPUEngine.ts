@@ -7384,7 +7384,18 @@ export class WebGPUEngine {
       // Dynamic Cloud Ground Shadows (floats 68..71, offset 272..288) (Spec §2.1, Invariant §20)
       // Contract: this.crustFloats[68] = params.shadowIntensity !== undefined ? params.shadowIntensity : (this.shadowIntensity ?? 0.45);
       // Fallback contract: this.crustFloats[69] = 0.0; this.crustFloats[70] = 0.0; this.crustFloats[71] = 0.0;
-      const cloudsActive = Boolean(params.showClouds) && (this.cloudEnabled !== false);
+      const showLow = params.showCloudLow !== undefined
+        ? Boolean(params.showCloudLow)
+        : (this.cloudOptions.showLow !== false);
+      const showMid = params.showCloudMid !== undefined
+        ? Boolean(params.showCloudMid)
+        : (this.cloudOptions.showMid !== false);
+      const showHigh = params.showCloudHigh !== undefined
+        ? Boolean(params.showCloudHigh)
+        : (this.cloudOptions.showHigh !== false);
+      const anyStrataActive = showLow || showMid || showHigh;
+
+      const cloudsActive = Boolean(params.showClouds) && (this.cloudEnabled !== false) && showLow && anyStrataActive;
       const rawShadow = cloudsActive
         ? (params.shadowIntensity !== undefined ? params.shadowIntensity : this.shadowIntensity)
         : 0.0;
@@ -7740,7 +7751,18 @@ export class WebGPUEngine {
     );
 
     // Pass 1d: Cloud Semi-Lagrangian Vector Advection Compute Dispatch (Section 1)
-    const showClouds = !isPurity && Boolean(params.showClouds) && this.cloudEnabled !== false;
+    const showLow = params.showCloudLow !== undefined
+      ? Boolean(params.showCloudLow)
+      : (this.cloudOptions.showLow !== false);
+    const showMid = params.showCloudMid !== undefined
+      ? Boolean(params.showCloudMid)
+      : (this.cloudOptions.showMid !== false);
+    const showHigh = params.showCloudHigh !== undefined
+      ? Boolean(params.showCloudHigh)
+      : (this.cloudOptions.showHigh !== false);
+    const anyStrataActive = showLow || showMid || showHigh;
+
+    const showClouds = !isPurity && Boolean(params.showClouds) && this.cloudEnabled !== false && anyStrataActive;
     const useVolumetric = !isPurity && showClouds &&
       (params.volumetricClouds === true || (Boolean(params.volumetricClouds) && this.volumetricCloudsEnabled)) &&
       !!this.volumetricCloudPipeline;
@@ -9065,7 +9087,7 @@ export class WebGPUEngine {
 
     if (buffer) {
       this.setCloudData(layer, buffer, width, height);
-    } else {
+    } else if (width === 1440 && height === 721) {
       this.ensureCloudBuffers(1440, 721);
       const procBuf = this.generateProceduralCloudBuffer(layer);
       this.setCloudData(layer, procBuf, 1440, 721);
@@ -9075,35 +9097,63 @@ export class WebGPUEngine {
   public async loadAllCloudLayers(isWeatherNext: boolean = false): Promise<void> {
     if (isWeatherNext) {
       try {
-        await Promise.all([
-          this.loadCloudData('low', '/data/weathernext/low_cloud_cover_mean-0.bin', 3600, 1801),
-          this.loadCloudData('mid', '/data/weathernext/medium_cloud_cover_mean-0.bin', 3600, 1801),
-          this.loadCloudData('high', '/data/weathernext/high_cloud_cover_mean-0.bin', 3600, 1801),
+        this.ensureCloudBuffers(3600, 1801);
+        const [lowRes, midRes, highRes] = await Promise.all([
+          fetch('/data/weathernext/low_cloud_cover_mean-0.bin'),
+          fetch('/data/weathernext/medium_cloud_cover_mean-0.bin'),
+          fetch('/data/weathernext/high_cloud_cover_mean-0.bin'),
         ]);
-        this.lastLoadedWeatherNextHour = 0;
-        return;
+
+        if (lowRes.ok && midRes.ok && highRes.ok) {
+          const [lowBuf, midBuf, highBuf] = await Promise.all([
+            lowRes.arrayBuffer(),
+            midRes.arrayBuffer(),
+            highRes.arrayBuffer(),
+          ]);
+          this.setCloudData('low', lowBuf, 3600, 1801);
+          this.setCloudData('mid', midBuf, 3600, 1801);
+          this.setCloudData('high', highBuf, 3600, 1801);
+          this.lastLoadedWeatherNextHour = 0;
+          return;
+        }
       } catch (e) {
-        console.warn('WeatherNext cloud layers failed to load, falling back to GFS');
+        console.warn('WeatherNext cloud layers failed to load, falling back to GFS:', e);
       }
     }
     
     this.lastLoadedWeatherNextHour = -1;
+    this.ensureCloudBuffers(1440, 721);
     await Promise.all([
-      this.loadCloudData('low'),
-      this.loadCloudData('mid'),
-      this.loadCloudData('high'),
+      this.loadCloudData('low', undefined, 1440, 721),
+      this.loadCloudData('mid', undefined, 1440, 721),
+      this.loadCloudData('high', undefined, 1440, 721),
     ]);
   }
 
   public async loadWeatherNextCloudLayers(hour: number): Promise<void> {
     const clampedHour = Math.max(0, Math.min(11, Math.floor(hour)));
     if (this.lastLoadedWeatherNextHour === clampedHour) return;
-    this.lastLoadedWeatherNextHour = clampedHour;
-    await Promise.all([
-      this.loadCloudData('low', `/data/weathernext/low_cloud_cover_mean-${clampedHour}.bin`, 3600, 1801),
-      this.loadCloudData('mid', `/data/weathernext/medium_cloud_cover_mean-${clampedHour}.bin`, 3600, 1801),
-      this.loadCloudData('high', `/data/weathernext/high_cloud_cover_mean-${clampedHour}.bin`, 3600, 1801),
-    ]);
+    this.ensureCloudBuffers(3600, 1801);
+    try {
+      const [lowRes, midRes, highRes] = await Promise.all([
+        fetch(`/data/weathernext/low_cloud_cover_mean-${clampedHour}.bin`),
+        fetch(`/data/weathernext/medium_cloud_cover_mean-${clampedHour}.bin`),
+        fetch(`/data/weathernext/high_cloud_cover_mean-${clampedHour}.bin`),
+      ]);
+      if (lowRes.ok && midRes.ok && highRes.ok) {
+        const [lowBuf, midBuf, highBuf] = await Promise.all([
+          lowRes.arrayBuffer(),
+          midRes.arrayBuffer(),
+          highRes.arrayBuffer(),
+        ]);
+        this.setCloudData('low', lowBuf, 3600, 1801);
+        this.setCloudData('mid', midBuf, 3600, 1801);
+        this.setCloudData('high', highBuf, 3600, 1801);
+        this.lastLoadedWeatherNextHour = clampedHour;
+      }
+    } catch (e) {
+      console.warn(`WeatherNext cloud layers failed to load for hour ${clampedHour}:`, e);
+    }
   }
 
   public updateCloudUniforms(dt: number, params?: Partial<any>): void {

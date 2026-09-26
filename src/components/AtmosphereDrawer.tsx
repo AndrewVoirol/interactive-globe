@@ -131,7 +131,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const [internalPluvialGamma, setInternalPluvialGamma] = useState<number>(0.0);
   const [internalWeatherOpticalMode, setInternalWeatherOpticalMode] = useState<number>(0);
   const [internalThermodynamicGating, setInternalThermodynamicGating] = useState<boolean>(true);
-  const [internalPrognosticModel, setInternalPrognosticModel] = useState<PrognosticModelBackend>('gfs');
+  const [internalPrognosticModel, setInternalPrognosticModel] = useState<PrognosticModelBackend>(propPrognosticModel ?? 'weathernext3');
   const [internalPrognosticVariable, setInternalPrognosticVariable] = useState<string>('total_precipitation_1hr_mean');
 
   const curShowClouds = propShowClouds !== undefined ? propShowClouds : internalShowClouds;
@@ -207,20 +207,35 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
     if (stratum === 'low') {
       setInternalShowCloudLow(active);
       onShowCloudLowChange?.(active);
-      if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
-        (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudLow: active });
+      if (typeof window !== 'undefined') {
+        if ((window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+          (window as any).__INDICATRIX_LIVE_UNIFORMS__.showCloudLow = active;
+        }
+        if ((window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+          (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudLow: active });
+        }
       }
     } else if (stratum === 'mid') {
       setInternalShowCloudMid(active);
       onShowCloudMidChange?.(active);
-      if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
-        (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudMid: active });
+      if (typeof window !== 'undefined') {
+        if ((window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+          (window as any).__INDICATRIX_LIVE_UNIFORMS__.showCloudMid = active;
+        }
+        if ((window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+          (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudMid: active });
+        }
       }
     } else if (stratum === 'high') {
       setInternalShowCloudHigh(active);
       onShowCloudHighChange?.(active);
-      if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
-        (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudHigh: active });
+      if (typeof window !== 'undefined') {
+        if ((window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+          (window as any).__INDICATRIX_LIVE_UNIFORMS__.showCloudHigh = active;
+        }
+        if ((window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+          (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ showCloudHigh: active });
+        }
       }
     }
   };
@@ -231,8 +246,13 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const handleToggleFalseColor = (active: boolean) => {
     setInternalCloudFalseColor(active);
     onCloudFalseColorChange?.(active);
-    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
-      (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ cloudFalseColor: active });
+    if (typeof window !== 'undefined') {
+      if ((window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudFalseColor = active;
+      }
+      if ((window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+        (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ cloudFalseColor: active });
+      }
     }
   };
 

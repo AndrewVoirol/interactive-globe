@@ -375,7 +375,7 @@ fn sampleSunShadowTransmittance(pos: vec3<f32>, sunDir: vec3<f32>, rInner: f32, 
     let stepDist = 0.00045;
     var tauSun: f32 = 0.0;
     var avgDensity: f32 = 0.0;
-    let sigmaT = cloud.u_opticalParams.x;
+    let sigmaT = cloud.u_opticalParams.x * 20.0;
 
     // 4-step Beer-Lambert integration
     for (var k: i32 = 1; k <= 4; k++) {
