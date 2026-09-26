@@ -1553,6 +1553,34 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         cameraPos: [cameraRef.current.position.x, cameraRef.current.position.y, cameraRef.current.position.z],
       }),
     };
+    (window as any).tuneClouds = (options: {
+      location?: 'iceland' | 'hawaii' | 'aleutians' | 'atlantic';
+      erosion?: number;
+      freq?: number;
+      freqVert?: number;
+      extinction?: number;
+      opacity?: number;
+      zoom?: number;
+    } = {}) => {
+      if (options.location === 'iceland') {
+        (window as any).__INDICATRIX_CAMERA__?.lookAtCoordinates(-21.94, 64.15, options.zoom ?? 7.5);
+      } else if (options.location === 'hawaii') {
+        (window as any).__INDICATRIX_CAMERA__?.lookAtCoordinates(-156.0, 20.0, options.zoom ?? 7.5);
+      } else if (options.location === 'aleutians') {
+        (window as any).__INDICATRIX_CAMERA__?.lookAtCoordinates(-170.0, 53.0, options.zoom ?? 7.5);
+      } else if (options.location === 'atlantic') {
+        (window as any).__INDICATRIX_CAMERA__?.lookAtCoordinates(-5.0, -15.0, options.zoom ?? 7.5);
+      }
+      (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {
+        ...((window as any).__INDICATRIX_LIVE_UNIFORMS__ || {}),
+        ...(options.erosion !== undefined ? { cloudErosionStr: options.erosion } : {}),
+        ...(options.freq !== undefined ? { cloudFreqHoriz: options.freq } : {}),
+        ...(options.freqVert !== undefined ? { cloudFreqVert: options.freqVert } : {}),
+        ...(options.extinction !== undefined ? { cloudExtinction: options.extinction } : {}),
+        ...(options.opacity !== undefined ? { cloudOpacity: options.opacity } : {}),
+      };
+      return (window as any).__INDICATRIX_LIVE_UNIFORMS__;
+    };
     (window as any).__INDICATRIX_WEBGPU_ENGINE__ = engineRef.current;
     (window as any).__INDICATRIX_TRAJECTORY__ = {
       startDemo: (seq: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji' = 'hawaii', duration = 8.0) => {
@@ -2926,6 +2954,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             liveOverrides?.cloudOpacity !== undefined
               ? liveOverrides.cloudOpacity
               : stateRef.current.cloudOpacity,
+          cloudFreqHoriz: liveOverrides?.cloudFreqHoriz,
+          cloudFreqVert: liveOverrides?.cloudFreqVert,
+          cloudErosionStr: liveOverrides?.cloudErosionStr,
+          cloudExtinction: liveOverrides?.cloudExtinction,
           atmosphericScale: stateRef.current.atmosphericScale,
           shadowIntensity:
             liveOverrides?.shadowIntensity !== undefined
