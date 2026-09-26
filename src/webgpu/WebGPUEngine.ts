@@ -6466,7 +6466,13 @@ export class WebGPUEngine {
 
     // Shell Radii (dynamically scaled with DEM relief displacement to prevent mountain discard)
     const dispScale = ((params as any).displacementScale ?? 0.055) * 2.8;
-    const tropoThickness = 0.035 + dispScale * 0.4;
+    const baseThickness = 0.035 + dispScale * 0.4;
+    const rawAtmScale = (params as any).atmosphericScale !== undefined ? (params as any).atmosphericScale : this.atmosphericScale;
+    const atmScale = typeof rawAtmScale === 'number' && Number.isFinite(rawAtmScale) ? Math.max(1.0, Math.min(12.0, rawAtmScale)) : 1.0;
+    const customThickness = (params as any).cloudThickness;
+    const tropoThickness = customThickness !== undefined
+      ? customThickness
+      : baseThickness * Math.max(1.0, atmScale * 0.85);
     const rInner = 5.0;
     const rOuter = rInner + tropoThickness;
     const deltaR = tropoThickness;
@@ -6499,10 +6505,10 @@ export class WebGPUEngine {
     cloudFloats[7] = sunAlt;
 
     // Layer Heights
-    cloudFloats[8] = 0.15;
-    cloudFloats[9] = 0.20;
-    cloudFloats[10] = 0.55;
-    cloudFloats[11] = 0.60;
+    cloudFloats[8] = (params as any).cloudLowTop ?? 0.28;
+    cloudFloats[9] = (params as any).cloudMidBottom ?? 0.32;
+    cloudFloats[10] = (params as any).cloudMidTop ?? 0.65;
+    cloudFloats[11] = (params as any).cloudHighBottom ?? 0.70;
 
     // Layer Densities
     const lowDens = (Boolean((params as any).showCloudLow ?? this.cloudOptions.showLow)) ? 1.0 : 0.0;

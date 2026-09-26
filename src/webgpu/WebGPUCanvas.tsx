@@ -1561,6 +1561,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       extinction?: number;
       opacity?: number;
       zoom?: number;
+      thickness?: number;
+      lowTop?: number;
+      pitch?: number;
     } = {}) => {
       if (options.location === 'iceland') {
         (window as any).__INDICATRIX_CAMERA__?.lookAtCoordinates(-21.94, 64.15, options.zoom ?? 7.5);
@@ -1571,6 +1574,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       } else if (options.location === 'atlantic') {
         (window as any).__INDICATRIX_CAMERA__?.lookAtCoordinates(-5.0, -15.0, options.zoom ?? 7.5);
       }
+      if (options.pitch !== undefined && typeof (window as any).__INDICATRIX_CAMERA__?.setPitch === 'function') {
+        (window as any).__INDICATRIX_CAMERA__.setPitch(options.pitch);
+      }
       (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {
         ...((window as any).__INDICATRIX_LIVE_UNIFORMS__ || {}),
         ...(options.erosion !== undefined ? { cloudErosionStr: options.erosion } : {}),
@@ -1578,6 +1584,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         ...(options.freqVert !== undefined ? { cloudFreqVert: options.freqVert } : {}),
         ...(options.extinction !== undefined ? { cloudExtinction: options.extinction } : {}),
         ...(options.opacity !== undefined ? { cloudOpacity: options.opacity } : {}),
+        ...(options.thickness !== undefined ? { cloudThickness: options.thickness } : {}),
+        ...(options.lowTop !== undefined ? { cloudLowTop: options.lowTop } : {}),
       };
       return (window as any).__INDICATRIX_LIVE_UNIFORMS__;
     };
@@ -2958,6 +2966,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           cloudFreqVert: liveOverrides?.cloudFreqVert,
           cloudErosionStr: liveOverrides?.cloudErosionStr,
           cloudExtinction: liveOverrides?.cloudExtinction,
+          cloudThickness: liveOverrides?.cloudThickness,
+          cloudLowTop: liveOverrides?.cloudLowTop,
           atmosphericScale: stateRef.current.atmosphericScale,
           shadowIntensity:
             liveOverrides?.shadowIntensity !== undefined
