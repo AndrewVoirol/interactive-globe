@@ -349,7 +349,7 @@ describe('Challenger M3-2: WebGPU Pass 2 Depth Occlusion & Anti-Cheating Verific
 
       // Must implement true Beer-Lambert integration & dual-lobe HG
       expect(wgsl).toContain('fn dualHenyeyGreenstein(');
-      expect(wgsl).toContain('fn intersectTroposphericShell(');
+      expect(wgsl).toContain('var u_proxyFrontDepth: texture_depth_2d;');
       expect(wgsl).toContain('fn reconstructWorldPosition(');
       expect(wgsl).toContain('fn sampleSunShadowTransmittance(');
       expect(wgsl).toContain('accumLight += accumTransmittance * S * stepSize');
@@ -362,7 +362,7 @@ describe('Challenger M3-2: WebGPU Pass 2 Depth Occlusion & Anti-Cheating Verific
       // Theme 2 Prussian Cyanotype fallback
 
       // Must clamp to terrain surface
-      expect(wgsl).toContain('let tExit = min(shellHit.y, tTerrain)');
+      expect(wgsl).toContain('min(tProxyExit, tTerrain)');
       expect(wgsl).toContain('textureLoad(u_depthTexture, pixelCoords, 0)');
     });
 

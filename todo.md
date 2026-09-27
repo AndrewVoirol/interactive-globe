@@ -316,6 +316,18 @@
   - **Specification**: Coupled volumetric cloud raymarching step budget (`u_simControl.w`) dynamically to `ResolutionTier` (`100k` $\to$ 16, `1M` $\to$ 32, `3M` $\to$ 40, `4M` $\to$ 48, `8M` $\to$ 56, `16M` $\to$ 64 steps) and camera-altitude adaptive LOD. Integrated 10 Hz non-thrashing live telemetry readout (`Raymarch Step Budget: X steps (tier)`) into `StratosphericTelemetryInstrument`.
   - **Micro-Verification**: 262/262 test files passing (3,742/3,742 tests, 0 failures, 0 regressions in 37.16s). Live Chrome DevTools MCP empirical verification measured 5.38 ms total GPU frame duration at `100k` (48.5% reduction vs baseline) with 60 FPS, 10.35 ms at `16M`, and verified visual contrast across Cream Rag, Prussian Cyanotype, and Marie Tharp.
 
+- [x] **Task M7-T13**: Volumetric Cloud Hybrid Dual-Depth Bounding Proxy Pass
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: WebGPU Architecture & Atmospheric Shader Engineer
+  - **Target Files**: `src/webgpu/WebGPUEngine.ts`, `src/webgpu/shaders/cloud_proxy.wgsl`, `src/webgpu/shaders/volumetric_cloud.wgsl`, `tests/modern/challenger-m3-depth-pipeline.test.ts`
+  - **Specification**: Completely eliminated fragile mathematical cylinder/slab ray intersection approximations (`intersectTroposphericCylinder`, `intersectTroposphericSlab`, `intersectTroposphericShell`) in favor of a robust, hardware-rasterized dual-depth geometric proxy:
+    1. *Low-Poly Watertight Bounding Mesh*: Generated sealed 3D proxy shell mesh via `generateCloudProxyGrid(32, 64)` dynamically deformed by `evaluateManifoldCore` in `cloud_proxy.wgsl`.
+    2. *Auxiliary Depth Pre-Passes*: Allocated `cloudProxyFrontDepthTexture` and `cloudProxyBackDepthTexture` (`depth32float`), rendering front-face entry depths ($t_{\text{entry}}$) and back-face exit depths ($t_{\text{exit}}$) of the exact deformed manifold.
+    3. *Raymarcher Direct Depth Sampling*: Exposed proxy textures as bindings 9 and 10 in `volumetric_cloud.wgsl`. Reconstructed world distances via `reconstructWorldPosition` and clamped intervals strictly to $[t_{\text{entry}}, \min(t_{\text{exit}}, t_{\text{terrain}})]$.
+    4. *Dead Code Purge*: Completely excised unused geometry routines (`intersectSphere`, `intersectTroposphericShell`, `intersectTroposphericSlab`, and dead variables like `rOuter`).
+  - **Micro-Verification**: All targeted vitest suites passing (130/130 tests across 8 test files); live Chrome DevTools MCP empirical verification confirmed smooth rendering with zero clipping artifacts across spherical globe ($\alpha = 0$), intermediate cylindrical states ($\alpha = 0.30, 0.70$), and flat planar map ($\alpha = 1.0$) at 22–24 FPS with zero WebGPU validation or shader errors.
+
 ---
 
 

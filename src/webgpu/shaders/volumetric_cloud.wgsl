@@ -62,6 +62,8 @@ struct VolumetricCloudUniforms {
 @group(0) @binding(6) var u_cloudMidTexture: texture_2d<f32>;
 @group(0) @binding(7) var u_cloudHighTexture: texture_2d<f32>;
 @group(0) @binding(8) var u_cloud2DSampler: sampler;
+@group(0) @binding(9) var u_proxyFrontDepth: texture_depth_2d;
+@group(0) @binding(10) var u_proxyBackDepth: texture_depth_2d;
 
 // ----------------------------------------------------------------------------
 // Section 1: Semi-Lagrangian Advection Resource Bindings (@group(1))
@@ -103,83 +105,9 @@ fn vs_main(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
 }
 
 // ----------------------------------------------------------------------------
-// Geometry & Intersection Routines
+// Geometry & Depth Reconstruction Routines
 // ----------------------------------------------------------------------------
 
-// Analytical Ray-Sphere Intersection
-// Returns vec2<f32>(tNear, tFar). If no hit, returns vec2<f32>(-1.0, -1.0)
-fn intersectSphere(rayOrigin: vec3<f32>, rayDir: vec3<f32>, radius: f32) -> vec2<f32> {
-    let b = dot(rayOrigin, rayDir);
-    let c = dot(rayOrigin, rayOrigin) - radius * radius;
-    let d = b * b - c;
-    if (d < 0.0) {
-        return vec2<f32>(-1.0, -1.0);
-    }
-    let sqrtD = sqrt(d);
-    return vec2<f32>(-b - sqrtD, -b + sqrtD);
-}
-
-// Tropospheric Bounding Shell Intersection [rInner, rOuter]
-// Handles orbital (rCam > rOuter), inside strata (rCam in [rInner, rOuter]), and sub-cloud ceiling (rCam < rInner)
-fn intersectTroposphericShell(
-    rayOrigin: vec3<f32>,
-    rayDir: vec3<f32>,
-    rInner: f32,
-    rOuter: f32
-) -> vec2<f32> {
-    let hitOuter = intersectSphere(rayOrigin, rayDir, rOuter);
-    let hitInner = intersectSphere(rayOrigin, rayDir, rInner);
-
-    let rCam = length(rayOrigin);
-    var tStart: f32 = -1.0;
-    var tExit: f32 = -1.0;
-
-    if (rCam > rOuter) {
-        // Regime 1: Camera in outer space looking into troposphere
-        if (hitOuter.x > 0.0) {
-            tStart = hitOuter.x;
-            tExit = select(hitOuter.y, hitInner.x, hitInner.x > 0.0);
-        }
-    } else if (rCam >= rInner) {
-        // Regime 2: Camera is physically inside troposphere / cloud strata
-        tStart = 0.0;
-        let deltaR = rOuter - rInner;
-        let rawExit = select(hitOuter.y, hitInner.x, hitInner.x > 0.0);
-        tExit = min(rawExit, deltaR * 6.0);
-    } else {
-        // Regime 3: Camera is below inner radius (ground level or beneath cloud base)
-        // Ray pointing up enters cloud base at hitInner.y and exits to space at hitOuter.y
-        if (hitInner.y > 0.0) {
-            tStart = hitInner.y;
-            tExit = hitOuter.y;
-        }
-    }
-
-    return vec2<f32>(tStart, tExit);
-}
-
-// Tropospheric Bounding Slab Intersection (Flat Map Sheet Mode)
-// Intersects camera ray with oriented bounding box [slabMin, slabMax]
-fn intersectTroposphericSlab(
-    rayOrigin: vec3<f32>,
-    rayDir: vec3<f32>,
-    slabMin: vec3<f32>,
-    slabMax: vec3<f32>
-) -> vec2<f32> {
-    let safeDir = select(rayDir, vec3<f32>(1e-6), abs(rayDir) < vec3<f32>(1e-6));
-    let invDir = 1.0 / safeDir;
-    let t0 = (slabMin - rayOrigin) * invDir;
-    let t1 = (slabMax - rayOrigin) * invDir;
-    let tMin = min(t0, t1);
-    let tMax = max(t0, t1);
-    let tNear = max(max(tMin.x, tMin.y), tMin.z);
-    let tFar  = min(min(tMax.x, tMax.y), tMax.z);
-
-    if (tNear > tFar || tFar < 0.0) {
-        return vec2<f32>(-1.0, -1.0);
-    }
-    return vec2<f32>(max(0.0, tNear), tFar);
-}
 
 // Reconstruct World Position from Depth Value and Camera Matrices
 fn reconstructWorldPosition(ndcX: f32, ndcY: f32, depthVal: f32) -> vec3<f32> {
@@ -201,86 +129,6 @@ fn worldToEquirectangularUV(pos3D: vec3<f32>) -> vec2<f32> {
     return vec2<f32>(u, v);
 }
 
-// Tropospheric Developable Cylinder Shell Intersection (Intermediate Unfurl Mode)
-// Intersects camera ray directly with developable cylinder manifold (Rc, Cz)
-fn intersectTroposphericCylinder(
-    rayOrigin: vec3<f32>,
-    rayDir: vec3<f32>,
-    rInner: f32,
-    deltaR: f32,
-    unfurl: f32
-) -> vec2<f32> {
-    let alphaClamped = clamp(unfurl, 0.0, 1.0);
-    let alphaEased = alphaClamped * alphaClamped * (3.0 - 2.0 * alphaClamped);
-    let s = max(0.0001, 1.0 - alphaEased);
-    let sDiv = max(0.0001, s);
-    let Rc = rInner / sDiv;
-    let Cz = rInner * (s - 1.0 / sDiv);
-    let RcOuter = Rc + deltaR;
-
-    let tStraighten = smoothstep(0.20, 0.95, alphaEased);
-    // Equirectangular 2:1 developable sheet latitude bound
-    let yMax = rInner * (1.0 - tStraighten + tStraighten * HALF_PI) + deltaR * 1.1;
-
-    // Height slab along Y
-    var tYMin: f32 = -1e9;
-    var tYMax: f32 = 1e9;
-    if (abs(rayDir.y) > 1e-6) {
-        let ty0 = (-yMax - rayOrigin.y) / rayDir.y;
-        let ty1 = (yMax - rayOrigin.y) / rayDir.y;
-        tYMin = min(ty0, ty1);
-        tYMax = max(ty0, ty1);
-    } else if (abs(rayOrigin.y) > yMax) {
-        return vec2<f32>(-1.0, -1.0);
-    }
-
-    // Outer cylinder: x^2 + (z - Cz)^2 = RcOuter^2
-    let deltaZ0 = rayOrigin.z - Cz;
-    let A = rayDir.x * rayDir.x + rayDir.z * rayDir.z;
-    if (A < 1e-8) {
-        let distSq = rayOrigin.x * rayOrigin.x + deltaZ0 * deltaZ0;
-        if (distSq > RcOuter * RcOuter) {
-            return vec2<f32>(-1.0, -1.0);
-        }
-        let tEnter = max(0.0, tYMin);
-        let tExit = tYMax;
-        if (tEnter > tExit || tExit < 0.0) {
-            return vec2<f32>(-1.0, -1.0);
-        }
-        return vec2<f32>(tEnter, tExit);
-    }
-
-    let B = 2.0 * (rayOrigin.x * rayDir.x + deltaZ0 * rayDir.z);
-    let C_outer = rayOrigin.x * rayOrigin.x + deltaZ0 * deltaZ0 - RcOuter * RcOuter;
-    let disc_outer = B * B - 4.0 * A * C_outer;
-    if (disc_outer < 0.0) {
-        return vec2<f32>(-1.0, -1.0);
-    }
-
-    let sqrtDiscOuter = sqrt(disc_outer);
-    let tOuter1 = (-B - sqrtDiscOuter) / (2.0 * A);
-    let tOuter2 = (-B + sqrtDiscOuter) / (2.0 * A);
-
-    var tEnter = max(tOuter1, tYMin);
-    var tExit = min(tOuter2, tYMax);
-
-    if (tEnter > tExit || tExit < 0.0) {
-        return vec2<f32>(-1.0, -1.0);
-    }
-
-    // Inner cylinder (terrain surface): stop rays at ground level if looking from outside
-    let C_inner = rayOrigin.x * rayOrigin.x + deltaZ0 * deltaZ0 - Rc * Rc;
-    let disc_inner = B * B - 4.0 * A * C_inner;
-    if (disc_inner >= 0.0) {
-        let sqrtDiscInner = sqrt(disc_inner);
-        let tInner1 = (-B - sqrtDiscInner) / (2.0 * A);
-        if (tInner1 > 0.0 && tInner1 < tExit && tInner1 >= tEnter) {
-            tExit = tInner1;
-        }
-    }
-
-    return vec2<f32>(max(0.0, tEnter), tExit);
-}
 
 // Closed-Form Analytical Inversion of Pure Developable Macro Chart
 // Returns vec3<f32>(lambda, phi, h)
@@ -834,62 +682,29 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     let rInner = cloud.u_shellRadii.x;
-    let rOuter = cloud.u_shellRadii.y;
     let deltaR = cloud.u_shellRadii.z;
 
     var tStart: f32 = 0.0;
     var tEndInterval: f32 = 0.0;
 
-    // 3. Intersect Tropospheric Bounding Shell & Developing Slab
-    let shellHit = intersectTroposphericShell(rayOrigin, rayDir, rInner, rOuter);
+    // 3. Sample Cloud Proxy Dual-Depth Targets (Option 1 Bounding Proxy)
+    let frontDepth: f32 = textureLoad(u_proxyFrontDepth, pixelCoords, 0);
+    let backDepth: f32 = textureLoad(u_proxyBackDepth, pixelCoords, 0);
 
-    let alphaClamped = clamp(unfurl, 0.0, 1.0);
-    let alphaEased = alphaClamped * alphaClamped * (3.0 - 2.0 * alphaClamped);
-    let tStraighten = smoothstep(0.20, 0.95, alphaEased);
-    // Equirectangular 2:1 developable sheet latitude bound: yMax in [rInner, rInner * PI / 2]
-    let yMax = rInner * (1.0 - tStraighten + tStraighten * HALF_PI);
-
-    // Planar Tropospheric Bounding Slab [slabMin, slabMax] (tightened to dynamic yMax)
-    let halfW = PI * RADIUS;
-    let slabMinZ = mix(-rOuter, 0.0, unfurl);
-    let slabMaxZ = mix(rOuter, deltaR, unfurl);
-    let slabMin = vec3<f32>(-halfW, -yMax - deltaR, slabMinZ);
-    let slabMax = vec3<f32>(halfW, yMax + deltaR, slabMaxZ);
-    let slabHit = intersectTroposphericSlab(rayOrigin, rayDir, slabMin, slabMax);
-
-    if (unfurl <= 0.001) {
-        if (shellHit.x < 0.0 || shellHit.y <= shellHit.x) {
-            discard;
-        }
-        let tExit = min(shellHit.y, tTerrain);
-        tStart = shellHit.x;
-        tEndInterval = tExit;
-    } else if (unfurl >= 0.95) {
-        if (slabHit.x < 0.0 || slabHit.y <= slabHit.x) {
-            discard;
-        }
-        tStart = slabHit.x;
-        tEndInterval = min(slabHit.y, tTerrain);
-    } else {
-        let cylHit = intersectTroposphericCylinder(rayOrigin, rayDir, rInner, deltaR, unfurl);
-        let hasCyl = cylHit.x >= 0.0 && cylHit.y > cylHit.x;
-        if (!hasCyl) {
-            discard;
-        }
-        if (unfurl < 0.15) {
-            let hasShell = shellHit.x >= 0.0 && shellHit.y > shellHit.x;
-            if (hasShell) {
-                tStart = max(cylHit.x, shellHit.x);
-                tEndInterval = min(min(cylHit.y, shellHit.y), tTerrain);
-            } else {
-                tStart = cylHit.x;
-                tEndInterval = min(cylHit.y, tTerrain);
-            }
-        } else {
-            tStart = cylHit.x;
-            tEndInterval = min(cylHit.y, tTerrain);
-        }
+    // Account for depth clear values (Front clear = 1.0, Back clear = 0.0).
+    // If the fetched depth equals the clear value, the ray missed the proxy volume entirely.
+    if (frontDepth >= 0.999999 || backDepth <= 0.000001) {
+        discard;
     }
+
+    let worldFront = reconstructWorldPosition(ndcX, ndcY, frontDepth);
+    let worldBack = reconstructWorldPosition(ndcX, ndcY, backDepth);
+
+    let tProxyEntry = max(0.0, dot(worldFront - rayOrigin, rayDir));
+    let tProxyExit = dot(worldBack - rayOrigin, rayDir);
+
+    tStart = tProxyEntry;
+    tEndInterval = min(tProxyExit, tTerrain);
 
     let tExit = tEndInterval;
 

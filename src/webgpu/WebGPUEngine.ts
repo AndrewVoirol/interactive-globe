@@ -25,6 +25,7 @@ import atmosphereScatterWGSL from './shaders/atmosphere_scatter.wgsl?raw';
 import manifoldWGSL from './shaders/manifold.wgsl?raw';
 import cloudNoiseComputeWGSL from './shaders/cloud_noise_compute.wgsl?raw';
 import volumetricCloudWGSL from './shaders/volumetric_cloud.wgsl?raw';
+import cloudProxyWGSL from './shaders/cloud_proxy.wgsl?raw';
 import substrateMicroReliefWGSL from './shaders/substrate_micro_relief.wgsl?raw';
 import paperCompositionWGSL from './shaders/paper_composition.wgsl?raw';
 import horizonOcclusionWGSL from './shaders/horizon_occlusion.wgsl?raw';
@@ -589,6 +590,23 @@ export class WebGPUEngine {
   private dummyDepthTextureView: GPUTextureView | null = null;
   private dummy3DNoiseTextureView: GPUTextureView | null = null;
   private currentCloudMaxSteps: number = 32;
+
+  // Cloud Proxy Shell (Option 1: Hybrid Dual-Depth Bounding Proxy)
+  private cloudProxyFrontDepthTexture: GPUTexture | null = null;
+  private cloudProxyFrontDepthView: GPUTextureView | null = null;
+  private cloudProxyBackDepthTexture: GPUTexture | null = null;
+  private cloudProxyBackDepthView: GPUTextureView | null = null;
+  private dummyProxyFrontDepthView: GPUTextureView | null = null;
+  private dummyProxyBackDepthView: GPUTextureView | null = null;
+
+  private cloudProxyVertexBuffer: GPUBuffer | null = null;
+  private cloudProxyIndexBuffer: GPUBuffer | null = null;
+  private cloudProxyIndexCount: number = 0;
+
+  private cloudProxyPipelineFront: GPURenderPipeline | null = null;
+  private cloudProxyPipelineBack: GPURenderPipeline | null = null;
+  private cloudProxyBindGroupLayout: GPUBindGroupLayout | null = null;
+  private cloudProxyBindGroup: GPUBindGroup | null = null;
 
   private computePipeline!: GPUComputePipeline;
   private computeBindGroupLayout!: GPUBindGroupLayout;
@@ -1181,6 +1199,7 @@ export class WebGPUEngine {
 
     // Milestone 3: Initialize Pass 2 Volumetric Cloud Raymarcher Pipeline
     this.initVolumetricCloudPipeline();
+    this.initCloudProxyPipelines();
 
     this.currentStep = 0;
     this.isInitialized = true;
@@ -1287,6 +1306,187 @@ export class WebGPUEngine {
           indices[indexPtr++] = i3;
         }
       }
+    }
+
+    return { vertices, indices };
+  }
+
+  /**
+   * Generates a closed, watertight 3D tropospheric bounding shell mesh.
+   * - Surface 0 (inner/bottom): wound CW (inward-facing normal)
+   * - Surface 1 (outer/top): wound CCW (outward-facing normal)
+   * - Skirts: quads connecting the 4 boundary edges between Surface 0 and Surface 1
+   */
+  public generateCloudProxyGrid(
+    latSegments = 32,
+    lonSegments = 64
+  ): { vertices: Float32Array; indices: Uint32Array } {
+    const RADIUS = 5.0;
+    const vertsPerSurface = (latSegments + 1) * (lonSegments + 1);
+    const totalVertices = vertsPerSurface * 2;
+    const floatsPerVertex = 12;
+    const vertices = new Float32Array(totalVertices * floatsPerVertex);
+
+    // Populate Vertices (identical geometry and attributes as dual surface sphere grid)
+    for (let surface = 0; surface < 2; surface++) {
+      const surfaceType = surface === 0 ? 0.0 : 1.0;
+      const baseVertexOffset = surface * vertsPerSurface;
+
+      for (let lat = 0; lat <= latSegments; lat++) {
+        const latFraction = lat / latSegments;
+        const v = 1.0 - latFraction;
+        const phi = (latFraction - 0.5) * Math.PI;
+        const cosPhi = Math.cos(phi);
+        const sinPhi = Math.sin(phi);
+
+        const clampedPhi = Math.max(-1.4835, Math.min(1.4835, phi));
+        const mercatorY = Math.log(Math.tan(Math.PI * 0.25 + clampedPhi * 0.5)) * RADIUS;
+
+        for (let lon = 0; lon <= lonSegments; lon++) {
+          const u = lon / lonSegments;
+          const lambda = (u - 0.5) * (2.0 * Math.PI);
+          const sinLambda = Math.sin(lambda);
+          const cosLambda = Math.cos(lambda);
+          const mercatorX = lambda * RADIUS;
+
+          const x = RADIUS * cosPhi * sinLambda;
+          const y = RADIUS * sinPhi;
+          const z = RADIUS * cosPhi * cosLambda;
+
+          const vertIndex = baseVertexOffset + lat * (lonSegments + 1) + lon;
+          const offset = vertIndex * floatsPerVertex;
+
+          vertices[offset + 0] = x;
+          vertices[offset + 1] = y;
+          vertices[offset + 2] = z;
+          vertices[offset + 3] = u;
+          vertices[offset + 4] = v;
+          vertices[offset + 5] = surfaceType;
+          vertices[offset + 6] = mercatorX;
+          vertices[offset + 7] = mercatorY;
+          vertices[offset + 8] = 0.0;
+          vertices[offset + 9] = 0.0;
+          vertices[offset + 10] = 0.0;
+          vertices[offset + 11] = 0.0;
+        }
+      }
+    }
+
+    const quadsPerSurface = latSegments * lonSegments;
+    const indicesPerSurface = quadsPerSurface * 6;
+    const skirtIndices = (latSegments * 2 + lonSegments * 2) * 6;
+    const totalIndices = indicesPerSurface * 2 + skirtIndices;
+    const indices = new Uint32Array(totalIndices);
+
+    let indexPtr = 0;
+
+    // 1. Surface 0: Inner / Bottom Troposphere Shell (Inward-facing CW triangles)
+    const base0 = 0;
+    for (let lat = 0; lat < latSegments; lat++) {
+      for (let lon = 0; lon < lonSegments; lon++) {
+        const row1 = base0 + lat * (lonSegments + 1);
+        const row2 = base0 + (lat + 1) * (lonSegments + 1);
+
+        const i0 = row1 + lon;
+        const i1 = row1 + lon + 1;
+        const i2 = row2 + lon;
+        const i3 = row2 + lon + 1;
+
+        indices[indexPtr++] = i0;
+        indices[indexPtr++] = i2;
+        indices[indexPtr++] = i1;
+
+        indices[indexPtr++] = i2;
+        indices[indexPtr++] = i3;
+        indices[indexPtr++] = i1;
+      }
+    }
+
+    // 2. Surface 1: Outer / Top Troposphere Shell (Outward-facing CCW triangles)
+    const base1 = vertsPerSurface;
+    for (let lat = 0; lat < latSegments; lat++) {
+      for (let lon = 0; lon < lonSegments; lon++) {
+        const row1 = base1 + lat * (lonSegments + 1);
+        const row2 = base1 + (lat + 1) * (lonSegments + 1);
+
+        const i0 = row1 + lon;
+        const i1 = row1 + lon + 1;
+        const i2 = row2 + lon;
+        const i3 = row2 + lon + 1;
+
+        indices[indexPtr++] = i0;
+        indices[indexPtr++] = i1;
+        indices[indexPtr++] = i2;
+
+        indices[indexPtr++] = i2;
+        indices[indexPtr++] = i1;
+        indices[indexPtr++] = i3;
+      }
+    }
+
+    // 3. Side Skirts connecting boundaries to form a sealed 3D volume
+    // West skirt (lon = 0) facing -X
+    for (let lat = 0; lat < latSegments; lat++) {
+      const b0 = base0 + lat * (lonSegments + 1);
+      const b1 = base0 + (lat + 1) * (lonSegments + 1);
+      const t0 = base1 + lat * (lonSegments + 1);
+      const t1 = base1 + (lat + 1) * (lonSegments + 1);
+
+      indices[indexPtr++] = b0;
+      indices[indexPtr++] = t0;
+      indices[indexPtr++] = b1;
+
+      indices[indexPtr++] = b1;
+      indices[indexPtr++] = t0;
+      indices[indexPtr++] = t1;
+    }
+
+    // East skirt (lon = lonSegments) facing +X
+    for (let lat = 0; lat < latSegments; lat++) {
+      const b0 = base0 + lat * (lonSegments + 1) + lonSegments;
+      const b1 = base0 + (lat + 1) * (lonSegments + 1) + lonSegments;
+      const t0 = base1 + lat * (lonSegments + 1) + lonSegments;
+      const t1 = base1 + (lat + 1) * (lonSegments + 1) + lonSegments;
+
+      indices[indexPtr++] = b0;
+      indices[indexPtr++] = b1;
+      indices[indexPtr++] = t0;
+
+      indices[indexPtr++] = b1;
+      indices[indexPtr++] = t1;
+      indices[indexPtr++] = t0;
+    }
+
+    // South skirt (lat = 0) facing -Y
+    for (let lon = 0; lon < lonSegments; lon++) {
+      const b0 = base0 + lon;
+      const b1 = base0 + lon + 1;
+      const t0 = base1 + lon;
+      const t1 = base1 + lon + 1;
+
+      indices[indexPtr++] = b0;
+      indices[indexPtr++] = t0;
+      indices[indexPtr++] = b1;
+
+      indices[indexPtr++] = b1;
+      indices[indexPtr++] = t0;
+      indices[indexPtr++] = t1;
+    }
+
+    // North skirt (lat = latSegments) facing +Y
+    for (let lon = 0; lon < lonSegments; lon++) {
+      const b0 = base0 + latSegments * (lonSegments + 1) + lon;
+      const b1 = base0 + latSegments * (lonSegments + 1) + lon + 1;
+      const t0 = base1 + latSegments * (lonSegments + 1) + lon;
+      const t1 = base1 + latSegments * (lonSegments + 1) + lon + 1;
+
+      indices[indexPtr++] = b0;
+      indices[indexPtr++] = b1;
+      indices[indexPtr++] = t0;
+
+      indices[indexPtr++] = b1;
+      indices[indexPtr++] = t1;
+      indices[indexPtr++] = t0;
     }
 
     return { vertices, indices };
@@ -5096,6 +5296,7 @@ export class WebGPUEngine {
       this.depthTexture = null;
       this.depthTextureView = null;
     }
+    this.updateCloudProxyDepthTextures(width, height);
     if (!this.device || typeof this.device.createTexture !== 'function') return;
     const w = Math.max(1, width);
     const h = Math.max(1, height);
@@ -5111,6 +5312,49 @@ export class WebGPUEngine {
       if (this.volumetricCloudBindGroup) {
         this.updateVolumetricCloudBindGroup();
       }
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  public updateCloudProxyDepthTextures(width: number, height: number): void {
+    if (this.cloudProxyFrontDepthTexture) {
+      this.cloudProxyFrontDepthTexture.destroy();
+      this.cloudProxyFrontDepthTexture = null;
+      this.cloudProxyFrontDepthView = null;
+    }
+    if (this.cloudProxyBackDepthTexture) {
+      this.cloudProxyBackDepthTexture.destroy();
+      this.cloudProxyBackDepthTexture = null;
+      this.cloudProxyBackDepthView = null;
+    }
+    if (!this.device || typeof this.device.createTexture !== 'function') return;
+    const w = Math.max(1, width);
+    const h = Math.max(1, height);
+    try {
+      this.cloudProxyFrontDepthTexture = this.device.createTexture({
+        label: 'cloud_proxy_front_depth_texture',
+        size: [w, h],
+        format: 'depth32float',
+        usage: typeof GPUTextureUsage !== 'undefined'
+          ? (GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING)
+          : (16 | 4),
+      });
+      this.cloudProxyFrontDepthView = this.cloudProxyFrontDepthTexture.createView({
+        label: 'cloud_proxy_front_depth_view',
+      });
+
+      this.cloudProxyBackDepthTexture = this.device.createTexture({
+        label: 'cloud_proxy_back_depth_texture',
+        size: [w, h],
+        format: 'depth32float',
+        usage: typeof GPUTextureUsage !== 'undefined'
+          ? (GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING)
+          : (16 | 4),
+      });
+      this.cloudProxyBackDepthView = this.cloudProxyBackDepthTexture.createView({
+        label: 'cloud_proxy_back_depth_view',
+      });
     } catch {
       // Mock environment guard
     }
@@ -6270,6 +6514,16 @@ export class WebGPUEngine {
             visibility: FRAGMENT_STAGE,
             sampler: { type: 'filtering' },
           },
+          {
+            binding: 9,
+            visibility: FRAGMENT_STAGE,
+            texture: { sampleType: 'depth', viewDimension: '2d' },
+          },
+          {
+            binding: 10,
+            visibility: FRAGMENT_STAGE,
+            texture: { sampleType: 'depth', viewDimension: '2d' },
+          },
         ],
       });
 
@@ -6337,6 +6591,8 @@ export class WebGPUEngine {
           magFilter: 'linear',
         });
       }
+
+      this.initCloudProxyPipelines();
     } catch (err) {
       console.warn('[WebGPUEngine] Failed to initialize volumetric cloud pipeline (mock/headless guard):', err);
     }
@@ -6390,6 +6646,35 @@ export class WebGPUEngine {
       } catch {}
     }
 
+    // Fallback proxy depth views
+    if (!this.dummyProxyFrontDepthView) {
+      try {
+        const dummyFront = this.device.createTexture({
+          label: 'dummy_proxy_front_depth',
+          size: [1, 1, 1],
+          format: 'depth32float',
+          usage: typeof GPUTextureUsage !== 'undefined'
+            ? (GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING)
+            : (16 | 4),
+        });
+        this.dummyProxyFrontDepthView = dummyFront.createView({ label: 'dummy_proxy_front_depth_view' });
+      } catch {}
+    }
+
+    if (!this.dummyProxyBackDepthView) {
+      try {
+        const dummyBack = this.device.createTexture({
+          label: 'dummy_proxy_back_depth',
+          size: [1, 1, 1],
+          format: 'depth32float',
+          usage: typeof GPUTextureUsage !== 'undefined'
+            ? (GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING)
+            : (16 | 4),
+        });
+        this.dummyProxyBackDepthView = dummyBack.createView({ label: 'dummy_proxy_back_depth_view' });
+      } catch {}
+    }
+
     const depthView = this.depthTextureView || this.dummyDepthTextureView;
     const noiseView = this.cloudNoiseTextureView || this.dummy3DNoiseTextureView;
     const noiseSampler = this.volumetricNoiseSampler || this.demSampler;
@@ -6397,8 +6682,10 @@ export class WebGPUEngine {
     const midView = this.cloudTextures.mid ? this.cloudTextures.mid.createView() : this.dummyCloudTextureView;
     const highView = this.cloudTextures.high ? this.cloudTextures.high.createView() : this.dummyCloudTextureView;
     const cloud2DSampler = this.cloudSampler || this.demSampler;
+    const proxyFrontView = this.cloudProxyFrontDepthView || this.dummyProxyFrontDepthView;
+    const proxyBackView = this.cloudProxyBackDepthView || this.dummyProxyBackDepthView;
 
-    if (!depthView || !noiseView || !noiseSampler || !lowView || !midView || !highView || !cloud2DSampler) {
+    if (!depthView || !noiseView || !noiseSampler || !lowView || !midView || !highView || !cloud2DSampler || !proxyFrontView || !proxyBackView) {
       console.warn('[WebGPUEngine updateVolumetricCloudBindGroup missing]', {
         hasDepth: !!depthView,
         hasNoise: !!noiseView,
@@ -6407,6 +6694,8 @@ export class WebGPUEngine {
         hasMid: !!midView,
         hasHigh: !!highView,
         has2DSampler: !!cloud2DSampler,
+        hasProxyFront: !!proxyFrontView,
+        hasProxyBack: !!proxyBackView,
       });
       return;
     }
@@ -6425,6 +6714,8 @@ export class WebGPUEngine {
           { binding: 6, resource: midView },
           { binding: 7, resource: highView },
           { binding: 8, resource: cloud2DSampler },
+          { binding: 9, resource: proxyFrontView },
+          { binding: 10, resource: proxyBackView },
         ],
       });
 
@@ -6653,6 +6944,229 @@ export class WebGPUEngine {
     this.device.queue.writeBuffer(this.volumetricCloudUniformBuffer, 0, cloudFloats.buffer);
   }
 
+  public ensureCloudProxyBuffers(): void {
+    if (!this.device || this.cloudProxyVertexBuffer) return;
+    try {
+      const proxyMesh = this.generateCloudProxyGrid(32, 64);
+      this.cloudProxyVertexBuffer = this.device.createBuffer({
+        label: 'cloud_proxy_vertex_buffer',
+        size: proxyMesh.vertices.byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      });
+      this.device.queue.writeBuffer(this.cloudProxyVertexBuffer, 0, proxyMesh.vertices.buffer);
+
+      this.cloudProxyIndexBuffer = this.device.createBuffer({
+        label: 'cloud_proxy_index_buffer',
+        size: proxyMesh.indices.byteLength,
+        usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+      });
+      this.device.queue.writeBuffer(this.cloudProxyIndexBuffer, 0, proxyMesh.indices.buffer);
+      this.cloudProxyIndexCount = proxyMesh.indices.length;
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  public initCloudProxyPipelines(): void {
+    if (!this.device || typeof this.device.createShaderModule !== 'function') return;
+
+    try {
+      const cloudProxyShaderModule = this.device.createShaderModule({
+        label: 'cloud_proxy_shader',
+        code: manifoldWGSL + '\n' + cloudProxyWGSL,
+      });
+
+      if (!this.cloudProxyBindGroupLayout) {
+        this.cloudProxyBindGroupLayout = this.device.createBindGroupLayout({
+          label: 'cloud_proxy_bind_group_layout',
+          entries: [
+            {
+              binding: 0,
+              visibility: typeof GPUShaderStage !== 'undefined'
+                ? (GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT)
+                : (1 | 2),
+              buffer: { type: 'uniform' },
+            },
+          ],
+        });
+      }
+
+      const cloudProxyPipelineLayout = this.device.createPipelineLayout({
+        label: 'cloud_proxy_pipeline_layout',
+        bindGroupLayouts: [this.cloudProxyBindGroupLayout],
+      });
+
+      const dualSurfaceLayout: GPUVertexBufferLayout = {
+        arrayStride: 48,
+        stepMode: 'vertex',
+        attributes: [
+          { shaderLocation: 0, offset: 0, format: 'float32x3' },
+          { shaderLocation: 1, offset: 12, format: 'float32x2' },
+          { shaderLocation: 2, offset: 20, format: 'float32' },
+          { shaderLocation: 3, offset: 24, format: 'float32x4' },
+        ],
+      };
+
+      const createPipelineFn = (this.device as any)['createRenderPipeline'];
+      if (typeof createPipelineFn === 'function') {
+        // Front Pipeline: captures closest entry point t_entry
+        this.cloudProxyPipelineFront = this.device.createRenderPipeline({
+          label: 'cloud_proxy_pipeline_front',
+          layout: cloudProxyPipelineLayout,
+          vertex: {
+            module: cloudProxyShaderModule,
+            entryPoint: 'vs_main',
+            buffers: [dualSurfaceLayout],
+          },
+          fragment: {
+            module: cloudProxyShaderModule,
+            entryPoint: 'fs_main',
+            targets: [],
+          },
+          primitive: {
+            topology: 'triangle-list',
+            cullMode: 'back',
+          },
+          depthStencil: {
+            format: 'depth32float',
+            depthWriteEnabled: true,
+            depthCompare: 'less',
+          },
+        });
+
+        // Back Pipeline: captures furthest exit point t_exit
+        this.cloudProxyPipelineBack = this.device.createRenderPipeline({
+          label: 'cloud_proxy_pipeline_back',
+          layout: cloudProxyPipelineLayout,
+          vertex: {
+            module: cloudProxyShaderModule,
+            entryPoint: 'vs_main',
+            buffers: [dualSurfaceLayout],
+          },
+          fragment: {
+            module: cloudProxyShaderModule,
+            entryPoint: 'fs_main',
+            targets: [],
+          },
+          primitive: {
+            topology: 'triangle-list',
+            cullMode: 'front',
+          },
+          depthStencil: {
+            format: 'depth32float',
+            depthWriteEnabled: true,
+            depthCompare: 'greater',
+          },
+        });
+      }
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  public updateCloudProxyBindGroup(): void {
+    if (!this.device) return;
+    if (!this.cloudProxyBindGroupLayout) {
+      this.cloudProxyBindGroupLayout = this.device.createBindGroupLayout({
+        label: 'cloud_proxy_bind_group_layout',
+        entries: [
+          {
+            binding: 0,
+            visibility: typeof GPUShaderStage !== 'undefined'
+              ? (GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT)
+              : (1 | 2),
+            buffer: { type: 'uniform' },
+          },
+        ],
+      });
+    }
+
+    if (!this.simUniformBuffer) return;
+
+    if (!this.cloudProxyBindGroup) {
+      try {
+        this.cloudProxyBindGroup = this.device.createBindGroup({
+          label: 'cloud_proxy_bind_group',
+          layout: this.cloudProxyBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.simUniformBuffer } },
+          ],
+        });
+      } catch {
+        // Mock environment guard
+      }
+    }
+  }
+
+  public renderCloudProxyPass(
+    commandEncoder: GPUCommandEncoder,
+    params: WebGPUFrameParams
+  ): void {
+    if (!this.device) return;
+
+    if (!this.cloudProxyPipelineFront || !this.cloudProxyPipelineBack) {
+      this.initCloudProxyPipelines();
+    }
+    this.ensureCloudProxyBuffers();
+    this.updateCloudProxyBindGroup();
+
+    const w = (this.context?.canvas as HTMLCanvasElement)?.width || 1024;
+    const h = (this.context?.canvas as HTMLCanvasElement)?.height || 768;
+    if (!this.cloudProxyFrontDepthTexture || !this.cloudProxyBackDepthTexture) {
+      this.updateCloudProxyDepthTextures(w, h);
+    }
+
+    const frontView = this.cloudProxyFrontDepthView || this.dummyProxyFrontDepthView;
+    const backView = this.cloudProxyBackDepthView || this.dummyProxyBackDepthView;
+    if (!frontView || !backView) return;
+
+    try {
+      // 1. Front-face Entry Depth Pass (t_entry)
+      const frontPass = commandEncoder.beginRenderPass({
+        label: 'cloud_proxy_front_depth_pass',
+        colorAttachments: [],
+        depthStencilAttachment: {
+          view: frontView,
+          depthClearValue: 1.0,
+          depthLoadOp: 'clear',
+          depthStoreOp: 'store',
+        },
+      });
+
+      if (this.cloudProxyPipelineFront && this.cloudProxyBindGroup && this.cloudProxyVertexBuffer && this.cloudProxyIndexBuffer) {
+        frontPass.setPipeline(this.cloudProxyPipelineFront);
+        frontPass.setBindGroup(0, this.cloudProxyBindGroup);
+        frontPass.setVertexBuffer(0, this.cloudProxyVertexBuffer);
+        frontPass.setIndexBuffer(this.cloudProxyIndexBuffer, 'uint32');
+        frontPass.drawIndexed(this.cloudProxyIndexCount);
+      }
+      frontPass.end();
+
+      // 2. Back-face Exit Depth Pass (t_exit)
+      const backPass = commandEncoder.beginRenderPass({
+        label: 'cloud_proxy_back_depth_pass',
+        colorAttachments: [],
+        depthStencilAttachment: {
+          view: backView,
+          depthClearValue: 0.0,
+          depthLoadOp: 'clear',
+          depthStoreOp: 'store',
+        },
+      });
+
+      if (this.cloudProxyPipelineBack && this.cloudProxyBindGroup && this.cloudProxyVertexBuffer && this.cloudProxyIndexBuffer) {
+        backPass.setPipeline(this.cloudProxyPipelineBack);
+        backPass.setBindGroup(0, this.cloudProxyBindGroup);
+        backPass.setVertexBuffer(0, this.cloudProxyVertexBuffer);
+        backPass.setIndexBuffer(this.cloudProxyIndexBuffer, 'uint32');
+        backPass.drawIndexed(this.cloudProxyIndexCount);
+      }
+      backPass.end();
+    } catch {
+      // Mock environment guard
+    }
+  }
+
   public renderVolumetricClouds(
     commandEncoder: GPUCommandEncoder,
     params: WebGPUFrameParams,
@@ -6663,6 +7177,7 @@ export class WebGPUEngine {
     }
 
     this.ensureVolumetricCloudBuffers();
+    this.renderCloudProxyPass(commandEncoder, params);
     this.updateVolumetricCloudBindGroup();
     if (!this.volumetricCloudBindGroup) {
       return;
@@ -7145,6 +7660,13 @@ export class WebGPUEngine {
         primitive: { topology: 'triangle-list', cullMode: 'back' },
         depthStencil: { format: 'depth32float', depthWriteEnabled: false, depthCompare: 'less-equal' },
       });
+    } catch {
+      // Mock environment guard
+    }
+
+    // 11c. Cloud Proxy Front/Back Depth Pipelines (Option 1 Bounding Proxy)
+    try {
+      this.initCloudProxyPipelines();
     } catch {
       // Mock environment guard
     }
@@ -9724,6 +10246,24 @@ export class WebGPUEngine {
     this.volumetricPipelineDescriptor = null;
     this.dummyDepthTextureView = null;
     this.dummy3DNoiseTextureView = null;
+
+    this.cloudProxyFrontDepthTexture?.destroy();
+    this.cloudProxyFrontDepthTexture = null;
+    this.cloudProxyFrontDepthView = null;
+    this.cloudProxyBackDepthTexture?.destroy();
+    this.cloudProxyBackDepthTexture = null;
+    this.cloudProxyBackDepthView = null;
+    this.dummyProxyFrontDepthView = null;
+    this.dummyProxyBackDepthView = null;
+    this.cloudProxyVertexBuffer?.destroy();
+    this.cloudProxyVertexBuffer = null;
+    this.cloudProxyIndexBuffer?.destroy();
+    this.cloudProxyIndexBuffer = null;
+    this.cloudProxyIndexCount = 0;
+    this.cloudProxyPipelineFront = null;
+    this.cloudProxyPipelineBack = null;
+    this.cloudProxyBindGroup = null;
+    this.cloudProxyBindGroupLayout = null;
 
     this.dummyCloudTexture?.destroy();
     this.dummyCloudTexture = null;
