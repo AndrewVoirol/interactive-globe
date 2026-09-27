@@ -201,24 +201,89 @@ fn worldToEquirectangularUV(pos3D: vec3<f32>) -> vec2<f32> {
     return vec2<f32>(u, v);
 }
 
-// Planar World Coordinates to Equirectangular UV Mapping
-fn planarToUV(pos: vec3<f32>, mode: u32) -> vec2<f32> {
-    let twoPiR = TWO_PI * RADIUS;
-    let rawU = (pos.x / twoPiR) + 0.5;
-    let u = fract(rawU);
+// Tropospheric Developable Cylinder Shell Intersection (Intermediate Unfurl Mode)
+// Intersects camera ray directly with developable cylinder manifold (Rc, Cz)
+fn intersectTroposphericCylinder(
+    rayOrigin: vec3<f32>,
+    rayDir: vec3<f32>,
+    rInner: f32,
+    deltaR: f32,
+    unfurl: f32,
+    mode: u32
+) -> vec2<f32> {
+    let alphaClamped = clamp(unfurl, 0.0, 1.0);
+    let alphaEased = alphaClamped * alphaClamped * (3.0 - 2.0 * alphaClamped);
+    let s = max(0.0001, 1.0 - alphaEased);
+    let sDiv = max(0.0001, s);
+    let Rc = rInner / sDiv;
+    let Cz = rInner * (s - 1.0 / sDiv);
+    let RcOuter = Rc + deltaR;
 
-    var v: f32 = 0.5;
-    if (mode >= 1u) {
-        // Mode 1..3: Mercator projection (clamped to max latitude +/- 85 deg ≈ 3.12865 R)
-        let clampedY = clamp(pos.y / RADIUS, -3.13, 3.13);
-        let phi = 2.0 * atan(exp(clampedY)) - HALF_PI;
-        v = clamp(0.5 - (phi / PI), 0.001, 0.999);
-    } else {
-        // Mode 0 & others: Equirectangular 2:1
-        let piR = PI * RADIUS;
-        v = clamp(0.5 - (pos.y / piR), 0.001, 0.999);
+    let tStraighten = smoothstep(0.20, 0.95, alphaEased);
+    let yMax = select(
+        rInner * (1.0 - tStraighten + tStraighten * HALF_PI),
+        3.13 * rInner,
+        mode >= 1u
+    ) + deltaR * 1.1;
+
+    // Height slab along Y
+    var tYMin: f32 = -1e9;
+    var tYMax: f32 = 1e9;
+    if (abs(rayDir.y) > 1e-6) {
+        let ty0 = (-yMax - rayOrigin.y) / rayDir.y;
+        let ty1 = (yMax - rayOrigin.y) / rayDir.y;
+        tYMin = min(ty0, ty1);
+        tYMax = max(ty0, ty1);
+    } else if (abs(rayOrigin.y) > yMax) {
+        return vec2<f32>(-1.0, -1.0);
     }
-    return vec2<f32>(u, v);
+
+    // Outer cylinder: x^2 + (z - Cz)^2 = RcOuter^2
+    let deltaZ0 = rayOrigin.z - Cz;
+    let A = rayDir.x * rayDir.x + rayDir.z * rayDir.z;
+    if (A < 1e-8) {
+        let distSq = rayOrigin.x * rayOrigin.x + deltaZ0 * deltaZ0;
+        if (distSq > RcOuter * RcOuter) {
+            return vec2<f32>(-1.0, -1.0);
+        }
+        let tEnter = max(0.0, tYMin);
+        let tExit = tYMax;
+        if (tEnter > tExit || tExit < 0.0) {
+            return vec2<f32>(-1.0, -1.0);
+        }
+        return vec2<f32>(tEnter, tExit);
+    }
+
+    let B = 2.0 * (rayOrigin.x * rayDir.x + deltaZ0 * rayDir.z);
+    let C_outer = rayOrigin.x * rayOrigin.x + deltaZ0 * deltaZ0 - RcOuter * RcOuter;
+    let disc_outer = B * B - 4.0 * A * C_outer;
+    if (disc_outer < 0.0) {
+        return vec2<f32>(-1.0, -1.0);
+    }
+
+    let sqrtDiscOuter = sqrt(disc_outer);
+    let tOuter1 = (-B - sqrtDiscOuter) / (2.0 * A);
+    let tOuter2 = (-B + sqrtDiscOuter) / (2.0 * A);
+
+    var tEnter = max(tOuter1, tYMin);
+    var tExit = min(tOuter2, tYMax);
+
+    if (tEnter > tExit || tExit < 0.0) {
+        return vec2<f32>(-1.0, -1.0);
+    }
+
+    // Inner cylinder (terrain surface): stop rays at ground level if looking from outside
+    let C_inner = rayOrigin.x * rayOrigin.x + deltaZ0 * deltaZ0 - Rc * Rc;
+    let disc_inner = B * B - 4.0 * A * C_inner;
+    if (disc_inner >= 0.0) {
+        let sqrtDiscInner = sqrt(disc_inner);
+        let tInner1 = (-B - sqrtDiscInner) / (2.0 * A);
+        if (tInner1 > 0.0 && tInner1 < tExit && tInner1 >= tEnter) {
+            tExit = tInner1;
+        }
+    }
+
+    return vec2<f32>(max(0.0, tEnter), tExit);
 }
 
 // Closed-Form Analytical Inversion of Pure Developable Macro Chart
@@ -352,6 +417,32 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let unfurl = cloud.u_simControl.y;
     let inv = invertMacroChartWGSL(p, unfurl, rInner);
     let hNorm = clamp(inv.z / deltaR, 0.0, 1.0);
+
+    // Sheet Boundary Margin Attenuation (edgeFade)
+    let absLambdaNorm = abs(inv.x) / PI;
+    let tCut = smoothstep(0.0, 0.02, unfurl);
+    let edgeFadeLon = mix(1.0, 1.0 - smoothstep(0.96, 1.0, absLambdaNorm), tCut);
+
+    let alphaClamped = clamp(unfurl, 0.0, 1.0);
+    let alphaEased = alphaClamped * alphaClamped * (3.0 - 2.0 * alphaClamped);
+    let tStraighten = smoothstep(0.20, 0.95, alphaEased);
+    let mode = u32(cloud.u_simControl.z);
+    let yMax = select(
+        rInner * (1.0 - tStraighten + tStraighten * HALF_PI),
+        3.13 * rInner,
+        mode >= 1u
+    );
+    let edgeFadeLat = select(
+        1.0 - smoothstep(yMax, yMax + deltaR * 1.2, abs(p.y)),
+        1.0,
+        unfurl <= 0.001
+    );
+
+    let inAltitude = select(0.0, 1.0, inv.z >= -0.01 && inv.z <= deltaR * 1.05);
+    let edgeFade = edgeFadeLon * edgeFadeLat * inAltitude;
+    if (edgeFade <= 0.001) {
+        return 0.0;
+    }
 
     // Dynamic wind drift advection offset
     let driftRate = cloud.u_noiseParams.w;
@@ -490,140 +581,10 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
         sculptedDensity = mix(sculptedDensity, fibrousCirrus, highEnvelope);
     }
 
-    return sculptedDensity * cloud.u_layerDensities.w;
+    return sculptedDensity * cloud.u_layerDensities.w * edgeFade;
 }
 
-// Sample Scalar Cloud Density at Point pos in Planar Map Slab Space
-fn sampleCloudDensityPlanar(pos: vec3<f32>, deltaR: f32, mode: u32) -> f32 {
-    let p = pos;
-    let hNorm = clamp(p.z / deltaR, 0.0, 1.0);
 
-    // Dynamic wind drift advection offset
-    let driftRate = cloud.u_noiseParams.w;
-    let timeDrift = cloud.u_simControl.x * driftRate;
-    let uv = planarToUV(p, mode);
-    let advectedUV = vec2<f32>(fract(uv.x + timeDrift), uv.y);
-
-    let lowFraction = textureSampleLevel(u_cloudLowTexture, u_cloud2DSampler, advectedUV, 0.0).r;
-    let midFraction = textureSampleLevel(u_cloudMidTexture, u_cloud2DSampler, advectedUV, 0.0).r;
-    let highFraction = textureSampleLevel(u_cloudHighTexture, u_cloud2DSampler, advectedUV, 0.0).r;
-
-    // Strata Altitudes
-    let lowTop = cloud.u_layerHeights.x;
-    let midBottom = cloud.u_layerHeights.y;
-    let midTop = cloud.u_layerHeights.z;
-    let highBottom = cloud.u_layerHeights.w;
-
-    // Psychrometric LCL Coupling: Clamp Low Cloud Base to Lifting Condensation Level
-    let lclNorm = cloud.u_lclParams.y;
-    let lowBottom = max(0.0, lclNorm);
-
-    // Layer Vertical Profiles
-    let lowWeight = layerHeightEnvelope(hNorm, lowBottom, lowTop, 0.04) * cloud.u_layerDensities.x;
-    let midWeight = layerHeightEnvelope(hNorm, midBottom, midTop, 0.06) * cloud.u_layerDensities.y;
-    let highWeight = layerHeightEnvelope(hNorm, highBottom, 0.95, 0.08) * cloud.u_layerDensities.z;
-
-    let macroDensity = lowFraction * lowWeight + midFraction * midWeight + highFraction * highWeight;
-
-    // Section 1: Semi-Lagrangian Vector Advection & Fluid Vortex Density Modulation
-    let isAdvectionActive = advection.u_advectionSpeed > 0.001;
-    let advectionCoord = vec3<f32>(uv.x, uv.y, hNorm);
-    let advectedSample = textureSampleLevel(u_advectedDensityTexture, u_advectedDensitySampler, advectionCoord, 0.0);
-    let advectedRho = advectedSample.r;
-
-    // Stratified Advection Modulation
-    let advectionMod = select(1.0, 0.70 + advectedRho * 0.60, isAdvectionActive && (advectedSample.a > 0.5));
-    let effectiveMacroDensity = macroDensity * advectionMod;
-
-    // Clear Skies & Density Threshold Early Exit
-    if (macroDensity < 0.002) {
-        if (!isAdvectionActive || advectedSample.a <= 0.5) {
-            return 0.0;
-        }
-    }
-    if (effectiveMacroDensity < 0.002) {
-        return 0.0;
-    }
-
-    // 3D Periodic Perlin-Worley Micro-Erosion Noise (Isotropic Planar Slab Mapping)
-    let freqHoriz = cloud.u_noiseParams.x;
-    let freqVert = cloud.u_noiseParams.y;
-    let erosionStr = cloud.u_noiseParams.z;
-
-    let camDist = length(p - camera.u_cameraPos.xyz);
-    let camAlt = camera.u_cameraPos.z;
-    let distFade = 1.0 - smoothstep(0.5, 10.0, camDist);
-    let altFade = 1.0 - smoothstep(0.05, 10.0, camAlt);
-    let effErosionStr = erosionStr * max(0.45, distFade * altFade);
-
-    let baseCoord = planarNoiseCoord(uv, hNorm, freqHoriz, freqVert, timeDrift);
-    let noiseSample = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, baseCoord, 0.0);
-
-    let perlinWorley = noiseSample.r;
-    let worleyErosion = noiseSample.g * 0.625 + noiseSample.b * 0.250 + noiseSample.a * 0.125;
-
-    // Macro Base Carving
-    let noiseCarve = (1.0 - perlinWorley) * 0.65;
-    let shapedBase = clamp((effectiveMacroDensity * 1.85 - noiseCarve * 0.50) / max(0.001, 1.0 - noiseCarve * 0.50), 0.0, 1.0);
-    let finalDensity = clamp(shapedBase - (1.0 - shapedBase) * (worleyErosion * effErosionStr * 0.40), 0.0, 1.0);
-
-    // Low Cloud Stratum Convective Domain Warping & Schneider Cauliflower Cumulus Pass
-    var sculptedDensity = finalDensity;
-    let lowEnvelope = layerHeightEnvelope(hNorm, lowBottom, lowTop, 0.04);
-    if (lowEnvelope > 0.01) {
-        let cumulusProf = cumulusHeightProfile(hNorm, lowBottom, lowTop);
-        let lowCoverage = (lowFraction * cloud.u_layerDensities.x) * advectionMod;
-        let targetCoverage = lowCoverage * cumulusProf;
-
-        // Decoupled 2.2x detail sampling coordinate with domain displacement
-        let detailCoord = planarNoiseCoord(uv, hNorm, freqHoriz * 2.2, freqVert * 2.2, timeDrift * 1.5);
-        let detailNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, detailCoord, 0.0);
-        let cumulusWorley = 1.0 - detailNoise.g;
-
-        // Coordinate domain warping vector from high-frequency Worley
-        let warpDisp = (detailNoise.gba - vec3<f32>(0.5)) * 2.0;
-        let warpedBaseCoord = baseCoord + warpDisp * (0.045 * effErosionStr);
-        let warpedBaseSample = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, warpedBaseCoord, 0.0).r;
-
-        // Schneider dynamic threshold carving on warped base hull
-        let threshold = clamp(1.0 - targetCoverage * 1.35, 0.0, 0.85);
-        let baseHull = remap(warpedBaseSample, threshold, 1.0, 0.0, 1.0);
-
-        let deltaLow = max(0.0001, lowTop - lowBottom);
-        let zCumulus = clamp((hNorm - lowBottom) / deltaLow, 0.0, 1.0);
-        let altitudeErosion = mix(0.08, 0.85, pow(zCumulus, 0.75));
-
-        // Cauliflower billow density with dynamic threshold remapping
-        let billowErosion = cumulusWorley * altitudeErosion * 0.35 * effErosionStr;
-        let rawBillow = remap(baseHull, billowErosion, 1.0, 0.0, 1.0);
-        let sculptedLow = mix(baseHull * 0.75 + rawBillow * 0.25, rawBillow, effErosionStr);
-        let lowBillow = max(sculptedLow * 1.25, finalDensity * 0.50);
-        sculptedDensity = mix(finalDensity, lowBillow, lowEnvelope);
-    }
-
-    // Mid Altocumulus Stratum 1.4x Frequency Wave Ripple & Cellular Undulatus Pass
-    let midEnvelope = layerHeightEnvelope(hNorm, midBottom, midTop, 0.06);
-    if (midEnvelope > 0.01) {
-        let midCoord = planarNoiseCoord(uv, hNorm, freqHoriz * 1.4, freqVert * 1.4, timeDrift * 1.2);
-        let midNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, midCoord, 0.0);
-        let waveRipple = sin(uv.x * 240.0 + uv.y * 60.0 + cloud.u_simControl.x * 0.4) * 0.18;
-        let altocumulus = clamp(sculptedDensity * (0.85 + (midNoise.g * 0.5 + midNoise.b * 0.5) * 0.40 + waveRipple), 0.0, 1.0);
-        sculptedDensity = mix(sculptedDensity, altocumulus, midEnvelope);
-    }
-
-    // High Cirrus Stratum Directional Wind Shear & Fibrous Perlin Erosion Pass
-    let highEnvelope = layerHeightEnvelope(hNorm, highBottom, 0.95, 0.08);
-    if (highEnvelope > 0.01) {
-        let shearVec = advection.u_windAltitudeShear.xy;
-        let shearCoord = baseCoord + vec3<f32>(shearVec.x * (hNorm - highBottom) * 0.4, shearVec.y * (hNorm - highBottom) * 0.4, 0.0);
-        let shearNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, shearCoord, 0.0);
-        let cirrusWisp = pow(finalDensity, 1.4) * 0.75;
-        let fibrousCirrus = clamp(cirrusWisp * (0.80 + (shearNoise.r - 0.40) * 0.80 + shearNoise.a * 0.30), 0.0, 1.0);
-        sculptedDensity = mix(sculptedDensity, fibrousCirrus, highEnvelope);
-    }
-
-    return sculptedDensity * cloud.u_layerDensities.w;
-}
 
 
 // Strata Diagnostic False-Color Evaluation
@@ -668,42 +629,7 @@ fn evaluateStrataDiagnosticColor(pos: vec3<f32>, rInner: f32, deltaR: f32) -> ve
     return (colLow * wLow + colMid * wMid + colHigh * wHigh) / totalW;
 }
 
-// Strata Diagnostic False-Color Evaluation in Planar Map Slab Space
-fn evaluateStrataDiagnosticColorPlanar(pos: vec3<f32>, deltaR: f32, mode: u32) -> vec3<f32> {
-    let hNorm = clamp(pos.z / deltaR, 0.0, 1.0);
 
-    let driftRate = cloud.u_noiseParams.w;
-    let timeDrift = cloud.u_simControl.x * driftRate;
-    let uv = planarToUV(pos, mode);
-    let advectedUV = vec2<f32>(fract(uv.x + timeDrift), uv.y);
-
-    let lowFraction = textureSampleLevel(u_cloudLowTexture, u_cloud2DSampler, advectedUV, 0.0).r;
-    let midFraction = textureSampleLevel(u_cloudMidTexture, u_cloud2DSampler, advectedUV, 0.0).r;
-    let highFraction = textureSampleLevel(u_cloudHighTexture, u_cloud2DSampler, advectedUV, 0.0).r;
-
-    let lowTop = cloud.u_layerHeights.x;
-    let midBottom = cloud.u_layerHeights.y;
-    let midTop = cloud.u_layerHeights.z;
-    let highBottom = cloud.u_layerHeights.w;
-
-    let lclNorm = cloud.u_lclParams.y;
-    let lowBottom = max(0.0, lclNorm);
-
-    let lowWeight = layerHeightEnvelope(hNorm, lowBottom, lowTop, 0.04) * cloud.u_layerDensities.x;
-    let midWeight = layerHeightEnvelope(hNorm, midBottom, midTop, 0.06) * cloud.u_layerDensities.y;
-    let highWeight = layerHeightEnvelope(hNorm, highBottom, 0.95, 0.08) * cloud.u_layerDensities.z;
-
-    let wLow = lowFraction * lowWeight;
-    let wMid = midFraction * midWeight;
-    let wHigh = highFraction * highWeight;
-    let totalW = max(0.0001, wLow + wMid + wHigh);
-
-    let colLow = vec3<f32>(1.00, 0.62, 0.15); // Amber-Gold
-    let colMid = vec3<f32>(0.12, 0.85, 0.96); // Cyan-Aqua
-    let colHigh = vec3<f32>(0.96, 0.28, 0.88); // Magenta-Orchid
-
-    return (colLow * wLow + colMid * wMid + colHigh * wHigh) / totalW;
-}
 
 
 // Dual-Lobe Henyey-Greenstein Phase Function with Numerical Clamping
@@ -766,27 +692,7 @@ fn sampleSunShadowTransmittance(pos: vec3<f32>, sunDir: vec3<f32>, rInner: f32, 
     return res;
 }
 
-// 4-Step Progressive Beer-Lambert Solar Shadow Raymarch in Planar Map Slab Space
-fn sampleSunShadowTransmittancePlanar(pos: vec3<f32>, sunDir: vec3<f32>, deltaR: f32, mode: u32) -> SunShadowResult {
-    let stepDist = 0.00045;
-    var tauSun: f32 = 0.0;
-    var avgDensity: f32 = 0.0;
-    let sigmaT = cloud.u_opticalParams.x * 20.0;
 
-    // 4-step Beer-Lambert integration
-    for (var k: i32 = 1; k <= 4; k++) {
-        let stepLen = stepDist * f32(k);
-        let sampleP = pos + sunDir * stepLen;
-        let d = sampleCloudDensityPlanar(sampleP, deltaR, mode);
-        tauSun += sigmaT * d * stepDist;
-        avgDensity += d * 0.25;
-    }
-
-    var res: SunShadowResult;
-    res.transmittance = exp(-tauSun);
-    res.density = avgDensity;
-    return res;
-}
 
 
 // Analytical Rayleigh Atmospheric Airglow Single-Scattering at Planetary Horizon Limb
@@ -944,13 +850,21 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // 3. Intersect Tropospheric Bounding Shell & Developing Slab
     let shellHit = intersectTroposphericShell(rayOrigin, rayDir, rInner, rOuter);
 
-    // Planar Tropospheric Bounding Slab [slabMin, slabMax]
+    let alphaClamped = clamp(unfurl, 0.0, 1.0);
+    let alphaEased = alphaClamped * alphaClamped * (3.0 - 2.0 * alphaClamped);
+    let tStraighten = smoothstep(0.20, 0.95, alphaEased);
+    let yMax = select(
+        rInner * (1.0 - tStraighten + tStraighten * HALF_PI),
+        3.13 * rInner,
+        mode >= 1u
+    );
+
+    // Planar Tropospheric Bounding Slab [slabMin, slabMax] (tightened to dynamic yMax)
     let halfW = PI * RADIUS;
-    let halfH = select(HALF_PI * RADIUS, 3.13 * RADIUS, mode >= 1u);
     let slabMinZ = mix(-rOuter, 0.0, unfurl);
     let slabMaxZ = mix(rOuter, deltaR, unfurl);
-    let slabMin = vec3<f32>(-halfW, -halfH, slabMinZ);
-    let slabMax = vec3<f32>(halfW, halfH, slabMaxZ);
+    let slabMin = vec3<f32>(-halfW, -yMax - deltaR, slabMinZ);
+    let slabMax = vec3<f32>(halfW, yMax + deltaR, slabMaxZ);
     let slabHit = intersectTroposphericSlab(rayOrigin, rayDir, slabMin, slabMax);
 
     if (unfurl <= 0.001) {
@@ -960,27 +874,30 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let tExit = min(shellHit.y, tTerrain);
         tStart = shellHit.x;
         tEndInterval = tExit;
-    } else if (unfurl >= 0.999) {
+    } else if (unfurl >= 0.95) {
         if (slabHit.x < 0.0 || slabHit.y <= slabHit.x) {
             discard;
         }
         tStart = slabHit.x;
         tEndInterval = min(slabHit.y, tTerrain);
     } else {
-        let hasShell = shellHit.x >= 0.0 && shellHit.y > shellHit.x;
-        let hasSlab = slabHit.x >= 0.0 && slabHit.y > slabHit.x;
-        if (!hasShell && !hasSlab) {
+        let cylHit = intersectTroposphericCylinder(rayOrigin, rayDir, rInner, deltaR, unfurl, mode);
+        let hasCyl = cylHit.x >= 0.0 && cylHit.y > cylHit.x;
+        if (!hasCyl) {
             discard;
         }
-        if (hasShell && hasSlab) {
-            tStart = min(shellHit.x, slabHit.x);
-            tEndInterval = min(max(shellHit.y, slabHit.y), tTerrain);
-        } else if (hasSlab) {
-            tStart = slabHit.x;
-            tEndInterval = min(slabHit.y, tTerrain);
+        if (unfurl < 0.15) {
+            let hasShell = shellHit.x >= 0.0 && shellHit.y > shellHit.x;
+            if (hasShell) {
+                tStart = max(cylHit.x, shellHit.x);
+                tEndInterval = min(min(cylHit.y, shellHit.y), tTerrain);
+            } else {
+                tStart = cylHit.x;
+                tEndInterval = min(cylHit.y, tTerrain);
+            }
         } else {
-            tStart = shellHit.x;
-            tEndInterval = min(shellHit.y, tTerrain);
+            tStart = cylHit.x;
+            tEndInterval = min(cylHit.y, tTerrain);
         }
     }
 
