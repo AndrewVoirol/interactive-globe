@@ -185,7 +185,7 @@ export function computeManifoldHit(
 
   const clampedAlpha = Math.max(0.0, Math.min(1.0, alpha));
 
-  if (clampedAlpha <= 0.05) {
+  if (clampedAlpha <= 0.001) {
     if (sphereResult.hit && sphereResult.hitPos) {
       return {
         hit: true,
@@ -193,13 +193,12 @@ export function computeManifoldHit(
         distance: sphereResult.distance,
       };
     }
-    // Fallback if ray missed sphere: project along ray at default radius distance
     const defaultDist = Math.max(5.0, ro.length() - radius);
     const fallbackHit = ro.clone().addScaledVector(rd, defaultDist);
     return { hit: false, hitPos: fallbackHit, distance: defaultDist };
   }
 
-  if (clampedAlpha >= 0.95) {
+  if (clampedAlpha >= 0.999) {
     if (planeResult.hit && planeResult.hitPos) {
       return {
         hit: true,
@@ -212,23 +211,54 @@ export function computeManifoldHit(
     return { hit: false, hitPos: fallbackHit, distance: defaultDist };
   }
 
-  // During transition: blend between sphere hit and plane hit
-  const sPos = sphereResult.hit && sphereResult.hitPos 
-    ? new Vector3(...sphereResult.hitPos) 
-    : ro.clone().addScaledVector(rd, Math.max(5.0, ro.length() - radius));
+  // Intermediate developable macro chart cylinder ray intersection
+  const alphaEased = clampedAlpha * clampedAlpha * (3.0 - 2.0 * clampedAlpha);
+  const s = Math.max(0.0001, 1.0 - alphaEased);
+  const sDiv = Math.max(0.0001, s);
+  const Rc = radius / sDiv;
+  const Cz = radius * (s - 1.0 / sDiv);
 
-  const pPos = planeResult.hit && planeResult.hitPos 
-    ? new Vector3(...planeResult.hitPos) 
-    : ro.clone().addScaledVector(rd, Math.max(5.0, Math.abs(ro.z)));
+  // Developable cylinder: x^2 + (z - Cz)^2 = Rc^2
+  const deltaZ0 = ro.z - Cz;
+  const A = rd.x * rd.x + rd.z * rd.z;
+  const B = 2.0 * (ro.x * rd.x + deltaZ0 * rd.z);
+  const C = ro.x * ro.x + deltaZ0 * deltaZ0 - Rc * Rc;
 
-  const blendedPos = new Vector3().lerpVectors(sPos, pPos, clampedAlpha);
-  const blendedDist = ro.distanceTo(blendedPos);
+  if (A > 1e-8) {
+    const disc = B * B - 4.0 * A * C;
+    if (disc >= 0.0) {
+      const sqrtDisc = Math.sqrt(disc);
+      const t1 = (-B - sqrtDisc) / (2.0 * A);
+      const t2 = (-B + sqrtDisc) / (2.0 * A);
 
-  return {
-    hit: sphereResult.hit || planeResult.hit,
-    hitPos: blendedPos,
-    distance: blendedDist,
-  };
+      let tHit = -1;
+      if (t1 > 0.001) {
+        tHit = t1;
+      } else if (t2 > 0.001) {
+        tHit = t2;
+      }
+
+      if (tHit > 0.0) {
+        const hitPos = ro.clone().addScaledVector(rd, tHit);
+        const dx = hitPos.x;
+        const dz = hitPos.z - Cz;
+        const arcAngle = Math.atan2(dx, dz);
+        const maxArc = Math.PI * s + 0.35;
+        if (Math.abs(arcAngle) <= maxArc) {
+          return {
+            hit: true,
+            hitPos,
+            distance: tHit,
+          };
+        }
+      }
+    }
+  }
+
+  // Fallback if cylinder missed: project along ray at default distance
+  const defaultDist = Math.max(5.0, ro.length() - radius);
+  const fallbackHit = ro.clone().addScaledVector(rd, defaultDist);
+  return { hit: false, hitPos: fallbackHit, distance: defaultDist };
 }
 
 /**

@@ -2,8 +2,8 @@
 
 **Master Orchestrator**: Antigravity 2.0 Multi-Agent Framework  
 **Target Codebase**: `ais-interactive-globe-to-map`  
-**Operational Status**: `[ALL MILESTONES COMPLETED - 3,734/3,734 TESTS PASSING]`  
-**Current Baseline**: 261 test files, 3,734 tests passing (100% pass rate, 0 failures, 0 regressions)  
+**Operational Status**: `[ALL MILESTONES COMPLETED - 3,739/3,739 TESTS PASSING]`  
+**Current Baseline**: 261 test files, 3,739 tests passing (100% pass rate, 0 failures, 0 regressions)  
 **Circuit Breaker Rule**: `MAX_RETRIES = 2` (Halts on 2 consecutive failed iterations per task ➔ `escalation.md`)
 
 ---
@@ -290,6 +290,14 @@
   - **Target Files**: `src/core/math/volumetricMath.ts`, `src/webgpu/shaders/manifold.wgsl`, `src/webgpu/shaders/cloud_shell.wgsl`, `src/webgpu/WebGPUEngine.ts`, `tests/modern/macro-chart-invertibility.test.ts`, `tests/modern/macro-chart-shader-parity.test.ts`, `tests/modern/cloud-standoff-and-pass-gating.test.ts`
   - **Specification**: Decoupled the developable, $C^\infty$ invertible macro chart $F(\lambda, \phi, h; \alpha)$ from tactile personality $d = (\Delta x, \Delta y, \Delta z)$ ($p = F + d$). Authored closed-form inverse $F^{-1}(x, y, z; \alpha)$ with hybrid Newton refinement and small-$s$ asymptotic planar guards in `volumetricMath.ts` ($< 5 \times 10^{-12}$ round-trip error, $\det DF > 0$). Extracted `evaluateMacroChart` in `manifold.wgsl` and mirrored in `WebGPUEngine.ts` ($\le 10^{-5}$ float parity across all coordinates). Guaranteed zero mountain crust piercing in `cloud_shell.wgsl` via shared base normal with `crust_hydrosphere.wgsl`. Enforced Rule 24 zero-zombie draw calls for cloud and volumetric passes.
   - **Micro-Verification**: Complete repository regression gate passed: 261/261 test files passing (3,734/3,734 tests, 0 failures, 0 regressions in 36.33s). Live Chrome DevTools MCP multi-medium visual verification passed across Marie Tharp (Theme 0), Cream Rag (Theme 1), and Prussian Cyanotype (Theme 2) at $\alpha \in \{0.0, 0.5, 1.0\}$ with zero WebGPU validation errors, warnings, or issues.
+
+- [x] **Task M7-T10**: Closed-Form Developable Manifold Inversion, Volumetric Cloud Shader Unwrapping & Cylinder Raycasting ($p = F + d$)
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: Mathematical Physicist, Atmospheric & Shader Engineer
+  - **Target Files**: `src/webgpu/shaders/manifold.wgsl`, `src/webgpu/shaders/volumetric_cloud.wgsl`, `src/utils/raycast.ts`, `src/webgpu/WebGPUCanvas.tsx`, `src/components/hud/instruments/StratosphericTelemetryInstrument.tsx`, `tests/modern/planar-volumetric-cloud.test.ts`, `tests/modern/stratospheric-telemetry-instrument.test.tsx`
+  - **Specification**: Decomposed Mode 0 in `manifold.wgsl` as $p = \text{base.pos} + d$. Implemented closed-form developable cylinder inverse `invertMacroChartWGSL(pos, unfurl, radius)` directly in `volumetric_cloud.wgsl`, bounding density smoothly to $[r_{\text{inner}}, r_{\text{inner}} + \Delta R]$ with zero binary `isPlanar` popping. Replaced heuristic `lerpVectors` in `computeManifoldHit` with developable cylinder ray-intersection math $(r_{0,x} + t r_{d,x})^2 + (r_{0,z} - C_z + t r_{d,z})^2 = R_c^2$. Wired `invertMacroChart` into `WebGPUCanvas.tsx` hover, drag, and frame loops, providing continuous physical coordinates and altitude to `__INDICATRIX_CAMERA__`. Updated `StratosphericTelemetryInstrument.tsx` to poll continuously across all unfurl states and regimes.
+  - **Micro-Verification**: Complete repository regression gate passed: 261/261 test files passing (3,739/3,739 tests, 0 failures, 0 regressions in 42.37s). WGSL linter clean (0 errors, 0 warnings across 20 shaders). Live Chrome DevTools MCP visual and interactive verification passed across Themes 0, 1, and 2 at $\alpha \in \{0.0, 1.0\}$ with real-time cursor tracking and zero console errors.
 
 ---
 

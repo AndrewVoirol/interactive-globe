@@ -9,6 +9,7 @@ import { Vector3, Vector4, Matrix4, PerspectiveCamera, Vec3Tuple, slerpVec3 } fr
 import { computeDynamicNearPlane, computeGroundClearanceFloor } from '../core/math/cameraMath';
 import { WebGPUEngine } from './WebGPUEngine';
 import { CursorTracker } from '../utils/raycast';
+import { invertMacroChart } from '../core/math/volumetricMath';
 import { useCursorTracker } from '../core/CursorContext';
 import { DataLayerItem, PrognosticModelBackend } from '../components/hud/TelemetryHUD';
 
@@ -942,6 +943,22 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     (window as any).__INDICATRIX_CAMERA__ = {
       get activeCoords() { return activeCoordsRef.current; },
       getActiveCoords: () => activeCoordsRef.current,
+      getCamDist: () => {
+        const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
+        const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
+        const curUnfurl = scrubAlpha !== undefined ? scrubAlpha : (animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0));
+        const cPos = cameraRef.current.position;
+        const inv = invertMacroChart([cPos.x, cPos.y, cPos.z], curUnfurl, 5.0);
+        return Number.isFinite(inv.h) ? 5.0 + inv.h : cPos.length();
+      },
+      getAltitudeUnits: () => {
+        const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
+        const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
+        const curUnfurl = scrubAlpha !== undefined ? scrubAlpha : (animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0));
+        const cPos = cameraRef.current.position;
+        const inv = invertMacroChart([cPos.x, cPos.y, cPos.z], curUnfurl, 5.0);
+        return Number.isFinite(inv.h) ? inv.h : cPos.length() - 5.0;
+      },
       get pitch() { return (stateRef.current as any)?.cameraPitchDeg ?? 0; },
       getPitch: () => (stateRef.current as any)?.cameraPitchDeg ?? 0,
       setPitch: (deg: number) => {
@@ -1953,6 +1970,18 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       const hit = currentHitPosRef.current;
       pinchControllerRef.current.onHoverMove(hit.x, hit.y, hit.z);
 
+      const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
+      const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
+      const curUnfurl = scrubAlpha !== undefined ? scrubAlpha : (animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0));
+
+      const invHover = invertMacroChart([hit.x, hit.y, hit.z], curUnfurl, 5.0);
+      if (Number.isFinite(invHover.phi) && Number.isFinite(invHover.lambda)) {
+        let lon = invHover.lambda * (180 / Math.PI);
+        lon = ((((lon + 180) % 360) + 360) % 360) - 180;
+        const lat = Math.max(-85, Math.min(85, invHover.phi * (180 / Math.PI)));
+        activeCoordsRef.current = { lat, lon };
+      }
+
       if (isPinchingRef.current) {
         return; // Pinch is active; maintain strict separation from camera orbit
       }
@@ -2004,15 +2033,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         velocityRef.current.velTheta = dTheta;
         velocityRef.current.velPhi = dPhi;
 
-        const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
-        const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
-        const curUnfurl = scrubAlpha !== undefined ? scrubAlpha : (animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0));
-
-        if (curUnfurl < 0.01) {
-          let lon = (sphericalRef.current.theta * 180) / Math.PI;
+        const invOrbit = invertMacroChart([currentHitPosRef.current.x, currentHitPosRef.current.y, currentHitPosRef.current.z], curUnfurl, 5.0);
+        if (Number.isFinite(invOrbit.phi) && Number.isFinite(invOrbit.lambda)) {
+          let lon = invOrbit.lambda * (180 / Math.PI);
           lon = ((((lon + 180) % 360) + 360) % 360) - 180;
-          const lat = Math.max(-85, Math.min(85, 90 - (sphericalRef.current.phi * 180) / Math.PI));
+          const lat = Math.max(-85, Math.min(85, invOrbit.phi * (180 / Math.PI)));
           activeCoordsRef.current = { lat, lon };
+        }
+        if (curUnfurl < 0.01) {
           targetRef.current.set(0, 0, 0);
         }
       } else if (dragButtonRef.current === 2 || dragButtonRef.current === 1) {
@@ -2026,15 +2054,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         velocityRef.current.velPanX = dPanX;
         velocityRef.current.velPanY = dPanY;
 
-        const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
-        const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
-        const curUnfurl = scrubAlpha !== undefined ? scrubAlpha : (animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0));
         if (curUnfurl >= 0.01) {
-          let lon = (targetRef.current.x / 5.0) * (180 / Math.PI);
-          lon = ((((lon + 180) % 360) + 360) % 360) - 180;
-          const clampedY = Math.max(-5.0 * 2.5, Math.min(5.0 * 2.5, targetRef.current.y));
-          const lat = (2.0 * Math.atan(Math.exp(clampedY / 5.0)) - Math.PI / 2.0) * (180 / Math.PI);
-          activeCoordsRef.current = { lat, lon };
+          const invPan = invertMacroChart([currentHitPosRef.current.x, currentHitPosRef.current.y, currentHitPosRef.current.z], curUnfurl, 5.0);
+          if (Number.isFinite(invPan.phi) && Number.isFinite(invPan.lambda)) {
+            let lon = invPan.lambda * (180 / Math.PI);
+            lon = ((((lon + 180) % 360) + 360) % 360) - 180;
+            const lat = Math.max(-85, Math.min(85, invPan.phi * (180 / Math.PI)));
+            activeCoordsRef.current = { lat, lon };
+          }
         }
       }
       updateCameraTransform();
@@ -2749,6 +2776,16 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         // Analytical Manifold Cursor Raycast via CursorTracker
         const cursorUniforms = tracker.update(camera, curUnfurl);
         currentHitPosRef.current.copy(cursorUniforms.u_cursorHitPos);
+
+        // Update active coordinates continuously across unfurl via closed-form macro inversion
+        const hitPos = cursorUniforms.u_cursorHitPos;
+        const invFrame = invertMacroChart([hitPos.x, hitPos.y, hitPos.z], curUnfurl, 5.0);
+        if (Number.isFinite(invFrame.phi) && Number.isFinite(invFrame.lambda)) {
+          let lon = invFrame.lambda * (180 / Math.PI);
+          lon = ((((lon + 180) % 360) + 360) % 360) - 180;
+          const lat = Math.max(-85, Math.min(85, invFrame.phi * (180 / Math.PI)));
+          activeCoordsRef.current = { lat, lon };
+        }
 
         // 1. Whimsical Effects Manager update (Fibonacci polar alignment Moiré scaling)
         const whimsicalState = whimsicalManagerRef.current.update(

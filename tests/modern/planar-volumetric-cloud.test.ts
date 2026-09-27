@@ -5,12 +5,15 @@
 // ============================================================================
 
 import { describe, it, expect } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   intersectRaySlab,
   computePlanarTroposphericInterval,
   mapPlanarCoordinates,
   computePlanarNoiseCoord,
   clampRayIntervalToTerrain,
+  invertMacroChart,
   TroposphericInterval,
   Vec3,
 } from '../../src/core/math/volumetricMath';
@@ -229,4 +232,53 @@ describe('Planar Tropospheric Slab Raymarching Pure Math', () => {
       expect(clamped).toBeNull();
     });
   });
+
+  // ==========================================================================
+  // Suite: Closed-Form Analytical Inversion & WGSL Continuous Unwrapping
+  // ==========================================================================
+  describe('Closed-Form Analytical Inversion & WGSL Continuous Unwrapping', () => {
+    it('invertMacroChart produces finite, continuous coordinates across intermediate unfurl', () => {
+      const testPoints: Vec3[] = [
+        [0.0, 0.0, 5.0],
+        [2.5, 1.2, 4.0],
+        [-3.0, -2.0, 3.5],
+        [0.0, 4.0, 2.0],
+        [1.0, -4.5, 1.5],
+      ];
+
+      const unfurls = [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0];
+
+      for (const p of testPoints) {
+        for (const u of unfurls) {
+          const inv = invertMacroChart(p, u, 5.0);
+          expect(Number.isFinite(inv.lambda)).toBe(true);
+          expect(Number.isFinite(inv.phi)).toBe(true);
+          expect(Number.isFinite(inv.h)).toBe(true);
+          expect(inv.phi).toBeGreaterThanOrEqual(-Math.PI * 0.5 - 1e-4);
+          expect(inv.phi).toBeLessThanOrEqual(Math.PI * 0.5 + 1e-4);
+        }
+      }
+    });
+
+    it('volumetric_cloud.wgsl implements invertMacroChartWGSL and eliminates binary isPlanar branching', () => {
+      const shaderPath = path.resolve(__dirname, '../../src/webgpu/shaders/volumetric_cloud.wgsl');
+      expect(fs.existsSync(shaderPath)).toBe(true);
+      const wgsl = fs.readFileSync(shaderPath, 'utf-8');
+
+      // 1. Must define invertMacroChartWGSL
+      expect(wgsl).toContain('fn invertMacroChartWGSL(pos: vec3<f32>, unfurl: f32, radius: f32) -> vec3<f32>');
+      expect(wgsl).toContain('let s = max(0.0001, 1.0 - alphaEased);');
+      expect(wgsl).toContain('let Cz = rPar * (s - 1.0 / sDiv);');
+      expect(wgsl).toContain('let lambdaDev = atan2(px, dz) / sDiv;');
+
+      // 2. sampleCloudDensity must invoke invertMacroChartWGSL
+      expect(wgsl).toContain('let inv = invertMacroChartWGSL(p, unfurl, rInner);');
+      expect(wgsl).toContain('let hNorm = clamp(inv.z / deltaR, 0.0, 1.0);');
+
+      // 3. Must NOT have binary isPlanar = unfurl >= 0.50 branch in fs_main
+      expect(wgsl).not.toContain('let isPlanar = unfurl >= 0.50;');
+      expect(wgsl).not.toContain('if (isPlanar) {');
+    });
+  });
 });
+

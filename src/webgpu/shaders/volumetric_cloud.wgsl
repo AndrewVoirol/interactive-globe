@@ -221,6 +221,68 @@ fn planarToUV(pos: vec3<f32>, mode: u32) -> vec2<f32> {
     return vec2<f32>(u, v);
 }
 
+// Closed-Form Analytical Inversion of Pure Developable Macro Chart
+// Returns vec3<f32>(lambda, phi, h)
+fn invertMacroChartWGSL(pos: vec3<f32>, unfurl: f32, radius: f32) -> vec3<f32> {
+    let px = pos.x;
+    let py = pos.y;
+    let pz = pos.z;
+    let alphaClamped = clamp(unfurl, 0.0, 1.0);
+    let alphaEased = alphaClamped * alphaClamped * (3.0 - 2.0 * alphaClamped);
+    let s = max(0.0001, 1.0 - alphaEased);
+    let tStraighten = smoothstep(0.20, 0.95, alphaEased);
+    let tParallel = smoothstep(0.05, 0.85, alphaEased);
+
+    // Solve phi from py via 3 Newton-Raphson iterations
+    let yMax = radius * (1.0 - tStraighten + tStraighten * HALF_PI);
+    let normY = clamp(py / max(0.0001, yMax), -0.9999, 0.9999);
+    var phi = (1.0 - tStraighten) * asin(normY) + tStraighten * (normY * HALF_PI);
+    for (var iter: i32 = 0; iter < 3; iter++) {
+        let sinP = sin(phi);
+        let cosP = cos(phi);
+        let f = (1.0 - tStraighten) * radius * sinP + tStraighten * radius * phi - py;
+        let df = (1.0 - tStraighten) * radius * cosP + tStraighten * radius;
+        phi = phi - f / max(df, 0.0001);
+    }
+    phi = clamp(phi, -HALF_PI, HALF_PI);
+
+    // Developable Intermediate Circular Arc Inversion
+    let cosLat = cos(phi);
+    let parallelWidth = cosLat * (1.0 - tParallel) + tParallel;
+    let rPar = radius * parallelWidth;
+    let sDiv = max(0.0001, s);
+    let Rc = rPar / sDiv;
+    let Cz = rPar * (s - 1.0 / sDiv);
+    let dz = pz - Cz;
+    let lambdaDev = atan2(px, dz) / sDiv;
+    let hDev = length(vec2<f32>(px, dz)) - Rc;
+
+    // Asymptotic Sphere Regime (alpha <= 0.05)
+    let rSph = length(pos);
+    let hSph = rSph - radius;
+    let phiSph = asin(clamp(py / max(0.0001, rSph), -0.9998, 0.9998));
+    let lambdaSph = atan2(px, pz);
+
+    // Asymptotic Planar Regime (alpha >= 0.95)
+    let hFlat = pz;
+    let lambdaFlat = px / radius;
+    let phiFlat = py / radius;
+
+    let tSphere = 1.0 - smoothstep(0.0, 0.05, alphaClamped);
+    let tFlat = smoothstep(0.95, 1.0, alphaClamped);
+
+    var lambda = mix(lambdaDev, lambdaSph, tSphere);
+    lambda = mix(lambda, lambdaFlat, tFlat);
+
+    var finalPhi = mix(phi, phiSph, tSphere);
+    finalPhi = mix(finalPhi, phiFlat, tFlat);
+
+    var h = mix(hDev, hSph, tSphere);
+    h = mix(h, hFlat, tFlat);
+
+    return vec3<f32>(lambda, finalPhi, h);
+}
+
 // ----------------------------------------------------------------------------
 // Meteorological Cloud Density & Optics
 // ----------------------------------------------------------------------------
@@ -284,16 +346,17 @@ fn planarNoiseCoord(
     return vec3<f32>(nx, ny, nz) + driftOffset;
 }
 
-// Sample Scalar Cloud Density at Point pos in World Space
+// Sample Scalar Cloud Density at Point pos in World Space (Continuous Developable Unwrapping)
 fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let p = pos;
-    let r = length(p);
-    let hNorm = clamp((r - rInner) / deltaR, 0.0, 1.0);
+    let unfurl = cloud.u_simControl.y;
+    let inv = invertMacroChartWGSL(p, unfurl, rInner);
+    let hNorm = clamp(inv.z / deltaR, 0.0, 1.0);
 
     // Dynamic wind drift advection offset
     let driftRate = cloud.u_noiseParams.w;
     let timeDrift = cloud.u_simControl.x * driftRate;
-    let uv = worldToEquirectangularUV(p);
+    let uv = vec2<f32>(fract((inv.x / TWO_PI) + 0.5), clamp(0.5 - (inv.y / PI), 0.001, 0.999));
     let advectedUV = vec2<f32>(fract(uv.x + timeDrift), uv.y);
 
     let lowFraction = textureSampleLevel(u_cloudLowTexture, u_cloud2DSampler, advectedUV, 0.0).r;
@@ -337,19 +400,26 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
         return 0.0;
     }
 
-    // 3D Periodic Perlin-Worley Micro-Erosion Noise (True Spherical Anisotropic Mapping)
+    // 3D Periodic Perlin-Worley Micro-Erosion Noise (Continuous Spherical-to-Planar Anisotropic Mapping)
     let freqHoriz = cloud.u_noiseParams.x;
     let freqVert = cloud.u_noiseParams.y;
     let erosionStr = cloud.u_noiseParams.z;
 
     // Camera-Distance Adaptive LOD & Shimmer Suppression (calibrated to world radius 5.0 and cam range 6.0-16.0)
     let camDist = length(p - camera.u_cameraPos.xyz);
-    let camAlt = length(camera.u_cameraPos.xyz);
+    let camAltSph = length(camera.u_cameraPos.xyz);
+    let camAltPlan = camera.u_cameraPos.z;
+    let camAlt = mix(camAltSph, camAltPlan, unfurl);
     let distFade = 1.0 - smoothstep(0.5, 10.0, camDist);
-    let altFade = 1.0 - smoothstep(5.05, 14.0, camAlt);
+    let altFadeSph = 1.0 - smoothstep(5.05, 14.0, camAltSph);
+    let altFadePlan = 1.0 - smoothstep(0.05, 10.0, camAltPlan);
+    let altFade = mix(altFadeSph, altFadePlan, unfurl);
     let effErosionStr = erosionStr * max(0.45, distFade * altFade);
 
-    let baseCoord = sphericalNoiseCoord(p, hNorm, freqHoriz, freqVert, timeDrift);
+    let tNoiseMode = smoothstep(0.10, 0.90, unfurl);
+    let sphBaseCoord = sphericalNoiseCoord(p, hNorm, freqHoriz, freqVert, timeDrift);
+    let planBaseCoord = planarNoiseCoord(uv, hNorm, freqHoriz, freqVert, timeDrift);
+    let baseCoord = mix(sphBaseCoord, planBaseCoord, tNoiseMode);
     let noiseSample = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, baseCoord, 0.0);
 
     let perlinWorley = noiseSample.r;
@@ -369,7 +439,9 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
         let targetCoverage = lowCoverage * cumulusProf;
 
         // Decoupled 2.2x detail sampling coordinate with domain displacement
-        let detailCoord = sphericalNoiseCoord(pos, hNorm, freqHoriz * 2.2, freqVert * 2.2, timeDrift * 1.5);
+        let sphDetailCoord = sphericalNoiseCoord(pos, hNorm, freqHoriz * 2.2, freqVert * 2.2, timeDrift * 1.5);
+        let planDetailCoord = planarNoiseCoord(uv, hNorm, freqHoriz * 2.2, freqVert * 2.2, timeDrift * 1.5);
+        let detailCoord = mix(sphDetailCoord, planDetailCoord, tNoiseMode);
         let detailNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, detailCoord, 0.0);
         let cumulusWorley = 1.0 - detailNoise.g;
 
@@ -398,7 +470,9 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     // Mid Altocumulus Stratum 1.4x Frequency Wave Ripple & Cellular Undulatus Pass
     let midEnvelope = layerHeightEnvelope(hNorm, midBottom, midTop, 0.06);
     if (midEnvelope > 0.01) {
-        let midCoord = sphericalNoiseCoord(pos, hNorm, freqHoriz * 1.4, freqVert * 1.4, timeDrift * 1.2);
+        let sphMidCoord = sphericalNoiseCoord(pos, hNorm, freqHoriz * 1.4, freqVert * 1.4, timeDrift * 1.2);
+        let planMidCoord = planarNoiseCoord(uv, hNorm, freqHoriz * 1.4, freqVert * 1.4, timeDrift * 1.2);
+        let midCoord = mix(sphMidCoord, planMidCoord, tNoiseMode);
         let midNoise = textureSampleLevel(u_cloudNoiseTexture, u_noiseSampler, midCoord, 0.0);
         let waveRipple = sin(uv.x * 240.0 + uv.y * 60.0 + cloud.u_simControl.x * 0.4) * 0.18;
         let altocumulus = clamp(sculptedDensity * (0.85 + (midNoise.g * 0.5 + midNoise.b * 0.5) * 0.40 + waveRipple), 0.0, 1.0);
@@ -557,12 +631,13 @@ fn sampleCloudDensityPlanar(pos: vec3<f32>, deltaR: f32, mode: u32) -> f32 {
 // Mid Deck (2–6 km): Cyan-Aqua (#1fd9f5)
 // High Cirrus (6–12 km): Magenta-Orchid (#f547e0)
 fn evaluateStrataDiagnosticColor(pos: vec3<f32>, rInner: f32, deltaR: f32) -> vec3<f32> {
-    let r = length(pos);
-    let hNorm = clamp((r - rInner) / deltaR, 0.0, 1.0);
+    let unfurl = cloud.u_simControl.y;
+    let inv = invertMacroChartWGSL(pos, unfurl, rInner);
+    let hNorm = clamp(inv.z / deltaR, 0.0, 1.0);
 
     let driftRate = cloud.u_noiseParams.w;
     let timeDrift = cloud.u_simControl.x * driftRate;
-    let uv = worldToEquirectangularUV(pos);
+    let uv = vec2<f32>(fract((inv.x / TWO_PI) + 0.5), clamp(0.5 - (inv.y / PI), 0.001, 0.999));
     let advectedUV = vec2<f32>(fract(uv.x + timeDrift), uv.y);
 
     let lowFraction = textureSampleLevel(u_cloudLowTexture, u_cloud2DSampler, advectedUV, 0.0).r;
@@ -827,14 +902,7 @@ fn hashScreen(p: vec2<f32>) -> f32 {
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let unfurl = cloud.u_simControl.y;
     let mode = u32(cloud.u_simControl.z);
-    let isPlanar = unfurl >= 0.50;
-
-    // Smooth morphological fade envelope (seamless crossfade without transition dead-zone)
-    let morphFade = select(
-        1.0 - smoothstep(0.40, 0.60, unfurl) * 0.40,
-        0.60 + smoothstep(0.40, 0.60, unfurl) * 0.40,
-        isPlanar
-    );
+    let morphFade: f32 = 1.0;
 
     // 1. Reconstruct World Ray from NDC Coordinates
     let uv = in.uv;
@@ -873,30 +941,49 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var tStart: f32 = 0.0;
     var tEndInterval: f32 = 0.0;
 
-    if (isPlanar) {
-        // Planar Tropospheric Bounding Slab [slabMin, slabMax]
-        let halfW = PI * RADIUS;
-        let halfH = select(HALF_PI * RADIUS, 3.13 * RADIUS, mode >= 1u);
-        let slabMin = vec3<f32>(-halfW, -halfH, 0.0);
-        let slabMax = vec3<f32>(halfW, halfH, deltaR);
+    // 3. Intersect Tropospheric Bounding Shell & Developing Slab
+    let shellHit = intersectTroposphericShell(rayOrigin, rayDir, rInner, rOuter);
 
-        let slabHit = intersectTroposphericSlab(rayOrigin, rayDir, slabMin, slabMax);
+    // Planar Tropospheric Bounding Slab [slabMin, slabMax]
+    let halfW = PI * RADIUS;
+    let halfH = select(HALF_PI * RADIUS, 3.13 * RADIUS, mode >= 1u);
+    let slabMinZ = mix(-rOuter, 0.0, unfurl);
+    let slabMaxZ = mix(rOuter, deltaR, unfurl);
+    let slabMin = vec3<f32>(-halfW, -halfH, slabMinZ);
+    let slabMax = vec3<f32>(halfW, halfH, slabMaxZ);
+    let slabHit = intersectTroposphericSlab(rayOrigin, rayDir, slabMin, slabMax);
+
+    if (unfurl <= 0.001) {
+        if (shellHit.x < 0.0 || shellHit.y <= shellHit.x) {
+            discard;
+        }
+        let tExit = min(shellHit.y, tTerrain);
+        tStart = shellHit.x;
+        tEndInterval = tExit;
+    } else if (unfurl >= 0.999) {
         if (slabHit.x < 0.0 || slabHit.y <= slabHit.x) {
             discard;
         }
         tStart = slabHit.x;
         tEndInterval = min(slabHit.y, tTerrain);
     } else {
-        // 3. Intersect Tropospheric Bounding Shell [R_inner, R_outer]
-        let shellHit = intersectTroposphericShell(rayOrigin, rayDir, rInner, rOuter);
-        if (shellHit.x < 0.0 || shellHit.y <= shellHit.x) {
+        let hasShell = shellHit.x >= 0.0 && shellHit.y > shellHit.x;
+        let hasSlab = slabHit.x >= 0.0 && slabHit.y > slabHit.x;
+        if (!hasShell && !hasSlab) {
             discard;
         }
-        // 4. Clamp Raymarch Interval to Terrain Surface
-        let tExit = min(shellHit.y, tTerrain);
-        tStart = shellHit.x;
-        tEndInterval = tExit;
+        if (hasShell && hasSlab) {
+            tStart = min(shellHit.x, slabHit.x);
+            tEndInterval = min(max(shellHit.y, slabHit.y), tTerrain);
+        } else if (hasSlab) {
+            tStart = slabHit.x;
+            tEndInterval = min(slabHit.y, tTerrain);
+        } else {
+            tStart = shellHit.x;
+            tEndInterval = min(shellHit.y, tTerrain);
+        }
     }
+
     let tExit = tEndInterval;
 
     if (tStart >= tExit) {
@@ -939,12 +1026,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
 
         let p = rayOrigin + rayDir * t;
-        var rawDensity: f32 = 0.0;
-        if (isPlanar) {
-            rawDensity = sampleCloudDensityPlanar(p, deltaR, mode);
-        } else {
-            rawDensity = sampleCloudDensity(p, rInner, deltaR);
-        }
+        let rawDensity = sampleCloudDensity(p, rInner, deltaR);
 
         // Near-Plane Camera Penetration Fade Envelope
         let distFromCam = t;
@@ -955,12 +1037,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         if (density > 0.002) {
             // In false-color diagnostic mode, evaluate vibrant emissive strata color per step
             if (isFalseColor) {
-                var strataCol: vec3<f32>;
-                if (isPlanar) {
-                    strataCol = evaluateStrataDiagnosticColorPlanar(p, deltaR, mode);
-                } else {
-                    strataCol = evaluateStrataDiagnosticColor(p, rInner, deltaR);
-                }
+                let strataCol = evaluateStrataDiagnosticColor(p, rInner, deltaR);
                 pal.sunColor = strataCol * 1.6;
                 pal.midColor = strataCol * 0.9;
                 pal.ambientColor = strataCol * 0.45;
@@ -971,12 +1048,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let stepT = exp(-stepTau);
 
             // 4-Step Solar Crevice Shadow Raymarch
-            var shadowRes: SunShadowResult;
-            if (isPlanar) {
-                shadowRes = sampleSunShadowTransmittancePlanar(p, sunDir, deltaR, mode);
-            } else {
-                shadowRes = sampleSunShadowTransmittance(p, sunDir, rInner, deltaR);
-            }
+            let shadowRes = sampleSunShadowTransmittance(p, sunDir, rInner, deltaR);
             let sunT = shadowRes.transmittance;
             let shadowDensity = shadowRes.density;
 
@@ -1036,11 +1108,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var finalAlpha = (1.0 - accumTransmittance) * morphFade;
 
     if (!isFalseColor) {
-        if (!isPlanar) {
-            // Pillar 4: Atmospheric Rayleigh Airglow Limb Integration (Spherical Globe only)
+        let airglowWeight = 1.0 - smoothstep(0.0, 0.35, unfurl);
+        if (airglowWeight > 0.001) {
+            // Pillar 4: Atmospheric Rayleigh Airglow Limb Integration (Spherical Globe)
             let airglow = evaluateRayleighLimbAirglow(rayOrigin, rayDir, sunDir, rInner, theme);
-            accumLight += accumTransmittance * airglow.rgb * airglow.a;
-            accumTransmittance *= (1.0 - airglow.a);
+            accumLight += accumTransmittance * airglow.rgb * (airglow.a * airglowWeight);
+            accumTransmittance *= (1.0 - airglow.a * airglowWeight);
         }
 
         finalLight = accumLight;

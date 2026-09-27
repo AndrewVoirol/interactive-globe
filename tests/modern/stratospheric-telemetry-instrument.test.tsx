@@ -9,6 +9,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createRoot, Root } from 'react-dom/client';
 import { act } from 'react';
 import { StratosphericTelemetryInstrument } from '../../src/components/hud/instruments/StratosphericTelemetryInstrument';
+import { Vector3 } from '../../src/core/math/cameraMath';
+import { computeManifoldHit } from '../../src/utils/raycast';
+import { invertMacroChart } from '../../src/core/math/volumetricMath';
 
 describe('StratosphericTelemetryInstrument', () => {
   let container: HTMLDivElement;
@@ -25,6 +28,9 @@ describe('StratosphericTelemetryInstrument', () => {
       root.unmount();
     });
     container.remove();
+    delete (window as any).__INDICATRIX_CAMERA__;
+    delete (window as any).__INDICATRIX_ENGINE__;
+    delete (window as any).__INDICATRIX_SCRUB_ALPHA__;
     vi.restoreAllMocks();
   });
 
@@ -87,5 +93,135 @@ describe('StratosphericTelemetryInstrument', () => {
     expect(card?.className).toContain('bg-[var(--theme-card-bg)]');
     expect(card?.className).toContain('border-[var(--theme-card-border)]');
     expect(card?.querySelectorAll('.border-current\\/15, .inset-\\[2px\\]').length).toBe(0);
+  });
+
+  it('updates cursor target coordinates continuously when activeCoords change', async () => {
+    vi.useFakeTimers();
+    (window as any).__INDICATRIX_CAMERA__ = {
+      activeCoords: { lat: 35.6895, lon: 139.6917 },
+      pitch: 15.0,
+      getSpherical: () => ({ radius: 15.0 }),
+    };
+
+    await act(async () => {
+      root.render(<StratosphericTelemetryInstrument theme={0} />);
+      vi.advanceTimersByTime(150);
+    });
+
+    const card = container.querySelector('[data-testid="stratospheric-telemetry-instrument"]');
+    expect(card?.textContent).toContain('35.69°N, 139.69°E');
+
+    // Simulate drag / unfurl coordinate movement to Seattle / Puget Sound
+    (window as any).__INDICATRIX_CAMERA__.activeCoords = { lat: 47.6062, lon: -122.3321 };
+
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+
+    expect(card?.textContent).toContain('47.61°N, 122.33°W');
+    vi.useRealTimers();
+  });
+
+  it('updates tropospheric regime continuously across orbital, troposphere, and sub-cloud states', async () => {
+    vi.useFakeTimers();
+    let mockAltitudeUnits = 10.0; // Orbital space (h = 10 units)
+    (window as any).__INDICATRIX_CAMERA__ = {
+      activeCoords: { lat: 0, lon: 0 },
+      pitch: 0,
+      getCamDist: () => 5.0 + mockAltitudeUnits,
+      getAltitudeUnits: () => mockAltitudeUnits,
+    };
+
+    await act(async () => {
+      root.render(<StratosphericTelemetryInstrument theme={0} />);
+      vi.advanceTimersByTime(150);
+    });
+
+    const card = container.querySelector('[data-testid="stratospheric-telemetry-instrument"]');
+    expect(card?.textContent).toContain('REGIME 1: ORBITAL SPACE');
+
+    // Descend into troposphere (h = 0.02 units, between 0 and 0.035)
+    mockAltitudeUnits = 0.02;
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(card?.textContent).toContain('REGIME 2: INSIDE TROPOSPHERE');
+
+    // Descend below cloud ceiling (h = -0.005 units)
+    mockAltitudeUnits = -0.005;
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(card?.textContent).toContain('REGIME 3: SUB-CLOUD CEILING');
+
+    vi.useRealTimers();
+  });
+
+  it('updates cursor coordinates and regime continuously while dragging and scrubbing unfurl slider', async () => {
+    vi.useFakeTimers();
+    let scrubAlpha = 0.0;
+    (window as any).__INDICATRIX_SCRUB_ALPHA__ = scrubAlpha;
+
+    const getHitAndInvert = (screenNdcX: number, screenNdcY: number, alpha: number) => {
+      const rayOrig = new Vector3(screenNdcX * 2.0, screenNdcY * 2.0, 15);
+      const rayDir = new Vector3(0, 0, -1);
+      const { hitPos } = computeManifoldHit(rayOrig, rayDir, alpha, 5.0);
+      const inv = invertMacroChart([hitPos.x, hitPos.y, hitPos.z], alpha, 5.0);
+      let lon = inv.lambda * (180 / Math.PI);
+      lon = ((((lon + 180) % 360) + 360) % 360) - 180;
+      const lat = Math.max(-85, Math.min(85, inv.phi * (180 / Math.PI)));
+      return { lat, lon, hitPos };
+    };
+
+    const initialCoord = getHitAndInvert(0, 0, 0.0);
+    (window as any).__INDICATRIX_CAMERA__ = {
+      activeCoords: { lat: initialCoord.lat, lon: initialCoord.lon },
+      pitch: 0,
+      getCamDist: () => 15.0,
+      getAltitudeUnits: () => 10.0,
+    };
+
+    await act(async () => {
+      root.render(<StratosphericTelemetryInstrument theme={0} />);
+      vi.advanceTimersByTime(150);
+    });
+
+    const card = container.querySelector('[data-testid="stratospheric-telemetry-instrument"]');
+    expect(card?.textContent).toContain('0.00°N, 0.00°E');
+    expect(card?.textContent).toContain('REGIME 1: ORBITAL SPACE');
+
+    // Scrub unfurl slider to 0.5 and move cursor / raycast to (0.5, 0.2)
+    scrubAlpha = 0.5;
+    (window as any).__INDICATRIX_SCRUB_ALPHA__ = scrubAlpha;
+    const midCoord = getHitAndInvert(0.5, 0.2, scrubAlpha);
+    expect(Number.isFinite(midCoord.lat)).toBe(true);
+    expect(Number.isFinite(midCoord.lon)).toBe(true);
+
+    (window as any).__INDICATRIX_CAMERA__.activeCoords = { lat: midCoord.lat, lon: midCoord.lon };
+    // Camera zooms into troposphere during inspection
+    (window as any).__INDICATRIX_CAMERA__.getCamDist = () => 5.025;
+
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+
+    expect(card?.textContent).not.toContain('Hover over globe...');
+    expect(card?.textContent).toContain(`${Math.abs(midCoord.lat).toFixed(2)}°`);
+    expect(card?.textContent).toContain('REGIME 2: INSIDE TROPOSPHERE');
+
+    // Scrub unfurl slider to 1.0 (planar map) and move cursor
+    scrubAlpha = 1.0;
+    (window as any).__INDICATRIX_SCRUB_ALPHA__ = scrubAlpha;
+    const flatCoord = getHitAndInvert(-0.8, -0.4, scrubAlpha);
+    (window as any).__INDICATRIX_CAMERA__.activeCoords = { lat: flatCoord.lat, lon: flatCoord.lon };
+
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+
+    expect(card?.textContent).toContain(`${Math.abs(flatCoord.lat).toFixed(2)}°`);
+    expect(card?.textContent).toContain(`${Math.abs(flatCoord.lon).toFixed(2)}°`);
+
+    vi.useRealTimers();
   });
 });

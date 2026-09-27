@@ -54,7 +54,8 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
   // Poll camera and coordinate telemetry at ~10 Hz without React tree thrash
   useEffect(() => {
     let active = true;
-    const interval = setInterval(() => {
+
+    const poll = () => {
       if (!active || typeof window === 'undefined') return;
       const cam = (window as any).__INDICATRIX_CAMERA__;
       if (cam) {
@@ -63,10 +64,27 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
         } else if (cam.pitch !== undefined) {
           setPitch(cam.pitch);
         }
-        if (cam.activeCoords) {
-          setCoords(cam.activeCoords);
+        const activeCoords = typeof cam.getActiveCoords === 'function' ? cam.getActiveCoords() : cam.activeCoords;
+        if (activeCoords) {
+          const c = activeCoords;
+          setCoords((prev) => {
+            if (!prev || prev.lat !== c.lat || prev.lon !== c.lon) {
+              return { lat: c.lat, lon: c.lon };
+            }
+            return prev;
+          });
         }
-        if (typeof cam.getSpherical === 'function') {
+        if (typeof cam.getCamDist === 'function') {
+          const cd = cam.getCamDist();
+          if (Number.isFinite(cd)) {
+            setCamDist(cd);
+          }
+        } else if (typeof cam.getAltitudeUnits === 'function') {
+          const alt = cam.getAltitudeUnits();
+          if (Number.isFinite(alt)) {
+            setCamDist(GLOBE_RADIUS_UNITS + alt);
+          }
+        } else if (typeof cam.getSpherical === 'function') {
           const s = cam.getSpherical();
           if (s && Number.isFinite(s.radius)) {
             setCamDist(s.radius);
@@ -74,13 +92,16 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
         }
       }
       const engine = (window as any).__INDICATRIX_ENGINE__;
-      if (engine && engine.cameraRef && engine.cameraRef.position) {
+      if (!cam?.getCamDist && !cam?.getAltitudeUnits && engine && engine.cameraRef && engine.cameraRef.position) {
         const d = engine.cameraRef.position.length();
         if (Number.isFinite(d)) {
           setCamDist(d);
         }
       }
-    }, 100);
+    };
+
+    poll();
+    const interval = setInterval(poll, 100);
 
     return () => {
       active = false;
