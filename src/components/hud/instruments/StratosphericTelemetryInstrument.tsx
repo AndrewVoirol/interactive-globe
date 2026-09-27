@@ -236,6 +236,7 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
         </div>
 
         <VernierSlider
+          id="camera-horizon-tilt"
           value={pitch}
           min={0}
           max={85}
@@ -243,7 +244,6 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
           onChange={handlePitchSliderChange}
           label="Camera Horizon Tilt"
           unit="°"
-          compact
         />
 
         {/* Quick Pitch Presets */}

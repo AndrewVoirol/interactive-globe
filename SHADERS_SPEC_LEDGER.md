@@ -652,9 +652,9 @@ is currently duplicated in `crust_hydrosphere.wgsl`, `vector_ribbon.wgsl`, and
 When extracting `computeCurlNoise` to the shared module, the following existing
 local definitions **MUST be deleted** from consumer shaders to prevent duplicate
 symbol compilation errors during string concatenation:
-- [ ] `crust_hydrosphere.wgsl` line 505: `fn computeCurlNoise(p: vec3<f32>, time: f32)`
-- [ ] `vector_ribbon.wgsl` line 141: `fn computeCurlNoise(p: vec3<f32>, time: f32)`
-- [ ] `physics_sim.wgsl` line 41: `fn computeCurlNoise(p: vec3<f32>, time: f32)`
+- [x] `crust_hydrosphere.wgsl` line 505: `fn computeCurlNoise(p: vec3<f32>, time: f32)`
+- [x] `vector_ribbon.wgsl` line 141: `fn computeCurlNoise(p: vec3<f32>, time: f32)`
+- [x] `physics_sim.wgsl` line 41: `fn computeCurlNoise(p: vec3<f32>, time: f32)`
 
 **Validation at Intermediate Unfurl States (Mode 1 — Cylindrical Scroll):**
 

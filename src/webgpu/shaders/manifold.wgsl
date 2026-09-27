@@ -55,6 +55,62 @@ fn horizonFalloff(facing: f32, tau: f32, killEdge0: f32, killEdge1: f32) -> f32 
 }
 
 // ----------------------------------------------------------------------------
+// Pure Developable Macro Chart Kinematics & Analytical Surface Normal (Invariant §47)
+// Pure circular cylinder unroll with parallel expansion and analytical normal.
+// Zero tactile seam lips, zero dog-ears, zero margin waves, zero spine weight.
+// Invertibility strictly guaranteed for spatial raycasting, queries, and volumes.
+// ----------------------------------------------------------------------------
+fn evaluateMacroChart(lonRad: f32, latRad: f32, h: f32, alpha: f32, radius: f32) -> DeformedVertex {
+    var out: DeformedVertex;
+    let alphaClamped = clamp(alpha, 0.0, 1.0);
+    let alphaEased = alphaClamped * alphaClamped * (3.0 - 2.0 * alphaClamped);
+    let tParallel = smoothstep(0.05, 0.85, alphaEased);
+    let cosLat = cos(latRad);
+    let sinLat = sin(latRad);
+    let parallelWidth = cosLat * (1.0 - tParallel) + tParallel;
+    let rPar = radius * parallelWidth;
+    let s = max(0.0, 1.0 - alphaEased);
+    let uAngle = s * lonRad;
+
+    var curX: f32;
+    var curZ: f32;
+    if (abs(uAngle) > 0.02) {
+        let sDiv = max(0.0001, s);
+        curX = rPar * (sin(uAngle) / sDiv);
+        curZ = rPar * ((cos(uAngle) - 1.0) / sDiv + s);
+    } else {
+        let u2 = uAngle * uAngle;
+        curX = rPar * lonRad * (1.0 - u2 / 6.0);
+        curZ = rPar * s * (1.0 - lonRad * lonRad * 0.5 * (1.0 - u2 / 12.0));
+    }
+
+    let tStraighten = smoothstep(0.20, 0.95, alphaEased);
+    let curY = (1.0 - tStraighten) * radius * sinLat + tStraighten * radius * latRad;
+
+    // Closed-form analytical normal N_base = T_lambda x T_phi
+    let dyDPhi = radius * (cosLat * (1.0 - tStraighten) + tStraighten);
+    let negDrDPhi = radius * sinLat * (1.0 - tParallel);
+    var bracket: f32;
+    if (abs(uAngle) > 0.02) {
+        let sDiv = max(0.0001, s);
+        bracket = (1.0 - cos(uAngle)) / sDiv + s * cos(uAngle);
+    } else {
+        let u2 = uAngle * uAngle;
+        bracket = s * (lonRad * lonRad * (0.5 - u2 / 24.0) + (1.0 - u2 * 0.5));
+    }
+
+    let rawNx = dyDPhi * sin(uAngle);
+    let rawNy = negDrDPhi * bracket;
+    let rawNz = dyDPhi * cos(uAngle);
+    let rawNorm = vec3<f32>(rawNx, rawNy, rawNz);
+    let norm = select(vec3<f32>(0.0, 0.0, 1.0), normalize(rawNorm), length(rawNorm) > 0.00001);
+
+    out.pos = vec3<f32>(curX + norm.x * h, curY + norm.y * h, curZ + norm.z * h);
+    out.normal = norm;
+    return out;
+}
+
+// ----------------------------------------------------------------------------
 // Mode 0: Equirectangular 2:1 Developable Folio Wave Kinematics & Analytical Normal
 // ----------------------------------------------------------------------------
 fn evaluateModeZero(pos3D: vec3<f32>, target2D: vec2<f32>, unfurl: f32) -> DeformedVertex {

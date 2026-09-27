@@ -38,6 +38,7 @@ import { VectorFieldDataSource } from '../core/data/VectorFieldDataSource';
 import { ThemeManager, PhysicalMediumProperties } from '../core/themes';
 import { getSolarPosition, SolarPosition } from '../core/astronomy/SolarEphemeris';
 import { TemporalTextureRingBuffer } from './TemporalTextureRingBuffer';
+import { evaluateMacroChartCPU } from '../core/math/volumetricMath';
 
 export interface WebGPUInitConfig {
   canvas: HTMLCanvasElement;
@@ -94,6 +95,12 @@ export interface WebGPUFrameParams {
   showAtmosphere?: boolean;
   cloudOpacity?: number;
   cloudDriftSpeed?: number;
+  cloudFreqHoriz?: number;
+  cloudFreqVert?: number;
+  cloudErosionStr?: number;
+  cloudExtinction?: number;
+  cloudThickness?: number;
+  cloudLowTop?: number;
   peakExponent?: number;
   reliefActive?: boolean;
   showContours?: boolean;
@@ -1739,6 +1746,25 @@ export class WebGPUEngine {
       out1[1] + out2[1],
       out1[2] + out2[2],
     ];
+  }
+
+  /**
+   * Evaluates the pure developable macro chart F(lambda, phi, h; alpha) and analytical normal n_F.
+   * Pure circular cylinder unroll with parallel expansion and analytical normal.
+   * Zero tactile personality, strictly invertible via invertMacroChart.
+   */
+  public static evaluateMacroChart(
+    u: number,
+    v: number,
+    h: number,
+    unfurl: number,
+    radius = 5.0
+  ): { pos: [number, number, number]; normal: [number, number, number] } {
+    const TWO_PI = 2.0 * Math.PI;
+    const PI = Math.PI;
+    const lonRad = (u - 0.5) * TWO_PI;
+    const latRad = (0.5 - v) * PI;
+    return evaluateMacroChartCPU(lonRad, latRad, h, unfurl, radius);
   }
 
   public static evaluateManifoldPosition(

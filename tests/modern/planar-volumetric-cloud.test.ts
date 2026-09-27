@@ -11,6 +11,7 @@ import {
   mapPlanarCoordinates,
   computePlanarNoiseCoord,
   clampRayIntervalToTerrain,
+  TroposphericInterval,
   Vec3,
 } from '../../src/core/math/volumetricMath';
 

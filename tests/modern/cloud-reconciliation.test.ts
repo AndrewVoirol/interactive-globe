@@ -97,6 +97,10 @@ describe('Volumetric Cloud & Data Reconciliation Suite', () => {
     // Both showClouds and showCloudLow enabled -> shadow active
     engine.render({
       camera,
+      unfurl: 0,
+      mode: 0,
+      time: 0,
+      dt: 0.016,
       showClouds: true,
       showCloudLow: true,
       showCloudMid: true,
@@ -108,6 +112,10 @@ describe('Volumetric Cloud & Data Reconciliation Suite', () => {
     // Turn off Low stratum -> ground shadow must drop to 0.0 because low deck casts ground shadow
     engine.render({
       camera,
+      unfurl: 0,
+      mode: 0,
+      time: 0,
+      dt: 0.016,
       showClouds: true,
       showCloudLow: false,
       showCloudMid: true,
@@ -120,6 +128,10 @@ describe('Volumetric Cloud & Data Reconciliation Suite', () => {
   it('G2: ground shadow intensity and cloud rendering drop to 0.0 when all strata are disabled', () => {
     engine.render({
       camera,
+      unfurl: 0,
+      mode: 0,
+      time: 0,
+      dt: 0.016,
       showClouds: true,
       showCloudLow: false,
       showCloudMid: false,
