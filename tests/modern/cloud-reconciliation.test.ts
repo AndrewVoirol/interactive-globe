@@ -188,5 +188,54 @@ describe('Volumetric Cloud & Data Reconciliation Suite', () => {
     // Premultiplied alpha hardware output: srcFactor: 'one', dstFactor: 'one-minus-src-alpha'
     expect(wgsl).toContain('return vec4<f32>(finalLight, finalAlpha);');
   });
+
+  it('G6: proves volumetric_cloud.wgsl enforces pure Equirectangular 2:1 developable sheet bounds without Mercator vestiges', () => {
+    const shaderPath = path.resolve(__dirname, '../../src/webgpu/shaders/volumetric_cloud.wgsl');
+    const wgsl = fs.readFileSync(shaderPath, 'utf-8');
+
+    // 1. Must enforce Equirectangular 2:1 sheet bounds: yMax = rInner * (1.0 - tStraighten + tStraighten * HALF_PI)
+    expect(wgsl).toContain('let yMax = rInner * (1.0 - tStraighten + tStraighten * HALF_PI);');
+
+    // 2. Must NOT contain vestigial Mercator 3.13 R scaling or mode >= 1u slab branching
+    expect(wgsl).not.toContain('3.13 * rInner');
+    expect(wgsl).not.toContain('3.13 * RADIUS');
+    expect(wgsl).not.toContain('mode >= 1u');
+
+    // 3. Must NOT conflate simulation mode with false-color diagnostic mode
+    expect(wgsl).not.toContain('cloud.u_simControl.z > 1.5');
+    expect(wgsl).toContain('let isFalseColor = cloud.u_padCloud.x > 0.5;');
+  });
+
+  it('G7: verifies WebGPUEngine pass gating discipline (Rule 24) and uniform pad slot 34 initialization', () => {
+    // 1. Per Rule 24 Zero-Zombie Pass Invariant, optional passes default to inactive on raw engine
+    expect((engine as any).volumetricCloudsEnabled).toBe(false);
+    expect(engine.isVolumetricCloudsEnabled()).toBe(false);
+
+    // Can be explicitly toggled via setter
+    engine.setVolumetricCloudsEnabled(true);
+    expect(engine.isVolumetricCloudsEnabled()).toBe(true);
+    engine.setVolumetricCloudsEnabled(false);
+
+    // 2. Dynamic uniform upload must explicitly initialize pad slot 34 to 0.0 (Equirectangular 2:1 sheet)
+    const floats = (engine as any).volumetricCloudFloats;
+    expect(floats).toBeDefined();
+    // Execute updateVolumetricUniforms with default parameters
+    (engine as any).updateVolumetricUniforms({
+      time: 1.0,
+      unfurl: 0.5,
+      cloudFalseColor: false,
+    }, camera);
+    expect(floats[34]).toBe(0.0);
+    expect(floats[36]).toBe(0.0); // falseColor is 0.0
+
+    // Strata diagnostic falseColor true
+    (engine as any).updateVolumetricUniforms({
+      time: 1.0,
+      unfurl: 0.5,
+      cloudFalseColor: true,
+    }, camera);
+    expect(floats[36]).toBe(1.0); // falseColor is 1.0
+  });
 });
+
 

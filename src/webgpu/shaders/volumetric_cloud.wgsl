@@ -45,8 +45,8 @@ struct VolumetricCloudUniforms {
     u_noiseParams: vec4<f32>,    // offset 80 (floats 20..23: noiseFreq, billowStr, erosionStr, driftRate)
     u_opticalParams: vec4<f32>,  // offset 96 (floats 24..27: extinction, albedo, hgG1, hgG2)
     u_mediumParams: vec4<f32>,   // offset 112 (floats 28..31: theme, inkAbsorption, paperTooth, gamma)
-    u_simControl: vec4<f32>,     // offset 128 (floats 32..35: time, unfurl, mode, maxSteps)
-    u_padCloud: vec4<f32>,       // offset 144 (floats 36..39)
+    u_simControl: vec4<f32>,     // offset 128 (floats 32..35: time, unfurl, pad, maxSteps)
+    u_padCloud: vec4<f32>,       // offset 144 (floats 36..39: falseColor, pad, pad, pad)
 };
 
 // ----------------------------------------------------------------------------
@@ -208,8 +208,7 @@ fn intersectTroposphericCylinder(
     rayDir: vec3<f32>,
     rInner: f32,
     deltaR: f32,
-    unfurl: f32,
-    mode: u32
+    unfurl: f32
 ) -> vec2<f32> {
     let alphaClamped = clamp(unfurl, 0.0, 1.0);
     let alphaEased = alphaClamped * alphaClamped * (3.0 - 2.0 * alphaClamped);
@@ -220,11 +219,8 @@ fn intersectTroposphericCylinder(
     let RcOuter = Rc + deltaR;
 
     let tStraighten = smoothstep(0.20, 0.95, alphaEased);
-    let yMax = select(
-        rInner * (1.0 - tStraighten + tStraighten * HALF_PI),
-        3.13 * rInner,
-        mode >= 1u
-    ) + deltaR * 1.1;
+    // Equirectangular 2:1 developable sheet latitude bound
+    let yMax = rInner * (1.0 - tStraighten + tStraighten * HALF_PI) + deltaR * 1.1;
 
     // Height slab along Y
     var tYMin: f32 = -1e9;
@@ -428,12 +424,8 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let alphaClamped = clamp(unfurl, 0.0, 1.0);
     let alphaEased = alphaClamped * alphaClamped * (3.0 - 2.0 * alphaClamped);
     let tStraighten = smoothstep(0.20, 0.95, alphaEased);
-    let mode = u32(cloud.u_simControl.z);
-    let yMax = select(
-        rInner * (1.0 - tStraighten + tStraighten * HALF_PI),
-        3.13 * rInner,
-        mode >= 1u
-    );
+    // Equirectangular 2:1 developable sheet latitude bound: yMax in [rInner, rInner * PI / 2]
+    let yMax = rInner * (1.0 - tStraighten + tStraighten * HALF_PI);
     let edgeFadeLat = select(
         1.0 - smoothstep(yMax, yMax + deltaR * 1.2, abs(p.y)),
         1.0,
@@ -809,7 +801,6 @@ fn hashScreen(p: vec2<f32>) -> f32 {
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let unfurl = cloud.u_simControl.y;
-    let mode = u32(cloud.u_simControl.z);
     let morphFade: f32 = 1.0;
 
     // 1. Reconstruct World Ray from NDC Coordinates
@@ -855,11 +846,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let alphaClamped = clamp(unfurl, 0.0, 1.0);
     let alphaEased = alphaClamped * alphaClamped * (3.0 - 2.0 * alphaClamped);
     let tStraighten = smoothstep(0.20, 0.95, alphaEased);
-    let yMax = select(
-        rInner * (1.0 - tStraighten + tStraighten * HALF_PI),
-        3.13 * rInner,
-        mode >= 1u
-    );
+    // Equirectangular 2:1 developable sheet latitude bound: yMax in [rInner, rInner * PI / 2]
+    let yMax = rInner * (1.0 - tStraighten + tStraighten * HALF_PI);
 
     // Planar Tropospheric Bounding Slab [slabMin, slabMax] (tightened to dynamic yMax)
     let halfW = PI * RADIUS;
@@ -883,7 +871,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         tStart = slabHit.x;
         tEndInterval = min(slabHit.y, tTerrain);
     } else {
-        let cylHit = intersectTroposphericCylinder(rayOrigin, rayDir, rInner, deltaR, unfurl, mode);
+        let cylHit = intersectTroposphericCylinder(rayOrigin, rayDir, rInner, deltaR, unfurl);
         let hasCyl = cylHit.x >= 0.0 && cylHit.y > cylHit.x;
         if (!hasCyl) {
             discard;
@@ -929,7 +917,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let theme = u32(cloud.u_mediumParams.x);
     var pal = getMediumPalette(theme);
 
-    let isFalseColor = cloud.u_padCloud.x > 0.5 || cloud.u_simControl.z > 1.5;
+    let isFalseColor = cloud.u_padCloud.x > 0.5;
 
     let sigmaT = cloud.u_opticalParams.x * pal.inkDensityFactor;
     let albedo = cloud.u_opticalParams.y;

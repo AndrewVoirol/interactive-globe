@@ -6628,6 +6628,7 @@ export class WebGPUEngine {
     ) * 60.0;
     cloudFloats[32] = (params.time ?? 0.0) + timelineOffsetSec;
     cloudFloats[33] = params.unfurl ?? 0.0;
+    cloudFloats[34] = 0.0; // Equirectangular 2:1 developable sheet (pad)
     // Calibrated Resolution Tier to Raymarch Steps mapping (u_simControl.w)
     let maxSteps = 32.0; // Default for 1M / balanced
     if (params.cloudMaxSteps !== undefined && params.cloudMaxSteps > 0) {
@@ -8114,18 +8115,6 @@ export class WebGPUEngine {
     // Pass 2: Dedicated Volumetric Cloud Raymarcher Pass (Milestone 3)
     if (!isPurity && useVolumetric) {
       this.renderVolumetricClouds(commandEncoder, params, sceneTargetView);
-    } else if (params.showClouds) {
-      if (!(this as any)._lastCloudDebugLog) {
-        (this as any)._lastCloudDebugLog = true;
-        console.warn('[WebGPUEngine Cloud Skipped]', {
-          isPurity,
-          showClouds,
-          cloudEnabled: this.cloudEnabled,
-          paramVolumetric: params.volumetricClouds,
-          engineVolumetric: this.volumetricCloudsEnabled,
-          hasPipeline: !!this.volumetricCloudPipeline,
-        });
-      }
     }
 
     // Pass 3: Cartographic Intaglio Substrate Micro-Relief & Paper Composition Pass (Milestone §6)
