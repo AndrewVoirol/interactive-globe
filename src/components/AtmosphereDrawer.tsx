@@ -157,7 +157,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const [internalPluvialGamma, setInternalPluvialGamma] = useState<number>(0.0);
   const [internalWeatherOpticalMode, setInternalWeatherOpticalMode] = useState<number>(0);
   const [internalThermodynamicGating, setInternalThermodynamicGating] = useState<boolean>(true);
-  const [internalPrognosticModel, setInternalPrognosticModel] = useState<PrognosticModelBackend>(propPrognosticModel ?? 'weathernext3');
+  const [internalPrognosticModel, setInternalPrognosticModel] = useState<PrognosticModelBackend>(propPrognosticModel ?? 'gfs');
   const [internalPrognosticVariable, setInternalPrognosticVariable] = useState<string>('total_precipitation_1hr_mean');
 
   // Beta Volumetric Cloud Physics & Raymarching Levers (Rule 22)

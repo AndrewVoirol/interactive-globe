@@ -150,6 +150,34 @@ describe('Planar Tropospheric Slab Raymarching Pure Math', () => {
       const coordsY = mapPlanarCoordinates(posY, RADIUS, DELTA_Z, 1);
       expect(coordsY.v).toBeLessThan(0.5); // Northern hemisphere is v < 0.5
       expect(coordsY.v).toBeGreaterThan(0.0);
+
+      // High northern latitude (+85 deg Mercator limit: y = ~3.12865 * RADIUS)
+      const posHighNorth: Vec3 = [0.0, 3.12865 * RADIUS, 0.0];
+      const coordsHN = mapPlanarCoordinates(posHighNorth, RADIUS, DELTA_Z, 1);
+      expect(coordsHN.v).toBeLessThan(0.10);
+      expect(coordsHN.v).toBeGreaterThan(0.001);
+
+      // High southern latitude (-85 deg Mercator limit: y = ~ -3.12865 * RADIUS)
+      const posHighSouth: Vec3 = [0.0, -3.12865 * RADIUS, 0.0];
+      const coordsHS = mapPlanarCoordinates(posHighSouth, RADIUS, DELTA_Z, 1);
+      expect(coordsHS.v).toBeGreaterThan(0.90);
+      expect(coordsHS.v).toBeLessThan(0.999);
+    });
+
+    it('validates Mercator slab bounding box covers up to 3.13 * RADIUS without clipping', () => {
+      const mercatorHalfH = 3.13 * RADIUS;
+      const mercatorSlabMin: Vec3 = [-X_HALF, -mercatorHalfH, 0.0];
+      const mercatorSlabMax: Vec3 = [X_HALF, mercatorHalfH, DELTA_Z];
+
+      // Ray looking at high-latitude point (e.g. Alaska/Scandinavia at y = 14.0)
+      const r0: Vec3 = [0.0, 14.0, 10.0];
+      const dir: Vec3 = [0.0, 0.0, -1.0];
+      const interval = computePlanarTroposphericInterval(r0, dir, mercatorSlabMin, mercatorSlabMax);
+      expect(interval).not.toBeNull();
+      if (interval) {
+        expect(interval.tStart).toBeCloseTo(10.0 - DELTA_Z, 4);
+        expect(interval.tEnd).toBeCloseTo(10.0, 4);
+      }
     });
   });
 

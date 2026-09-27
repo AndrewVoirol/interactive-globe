@@ -66,6 +66,12 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
         if (cam.activeCoords) {
           setCoords(cam.activeCoords);
         }
+        if (typeof cam.getSpherical === 'function') {
+          const s = cam.getSpherical();
+          if (s && Number.isFinite(s.radius)) {
+            setCamDist(s.radius);
+          }
+        }
       }
       const engine = (window as any).__INDICATRIX_ENGINE__;
       if (engine && engine.cameraRef && engine.cameraRef.position) {

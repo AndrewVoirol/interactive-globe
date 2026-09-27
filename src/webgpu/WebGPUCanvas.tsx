@@ -805,6 +805,110 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     camera.updateMatrixWorld();
   }, []);
 
+  // Unified Oblique and Planar Camera Kinematics (Dual-mode Globe & Unfurled Sheet)
+  const computeObliqueVectors = useCallback((
+    lonDeg: number,
+    latDeg: number,
+    altitudeRadius: number,
+    pitchDeg: number,
+    headingDeg: number
+  ) => {
+    const phi = ((90 - latDeg) * Math.PI) / 180;
+    const theta = (lonDeg * Math.PI) / 180;
+    const sinPhi = Math.sin(phi);
+    const cosPhi = Math.cos(phi);
+    const sinTheta = Math.sin(theta);
+    const cosTheta = Math.cos(theta);
+
+    const nx = sinPhi * sinTheta;
+    const ny = cosPhi;
+    const nz = sinPhi * cosTheta;
+
+    const northX = -Math.sin((latDeg * Math.PI) / 180) * sinTheta;
+    const northY = Math.cos((latDeg * Math.PI) / 180);
+    const northZ = -Math.sin((latDeg * Math.PI) / 180) * cosTheta;
+
+    const eastX = cosTheta;
+    const eastY = 0;
+    const eastZ = -sinTheta;
+
+    const hRad = (headingDeg * Math.PI) / 180;
+    const forwardX = northX * Math.cos(hRad) + eastX * Math.sin(hRad);
+    const forwardY = northY * Math.cos(hRad) + eastY * Math.sin(hRad);
+    const forwardZ = northZ * Math.cos(hRad) + eastZ * Math.sin(hRad);
+
+    const pRad = (pitchDeg * Math.PI) / 180;
+    const vDirX = -Math.cos(pRad) * nx + Math.sin(pRad) * forwardX;
+    const vDirY = -Math.cos(pRad) * ny + Math.sin(pRad) * forwardY;
+    const vDirZ = -Math.cos(pRad) * nz + Math.sin(pRad) * forwardZ;
+
+    const h_floor = getGroundClearanceFloor(lonDeg, latDeg);
+    const safeRadius = Math.max(h_floor, altitudeRadius);
+    const sphereCamX = nx * safeRadius;
+    const sphereCamY = ny * safeRadius;
+    const sphereCamZ = nz * safeRadius;
+
+    const targetDist = 3.5;
+    const sphereTargetX = sphereCamX + vDirX * targetDist;
+    const sphereTargetY = sphereCamY + vDirY * targetDist;
+    const sphereTargetZ = sphereCamZ + vDirZ * targetDist;
+
+    const sphereUpX = Math.sin(pRad) * nx + Math.cos(pRad) * forwardX;
+    const sphereUpY = Math.sin(pRad) * ny + Math.cos(pRad) * forwardY;
+    const sphereUpZ = Math.sin(pRad) * nz + Math.cos(pRad) * forwardZ;
+
+    const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
+    const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
+    const curUnfurl = scrubAlpha !== undefined ? scrubAlpha : (animAlpha !== undefined ? animAlpha : (stateRef.current?.unfurlProgress ?? 0));
+    const curMode = stateRef.current?.mode ?? 0;
+
+    if (curUnfurl < 0.001) {
+      return {
+        camX: sphereCamX, camY: sphereCamY, camZ: sphereCamZ,
+        targetX: sphereTargetX, targetY: sphereTargetY, targetZ: sphereTargetZ,
+        vUpX: sphereUpX, vUpY: sphereUpY, vUpZ: sphereUpZ,
+        safeRadius, theta, phi
+      };
+    }
+
+    const deformed = evaluatePointMorph(lonDeg, latDeg, curUnfurl, curMode, 0, 0.0);
+    const altitudeAboveGround = Math.max(0.015, safeRadius - 5.0 * Math.sin(pRad));
+
+    const planarCamX = deformed[0];
+    const planarCamY = deformed[1];
+    const planarCamZ = deformed[2] + altitudeAboveGround;
+
+    const planarFwdX = Math.sin(hRad);
+    const planarFwdY = Math.cos(hRad);
+
+    const planarVDirX = Math.sin(pRad) * planarFwdX;
+    const planarVDirY = Math.sin(pRad) * planarFwdY;
+    const planarVDirZ = -Math.cos(pRad);
+
+    const planarTargetDist = 3.5;
+    const planarTargetX = planarCamX + planarVDirX * planarTargetDist;
+    const planarTargetY = planarCamY + planarVDirY * planarTargetDist;
+    const planarTargetZ = planarCamZ + planarVDirZ * planarTargetDist;
+
+    const planarUpX = Math.cos(pRad) * planarFwdX;
+    const planarUpY = Math.cos(pRad) * planarFwdY;
+    const planarUpZ = Math.sin(pRad);
+
+    const t = Math.max(0.0, Math.min(1.0, curUnfurl));
+    return {
+      camX: (1 - t) * sphereCamX + t * planarCamX,
+      camY: (1 - t) * sphereCamY + t * planarCamY,
+      camZ: (1 - t) * sphereCamZ + t * planarCamZ,
+      targetX: (1 - t) * sphereTargetX + t * planarTargetX,
+      targetY: (1 - t) * sphereTargetY + t * planarTargetY,
+      targetZ: (1 - t) * sphereTargetZ + t * planarTargetZ,
+      vUpX: (1 - t) * sphereUpX + t * planarUpX,
+      vUpY: (1 - t) * sphereUpY + t * planarUpY,
+      vUpZ: (1 - t) * sphereUpZ + t * planarUpZ,
+      safeRadius, theta, phi
+    };
+  }, [getGroundClearanceFloor]);
+
   // Update camera target or position when props change
   useEffect(() => {
     if (cameraTarget) {
@@ -1023,62 +1127,20 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         updateCameraTransform();
       },
       setObliqueView: (lonDeg: number, latDeg: number, altitudeRadius = 6.05, pitchDeg = 52, headingDeg = 0) => {
-        const phi = ((90 - latDeg) * Math.PI) / 180;
-        const theta = (lonDeg * Math.PI) / 180;
-        const sinPhi = Math.sin(phi);
-        const cosPhi = Math.cos(phi);
-        const sinTheta = Math.sin(theta);
-        const cosTheta = Math.cos(theta);
+        const v = computeObliqueVectors(lonDeg, latDeg, altitudeRadius, pitchDeg, headingDeg);
 
-        const nx = sinPhi * sinTheta;
-        const ny = cosPhi;
-        const nz = sinPhi * cosTheta;
-
-        const northX = -Math.sin((latDeg * Math.PI) / 180) * sinTheta;
-        const northY = Math.cos((latDeg * Math.PI) / 180);
-        const northZ = -Math.sin((latDeg * Math.PI) / 180) * cosTheta;
-
-        const eastX = cosTheta;
-        const eastY = 0;
-        const eastZ = -sinTheta;
-
-        const hRad = (headingDeg * Math.PI) / 180;
-        const forwardX = northX * Math.cos(hRad) + eastX * Math.sin(hRad);
-        const forwardY = northY * Math.cos(hRad) + eastY * Math.sin(hRad);
-        const forwardZ = northZ * Math.cos(hRad) + eastZ * Math.sin(hRad);
-
-        const pRad = (pitchDeg * Math.PI) / 180;
-        const vDirX = -Math.cos(pRad) * nx + Math.sin(pRad) * forwardX;
-        const vDirY = -Math.cos(pRad) * ny + Math.sin(pRad) * forwardY;
-        const vDirZ = -Math.cos(pRad) * nz + Math.sin(pRad) * forwardZ;
-
-        const h_floor = getGroundClearanceFloor(lonDeg, latDeg);
-        const safeRadius = Math.max(h_floor, altitudeRadius);
-        const camX = nx * safeRadius;
-        const camY = ny * safeRadius;
-        const camZ = nz * safeRadius;
-
-        const targetDist = 3.5;
-        const targetX = camX + vDirX * targetDist;
-        const targetY = camY + vDirY * targetDist;
-        const targetZ = camZ + vDirZ * targetDist;
-
-        const vUpX = Math.sin(pRad) * nx + Math.cos(pRad) * forwardX;
-        const vUpY = Math.sin(pRad) * ny + Math.cos(pRad) * forwardY;
-        const vUpZ = Math.sin(pRad) * nz + Math.cos(pRad) * forwardZ;
-
-        cameraRef.current.position.set(camX, camY, camZ);
-        targetRef.current.set(targetX, targetY, targetZ);
-        cameraRef.current.up.set(vUpX, vUpY, vUpZ);
+        cameraRef.current.position.set(v.camX, v.camY, v.camZ);
+        targetRef.current.set(v.targetX, v.targetY, v.targetZ);
+        cameraRef.current.up.set(v.vUpX, v.vUpY, v.vUpZ);
         cameraRef.current.lookAt(targetRef.current);
         cameraRef.current.updateMatrixWorld();
         if (stateRef.current) {
           (stateRef.current as any).cameraPitchDeg = pitchDeg;
         }
 
-        sphericalRef.current.radius = safeRadius;
-        sphericalRef.current.theta = theta;
-        sphericalRef.current.phi = phi;
+        sphericalRef.current.radius = v.safeRadius;
+        sphericalRef.current.theta = v.theta;
+        sphericalRef.current.phi = v.phi;
         activeCoordsRef.current = { lat: latDeg, lon: lonDeg };
 
         velocityRef.current.velTheta = 0;
@@ -1376,43 +1438,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         const headingDeg = options?.headingDeg ?? 0.0;
         const durationSec = options?.duration ?? 1.6;
 
-        const phi = ((90 - latDeg) * Math.PI) / 180;
-        const theta = (lonDeg * Math.PI) / 180;
-        const sinPhi = Math.sin(phi);
-        const cosPhi = Math.cos(phi);
-        const sinTheta = Math.sin(theta);
-        const cosTheta = Math.cos(theta);
-
-        const nx = sinPhi * sinTheta;
-        const ny = cosPhi;
-        const nz = sinPhi * cosTheta;
-
-        const northX = -Math.sin((latDeg * Math.PI) / 180) * sinTheta;
-        const northY = Math.cos((latDeg * Math.PI) / 180);
-        const northZ = -Math.sin((latDeg * Math.PI) / 180) * cosTheta;
-
-        const eastX = cosTheta;
-        const eastY = 0;
-        const eastZ = -sinTheta;
-
-        const hRad = (headingDeg * Math.PI) / 180;
-        const forwardX = northX * Math.cos(hRad) + eastX * Math.sin(hRad);
-        const forwardY = northY * Math.cos(hRad) + eastY * Math.sin(hRad);
-        const forwardZ = northZ * Math.cos(hRad) + eastZ * Math.sin(hRad);
-
-        const pRad = (pitchDeg * Math.PI) / 180;
-        const vDirX = -Math.cos(pRad) * nx + Math.sin(pRad) * forwardX;
-        const vDirY = -Math.cos(pRad) * ny + Math.sin(pRad) * forwardY;
-        const vDirZ = -Math.cos(pRad) * nz + Math.sin(pRad) * forwardZ;
-
-        const camX = nx * altitudeRadius;
-        const camY = ny * altitudeRadius;
-        const camZ = nz * altitudeRadius;
-
-        const targetDist = 3.5;
-        const targetX = camX + vDirX * targetDist;
-        const targetY = camY + vDirY * targetDist;
-        const targetZ = camZ + vDirZ * targetDist;
+        const v = computeObliqueVectors(lonDeg, latDeg, altitudeRadius, pitchDeg, headingDeg);
 
         velocityRef.current.velTheta = 0;
         velocityRef.current.velPhi = 0;
@@ -1421,29 +1447,25 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         velocityRef.current.velPanY = 0;
         targetCameraPosRef.current = null;
 
-        const vUpX = Math.sin(pRad) * nx + Math.cos(pRad) * forwardX;
-        const vUpY = Math.sin(pRad) * ny + Math.cos(pRad) * forwardY;
-        const vUpZ = Math.sin(pRad) * nz + Math.cos(pRad) * forwardZ;
-
         if (stateRef.current) {
           (stateRef.current as any).cameraPitchDeg = pitchDeg;
         }
 
         if (durationSec <= 0) {
-          cameraRef.current.position.set(camX, camY, camZ);
-          targetRef.current.set(targetX, targetY, targetZ);
-          cameraRef.current.up.set(vUpX, vUpY, vUpZ);
+          cameraRef.current.position.set(v.camX, v.camY, v.camZ);
+          targetRef.current.set(v.targetX, v.targetY, v.targetZ);
+          cameraRef.current.up.set(v.vUpX, v.vUpY, v.vUpZ);
           cameraRef.current.lookAt(targetRef.current);
           cameraRef.current.updateMatrixWorld();
           cameraTransitionRef.current = null;
         } else {
           cameraTransitionRef.current = {
             startPos: cameraRef.current.position.clone(),
-            endPos: new Vector3(camX, camY, camZ),
+            endPos: new Vector3(v.camX, v.camY, v.camZ),
             startTarget: targetRef.current.clone(),
-            endTarget: new Vector3(targetX, targetY, targetZ),
+            endTarget: new Vector3(v.targetX, v.targetY, v.targetZ),
             startUp: cameraRef.current.up.clone(),
-            endUp: new Vector3(vUpX, vUpY, vUpZ),
+            endUp: new Vector3(v.vUpX, v.vUpY, v.vUpZ),
             startTime: performance.now(),
             duration: durationSec * 1000,
           };
@@ -1462,38 +1484,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         callbacksRef.current.onAtmosphericScaleChange?.(6.0);
         callbacksRef.current.onTogglePlanetaryLayer?.('noaa-gfs-jetstream', true);
 
-        const phi = ((90 - 44.5) * Math.PI) / 180;
-        const theta = (8.5 * Math.PI) / 180;
-        const sinPhi = Math.sin(phi);
-        const cosPhi = Math.cos(phi);
-        const sinTheta = Math.sin(theta);
-        const cosTheta = Math.cos(theta);
-
-        const nx = sinPhi * sinTheta;
-        const ny = cosPhi;
-        const nz = sinPhi * cosTheta;
-
-        const northX = -Math.sin((44.5 * Math.PI) / 180) * sinTheta;
-        const northY = Math.cos((44.5 * Math.PI) / 180);
-        const northZ = -Math.sin((44.5 * Math.PI) / 180) * cosTheta;
-
-        const forwardX = northX;
-        const forwardY = northY;
-        const forwardZ = northZ;
-
-        const pRad = (78.0 * Math.PI) / 180;
-        const vDirX = -Math.cos(pRad) * nx + Math.sin(pRad) * forwardX;
-        const vDirY = -Math.cos(pRad) * ny + Math.sin(pRad) * forwardY;
-        const vDirZ = -Math.cos(pRad) * nz + Math.sin(pRad) * forwardZ;
-
-        const camX = nx * 5.22;
-        const camY = ny * 5.22;
-        const camZ = nz * 5.22;
-
-        const targetDist = 3.5;
-        const targetX = camX + vDirX * targetDist;
-        const targetY = camY + vDirY * targetDist;
-        const targetZ = camZ + vDirZ * targetDist;
+        const v = computeObliqueVectors(8.5, 44.5, 5.22, 78.0, 0.0);
 
         velocityRef.current.velTheta = 0;
         velocityRef.current.velPhi = 0;
@@ -1502,29 +1493,25 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         velocityRef.current.velPanY = 0;
         targetCameraPosRef.current = null;
 
-        const vUpX = Math.sin(pRad) * nx + Math.cos(pRad) * forwardX;
-        const vUpY = Math.sin(pRad) * ny + Math.cos(pRad) * forwardY;
-        const vUpZ = Math.sin(pRad) * nz + Math.cos(pRad) * forwardZ;
-
         if (stateRef.current) {
           (stateRef.current as any).cameraPitchDeg = 78.0;
         }
 
         if (duration <= 0) {
-          cameraRef.current.position.set(camX, camY, camZ);
-          targetRef.current.set(targetX, targetY, targetZ);
-          cameraRef.current.up.set(vUpX, vUpY, vUpZ);
+          cameraRef.current.position.set(v.camX, v.camY, v.camZ);
+          targetRef.current.set(v.targetX, v.targetY, v.targetZ);
+          cameraRef.current.up.set(v.vUpX, v.vUpY, v.vUpZ);
           cameraRef.current.lookAt(targetRef.current);
           cameraRef.current.updateMatrixWorld();
           cameraTransitionRef.current = null;
         } else {
           cameraTransitionRef.current = {
             startPos: cameraRef.current.position.clone(),
-            endPos: new Vector3(camX, camY, camZ),
+            endPos: new Vector3(v.camX, v.camY, v.camZ),
             startTarget: targetRef.current.clone(),
-            endTarget: new Vector3(targetX, targetY, targetZ),
+            endTarget: new Vector3(v.targetX, v.targetY, v.targetZ),
             startUp: cameraRef.current.up.clone(),
-            endUp: new Vector3(vUpX, vUpY, vUpZ),
+            endUp: new Vector3(v.vUpX, v.vUpY, v.vUpZ),
             startTime: performance.now(),
             duration: duration * 1000,
           };
@@ -1993,35 +1980,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           const lon = activeCoordsRef.current?.lon;
           const lat = activeCoordsRef.current?.lat;
           if (lon !== undefined && lat !== undefined) {
-            const phi = ((90 - lat) * Math.PI) / 180;
-            const theta = (lon * Math.PI) / 180;
-            const sinPhi = Math.sin(phi);
-            const cosPhi = Math.cos(phi);
-            const sinTheta = Math.sin(theta);
-            const cosTheta = Math.cos(theta);
-            const nx = sinPhi * sinTheta;
-            const ny = cosPhi;
-            const nz = sinPhi * cosTheta;
-            const northX = -Math.sin((lat * Math.PI) / 180) * sinTheta;
-            const northY = Math.cos((lat * Math.PI) / 180);
-            const northZ = -Math.sin((lat * Math.PI) / 180) * cosTheta;
-            const forwardX = northX;
-            const forwardY = northY;
-            const forwardZ = northZ;
-            const pRad = (nextPitch * Math.PI) / 180;
-            const vDirX = -Math.cos(pRad) * nx + Math.sin(pRad) * forwardX;
-            const vDirY = -Math.cos(pRad) * ny + Math.sin(pRad) * forwardY;
-            const vDirZ = -Math.cos(pRad) * nz + Math.sin(pRad) * forwardZ;
-            const vUpX = Math.sin(pRad) * nx + Math.cos(pRad) * forwardX;
-            const vUpY = Math.sin(pRad) * ny + Math.cos(pRad) * forwardY;
-            const vUpZ = Math.sin(pRad) * nz + Math.cos(pRad) * forwardZ;
-            const r = sphericalRef.current.radius;
-            const camX = nx * r;
-            const camY = ny * r;
-            const camZ = nz * r;
-            cameraRef.current.position.set(camX, camY, camZ);
-            targetRef.current.set(camX + vDirX * 3.5, camY + vDirY * 3.5, camZ + vDirZ * 3.5);
-            cameraRef.current.up.set(vUpX, vUpY, vUpZ);
+            const v = computeObliqueVectors(lon, lat, sphericalRef.current.radius, nextPitch, 0);
+            cameraRef.current.position.set(v.camX, v.camY, v.camZ);
+            targetRef.current.set(v.targetX, v.targetY, v.targetZ);
+            cameraRef.current.up.set(v.vUpX, v.vUpY, v.vUpZ);
             cameraRef.current.lookAt(targetRef.current);
             cameraRef.current.updateMatrixWorld();
           }

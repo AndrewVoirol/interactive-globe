@@ -564,7 +564,7 @@ export class WebGPUEngine {
   private volumetricCameraUniformBuffer: GPUBuffer | null = null;
   private volumetricCloudUniformBuffer: GPUBuffer | null = null;
   private volumetricNoiseSampler: GPUSampler | null = null;
-  private volumetricCloudsEnabled: boolean = true;
+  private volumetricCloudsEnabled: boolean = false;
   private volumetricPipelineDescriptor: GPURenderPipelineDescriptor | null = null;
   private dummyDepthTextureView: GPUTextureView | null = null;
   private dummy3DNoiseTextureView: GPUTextureView | null = null;
@@ -7402,13 +7402,14 @@ export class WebGPUEngine {
         : (this.cloudOptions.showHigh !== false);
       const anyStrataActive = showLow || showMid || showHigh;
 
-      const cloudsActive = Boolean(params.showClouds) && (this.cloudEnabled !== false) && showLow && anyStrataActive;
-      const rawShadow = cloudsActive
+      const cloudsActive = Boolean(params.showClouds) && (this.cloudEnabled !== false);
+      const shadowsActive = cloudsActive && showLow && anyStrataActive;
+      const rawShadow = shadowsActive
         ? (params.shadowIntensity !== undefined ? params.shadowIntensity : this.shadowIntensity)
         : 0.0;
       this.crustFloats[68] = (typeof rawShadow === 'number' && Number.isFinite(rawShadow))
         ? Math.max(0.0, Math.min(0.59999996, rawShadow))
-        : (cloudsActive && Number.isFinite(this.shadowIntensity) ? Math.min(0.59999996, this.shadowIntensity) : 0.0);
+        : (shadowsActive && Number.isFinite(this.shadowIntensity) ? Math.min(0.59999996, this.shadowIntensity) : 0.0);
       const baseDrift = params.cloudDriftSpeed ?? this.cloudOptions?.driftSpeed ?? 1.2;
       this.crustFloats[69] = 5.0 * baseDrift; // u_cloudDriftRate
       this.crustFloats[70] = 2.5;             // u_cloudAltitudeKm
@@ -9184,8 +9185,7 @@ export class WebGPUEngine {
     const rawDrift = params?.cloudDriftSpeed !== undefined
       ? params.cloudDriftSpeed
       : (this.cloudOptions?.driftSpeed ?? 500.0);
-    const normalizedDrift = rawDrift > 10.0 ? (rawDrift / 500.0) : rawDrift;
-    const baseDrift = rawDrift === 0 ? 0.0 : normalizedDrift * 1.2;
+    const baseDrift = rawDrift === 0 ? 0.0 : (rawDrift > 10.0 ? (rawDrift / 500.0) * 1.2 : rawDrift);
     const masterOpacity = params?.cloudOpacity ?? this.cloudOptions?.opacity ?? 0.85;
     const peakExponent = params?.peakExponent ?? 1.4;
     const rawAtmScale = params?.atmosphericScale !== undefined ? params.atmosphericScale : this.atmosphericScale;

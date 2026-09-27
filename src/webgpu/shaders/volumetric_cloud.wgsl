@@ -183,8 +183,9 @@ fn intersectTroposphericSlab(
 
 // Reconstruct World Position from Depth Value and Camera Matrices
 fn reconstructWorldPosition(ndcX: f32, ndcY: f32, depthVal: f32) -> vec3<f32> {
-    // In WebGPU with Three.js projection, depthVal in depth32float is the direct NDC Z
-    let ndcZ = depthVal;
+    // In Three.js PerspectiveCamera, NDC Z ranges from -1.0 (near) to +1.0 (far),
+    // whereas WebGPU u_depthTexture is normalized to [0.0, 1.0]. Remap to [-1, 1].
+    let ndcZ = depthVal * 2.0 - 1.0;
     let clipSurface = vec4<f32>(ndcX, ndcY, ndcZ, 1.0);
     let viewPosH = camera.u_invProjectionMatrix * clipSurface;
     let worldPosH = camera.u_invViewMatrix * vec4<f32>(viewPosH.xyz / max(1e-6, abs(viewPosH.w)), 1.0);
@@ -209,8 +210,8 @@ fn planarToUV(pos: vec3<f32>, mode: u32) -> vec2<f32> {
 
     var v: f32 = 0.5;
     if (mode >= 1u) {
-        // Mode 1..3: Mercator projection
-        let clampedY = clamp(pos.y / RADIUS, -2.5, 2.5);
+        // Mode 1..3: Mercator projection (clamped to max latitude +/- 85 deg ≈ 3.12865 R)
+        let clampedY = clamp(pos.y / RADIUS, -3.13, 3.13);
         let phi = 2.0 * atan(exp(clampedY)) - HALF_PI;
         v = clamp(0.5 - (phi / PI), 0.001, 0.999);
     } else {
@@ -829,24 +830,19 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let mode = u32(cloud.u_simControl.z);
     let isPlanar = unfurl >= 0.50;
 
-    // Smooth morphological fade envelopes
-    var morphFade: f32 = 1.0;
-    if (isPlanar) {
-        morphFade = smoothstep(0.55, 0.85, unfurl);
-    } else {
-        morphFade = 1.0 - smoothstep(0.15, 0.45, unfurl);
-    }
-
-    if (morphFade <= 0.001) {
-        discard;
-    }
+    // Smooth morphological fade envelope (seamless crossfade without transition dead-zone)
+    let morphFade = select(
+        1.0 - smoothstep(0.40, 0.60, unfurl) * 0.40,
+        0.60 + smoothstep(0.40, 0.60, unfurl) * 0.40,
+        isPlanar
+    );
 
     // 1. Reconstruct World Ray from NDC Coordinates
     let uv = in.uv;
     let ndcX = uv.x * 2.0 - 1.0;
     let ndcY = 1.0 - uv.y * 2.0;
 
-    let clipNear = vec4<f32>(ndcX, ndcY, 0.0, 1.0);
+    let clipNear = vec4<f32>(ndcX, ndcY, -1.0, 1.0);
     let clipFar  = vec4<f32>(ndcX, ndcY, 1.0, 1.0);
 
     let worldNearH = camera.u_invViewMatrix * (camera.u_invProjectionMatrix * clipNear);
@@ -881,7 +877,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if (isPlanar) {
         // Planar Tropospheric Bounding Slab [slabMin, slabMax]
         let halfW = PI * RADIUS;
-        let halfH = select(HALF_PI * RADIUS, 1.4835 * RADIUS, mode >= 1u);
+        let halfH = select(HALF_PI * RADIUS, 3.13 * RADIUS, mode >= 1u);
         let slabMin = vec3<f32>(-halfW, -halfH, 0.0);
         let slabMax = vec3<f32>(halfW, halfH, deltaR);
 

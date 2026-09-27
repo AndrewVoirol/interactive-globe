@@ -735,8 +735,8 @@ export function mapPlanarCoordinates(
 
   let v = 0.5;
   if (mode >= 1) {
-    // Mode 1..3: Mercator projection
-    const clampedY = Math.max(-2.5, Math.min(2.5, py / radius));
+    // Mode 1..3: Mercator projection (clamped to max latitude +/- 85 deg ≈ 3.12865 R)
+    const clampedY = Math.max(-3.13, Math.min(3.13, py / radius));
     const phi = 2.0 * Math.atan(Math.exp(clampedY)) - Math.PI * 0.5;
     v = Math.max(0.001, Math.min(0.999, 0.5 - (phi / Math.PI)));
   } else {
