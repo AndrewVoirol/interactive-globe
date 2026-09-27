@@ -16,6 +16,7 @@ import { CloudShadowInstrument } from './hud/instruments/CloudShadowInstrument';
 import { CloudDriftSpeedInstrument } from './hud/instruments/CloudDriftSpeedInstrument';
 import { PrognosticModelCard } from './hud/instruments/PrognosticModelCard';
 import { StratosphericTelemetryInstrument } from './hud/instruments/StratosphericTelemetryInstrument';
+import type { ResolutionTier } from '../types';
 
 export type PrognosticModelBackend =
   | 'noaa-gfs'
@@ -71,6 +72,7 @@ export interface AtmosphereDrawerProps {
   isRadarActive?: boolean;
   hideScrubber?: boolean;
   className?: string;
+  resolution?: ResolutionTier;
   // Beta Volumetric Cloud Physics & Raymarching Levers
   cloudThickness?: number;
   onCloudThicknessChange?: (v: number) => void;
@@ -130,6 +132,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   onSnapCamera,
   onTogglePlanetaryLayer,
   className = '',
+  resolution,
   cloudThickness: propCloudThickness,
   onCloudThicknessChange,
   cloudLowTop: propCloudLowTop,
@@ -831,6 +834,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             theme={theme}
             isLight={isLight}
             cloudFalseColor={curCloudFalseColor}
+            resolution={resolution}
           />
 
           {/* Volumetric Clouds [BETA] Tray (Rule 22) */}

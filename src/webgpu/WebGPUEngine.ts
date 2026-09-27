@@ -39,6 +39,7 @@ import { ThemeManager, PhysicalMediumProperties } from '../core/themes';
 import { getSolarPosition, SolarPosition } from '../core/astronomy/SolarEphemeris';
 import { TemporalTextureRingBuffer } from './TemporalTextureRingBuffer';
 import { evaluateMacroChartCPU } from '../core/math/volumetricMath';
+import type { ResolutionTier } from '../types';
 
 export interface WebGPUInitConfig {
   canvas: HTMLCanvasElement;
@@ -162,7 +163,18 @@ export interface WebGPUFrameParams {
   condensationRate?: number;
   evaporationRate?: number;
   cdlodDiagnosticMode?: number;
+  resolution?: ResolutionTier;
+  cloudMaxSteps?: number;
 }
+
+export const RESOLUTION_TIER_CLOUD_STEPS: Record<ResolutionTier, number> = {
+  '100k': 16,
+  '1M': 32,
+  '3M': 40,
+  '4M': 48,
+  '8M': 56,
+  '16M': 64,
+};
 
 export type RenderParameters = WebGPUFrameParams;
 export type RenderParams = WebGPUFrameParams;
@@ -575,6 +587,7 @@ export class WebGPUEngine {
   private volumetricPipelineDescriptor: GPURenderPipelineDescriptor | null = null;
   private dummyDepthTextureView: GPUTextureView | null = null;
   private dummy3DNoiseTextureView: GPUTextureView | null = null;
+  private currentCloudMaxSteps: number = 32;
 
   private computePipeline!: GPUComputePipeline;
   private computeBindGroupLayout!: GPUBindGroupLayout;
@@ -5958,6 +5971,10 @@ export class WebGPUEngine {
     return this.cloudNoiseComputeDurationMs;
   }
 
+  public getCloudMaxSteps(): number {
+    return this.currentCloudMaxSteps;
+  }
+
   /**
    * Milestone 2: 3D Perlin-Worley Compute Generator
    * Allocates a 128x128x128 3D rgba8unorm GPUTexture in VRAM and dispatches a single-pass
@@ -6610,8 +6627,15 @@ export class WebGPUEngine {
     ) * 60.0;
     cloudFloats[32] = (params.time ?? 0.0) + timelineOffsetSec;
     cloudFloats[33] = params.unfurl ?? 0.0;
-    cloudFloats[34] = params.mode ?? 0.0;
-    cloudFloats[35] = 64.0;
+    // Calibrated Resolution Tier to Raymarch Steps mapping (u_simControl.w)
+    let maxSteps = 32.0; // Default for 1M / balanced
+    if (params.cloudMaxSteps !== undefined && params.cloudMaxSteps > 0) {
+      maxSteps = Math.min(64.0, Math.max(8.0, params.cloudMaxSteps));
+    } else if (params.resolution && RESOLUTION_TIER_CLOUD_STEPS[params.resolution]) {
+      maxSteps = RESOLUTION_TIER_CLOUD_STEPS[params.resolution];
+    }
+    this.currentCloudMaxSteps = maxSteps;
+    cloudFloats[35] = maxSteps;
 
     // Pad / Strata Diagnostic False-Color Mode (u_padCloud.x)
     const falseColor = Boolean(

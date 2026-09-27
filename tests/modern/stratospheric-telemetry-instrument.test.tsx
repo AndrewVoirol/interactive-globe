@@ -48,6 +48,7 @@ describe('StratosphericTelemetryInstrument', () => {
     expect(card?.textContent).toContain('Tropospheric Regime:');
     expect(card?.textContent).toContain('Current Stratum:');
     expect(card?.textContent).toContain('Raymarch Interval:');
+    expect(card?.textContent).toContain('Raymarch Step Budget:');
     expect(card?.textContent).toContain('Forecast Cycle:');
     expect(card?.textContent).toContain('Strata Color Mode:');
     expect(card?.textContent).toContain('Grid Resolution:');

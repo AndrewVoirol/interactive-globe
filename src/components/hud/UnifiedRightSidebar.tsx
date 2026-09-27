@@ -1512,6 +1512,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]"
                   theme={theme}
                   isLight={isLight}
+                  resolution={resolution}
                   hideScrubber={true}
                   isRadarActive={isRadarActive}
                   showClouds={propShowClouds}

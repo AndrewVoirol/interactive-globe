@@ -1571,6 +1571,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       thickness?: number;
       lowTop?: number;
       pitch?: number;
+      steps?: number;
     } = {}) => {
       if (options.location === 'iceland') {
         (window as any).__INDICATRIX_CAMERA__?.lookAtCoordinates(-21.94, 64.15, options.zoom ?? 7.5);
@@ -1593,6 +1594,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         ...(options.opacity !== undefined ? { cloudOpacity: options.opacity } : {}),
         ...(options.thickness !== undefined ? { cloudThickness: options.thickness } : {}),
         ...(options.lowTop !== undefined ? { cloudLowTop: options.lowTop } : {}),
+        ...(options.steps !== undefined ? { cloudMaxSteps: options.steps } : {}),
       };
       return (window as any).__INDICATRIX_LIVE_UNIFORMS__;
     };
@@ -2178,6 +2180,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     const tier = TIER_CONFIG[resolution] || TIER_CONFIG['1M'];
     const binFile = tier.bin;
     const jsonFile = resolution === '100k' ? '/geo-mesh-100k.json' : null;
+    activeLodTierRef.current = resolution;
 
     // Fast-path: When switching between high-resolution tiers (1M, 3M, 4M, 8M, 16M),
     // the underlying point dataset (/geo-mesh-1m.bin) is already loaded in GPU memory.
@@ -2253,6 +2256,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           lineIndices,
         });
         console.log('[WebGPUCanvas] engine.initialize completed successfully!');
+        activeLodTierRef.current = resolution;
+        (window as any).__INDICATRIX_WEBGPU_ENGINE__ = engine;
 
         // Configure dual-surface crust resolution dynamically across 100k .. 16M tiers
         const sphereInfo = engine.rebuildSphereMesh(tier.lat, tier.lon);
@@ -2980,6 +2985,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           cloudExtinction: liveOverrides?.cloudExtinction,
           cloudThickness: liveOverrides?.cloudThickness,
           cloudLowTop: liveOverrides?.cloudLowTop,
+          resolution: activeLodTierRef.current || stateRef.current.resolution || '1M',
+          cloudMaxSteps: liveOverrides?.cloudMaxSteps,
           atmosphericScale: stateRef.current.atmosphericScale,
           shadowIntensity:
             liveOverrides?.shadowIntensity !== undefined

@@ -9,11 +9,13 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { VernierSlider } from '../../ui/VernierSlider';
+import type { ResolutionTier } from '../../../types';
 
 export interface StratosphericTelemetryInstrumentProps {
   theme?: 0 | 1 | 2; // 0: Marie Tharp, 1: Cream Rag, 2: Prussian Cyanotype
   isLight?: boolean;
   cloudFalseColor?: boolean;
+  resolution?: ResolutionTier;
   onPitchChange?: (pitchDeg: number) => void;
   className?: string;
 }
@@ -41,6 +43,7 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
   theme: propTheme,
   isLight = false,
   cloudFalseColor = false,
+  resolution: propResolution,
   onPitchChange,
   className = '',
 }) => {
@@ -50,6 +53,7 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
   const [pitch, setPitch] = useState<number>(0.0);
   const [heading, setHeading] = useState<number>(0.0);
   const [coords, setCoords] = useState<{ lat?: number; lon?: number } | null>(null);
+  const [cloudSteps, setCloudSteps] = useState<number>(32);
 
   // Poll camera and coordinate telemetry at ~10 Hz without React tree thrash
   useEffect(() => {
@@ -97,6 +101,13 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
         const d = engine.cameraRef.position.length();
         if (Number.isFinite(d)) {
           setCamDist(d);
+        }
+      }
+      const webgpuEngine = (window as any).__INDICATRIX_WEBGPU_ENGINE__;
+      if (webgpuEngine && typeof webgpuEngine.getCloudMaxSteps === 'function') {
+        const s = webgpuEngine.getCloudMaxSteps();
+        if (Number.isFinite(s)) {
+          setCloudSteps(s);
         }
       }
     };
@@ -218,6 +229,13 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
           <span className="text-[var(--theme-text-muted)] text-[10px]">Raymarch Interval:</span>
           <span className="font-semibold text-[var(--theme-text-primary)] text-[10px]">
             {rayRangeKm.toFixed(1)} km
+          </span>
+        </div>
+
+        <div className="flex justify-between items-center">
+          <span className="text-[var(--theme-text-muted)] text-[10px]">Raymarch Step Budget:</span>
+          <span className="font-semibold text-[var(--theme-text-primary)] text-[10px]">
+            {cloudSteps} steps ({propResolution || (cloudSteps <= 16 ? '100k' : cloudSteps <= 32 ? '1M' : cloudSteps <= 40 ? '3M' : cloudSteps <= 48 ? '4M' : cloudSteps <= 56 ? '8M' : '16M')})
           </span>
         </div>
 
