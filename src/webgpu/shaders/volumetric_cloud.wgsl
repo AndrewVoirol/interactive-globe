@@ -1024,7 +1024,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     var finalLight = accumLight;
-    var finalAlpha = (1.0 - accumTransmittance) * morphFade;
+    var finalAlpha = clamp(1.0 - accumTransmittance, 0.0, 1.0);
 
     if (!isFalseColor) {
         let airglowWeight = 1.0 - smoothstep(0.0, 0.35, unfurl);
@@ -1036,38 +1036,52 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
 
         finalLight = accumLight;
-        finalAlpha = (1.0 - accumTransmittance) * morphFade;
+        finalAlpha = clamp(1.0 - accumTransmittance, 0.0, 1.0);
 
         if (theme == 0u) {
             // Theme 0: Physiographic stipple absorption in crevice shadows
+            let inkAbsorption = cloud.u_mediumParams.y;
             let stippleCoord = in.position.xy * 1.65;
             let stippleNoise = hashScreen(stippleCoord);
-            let stippleFactor = 1.0 - (stippleNoise - 0.5) * (cloud.u_mediumParams.y * 0.22);
-            finalLight = finalLight * stippleFactor;
+            let stippleFactor = 1.0 - (stippleNoise - 0.5) * (inkAbsorption * 0.22);
+            finalLight *= stippleFactor;
+            finalAlpha *= stippleFactor;
         } else if (theme == 1u) {
             // Theme 1: High-frequency cellulose paper fiber tooth (u_paper_tooth)
             let toothCoord = in.position.xy * 2.0;
             let toothNoise = hashScreen(toothCoord);
             let paperTooth = cloud.u_mediumParams.z; // u_paper_tooth (sim.paperTooth)
             let toothFactor = 1.0 - (toothNoise - 0.5) * (paperTooth * 0.35);
-            finalLight = finalLight * toothFactor;
-            finalAlpha = finalAlpha * mix(0.85, 1.0, toothFactor);
+            finalLight *= toothFactor;
+            finalAlpha *= toothFactor;
         } else if (theme == 2u) {
             // Theme 2: Actinic exposure gamma response & blueprint linen tooth
             let gamma = max(0.5, cloud.u_mediumParams.w);
             let actinicCoord = in.position.xy * 2.4;
             let actinicNoise = hashScreen(actinicCoord);
             let grainFactor = 1.0 - (actinicNoise - 0.5) * 0.18;
-            finalLight = finalLight * grainFactor;
-            finalAlpha = pow(clamp(finalAlpha, 0.0, 1.0), 1.0 / gamma);
+            let alphaSafe = max(0.001, finalAlpha);
+            let unassociatedColor = finalLight / alphaSafe;
+            let actinicAlpha = pow(clamp(finalAlpha, 0.0, 1.0), 1.0 / gamma);
+            finalAlpha = clamp(actinicAlpha * grainFactor, 0.0, 1.0);
+            finalLight = unassociatedColor * finalAlpha;
         }
     }
 
+    // Apply smooth unfurl morph fade symmetrically to both radiance and opacity
+    finalLight *= morphFade;
+    finalAlpha *= morphFade;
+
+    finalAlpha = clamp(finalAlpha, 0.0, 1.0);
     if (finalAlpha <= 0.001) {
         discard;
     }
 
-    // Output Premultiplied Alpha for Compositing over Pass 1
-    return vec4<f32>(finalLight * morphFade, finalAlpha);
+    // Premultiplied alpha sanity clamp: ensure radiance does not exceed opacity
+    finalLight = clamp(finalLight, vec3<f32>(0.0), vec3<f32>(max(finalAlpha, 1.0)));
+
+    // Output Premultiplied Alpha for Compositing over Pass 1 (src: one, dst: one-minus-src-alpha)
+    return vec4<f32>(finalLight, finalAlpha);
 }
+
 

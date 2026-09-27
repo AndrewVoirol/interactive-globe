@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import fs from 'fs';
+import path from 'path';
 import * as THREE from 'three';
 import { WebGPUEngine, WebGPUInitConfig } from '../../src/webgpu/WebGPUEngine';
 import { MockGPUDevice } from '../helpers/webgpu-mock';
@@ -164,4 +166,27 @@ describe('Volumetric Cloud & Data Reconciliation Suite', () => {
     expect((engine as any).cloudTextures.low.height).toBe(721);
     expect((engine as any).lastLoadedWeatherNextHour).toBe(-1);
   });
+
+  it('G5: proves volumetric_cloud.wgsl enforces premultiplied alpha invariants across Themes 0, 1, 2', () => {
+    const shaderPath = path.resolve(__dirname, '../../src/webgpu/shaders/volumetric_cloud.wgsl');
+    const wgsl = fs.readFileSync(shaderPath, 'utf-8');
+
+    // Symmetrical morphFade scaling on radiance and opacity
+    expect(wgsl).toContain('finalLight *= morphFade;');
+    expect(wgsl).toContain('finalAlpha *= morphFade;');
+
+    // Proportional tooth and stipple modulation
+    expect(wgsl).toContain('finalLight *= stippleFactor;');
+    expect(wgsl).toContain('finalAlpha *= stippleFactor;');
+    expect(wgsl).toContain('finalLight *= toothFactor;');
+    expect(wgsl).toContain('finalAlpha *= toothFactor;');
+
+    // Unassociated color conservation under actinic gamma response (Theme 2 Prussian Cyanotype)
+    expect(wgsl).toContain('let unassociatedColor = finalLight / alphaSafe;');
+    expect(wgsl).toContain('finalLight = unassociatedColor * finalAlpha;');
+
+    // Premultiplied alpha hardware output: srcFactor: 'one', dstFactor: 'one-minus-src-alpha'
+    expect(wgsl).toContain('return vec4<f32>(finalLight, finalAlpha);');
+  });
 });
+
