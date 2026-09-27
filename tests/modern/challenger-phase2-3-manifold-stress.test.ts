@@ -19,6 +19,7 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { WebGPUEngine } from '../../src/webgpu/WebGPUEngine';
 import { evaluatePointMorph, evaluatePointMorphNormal } from '../../src/core/GlobeOverlay';
+import { evaluateMacroChartCPU } from '../../src/core/math/volumetricMath';
 
 const PI = 3.14159265358979;
 const RADIUS = 5.0;
@@ -285,6 +286,10 @@ export function evaluateManifoldCore(
       const cosLat = Math.cos(latRad);
       const sinLat = clampedY;
 
+      // 1. Developable base macro chart F(lambda, phi, 0; alpha)
+      const base = evaluateMacroChartCPU(lonRad, latRad, 0.0, alpha, RADIUS);
+
+      // 2. Tactile personality layer d(lambda, phi; alpha)
       const normLon = lonRad / PI;
       const absNormLon = Math.abs(normLon);
       const absNormLat = Math.abs(latRad) / (PI * 0.5);
@@ -346,18 +351,16 @@ export function evaluateManifoldCore(
       const poleScale = cosLat + (1.0 - cosLat) * tParallel;
 
       const lipMag = (seamZone * 0.150 * flapChiral + microRim * 0.070 * env) * RADIUS * envLate * latTaper * poleScale;
-      curX += normX * lipMag * 0.70;
-      curZ += (normZ * 0.80 + 0.65) * lipMag;
+      const dx_lip = normX * lipMag * 0.70;
+      const dz_lip = (normZ * 0.80 + 0.65) * lipMag;
 
       // Polar Corner Dog-Ear Curl (tParallel gated)
       const cornerLon = smoothstep(0.68, 1.0, absNormLon);
       const cornerLat = smoothstep(0.58, 0.98, absNormLat);
       const cornerZone = cornerLon * cornerLat;
       const cornerCurlMag = Math.sin(cornerZone * PI * 0.5) * RADIUS * 0.095 * envLate * tParallel;
-      curX += normX * cornerCurlMag * 0.45;
-      curZ += (normZ * 0.65 + 0.65) * cornerCurlMag;
-      const chiralCornerZ = sinLat * Math.sin(cornerZone * PI * 0.5) * RADIUS * 0.060 * envLate * tParallel;
-      curZ += chiralCornerZ;
+      const dx_corner = normX * cornerCurlMag * 0.45;
+      const dz_corner = (normZ * 0.65 + 0.65) * cornerCurlMag + sinLat * Math.sin(cornerZone * PI * 0.5) * RADIUS * 0.060 * envLate * tParallel;
 
       // Perimeter Edge Margin Drape & Anti-Stiffness (with poleScale)
       const distEdgeLon = 1.0 - absNormLon;
@@ -365,26 +368,21 @@ export function evaluateManifoldCore(
       const edgeDist = Math.min(distEdgeLon, distEdgeLat);
       const edgeMarginZone = 1.0 - smoothstep(0.0, 0.45, edgeDist);
       const edgeWave = 0.55 * Math.cos(lonRad * 2.0 - 0.4 * alpha) * Math.cos(latRad * 1.3) + 0.45 * Math.sin(lonRad * 3.0 + 0.5) * (0.45 + 0.55 * cosLat);
-      const marginDrapeZ = edgeMarginZone * edgeWave * RADIUS * 0.085 * envLate * (0.40 + 0.60 * cosLat) * poleScale;
-      curZ += marginDrapeZ;
+      const dz_margin = edgeMarginZone * edgeWave * RADIUS * 0.085 * envLate * (0.40 + 0.60 * cosLat) * poleScale;
 
       // In-plane organic boundary breathing along seam (with poleScale)
       const edgeFlexX = Math.sin(latRad * 2.5 + alpha * 1.2) * (1.0 - smoothstep(0.0, 0.35, distEdgeLon)) * RADIUS * 0.035 * envLate * (0.40 + 0.60 * cosLat) * poleScale;
-      curX += edgeFlexX;
 
       // Polar Rim Undulation & Drape (tParallel gated)
       const polarRimZone = 1.0 - smoothstep(0.0, 0.35, distEdgeLat);
       const polarRimWaveZ = Math.cos(lonRad * 2.5 - 0.3 * alpha) * Math.sin(lonRad * 1.5 + 0.4);
-      const polarDrapeZ = polarRimZone * polarRimWaveZ * RADIUS * 0.045 * envLate * tParallel;
-      curZ += polarDrapeZ;
+      const dz_polar = polarRimZone * polarRimWaveZ * RADIUS * 0.045 * envLate * tParallel;
 
       // Subtle living wave across the sheet (with poleScale)
       const waveFlex = envLate * (1.0 - 0.5 * alpha) * Math.sin(lonRad * 0.5 + 0.3) * RADIUS * 0.030 * poleScale;
-      curZ += waveFlex;
 
       // Gentle uniform sheet loft
       const chordLiftZ = (0.60 + 0.40 * cosLat) * RADIUS * 0.06 * env;
-      curZ += chordLiftZ;
 
       // Vertical transformation: Pure Equirectangular 2:1
       const yArc = RADIUS * latRad;
@@ -395,7 +393,15 @@ export function evaluateManifoldCore(
       const polarRimFlexY = sinLat * polarRimZone * Math.cos(lonRad * 2.0 - 0.2 * alpha) * RADIUS * 0.018 * envLate * tParallel;
       const curY = yStraight + polarRimFlexY;
 
-      outPos = [curX, curY, curZ];
+      // Personality displacement vector d = (dx, dy, dz)
+      const d: [number, number, number] = [
+        (curX - base.pos[0]) + dx_lip + dx_corner + edgeFlexX,
+        curY - base.pos[1],
+        (curZ - base.pos[2]) + dz_lip + dz_corner + dz_margin + dz_polar + waveFlex + chordLiftZ,
+      ];
+
+      // Deformed surface p = F + d
+      outPos = [base.pos[0] + d[0], base.pos[1] + d[1], base.pos[2] + d[2]];
 
       // Closed-form analytical normal N_base = T_lambda x T_phi
       const dyDPhi = RADIUS * (cosLat * (1.0 - tStraighten) + tStraighten);

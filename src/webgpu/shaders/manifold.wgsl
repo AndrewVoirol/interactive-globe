@@ -122,6 +122,10 @@ fn evaluateModeZero(pos3D: vec3<f32>, target2D: vec2<f32>, unfurl: f32) -> Defor
     let cosLat = cos(latRad);
     let sinLat = clampedY;
 
+    // 1. Developable base macro chart F(lambda, phi, 0; alpha)
+    let base = evaluateMacroChart(lonRad, latRad, 0.0, alpha, RADIUS);
+
+    // 2. Tactile personality layer d(lambda, phi; alpha)
     let normLon = lonRad / PI;
     let absNormLon = abs(normLon);
     let absNormLat = abs(latRad) / (PI * 0.5);
@@ -184,18 +188,16 @@ fn evaluateModeZero(pos3D: vec3<f32>, target2D: vec2<f32>, unfurl: f32) -> Defor
     let poleScale = cosLat + (1.0 - cosLat) * tParallel;
 
     let lipMag = (seamZone * 0.150 * flapChiral + microRim * 0.070 * env) * RADIUS * envLate * latTaper * poleScale;
-    curX = curX + normX * lipMag * 0.70;
-    curZ = curZ + (normZ * 0.80 + 0.65) * lipMag;
+    let dx_lip = normX * lipMag * 0.70;
+    let dz_lip = (normZ * 0.80 + 0.65) * lipMag;
 
     // Polar Corner Dog-Ear Curl (tParallel gated)
     let cornerLon = smoothstep(0.68, 1.0, absNormLon);
     let cornerLat = smoothstep(0.58, 0.98, absNormLat);
     let cornerZone = cornerLon * cornerLat;
     let cornerCurlMag = sin(cornerZone * PI * 0.5) * RADIUS * 0.095 * envLate * tParallel;
-    curX = curX + normX * cornerCurlMag * 0.45;
-    curZ = curZ + (normZ * 0.65 + 0.65) * cornerCurlMag;
-    let chiralCornerZ = sinLat * sin(cornerZone * PI * 0.5) * RADIUS * 0.060 * envLate * tParallel;
-    curZ = curZ + chiralCornerZ;
+    let dx_corner = normX * cornerCurlMag * 0.45;
+    let dz_corner = (normZ * 0.65 + 0.65) * cornerCurlMag + sinLat * sin(cornerZone * PI * 0.5) * RADIUS * 0.060 * envLate * tParallel;
 
     // Perimeter Edge Margin Drape & Anti-Stiffness (with poleScale)
     let distEdgeLon = 1.0 - absNormLon;
@@ -203,26 +205,21 @@ fn evaluateModeZero(pos3D: vec3<f32>, target2D: vec2<f32>, unfurl: f32) -> Defor
     let edgeDist = min(distEdgeLon, distEdgeLat);
     let edgeMarginZone = 1.0 - smoothstep(0.0, 0.45, edgeDist);
     let edgeWave = 0.55 * cos(lonRad * 2.0 - 0.4 * alpha) * cos(latRad * 1.3) + 0.45 * sin(lonRad * 3.0 + 0.5) * (0.45 + 0.55 * cosLat);
-    let marginDrapeZ = edgeMarginZone * edgeWave * RADIUS * 0.085 * envLate * (0.40 + 0.60 * cosLat) * poleScale;
-    curZ = curZ + marginDrapeZ;
+    let dz_margin = edgeMarginZone * edgeWave * RADIUS * 0.085 * envLate * (0.40 + 0.60 * cosLat) * poleScale;
 
     // In-plane organic boundary breathing along seam (with poleScale)
-    let edgeFlexX = sin(latRad * 2.5 + alpha * 1.2) * (1.0 - smoothstep(0.0, 0.35, distEdgeLon)) * RADIUS * 0.035 * envLate * (0.40 + 0.60 * cosLat) * poleScale;
-    curX = curX + edgeFlexX;
+    let dx_edge = sin(latRad * 2.5 + alpha * 1.2) * (1.0 - smoothstep(0.0, 0.35, distEdgeLon)) * RADIUS * 0.035 * envLate * (0.40 + 0.60 * cosLat) * poleScale;
 
     // Polar Rim Undulation & Drape (tParallel gated)
     let polarRimZone = 1.0 - smoothstep(0.0, 0.35, distEdgeLat);
     let polarRimWaveZ = cos(lonRad * 2.5 - 0.3 * alpha) * sin(lonRad * 1.5 + 0.4);
-    let polarDrapeZ = polarRimZone * polarRimWaveZ * RADIUS * 0.045 * envLate * tParallel;
-    curZ = curZ + polarDrapeZ;
+    let dz_polar = polarRimZone * polarRimWaveZ * RADIUS * 0.045 * envLate * tParallel;
 
     // Subtle living wave across the sheet (with poleScale)
-    let waveFlex = envLate * (1.0 - 0.5 * alpha) * sin(lonRad * 0.5 + 0.3) * RADIUS * 0.030 * poleScale;
-    curZ = curZ + waveFlex;
+    let dz_wave = envLate * (1.0 - 0.5 * alpha) * sin(lonRad * 0.5 + 0.3) * RADIUS * 0.030 * poleScale;
 
     // Gentle uniform sheet loft
-    let chordLiftZ = (0.60 + 0.40 * cosLat) * RADIUS * 0.06 * env;
-    curZ = curZ + chordLiftZ;
+    let dz_lift = (0.60 + 0.40 * cosLat) * RADIUS * 0.06 * env;
 
     // Vertical transformation: Pure Equirectangular 2:1
     let yArc = RADIUS * latRad;
@@ -233,7 +230,15 @@ fn evaluateModeZero(pos3D: vec3<f32>, target2D: vec2<f32>, unfurl: f32) -> Defor
     let polarRimFlexY = sinLat * polarRimZone * cos(lonRad * 2.0 - 0.2 * alpha) * RADIUS * 0.018 * envLate * tParallel;
     let curY = yStraight + polarRimFlexY;
 
-    out.pos = vec3<f32>(curX, curY, curZ);
+    // Personality displacement vector d = (dx, dy, dz)
+    let d = vec3<f32>(
+        (curX - base.pos.x) + dx_lip + dx_corner + dx_edge,
+        (curY - base.pos.y),
+        (curZ - base.pos.z) + dz_lip + dz_corner + dz_margin + dz_polar + dz_wave + dz_lift
+    );
+
+    // Deformed surface p = F + d
+    out.pos = base.pos + d;
 
     // Closed-form analytical normal N_base = T_lambda x T_phi
     let dyDPhi = RADIUS * mix(cosLat, 1.0, tStraighten);
