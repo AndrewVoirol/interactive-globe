@@ -495,6 +495,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     absorptionFeathering,
     cameraPitchDeg,
     cdlodDiagnosticMode,
+    prognosticModel,
   });
   useEffect(() => {
     stateRef.current = {
@@ -548,9 +549,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       absorptionFeathering,
       cameraPitchDeg,
       cdlodDiagnosticMode,
+      prognosticModel,
     };
     cachedLayersRef.current = computeCachedLayers(dataLayers);
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode, prognosticModel]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -2939,6 +2941,27 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           ? liveOverrides.volumetricClouds
           : (stateRef.current.volumetricClouds ?? true);
 
+        const effectiveShowCloudLow = liveOverrides?.showCloudLow !== undefined
+          ? liveOverrides.showCloudLow
+          : (stateRef.current.showCloudLow ?? true);
+
+        const isGfsActive =
+          stateRef.current.prognosticModel === 'gfs' ||
+          stateRef.current.prognosticModel === 'noaa-gfs' ||
+          Boolean(layerCache.cloudLayer?.visible && (layerCache.cloudLayer.id === 'noaa-gfs-clouds' || !stateRef.current.prognosticModel));
+
+        const shouldCastShadows =
+          effectiveShowClouds &&
+          effectiveShowCloudLow &&
+          (liveOverrides?.cloudShadows !== false) &&
+          isGfsActive;
+
+        const effectiveShadowIntensity = shouldCastShadows
+          ? (liveOverrides?.shadowIntensity !== undefined
+              ? liveOverrides.shadowIntensity
+              : (stateRef.current.shadowIntensity ?? 0.45))
+          : 0.0;
+
         engine.render({
           unfurl: curUnfurl,
           mode: curMode,
@@ -2988,10 +3011,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           resolution: activeLodTierRef.current || stateRef.current.resolution || '1M',
           cloudMaxSteps: liveOverrides?.cloudMaxSteps,
           atmosphericScale: stateRef.current.atmosphericScale,
-          shadowIntensity:
-            liveOverrides?.shadowIntensity !== undefined
-              ? liveOverrides.shadowIntensity
-              : (liveOverrides?.cloudShadows === false ? 0.0 : stateRef.current.shadowIntensity),
+          shadowIntensity: effectiveShadowIntensity,
+          prognosticModel: stateRef.current.prognosticModel,
           verticalScaleMode: stateRef.current.verticalScaleMode,
           rainShadowFeedback: stateRef.current.rainShadowFeedback,
           pluvialGamma: stateRef.current.pluvialGamma,

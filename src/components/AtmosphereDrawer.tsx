@@ -633,6 +633,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             shadowIntensity={curShadowIntensity}
             theme={theme}
             isLight={isLight}
+            isGfsActive={isGfs}
             onChange={handleShadowIntensityChange}
           />
 

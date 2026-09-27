@@ -220,23 +220,35 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 }) => {
   const handleToggleClouds = (val: boolean) => {
     onShowCloudsChange?.(val);
+    const isGfs = prognosticModel === 'gfs' || prognosticModel === 'noaa-gfs';
     const cloudLayer = dataLayers.find((l) => l.id === 'noaa-gfs-clouds');
-    if (cloudLayer) {
-      if (cloudLayer.visible !== val) onToggleDataLayer?.('noaa-gfs-clouds');
-    } else if (val && onAddDataLayer) {
-      const preset = getPresetById('noaa-gfs-clouds');
-      if (preset) {
-        onAddDataLayer({
-          id: preset.id,
-          name: preset.name,
-          category: preset.category,
-          type: preset.type,
-          details: preset.details,
-          visible: true,
-          opacity: preset.defaultOpacity,
-          blendMode: preset.defaultBlendMode,
-          url: preset.url,
-        });
+    const wnLayer = dataLayers.find((l) => l.id === 'google-weathernext3');
+
+    if (!val) {
+      if (cloudLayer?.visible) onToggleDataLayer?.('noaa-gfs-clouds');
+      if (wnLayer?.visible) onToggleDataLayer?.('google-weathernext3');
+    } else {
+      if (isGfs) {
+        if (cloudLayer) {
+          if (!cloudLayer.visible) onToggleDataLayer?.('noaa-gfs-clouds');
+        } else if (onAddDataLayer) {
+          const preset = getPresetById('noaa-gfs-clouds');
+          if (preset) {
+            onAddDataLayer({
+              id: preset.id,
+              name: preset.name,
+              category: preset.category,
+              type: preset.type,
+              details: preset.details,
+              visible: true,
+              opacity: preset.defaultOpacity,
+              blendMode: preset.defaultBlendMode,
+              url: preset.url,
+            });
+          }
+        }
+      } else if (wnLayer && !wnLayer.visible) {
+        onToggleDataLayer?.('google-weathernext3');
       }
     }
   };

@@ -13,6 +13,7 @@ export interface CloudShadowInstrumentProps {
   shadowIntensity?: number; // 0.00 to 0.60, default 0.45, step 0.05
   theme?: 0 | 1 | 2; // 0: Tharp, 1: Cream Rag, 2: Prussian Cyanotype
   isLight?: boolean;
+  isGfsActive?: boolean;
   onChange?: (intensity: number) => void;
   onShadowIntensityChange?: (intensity: number) => void;
   className?: string;
@@ -22,6 +23,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
   shadowIntensity: propShadowIntensity,
   theme: propTheme,
   isLight = false,
+  isGfsActive = true,
   onChange,
   onShadowIntensityChange,
   className = '',
@@ -191,7 +193,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               CLOUD SHADOW
             </span>
             <span className="text-nano text-[var(--theme-text-muted)] truncate">
-              Ground Projection Ray
+              {isGfsActive ? 'Ground Projection Ray' : 'Ground Projection Ray (NOAA GFS only)'}
             </span>
           </div>
         </div>
