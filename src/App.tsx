@@ -854,8 +854,8 @@ export default function App() {
           theme={theme}
           mode={mode}
           isSidebarOpen={isSidebarActive}
-          onModeChange={glideToMode}
-          onSelectMode={glideToMode}
+          onModeChange={setMode}
+          onSelectMode={setMode}
         />
 
 

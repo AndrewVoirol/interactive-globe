@@ -64,7 +64,8 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
         } else if (cam.pitch !== undefined) {
           setPitch(cam.pitch);
         }
-        const activeCoords = typeof cam.getActiveCoords === 'function' ? cam.getActiveCoords() : cam.activeCoords;
+        const activeCoords = (typeof cam.getCursorCoords === 'function' ? cam.getCursorCoords() : cam.cursorCoords)
+          || (typeof cam.getActiveCoords === 'function' ? cam.getActiveCoords() : cam.activeCoords);
         if (activeCoords) {
           const c = activeCoords;
           setCoords((prev) => {

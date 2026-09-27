@@ -404,11 +404,13 @@ fn planarNoiseCoord(
     freqVert: f32,
     timeDrift: f32
 ) -> vec3<f32> {
-    let nx = uv.x * freqHoriz;
-    let ny = uv.y * (freqHoriz * 0.5);
-    let nz = hNorm * freqVert;
+    let lon = (uv.x - 0.5) * TWO_PI;
+    let lat = (0.5 - uv.y) * PI;
+    let cosLat = cos(lat);
+    let n = vec3<f32>(cosLat * sin(lon), sin(lat), cosLat * cos(lon));
+    let radialScale = freqHoriz + hNorm * freqVert;
     let driftOffset = vec3<f32>(timeDrift * 0.10, 0.0, timeDrift * 0.05);
-    return vec3<f32>(nx, ny, nz) + driftOffset;
+    return n * radialScale + driftOffset;
 }
 
 // Sample Scalar Cloud Density at Point pos in World Space (Continuous Developable Unwrapping)
@@ -501,11 +503,11 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let camAltSph = length(camera.u_cameraPos.xyz);
     let camAltPlan = camera.u_cameraPos.z;
     let camAlt = mix(camAltSph, camAltPlan, unfurl);
-    let distFade = 1.0 - smoothstep(0.5, 10.0, camDist);
-    let altFadeSph = 1.0 - smoothstep(5.05, 14.0, camAltSph);
-    let altFadePlan = 1.0 - smoothstep(0.05, 10.0, camAltPlan);
+    let distFade = 1.0 - smoothstep(14.0, 40.0, camDist);
+    let altFadeSph = 1.0 - smoothstep(14.0, 40.0, camAltSph);
+    let altFadePlan = 1.0 - smoothstep(8.0, 30.0, camAltPlan);
     let altFade = mix(altFadeSph, altFadePlan, unfurl);
-    let effErosionStr = erosionStr * max(0.45, distFade * altFade);
+    let effErosionStr = erosionStr * max(0.85, distFade * altFade);
 
     let tNoiseMode = smoothstep(0.10, 0.90, unfurl);
     let sphBaseCoord = sphericalNoiseCoord(p, hNorm, freqHoriz, freqVert, timeDrift);

@@ -340,6 +340,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     lat: 0,
     lon: 0,
   });
+  const cursorCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
   const lastUnfurlRef = useRef(0);
   const lastScrubAlphaRef = useRef<number | undefined>(undefined);
   const scrubReleaseFramesRef = useRef<number>(0);
@@ -943,6 +944,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     (window as any).__INDICATRIX_CAMERA__ = {
       get activeCoords() { return activeCoordsRef.current; },
       getActiveCoords: () => activeCoordsRef.current,
+      get cursorCoords() { return cursorCoordsRef.current; },
+      getCursorCoords: () => cursorCoordsRef.current,
       getCamDist: () => {
         const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
         const animAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_ANIM_ALPHA__ : undefined;
@@ -1979,7 +1982,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
         let lon = invHover.lambda * (180 / Math.PI);
         lon = ((((lon + 180) % 360) + 360) % 360) - 180;
         const lat = Math.max(-85, Math.min(85, invHover.phi * (180 / Math.PI)));
-        activeCoordsRef.current = { lat, lon };
+        cursorCoordsRef.current = { lat, lon };
       }
 
       if (isPinchingRef.current) {
@@ -2038,8 +2041,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           let lon = invOrbit.lambda * (180 / Math.PI);
           lon = ((((lon + 180) % 360) + 360) % 360) - 180;
           const lat = Math.max(-85, Math.min(85, invOrbit.phi * (180 / Math.PI)));
-          activeCoordsRef.current = { lat, lon };
+          cursorCoordsRef.current = { lat, lon };
         }
+        let camLon = (sphericalRef.current.theta * 180) / Math.PI;
+        camLon = ((((camLon + 180) % 360) + 360) % 360) - 180;
+        const camLat = Math.max(-85, Math.min(85, 90 - (sphericalRef.current.phi * 180) / Math.PI));
+        activeCoordsRef.current = { lat: camLat, lon: camLon };
         if (curUnfurl < 0.01) {
           targetRef.current.set(0, 0, 0);
         }
@@ -2060,8 +2067,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             let lon = invPan.lambda * (180 / Math.PI);
             lon = ((((lon + 180) % 360) + 360) % 360) - 180;
             const lat = Math.max(-85, Math.min(85, invPan.phi * (180 / Math.PI)));
-            activeCoordsRef.current = { lat, lon };
+            cursorCoordsRef.current = { lat, lon };
           }
+          let panLon = (targetRef.current.x / 5.0) * (180 / Math.PI);
+          panLon = ((((panLon + 180) % 360) + 360) % 360) - 180;
+          const clampedY = Math.max(-5.0 * 2.5, Math.min(5.0 * 2.5, targetRef.current.y));
+          const panLat = (2.0 * Math.atan(Math.exp(clampedY / 5.0)) - Math.PI / 2.0) * (180 / Math.PI);
+          activeCoordsRef.current = { lat: panLat, lon: panLon };
         }
       }
       updateCameraTransform();
@@ -2643,7 +2655,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           if (isUnfurlAnimating && !isPanning) {
             const clampedUnfurl = Math.max(0.0, Math.min(1.0, curUnfurl));
             const ease = clampedUnfurl;
-            const targetBlend = clampedUnfurl <= 0.0 ? 0.0 : (clampedUnfurl >= 0.10 ? 1.0 : (clampedUnfurl / 0.10) * (clampedUnfurl / 0.10) * (3.0 - 2.0 * (clampedUnfurl / 0.10)));
+            const isGlobalView = sphericalRef.current.radius >= 12.0;
+            const targetBlend = (clampedUnfurl <= 0.0 || isGlobalView) ? 0.0 : (clampedUnfurl >= 0.10 ? 1.0 : (clampedUnfurl / 0.10) * (clampedUnfurl / 0.10) * (3.0 - 2.0 * (clampedUnfurl / 0.10)));
 
             if (targetBlend <= 0.0) {
               if (targetRef.current.lengthSq() > 1e-6) {
@@ -2784,7 +2797,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           let lon = invFrame.lambda * (180 / Math.PI);
           lon = ((((lon + 180) % 360) + 360) % 360) - 180;
           const lat = Math.max(-85, Math.min(85, invFrame.phi * (180 / Math.PI)));
-          activeCoordsRef.current = { lat, lon };
+          cursorCoordsRef.current = { lat, lon };
         }
 
         // 1. Whimsical Effects Manager update (Fibonacci polar alignment Moiré scaling)
