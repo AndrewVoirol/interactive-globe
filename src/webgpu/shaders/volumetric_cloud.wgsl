@@ -183,9 +183,8 @@ fn intersectTroposphericSlab(
 
 // Reconstruct World Position from Depth Value and Camera Matrices
 fn reconstructWorldPosition(ndcX: f32, ndcY: f32, depthVal: f32) -> vec3<f32> {
-    // In Three.js PerspectiveCamera, NDC Z ranges from -1.0 (near) to +1.0 (far),
-    // whereas WebGPU u_depthTexture is normalized to [0.0, 1.0]. Remap to [-1, 1].
-    let ndcZ = depthVal * 2.0 - 1.0;
+    // In Three.js with WebGPU, u_depthTexture depthVal is already in NDC Z space
+    let ndcZ = depthVal;
     let clipSurface = vec4<f32>(ndcX, ndcY, ndcZ, 1.0);
     let viewPosH = camera.u_invProjectionMatrix * clipSurface;
     let worldPosH = camera.u_invViewMatrix * vec4<f32>(viewPosH.xyz / max(1e-6, abs(viewPosH.w)), 1.0);
