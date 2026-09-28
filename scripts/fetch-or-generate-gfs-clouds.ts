@@ -115,29 +115,58 @@ export function generateProceduralCloudGrids(): {
       // ----------------------------------------------------------------------
       let lowF = baseLowBelt;
 
-      // Marine stratocumulus banks over cold upwelling currents:
+      // Marine stratocumulus banks over cold upwelling currents (coastal-anchored, anisotropic advective shapes):
       if (isNearCal) {
-        const distCal = Math.hypot((lonDeg - 235.0) * cosLat, dLatCal);
-        if (distCal < 22.0) lowF += 0.70 * Math.exp((-distCal * distCal) / 150.0);
+        // California coast: ~236° at 22°N to 239° at 38°N; seaward decay inland
+        const coastLonCal = 236.0 + (latDeg - 22.0) * (3.0 / 16.0);
+        const landFalloff = Math.exp(-Math.max(0.0, lonDeg - coastLonCal) * 1.2);
+        const alongCoast = (lonDeg - 235.0) * cosLat * 0.707 - dLatCal * 0.707;
+        const crossCoast = (lonDeg - 235.0) * cosLat * 0.707 + dLatCal * 0.707;
+        const distCalAniso = Math.sqrt(alongCoast * alongCoast * 0.6 + crossCoast * crossCoast * 1.5);
+        if (distCalAniso < 22.0) {
+          lowF += 0.70 * Math.exp((-distCalAniso * distCalAniso) / 140.0) * landFalloff;
+        }
       }
 
       if (isNearPeru) {
-        const distPeru = Math.hypot((lonDeg - 285.0) * cosLat, dLatPeru);
-        if (distPeru < 25.0) lowF += 0.75 * Math.exp((-distPeru * distPeru) / 180.0);
+        // Peru/Chile coast: ~285° at -28° to 281° at -8°; seaward decay inland
+        const coastLonPeru = 285.0 - (latDeg - (-28.0)) * (4.0 / 20.0);
+        const landFalloff = Math.exp(-Math.max(0.0, lonDeg - coastLonPeru) * 1.2);
+        const alongCoast = (lonDeg - 283.0) * cosLat * 0.6 + dLatPeru * 0.8;
+        const crossCoast = -(lonDeg - 283.0) * cosLat * 0.8 + dLatPeru * 0.6;
+        const distPeruAniso = Math.sqrt(alongCoast * alongCoast * 0.5 + crossCoast * crossCoast * 1.6);
+        if (distPeruAniso < 25.0) {
+          lowF += 0.75 * Math.exp((-distPeruAniso * distPeruAniso) / 160.0) * landFalloff;
+        }
       }
 
       if (isNearBeng) {
-        const distBeng = Math.hypot((lonDeg - 10.0) * cosLat, dLatBeng);
-        if (distBeng < 20.0) lowF += 0.70 * Math.exp((-distBeng * distBeng) / 140.0);
+        // Namibian coast: ~14.0° at -32° to 11.0° at -12°; seaward decay inland
+        const coastLonBeng = 14.0 - (latDeg - (-32.0)) * (3.0 / 20.0);
+        const landFalloff = Math.exp(-Math.max(0.0, lonDeg - coastLonBeng) * 1.2);
+        const alongCoast = (lonDeg - 10.0) * cosLat * 0.5 + dLatBeng * 0.866;
+        const crossCoast = -(lonDeg - 10.0) * cosLat * 0.866 + dLatBeng * 0.5;
+        const distBengAniso = Math.sqrt(alongCoast * alongCoast * 0.5 + crossCoast * crossCoast * 1.6);
+        if (distBengAniso < 20.0) {
+          lowF += 0.70 * Math.exp((-distBengAniso * distBengAniso) / 130.0) * landFalloff;
+        }
       }
 
       if (isNearCan) {
-        const distCan = Math.hypot((lonDeg - 340.0) * cosLat, dLatCan);
-        if (distCan < 18.0) lowF += 0.60 * Math.exp((-distCan * distCan) / 120.0);
+        // Canary Current off NW Africa: ~344° at 18°N to 354° at 35°N; strict seaward anchoring
+        const coastLonCan = 344.0 + (latDeg - 18.0) * (10.0 / 17.0);
+        const landFalloff = Math.exp(-Math.max(0.0, lonDeg - coastLonCan) * 1.4);
+        const alongCoast = (lonDeg - 340.0) * cosLat * 0.707 + dLatCan * 0.707;
+        const crossCoast = -(lonDeg - 340.0) * cosLat * 0.707 + dLatCan * 0.707;
+        const distCanAniso = Math.sqrt(alongCoast * alongCoast * 0.6 + crossCoast * crossCoast * 1.6);
+        if (distCanAniso < 20.0) {
+          lowF += 0.60 * Math.exp((-distCanAniso * distCanAniso) / 110.0) * landFalloff;
+        }
       }
 
       // Subtropical high subsidence / desert low cloud suppression
-      if (isSaharaLat && lonDeg >= 0.0 && lonDeg <= 58.0) {
+      // Full Sahara domain: 17°W (342°E) through 58°E across 12°N to 35°N
+      if (isSaharaLat && (lonDeg >= 342.0 || lonDeg <= 58.0)) {
         lowF *= 0.15;
       } else if (isAusLat && lonDeg >= 115.0 && lonDeg <= 145.0) {
         lowF *= 0.18;

@@ -6947,7 +6947,7 @@ export class WebGPUEngine {
   public ensureCloudProxyBuffers(): void {
     if (!this.device || this.cloudProxyVertexBuffer) return;
     try {
-      const proxyMesh = this.generateCloudProxyGrid(32, 64);
+      const proxyMesh = this.generateCloudProxyGrid(64, 128);
       this.cloudProxyVertexBuffer = this.device.createBuffer({
         label: 'cloud_proxy_vertex_buffer',
         size: proxyMesh.vertices.byteLength,

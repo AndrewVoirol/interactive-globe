@@ -162,7 +162,16 @@ fn invertMacroChartWGSL(pos: vec3<f32>, unfurl: f32, radius: f32) -> vec3<f32> {
     let sDiv = max(0.0001, s);
     let Rc = rPar / sDiv;
     let Cz = rPar * (s - 1.0 / sDiv);
-    let dz = pz - Cz;
+
+    // Tactile sheet loft compensation:
+    // Mode 0 evaluateModeZero adds dz_lift = (0.60 + 0.40 * cosLat) * radius * 0.06 * env to the deformed crust and proxy.
+    // Invert through the physically lifted sheet so tropospheric altitude conforms to terrain across all unfurl states.
+    let sZero = smoothstep(0.0, 0.10, alphaClamped);
+    let sOne = 1.0 - smoothstep(0.90, 1.0, alphaClamped);
+    let env = sin(PI * alphaClamped) * sZero * sOne;
+    let dz_lift = (0.60 + 0.40 * cosLat) * radius * 0.06 * env;
+
+    let dz = (pz - dz_lift) - Cz;
     let lambdaDev = atan2(px, dz) / sDiv;
     let hDev = length(vec2<f32>(px, dz)) - Rc;
 
@@ -349,7 +358,8 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let altFade = mix(altFadeSph, altFadePlan, unfurl);
     let effErosionStr = erosionStr * max(0.85, distFade * altFade);
 
-    let tNoiseMode = smoothstep(0.10, 0.90, unfurl);
+    // Uniform Geographic Noise Coordinates: eliminates radial distortion and warping during unroll transitions
+    let tNoiseMode = select(0.0, 1.0, unfurl >= 0.0);
     let sphBaseCoord = sphericalNoiseCoord(p, hNorm, freqHoriz, freqVert, timeDrift);
     let planBaseCoord = planarNoiseCoord(uv, hNorm, freqHoriz, freqVert, timeDrift);
     let baseCoord = mix(sphBaseCoord, planBaseCoord, tNoiseMode);
