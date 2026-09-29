@@ -271,7 +271,7 @@ describe('Challenger M4-IT2: Cursor-Relative Zoom Kinematics & Allocation Stress
 
       // Extract renderLoop block
       const renderLoopStart = canvasSrc.indexOf('const renderLoop =');
-      const renderLoopEnd = canvasSrc.indexOf('requestAnimationFrame(renderLoop);', renderLoopStart);
+      const renderLoopEnd = canvasSrc.lastIndexOf('requestAnimationFrame(renderLoop);');
       const renderLoopSrc = canvasSrc.slice(renderLoopStart, renderLoopEnd + 40);
 
       // Verify that while velRadius inertia damping occurs in renderLoop:

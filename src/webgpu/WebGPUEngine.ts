@@ -31,7 +31,7 @@ import paperCompositionWGSL from './shaders/paper_composition.wgsl?raw';
 import horizonOcclusionWGSL from './shaders/horizon_occlusion.wgsl?raw';
 import cloudAdvectionWGSL from './shaders/cloud_advection.wgsl?raw';
 import cullingWGSL from './shaders/culling.wgsl?raw';
-import { GPUProfiler } from './profiling/GPUProfiler';
+import { GPUProfiler, ProfilerPassSlot } from './profiling/GPUProfiler';
 import { encodeFloat16 } from '../core/math/float16';
 import { parseTLE, propagateOrbitalPosition } from '../core/math/sgp4';
 import { loadNodeAssetBuffer, loadNodeAssetText } from '../utils/nodeAssetLoader';
@@ -228,12 +228,151 @@ export interface QuadtreeNodeData {
   split: boolean;
 }
 
+export type VramSubsystem = 'DEM' | 'Atmosphere' | 'Hydrology' | 'Simulation' | 'Pipelines';
+
+export interface VramSubsystemReport {
+  bytes: number;
+  mb: number;
+  bufferCount: number;
+  textureCount: number;
+}
+
+export interface VramLedgerReport {
+  totalBytes: number;
+  totalMb: number;
+  subsystems: Record<VramSubsystem, VramSubsystemReport>;
+}
+
 export class WebGPUEngine {
   private adapter: GPUAdapter | null = null;
   private profiler: GPUProfiler | null = null;
-  private device!: GPUDevice;
+  private _device!: GPUDevice;
+  public get device(): GPUDevice {
+    return this._device;
+  }
+  public set device(d: GPUDevice) {
+    this._device = d;
+    if (d && typeof d.createBuffer === 'function' && typeof d.createTexture === 'function') {
+      this.interceptDeviceAllocations(d);
+    }
+  }
   private context!: GPUCanvasContext;
   private format!: GPUTextureFormat;
+
+  private vramSubsystems: Record<VramSubsystem, { bytes: number; bufferCount: number; textureCount: number }> = {
+    DEM: { bytes: 0, bufferCount: 0, textureCount: 0 },
+    Atmosphere: { bytes: 0, bufferCount: 0, textureCount: 0 },
+    Hydrology: { bytes: 0, bufferCount: 0, textureCount: 0 },
+    Simulation: { bytes: 0, bufferCount: 0, textureCount: 0 },
+    Pipelines: { bytes: 0, bufferCount: 0, textureCount: 0 },
+  };
+  public currentAllocationSubsystem: VramSubsystem = 'Pipelines';
+
+  private interceptDeviceAllocations(device: GPUDevice): void {
+    if ((device as any).__vramIntercepted) return;
+    (device as any).__vramIntercepted = true;
+
+    const originalCreateBuffer = device.createBuffer.bind(device);
+    const originalCreateTexture = device.createTexture.bind(device);
+
+    const classify = (label?: string): VramSubsystem => {
+      const l = (label || '').toLowerCase();
+      if (l.includes('dem') || l.includes('relief') || l.includes('crust') || l.includes('topo') || l.includes('elevation') || l.includes('etopo') || l.includes('regional')) return 'DEM';
+      if (l.includes('cloud') || l.includes('atmo') || l.includes('wind') || l.includes('precip') || l.includes('weather') || l.includes('radar') || l.includes('advection') || l.includes('jetstream') || l.includes('temp') || l.includes('dewpoint')) return 'Atmosphere';
+      if (l.includes('hydro') || l.includes('ocean') || l.includes('bathymetry') || l.includes('water') || l.includes('sounding') || l.includes('sea')) return 'Hydrology';
+      if (l.includes('particle') || l.includes('sim') || l.includes('static') || l.includes('cdlod') || l.includes('patch') || l.includes('line') || l.includes('contour') || l.includes('ribbon') || l.includes('satellite') || l.includes('ripple') || l.includes('spatial')) return 'Simulation';
+      return this.currentAllocationSubsystem || 'Pipelines';
+    };
+
+    const calcTextureBytes = (desc: GPUTextureDescriptor): number => {
+      if (!desc || !desc.size) return 0;
+      let w = 1, h = 1, d = 1;
+      if (Array.isArray(desc.size)) {
+        w = desc.size[0] || 1;
+        h = desc.size[1] || 1;
+        d = desc.size[2] || 1;
+      } else if (typeof desc.size === 'object') {
+        w = (desc.size as any).width || 1;
+        h = (desc.size as any).height || 1;
+        d = (desc.size as any).depthOrArrayLayers || 1;
+      }
+      let bpp = 4;
+      const fmt = (desc.format || '').toLowerCase();
+      if (fmt.includes('r8') || fmt.includes('r8unorm')) bpp = 1;
+      else if (fmt.includes('r16') || fmt.includes('rg8')) bpp = 2;
+      else if (fmt.includes('rgba16') || fmt.includes('rg32')) bpp = 8;
+      else if (fmt.includes('rgba32')) bpp = 16;
+      else bpp = 4;
+
+      const mips = desc.mipLevelCount || 1;
+      let total = 0;
+      let mw = w, mh = h;
+      for (let i = 0; i < mips; i++) {
+        total += mw * mh * d * bpp;
+        mw = Math.max(1, Math.floor(mw / 2));
+        mh = Math.max(1, Math.floor(mh / 2));
+      }
+      return total;
+    };
+
+    device.createBuffer = (desc: GPUBufferDescriptor): GPUBuffer => {
+      const buffer = originalCreateBuffer(desc);
+      if (!desc) return buffer;
+      const sub = classify(desc.label);
+      const byteSize = desc.size || 0;
+      this.vramSubsystems[sub].bytes += byteSize;
+      this.vramSubsystems[sub].bufferCount += 1;
+
+      if (buffer && typeof buffer.destroy === 'function') {
+        const originalDestroy = buffer.destroy.bind(buffer);
+        buffer.destroy = () => {
+          this.vramSubsystems[sub].bytes = Math.max(0, this.vramSubsystems[sub].bytes - byteSize);
+          this.vramSubsystems[sub].bufferCount = Math.max(0, this.vramSubsystems[sub].bufferCount - 1);
+          originalDestroy();
+        };
+      }
+      return buffer;
+    };
+
+    device.createTexture = (desc: GPUTextureDescriptor): GPUTexture => {
+      const texture = originalCreateTexture(desc);
+      if (!desc) return texture;
+      const sub = classify(desc.label);
+      const byteSize = calcTextureBytes(desc);
+      this.vramSubsystems[sub].bytes += byteSize;
+      this.vramSubsystems[sub].textureCount += 1;
+
+      if (texture && typeof texture.destroy === 'function') {
+        const originalDestroy = texture.destroy.bind(texture);
+        texture.destroy = () => {
+          this.vramSubsystems[sub].bytes = Math.max(0, this.vramSubsystems[sub].bytes - byteSize);
+          this.vramSubsystems[sub].textureCount = Math.max(0, this.vramSubsystems[sub].textureCount - 1);
+          originalDestroy();
+        };
+      }
+      return texture;
+    };
+  }
+
+  public getVramLedger(): VramLedgerReport {
+    let totalBytes = 0;
+    const subs = {} as Record<VramSubsystem, VramSubsystemReport>;
+    for (const key of ['DEM', 'Atmosphere', 'Hydrology', 'Simulation', 'Pipelines'] as const) {
+      const s = this.vramSubsystems[key];
+      totalBytes += s.bytes;
+      subs[key] = {
+        bytes: s.bytes,
+        mb: parseFloat((s.bytes / (1024 * 1024)).toFixed(2)),
+        bufferCount: s.bufferCount,
+        textureCount: s.textureCount,
+      };
+    }
+    return {
+      totalBytes,
+      totalMb: parseFloat((totalBytes / (1024 * 1024)).toFixed(2)),
+      subsystems: subs,
+    };
+  }
 
   // ==========================================================================
   // Section: 2:1 Parametric Cylindrical CDLOD Quadtree & Watertight Geomorphing
@@ -739,6 +878,9 @@ export class WebGPUEngine {
   public substrateWidth: number = 0;
   public substrateHeight: number = 0;
   public paperSubstrateEnabled: boolean = false;
+  public paperNormalDirty: boolean = true;
+  public paperNormalComputed: boolean = false;
+  public currentSubstrateTheme: number = -1;
 
   // ==========================================================================
   // Section 2: Directional Horizon & Canyon Self-Shadowing
@@ -926,6 +1068,7 @@ export class WebGPUEngine {
 
     // Default 2x2 placeholder texture (rgba16float)
     this.demTexture = this.device.createTexture({
+      label: 'dem_placeholder_texture',
       size: [2, 2, 1],
       format: 'rgba16float',
       usage: (typeof GPUTextureUsage !== 'undefined' ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST) : (4 | 8)),
@@ -4029,6 +4172,7 @@ export class WebGPUEngine {
             : [{ data: new Uint8Array(0), width, height }];
 
           const newTexture = this.device.createTexture({
+            label: 'dem_texture_rgba8',
             size: [width, height, 1],
             mipLevelCount: u8 ? mips8.length : 1,
             format: 'rgba8unorm',
@@ -4089,6 +4233,7 @@ export class WebGPUEngine {
         const u16 = new Uint16Array(urlOrBuffer);
         const mips16 = this.generateMipsRGBA16(u16, width, height);
         const newTexture = this.device.createTexture({
+          label: 'dem_elevation_texture_rgba16f',
           size: [width, height, 1],
           mipLevelCount: mips16.length,
           format: 'rgba16float',
@@ -4137,6 +4282,7 @@ export class WebGPUEngine {
         const u8 = new Uint8Array(urlOrBuffer);
         const mips8 = this.generateMipsRGBA8(u8.length >= width * height * 4 ? u8 : new Uint8Array(width * height * 4), width, height);
         const newTexture = this.device.createTexture({
+          label: 'dem_texture_fallback',
           size: [width, height, 1],
           mipLevelCount: mips8.length,
           format: 'rgba8unorm',
@@ -5305,6 +5451,7 @@ export class WebGPUEngine {
     const h = Math.max(1, height);
     try {
       this.depthTexture = this.device.createTexture({
+        label: 'main_depth_texture',
         size: [w, h],
         format: 'depth32float',
         usage: typeof GPUTextureUsage !== 'undefined'
@@ -5396,6 +5543,8 @@ export class WebGPUEngine {
     this.paperCompositionBindGroup = null;
     this.substrateWidth = w;
     this.substrateHeight = h;
+    this.paperNormalDirty = true;
+    this.paperNormalComputed = false;
 
     try {
       this.sceneColorTexture = this.device.createTexture({
@@ -7210,6 +7359,7 @@ export class WebGPUEngine {
             storeOp: 'store',
           },
         ],
+        timestampWrites: this.profiler?.getPassTimestampWrites(ProfilerPassSlot.Reserved1),
       });
       cloudPass.setPipeline(this.volumetricCloudPipeline);
       cloudPass.setBindGroup(0, this.volumetricCloudBindGroup);
@@ -8143,9 +8293,14 @@ export class WebGPUEngine {
 
       const confF = this.substrateConfigFloats;
       const confU = this.substrateConfigUints;
+      const themeVal = params.theme !== undefined ? params.theme : 1;
+      if (this.currentSubstrateTheme !== themeVal) {
+        this.currentSubstrateTheme = themeVal;
+        this.paperNormalDirty = true;
+      }
       confF[0] = canvasW;
       confF[1] = canvasH;
-      confU[2] = params.theme !== undefined ? params.theme : 1;
+      confU[2] = themeVal;
       confF[3] = showHaptics ? 1.0 : 0.0;
       this.device.queue.writeBuffer(this.substrateConfigUniformBuffer, 0, confF.buffer);
 
@@ -8654,9 +8809,11 @@ export class WebGPUEngine {
       if (!this.substrateMicroReliefBindGroup || !this.paperCompositionBindGroup) {
         this.updateSubstrateBindGroups();
       }
-      if (this.substrateMicroReliefPipeline && this.substrateMicroReliefBindGroup) {
+      const shouldComputeSubstrate = this.paperNormalDirty || !this.paperNormalComputed;
+      if (shouldComputeSubstrate && this.substrateMicroReliefPipeline && this.substrateMicroReliefBindGroup) {
         const microReliefPass = commandEncoder.beginComputePass({
           label: 'substrate_micro_relief_pass',
+          timestampWrites: this.profiler?.getPassTimestampWrites(ProfilerPassSlot.Reserved2),
         });
         microReliefPass.setPipeline(this.substrateMicroReliefPipeline);
         microReliefPass.setBindGroup(0, this.substrateMicroReliefBindGroup);
@@ -8664,6 +8821,8 @@ export class WebGPUEngine {
         const workgroupsY = Math.ceil(canvasHeight / 16);
         microReliefPass.dispatchWorkgroups(workgroupsX, workgroupsY);
         microReliefPass.end();
+        this.paperNormalDirty = false;
+        this.paperNormalComputed = true;
       }
 
       if (this.paperCompositionPipeline && this.paperCompositionBindGroup) {

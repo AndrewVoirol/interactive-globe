@@ -159,15 +159,15 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
     [addToast]
   );
 
-  // RAF-coalesced queue for high-frequency continuous slider updates
+  // Decoupled uniform queue for high-frequency continuous slider updates
   const pendingUpdatesRef = useRef<Map<string, Partial<DataLayerItem>>>(new Map());
-  const rafIdRef = useRef<number | null>(null);
+  const commitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flushUpdates = useCallback(() => {
     if (pendingUpdatesRef.current.size === 0) return;
     const updates = new Map(pendingUpdatesRef.current);
     pendingUpdatesRef.current.clear();
-    rafIdRef.current = null;
+    commitTimeoutRef.current = null;
 
     if (typeof window !== 'undefined') {
       delete (window as any).__INDICATRIX_LIVE_UNIFORMS__;
@@ -186,25 +186,32 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
       const existing = pendingUpdatesRef.current.get(id) || {};
       pendingUpdatesRef.current.set(id, { ...existing, ...patch });
 
-      // Immediately publish to fast global uniform bus so WebGPU receives zero-latency updates
+      // Immediately publish directly to fast global uniform bus / WebGPU uniform buffer
       if (typeof window !== 'undefined') {
         if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) {
           (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
         }
         Object.assign((window as any).__INDICATRIX_LIVE_UNIFORMS__, patch);
+
+        const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+        if (engine && typeof engine.updateUniforms === 'function') {
+          engine.updateUniforms(patch);
+        }
       }
 
-      if (!rafIdRef.current) {
-        rafIdRef.current = requestAnimationFrame(flushUpdates);
+      // Debounce React state re-render so slider dragging does not trigger App.tsx & UnifiedRightSidebar re-renders
+      if (commitTimeoutRef.current) {
+        clearTimeout(commitTimeoutRef.current);
       }
+      commitTimeoutRef.current = setTimeout(flushUpdates, 200);
     },
     [flushUpdates]
   );
 
   useEffect(() => {
     return () => {
-      if (rafIdRef.current) {
-        cancelAnimationFrame(rafIdRef.current);
+      if (commitTimeoutRef.current) {
+        clearTimeout(commitTimeoutRef.current);
       }
     };
   }, []);

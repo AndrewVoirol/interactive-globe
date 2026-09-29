@@ -83,6 +83,7 @@ export default function App() {
     cloudOpacity, setCloudOpacity,
     cloudFalseColor, setCloudFalseColor,
     cloudMultiRateRaymarch, setCloudMultiRateRaymarch,
+    volumetricClouds, setVolumetricClouds,
     cloudThickness, setCloudThickness,
     cloudLowTop, setCloudLowTop,
     cloudErosion, setCloudErosion,
@@ -381,6 +382,47 @@ export default function App() {
     [handleAddDataLayer, setPrognosticModel, setShowClouds]
   );
 
+  const fractureDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const vortexDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleFractureIntensityChange = useCallback(
+    (val: number) => {
+      if (typeof window !== 'undefined') {
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__ = (window as any).__INDICATRIX_LIVE_UNIFORMS__ || {};
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.fractureIntensity = val;
+
+        const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+        if (engine && typeof engine.updateUniforms === 'function') {
+          engine.updateUniforms({ fractureIntensity: val });
+        }
+      }
+      if (fractureDebounceRef.current) clearTimeout(fractureDebounceRef.current);
+      fractureDebounceRef.current = setTimeout(() => {
+        setFractureIntensity(val);
+      }, 200);
+    },
+    [setFractureIntensity]
+  );
+
+  const handleFluidVortexStrengthChange = useCallback(
+    (val: number) => {
+      if (typeof window !== 'undefined') {
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__ = (window as any).__INDICATRIX_LIVE_UNIFORMS__ || {};
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.vortexStrength = val;
+
+        const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+        if (engine && typeof engine.updateUniforms === 'function') {
+          engine.updateUniforms({ vortexStrength: val });
+        }
+      }
+      if (vortexDebounceRef.current) clearTimeout(vortexDebounceRef.current);
+      vortexDebounceRef.current = setTimeout(() => {
+        setFluidVortexStrength(val);
+      }, 200);
+    },
+    [setFluidVortexStrength]
+  );
+
   const isWeatherActive = useMemo(() => {
     return dataLayers.some(
       (l) =>
@@ -649,7 +691,7 @@ export default function App() {
                 mode={mode}
                 layerMode={layerMode}
                 theme={theme}
-                volumetricClouds={true}
+                volumetricClouds={volumetricClouds}
                 isolatedStratum={isolatedStratum}
                 showSoundings={showSoundings}
                 showTriangulation={showTriangulation}
@@ -790,9 +832,9 @@ export default function App() {
           onReorderDataLayer={handleReorderDataLayer}
           onSelectRenderStyle={handleSelectRenderStyleWithVectorAuto}
           fractureIntensity={fractureIntensity}
-          onFractureIntensityChange={setFractureIntensity}
+          onFractureIntensityChange={handleFractureIntensityChange}
           fluidVortexStrength={fluidVortexStrength}
-          onFluidVortexStrengthChange={setFluidVortexStrength}
+          onFluidVortexStrengthChange={handleFluidVortexStrengthChange}
           gpuReport={gpuReport}
           isCatalogOpen={isCatalogOpen}
           onCatalogOpenChange={setIsCatalogOpen}
@@ -814,6 +856,8 @@ export default function App() {
           onCloudFalseColorChange={setCloudFalseColor}
           cloudMultiRateRaymarch={cloudMultiRateRaymarch}
           onCloudMultiRateRaymarchChange={setCloudMultiRateRaymarch}
+          volumetricClouds={volumetricClouds}
+          onVolumetricCloudsChange={setVolumetricClouds}
           cloudDriftSpeed={cloudDriftSpeed}
           onCloudDriftSpeedChange={setCloudDriftSpeed}
           cloudOpacity={cloudOpacity}

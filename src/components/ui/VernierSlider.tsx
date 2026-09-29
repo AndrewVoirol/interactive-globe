@@ -41,13 +41,21 @@ export const VernierSlider: React.FC<VernierSliderProps> = ({
   showTicks = true,
   className = '',
 }) => {
+  const [localVal, setLocalVal] = React.useState(value);
+
+  React.useEffect(() => {
+    setLocalVal(value);
+  }, [value]);
+
   const handleStep = (dir: -1 | 1) => {
     if (disabled || !onChange) return;
-    const next = Math.max(min, Math.min(max, parseFloat((value + dir * step).toFixed(3))));
+    const base = value !== undefined ? value : localVal;
+    const next = Math.max(min, Math.min(max, parseFloat((base + dir * step).toFixed(3))));
+    setLocalVal(next);
     onChange(next);
   };
 
-  const formattedReadout = readout !== undefined ? readout : `${value}${unit}`;
+  const formattedReadout = readout !== undefined ? readout : `${localVal}${unit}`;
 
   return (
     <div
@@ -111,9 +119,13 @@ export const VernierSlider: React.FC<VernierSliderProps> = ({
           min={min}
           max={max}
           step={step}
-          value={value}
+          value={localVal}
           disabled={disabled}
-          onChange={(e) => onChange?.(parseFloat(e.target.value))}
+          onChange={(e) => {
+            const next = parseFloat(e.target.value);
+            setLocalVal(next);
+            onChange?.(next);
+          }}
           className="w-full slider-archival h-1 cursor-pointer block transition-opacity"
         />
 

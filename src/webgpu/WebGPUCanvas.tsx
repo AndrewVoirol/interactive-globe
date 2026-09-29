@@ -205,7 +205,19 @@ interface RegionalManifestEntry {
   webpUrl: string;
 }
 
-export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
+const textMetricsCache = new Map<string, number>();
+function getCachedTextWidth(ctx: CanvasRenderingContext2D, text: string, font: string): number {
+  const key = `${font}__${text}`;
+  let w = textMetricsCache.get(key);
+  if (w === undefined) {
+    ctx.font = font;
+    w = ctx.measureText(text).width;
+    textMetricsCache.set(key, w);
+  }
+  return w;
+}
+
+export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
   unfurlProgress,
   mode,
   layerMode,
@@ -266,7 +278,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   weatherTau = 0,
   thermodynamicGating = true,
   showAtmosphere,
-  volumetricClouds = true,
+  volumetricClouds = false,
   onShowCloudsChange,
   onTogglePlanetaryLayer,
   prognosticModel = 'weathernext3',
@@ -339,6 +351,50 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     }));
     tissotCirclesRef.current = generateTissotCircles(30, 45, 4.8, 24);
   }, []);
+
+  const overlayCacheRef = useRef<{
+    camX: number;
+    camY: number;
+    camZ: number;
+    unfurl: number;
+    mode: number;
+    w: number;
+    h: number;
+    theme: number;
+    frame: number;
+    landmarks: Array<{
+      lx: number;
+      ly: number;
+      px: number;
+      py: number;
+      pw: number;
+      ph: number;
+      label: string;
+    }>;
+    soundings: Array<{
+      sx: number;
+      sy: number;
+      text: string;
+    }>;
+    benchmarks: Array<{
+      bx: number;
+      by: number;
+      id: string;
+    }>;
+  }>({
+    camX: 0,
+    camY: 0,
+    camZ: 0,
+    unfurl: -1,
+    mode: -1,
+    w: 0,
+    h: 0,
+    theme: -1,
+    frame: 0,
+    landmarks: [],
+    soundings: [],
+    benchmarks: [],
+  });
 
   // Camera & Orbit State
   const cameraRef = useRef<PerspectiveCamera>(
@@ -2486,6 +2542,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
     const renderLoop = (now: number) => {
       if (!isActive) return;
+      if (typeof window !== 'undefined' && (window as any).__INDICATRIX_PAUSE_RENDER_LOOP__) {
+        animFrameRef.current = requestAnimationFrame(renderLoop);
+        return;
+      }
 
       const engine = engineRef.current;
       const camera = cameraRef.current;
@@ -2967,7 +3027,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
 
         const effectiveVolumetricClouds = liveOverrides?.volumetricClouds !== undefined
           ? liveOverrides.volumetricClouds
-          : (stateRef.current.volumetricClouds ?? true);
+          : (stateRef.current.volumetricClouds ?? false);
 
         const effectiveShowCloudLow = liveOverrides?.showCloudLow !== undefined
           ? liveOverrides.showCloudLow
@@ -3289,67 +3349,139 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                 }
               }
 
-              // 3. Landmark Anchors
-              if (curShowLandmarks) {
-                for (let lmIdx = 0; lmIdx < LANDMARK_ANCHORS.length; lmIdx++) {
-                  const lm = LANDMARK_ANCHORS[lmIdx];
-                  const pos3D = evaluatePointMorph(lm.lon, lm.lat, curUnfurl, curMode, time, 0.12);
-                  const [lx, ly, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
-                  if (isFront && lx >= -50 && lx <= w + 50 && ly >= -50 && ly <= h + 50) {
-                    ctx.fillStyle = curTheme === 1 ? '#0F172A' : '#38BDF8';
-                    ctx.beginPath();
-                    ctx.arc(lx, ly, 3, 0, Math.PI * 2);
-                    ctx.fill();
+              // 3. Cached / Throttled 2D Overlay Text Projections (Landmarks, Soundings, Benchmarks)
+              const effectiveShowLandmarks = liveOverrides?.showLandmarks !== undefined ? liveOverrides.showLandmarks : curShowLandmarks;
+              const cCache = overlayCacheRef.current;
+              cCache.frame++;
+              const camP = camera.position;
+              const isStatic =
+                Math.abs(camP.x - cCache.camX) < 1e-4 &&
+                Math.abs(camP.y - cCache.camY) < 1e-4 &&
+                Math.abs(camP.z - cCache.camZ) < 1e-4 &&
+                Math.abs(curUnfurl - cCache.unfurl) < 1e-4 &&
+                curMode === cCache.mode &&
+                w === cCache.w &&
+                h === cCache.h &&
+                curTheme === cCache.theme;
 
-                    ctx.font = '10px monospace';
-                    const label = lm.label || '';
-                    const metrics = ctx.measureText(label);
-                    const pw = metrics.width + 10;
-                    const ph = 16;
-                    const px = lx + 8;
-                    const py = ly - 8;
+              // Only re-project expensive 3D coordinates when camera/morph changes, throttled to every 2nd frame during movement
+              const shouldRecalculate = !isStatic && (cCache.frame % 2 === 0 || cCache.unfurl < 0);
+              if (shouldRecalculate) {
+                cCache.camX = camP.x;
+                cCache.camY = camP.y;
+                cCache.camZ = camP.z;
+                cCache.unfurl = curUnfurl;
+                cCache.mode = curMode;
+                cCache.w = w;
+                cCache.h = h;
+                cCache.theme = curTheme;
 
-                    ctx.fillStyle = curTheme === 1 ? 'rgba(255, 255, 255, 0.85)' : 'rgba(15, 23, 42, 0.85)';
-                    ctx.strokeStyle = curTheme === 1 ? 'rgba(15, 23, 42, 0.3)' : 'rgba(56, 189, 248, 0.5)';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.roundRect(px, py, pw, ph, 4);
-                    ctx.fill();
-                    ctx.stroke();
+                // Project Landmark Anchors
+                cCache.landmarks = [];
+                if (effectiveShowLandmarks) {
+                  for (let lmIdx = 0; lmIdx < LANDMARK_ANCHORS.length; lmIdx++) {
+                    const lm = LANDMARK_ANCHORS[lmIdx];
+                    const pos3D = evaluatePointMorph(lm.lon, lm.lat, curUnfurl, curMode, time, 0.12);
+                    const [lx, ly, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
+                    if (isFront && lx >= -50 && lx <= w + 50 && ly >= -50 && ly <= h + 50) {
+                      const label = lm.label || '';
+                      const tw = getCachedTextWidth(ctx, label, '10px monospace');
+                      cCache.landmarks.push({
+                        lx,
+                        ly,
+                        px: lx + 8,
+                        py: ly - 8,
+                        pw: tw + 10,
+                        ph: 16,
+                        label,
+                      });
+                    }
+                  }
+                }
 
-                    ctx.fillStyle = curTheme === 1 ? '#0F172A' : '#E2E8F0';
-                    ctx.fillText(label, px + 5, py + 12);
+                // Project Spot Soundings
+                cCache.soundings = [];
+                if (curShowSoundings) {
+                  for (let sIdx = 0; sIdx < ARCHIVAL_SOUNDINGS.length; sIdx++) {
+                    const s = ARCHIVAL_SOUNDINGS[sIdx];
+                    const pos3D = evaluatePointMorph(s.lon, s.lat, curUnfurl, curMode, time, -0.015);
+                    const [sx, sy, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
+                    if (isFront && sx >= -20 && sx <= w + 20 && sy >= -20 && sy <= h + 20) {
+                      cCache.soundings.push({
+                        sx,
+                        sy,
+                        text: `${s.depthFm} fm`,
+                      });
+                    }
+                  }
+                }
+
+                // Project Benchmarks
+                cCache.benchmarks = [];
+                if (curShowTriangulation) {
+                  for (let bmIdx = 0; bmIdx < GEODETIC_BENCHMARKS.length; bmIdx++) {
+                    const bm = GEODETIC_BENCHMARKS[bmIdx];
+                    const pos3D = evaluatePointMorph(bm.lon, bm.lat, curUnfurl, curMode, time, 0.06);
+                    const [bx, by, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
+                    if (isFront && bx >= -30 && bx <= w + 30 && by >= -30 && by <= h + 30) {
+                      cCache.benchmarks.push({
+                        bx,
+                        by,
+                        id: bm.id,
+                      });
+                    }
                   }
                 }
               }
 
-              // 4. Bathymetric Spot Soundings
-              if (curShowSoundings) {
-                for (let sIdx = 0; sIdx < ARCHIVAL_SOUNDINGS.length; sIdx++) {
-                  const s = ARCHIVAL_SOUNDINGS[sIdx];
-                  const pos3D = evaluatePointMorph(s.lon, s.lat, curUnfurl, curMode, time, -0.015);
-                  const [sx, sy, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
-                  if (isFront && sx >= -20 && sx <= w + 20 && sy >= -20 && sy <= h + 20) {
-                    const dotColor = curTheme === 1 ? '#8c3e24' : curTheme === 2 ? '#38bdf8' : '#00e5ff';
-                    const textColor =
-                      curTheme === 1
-                        ? 'rgba(74, 59, 50, 0.85)'
-                        : curTheme === 2
-                        ? 'rgba(165, 213, 255, 0.85)'
-                        : 'rgba(142, 230, 255, 0.85)';
+              // 3. Render Landmark Anchors from Cache
+              if (effectiveShowLandmarks && cCache.landmarks.length > 0) {
+                const dotColor = curTheme === 1 ? '#0F172A' : '#38BDF8';
+                const boxBg = curTheme === 1 ? 'rgba(255, 255, 255, 0.85)' : 'rgba(15, 23, 42, 0.85)';
+                const boxBorder = curTheme === 1 ? 'rgba(15, 23, 42, 0.3)' : 'rgba(56, 189, 248, 0.5)';
+                const textColor = curTheme === 1 ? '#0F172A' : '#E2E8F0';
 
-                    // Sounding anchor dot + crosshair
-                    ctx.fillStyle = dotColor;
-                    ctx.beginPath();
-                    ctx.arc(sx, sy, 1.8, 0, Math.PI * 2);
-                    ctx.fill();
+                ctx.font = '10px monospace';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < cCache.landmarks.length; i++) {
+                  const lm = cCache.landmarks[i];
+                  ctx.fillStyle = dotColor;
+                  ctx.beginPath();
+                  ctx.arc(lm.lx, lm.ly, 3, 0, Math.PI * 2);
+                  ctx.fill();
 
-                    // Depth label
-                    ctx.font = curTheme === 1 ? 'italic 9px Newsreader, serif' : '9px "IBM Plex Mono", monospace';
-                    ctx.fillStyle = textColor;
-                    const text = `${s.depthFm} fm`;
-                    ctx.fillText(text, sx + 4, sy + 3);
-                  }
+                  ctx.fillStyle = boxBg;
+                  ctx.strokeStyle = boxBorder;
+                  ctx.beginPath();
+                  ctx.roundRect(lm.px, lm.py, lm.pw, lm.ph, 4);
+                  ctx.fill();
+                  ctx.stroke();
+
+                  ctx.fillStyle = textColor;
+                  ctx.fillText(lm.label, lm.px + 5, lm.py + 12);
+                }
+              }
+
+              // 4. Render Bathymetric Spot Soundings from Cache
+              if (curShowSoundings && cCache.soundings.length > 0) {
+                const dotColor = curTheme === 1 ? '#8c3e24' : curTheme === 2 ? '#38bdf8' : '#00e5ff';
+                const textColor =
+                  curTheme === 1
+                    ? 'rgba(74, 59, 50, 0.85)'
+                    : curTheme === 2
+                    ? 'rgba(165, 213, 255, 0.85)'
+                    : 'rgba(142, 230, 255, 0.85)';
+
+                ctx.font = curTheme === 1 ? 'italic 9px Newsreader, serif' : '9px "IBM Plex Mono", monospace';
+                for (let i = 0; i < cCache.soundings.length; i++) {
+                  const s = cCache.soundings[i];
+                  ctx.fillStyle = dotColor;
+                  ctx.beginPath();
+                  ctx.arc(s.sx, s.sy, 1.8, 0, Math.PI * 2);
+                  ctx.fill();
+
+                  ctx.fillStyle = textColor;
+                  ctx.fillText(s.text, s.sx + 4, s.sy + 3);
                 }
               }
 
@@ -3395,31 +3527,27 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
                 }
                 ctx.setLineDash([]);
 
-                // Draw benchmark stations
-                for (let bmIdx = 0; bmIdx < GEODETIC_BENCHMARKS.length; bmIdx++) {
-                  const bm = GEODETIC_BENCHMARKS[bmIdx];
-                  const pos3D = evaluatePointMorph(bm.lon, bm.lat, curUnfurl, curMode, time, 0.06);
-                  const [bx, by, isFront] = projectPoint(pos3D[0], pos3D[1], pos3D[2]);
-                  if (isFront && bx >= -30 && bx <= w + 30 && by >= -30 && by <= h + 30) {
-                    const bmColor = curTheme === 1 ? '#a85032' : curTheme === 2 ? '#78beff' : '#00e5ff';
+                // Draw benchmark stations from cache
+                if (cCache.benchmarks.length > 0) {
+                  const bmColor = curTheme === 1 ? '#a85032' : curTheme === 2 ? '#78beff' : '#00e5ff';
+                  ctx.font = '8px "IBM Plex Mono", monospace';
+                  for (let i = 0; i < cCache.benchmarks.length; i++) {
+                    const bm = cCache.benchmarks[i];
                     ctx.strokeStyle = bmColor;
                     ctx.fillStyle = curTheme === 1 ? '#f6f1e8' : '#0c1a29';
                     ctx.lineWidth = 1.2;
 
-                    // Diamond benchmark mark
                     ctx.beginPath();
-                    ctx.moveTo(bx, by - 3.5);
-                    ctx.lineTo(bx + 3.5, by);
-                    ctx.lineTo(bx, by + 3.5);
-                    ctx.lineTo(bx - 3.5, by);
+                    ctx.moveTo(bm.bx, bm.by - 3.5);
+                    ctx.lineTo(bm.bx + 3.5, bm.by);
+                    ctx.lineTo(bm.bx, bm.by + 3.5);
+                    ctx.lineTo(bm.bx - 3.5, bm.by);
                     ctx.closePath();
                     ctx.fill();
                     ctx.stroke();
 
-                    // Benchmark ID
-                    ctx.font = '8px "IBM Plex Mono", monospace';
                     ctx.fillStyle = bmColor;
-                    ctx.fillText(bm.id, bx + 5, by - 3);
+                    ctx.fillText(bm.id, bm.bx + 5, bm.by - 3);
                   }
                 }
               }
@@ -3521,6 +3649,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       )}
     </div>
   );
-};
+});
 
 export default WebGPUCanvas;

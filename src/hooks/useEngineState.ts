@@ -58,6 +58,7 @@ export function useEngineState() {
   const [cloudOpacity, setCloudOpacityState] = useState<number>(0.8);
   const [cloudFalseColor, setCloudFalseColorState] = useState<boolean>(false);
   const [cloudMultiRateRaymarch, setCloudMultiRateRaymarchState] = useState<boolean>(false);
+  const [volumetricClouds, setVolumetricCloudsState] = useState<boolean>(false);
   const [cloudThickness, setCloudThicknessState] = useState<number>(0.19);
   const [cloudLowTop, setCloudLowTopState] = useState<number>(0.45);
   const [cloudErosion, setCloudErosionState] = useState<number>(0.85);
@@ -94,6 +95,18 @@ export function useEngineState() {
           (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
         }
         (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudMultiRateRaymarch = val;
+      }
+      return val;
+    });
+  };
+  const setVolumetricClouds = (v: boolean | ((prev: boolean) => boolean)) => {
+    setVolumetricCloudsState((prev) => {
+      const val = typeof v === 'function' ? v(prev) : v;
+      if (typeof window !== 'undefined') {
+        if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+          (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
+        }
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.volumetricClouds = val;
       }
       return val;
     });
@@ -643,6 +656,7 @@ export function useEngineState() {
     cloudOpacity, setCloudOpacity,
     cloudFalseColor, setCloudFalseColor,
     cloudMultiRateRaymarch, setCloudMultiRateRaymarch,
+    volumetricClouds, setVolumetricClouds,
     cloudThickness, setCloudThickness,
     cloudLowTop, setCloudLowTop,
     cloudErosion, setCloudErosion,

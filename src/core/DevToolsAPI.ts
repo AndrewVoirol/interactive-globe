@@ -1,4 +1,5 @@
 import { EngineStateHook } from '../hooks/useEngineState';
+import { runComprehensiveProfilingSuite } from '../webgpu/profiling/runComprehensiveProfilingSuite';
 
 export interface IndicatrixEngineDevTools {
   getState: () => any;
@@ -125,4 +126,5 @@ export function registerDevToolsAPI(state: EngineStateHook): void {
   window.setShowVectors = state.setShowVectors;
   window.setCursorPhysicsEnabled = state.setCursorPhysicsEnabled;
   window.backend = state.backend;
+  (window as any).runComprehensiveProfilingSuite = runComprehensiveProfilingSuite;
 }

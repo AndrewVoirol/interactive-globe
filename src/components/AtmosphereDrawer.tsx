@@ -88,6 +88,8 @@ export interface AtmosphereDrawerProps {
   onCloudExtinctionChange?: (v: number) => void;
   cloudMultiRateRaymarch?: boolean;
   onCloudMultiRateRaymarchChange?: (v: boolean) => void;
+  volumetricClouds?: boolean;
+  onVolumetricCloudsChange?: (v: boolean) => void;
 }
 
 export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
@@ -149,6 +151,8 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   onCloudExtinctionChange,
   cloudMultiRateRaymarch: propCloudMultiRateRaymarch,
   onCloudMultiRateRaymarchChange,
+  volumetricClouds: propVolumetricClouds,
+  onVolumetricCloudsChange,
 }) => {
   const [internalShowClouds, setInternalShowClouds] = useState<boolean>(true);
   const [internalShowCloudLow, setInternalShowCloudLow] = useState<boolean>(true);
@@ -211,6 +215,12 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
     }
     return propCloudExtinction ?? 28.0;
   });
+  const [internalVolumetricClouds, setInternalVolumetricClouds] = useState<boolean>(() => {
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__?.volumetricClouds !== undefined) {
+      return Boolean((window as any).__INDICATRIX_LIVE_UNIFORMS__.volumetricClouds);
+    }
+    return propVolumetricClouds ?? false;
+  });
 
   const curCloudThickness = propCloudThickness !== undefined ? propCloudThickness : internalCloudThickness;
   const curCloudLowTop = propCloudLowTop !== undefined ? propCloudLowTop : internalCloudLowTop;
@@ -218,6 +228,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const curCloudFreqHoriz = propCloudFreqHoriz !== undefined ? propCloudFreqHoriz : internalCloudFreqHoriz;
   const curCloudFreqVert = propCloudFreqVert !== undefined ? propCloudFreqVert : internalCloudFreqVert;
   const curCloudExtinction = propCloudExtinction !== undefined ? propCloudExtinction : internalCloudExtinction;
+  const curVolumetricClouds = propVolumetricClouds !== undefined ? propVolumetricClouds : internalVolumetricClouds;
 
   const updateLiveUniforms = useCallback((delta: Record<string, any>) => {
     if (typeof window !== 'undefined') {
@@ -292,6 +303,12 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
     onCloudFreqVertChange?.(defaults.cloudFreqVert);
     onCloudExtinctionChange?.(defaults.cloudExtinction);
     updateLiveUniforms(defaults);
+  };
+
+  const handleVolumetricCloudsToggle = (val: boolean) => {
+    setInternalVolumetricClouds(val);
+    onVolumetricCloudsChange?.(val);
+    updateLiveUniforms({ volumetricClouds: val });
   };
 
   const curShowClouds = propShowClouds !== undefined ? propShowClouds : internalShowClouds;
@@ -888,6 +905,24 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
 
             {isCloudBetaOpen && (
               <div className="p-2.5 pt-0 space-y-3 border-t border-[var(--theme-card-border)]/50 mt-1">
+                {/* 0. 3D Volumetric Raymarch Mode Toggle */}
+                <div className="pt-2 pb-2 border-b border-[var(--theme-card-border)]/50 flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-micro font-mono uppercase tracking-wider font-bold text-[var(--theme-text)]">
+                      3D Volumetric Raymarch
+                    </span>
+                    <span className="text-[10px] text-[var(--theme-text-muted)] font-mono">
+                      {curVolumetricClouds ? 'Active (Experimental raymarch)' : 'Bypassed (Fast 80+ FPS raster strata)'}
+                    </span>
+                  </div>
+                  <TactileSwitch
+                    id="beta-volumetric-clouds"
+                    label=""
+                    checked={curVolumetricClouds}
+                    onChange={handleVolumetricCloudsToggle}
+                  />
+                </div>
+
                 {/* 1. Tropospheric Shell Thickness */}
                 <div className="pt-2">
                   <VernierSlider

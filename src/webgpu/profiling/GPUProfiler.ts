@@ -49,6 +49,8 @@ export class GPUProfiler {
   private enabled: boolean = false;
   private latestReport: FrameProfileReport | null = null;
   private latestKernelReports: KernelProfileReport[] = [];
+  private activePassesMask: number = 0;
+  private ringSlotPassMasks: number[] = [];
 
   constructor(device: GPUDevice) {
     this.device = device;
@@ -81,6 +83,7 @@ export class GPUProfiler {
           })
         );
         this.ringSlotStates.push('IDLE');
+        this.ringSlotPassMasks.push(0);
       }
     }
   }
@@ -92,6 +95,7 @@ export class GPUProfiler {
   public getComputeTimestampWrites(passIndex: number = 0): GPUComputePassTimestampWrites | undefined {
     if (!this.enabled || !this.querySet) return undefined;
     const slot = passIndex;
+    this.activePassesMask |= (1 << slot);
     return {
       querySet: this.querySet,
       beginningOfPassWriteIndex: slot * 2,
@@ -102,6 +106,7 @@ export class GPUProfiler {
   public getRenderTimestampWrites(passIndex: number = 0): GPURenderPassTimestampWrites | undefined {
     if (!this.enabled || !this.querySet) return undefined;
     const slot = passIndex === 0 ? ProfilerPassSlot.SwissRelief : passIndex;
+    this.activePassesMask |= (1 << slot);
     return {
       querySet: this.querySet,
       beginningOfPassWriteIndex: slot * 2,
@@ -112,6 +117,7 @@ export class GPUProfiler {
   public getPassTimestampWrites(slot: number | ProfilerPassSlot): GPUComputePassTimestampWrites | undefined {
     if (!this.enabled || !this.querySet) return undefined;
     if (slot < 0 || slot >= PROFILER_QUERY_CAPACITY / 2) return undefined;
+    this.activePassesMask |= (1 << slot);
     return {
       querySet: this.querySet,
       beginningOfPassWriteIndex: slot * 2,
@@ -129,6 +135,8 @@ export class GPUProfiler {
     const currentSlot = this.ringIndex % this.ringSize;
     const destBuffer = this.ringBuffers[currentSlot];
     const readSlot = (this.ringIndex + 1) % this.ringSize;
+    this.ringSlotPassMasks[currentSlot] = this.activePassesMask;
+    this.activePassesMask = 0;
     this.ringIndex++;
 
     if (this.ringSlotStates[currentSlot] === 'MAPPED' || this.ringSlotStates[currentSlot] === 'PENDING_MAP') {
@@ -161,7 +169,9 @@ export class GPUProfiler {
         this.ringSlotStates[readSlot] = 'IDLE';
 
         const timestamps = new BigUint64Array(mappedData);
+        const slotMask = this.ringSlotPassMasks[readSlot] ?? 0xFFFFFFFF;
         const getDeltaMs = (s: number): number => {
+          if ((slotMask & (1 << s)) === 0) return 0;
           const t0 = timestamps[s * 2];
           const t1 = timestamps[s * 2 + 1];
           if (t1 >= t0 && t0 > 0n) {
@@ -176,7 +186,9 @@ export class GPUProfiler {
         const ribbonsMs = getDeltaMs(ProfilerPassSlot.Ribbons);
         const contoursMs = getDeltaMs(ProfilerPassSlot.Contours);
         const pointsMs = getDeltaMs(ProfilerPassSlot.Points);
-        const renderMs = reliefMs + linesMs + ribbonsMs + contoursMs + pointsMs;
+        const volumetricMs = getDeltaMs(ProfilerPassSlot.Reserved1);
+        const substrateMs = getDeltaMs(ProfilerPassSlot.Reserved2);
+        const renderMs = reliefMs + linesMs + ribbonsMs + contoursMs + pointsMs + volumetricMs + substrateMs;
 
         this.latestReport = {
           timestamp: performance.now(),
@@ -187,6 +199,8 @@ export class GPUProfiler {
           ribbonsMs,
           contoursMs,
           pointsMs,
+          volumetricMs,
+          substrateMs,
           totalGpuMs: computeMs + renderMs,
         };
 
@@ -197,11 +211,19 @@ export class GPUProfiler {
           'Vector Line Ribbons',
           'Isoline Contours',
           'Point Sprites',
-          'Reserved 1',
-          'Reserved 2',
+          'Volumetric Clouds Raymarch',
+          'Paper Substrate Haptics',
         ];
 
         this.latestKernelReports = passNames.map((name, idx) => {
+          if ((slotMask & (1 << idx)) === 0) {
+            return {
+              passName: name,
+              gpuTimeNs: 0n,
+              gpuTimeUs: 0,
+              gpuTimeMs: 0,
+            };
+          }
           const t0 = timestamps[idx * 2];
           const t1 = timestamps[idx * 2 + 1];
           const deltaNs = (t1 >= t0 && t0 > 0n) ? t1 - t0 : 0n;

@@ -102,6 +102,7 @@ export interface UnifiedRightSidebarProps {
   showCloudHigh?: boolean; onShowCloudHighChange?: (v: boolean) => void;
   cloudFalseColor?: boolean; onCloudFalseColorChange?: (v: boolean) => void;
   cloudMultiRateRaymarch?: boolean; onCloudMultiRateRaymarchChange?: (v: boolean) => void;
+  volumetricClouds?: boolean; onVolumetricCloudsChange?: (v: boolean) => void;
   cloudDriftSpeed?: number; onCloudDriftSpeedChange?: (v: number) => void;
   cloudOpacity?: number; onCloudOpacityChange?: (v: number) => void;
   cloudThickness?: number; onCloudThicknessChange?: (v: number) => void;
@@ -208,6 +209,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   showCloudHigh: propShowCloudHigh, onShowCloudHighChange,
   cloudFalseColor: propCloudFalseColor, onCloudFalseColorChange,
   cloudMultiRateRaymarch: propCloudMultiRateRaymarch, onCloudMultiRateRaymarchChange,
+  volumetricClouds: propVolumetricClouds, onVolumetricCloudsChange,
   cloudDriftSpeed: propCloudDriftSpeed, onCloudDriftSpeedChange,
   cloudOpacity: propCloudOpacity, onCloudOpacityChange,
   cloudThickness: propCloudThickness, onCloudThicknessChange,
@@ -401,6 +403,29 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
     return { eqArea, localArea, polarStr };
   }, [parsedLat, alpha, mode]);
 
+  const [liveVram, setLiveVram] = useState<{
+    totalMb: number;
+    subsystems: Record<string, { mb: number; bufferCount: number; textureCount: number }>;
+  } | null>(null);
+
+  useEffect(() => {
+    const pollVram = () => {
+      if (typeof window !== 'undefined') {
+        const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__;
+        if (engine && typeof engine.getVramLedger === 'function') {
+          const ledger = engine.getVramLedger();
+          setLiveVram({
+            totalMb: ledger.totalMb,
+            subsystems: ledger.subsystems,
+          });
+        }
+      }
+    };
+    pollVram();
+    const timer = setInterval(pollVram, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const resolutionVramLabel = useMemo(() => {
     const tierConfig: Record<ResolutionTier, { verts: string; nodes: number }> = {
       '100k': { verts: '262K Verts', nodes: 262_144 },
@@ -411,10 +436,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       '16M': { verts: '16.7M Verts', nodes: 16_777_216 },
     };
     const c = tierConfig[resolution] || tierConfig['1M'];
-    const mb = Math.round((c.nodes * 104) / (1024 * 1024));
-    const sizeStr = mb >= 1000 ? `~${(mb / 1024).toFixed(1)}GB (est.)` : `~${mb}MB (est.)`;
+    const mb = liveVram ? liveVram.totalMb : Math.round((c.nodes * 104) / (1024 * 1024));
+    const sizeStr = mb >= 1000 ? `${(mb / 1024).toFixed(2)}GB` : `${mb.toFixed(1)}MB`;
     return `${c.verts} · ${sizeStr}`;
-  }, [resolution]);
+  }, [resolution, liveVram]);
 
   const getStratumBadge = useCallback(
     (category?: string) => {
@@ -1548,6 +1573,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   showCloudHigh={propShowCloudHigh} onShowCloudHighChange={onShowCloudHighChange}
                   cloudFalseColor={propCloudFalseColor} onCloudFalseColorChange={onCloudFalseColorChange}
                   cloudMultiRateRaymarch={propCloudMultiRateRaymarch} onCloudMultiRateRaymarchChange={onCloudMultiRateRaymarchChange}
+                  volumetricClouds={propVolumetricClouds} onVolumetricCloudsChange={onVolumetricCloudsChange}
                   cloudDriftSpeed={propCloudDriftSpeed} onCloudDriftSpeedChange={onCloudDriftSpeedChange}
                   cloudOpacity={propCloudOpacity} onCloudOpacityChange={onCloudOpacityChange}
                   cloudThickness={propCloudThickness} onCloudThicknessChange={onCloudThicknessChange}
@@ -1695,7 +1721,16 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-nano font-mono">
                   <span className="uppercase font-bold tracking-wider opacity-60">Resolution</span>
-                  <span className="text-[var(--theme-text-accent)] font-medium">{resolutionVramLabel}</span>
+                  <span
+                    className="text-[var(--theme-text-accent)] font-medium cursor-help"
+                    title={
+                      liveVram
+                        ? `VRAM Subsystems:\n• DEM: ${liveVram.subsystems.DEM?.mb ?? 0} MB\n• Atmosphere: ${liveVram.subsystems.Atmosphere?.mb ?? 0} MB\n• Hydrology: ${liveVram.subsystems.Hydrology?.mb ?? 0} MB\n• Simulation: ${liveVram.subsystems.Simulation?.mb ?? 0} MB\n• Pipelines: ${liveVram.subsystems.Pipelines?.mb ?? 0} MB`
+                        : undefined
+                    }
+                  >
+                    {resolutionVramLabel}
+                  </span>
                 </div>
                 <div className="grid grid-cols-6 gap-1">
                   {(['100k', '1M', '3M', '4M', '8M', '16M'] as ResolutionTier[]).map((tier) => (
