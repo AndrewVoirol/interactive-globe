@@ -63,6 +63,7 @@ struct RegionalOverlayUniforms {
 @group(0) @binding(6) var<uniform> u_regionalOverlay: RegionalOverlayUniforms;
 @group(0) @binding(7) var u_windTexture: texture_2d<f32>;
 @group(0) @binding(8) var u_windSampler: sampler;
+@group(0) @binding(9) var u_jetStreamTexture: texture_2d<f32>;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
@@ -311,19 +312,34 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // Sample 2D horizontal wind velocity (u, v) in m/s unconditionally at the top of fs_main (Rule 4)
     let rawWind = textureSampleLevel(u_windTexture, u_windSampler, in.uv, 0.0).xy;
+    let rawJetStream = textureSampleLevel(u_jetStreamTexture, u_windSampler, in.uv, 0.0).xy;
 
     let layerIdx = cloud.u_layerIndex;
-    var layerDriftFactor = cloud.u_cloudDrift.x; // Low 0.6x (or 5.0)
+    var layerDriftFactor = cloud.u_cloudDrift.x; // Low 5.0
     if (layerIdx == 1u) {
-        layerDriftFactor = cloud.u_cloudDrift.y; // Mid 1.0x (or 15.0)
+        layerDriftFactor = cloud.u_cloudDrift.y; // Mid 15.0
     } else if (layerIdx == 2u) {
-        layerDriftFactor = cloud.u_cloudDrift.z; // High 1.8x (or 40.0)
+        layerDriftFactor = cloud.u_cloudDrift.z; // High 40.0
     }
 
-    // Altitude velocity scaling and fallback for unpopulated wind grids
-    let layerMultiplier = layerDriftFactor / 15.0;
-    let activeWind = select(rawWind, vec2<f32>(layerDriftFactor, 0.0), length(rawWind) < 0.01);
-    let effectiveWind = activeWind * layerMultiplier;
+    // Unpopulated wind grid fallbacks
+    let activeSurfaceWind = select(rawWind, vec2<f32>(layerDriftFactor, 0.0), length(rawWind) < 0.01);
+    let activeJetWind = select(rawJetStream, vec2<f32>(layerDriftFactor * 2.0, 0.0), length(rawJetStream) < 0.01);
+
+    // Multi-Stratum Vertical Wind Shear (Milestone 2)
+    // - Low Stratus (0–2 km, layer 0): WeatherNext 3 10m surface wind
+    // - Mid Altocumulus (2–6 km, layer 1): Linearly blended wind mix(u_10m, u_250hPa, 0.40)
+    // - High Cirrus (6–12 km, layer 2): Upper-tropospheric Jet Stream wind (u_250hPa)
+    var stratumWind: vec2<f32>;
+    if (layerIdx == 0u) {
+        stratumWind = activeSurfaceWind;
+    } else if (layerIdx == 1u) {
+        stratumWind = mix(activeSurfaceWind, activeJetWind, 0.40);
+    } else {
+        stratumWind = activeJetWind;
+    }
+
+    let effectiveWind = stratumWind;
 
     // Time-lapse visual advection rate for planetary scale
     let baseDriftSpeed = cloud.u_cloudDrift.w;

@@ -5296,6 +5296,7 @@ export class WebGPUEngine {
         [windW, windH, 1]
       );
       this.updateWindBindGroups();
+      this.updateCloudBindGroups();
     } catch {
       // Mock guard
     }
@@ -7746,6 +7747,7 @@ export class WebGPUEngine {
           { binding: 6, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
           { binding: 7, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
           { binding: 8, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+          { binding: 9, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
         ],
       });
 
@@ -9697,6 +9699,7 @@ export class WebGPUEngine {
 
     const windView = this.windTextureView || demView;
     const windSamp = this.windSampler || this.demSampler || sampler;
+    const jetView = this.jetStreamTextureView || windView;
 
     this.cloudBindGroups = {
       low: this.device.createBindGroup({
@@ -9712,6 +9715,7 @@ export class WebGPUEngine {
           { binding: 6, resource: { buffer: regBuffer } },
           { binding: 7, resource: windView },
           { binding: 8, resource: windSamp },
+          { binding: 9, resource: jetView },
         ],
       }),
       mid: this.device.createBindGroup({
@@ -9727,6 +9731,7 @@ export class WebGPUEngine {
           { binding: 6, resource: { buffer: regBuffer } },
           { binding: 7, resource: windView },
           { binding: 8, resource: windSamp },
+          { binding: 9, resource: jetView },
         ],
       }),
       high: this.device.createBindGroup({
@@ -9742,6 +9747,7 @@ export class WebGPUEngine {
           { binding: 6, resource: { buffer: regBuffer } },
           { binding: 7, resource: windView },
           { binding: 8, resource: windSamp },
+          { binding: 9, resource: jetView },
         ],
       }),
     };

@@ -805,3 +805,47 @@ $$\rho(\mathbf{x}, t) = (1 - w_{\text{blend}}) c(\mathbf{x}_{d0}) + w_{\text{ble
 - [x] **M1-OPT-01 (Live Optical Flow)**: View 1A South America centered ROI `[0.20H:0.80H, 0.20W:0.80W]` achieves active moving ratio of $28.11\%$ with $dx = -0.0057$ px, $dy = +0.0095$ px.
 - [x] **M1-OPT-02 (Zero-Drift Baseline)**: At `cloudDriftSpeed = 0`, active moving ratio drops to $0.03\%$ with motion $< 0.0001$ px.
 
+---
+
+## §6: Multi-Stratum Vertical Wind Shear
+
+### Problem Statement
+In previous iterations, all tropospheric cloud decks (low boundary stratus, mid altocumulus, high cirrus) moved either as a monolithic slab or scaled along a single surface wind vector. In the real atmosphere, surface winds are constrained by frictional drag against terrain ($10\,\text{m}$ boundary layer), whereas upper-tropospheric jet streams ($250\,\text{hPa}$, $9\text{–}12\,\text{km}$) blow at high speeds ($30\text{–}90\,\text{m/s}$) and frequently diverge in direction from surface flow.
+
+### Physical & Mathematical Formulation
+Each stratum is advected by its physically authentic atmospheric wind field:
+1. **Low Stratus ($0\text{–}2\,\text{km}$, Layer Index 0)**:
+   $$\mathbf{u}_{\text{stratum}, 0} = \mathbf{u}_{10\text{m}}$$
+   Coupled to WeatherNext 3 $10\,\text{m}$ surface wind (`wind_10m_vector-0.bin`) or GFS surface fallback.
+2. **Mid Altocumulus ($2\text{–}6\,\text{km}$, Layer Index 1)**:
+   $$\mathbf{u}_{\text{stratum}, 1} = \text{mix}(\mathbf{u}_{10\text{m}}, \mathbf{u}_{250\text{hPa}}, 0.40)$$
+   Linear interpolation modeling mid-tropospheric baroclinic shear and veering.
+3. **High Cirrus ($6\text{–}12\,\text{km}$, Layer Index 2)**:
+   $$\mathbf{u}_{\text{stratum}, 2} = \mathbf{u}_{250\text{hPa}}$$
+   Upper-tropospheric Jet Stream wind vector field (`gfs-jetstream-latest.bin`).
+
+### WebGPU Binding Architecture
+To avoid collisions with `@binding(6)` (`u_regionalOverlay` uniform buffer) while strictly maintaining existing bindings 0–8:
+- `@group(0) @binding(7)`: `u_windTexture` (`texture_2d<f32>`, surface 10m wind)
+- `@group(0) @binding(8)`: `u_windSampler` (`sampler`, shared bilinear sampler)
+- `@group(0) @binding(9)`: `u_jetStreamTexture` (`texture_2d<f32>`, 250 hPa jet stream wind)
+
+### Invariant & Boundary Verification Matrix
+- [x] **M2-WGSL-01 (Binding 9)**: `@group(0) @binding(9) var u_jetStreamTexture: texture_2d<f32>;` declared in `cloud_shell.wgsl`.
+- [x] **M2-WGSL-02 (Uniform Control Flow)**: `rawJetStream` sampled unconditionally at explicit LOD 0.0 at top of `fs_main` before branches or discards (Rule 4).
+- [x] **M2-WGSL-03 (Stratum Velocity Assignment)**: Layer 0 uses surface wind; Layer 1 uses `mix(..., 0.40)`; Layer 2 uses jet stream wind.
+- [x] **M2-WGSL-04 (Zero-Drift Invariant)**: Zero-drift invariant preserved for all strata when `baseDriftSpeed <= 0.0001`.
+- [x] **M2-ENG-01 (Layout Entry 9)**: `cloudBindGroupLayout` declares binding 9 with `visibility: GPUShaderStage.FRAGMENT`.
+- [x] **M2-ENG-02 (Bind Group Wiring)**: `cloudBindGroups.low`, `mid`, and `high` bind `jetView` at index 9.
+- [x] **M2-ENG-03 (Rule 56 Invalidation)**: `loadJetStreamTexture()` calls `this.updateCloudBindGroups()` to rebuild bindings synchronously.
+- [x] **M2-CANV-01 (Canvas Loading)**: `WebGPUCanvas.tsx` triggers jet stream asset load whenever `showClouds` is active.
+- [x] **M2-PHYS-01 (Asset Integrity)**: NOAA GFS $250\,\text{hPa}$ asset validated with peak wind $> 51\,\text{m/s}$ and $> 8\%$ coverage over $30\,\text{m/s}$.
+- [x] **M2-PHYS-02 (Cascades Shear)**: Real-data Cascades Arc test verifies speed differential $> 2.5\times$ and spherical UV departure separation.
+- [x] **M2-PHYS-03 (Mid-Stratum Bounds)**: Mid altocumulus velocity rigorously verified bounded between Low and High speeds.
+- [x] **M2-VIS-01 (Live DevTools View 1A)**: South America Synoptic Nadir live capture demonstrating planar differential velocity (`view_1a_synoptic_cream_rag.webp`).
+- [x] **M2-VIS-02 (Live DevTools View 1B)**: Andes Spine Oblique live capture demonstrating 3D vertical stratum separation (`view_1b_oblique_cream_rag.webp`).
+- [x] **M2-VIS-03 (Live DevTools View 2A)**: PNW Regional Synoptic live capture demonstrating synoptic directional shear (`view_2a_synoptic_cream_rag.webp`).
+- [x] **M2-VIS-04 (Live DevTools View 2B)**: Cascades Volcanic Arc live capture demonstrating high-speed summit shearing (`view_2b_oblique_cream_rag.webp`).
+- [x] **M2-THEME-01 (Dual-Theme Fidelity)**: Verified zero visual regression across Cream Rag (Theme 1) and Prussian Cyanotype (Theme 2) (`view_2b_oblique_prussian_cyanotype.webp`).
+
+

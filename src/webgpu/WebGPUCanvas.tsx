@@ -765,7 +765,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     const hasJetStream = !!dataLayers?.find(
       (l) => (l.id === 'noaa-gfs-jetstream' || l.id === 'gfs-jetstream') && l.visible
     );
-    if (hasJetStream) {
+    if (hasJetStream || showClouds) {
       engine.loadJetStreamTexture('/data/gfs-jetstream-latest.bin').catch(() => {});
     }
     const hasRadar = !!dataLayers?.find(
