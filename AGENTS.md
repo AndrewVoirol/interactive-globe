@@ -344,8 +344,24 @@ Whenever a texture loader or data streaming manager (`loadWindTexture`, `loadJet
     2. `this.updateWindParticleBindGroups()`
     3. `this.updateComputeBindGroups()`
   - Upper-Air Jet Stream updates (`this.jetStreamTexture` in M2) MUST call:
-    1. `this.updateCloudBindGroups()` (binding 6 in `cloud_shell.wgsl`)
+    1. `this.updateCloudBindGroups()` (binding 9 in `cloud_shell.wgsl`)
 - **Prohibition of Asynchronous Orphan Views**: No texture upload may resolve its Promise until all consumer pass bind groups have been re-created with the active `GPUTextureView`. Leaving consumer pipelines pointing to dummy fallback textures while data streaming succeeds is a critical defect.
 
+## 57. Orthogonal Perspective Pairing & Physical Stratum Provenance
+Atmospheric, hydrological, and relief verification must never evaluate a single isolated perspective or drop either half of a calibrated benchmark pair:
+- **Mandatory Orthogonal Pairing**:
+  - **View 1A & 1B (South America)**: View 1A (Synoptic Nadir, pitch 0°) captures 2D planar continental flow and trade-wind curvature; View 1B (Andes Oblique, pitch 32°) captures 3D elevation shear, Altiplano stagnation, and ridge interception.
+  - **View 2A & 2B (Pacific Northwest)**: View 2A (Synoptic Nadir, pitch 0°) captures 2D maritime frontal entry and Gorge channelling; View 2B (Cascades Oblique, pitch 30°) captures upper-tropospheric jet stream summit shearing over Mount Rainier/Hood against valley stratus.
+- **Dataset Provenance & Layer Realism**:
+  - Google DeepMind WeatherNext 3 ($10\,\text{m}$) represents the surface planetary boundary layer ($0\text{–}2\,\text{km}$).
+  - NOAA GFS ($250\,\text{hPa}$) represents the upper-tropospheric jet stream ($6\text{–}12\,\text{km}$).
+  - All subsequent atmospheric milestones (orographic lift, rain shadow, moisture condensation, semi-Lagrangian advection) must preserve this physical stratification.
 
-
+## 58. WebGPU DevTools Inspection & Compositor Readback Invariant
+When interacting with the engine in live browser sessions via Chrome DevTools MCP (`evaluate_script`):
+- **Facade vs Raw Engine**:
+  - `window.__INDICATRIX_ENGINE__`: UI/State facade (`getState`, `setMode`, `setTheme`, `setShowVectors`).
+  - `window.__INDICATRIX_WEBGPU_ENGINE__` (or `window.__ENGINE`): Concrete `WebGPUEngine` instance holding textures, uniform buffers, and data loader pipelines. Never invoke raw engine loaders on the UI facade.
+- **Zero 2D Context Canvas Readback**:
+  - Do NOT attempt to extract pixel differences via `canvas2d.drawImage(webgpuCanvas)`. WebGPU swapchain presentation clears the backbuffer each frame.
+  - All frame diffs, optical flow captures, and visual audits must be captured directly from the compositor via DevTools MCP `take_screenshot` or `screencast_start` / `screencast_stop`.
