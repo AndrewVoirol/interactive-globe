@@ -28,7 +28,7 @@ No shader, geometry, or thematic refactor is complete based solely on compilatio
 - **Test all 3 mediums**: No visual verification may pass based on captures of a single theme.
 - **Live browser verification**: Use Chrome DevTools MCP (`take_screenshot`, `list_console_messages`) to confirm zero runtime errors and correct visual output.
 - **Show real content**: A large screenshot file (> 50KB) is NOT proof of feature implementation. If a feature is claimed to be implemented, the screenshot must show that feature clearly visible.
-- **No Uniform Placebos (End-to-End Shader Execution)**: Verifying that a React control updates component state or packs a float into `SimUniforms` is completely insufficient. The implementing agent must verify that the target fragment/vertex shader actually consumes that uniform in its **active, default execution path** without early `discard` statements, hardcoded masks, or bypassed branches. If a uniform is uploaded but discarded in the default view, it is a placebo.
+- **No Uniform or Algorithm Placebos (End-to-End Shader Execution & Anti-Metric Gaming)**: Verifying that a React control updates component state, packs a float into `SimUniforms`, or compiles a WGSL helper function is completely insufficient. The implementing agent must verify that the target fragment/vertex shader actually consumes that uniform or algorithm in its **active, default execution path** without early `discard` statements, hardcoded masks, or bypassed branches. If a uniform is uploaded but discarded, or if an algorithm exists as dead code while older fallback math continues to sample the texture, it is a placebo. Optical flow, FFT cross-correlation, and pixel delta metrics must NEVER be gamed by tilting the camera into an edge or cropping arbitrary screen-space sub-regions to isolate noise while ignoring zero motion across the rest of the canvas.
 - **Dual-State Visual Contrast**: For interactive parameters (e.g. Sea Level ±100m, Solar Angle, or Water Clarity), visual verification must capture before/after states at opposing parameter bounds and demonstrate an observable pixel delta on the canvas.
 
 ## 6. Cartographic Framing & HUD Layout
@@ -311,17 +311,29 @@ In complex multi-phase refactors or workshops subject to context truncation and 
 - Ground the artifact in verified coordinates, exact camera parameters (elevation, pitch, heading), and quantitative baseline metrics.
 - Do not re-litigate established baselines or re-prompt for known decisions across conversation turns; reference the master roadmap.
 
-## 54. Headless Camera Automation Invariant (`setObliqueView`)
-When programmatically manipulating, framing, or anchoring the camera for automated verification, MCP screencasts, or litmus tests, agents MUST invoke `window.__INDICATRIX_CAMERA__.setObliqueView(lonDeg, latDeg, altitudeRadius, pitchDeg, headingDeg)` rather than `setPose(...)` or direct `camera.position` mutations.
-- `setPose` and direct coordinate mutations fail to update `sphericalRef.current`.
-- The per-frame animation loop in `WebGPUCanvas.tsx` re-evaluates spherical coordinates every frame and will instantly clobber any pose not committed through `setObliqueView`.
+## 54. The 4-View Dual-Benchmark Camera Suite (`window.__GO`)
+All visual verification, milestone acceptance gates, and optical flow analyses must execute against the approved 4-view dual-benchmark suite. Agents must use `window.__INDICATRIX_CAMERA__.setObliqueView(lon, lat, alt, pitch, hdg)` or the registered `window.__GO` console shortcuts:
 
-## 55. Oblique View Optical Flow & ROI Isolation Protocol
-When verifying dynamic motion (wind advection, atmospheric flow, plume transport) in oblique or tilted camera perspectives:
-- **Never evaluate 2D cross-correlation across the full viewport.** At pitches $\ge 30^\circ$, upper-screen blank paper substrates and high-contrast stationary terrain features (mountain ridges, coastlines) anchor the FFT correlation peak to $(0, 0)$.
-- **Isolate Planetary Disk ROI**: Crop the region of interest strictly to the active planetary disc where the fluid/cloud layer resides.
-- **Dual Metric Verification**: Quantify motion using both:
-  1. *Active Moving Pixel Ratio*: Percentage of pixels with $|\Delta I| > 5.0$ across a 1.5–2.0s interval.
-  2. *Zero-Drift Baseline*: Confirm that setting speed to 0 reduces active moving pixels to $< 5\%$ without spatial jitter.
+1. **Location 1: South America / Andes Cordillera**:
+   - **View 1A (Continental Synoptic / Nadir)**: `window.__GO.loc1_synoptic()`
+     `setObliqueView(-61.0, -15.0, 7.8, 0.0, 0.0)`
+     *Purpose*: Full continental 2D flow, Amazon trade winds, Cream Rag Swiss Relief plate beauty.
+   - **View 1B (Andes Spine Regional Oblique)**: `window.__GO.loc1_oblique()`
+     `setObliqueView(-68.0, -18.0, 6.8, 32.0, 345.0)`
+     *Purpose*: 3D mountain barrier perspective, curved horizon limb, windward cloud pooling.
+
+2. **Location 2: Pacific Northwest (Cascades & Mount Rainier)**:
+   - **View 2A (PNW Regional Synoptic / Nadir)**: `window.__GO.loc2_synoptic()`
+     `setObliqueView(-122.0, 46.5, 6.8, 0.0, 0.0)`
+     *Purpose*: Orthogonal map of Puget Sound, Olympic Peninsula, and Cascade volcanoes.
+   - **View 2B (Cascades Volcanic Arc Oblique)**: `window.__GO.loc2_oblique()`
+     `setObliqueView(-121.5, 45.0, 6.8, 30.0, 345.0)`
+     *Purpose*: Pacific storm tracks, upper Jet Stream shear aloft, and solitary summit piercing.
+
+## 55. Mesh-Aware Cartographic Perspective Limits (Anti-Curtain Invariant)
+The Indicatrix Engine simulates an archival cartographic drafting sheet, not a low-altitude first-person flight simulator.
+- **Architectural Pitch Ceiling**: When framing 3D oblique views at regional or continental altitudes ($R \le 7.0$), camera pitch MUST NOT exceed $35.0^\circ$ (recommended: $28.0^\circ\text{–}32.0^\circ$).
+- **Anti-Curtain Geometry**: Pitches $\ge 45.0^\circ$ at low altitudes force the camera into grazing edge angles that expose the discrete quad grid spacing of the global UV sphere across steep elevation gradients (e.g. the $12,000\,\text{m}$ drop from the Andes to the Peru-Chile trench), rendering artificial vertical striated curtain walls and causing volumetric raymarching over-accumulation.
+- **Centering & Framing**: Oblique views must look along or across mountain axes at a balanced perspective, keeping the planetary limb curved gracefully in the upper viewport while maintaining the 10px neatline breathing moat.
 
 

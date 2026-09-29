@@ -5082,6 +5082,7 @@ export class WebGPUEngine {
       this.updateWindBindGroups();
       this.updateComputeBindGroups();
       this.updateDEMBindGroups();
+      this.updateCloudBindGroups();
       this.cloudAdvectionComputeBindGroups = [null, null];
       this.updateCloudAdvectionBindGroups();
       if (this.precipRingBuffer) {

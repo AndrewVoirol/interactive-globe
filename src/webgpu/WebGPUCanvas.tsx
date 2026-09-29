@@ -1646,6 +1646,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         cameraPos: [cameraRef.current.position.x, cameraRef.current.position.y, cameraRef.current.position.z],
       }),
     };
+    (window as any).__GO = {
+      loc1_synoptic: () => (window as any).__INDICATRIX_CAMERA__?.setObliqueView(-61.0, -15.0, 7.8, 0.0, 0.0),
+      loc1_oblique:  () => (window as any).__INDICATRIX_CAMERA__?.setObliqueView(-68.0, -18.0, 6.8, 32.0, 345.0),
+      loc2_synoptic: () => (window as any).__INDICATRIX_CAMERA__?.setObliqueView(-122.0, 46.5, 6.8, 0.0, 0.0),
+      loc2_oblique:  () => (window as any).__INDICATRIX_CAMERA__?.setObliqueView(-121.5, 45.0, 6.8, 30.0, 345.0),
+    };
     (window as any).tuneClouds = (options: {
       location?: 'iceland' | 'hawaii' | 'aleutians' | 'atlantic';
       erosion?: number;

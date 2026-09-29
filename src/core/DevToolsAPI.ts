@@ -49,6 +49,12 @@ declare global {
     __INDICATRIX_CAMERA__?: IndicatrixCameraDevTools;
     __INDICATRIX_CAMERA_OBJECT__?: any;
     __INDICATRIX_TRAJECTORY__?: any;
+    __GO?: {
+      loc1_synoptic: () => void;
+      loc1_oblique: () => void;
+      loc2_synoptic: () => void;
+      loc2_oblique: () => void;
+    };
     __INDICATRIX_CLOUD_STATE__?: any;
     __INDICATRIX_SET_CLOUD_OPTIONS__?: (opts: any) => void;
     __INDICATRIX_ANIM_ALPHA__?: number;
