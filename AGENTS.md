@@ -336,4 +336,16 @@ The Indicatrix Engine simulates an archival cartographic drafting sheet, not a l
 - **Anti-Curtain Geometry**: Pitches $\ge 45.0^\circ$ at low altitudes force the camera into grazing edge angles that expose the discrete quad grid spacing of the global UV sphere across steep elevation gradients (e.g. the $12,000\,\text{m}$ drop from the Andes to the Peru-Chile trench), rendering artificial vertical striated curtain walls and causing volumetric raymarching over-accumulation.
 - **Centering & Framing**: Oblique views must look along or across mountain axes at a balanced perspective, keeping the planetary limb curved gracefully in the upper viewport while maintaining the 10px neatline breathing moat.
 
+## 56. WebGPU Texture Loader Downstream Bind-Group Fan-Out Invariant
+Whenever a texture loader or data streaming manager (`loadWindTexture`, `loadJetStreamTexture`, `loadRadarTexture`, `loadDEMTexture`) mutates, reallocates, or rebinds a GPU texture resource:
+- **Synchronous Consumer Invalidation**: The loader MUST immediately invoke the bind group update methods for ALL downstream consumer render passes that sample that texture.
+  - Wind texture updates (`this.windTexture`) MUST call:
+    1. `this.updateCloudBindGroups()` (updates bindings 7 and 8 across all cloud strata: low, mid, high)
+    2. `this.updateWindParticleBindGroups()`
+    3. `this.updateComputeBindGroups()`
+  - Upper-Air Jet Stream updates (`this.jetStreamTexture` in M2) MUST call:
+    1. `this.updateCloudBindGroups()` (binding 6 in `cloud_shell.wgsl`)
+- **Prohibition of Asynchronous Orphan Views**: No texture upload may resolve its Promise until all consumer pass bind groups have been re-created with the active `GPUTextureView`. Leaving consumer pipelines pointing to dummy fallback textures while data streaming succeeds is a critical defect.
+
+
 
