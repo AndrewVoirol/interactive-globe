@@ -2,9 +2,9 @@
   "source": "Google DeepMind WeatherNext 3",
   "model": "weathernext_3_0_0_statistics",
   "dataset": "gs://weathernext3_statistics_spatial/weathernext_3_0_0_statistics/zarr/2026_to_present/",
-  "forecastInitTimestamp": "2026-09-24T10:00:00Z",
-  "forecastRunCycle": "20260924_10hr_01_preds",
-  "ingestedAtUTC": "2026-09-24T17:21:34.997979+00:00",
+  "forecastInitTimestamp": "2026-09-29T12:00:00Z",
+  "forecastRunCycle": "20260929_12hr_01_preds",
+  "ingestedAtUTC": "2026-09-29T19:08:48.413029+00:00",
   "billingProject": "antigravity-agent-1765655548",
   "gridDimensions": {
     "width": 3600,
@@ -19,23 +19,12 @@
   },
   "timeHorizon": {
     "startHour": 0,
-    "endHour": 11,
+    "endHour": 0,
     "stepHours": 1,
-    "totalHours": 12
+    "totalHours": 1
   },
   "validPredictionHours": [
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11
+    0
   ],
   "variables": [
     "low_cloud_cover_mean",
@@ -91,7 +80,7 @@
   },
   "filePattern": "/data/weathernext/{variable}-{hour}.bin",
   "provenance": {
-    "sourceBucket": "gs://weathernext3_statistics_spatial/weathernext_3_0_0_statistics/zarr/2026_to_present/20260924_10hr_01_preds/predictions.zarr",
+    "sourceBucket": "gs://weathernext3_statistics_spatial/weathernext_3_0_0_statistics/zarr/2026_to_present/20260929_12hr_01_preds/predictions.zarr",
     "chunkShape": [
       1,
       1801,

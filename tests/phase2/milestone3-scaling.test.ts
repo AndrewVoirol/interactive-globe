@@ -611,8 +611,11 @@ describe('Phase 2 Milestone 3: Apple Silicon M4 Pro 4M–16M Scaling & Architect
       } as any;
 
       // Advance ring buffer to trigger asynchronous read of completed frame
+      for (let s = 0; s <= 5; s++) profiler.getPassTimestampWrites(s);
       profiler.resolveFrame(mockEncoder); // Frame 1
+      for (let s = 0; s <= 5; s++) profiler.getPassTimestampWrites(s);
       profiler.resolveFrame(mockEncoder); // Frame 2
+      for (let s = 0; s <= 5; s++) profiler.getPassTimestampWrites(s);
       profiler.resolveFrame(mockEncoder); // Frame 3 (warmup complete, triggers mapAsync)
 
       // Wait microtask tick for mapAsync promise resolution

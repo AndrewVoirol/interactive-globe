@@ -264,6 +264,40 @@ fn hash12(p: vec2<f32>) -> f32 {
     return fract((p3.x + p3.y) * p3.z);
 }
 
+const INV_EARTH_RADIUS_M: f32 = 1.5696123e-7;
+const INV_PI: f32 = 0.31830988618379067;
+const INV_TWO_PI: f32 = 0.15915494309189535;
+
+// Closed-form Riemannian exponential map on S² for semi-Lagrangian great-circle advection (Milestone 1)
+fn mapSphericalGeodesicUV(
+    arrivalUV: vec2<f32>,
+    windVelMps: vec2<f32>,
+    deltaTSeconds: f32
+) -> vec2<f32> {
+    let lam_p = windVelMps.x * (INV_EARTH_RADIUS_M * deltaTSeconds);
+    let phi_p = windVelMps.y * (INV_EARTH_RADIUS_M * deltaTSeconds);
+    let sigma_sq = lam_p * lam_p + phi_p * phi_p;
+    if (sigma_sq < 1e-12) {
+        return arrivalUV;
+    }
+    let phi_a = (0.5 - arrivalUV.y) * PI;
+    let cos_phi_a = cos(phi_a);
+    let sin_phi_a = sin(phi_a);
+    let sigma = sqrt(sigma_sq);
+    let sinc = select(1.0 - sigma_sq * 0.16666667, sin(sigma) / max(sigma, 1e-7), sigma > 1e-4);
+    let cos_sigma = cos(sigma);
+    let c_lam = sinc * lam_p;
+    let c_phi = sinc * phi_p;
+    let sin_phi_d = clamp(c_phi * cos_phi_a + cos_sigma * sin_phi_a, -1.0, 1.0);
+    let phi_d = asin(sin_phi_d);
+    let y = c_lam;
+    let x = cos_sigma * cos_phi_a - c_phi * sin_phi_a;
+    let delta_lambda = atan2(y, x);
+    let uv_x = fract(arrivalUV.x + delta_lambda * INV_TWO_PI + 1.0);
+    let uv_y = clamp(0.5 - phi_d * INV_PI, 0.0001, 0.9999);
+    return vec2<f32>(uv_x, uv_y);
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Invariant §3: Mandatory Unconditional Derivative Evaluation
@@ -275,27 +309,43 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let dv_dy = dpdy(in.uv.y);
     let dUv = fwidth(in.uv);
 
-    // Independent drift via u_cloudDrift uniform:
-    // Modulate longitude UVs: uv.x = fract(uv.x + driftOffset),
-    // where drift speed varies by altitude (e.g. Low 0.6x, Mid 1.0x, High 1.8x).
+    // Sample 2D horizontal wind velocity (u, v) in m/s unconditionally at the top of fs_main (Rule 4)
+    let rawWind = textureSampleLevel(u_windTexture, u_windSampler, in.uv, 0.0).xy;
+
     let layerIdx = cloud.u_layerIndex;
-    var driftSpeed = cloud.u_cloudDrift.x; // Low 0.6x
+    var layerDriftFactor = cloud.u_cloudDrift.x; // Low 0.6x (or 5.0)
     if (layerIdx == 1u) {
-        driftSpeed = cloud.u_cloudDrift.y; // Mid 1.0x
+        layerDriftFactor = cloud.u_cloudDrift.y; // Mid 1.0x (or 15.0)
     } else if (layerIdx == 2u) {
-        driftSpeed = cloud.u_cloudDrift.z; // High 1.8x
+        layerDriftFactor = cloud.u_cloudDrift.z; // High 1.8x (or 40.0)
     }
 
-    // Physical zonal wind rates in UV units/second (at equator)
-    // Multiply by time-lapse factor (u_cloudDrift.w) for visual acceleration
-    const EARTH_CIRCUMFERENCE_M: f32 = 40075000.0;
-    let physicalRate = driftSpeed / EARTH_CIRCUMFERENCE_M;
-    let driftOffset = cloud.u_time * physicalRate * cloud.u_cloudDrift.w;
-    let driftedU = fract(in.uv.x + driftOffset);
-    let sampleUV = vec2<f32>(driftedU, in.uv.y);
+    // Altitude velocity scaling and fallback for unpopulated wind grids
+    let layerMultiplier = layerDriftFactor / 15.0;
+    let activeWind = select(rawWind, vec2<f32>(layerDriftFactor, 0.0), length(rawWind) < 0.01);
+    let effectiveWind = activeWind * layerMultiplier;
+
+    // Time-lapse visual advection rate for planetary scale
+    let baseDriftSpeed = cloud.u_cloudDrift.w;
+    let effectiveSpeed = select(baseDriftSpeed * 2500.0, 0.0, baseDriftSpeed <= 0.0001);
+
+    // Dual-phase cyclic semi-Lagrangian advection (Milestone 1)
+    // Seamless continuous motion along spherical streamlines with zero coordinate distortion
+    const T_CYCLE: f32 = 16.0;
+    let tNorm = cloud.u_time / T_CYCLE;
+    let phase0 = fract(tNorm);
+    let phase1 = fract(tNorm + 0.5);
+    let dt0 = (phase0 - 0.5) * T_CYCLE * effectiveSpeed;
+    let dt1 = (phase1 - 0.5) * T_CYCLE * effectiveSpeed;
+
+    let sampleUV = mapSphericalGeodesicUV(in.uv, -effectiveWind, dt0);
+    let sampleUV1 = mapSphericalGeodesicUV(in.uv, -effectiveWind, dt1);
 
     // Unconditional texture sampling at top of fs_main before any branch or discard
-    let rawCloud = textureSampleLevel(u_cloudTexture, u_cloudSampler, sampleUV, 0.0).r;
+    let c0 = textureSampleLevel(u_cloudTexture, u_cloudSampler, sampleUV, 0.0).r;
+    let c1 = textureSampleLevel(u_cloudTexture, u_cloudSampler, sampleUV1, 0.0).r;
+    let blendWeight = 2.0 * abs(phase0 - 0.5);
+    let rawCloud = mix(c0, c1, blendWeight);
 
     // Orographic lift & rain shadows via 2D wind-terrain coupling (Invariant §3, §15, §18, RFC Mechanic 4)
     // Sample u_demTexture and u_windTexture in unconditional uniform control flow at explicit LOD 0.0 strictly before discards
@@ -332,8 +382,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let dy = 2.0 * EARTH_RADIUS * (dV * PI);
     let gradH = vec2<f32>((elevEast - elevWest) / dx, (elevNorth - elevSouth) / dy);
 
-    // Sample 2D horizontal wind velocity (u, v) in m/s
-    let windVel = textureSampleLevel(u_windTexture, u_windSampler, in.uv, 0.0).xy;
+    // Reuse 2D horizontal wind velocity (u, v) in m/s sampled at top of fs_main
+    let windVel = rawWind;
     let wOrographic = dot(windVel, gradH);
 
     // Stratum coupling attenuates vertical influence at higher layers

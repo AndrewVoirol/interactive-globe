@@ -753,7 +753,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     const hasWind = !!dataLayers?.find(
       (l) => (l.id === 'noaa-gfs-wind' || l.id === 'noaa-grib2-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
     );
-    if (hasWind) {
+    if (hasWind || showClouds) {
       if (isWnModel) {
         engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {
           engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});

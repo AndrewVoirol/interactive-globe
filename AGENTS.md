@@ -288,3 +288,26 @@ When evaluating projection distortion, strain ellipses, or Tissot indicatrices:
   $$E = R^2 \cos^2\phi, \quad F = 0, \quad G = R^2$$
   $$a = \sec\phi, \quad b = 1.000, \quad s = \sec\phi, \quad 2\omega = 2\arcsin\left(\frac{a - b}{a + b}\right)$$
 
+## 50. Architectural Default vs. Disk Fallback Invariant
+Before asserting which dataset, model backend, or pipeline is the "default" or "active" architecture, agents MUST verify default React state in `App.tsx` and component props, NOT merely inspect what sample files happen to exist in `public/data/` or observe an error fallback branch.
+
+A fallback triggered by missing local files is never an architectural specification. If primary dataset files (e.g. WeatherNext 3) are missing from disk, run the appropriate extraction tool (`scripts/fetch-weathernext3.py`) to stage the ground truth data immediately rather than redefining the project around the fallback.
+
+## 51. Local Baseline Machine Primacy (Zero Premature Mobile Downscaling)
+Development, shader complexity, volumetric raymarching step budgets, and texture resolutions are calibrated first and foremost for the user's local baseline machine (Apple Silicon Mac with unified GPU memory).
+
+Agents must never proactively degrade sampling quality, disable volumetric passes, or omit physical calculations under the pretext of "mobile budget" or "low-end GPU performance" unless specifically instructed by the user to profile for secondary targets.
+
+## 52. Empirical Motion & Optical Flow Verification Protocol
+When implementing, modifying, or tuning dynamic motion, velocity vectors, wind advection, or fluid flow:
+- **Static screenshots are insufficient proof of motion.** A stationary capture cannot distinguish between directional advection, in-place procedural noise boiling, or static placeholders.
+- **Mandatory Video Capture**: Capture a 1–2 second screencast (`screencast_start` / `screencast_stop`) via Chrome DevTools MCP.
+- **Quantitative Optical Flow**: Extract sequential frames via FFmpeg and compute empirical 2D displacement vectors (`dx`, `dy`) and active pixel deltas via Python (`PIL`, `scipy.signal.fftconvolve`).
+- **Placebo Invariant**: A feature claiming vector advection or vertical wind shear is a placebo if $\Delta y \equiv 0$ (rigid 1D horizontal sliding) or if all strata share identical bulk displacement.
+
+## 53. Anti-Compaction Operational Ledger Discipline
+In complex multi-phase refactors or workshops subject to context truncation and compaction:
+- Maintain a single master operational roadmap artifact in the conversation artifact directory (`<appDataDir>/brain/<conversation-id>/`).
+- Ground the artifact in verified coordinates, exact camera parameters (elevation, pitch, heading), and quantitative baseline metrics.
+- Do not re-litigate established baselines or re-prompt for known decisions across conversation turns; reference the master roadmap.
+
