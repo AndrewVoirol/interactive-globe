@@ -150,6 +150,7 @@ export interface WebGPUCanvasProps {
   showCloudMid?: boolean;
   showCloudHigh?: boolean;
   cloudFalseColor?: boolean;
+  cloudMultiRateRaymarch?: boolean;
   cloudDriftSpeed?: number;
   cloudOpacity?: number;
   atmosphericScale?: number;
@@ -237,6 +238,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   showCloudMid = true,
   showCloudHigh = true,
   cloudFalseColor = false,
+  cloudMultiRateRaymarch = false,
   cloudDriftSpeed = 1.0,
   cloudOpacity = 0.85,
   atmosphericScale = 3.5,
@@ -468,6 +470,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     showCloudMid,
     showCloudHigh,
     cloudFalseColor,
+    cloudMultiRateRaymarch,
     cloudDriftSpeed,
     cloudOpacity,
     atmosphericScale,
@@ -522,6 +525,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       showCloudMid,
       showCloudHigh,
       cloudFalseColor,
+      cloudMultiRateRaymarch,
       cloudDriftSpeed,
       cloudOpacity,
       atmosphericScale,
@@ -552,7 +556,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       prognosticModel,
     };
     cachedLayersRef.current = computeCachedLayers(dataLayers);
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode, prognosticModel]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudMultiRateRaymarch, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode, prognosticModel]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -2993,6 +2997,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
           showCloudMid: liveOverrides?.showCloudMid !== undefined ? liveOverrides.showCloudMid : stateRef.current.showCloudMid,
           showCloudHigh: liveOverrides?.showCloudHigh !== undefined ? liveOverrides.showCloudHigh : stateRef.current.showCloudHigh,
           cloudFalseColor: liveOverrides?.cloudFalseColor !== undefined ? liveOverrides.cloudFalseColor : stateRef.current.cloudFalseColor,
+          cloudMultiRateRaymarch: liveOverrides?.cloudMultiRateRaymarch !== undefined ? liveOverrides.cloudMultiRateRaymarch : stateRef.current.cloudMultiRateRaymarch,
           showAtmosphere: effectiveShowAtmosphere,
           cloudDriftSpeed:
             liveOverrides?.cloudDriftSpeed !== undefined

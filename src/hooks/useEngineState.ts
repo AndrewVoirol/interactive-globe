@@ -57,6 +57,7 @@ export function useEngineState() {
   const [cloudDriftSpeed, setCloudDriftSpeedState] = useState<number>(500);
   const [cloudOpacity, setCloudOpacityState] = useState<number>(0.8);
   const [cloudFalseColor, setCloudFalseColorState] = useState<boolean>(false);
+  const [cloudMultiRateRaymarch, setCloudMultiRateRaymarchState] = useState<boolean>(false);
 
   const setShowClouds = (v: boolean | ((prev: boolean) => boolean)) => {
     setShowCloudsState((prev) => {
@@ -78,6 +79,18 @@ export function useEngineState() {
   };
   const setCloudFalseColor = (v: boolean | ((prev: boolean) => boolean)) => {
     setCloudFalseColorState(v);
+  };
+  const setCloudMultiRateRaymarch = (v: boolean | ((prev: boolean) => boolean)) => {
+    setCloudMultiRateRaymarchState((prev) => {
+      const val = typeof v === 'function' ? v(prev) : v;
+      if (typeof window !== 'undefined') {
+        if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+          (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
+        }
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudMultiRateRaymarch = val;
+      }
+      return val;
+    });
   };
   const setCloudDriftSpeed = (v: number | ((prev: number) => number)) => {
     setCloudDriftSpeedState((prev) => {
@@ -103,11 +116,16 @@ export function useEngineState() {
       cloudDriftSpeed: number;
       cloudOpacity: number;
       cloudFalseColor: boolean;
+      cloudMultiRateRaymarch: boolean;
+      multiRateRaymarch: boolean;
     }>
   ) => {
     if (options.showClouds !== undefined) {
       setShowCloudsState(options.showClouds);
-      if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+      if (typeof window !== 'undefined') {
+        if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+          (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
+        }
         (window as any).__INDICATRIX_LIVE_UNIFORMS__.showClouds = options.showClouds;
       }
     }
@@ -115,6 +133,16 @@ export function useEngineState() {
     if (options.showCloudMid !== undefined) setShowCloudMidState(options.showCloudMid);
     if (options.showCloudHigh !== undefined) setShowCloudHighState(options.showCloudHigh);
     if (options.cloudFalseColor !== undefined) setCloudFalseColorState(options.cloudFalseColor);
+    const multiRate = options.cloudMultiRateRaymarch ?? options.multiRateRaymarch;
+    if (multiRate !== undefined) {
+      setCloudMultiRateRaymarchState(multiRate);
+      if (typeof window !== 'undefined') {
+        if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+          (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
+        }
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudMultiRateRaymarch = multiRate;
+      }
+    }
     if (options.cloudDriftSpeed !== undefined && typeof options.cloudDriftSpeed === 'number' && Number.isFinite(options.cloudDriftSpeed)) {
       setCloudDriftSpeedState(Math.max(0, Math.min(2000, options.cloudDriftSpeed)));
     }
@@ -133,10 +161,11 @@ export function useEngineState() {
         cloudDriftSpeed,
         cloudOpacity,
         cloudFalseColor,
+        cloudMultiRateRaymarch,
       };
       (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__ = setCloudOptions;
     }
-  }, [showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, cloudFalseColor]);
+  }, [showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, cloudFalseColor, cloudMultiRateRaymarch]);
 
   const [cdlodDiagnosticMode, setCdlodDiagnosticModeState] = useState<number>(0);
 
@@ -502,6 +531,7 @@ export function useEngineState() {
     cloudDriftSpeed, setCloudDriftSpeed,
     cloudOpacity, setCloudOpacity,
     cloudFalseColor, setCloudFalseColor,
+    cloudMultiRateRaymarch, setCloudMultiRateRaymarch,
     setCloudOptions,
     cdlodDiagnosticMode, setCdlodDiagnosticMode,
     glideToAlpha,

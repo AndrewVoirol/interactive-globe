@@ -2,8 +2,8 @@
 
 **Master Orchestrator**: Antigravity 2.0 Multi-Agent Framework  
 **Target Codebase**: `ais-interactive-globe-to-map`  
-**Operational Status**: `[ALL MILESTONES COMPLETED - 3,743/3,743 TESTS PASSING]`  
-**Current Baseline**: 262 test files, 3,743 tests passing (100% pass rate, 0 failures, 0 regressions)  
+**Operational Status**: `[ALL MILESTONES COMPLETED - 3,759/3,759 TESTS PASSING]`  
+**Current Baseline**: 263 test files, 3,759 tests passing (100% pass rate, 0 failures, 0 regressions)  
 **Circuit Breaker Rule**: `MAX_RETRIES = 2` (Halts on 2 consecutive failed iterations per task ➔ `escalation.md`)
 
 ---
@@ -327,6 +327,18 @@
     3. *Raymarcher Direct Depth Sampling*: Exposed proxy textures as bindings 9 and 10 in `volumetric_cloud.wgsl`. Reconstructed world distances via `reconstructWorldPosition` and clamped intervals strictly to $[t_{\text{entry}}, \min(t_{\text{exit}}, t_{\text{terrain}})]$.
     4. *Dead Code Purge*: Completely excised unused geometry routines (`intersectSphere`, `intersectTroposphericShell`, `intersectTroposphericSlab`, and dead variables like `rOuter`).
   - **Micro-Verification**: All targeted vitest suites passing (130/130 tests across 8 test files); live Chrome DevTools MCP empirical verification confirmed smooth rendering with zero clipping artifacts across spherical globe ($\alpha = 0$), intermediate cylindrical states ($\alpha = 0.30, 0.70$), and flat planar map ($\alpha = 1.0$) at 22–24 FPS with zero WebGPU validation or shader errors.
+
+- [x] **Task M7-T14**: Linearized Multi-Rate Tangent Frame Raymarch (Pivot 2)
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: Mathematical Physicist & WebGPU Atmospheric Shader Engineer
+  - **Target Files**: `src/webgpu/shaders/volumetric_cloud.wgsl`, `src/webgpu/WebGPUEngine.ts`, `src/webgpu/WebGPUCanvas.tsx`, `src/components/AtmosphereDrawer.tsx`, `tests/modern/challenger-m3-multi-rate-raymarch.test.ts`
+  - **Specification**: Implemented Pivot 2 linearized multi-rate tangent frame raymarching:
+    1. *Exact Forward Transform & Central Finite Difference Tangent Frame*: Added `evaluateMacroChartWGSL` exactly matching `invertMacroChartWGSL` ($2.25 \times 10^{-9}$ invertibility), `computeJacobian` (central finite differences, $\Delta = 0.001$), SIMD cross product `inverse3x3`, and `getParameterVelocity(ray_dir, lon, lat, h, alpha)`.
+    2. *Multi-Rate Primary Loop with 8-Step Re-Anchoring*: Decoupled `sampleCloudDensityFromUVW`. Advanced ray linearly in local parameter space ($(\lambda, \phi, h) \mathrel{+}= \mathbf{v}_{uvw} \cdot \Delta t$) with antimeridian longitude wrapping, re-anchoring to exact manifold via `invertMacroChartWGSL` every 8th primary step to prevent accumulated drift.
+    3. *Zero-Inversion Freebie Solar Shadow March*: Created `sampleSunShadowTransmittanceLinear` marching 4 solar steps purely in parameter space, eliminating 4 nonlinear Newton-Raphson inversions per primary sample.
+    4. *Uniform Packing & Non-Destructive A/B Switch*: Wired uniform toggle in `cloudFloats[37]` (`cloud.u_padCloud.y`), exposed `#beta-cloud-multirate` toggle (`BASELINE [EXACT]` vs `PIVOT 2 [ACTIVE]`) in the AtmosphereDrawer Beta tray, and wired end-to-end React prop synchronization through `useEngineState.ts`, `App.tsx`, `TelemetryHUD.tsx`, and `UnifiedRightSidebar.tsx`.
+  - **Micro-Verification**: 14/14 challenger tests in `challenger-m3-multi-rate-raymarch.test.ts` passing; 100% full repository test pass (263/263 test files, 3,759/3,759 tests). Live Chrome DevTools MCP empirical verification confirmed `cloudFloats[37]` actively flips between `0.0` and `1.0` in the WebGPU engine upon button click, with zero console errors and full perceptual parity across all cartographic mediums.
 
 ---
 

@@ -82,6 +82,7 @@ export default function App() {
     cloudDriftSpeed, setCloudDriftSpeed,
     cloudOpacity, setCloudOpacity,
     cloudFalseColor, setCloudFalseColor,
+    cloudMultiRateRaymarch, setCloudMultiRateRaymarch,
   } = engineState;
 
   const {
@@ -676,6 +677,7 @@ export default function App() {
                 showCloudMid={showCloudMid}
                 showCloudHigh={showCloudHigh}
                 cloudFalseColor={cloudFalseColor}
+                cloudMultiRateRaymarch={cloudMultiRateRaymarch}
                 cloudDriftSpeed={cloudDriftSpeed}
                 cloudOpacity={cloudOpacity}
                 atmosphericScale={atmosphericScale}
@@ -798,6 +800,8 @@ export default function App() {
           onShowCloudHighChange={setShowCloudHigh}
           cloudFalseColor={cloudFalseColor}
           onCloudFalseColorChange={setCloudFalseColor}
+          cloudMultiRateRaymarch={cloudMultiRateRaymarch}
+          onCloudMultiRateRaymarchChange={setCloudMultiRateRaymarch}
           cloudDriftSpeed={cloudDriftSpeed}
           onCloudDriftSpeedChange={setCloudDriftSpeed}
           cloudOpacity={cloudOpacity}

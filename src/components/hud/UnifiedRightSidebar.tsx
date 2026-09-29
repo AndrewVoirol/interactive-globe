@@ -101,6 +101,7 @@ export interface UnifiedRightSidebarProps {
   showCloudMid?: boolean; onShowCloudMidChange?: (v: boolean) => void;
   showCloudHigh?: boolean; onShowCloudHighChange?: (v: boolean) => void;
   cloudFalseColor?: boolean; onCloudFalseColorChange?: (v: boolean) => void;
+  cloudMultiRateRaymarch?: boolean; onCloudMultiRateRaymarchChange?: (v: boolean) => void;
   cloudDriftSpeed?: number; onCloudDriftSpeedChange?: (v: number) => void;
   cloudOpacity?: number; onCloudOpacityChange?: (v: number) => void;
   atmosphericScale?: number; onAtmosphericScaleChange?: (v: number) => void;
@@ -200,6 +201,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   showCloudMid: propShowCloudMid, onShowCloudMidChange,
   showCloudHigh: propShowCloudHigh, onShowCloudHighChange,
   cloudFalseColor: propCloudFalseColor, onCloudFalseColorChange,
+  cloudMultiRateRaymarch: propCloudMultiRateRaymarch, onCloudMultiRateRaymarchChange,
   cloudDriftSpeed: propCloudDriftSpeed, onCloudDriftSpeedChange,
   cloudOpacity: propCloudOpacity, onCloudOpacityChange,
   atmosphericScale: propAtmosphericScale, onAtmosphericScaleChange,
@@ -1533,6 +1535,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   showCloudMid={propShowCloudMid} onShowCloudMidChange={onShowCloudMidChange}
                   showCloudHigh={propShowCloudHigh} onShowCloudHighChange={onShowCloudHighChange}
                   cloudFalseColor={propCloudFalseColor} onCloudFalseColorChange={onCloudFalseColorChange}
+                  cloudMultiRateRaymarch={propCloudMultiRateRaymarch} onCloudMultiRateRaymarchChange={onCloudMultiRateRaymarchChange}
                   cloudDriftSpeed={propCloudDriftSpeed} onCloudDriftSpeedChange={onCloudDriftSpeedChange}
                   cloudOpacity={propCloudOpacity} onCloudOpacityChange={onCloudOpacityChange}
                   atmosphericScale={propAtmosphericScale} onAtmosphericScaleChange={onAtmosphericScaleChange}

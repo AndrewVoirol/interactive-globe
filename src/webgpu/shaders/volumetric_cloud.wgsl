@@ -201,6 +201,137 @@ fn invertMacroChartWGSL(pos: vec3<f32>, unfurl: f32, radius: f32) -> vec3<f32> {
     return vec3<f32>(lambda, finalPhi, h);
 }
 
+// Forward Evaluation of Pure Developable Macro Chart F(lambda, phi, h; unfurl, radius) -> (x, y, z)
+// Provides exact forward counterpart to invertMacroChartWGSL with tactile sheet loft compensation
+fn evaluateMacroChartWGSL(lonRad: f32, latRad: f32, h: f32, alpha: f32, radius: f32) -> vec3<f32> {
+    let alphaClamped = clamp(alpha, 0.0, 1.0);
+    let alphaEased = alphaClamped * alphaClamped * (3.0 - 2.0 * alphaClamped);
+    let tParallel = smoothstep(0.05, 0.85, alphaEased);
+    let cosLat = cos(latRad);
+    let sinLat = sin(latRad);
+    let parallelWidth = cosLat * (1.0 - tParallel) + tParallel;
+    let rPar = radius * parallelWidth;
+    let s = max(0.0001, 1.0 - alphaEased);
+    let uAngle = s * lonRad;
+
+    var curX: f32;
+    var curZ: f32;
+    if (abs(uAngle) > 0.02) {
+        let sDiv = max(0.0001, s);
+        curX = rPar * (sin(uAngle) / sDiv);
+        curZ = rPar * ((cos(uAngle) - 1.0) / sDiv + s);
+    } else {
+        let u2 = uAngle * uAngle;
+        curX = rPar * lonRad * (1.0 - u2 / 6.0);
+        curZ = rPar * s * (1.0 - lonRad * lonRad * 0.5 * (1.0 - u2 / 12.0));
+    }
+
+    let tStraighten = smoothstep(0.20, 0.95, alphaEased);
+    let curY = (1.0 - tStraighten) * radius * sinLat + tStraighten * radius * latRad;
+
+    // Tactile sheet loft compensation matching invertMacroChartWGSL
+    let sZero = smoothstep(0.0, 0.10, alphaClamped);
+    let sOne = 1.0 - smoothstep(0.90, 1.0, alphaClamped);
+    let env = sin(PI * alphaClamped) * sZero * sOne;
+    let dz_lift = (0.60 + 0.40 * cosLat) * radius * 0.06 * env;
+
+    // Developable cylinder surface normal in (x, z)
+    let normX = sin(uAngle);
+    let normY = 0.0;
+    let normZ = cos(uAngle);
+
+    let pDev = vec3<f32>(
+        curX + normX * h,
+        curY + normY * h,
+        curZ + normZ * h + dz_lift
+    );
+
+    // Asymptotic Spherical Regime (alpha <= 0.05)
+    let pSph = vec3<f32>(
+        (radius + h) * cosLat * sin(lonRad),
+        (radius + h) * sinLat,
+        (radius + h) * cosLat * cos(lonRad)
+    );
+
+    // Asymptotic Planar Regime (alpha >= 0.95)
+    let pFlat = vec3<f32>(
+        radius * lonRad,
+        radius * latRad,
+        h
+    );
+
+    let tSphere = 1.0 - smoothstep(0.0, 0.05, alphaClamped);
+    let tFlat = smoothstep(0.95, 1.0, alphaClamped);
+
+    var p = mix(pDev, pSph, tSphere);
+    p = mix(p, pFlat, tFlat);
+    return p;
+}
+
+// Symmetric Central Finite Difference Jacobian Matrix J = [dF/dLambda, dF/dPhi, dF/dH]
+// Each column vector represents the local tangent frame vector in world space
+fn computeJacobian(lambda: f32, phi: f32, h: f32, unfurl: f32, radius: f32) -> mat3x3<f32> {
+    let DELTA: f32 = 0.001;
+    let TWO_DELTA: f32 = DELTA * 2.0;
+
+    // dF / dLambda
+    let pLam0 = evaluateMacroChartWGSL(lambda - DELTA, phi, h, unfurl, radius);
+    let pLam1 = evaluateMacroChartWGSL(lambda + DELTA, phi, h, unfurl, radius);
+    let T_lambda = (pLam1 - pLam0) / TWO_DELTA;
+
+    // dF / dPhi
+    let pPhi0 = evaluateMacroChartWGSL(lambda, phi - DELTA, h, unfurl, radius);
+    let pPhi1 = evaluateMacroChartWGSL(lambda, phi + DELTA, h, unfurl, radius);
+    let T_phi = (pPhi1 - pPhi0) / TWO_DELTA;
+
+    // dF / dH
+    let pH0 = evaluateMacroChartWGSL(lambda, phi, h - DELTA, unfurl, radius);
+    let pH1 = evaluateMacroChartWGSL(lambda, phi, h + DELTA, unfurl, radius);
+    let T_h = (pH1 - pH0) / TWO_DELTA;
+
+    return mat3x3<f32>(T_lambda, T_phi, T_h);
+}
+
+// Analytical Cross-Product Inversion of 3x3 Column-Major Matrix M = [c0, c1, c2]
+// Uses GPU SIMD cross products to guarantee exact parameter velocity projection with zero indexing drift
+fn inverse3x3(m: mat3x3<f32>) -> mat3x3<f32> {
+    let c0 = m[0];
+    let c1 = m[1];
+    let c2 = m[2];
+
+    let cross12 = cross(c1, c2);
+    let cross20 = cross(c2, c0);
+    let cross01 = cross(c0, c1);
+
+    let det = dot(c0, cross12);
+    let invDet = 1.0 / select(det, 1.0, abs(det) < 1e-8);
+
+    let r0 = cross12 * invDet;
+    let r1 = cross20 * invDet;
+    let r2 = cross01 * invDet;
+
+    return mat3x3<f32>(
+        vec3<f32>(r0.x, r1.x, r2.x),
+        vec3<f32>(r0.y, r1.y, r2.y),
+        vec3<f32>(r0.z, r1.z, r2.z)
+    );
+}
+
+// Computes Parameter-Space Velocity Vector v_uvw = (dLambda/dt, dPhi/dt, dH/dt)
+// Maps world-space direction vector rayDir into local tangent parameter frame via J^-1 * rayDir
+fn getParameterVelocity(
+    ray_dir_world: vec3<f32>,
+    lambda: f32,
+    phi: f32,
+    h: f32,
+    unfurl: f32,
+    radius: f32
+) -> vec3<f32> {
+    let J = computeJacobian(lambda, phi, h, unfurl, radius);
+    let J_inv = inverse3x3(J);
+    return J_inv * ray_dir_world;
+}
+
 // ----------------------------------------------------------------------------
 // Meteorological Cloud Density & Optics
 // ----------------------------------------------------------------------------
@@ -266,11 +397,10 @@ fn planarNoiseCoord(
     return n * radialScale + driftOffset;
 }
 
-// Sample Scalar Cloud Density at Point pos in World Space (Continuous Developable Unwrapping)
-fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
+// Sample Scalar Cloud Density from Parameter Coordinates (lambda, phi, h)
+fn sampleCloudDensityFromUVW(inv: vec3<f32>, pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     let p = pos;
     let unfurl = cloud.u_simControl.y;
-    let inv = invertMacroChartWGSL(p, unfurl, rInner);
     let hNorm = clamp(inv.z / deltaR, 0.0, 1.0);
 
     // Sheet Boundary Margin Attenuation (edgeFade)
@@ -436,6 +566,15 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
     return sculptedDensity * cloud.u_layerDensities.w * edgeFade;
 }
 
+// Sample Scalar Cloud Density at Point pos in World Space (Continuous Developable Unwrapping)
+fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
+    let p = pos;
+    let unfurl = cloud.u_simControl.y;
+    let inv = invertMacroChartWGSL(p, unfurl, rInner);
+    let hNorm = clamp(inv.z / deltaR, 0.0, 1.0);
+    return sampleCloudDensityFromUVW(inv, pos, rInner, deltaR);
+}
+
 
 
 
@@ -534,6 +673,38 @@ fn sampleSunShadowTransmittance(pos: vec3<f32>, sunDir: vec3<f32>, rInner: f32, 
         let stepLen = stepDist * f32(k);
         let sampleP = pos + sunDir * stepLen;
         let d = sampleCloudDensity(sampleP, rInner, deltaR);
+        tauSun += sigmaT * d * stepDist;
+        avgDensity += d * 0.25;
+    }
+
+    var res: SunShadowResult;
+    res.transmittance = exp(-tauSun);
+    res.density = avgDensity;
+    return res;
+}
+
+// Pivot 2: Zero-Inversion Linearized Solar Shadow Ray in Tangent Parameter Frame
+// Marches 4 steps along sunDir with exactly ONE parameter velocity projection at start_uvw and zero inversions
+fn sampleSunShadowTransmittanceLinear(
+    start_uvw: vec3<f32>,
+    pos: vec3<f32>,
+    sunDir: vec3<f32>,
+    rInner: f32,
+    deltaR: f32
+) -> SunShadowResult {
+    let stepDist = 0.00045;
+    var tauSun: f32 = 0.0;
+    var avgDensity: f32 = 0.0;
+    let sigmaT = cloud.u_opticalParams.x * 20.0;
+
+    let unfurl = cloud.u_simControl.y;
+    let sun_v_uvw = getParameterVelocity(sunDir, start_uvw.x, start_uvw.y, start_uvw.z, unfurl, rInner);
+
+    for (var k: i32 = 1; k <= 4; k++) {
+        let stepLen = stepDist * f32(k);
+        var curUVW = start_uvw + sun_v_uvw * stepLen;
+        curUVW.x = fract((curUVW.x / TWO_PI) + 0.5) * TWO_PI - PI;
+        let d = sampleCloudDensityFromUVW(curUVW, pos + sunDir * stepLen, rInner, deltaR);
         tauSun += sigmaT * d * stepDist;
         avgDensity += d * 0.25;
     }
@@ -743,6 +914,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var pal = getMediumPalette(theme);
 
     let isFalseColor = cloud.u_padCloud.x > 0.5;
+    let isMultiRate = cloud.u_padCloud.y > 0.5;
 
     let sigmaT = cloud.u_opticalParams.x * pal.inkDensityFactor;
     let albedo = cloud.u_opticalParams.y;
@@ -751,6 +923,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var accumTransmittance: f32 = 1.0;
     var t: f32 = tStart + jitter;
 
+    // Linearized Multi-Rate Tangent Frame Tracking (Pivot 2)
+    var currentUVW = vec3<f32>(0.0);
+    var v_uvw = vec3<f32>(0.0);
+    var lastStepT = t;
+
     // 6. Raymarching Numerical Integration Loop with Adaptive Step Sizing (maxSteps <= 64)
     for (var step: i32 = 0; step < 64; step++) {
         if (t >= tExit || step >= maxSteps) {
@@ -758,7 +935,23 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
 
         let p = rayOrigin + rayDir * t;
-        let rawDensity = sampleCloudDensity(p, rInner, deltaR);
+        var rawDensity: f32 = 0.0;
+        var shadowRes: SunShadowResult;
+
+        if (isMultiRate) {
+            let currentStepDist = t - lastStepT;
+            lastStepT = t;
+            if (step == 0 || (step % 8) == 0) {
+                currentUVW = invertMacroChartWGSL(p, unfurl, rInner);
+                v_uvw = getParameterVelocity(rayDir, currentUVW.x, currentUVW.y, currentUVW.z, unfurl, rInner);
+            } else {
+                currentUVW += v_uvw * currentStepDist;
+                currentUVW.x = fract((currentUVW.x / TWO_PI) + 0.5) * TWO_PI - PI;
+            }
+            rawDensity = sampleCloudDensityFromUVW(currentUVW, p, rInner, deltaR);
+        } else {
+            rawDensity = sampleCloudDensity(p, rInner, deltaR);
+        }
 
         // Near-Plane Camera Penetration Fade Envelope
         let distFromCam = t;
@@ -779,8 +972,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let stepTau = sigmaT * density * stepSize;
             let stepT = exp(-stepTau);
 
-            // 4-Step Solar Crevice Shadow Raymarch
-            let shadowRes = sampleSunShadowTransmittance(p, sunDir, rInner, deltaR);
+            // 4-Step Solar Crevice Shadow Raymarch (Linearized zero-inversion in multi-rate mode)
+            if (isMultiRate) {
+                shadowRes = sampleSunShadowTransmittanceLinear(currentUVW, p, sunDir, rInner, deltaR);
+            } else {
+                shadowRes = sampleSunShadowTransmittance(p, sunDir, rInner, deltaR);
+            }
             let sunT = shadowRes.transmittance;
             let shadowDensity = shadowRes.density;
 

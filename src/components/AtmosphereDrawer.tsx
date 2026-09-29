@@ -86,6 +86,8 @@ export interface AtmosphereDrawerProps {
   onCloudFreqVertChange?: (v: number) => void;
   cloudExtinction?: number;
   onCloudExtinctionChange?: (v: number) => void;
+  cloudMultiRateRaymarch?: boolean;
+  onCloudMultiRateRaymarchChange?: (v: boolean) => void;
 }
 
 export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
@@ -145,12 +147,20 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   onCloudFreqVertChange,
   cloudExtinction: propCloudExtinction,
   onCloudExtinctionChange,
+  cloudMultiRateRaymarch: propCloudMultiRateRaymarch,
+  onCloudMultiRateRaymarchChange,
 }) => {
   const [internalShowClouds, setInternalShowClouds] = useState<boolean>(true);
   const [internalShowCloudLow, setInternalShowCloudLow] = useState<boolean>(true);
   const [internalShowCloudMid, setInternalShowCloudMid] = useState<boolean>(true);
   const [internalShowCloudHigh, setInternalShowCloudHigh] = useState<boolean>(true);
   const [internalCloudFalseColor, setInternalCloudFalseColor] = useState<boolean>(false);
+  const [internalCloudMultiRate, setInternalCloudMultiRate] = useState<boolean>(() => {
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__?.cloudMultiRateRaymarch !== undefined) {
+      return Boolean((window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudMultiRateRaymarch);
+    }
+    return propCloudMultiRateRaymarch ?? false;
+  });
   const [internalCloudDriftSpeed, setInternalCloudDriftSpeed] = useState<number>(500);
   const [internalCloudOpacity, setInternalCloudOpacity] = useState<number>(0.8);
   const [internalAtmosphericScale, setInternalAtmosphericScale] = useState<number>(3.5);
@@ -289,6 +299,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const curShowCloudMid = propShowCloudMid !== undefined ? propShowCloudMid : internalShowCloudMid;
   const curShowCloudHigh = propShowCloudHigh !== undefined ? propShowCloudHigh : internalShowCloudHigh;
   const curCloudFalseColor = propCloudFalseColor !== undefined ? propCloudFalseColor : internalCloudFalseColor;
+  const curCloudMultiRate = propCloudMultiRateRaymarch !== undefined ? propCloudMultiRateRaymarch : internalCloudMultiRate;
   const curCloudDriftSpeed = propCloudDriftSpeed !== undefined ? propCloudDriftSpeed : internalCloudDriftSpeed;
   const curCloudOpacity = propCloudOpacity !== undefined ? propCloudOpacity : internalCloudOpacity;
   const curAtmosphericScale = propAtmosphericScale !== undefined ? propAtmosphericScale : internalAtmosphericScale;
@@ -402,6 +413,23 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
       }
       if ((window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
         (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ cloudFalseColor: active });
+      }
+    }
+  };
+
+  const handleToggleMultiRate = (active: boolean) => {
+    setInternalCloudMultiRate(active);
+    onCloudMultiRateRaymarchChange?.(active);
+    if (typeof window !== 'undefined') {
+      if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
+      }
+      (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudMultiRateRaymarch = active;
+      if ((window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
+        (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ multiRateRaymarch: active, cloudMultiRateRaymarch: active });
+      }
+      if ((window as any).__INDICATRIX_WEBGPU_ENGINE__) {
+        (window as any).__INDICATRIX_WEBGPU_ENGINE__.setCloudMultiRateRaymarch?.(active);
       }
     }
   };
@@ -956,7 +984,30 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                   />
                 </div>
 
-                {/* 7. Quick Camera Pitch Buttons */}
+                {/* 7. Linearized Multi-Rate Raymarch (Pivot 2) */}
+                <div className="pt-2 border-t border-[var(--theme-card-border)]/50 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <div className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                      Linearized Multi-Rate March (Pivot 2)
+                    </div>
+                    <div className="text-nano text-[var(--theme-text-muted)]">
+                      8-step tangent frame re-anchoring & zero-inversion solar shadow rays
+                    </div>
+                  </div>
+                  <button
+                    id="beta-cloud-multirate"
+                    onClick={() => handleToggleMultiRate(!curCloudMultiRate)}
+                    className={`px-2.5 py-1 text-nano font-mono font-bold rounded border transition-colors cursor-pointer ${
+                      curCloudMultiRate
+                        ? 'bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40'
+                        : 'bg-[var(--theme-card-border)]/20 text-[var(--theme-text-muted)] border-[var(--theme-card-border)]/40 hover:text-[var(--theme-text-primary)]'
+                    }`}
+                  >
+                    {curCloudMultiRate ? 'PIVOT 2 [ACTIVE]' : 'BASELINE [EXACT]'}
+                  </button>
+                </div>
+
+                {/* 8. Quick Camera Pitch Buttons */}
                 <div className="pt-2 border-t border-[var(--theme-card-border)]/50 space-y-1">
                   <span className="text-nano font-mono uppercase tracking-wider text-[var(--theme-text-muted)]">
                     Camera Pitch Angle

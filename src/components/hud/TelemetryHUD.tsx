@@ -94,6 +94,8 @@ export interface TelemetryHUDProps {
   onShowCloudHighChange?: (v: boolean) => void;
   cloudFalseColor?: boolean;
   onCloudFalseColorChange?: (v: boolean) => void;
+  cloudMultiRateRaymarch?: boolean;
+  onCloudMultiRateRaymarchChange?: (v: boolean) => void;
   cloudDriftSpeed?: number;
   onCloudDriftSpeedChange?: (v: number) => void;
   cloudOpacity?: number;
@@ -207,6 +209,8 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onShowCloudHighChange={props.onShowCloudHighChange}
         cloudFalseColor={props.cloudFalseColor}
         onCloudFalseColorChange={props.onCloudFalseColorChange}
+        cloudMultiRateRaymarch={props.cloudMultiRateRaymarch}
+        onCloudMultiRateRaymarchChange={props.onCloudMultiRateRaymarchChange}
         cloudDriftSpeed={props.cloudDriftSpeed}
         onCloudDriftSpeedChange={props.onCloudDriftSpeedChange}
         cloudOpacity={props.cloudOpacity}

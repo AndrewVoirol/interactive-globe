@@ -94,6 +94,7 @@ export interface WebGPUFrameParams {
   showCloudMid?: boolean;
   showCloudHigh?: boolean;
   cloudFalseColor?: boolean;
+  cloudMultiRateRaymarch?: boolean;
   showAtmosphere?: boolean;
   cloudOpacity?: number;
   cloudDriftSpeed?: number;
@@ -197,6 +198,7 @@ export interface CloudOptions {
   showMid: boolean;
   showHigh: boolean;
   falseColor?: boolean;
+  multiRateRaymarch?: boolean;
 }
 
 const U16_TO_F16_LUT = (() => {
@@ -686,6 +688,7 @@ export class WebGPUEngine {
     showMid: true,
     showHigh: true,
     falseColor: false,
+    multiRateRaymarch: false,
   };
   private atmosphereScatterPipeline: GPURenderPipeline | null = null;
   private atmosphereBindGroupLayout: GPUBindGroupLayout | null = null;
@@ -6937,7 +6940,14 @@ export class WebGPUEngine {
       this.cloudOptions.falseColor
     );
     cloudFloats[36] = falseColor ? 1.0 : 0.0;
-    cloudFloats[37] = 0.0;
+
+    // Linearized Multi-Rate Tangent Frame Raymarch (Pivot 2, u_padCloud.y)
+    const multiRate = Boolean(
+      (params as any).cloudMultiRateRaymarch ??
+      (params as any).multiRateRaymarch ??
+      this.cloudOptions.multiRateRaymarch
+    );
+    cloudFloats[37] = multiRate ? 1.0 : 0.0;
     cloudFloats[38] = 0.0;
     cloudFloats[39] = 0.0;
 
@@ -8734,6 +8744,14 @@ export class WebGPUEngine {
     if (options.enabled !== undefined) {
       this.cloudEnabled = options.enabled;
     }
+  }
+
+  public setCloudMultiRateRaymarch(enabled: boolean): void {
+    this.cloudOptions.multiRateRaymarch = enabled;
+  }
+
+  public isCloudMultiRateRaymarchEnabled(): boolean {
+    return Boolean(this.cloudOptions.multiRateRaymarch);
   }
 
   public ensurePrecipCrustTexture(): GPUTextureView | void {
