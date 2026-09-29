@@ -104,6 +104,12 @@ export interface UnifiedRightSidebarProps {
   cloudMultiRateRaymarch?: boolean; onCloudMultiRateRaymarchChange?: (v: boolean) => void;
   cloudDriftSpeed?: number; onCloudDriftSpeedChange?: (v: number) => void;
   cloudOpacity?: number; onCloudOpacityChange?: (v: number) => void;
+  cloudThickness?: number; onCloudThicknessChange?: (v: number) => void;
+  cloudLowTop?: number; onCloudLowTopChange?: (v: number) => void;
+  cloudErosion?: number; onCloudErosionChange?: (v: number) => void;
+  cloudFreqHoriz?: number; onCloudFreqHorizChange?: (v: number) => void;
+  cloudFreqVert?: number; onCloudFreqVertChange?: (v: number) => void;
+  cloudExtinction?: number; onCloudExtinctionChange?: (v: number) => void;
   atmosphericScale?: number; onAtmosphericScaleChange?: (v: number) => void;
   shadowIntensity?: number; onShadowIntensityChange?: (v: number) => void;
   verticalScaleMode?: number; onVerticalScaleModeChange?: (v: number) => void;
@@ -204,6 +210,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   cloudMultiRateRaymarch: propCloudMultiRateRaymarch, onCloudMultiRateRaymarchChange,
   cloudDriftSpeed: propCloudDriftSpeed, onCloudDriftSpeedChange,
   cloudOpacity: propCloudOpacity, onCloudOpacityChange,
+  cloudThickness: propCloudThickness, onCloudThicknessChange,
+  cloudLowTop: propCloudLowTop, onCloudLowTopChange,
+  cloudErosion: propCloudErosion, onCloudErosionChange,
+  cloudFreqHoriz: propCloudFreqHoriz, onCloudFreqHorizChange,
+  cloudFreqVert: propCloudFreqVert, onCloudFreqVertChange,
+  cloudExtinction: propCloudExtinction, onCloudExtinctionChange,
   atmosphericScale: propAtmosphericScale, onAtmosphericScaleChange,
   shadowIntensity: propShadowIntensity, onShadowIntensityChange,
   verticalScaleMode: propVerticalScaleMode, onVerticalScaleModeChange,
@@ -1538,6 +1550,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   cloudMultiRateRaymarch={propCloudMultiRateRaymarch} onCloudMultiRateRaymarchChange={onCloudMultiRateRaymarchChange}
                   cloudDriftSpeed={propCloudDriftSpeed} onCloudDriftSpeedChange={onCloudDriftSpeedChange}
                   cloudOpacity={propCloudOpacity} onCloudOpacityChange={onCloudOpacityChange}
+                  cloudThickness={propCloudThickness} onCloudThicknessChange={onCloudThicknessChange}
+                  cloudLowTop={propCloudLowTop} onCloudLowTopChange={onCloudLowTopChange}
+                  cloudErosion={propCloudErosion} onCloudErosionChange={onCloudErosionChange}
+                  cloudFreqHoriz={propCloudFreqHoriz} onCloudFreqHorizChange={onCloudFreqHorizChange}
+                  cloudFreqVert={propCloudFreqVert} onCloudFreqVertChange={onCloudFreqVertChange}
+                  cloudExtinction={propCloudExtinction} onCloudExtinctionChange={onCloudExtinctionChange}
                   atmosphericScale={propAtmosphericScale} onAtmosphericScaleChange={onAtmosphericScaleChange}
                   shadowIntensity={propShadowIntensity} onShadowIntensityChange={onShadowIntensityChange}
                   verticalScaleMode={propVerticalScaleMode} onVerticalScaleModeChange={onVerticalScaleModeChange}

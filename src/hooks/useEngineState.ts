@@ -58,6 +58,12 @@ export function useEngineState() {
   const [cloudOpacity, setCloudOpacityState] = useState<number>(0.8);
   const [cloudFalseColor, setCloudFalseColorState] = useState<boolean>(false);
   const [cloudMultiRateRaymarch, setCloudMultiRateRaymarchState] = useState<boolean>(false);
+  const [cloudThickness, setCloudThicknessState] = useState<number>(0.19);
+  const [cloudLowTop, setCloudLowTopState] = useState<number>(0.45);
+  const [cloudErosion, setCloudErosionState] = useState<number>(0.85);
+  const [cloudFreqHoriz, setCloudFreqHorizState] = useState<number>(32.0);
+  const [cloudFreqVert, setCloudFreqVertState] = useState<number>(12.0);
+  const [cloudExtinction, setCloudExtinctionState] = useState<number>(28.0);
 
   const setShowClouds = (v: boolean | ((prev: boolean) => boolean)) => {
     setShowCloudsState((prev) => {
@@ -106,6 +112,79 @@ export function useEngineState() {
       return Math.max(0.1, Math.min(1.0, val));
     });
   };
+  const setCloudThickness = (v: number | ((prev: number) => number)) => {
+    setCloudThicknessState((prev) => {
+      const val = typeof v === 'function' ? v(prev) : v;
+      if (typeof val !== 'number' || !Number.isFinite(val)) return prev;
+      const clamped = Math.max(0.04, Math.min(0.35, val));
+      if (typeof window !== 'undefined') {
+        if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudThickness = clamped;
+      }
+      return clamped;
+    });
+  };
+  const setCloudLowTop = (v: number | ((prev: number) => number)) => {
+    setCloudLowTopState((prev) => {
+      const val = typeof v === 'function' ? v(prev) : v;
+      if (typeof val !== 'number' || !Number.isFinite(val)) return prev;
+      const clamped = Math.max(0.05, Math.min(0.60, val));
+      if (typeof window !== 'undefined') {
+        if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudLowTop = clamped;
+      }
+      return clamped;
+    });
+  };
+  const setCloudErosion = (v: number | ((prev: number) => number)) => {
+    setCloudErosionState((prev) => {
+      const val = typeof v === 'function' ? v(prev) : v;
+      if (typeof val !== 'number' || !Number.isFinite(val)) return prev;
+      const clamped = Math.max(0.0, Math.min(2.0, val));
+      if (typeof window !== 'undefined') {
+        if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudErosionStr = clamped;
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudErosion = clamped;
+      }
+      return clamped;
+    });
+  };
+  const setCloudFreqHoriz = (v: number | ((prev: number) => number)) => {
+    setCloudFreqHorizState((prev) => {
+      const val = typeof v === 'function' ? v(prev) : v;
+      if (typeof val !== 'number' || !Number.isFinite(val)) return prev;
+      const clamped = Math.max(4.0, Math.min(96.0, val));
+      if (typeof window !== 'undefined') {
+        if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudFreqHoriz = clamped;
+      }
+      return clamped;
+    });
+  };
+  const setCloudFreqVert = (v: number | ((prev: number) => number)) => {
+    setCloudFreqVertState((prev) => {
+      const val = typeof v === 'function' ? v(prev) : v;
+      if (typeof val !== 'number' || !Number.isFinite(val)) return prev;
+      const clamped = Math.max(2.0, Math.min(32.0, val));
+      if (typeof window !== 'undefined') {
+        if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudFreqVert = clamped;
+      }
+      return clamped;
+    });
+  };
+  const setCloudExtinction = (v: number | ((prev: number) => number)) => {
+    setCloudExtinctionState((prev) => {
+      const val = typeof v === 'function' ? v(prev) : v;
+      if (typeof val !== 'number' || !Number.isFinite(val)) return prev;
+      const clamped = Math.max(1.0, Math.min(100.0, val));
+      if (typeof window !== 'undefined') {
+        if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudExtinction = clamped;
+      }
+      return clamped;
+    });
+  };
 
   const setCloudOptions = (
     options: Partial<{
@@ -118,6 +197,13 @@ export function useEngineState() {
       cloudFalseColor: boolean;
       cloudMultiRateRaymarch: boolean;
       multiRateRaymarch: boolean;
+      cloudThickness: number;
+      cloudLowTop: number;
+      cloudErosion: number;
+      cloudErosionStr: number;
+      cloudFreqHoriz: number;
+      cloudFreqVert: number;
+      cloudExtinction: number;
     }>
   ) => {
     if (options.showClouds !== undefined) {
@@ -149,6 +235,25 @@ export function useEngineState() {
     if (options.cloudOpacity !== undefined && typeof options.cloudOpacity === 'number' && Number.isFinite(options.cloudOpacity)) {
       setCloudOpacityState(Math.max(0.1, Math.min(1.0, options.cloudOpacity)));
     }
+    if (options.cloudThickness !== undefined && typeof options.cloudThickness === 'number' && Number.isFinite(options.cloudThickness)) {
+      setCloudThickness(options.cloudThickness);
+    }
+    if (options.cloudLowTop !== undefined && typeof options.cloudLowTop === 'number' && Number.isFinite(options.cloudLowTop)) {
+      setCloudLowTop(options.cloudLowTop);
+    }
+    const erosion = options.cloudErosionStr ?? options.cloudErosion;
+    if (erosion !== undefined && typeof erosion === 'number' && Number.isFinite(erosion)) {
+      setCloudErosion(erosion);
+    }
+    if (options.cloudFreqHoriz !== undefined && typeof options.cloudFreqHoriz === 'number' && Number.isFinite(options.cloudFreqHoriz)) {
+      setCloudFreqHoriz(options.cloudFreqHoriz);
+    }
+    if (options.cloudFreqVert !== undefined && typeof options.cloudFreqVert === 'number' && Number.isFinite(options.cloudFreqVert)) {
+      setCloudFreqVert(options.cloudFreqVert);
+    }
+    if (options.cloudExtinction !== undefined && typeof options.cloudExtinction === 'number' && Number.isFinite(options.cloudExtinction)) {
+      setCloudExtinction(options.cloudExtinction);
+    }
   };
 
   useEffect(() => {
@@ -162,10 +267,16 @@ export function useEngineState() {
         cloudOpacity,
         cloudFalseColor,
         cloudMultiRateRaymarch,
+        cloudThickness,
+        cloudLowTop,
+        cloudErosion,
+        cloudFreqHoriz,
+        cloudFreqVert,
+        cloudExtinction,
       };
       (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__ = setCloudOptions;
     }
-  }, [showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, cloudFalseColor, cloudMultiRateRaymarch]);
+  }, [showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, cloudFalseColor, cloudMultiRateRaymarch, cloudThickness, cloudLowTop, cloudErosion, cloudFreqHoriz, cloudFreqVert, cloudExtinction]);
 
   const [cdlodDiagnosticMode, setCdlodDiagnosticModeState] = useState<number>(0);
 
@@ -532,6 +643,12 @@ export function useEngineState() {
     cloudOpacity, setCloudOpacity,
     cloudFalseColor, setCloudFalseColor,
     cloudMultiRateRaymarch, setCloudMultiRateRaymarch,
+    cloudThickness, setCloudThickness,
+    cloudLowTop, setCloudLowTop,
+    cloudErosion, setCloudErosion,
+    cloudFreqHoriz, setCloudFreqHoriz,
+    cloudFreqVert, setCloudFreqVert,
+    cloudExtinction, setCloudExtinction,
     setCloudOptions,
     cdlodDiagnosticMode, setCdlodDiagnosticMode,
     glideToAlpha,

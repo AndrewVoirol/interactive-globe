@@ -56,9 +56,9 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 
     // 2. Conservative Tropospheric Extrusion
     // Inner surface (surfaceType < 0.5): offset = -0.03 (below ocean floor and bathymetric depressions)
-    // Outer surface (surfaceType >= 0.5): offset = +0.25 (above maximum troposphere ceiling + mountain relief)
+    // Outer surface (surfaceType >= 0.5): offset = +0.40 (above maximum troposphere ceiling 0.35 + mountain relief)
     let isTop = input.surfaceType >= 0.5;
-    let standoff = select(-0.03, 0.25, isTop);
+    let standoff = select(-0.03, 0.40, isTop);
     let worldPos = basePos + normal * standoff;
 
     // 3. Project to Clip Space

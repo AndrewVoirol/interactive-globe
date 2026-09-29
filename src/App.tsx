@@ -83,6 +83,12 @@ export default function App() {
     cloudOpacity, setCloudOpacity,
     cloudFalseColor, setCloudFalseColor,
     cloudMultiRateRaymarch, setCloudMultiRateRaymarch,
+    cloudThickness, setCloudThickness,
+    cloudLowTop, setCloudLowTop,
+    cloudErosion, setCloudErosion,
+    cloudFreqHoriz, setCloudFreqHoriz,
+    cloudFreqVert, setCloudFreqVert,
+    cloudExtinction, setCloudExtinction,
   } = engineState;
 
   const {
@@ -680,6 +686,12 @@ export default function App() {
                 cloudMultiRateRaymarch={cloudMultiRateRaymarch}
                 cloudDriftSpeed={cloudDriftSpeed}
                 cloudOpacity={cloudOpacity}
+                cloudThickness={cloudThickness}
+                cloudLowTop={cloudLowTop}
+                cloudErosion={cloudErosion}
+                cloudFreqHoriz={cloudFreqHoriz}
+                cloudFreqVert={cloudFreqVert}
+                cloudExtinction={cloudExtinction}
                 atmosphericScale={atmosphericScale}
                 onAtmosphericScaleChange={setAtmosphericScale}
                 shadowIntensity={shadowIntensity}
@@ -806,6 +818,18 @@ export default function App() {
           onCloudDriftSpeedChange={setCloudDriftSpeed}
           cloudOpacity={cloudOpacity}
           onCloudOpacityChange={setCloudOpacity}
+          cloudThickness={cloudThickness}
+          onCloudThicknessChange={setCloudThickness}
+          cloudLowTop={cloudLowTop}
+          onCloudLowTopChange={setCloudLowTop}
+          cloudErosion={cloudErosion}
+          onCloudErosionChange={setCloudErosion}
+          cloudFreqHoriz={cloudFreqHoriz}
+          onCloudFreqHorizChange={setCloudFreqHoriz}
+          cloudFreqVert={cloudFreqVert}
+          onCloudFreqVertChange={setCloudFreqVert}
+          cloudExtinction={cloudExtinction}
+          onCloudExtinctionChange={setCloudExtinction}
           atmosphericScale={atmosphericScale}
           onAtmosphericScaleChange={setAtmosphericScale}
           shadowIntensity={shadowIntensity}

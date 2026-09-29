@@ -6874,7 +6874,7 @@ export class WebGPUEngine {
     // Noise Params (calibrated defaults: freqHoriz 32.0, freqVert 12.0, erosion 0.85)
     cloudFloats[20] = (params as any).cloudFreqHoriz ?? 32.0; // Horizontal noise frequency across planetary surface
     cloudFloats[21] = (params as any).cloudFreqVert ?? 12.0;  // Vertical frequency multiplier across troposphere shell
-    cloudFloats[22] = (params as any).cloudErosionStr ?? 0.85; // High-frequency Worley displacement and erosion strength
+    cloudFloats[22] = (params as any).cloudErosionStr ?? (params as any).cloudErosion ?? 0.85; // High-frequency Worley displacement and erosion strength
     const rawVolDrift = params?.cloudDriftSpeed !== undefined
       ? params.cloudDriftSpeed
       : (this.cloudOptions?.driftSpeed ?? 500.0);

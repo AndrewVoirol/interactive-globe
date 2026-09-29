@@ -100,6 +100,18 @@ export interface TelemetryHUDProps {
   onCloudDriftSpeedChange?: (v: number) => void;
   cloudOpacity?: number;
   onCloudOpacityChange?: (v: number) => void;
+  cloudThickness?: number;
+  onCloudThicknessChange?: (v: number) => void;
+  cloudLowTop?: number;
+  onCloudLowTopChange?: (v: number) => void;
+  cloudErosion?: number;
+  onCloudErosionChange?: (v: number) => void;
+  cloudFreqHoriz?: number;
+  onCloudFreqHorizChange?: (v: number) => void;
+  cloudFreqVert?: number;
+  onCloudFreqVertChange?: (v: number) => void;
+  cloudExtinction?: number;
+  onCloudExtinctionChange?: (v: number) => void;
   atmosphericScale?: number;
   onAtmosphericScaleChange?: (v: number) => void;
   shadowIntensity?: number;
@@ -215,6 +227,18 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onCloudDriftSpeedChange={props.onCloudDriftSpeedChange}
         cloudOpacity={props.cloudOpacity}
         onCloudOpacityChange={props.onCloudOpacityChange}
+        cloudThickness={props.cloudThickness}
+        onCloudThicknessChange={props.onCloudThicknessChange}
+        cloudLowTop={props.cloudLowTop}
+        onCloudLowTopChange={props.onCloudLowTopChange}
+        cloudErosion={props.cloudErosion}
+        onCloudErosionChange={props.onCloudErosionChange}
+        cloudFreqHoriz={props.cloudFreqHoriz}
+        onCloudFreqHorizChange={props.onCloudFreqHorizChange}
+        cloudFreqVert={props.cloudFreqVert}
+        onCloudFreqVertChange={props.onCloudFreqVertChange}
+        cloudExtinction={props.cloudExtinction}
+        onCloudExtinctionChange={props.onCloudExtinctionChange}
         atmosphericScale={props.atmosphericScale}
         onAtmosphericScaleChange={props.onAtmosphericScaleChange}
         shadowIntensity={props.shadowIntensity}

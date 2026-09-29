@@ -2,8 +2,8 @@
 
 **Master Orchestrator**: Antigravity 2.0 Multi-Agent Framework  
 **Target Codebase**: `ais-interactive-globe-to-map`  
-**Operational Status**: `[ALL MILESTONES COMPLETED - 3,759/3,759 TESTS PASSING]`  
-**Current Baseline**: 263 test files, 3,759 tests passing (100% pass rate, 0 failures, 0 regressions)  
+**Operational Status**: `[ALL MILESTONES COMPLETED - 3,765/3,765 TESTS PASSING]`  
+**Current Baseline**: 264 test files, 3,765 tests passing (100% pass rate, 0 failures, 0 regressions)  
 **Circuit Breaker Rule**: `MAX_RETRIES = 2` (Halts on 2 consecutive failed iterations per task ➔ `escalation.md`)
 
 ---
@@ -338,7 +338,18 @@
     2. *Multi-Rate Primary Loop with 8-Step Re-Anchoring*: Decoupled `sampleCloudDensityFromUVW`. Advanced ray linearly in local parameter space ($(\lambda, \phi, h) \mathrel{+}= \mathbf{v}_{uvw} \cdot \Delta t$) with antimeridian longitude wrapping, re-anchoring to exact manifold via `invertMacroChartWGSL` every 8th primary step to prevent accumulated drift.
     3. *Zero-Inversion Freebie Solar Shadow March*: Created `sampleSunShadowTransmittanceLinear` marching 4 solar steps purely in parameter space, eliminating 4 nonlinear Newton-Raphson inversions per primary sample.
     4. *Uniform Packing & Non-Destructive A/B Switch*: Wired uniform toggle in `cloudFloats[37]` (`cloud.u_padCloud.y`), exposed `#beta-cloud-multirate` toggle (`BASELINE [EXACT]` vs `PIVOT 2 [ACTIVE]`) in the AtmosphereDrawer Beta tray, and wired end-to-end React prop synchronization through `useEngineState.ts`, `App.tsx`, `TelemetryHUD.tsx`, and `UnifiedRightSidebar.tsx`.
-  - **Micro-Verification**: 14/14 challenger tests in `challenger-m3-multi-rate-raymarch.test.ts` passing; 100% full repository test pass (263/263 test files, 3,759/3,759 tests). Live Chrome DevTools MCP empirical verification confirmed `cloudFloats[37]` actively flips between `0.0` and `1.0` in the WebGPU engine upon button click, with zero console errors and full perceptual parity across all cartographic mediums.
+- [x] **Task M7-T15**: Atmospheric Cloud Strata Beta Tuning Controls & React-to-WebGPU End-to-End Plumbing
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: Full-Stack WebGPU Systems & React Architecture Engineer
+  - **Target Files**: `src/webgpu/shaders/cloud_proxy.wgsl`, `src/webgpu/WebGPUEngine.ts`, `src/hooks/useEngineState.ts`, `src/components/hud/UnifiedRightSidebar.tsx`, `src/components/hud/TelemetryHUD.tsx`, `src/App.tsx`, `src/webgpu/WebGPUCanvas.tsx`, `tests/modern/cloud-beta-pipeline-end-to-end.test.ts`
+  - **Specification**: Complete end-to-end wiring, physical parameter clamping, and reactive shader execution for all 6 atmospheric cloud beta tuning levers:
+    1. *Proxy Shell Geometric Expansion*: In `cloud_proxy.wgsl`, expanded outer proxy standoff from 0.25 to 0.40, completely eliminating raymarching bounding box clipping when `cloudThickness` is tuned above 0.25 up to 0.35.
+    2. *WebGPUEngine Parameter Parity*: In `WebGPUEngine.ts`, mapped `cloudErosionStr` and `cloudErosion` interchangeably to `cloudFloats[22]`.
+    3. *State Management & Physical Clamping*: In `useEngineState.ts`, added state declarations, safety clamping, live uniform forwarding, and `setCloudOptions` batch support for `cloudThickness` (0.19, [0.04, 0.35]), `cloudLowTop` (0.45, [0.05, 0.60]), `cloudErosion` (0.85, [0.0, 2.0]), `cloudFreqHoriz` (32.0, [4.0, 96.0]), `cloudFreqVert` (12.0, [2.0, 32.0]), and `cloudExtinction` (28.0, [1.0, 100.0]).
+    4. *Full React Prop Hierarchy Forwarding*: Linked props and callbacks through `App.tsx` $\to$ `<TelemetryHUD>` $\to$ `<UnifiedRightSidebar>` $\to$ `<AtmosphereDrawer>` and `App.tsx` $\to$ `<WebGPUCanvas>`, ensuring slider interaction in the `[BETA]` tray triggers immediate WebGPU uniform updates without frame lag or state drop.
+    5. *End-to-End Integration Suite*: Authored `tests/modern/cloud-beta-pipeline-end-to-end.test.ts` testing hook defaults and clamping, React event dispatch through the HUD hierarchy, and `WebGPUEngine` uniform buffer byte offsets (6/6 passing).
+  - **Micro-Verification**: 264/264 test files passing (3,765/3,765 tests, 0 failures, 0 regressions in 38.05s). Live Chrome DevTools MCP verification confirmed real-time visual contrast across parameter extremes (`cloudThickness` 0.05 vs 0.35, `cloudExtinction` 5.0 vs 50.0), and verified Theme 0 (Marie Tharp), Theme 1 (Cream Rag), and Theme 2 (Prussian Cyanotype) with 0 console warnings or errors.
 
 ---
 

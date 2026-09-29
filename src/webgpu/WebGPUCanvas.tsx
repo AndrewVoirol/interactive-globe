@@ -153,6 +153,12 @@ export interface WebGPUCanvasProps {
   cloudMultiRateRaymarch?: boolean;
   cloudDriftSpeed?: number;
   cloudOpacity?: number;
+  cloudThickness?: number;
+  cloudLowTop?: number;
+  cloudErosion?: number;
+  cloudFreqHoriz?: number;
+  cloudFreqVert?: number;
+  cloudExtinction?: number;
   atmosphericScale?: number;
   onAtmosphericScaleChange?: (v: number) => void;
   shadowIntensity?: number;
@@ -241,6 +247,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
   cloudMultiRateRaymarch = false,
   cloudDriftSpeed = 1.0,
   cloudOpacity = 0.85,
+  cloudThickness = 0.19,
+  cloudLowTop = 0.45,
+  cloudErosion = 0.85,
+  cloudFreqHoriz = 32.0,
+  cloudFreqVert = 12.0,
+  cloudExtinction = 28.0,
   atmosphericScale = 3.5,
   onAtmosphericScaleChange,
   shadowIntensity = 0.45,
@@ -473,6 +485,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
     cloudMultiRateRaymarch,
     cloudDriftSpeed,
     cloudOpacity,
+    cloudThickness,
+    cloudLowTop,
+    cloudErosion,
+    cloudFreqHoriz,
+    cloudFreqVert,
+    cloudExtinction,
     atmosphericScale,
     shadowIntensity,
     verticalScaleMode,
@@ -528,6 +546,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       cloudMultiRateRaymarch,
       cloudDriftSpeed,
       cloudOpacity,
+      cloudThickness,
+      cloudLowTop,
+      cloudErosion,
+      cloudFreqHoriz,
+      cloudFreqVert,
+      cloudExtinction,
       atmosphericScale,
       shadowIntensity,
       verticalScaleMode,
@@ -556,7 +580,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
       prognosticModel,
     };
     cachedLayersRef.current = computeCachedLayers(dataLayers);
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudMultiRateRaymarch, cloudDriftSpeed, cloudOpacity, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode, prognosticModel]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudMultiRateRaymarch, cloudDriftSpeed, cloudOpacity, cloudThickness, cloudLowTop, cloudErosion, cloudFreqHoriz, cloudFreqVert, cloudExtinction, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode, prognosticModel]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -3007,12 +3031,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
             liveOverrides?.cloudOpacity !== undefined
               ? liveOverrides.cloudOpacity
               : stateRef.current.cloudOpacity,
-          cloudFreqHoriz: liveOverrides?.cloudFreqHoriz,
-          cloudFreqVert: liveOverrides?.cloudFreqVert,
-          cloudErosionStr: liveOverrides?.cloudErosionStr,
-          cloudExtinction: liveOverrides?.cloudExtinction,
-          cloudThickness: liveOverrides?.cloudThickness,
-          cloudLowTop: liveOverrides?.cloudLowTop,
+          cloudFreqHoriz: liveOverrides?.cloudFreqHoriz !== undefined ? liveOverrides.cloudFreqHoriz : stateRef.current.cloudFreqHoriz,
+          cloudFreqVert: liveOverrides?.cloudFreqVert !== undefined ? liveOverrides.cloudFreqVert : stateRef.current.cloudFreqVert,
+          cloudErosionStr: liveOverrides?.cloudErosionStr !== undefined ? liveOverrides.cloudErosionStr : (liveOverrides?.cloudErosion !== undefined ? liveOverrides.cloudErosion : stateRef.current.cloudErosion),
+          cloudExtinction: liveOverrides?.cloudExtinction !== undefined ? liveOverrides.cloudExtinction : stateRef.current.cloudExtinction,
+          cloudThickness: liveOverrides?.cloudThickness !== undefined ? liveOverrides.cloudThickness : stateRef.current.cloudThickness,
+          cloudLowTop: liveOverrides?.cloudLowTop !== undefined ? liveOverrides.cloudLowTop : stateRef.current.cloudLowTop,
           resolution: activeLodTierRef.current || stateRef.current.resolution || '1M',
           cloudMaxSteps: liveOverrides?.cloudMaxSteps,
           atmosphericScale: stateRef.current.atmosphericScale,
