@@ -311,3 +311,17 @@ In complex multi-phase refactors or workshops subject to context truncation and 
 - Ground the artifact in verified coordinates, exact camera parameters (elevation, pitch, heading), and quantitative baseline metrics.
 - Do not re-litigate established baselines or re-prompt for known decisions across conversation turns; reference the master roadmap.
 
+## 54. Headless Camera Automation Invariant (`setObliqueView`)
+When programmatically manipulating, framing, or anchoring the camera for automated verification, MCP screencasts, or litmus tests, agents MUST invoke `window.__INDICATRIX_CAMERA__.setObliqueView(lonDeg, latDeg, altitudeRadius, pitchDeg, headingDeg)` rather than `setPose(...)` or direct `camera.position` mutations.
+- `setPose` and direct coordinate mutations fail to update `sphericalRef.current`.
+- The per-frame animation loop in `WebGPUCanvas.tsx` re-evaluates spherical coordinates every frame and will instantly clobber any pose not committed through `setObliqueView`.
+
+## 55. Oblique View Optical Flow & ROI Isolation Protocol
+When verifying dynamic motion (wind advection, atmospheric flow, plume transport) in oblique or tilted camera perspectives:
+- **Never evaluate 2D cross-correlation across the full viewport.** At pitches $\ge 30^\circ$, upper-screen blank paper substrates and high-contrast stationary terrain features (mountain ridges, coastlines) anchor the FFT correlation peak to $(0, 0)$.
+- **Isolate Planetary Disk ROI**: Crop the region of interest strictly to the active planetary disc where the fluid/cloud layer resides.
+- **Dual Metric Verification**: Quantify motion using both:
+  1. *Active Moving Pixel Ratio*: Percentage of pixels with $|\Delta I| > 5.0$ across a 1.5–2.0s interval.
+  2. *Zero-Drift Baseline*: Confirm that setting speed to 0 reduces active moving pixels to $< 5\%$ without spatial jitter.
+
+
