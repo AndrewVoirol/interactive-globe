@@ -9638,10 +9638,10 @@ export class WebGPUEngine {
     let texturesNeedRecreation = !this.cloudTextures.low || this.cloudTextures.low.width !== targetWidth || this.cloudTextures.low.height !== targetHeight;
 
     if (texturesNeedRecreation) {
-      if (this.cloudTextures.low) this.cloudTextures.low.destroy();
-      if (this.cloudTextures.mid) this.cloudTextures.mid.destroy();
-      if (this.cloudTextures.high) this.cloudTextures.high.destroy();
-      
+      const oldLow = this.cloudTextures.low;
+      const oldMid = this.cloudTextures.mid;
+      const oldHigh = this.cloudTextures.high;
+
       this.cloudTextures = {
         low: this.device.createTexture({
           label: 'cloud_texture_low',
@@ -9669,6 +9669,10 @@ export class WebGPUEngine {
         high: this.cloudTextures.high.createView({ label: 'cloud_view_high' }),
       };
       this.volumetricCloudBindGroup = null;
+
+      if (oldLow) oldLow.destroy();
+      if (oldMid) oldMid.destroy();
+      if (oldHigh) oldHigh.destroy();
     }
 
     if (!this.cloudSampler) {
@@ -9862,7 +9866,6 @@ export class WebGPUEngine {
     height: number = 721
   ): Promise<void> {
     if (!this.device || !this.isInitialized) return;
-    this.ensureCloudBuffers(width, height);
 
     if (urlOrData instanceof Uint8Array || urlOrData instanceof ArrayBuffer) {
       this.setCloudData(layer, urlOrData, width, height);
@@ -9884,8 +9887,7 @@ export class WebGPUEngine {
 
     if (buffer) {
       this.setCloudData(layer, buffer, width, height);
-    } else if (width === 1440 && height === 721) {
-      this.ensureCloudBuffers(1440, 721);
+    } else {
       const procBuf = this.generateProceduralCloudBuffer(layer);
       this.setCloudData(layer, procBuf, 1440, 721);
     }
@@ -9894,7 +9896,6 @@ export class WebGPUEngine {
   public async loadAllCloudLayers(isWeatherNext: boolean = false): Promise<void> {
     if (isWeatherNext) {
       try {
-        this.ensureCloudBuffers(3600, 1801);
         const [lowRes, midRes, highRes] = await Promise.all([
           fetch('/data/weathernext/low_cloud_cover_mean-0.bin'),
           fetch('/data/weathernext/medium_cloud_cover_mean-0.bin'),
@@ -9919,7 +9920,6 @@ export class WebGPUEngine {
     }
     
     this.lastLoadedWeatherNextHour = -1;
-    this.ensureCloudBuffers(1440, 721);
     await Promise.all([
       this.loadCloudData('low', undefined, 1440, 721),
       this.loadCloudData('mid', undefined, 1440, 721),
@@ -9930,7 +9930,6 @@ export class WebGPUEngine {
   public async loadWeatherNextCloudLayers(hour: number): Promise<void> {
     const clampedHour = Math.max(0, Math.min(11, Math.floor(hour)));
     if (this.lastLoadedWeatherNextHour === clampedHour) return;
-    this.ensureCloudBuffers(3600, 1801);
     try {
       const [lowRes, midRes, highRes] = await Promise.all([
         fetch(`/data/weathernext/low_cloud_cover_mean-${clampedHour}.bin`),
