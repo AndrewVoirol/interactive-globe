@@ -792,6 +792,7 @@ export class WebGPUEngine {
   private cloudBindGroupLayout: GPUBindGroupLayout | null = null;
   private cloudBindGroups: { low: GPUBindGroup; mid: GPUBindGroup; high: GPUBindGroup } | null = null;
   public cloudTextures: { low: GPUTexture | null; mid: GPUTexture | null; high: GPUTexture | null } = { low: null, mid: null, high: null };
+  public cloudTextureViews: { low: GPUTextureView | null; mid: GPUTextureView | null; high: GPUTextureView | null } = { low: null, mid: null, high: null };
   public cloudUniformBuffers: GPUBuffer[] | null = null;
   public cloudLayerUniformMirrors: Float32Array[] = [
     new Float32Array(72),
@@ -5484,6 +5485,7 @@ export class WebGPUEngine {
       this.cloudProxyBackDepthTexture = null;
       this.cloudProxyBackDepthView = null;
     }
+    this.volumetricCloudBindGroup = null;
     if (!this.device || typeof this.device.createTexture !== 'function') return;
     const w = Math.max(1, width);
     const h = Math.max(1, height);
@@ -6836,9 +6838,9 @@ export class WebGPUEngine {
     const depthView = this.depthTextureView || this.dummyDepthTextureView;
     const noiseView = this.cloudNoiseTextureView || this.dummy3DNoiseTextureView;
     const noiseSampler = this.volumetricNoiseSampler || this.demSampler;
-    const lowView = this.cloudTextures.low ? this.cloudTextures.low.createView() : this.dummyCloudTextureView;
-    const midView = this.cloudTextures.mid ? this.cloudTextures.mid.createView() : this.dummyCloudTextureView;
-    const highView = this.cloudTextures.high ? this.cloudTextures.high.createView() : this.dummyCloudTextureView;
+    const lowView = this.cloudTextureViews.low || (this.cloudTextures.low ? (this.cloudTextureViews.low = this.cloudTextures.low.createView({ label: 'cloud_view_low' })) : this.dummyCloudTextureView);
+    const midView = this.cloudTextureViews.mid || (this.cloudTextures.mid ? (this.cloudTextureViews.mid = this.cloudTextures.mid.createView({ label: 'cloud_view_mid' })) : this.dummyCloudTextureView);
+    const highView = this.cloudTextureViews.high || (this.cloudTextures.high ? (this.cloudTextureViews.high = this.cloudTextures.high.createView({ label: 'cloud_view_high' })) : this.dummyCloudTextureView);
     const cloud2DSampler = this.cloudSampler || this.demSampler;
     const proxyFrontView = this.cloudProxyFrontDepthView || this.dummyProxyFrontDepthView;
     const proxyBackView = this.cloudProxyBackDepthView || this.dummyProxyBackDepthView;
@@ -7343,7 +7345,9 @@ export class WebGPUEngine {
 
     this.ensureVolumetricCloudBuffers();
     this.renderCloudProxyPass(commandEncoder, params);
-    this.updateVolumetricCloudBindGroup();
+    if (!this.volumetricCloudBindGroup) {
+      this.updateVolumetricCloudBindGroup();
+    }
     if (!this.volumetricCloudBindGroup) {
       return;
     }
@@ -9661,6 +9665,13 @@ export class WebGPUEngine {
           usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
         }),
       };
+
+      this.cloudTextureViews = {
+        low: this.cloudTextures.low.createView({ label: 'cloud_view_low' }),
+        mid: this.cloudTextures.mid.createView({ label: 'cloud_view_mid' }),
+        high: this.cloudTextures.high.createView({ label: 'cloud_view_high' }),
+      };
+      this.volumetricCloudBindGroup = null;
     }
 
     if (!this.cloudSampler) {
@@ -9831,6 +9842,9 @@ export class WebGPUEngine {
           { bytesPerRow: paddedRowBytes, rowsPerImage: height },
           { width, height, depthOrArrayLayers: 1 }
         );
+        if (!this.cloudTextureViews[layer]) {
+          this.cloudTextureViews[layer] = targetTexture.createView({ label: `cloud_view_${layer}` });
+        }
         if (layer === 'low' || layer === 'high') {
           this.updateDEMBindGroups();
         }
@@ -10435,6 +10449,7 @@ export class WebGPUEngine {
     this.cloudTextures.mid?.destroy();
     this.cloudTextures.high?.destroy();
     this.cloudTextures = { low: null, mid: null, high: null };
+    this.cloudTextureViews = { low: null, mid: null, high: null };
 
     this.cloudPipeline = null;
     this.cloudSampler = null;
