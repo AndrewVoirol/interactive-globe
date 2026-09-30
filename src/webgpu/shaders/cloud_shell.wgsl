@@ -467,29 +467,38 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let rU_highSelect = select(rU_28, rU_35, layerIdx == 0u);
     let rV_highSelect = select(rV_28, rV_35, layerIdx == 0u);
 
-    // 4-Tap Poisson disk taps for Mid cloud (sampled unconditionally at explicit LOD 0.0 per Rule 4)
-    let tapMid0 = vec2<f32>(fract(centerUV_mid.x - 0.38 * rU_20), clamp(centerUV_mid.y - 0.92 * rV_20, 0.0, 1.0));
-    let tapMid1 = vec2<f32>(fract(centerUV_mid.x + 0.92 * rU_20), clamp(centerUV_mid.y - 0.38 * rV_20, 0.0, 1.0));
-    let tapMid2 = vec2<f32>(fract(centerUV_mid.x + 0.38 * rU_20), clamp(centerUV_mid.y + 0.92 * rV_20, 0.0, 1.0));
-    let tapMid3 = vec2<f32>(fract(centerUV_mid.x - 0.92 * rU_20), clamp(centerUV_mid.y + 0.38 * rV_20, 0.0, 1.0));
+    var midCloudShadowDens: f32 = 0.0;
+    var highCloudShadowDens: f32 = 0.0;
 
-    let m0 = textureSampleLevel(u_midCloudTexture, u_cloudSampler, tapMid0, 0.0).r;
-    let m1 = textureSampleLevel(u_midCloudTexture, u_cloudSampler, tapMid1, 0.0).r;
-    let m2 = textureSampleLevel(u_midCloudTexture, u_cloudSampler, tapMid2, 0.0).r;
-    let m3 = textureSampleLevel(u_midCloudTexture, u_cloudSampler, tapMid3, 0.0).r;
-    let midCloudShadowDens = (m0 + m1 + m2 + m3) * 0.25;
+    // Gate upper-stratum shadow ray lookups to layers that actually receive them (Optimization §10.5)
+    // Low Stratus (layer 0) queries both Mid and High decks (8 taps)
+    // Mid Altocumulus (layer 1) queries only High deck (4 taps)
+    // High Cirrus (layer 2) queries zero upper decks (0 taps)
+    if (layerIdx == 0u) {
+        let tapMid0 = vec2<f32>(fract(centerUV_mid.x - 0.38 * rU_20), clamp(centerUV_mid.y - 0.92 * rV_20, 0.0, 1.0));
+        let tapMid1 = vec2<f32>(fract(centerUV_mid.x + 0.92 * rU_20), clamp(centerUV_mid.y - 0.38 * rV_20, 0.0, 1.0));
+        let tapMid2 = vec2<f32>(fract(centerUV_mid.x + 0.38 * rU_20), clamp(centerUV_mid.y + 0.92 * rV_20, 0.0, 1.0));
+        let tapMid3 = vec2<f32>(fract(centerUV_mid.x - 0.92 * rU_20), clamp(centerUV_mid.y + 0.38 * rV_20, 0.0, 1.0));
 
-    // 4-Tap Poisson disk taps for High cloud (sampled unconditionally at explicit LOD 0.0 per Rule 4)
-    let tapHigh0 = vec2<f32>(fract(centerUV_high.x - 0.38 * rU_highSelect), clamp(centerUV_high.y - 0.92 * rV_highSelect, 0.0, 1.0));
-    let tapHigh1 = vec2<f32>(fract(centerUV_high.x + 0.92 * rU_highSelect), clamp(centerUV_high.y - 0.38 * rV_highSelect, 0.0, 1.0));
-    let tapHigh2 = vec2<f32>(fract(centerUV_high.x + 0.38 * rU_highSelect), clamp(centerUV_high.y + 0.92 * rV_highSelect, 0.0, 1.0));
-    let tapHigh3 = vec2<f32>(fract(centerUV_high.x - 0.92 * rU_highSelect), clamp(centerUV_high.y + 0.38 * rV_highSelect, 0.0, 1.0));
+        let m0 = textureSampleLevel(u_midCloudTexture, u_cloudSampler, tapMid0, 0.0).r;
+        let m1 = textureSampleLevel(u_midCloudTexture, u_cloudSampler, tapMid1, 0.0).r;
+        let m2 = textureSampleLevel(u_midCloudTexture, u_cloudSampler, tapMid2, 0.0).r;
+        let m3 = textureSampleLevel(u_midCloudTexture, u_cloudSampler, tapMid3, 0.0).r;
+        midCloudShadowDens = (m0 + m1 + m2 + m3) * 0.25;
+    }
 
-    let h0 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh0, 0.0).r;
-    let h1 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh1, 0.0).r;
-    let h2 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh2, 0.0).r;
-    let h3 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh3, 0.0).r;
-    let highCloudShadowDens = (h0 + h1 + h2 + h3) * 0.25;
+    if (layerIdx <= 1u) {
+        let tapHigh0 = vec2<f32>(fract(centerUV_high.x - 0.38 * rU_highSelect), clamp(centerUV_high.y - 0.92 * rV_highSelect, 0.0, 1.0));
+        let tapHigh1 = vec2<f32>(fract(centerUV_high.x + 0.92 * rU_highSelect), clamp(centerUV_high.y - 0.38 * rV_highSelect, 0.0, 1.0));
+        let tapHigh2 = vec2<f32>(fract(centerUV_high.x + 0.38 * rU_highSelect), clamp(centerUV_high.y + 0.92 * rV_highSelect, 0.0, 1.0));
+        let tapHigh3 = vec2<f32>(fract(centerUV_high.x - 0.92 * rU_highSelect), clamp(centerUV_high.y + 0.38 * rV_highSelect, 0.0, 1.0));
+
+        let h0 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh0, 0.0).r;
+        let h1 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh1, 0.0).r;
+        let h2 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh2, 0.0).r;
+        let h3 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh3, 0.0).r;
+        highCloudShadowDens = (h0 + h1 + h2 + h3) * 0.25;
+    }
 
     // Inter-deck Beer-Lambert optical depth accumulation (§10.4)
     let tauMid = smoothstep(0.10, 0.40, midCloudShadowDens) * 0.55;
@@ -683,8 +692,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             alpha = alpha * cirrusFalloff * hairlineMod;
         }
 
-        cloudColor = ivoryWash * toothFactor * phaseFactor * selfShadow;
-        cloudColor = (stratumPigment / ivoryWash) * cloudColor;
+        cloudColor = stratumPigment * toothFactor * phaseFactor * selfShadow;
         alpha = alpha * mix(0.85, 1.0, toothFactor);
     } else if (cloud.u_theme == 2u) {
         // Theme 2 (Prussian Cyanotype 1842): Actinic white wisps, photochemical blueprint exposure
@@ -699,7 +707,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     // Multi-Stratum Beer-Lambert inter-deck cast shadow attenuation (Spec §10)
-    cloudColor = cloudColor * interdeckShadow;
+    // Cartographic medium ink wash modulation (Rule 3)
+    var shadowWashColor = vec3<f32>(0.20, 0.22, 0.25); // Theme 0 Marie Tharp
+    if (cloud.u_theme == 1u) {
+        shadowWashColor = vec3<f32>(0.353, 0.302, 0.255); // Theme 1 Cream Rag bistre wash #5A4D41
+    } else if (cloud.u_theme == 2u) {
+        shadowWashColor = vec3<f32>(0.043, 0.114, 0.227); // Theme 2 Prussian Cyanotype navy #0B1D3A
+    }
+    cloudColor = mix(shadowWashColor, cloudColor, interdeckShadow);
 
     // Invariant §5: Premultiplied Alpha Transparent Clear & Compositing
     // Output must be premultiplied alpha: vec4<f32>(color.rgb * alpha, alpha)

@@ -254,7 +254,7 @@ describe('Challenger 2 Milestone 2: Adversarial Uniform Placebo & Orographic Cou
       // Verify selfShadow is actively factored into cloudColor for themes 0, 1, and 2
       expect(cloudWgslSource).toMatch(/undersideShade\s*=\s*vec3<f32>\(0\.82,\s*0\.85,\s*0\.89\)\s*\*\s*selfShadow/);
       expect(cloudWgslSource).toMatch(/coreWhite\s*\*\s*phaseFactor\s*\*\s*selfShadow/);
-      expect(cloudWgslSource).toMatch(/cloudColor\s*=\s*ivoryWash\s*\*\s*toothFactor\s*\*\s*phaseFactor\s*\*\s*selfShadow/);
+      expect(cloudWgslSource).toMatch(/cloudColor\s*=\s*stratumPigment\s*\*\s*toothFactor\s*\*\s*phaseFactor\s*\*\s*selfShadow/);
       expect(cloudWgslSource).toMatch(/cloudColor\s*=\s*actinicWhite\s*\*\s*phaseFactor\s*\*\s*selfShadow/);
     });
 

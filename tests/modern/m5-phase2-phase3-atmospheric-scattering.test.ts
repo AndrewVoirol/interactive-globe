@@ -130,7 +130,7 @@ describe('Milestone 5: Phase 2 (Stratum-on-Stratum Shadows) & Phase 3 (Anisotrop
       expect(cloudWgsl).toContain('alpha = (1.0 - exp(-alpha * slabPathFactor * 1.8));');
       expect(cloudWgsl).toContain('let selfShadow = mix(1.0 - cloud.u_shadowIntensity * 0.5, 1.0, NdotL);');
       expect(cloudWgsl).toContain('baseDensity *= rainShadowAtten;');
-      expect(cloudWgsl).toContain('cloudColor = cloudColor * interdeckShadow;');
+      expect(cloudWgsl).toContain('cloudColor = mix(shadowWashColor, cloudColor, interdeckShadow);');
     });
   });
 
