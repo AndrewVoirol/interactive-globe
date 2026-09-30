@@ -169,7 +169,7 @@ describe('Milestone 3: Cloud Shell WGSL Shader & Inking (R1, R4 / F28, F29)', ()
     });
 
     it('M3-HORIZON-02: Discards fragments past the planetary limb when in globe mode (u_unfurl < 0.20)', () => {
-      expect(cloudShellWGSL).toContain('if (cloud.u_unfurl < 0.20 && in.facing < -0.015)');
+      expect(cloudShellWGSL).toContain('if (cloud.u_unfurl < 0.20 && in.facing <= 0.0)');
     });
   });
 

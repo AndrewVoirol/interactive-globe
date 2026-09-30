@@ -221,7 +221,7 @@ describe('Adversarial Challenger M5-2: Catalog Symmetry, DEM Parity & Comment Pu
       // 2. cloud_shell.wgsl: must use active production expressions
       const cloudWGSL = fs.readFileSync(path.join(shadersDir, 'cloud_shell.wgsl'), 'utf8');
       expect(cloudWGSL).toContain('var totalOffset = crustDisp + effStandoff;');
-      expect(cloudWGSL).toContain('if (cloud.u_unfurl < 0.20 && in.facing < -0.015)');
+      expect(cloudWGSL).toContain('if (cloud.u_unfurl < 0.20 && in.facing <= 0.0)');
       expect(cloudWGSL).toContain('let featheredCloud = smoothstep(0.0, 0.20, condensedCloud);');
 
       // 3. crust_hydrosphere.wgsl: must use active river width variable
