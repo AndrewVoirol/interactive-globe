@@ -365,3 +365,36 @@ When interacting with the engine in live browser sessions via Chrome DevTools MC
 - **Zero 2D Context Canvas Readback**:
   - Do NOT attempt to extract pixel differences via `canvas2d.drawImage(webgpuCanvas)`. WebGPU swapchain presentation clears the backbuffer each frame.
   - All frame diffs, optical flow captures, and visual audits must be captured directly from the compositor via DevTools MCP `take_screenshot` or `screencast_start` / `screencast_stop`.
+
+## 59. W3C WGSL §14.4 Ascending Edge Invariant (`smoothstep` Safety)
+In WGSL fragment and vertex shaders, the built-in function `smoothstep(edge0, edge1, x)` requires that $edge0 < edge1$ strictly.
+- **Prohibition of Inverted Edges**: Passing descending bounds ($edge0 > edge1$) is undefined behavior under W3C WGSL §14.4 and produces NaNs, driver crashes, or erratic clamping on Apple Silicon Metal and Vulkan backends.
+- **Standard Ascending Formulation**: When implementing descending physical transitions (e.g., altitude stratum attenuation, falloff masks, horizon limbs, or shadow penumbras), shaders MUST use the strictly ascending invariant:
+  $$\alpha_{\text{descending}} = 1.0 - \text{smoothstep}(edge_{\text{base}}, edge_{\text{top}}, x)$$
+  where $edge_{\text{base}} < edge_{\text{top}}$.
+- **Spec Ledger Boundary Verification**: Specification ledgers must explicitly test boundaries with $edge0 < edge1$ before transferring mathematical formulas to WGSL.
+
+## 60. Dual-Layer State Calibration (Class Baseline vs. Production UI State)
+When introducing or tuning physical couplings, interactive sliders, or shader parameters:
+- **Engine Class Baseline Invariant**: Property declarations in `WebGPUEngine.ts` must retain their clean, uninitialized baseline values (e.g. `public rainShadowFeedback: number = 0.0;`) to guarantee that class-level unit and challenger tests pass without breaking backward compatibility.
+- **Top-Level React UI Calibration**: The active, calibrated production defaults must be set in top-level React state (`src/App.tsx`), ensuring the live application mounts with the intended physical and aesthetic manifestation out-of-the-box (e.g. `const [rainShadowFeedback, setRainShadowFeedback] = useState<number>(0.50);`).
+- **Zero-Bypass Verification**: When testing UI state propagation, verify both layers: unit tests assert the engine default, while integration/browser audits assert the active React prop delivery to the GPU uniform buffer.
+## 61. Async WebGPU Browser Automation & Canvas Stabilization Gate
+In automated browser sessions (Chrome DevTools MCP), React applications interfacing with WebGPU engines evaluate hardware support asynchronously (e.g., `isWebGPUSupported().then(setHasWebGPU)`).
+- **Prohibition of Immediate Post-Navigation Captures**: Agents must NEVER take a screenshot or start a screencast immediately following `navigate_page` or `new_page`. Immediate capture records the transient fallback modal (`<WebGPUFallback>`).
+- **Mandatory Stabilization Pre-Flight**: Before taking screenshots, capturing video, or evaluating WebGPU DOM state, agents must execute a stabilization guard:
+  ```js
+  await new Promise(r => setTimeout(r, 2000));
+  // Verify WebGPU canvas is mounted and fallback card is absent:
+  const ready = document.querySelectorAll('canvas').length >= 1 &&
+                document.querySelectorAll('.max-w-md').length === 0;
+  ```
+
+## 62. Shader Blast-Radius Preflight Filtering
+The test suite contains over 268 test files and 3,815+ tests, taking 35–45 seconds per full run. Many suites contain AST source scanners (`fs.readFileSync`) targeting specific WGSL files.
+- **Mandatory Blast-Radius Scan**: Before running the full repository suite (`npx vitest run`), any agent modifying a `.wgsl` shader MUST grep `tests/` for literal references to that shader file name (e.g. `grep -rn "cloud_shell.wgsl" tests/`).
+- **Cluster Preflight Execution**: Run all test files identified in the blast-radius search together in a single fast command:
+  ```bash
+  npx vitest run tests/modern/target-feature.test.ts tests/modern/challenger-anti-bypass.test.ts
+  ```
+- **Preservation of Base Formulations in Shader ASTs**: When extending or modulating an established WGSL color equation tested by Challenger anti-bypass scanners, structure the modification as an explicit modulation of the established base formulation (`cloudColor = baseColor; cloudColor = (stratumPigment / baseColor) * cloudColor;`) rather than replacing the base assignment outright, preventing AST regex collisions while guaranteeing active non-placebo execution.

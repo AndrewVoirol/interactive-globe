@@ -363,6 +363,51 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let blendWeight = 2.0 * abs(phase0 - 0.5);
     let rawCloud = mix(c0, c1, blendWeight);
 
+    // Vertical Slab Parallax Extrusion (Spec §9, Phase 1)
+    // Physical stratum deck thickness: Low 1.4km, Mid 2.4km, High 2.0km
+    var deckThicknessKm: f32 = 1.4;
+    if (layerIdx == 1u) {
+        deckThicknessKm = 2.4;
+    } else if (layerIdx == 2u) {
+        deckThicknessKm = 2.0;
+    }
+
+    // View-ray projection onto local equirectangular tangent frame
+    let muEff = max(in.facing, 0.15);
+    let viewRay = normalize(cloud.u_cameraPos.xyz - in.worldPos);
+    let sphereLambda = (in.uv.x - 0.5) * TWO_PI;
+    let eastVec = vec3<f32>(-sin(sphereLambda), 0.0, cos(sphereLambda));
+    let northVec = cross(in.normal, eastVec);
+    let vE = dot(viewRay, eastVec);
+    let vN = dot(viewRay, northVec);
+
+    const TWO_PI_RE_KM: f32 = 40030.17;
+    const PI_RE_KM: f32 = 20015.09;
+    let cosLatSlab = max(0.15, cos((in.uv.y - 0.5) * PI));
+
+    // Mid interior slice (z = 0.5 * deckThicknessKm)
+    let zMidKm = 0.5 * deckThicknessKm;
+    let deltaUMid = -(zMidKm * vE) / (muEff * TWO_PI_RE_KM * cosLatSlab);
+    let deltaVMid =  (zMidKm * vN) / (muEff * PI_RE_KM);
+    let uvMid0 = vec2<f32>(fract(sampleUV.x + deltaUMid), clamp(sampleUV.y + deltaVMid, 0.001, 0.999));
+    let uvMid1 = vec2<f32>(fract(sampleUV1.x + deltaUMid), clamp(sampleUV1.y + deltaVMid, 0.001, 0.999));
+    let cMid0 = textureSampleLevel(u_cloudTexture, u_cloudSampler, uvMid0, 0.0).r;
+    let cMid1 = textureSampleLevel(u_cloudTexture, u_cloudSampler, uvMid1, 0.0).r;
+    let rawCloudMid = mix(cMid0, cMid1, blendWeight);
+
+    // Base boundary slice (z = 1.0 * deckThicknessKm)
+    let zBaseKm = 1.0 * deckThicknessKm;
+    let deltaUBase = -(zBaseKm * vE) / (muEff * TWO_PI_RE_KM * cosLatSlab);
+    let deltaVBase =  (zBaseKm * vN) / (muEff * PI_RE_KM);
+    let uvBase0 = vec2<f32>(fract(sampleUV.x + deltaUBase), clamp(sampleUV.y + deltaVBase, 0.001, 0.999));
+    let uvBase1 = vec2<f32>(fract(sampleUV1.x + deltaUBase), clamp(sampleUV1.y + deltaVBase, 0.001, 0.999));
+    let cBase0 = textureSampleLevel(u_cloudTexture, u_cloudSampler, uvBase0, 0.0).r;
+    let cBase1 = textureSampleLevel(u_cloudTexture, u_cloudSampler, uvBase1, 0.0).r;
+    let rawCloudBase = mix(cBase0, cBase1, blendWeight);
+
+    // 3-Tap composite slab density (Weights: Top 0.45, Mid 0.35, Base 0.20)
+    let rawCloudSlab = rawCloud * 0.45 + rawCloudMid * 0.35 + rawCloudBase * 0.20;
+
     // Orographic lift & rain shadows via 2D wind-terrain coupling (Invariant §3, §15, §18, RFC Mechanic 4)
     // Sample u_demTexture and u_windTexture in unconditional uniform control flow at explicit LOD 0.0 strictly before discards
     let demDims = vec2<f32>(textureDimensions(u_demTexture));
@@ -373,16 +418,19 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let uvNorth = vec2<f32>(in.uv.x, clamp(in.uv.y - dV, 0.001, 0.999));
     let uvSouth = vec2<f32>(in.uv.x, clamp(in.uv.y + dV, 0.001, 0.999));
 
+    let demCenterGlobal = textureSampleLevel(u_demTexture, u_demSampler, in.uv, 0.0);
     let demEastGlobal = textureSampleLevel(u_demTexture, u_demSampler, uvEast, 0.0);
     let demWestGlobal = textureSampleLevel(u_demTexture, u_demSampler, uvWest, 0.0);
     let demNorthGlobal = textureSampleLevel(u_demTexture, u_demSampler, uvNorth, 0.0);
     let demSouthGlobal = textureSampleLevel(u_demTexture, u_demSampler, uvSouth, 0.0);
 
+    let demCenter = sampleRegionalComposite(in.uv, demCenterGlobal, 0.0);
     let demEast = sampleRegionalComposite(uvEast, demEastGlobal, 0.0);
     let demWest = sampleRegionalComposite(uvWest, demWestGlobal, 0.0);
     let demNorth = sampleRegionalComposite(uvNorth, demNorthGlobal, 0.0);
     let demSouth = sampleRegionalComposite(uvSouth, demSouthGlobal, 0.0);
 
+    let zTerrain = decodeElevation(demCenter);
     let elevEast = decodeElevation(demEast);
     let elevWest = decodeElevation(demWest);
     let elevNorth = decodeElevation(demNorth);
@@ -419,7 +467,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Orographic leeward rain shadow attenuation (Spec §2.2, Invariant §3)
     let wOro = wOrographic;
     let rainShadowAtten = 1.0 - cloud.u_rainShadowFeedback * clamp(-wOro * 40.0, 0.0, 0.85) * stratumCoupling;
-    var baseDensity = clamp((rawCloud + effOrographicLift) * poleAtten, 0.0, 1.0);
+    var baseDensity = clamp((rawCloudSlab + effOrographicLift) * poleAtten, 0.0, 1.0);
     baseDensity *= rainShadowAtten;
     let condensedCloud = baseDensity;
 
@@ -428,6 +476,25 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let windwardBoost = clamp(deltaH * 3.5, 0.0, 0.35);
     let leewardShadow = clamp(-deltaH * 4.0, 0.0, 0.70);
     let orographicFactor = 1.0 + (windwardBoost - leewardShadow) * stratumCoupling;
+
+    // Milestone 3: Stratum-Specific Orographic Terrain Blocking & Ridge Interception (§7)
+    // Physical ridge blocking of lower tropospheric cloud decks without clipping inside solid rock,
+    // while permitting high-altitude cirrus to traverse mountain crests unimpeded.
+    // Stratum altitude boundaries:
+    // - Low stratus (Layer 0): base = 0 m, top = 2000 m
+    // - Mid altocumulus (Layer 1): base = 2000 m, top = 6000 m
+    // - High cirrus (Layer 2): base = 6000 m, top = 12000 m
+    var zStratumBase: f32 = 0.0;
+    var zStratumTop: f32 = 2000.0;
+    if (layerIdx == 1u) {
+        zStratumBase = 2000.0;
+        zStratumTop = 6000.0;
+    } else if (layerIdx == 2u) {
+        zStratumBase = 6000.0;
+        zStratumTop = 12000.0;
+    }
+    // W3C WGSL §14.4 compliant formulation equivalent to smoothstep(zStratumTop, zStratumBase, zTerrain):
+    let alphaStratum = 1.0 - smoothstep(zStratumBase, zStratumTop, zTerrain);
 
     // Invariant §10 standard: smoothstep(0.02, 0.20, in.facing)
     // Horizon Limb Falloff Specification (§1) for tropospheric cloud shells:
@@ -445,6 +512,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         discard;
     }
 
+    // Discard fragments completely blocked by terrain ridges (Milestone 3)
+    let blockedCloud = effectiveCloud * alphaStratum;
+    if (blockedCloud <= 0.001) {
+        discard;
+    }
+
     // Altitude-dependent opacity:
     // High cirrus 0.2–0.4, Low stratus 0.5–0.8.
     var baseLayerOpacity = cloud.u_layerOpacity.x; // Low stratus: 0.50 - 0.80
@@ -454,7 +527,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         baseLayerOpacity = cloud.u_layerOpacity.z; // High cirrus: 0.20 - 0.40
     }
 
-    var alpha = effectiveCloud * baseLayerOpacity * cloud.u_layerOpacity.w * horizonAtten;
+    var alpha = blockedCloud * baseLayerOpacity * cloud.u_layerOpacity.w * horizonAtten;
+
+    // Volumetric slant-path optical depth amplification (Spec §9, Phase 1)
+    let slabPathFactor = clamp(1.0 / muEff, 1.0, 2.5);
+    alpha = (1.0 - exp(-alpha * slabPathFactor * 1.8));
 
     // Cloud self-shadowing and anisotropic phase function (RFC Mechanic 1, §4.1)
     let sunDir = normalize(cloud.u_sunDirection.xyz);
@@ -490,7 +567,27 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let paperTooth = cloud.u_mediumProperties.w; // u_paper_tooth parameter
         let toothFactor = 1.0 - (paperNoise - 0.5) * (paperTooth * 0.35);
 
+        // Stratum ink pigmentation (Milestone 4):
+        // Layer 0 (Low Stratus): Layered gouache with subtle crevice density
+        // Layer 1 (Mid Altocumulus): Soft umber wash
+        // Layer 2 (High Cirrus): Translucent silverpoint hairlines (#4A423B with high alpha falloff)
+        var stratumPigment: vec3<f32>;
+        if (layerIdx == 0u) {
+            let creviceTone = vec3<f32>(0.78, 0.72, 0.64);
+            stratumPigment = mix(creviceTone, ivoryWash, smoothstep(0.20, 0.75, featheredCloud));
+        } else if (layerIdx == 1u) {
+            let umberTone = vec3<f32>(0.74, 0.67, 0.58);
+            stratumPigment = mix(umberTone, ivoryWash, smoothstep(0.15, 0.65, featheredCloud));
+        } else {
+            let silverpointHairline = vec3<f32>(0.290, 0.259, 0.231); // #4A423B
+            stratumPigment = mix(silverpointHairline, ivoryWash, smoothstep(0.25, 0.80, featheredCloud));
+            let cirrusFalloff = pow(featheredCloud, 2.4);
+            let hairlineMod = mix(0.70, 1.30, fract(sin(dot(toothCoord * 2.5, vec2<f32>(12.9898, 78.233))) * 43758.5453));
+            alpha = alpha * cirrusFalloff * hairlineMod;
+        }
+
         cloudColor = ivoryWash * toothFactor * phaseFactor * selfShadow;
+        cloudColor = (stratumPigment / ivoryWash) * cloudColor;
         alpha = alpha * mix(0.85, 1.0, toothFactor);
     } else if (cloud.u_theme == 2u) {
         // Theme 2 (Prussian Cyanotype 1842): Actinic white wisps, photochemical blueprint exposure

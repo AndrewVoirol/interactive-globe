@@ -785,8 +785,42 @@ fn sampleCloudShadowFactor(uv: vec2<f32>, shadowOffset: vec2<f32>, intensity: f3
 
     let cloudDens = (c0 + c1 + c2 + c3) * 0.25;
 
-    // Soft ground shadow attenuation per Spec §2.1
-    let shadowFactor = 1.0 - intensity * smoothstep(0.10, 0.35, cloudDens);
+    // Multi-stratum shadow ray projection & elevation decoupling (Milestone 4, Spec §8)
+    let highShadowOffset = shadowOffset * 3.4;
+    let highDriftOffset = driftOffset * 1.8;
+    let highCenterUV = vec2<f32>(fract(uv.x + highDriftOffset + highShadowOffset.x), clamp(uv.y + highShadowOffset.y, 0.001, 0.999));
+    const PENUMBRA_HIGH_KM: f32 = 35.0;
+    let rU_high = (PENUMBRA_HIGH_KM / TWO_PI_RE) / cosLat;
+    let rV_high = PENUMBRA_HIGH_KM / PI_RE;
+
+    let tapHigh0 = vec2<f32>(fract(highCenterUV.x - 0.38 * rU_high), clamp(highCenterUV.y - 0.92 * rV_high, 0.0, 1.0));
+    let tapHigh1 = vec2<f32>(fract(highCenterUV.x + 0.92 * rU_high), clamp(highCenterUV.y - 0.38 * rV_high, 0.0, 1.0));
+    let tapHigh2 = vec2<f32>(fract(highCenterUV.x + 0.38 * rU_high), clamp(highCenterUV.y + 0.92 * rV_high, 0.0, 1.0));
+    let tapHigh3 = vec2<f32>(fract(highCenterUV.x - 0.92 * rU_high), clamp(highCenterUV.y + 0.38 * rV_high, 0.0, 1.0));
+
+    let h0 = textureSampleLevel(u_cloudTexture, u_cloudSampler, tapHigh0, 0.0).r;
+    let h1 = textureSampleLevel(u_cloudTexture, u_cloudSampler, tapHigh1, 0.0).r;
+    let h2 = textureSampleLevel(u_cloudTexture, u_cloudSampler, tapHigh2, 0.0).r;
+    let h3 = textureSampleLevel(u_cloudTexture, u_cloudSampler, tapHigh3, 0.0).r;
+    let highCloudDens = (h0 + h1 + h2 + h3) * 0.25;
+
+    // Elevation decoupling: mountain peaks above cloudAltKm pierce low stratus
+    let demSample = textureSampleLevel(u_demTexture, u_demSampler, uv, 0.0);
+    let terrainElevM = demSample.a * 19772.0 - 10924.0;
+    let terrainH_km = max(0.0, terrainElevM) * 0.001;
+    let cloudAltKm: f32 = select(2.5, sim.u_cloudAltitudeKm, sim.u_cloudAltitudeKm > 0.0);
+
+    let deltaHLow = max(0.0, cloudAltKm - terrainH_km);
+    let deltaHHigh = max(0.0, 8.5 - terrainH_km);
+    let lowTerrainAtten = select(smoothstep(0.0, 0.5, deltaHLow), 0.0, deltaHLow <= 0.0);
+    let highTerrainAtten = select(smoothstep(0.0, 1.0, deltaHHigh), 0.0, deltaHHigh <= 0.0);
+
+    let lowTau = smoothstep(0.10, 0.35, cloudDens) * 0.70 * lowTerrainAtten;
+    let highTau = smoothstep(0.12, 0.45, highCloudDens) * 0.30 * highTerrainAtten;
+    let totalTau = lowTau + highTau;
+
+    // Soft ground shadow attenuation per Spec §2.1 & Spec §8
+    let shadowFactor = 1.0 - intensity * totalTau;
     return clamp(shadowFactor, 0.0, 1.0);
 }
 
