@@ -496,6 +496,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isEngineReady, setIsEngineReady] = useState<boolean>(false);
 
   // Regional High-Resolution DEM Overlay State (NOAA CUDEM ~10m)
   const regionalManifestRef = useRef<RegionalManifestEntry[]>([]);
@@ -853,13 +854,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     if (hasPhotoreal && !engine.isOrbitalTexturesLoaded()) {
       engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
     }
-  }, [dataLayers, prognosticModel, showClouds, isLoading]);
+  }, [dataLayers, prognosticModel, showClouds, isLoading, isEngineReady]);
 
   // WebGPU Device Loss Recovery
   useEffect(() => {
     const engine = engineRef.current;
     engine.onDeviceLost((info) => {
       console.warn('WebGPU device lost, triggering fallback to WebGL2:', info);
+      setIsEngineReady(false);
       setLoadError(`WebGPU Device Lost: ${info?.message || 'Device disconnected'}`);
       callbacksRef.current.onError?.(new Error(`WebGPU Device Lost: ${info?.message || 'Device disconnected'}`));
     });
@@ -2382,6 +2384,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
           return;
         }
         setIsLoading(false);
+        setIsEngineReady(true);
 
         const t1 = performance.now();
         const vramBytes = pointsData.byteLength + target2DData.byteLength + typeData.byteLength + lineIndices.byteLength;
@@ -2466,6 +2469,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
 
           if (!isMounted) return;
           setIsLoading(false);
+          setIsEngineReady(true);
 
           const t1 = performance.now();
           const vramBytes = pointsData.byteLength + target2DData.byteLength + typeData.byteLength + lineIndices.byteLength;
