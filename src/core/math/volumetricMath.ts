@@ -972,7 +972,11 @@ export function invertMacroChart(
     const rPar = radius * parallelWidth;
     const Rc = rPar / sDiv;
     const Cz = rPar * (s - 1.0 / sDiv);
-    const dz = tz - Cz;
+    const sZero = smoothstep(0.0, 0.10, alphaClamped);
+    const sOne = 1.0 - smoothstep(0.90, 1.0, alphaClamped);
+    const env = Math.sin(Math.PI * alphaClamped) * sZero * sOne;
+    const dz_lift = (0.60 + 0.40 * cosLat) * radius * 0.06 * env;
+    const dz = (tz - dz_lift) - Cz;
     lambda = Math.atan2(tx, dz) / s;
     h = Math.hypot(tx, dz) - Rc;
   }
