@@ -133,7 +133,8 @@ describe('Challenger M2 Adversarial Test Suite: Topographic Barrier Wind Deflect
         windParticlesWGSL.indexOf('fn computeLiftedAltitude(')
       );
       expect(sampleVelocityBody).toContain('textureSampleLevel(u_jetTexture, u_windSampler, uv, 0.0)');
-      expect(sampleVelocityBody).toContain('textureSampleLevel(u_windTexture, u_windSampler, uv, 0.0)');
+      expect(sampleVelocityBody).toContain('textureSampleLevel(u_windTexture0, u_windSampler, uv, 0.0)');
+      expect(sampleVelocityBody).toContain('textureSampleLevel(u_windTexture1, u_windSampler, uv, 0.0)');
       // Must not contain implicit derivative textureSample
       expect(sampleVelocityBody).not.toMatch(/textureSample\(/);
       expect(sampleVelocityBody).not.toMatch(/fwidth\(/);

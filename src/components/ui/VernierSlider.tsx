@@ -121,10 +121,19 @@ export const VernierSlider: React.FC<VernierSliderProps> = ({
           step={step}
           value={localVal}
           disabled={disabled}
+          onInput={(e) => {
+            const next = parseFloat((e.target as HTMLInputElement).value);
+            if (!Number.isNaN(next)) {
+              setLocalVal(next);
+              onChange?.(next);
+            }
+          }}
           onChange={(e) => {
             const next = parseFloat(e.target.value);
-            setLocalVal(next);
-            onChange?.(next);
+            if (!Number.isNaN(next)) {
+              setLocalVal(next);
+              onChange?.(next);
+            }
           }}
           className="w-full slider-archival h-1 cursor-pointer block transition-opacity"
         />

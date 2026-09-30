@@ -79,6 +79,8 @@ export interface WebGPUFrameParams {
   showWind?: boolean;
   showSurfaceWinds?: boolean;
   showJetStream?: boolean;
+  windSpeedMultiplier?: number;
+  windParticleLifetime?: number;
   showRelief?: boolean;
   showVectors?: boolean;
   showClouds?: boolean;
@@ -754,9 +756,11 @@ export class WebGPUEngine {
   private pointsRenderPipeline!: GPURenderPipeline;
   private linesRenderPipeline!: GPURenderPipeline;
 
-  // NOAA GFS Wind Grid Texture (F34)
+  // NOAA GFS Wind Grid Texture (F34) - Dual-Slot Ring Buffer
   private windTexture: GPUTexture | null = null;
   private windTextureView: GPUTextureView | null = null;
+  private windTexture1: GPUTexture | null = null;
+  private windTextureView1: GPUTextureView | null = null;
   private windSampler: GPUSampler | null = null;
   private windTextureLoadSeq: number = 0;
 
@@ -772,6 +776,7 @@ export class WebGPUEngine {
   public showSurfaceWinds: boolean = true;
   public showJetStream: boolean = true;
   public windSpeedMultiplier: number = 1.0;
+  public windParticleLifetime: number = 6.0;
   private jetStreamTexture: GPUTexture | null = null;
   private jetStreamTextureView: GPUTextureView | null = null;
   public windParticleBuffers: [GPUBuffer, GPUBuffer] | null = null;
@@ -1194,7 +1199,7 @@ export class WebGPUEngine {
     const windW = 360;
     const windH = 181;
     this.windTexture = this.device.createTexture({
-      label: 'wind_velocity_texture',
+      label: 'wind_velocity_texture_slot0',
       size: [windW, windH, 1],
       format: 'rg16float',
       usage: (typeof GPUTextureUsage !== 'undefined'
@@ -1202,6 +1207,16 @@ export class WebGPUEngine {
         : (4 | 8)),
     });
     this.windTextureView = this.windTexture.createView();
+
+    this.windTexture1 = this.device.createTexture({
+      label: 'wind_velocity_texture_slot1',
+      size: [windW, windH, 1],
+      format: 'rg16float',
+      usage: (typeof GPUTextureUsage !== 'undefined'
+        ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
+        : (4 | 8)),
+    });
+    this.windTextureView1 = this.windTexture1.createView();
 
     // Populate procedural circulation fallback into windTexture initially
     const rowBytesRaw = windW * 4; // 360 * 2 components * 2 bytes = 1440 bytes
@@ -1237,6 +1252,12 @@ export class WebGPUEngine {
     try {
       this.device.queue.writeTexture(
         { texture: this.windTexture },
+        paddedWindData,
+        { bytesPerRow: rowBytesPadded, rowsPerImage: windH },
+        [windW, windH, 1]
+      );
+      this.device.queue.writeTexture(
+        { texture: this.windTexture1 },
         paddedWindData,
         { bytesPerRow: rowBytesPadded, rowsPerImage: windH },
         [windW, windH, 1]
@@ -3550,6 +3571,7 @@ export class WebGPUEngine {
           { binding: 7, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float', viewDimension: '2d' } },
           { binding: 8, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float', viewDimension: '2d' } },
           { binding: 9, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+          { binding: 10, visibility: GPUShaderStage.COMPUTE, texture: {} },
         ],
       });
 
@@ -3566,6 +3588,9 @@ export class WebGPUEngine {
         },
       });
 
+      const slot0View = this.windTextureView!;
+      const slot1View = this.windTextureView1 || this.windTextureView!;
+
       this.windComputeBindGroups = [
         this.device.createBindGroup({
           label: 'wind_compute_bg_0_to_1',
@@ -3575,12 +3600,13 @@ export class WebGPUEngine {
             { binding: 1, resource: { buffer: this.windParticleBuffers[0] } },
             { binding: 2, resource: { buffer: this.windParticleBuffers[1] } },
             { binding: 3, resource: this.windSampler! },
-            { binding: 4, resource: this.windTextureView! },
-            { binding: 5, resource: this.jetStreamTextureView! },
+            { binding: 4, resource: slot0View },
+            { binding: 5, resource: slot1View },
             { binding: 6, resource: this.demSampler! },
             { binding: 7, resource: this.demTextureView! },
             { binding: 8, resource: regView },
             { binding: 9, resource: { buffer: regBuffer } },
+            { binding: 10, resource: this.jetStreamTextureView! },
           ],
         }),
         this.device.createBindGroup({
@@ -3591,12 +3617,13 @@ export class WebGPUEngine {
             { binding: 1, resource: { buffer: this.windParticleBuffers[1] } },
             { binding: 2, resource: { buffer: this.windParticleBuffers[0] } },
             { binding: 3, resource: this.windSampler! },
-            { binding: 4, resource: this.windTextureView! },
-            { binding: 5, resource: this.jetStreamTextureView! },
+            { binding: 4, resource: slot0View },
+            { binding: 5, resource: slot1View },
             { binding: 6, resource: this.demSampler! },
             { binding: 7, resource: this.demTextureView! },
             { binding: 8, resource: regView },
             { binding: 9, resource: { buffer: regBuffer } },
+            { binding: 10, resource: this.jetStreamTextureView! },
           ],
         }),
       ];
@@ -4954,7 +4981,7 @@ export class WebGPUEngine {
    * Loads the NOAA GFS (1.0° / 0.25°) or Google DeepMind WeatherNext 3 (0.1°) wind velocity grid
    * into a 2D float texture (rg16float) (F34).
    */
-  public async loadWindTexture(urlOrBuffer: string | ArrayBuffer = '/data/gfs-wind-latest.bin'): Promise<void> {
+  public async loadWindTexture(urlOrBuffer: string | ArrayBuffer = '/data/gfs-wind-latest.bin', slot: 0 | 1 = 0): Promise<void> {
     if (!this.device || !this.isInitialized) return;
 
     const seq = ++this.windTextureLoadSeq;
@@ -5064,22 +5091,32 @@ export class WebGPUEngine {
       }
     }
 
-    if (!this.windTexture || this.windTexture.width !== windW || this.windTexture.height !== windH) {
-      this.windTexture?.destroy();
-      this.windTexture = this.device.createTexture({
-        label: 'wind_velocity_texture',
+    let targetTexture = slot === 1 ? this.windTexture1 : this.windTexture;
+    let targetView = slot === 1 ? this.windTextureView1 : this.windTextureView;
+
+    if (!targetTexture || targetTexture.width !== windW || targetTexture.height !== windH) {
+      targetTexture?.destroy();
+      targetTexture = this.device.createTexture({
+        label: `wind_velocity_texture_slot${slot}`,
         size: [windW, windH, 1],
         format: 'rg16float',
         usage: (typeof GPUTextureUsage !== 'undefined'
           ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
           : (4 | 8)),
       });
-      this.windTextureView = this.windTexture.createView();
+      targetView = targetTexture.createView();
+      if (slot === 1) {
+        this.windTexture1 = targetTexture;
+        this.windTextureView1 = targetView;
+      } else {
+        this.windTexture = targetTexture;
+        this.windTextureView = targetView;
+      }
     }
 
     try {
       this.device.queue.writeTexture(
-        { texture: this.windTexture },
+        { texture: targetTexture },
         padded,
         { bytesPerRow: rowBytesPadded, rowsPerImage: windH },
         [windW, windH, 1]
@@ -5096,6 +5133,122 @@ export class WebGPUEngine {
     } catch {
       // Mock environment guard
     }
+  }
+
+  /**
+   * Directly uploads pre-decoded wind buffer to slot 0 or 1.
+   */
+  public loadWindTextureSlot(slot: 0 | 1, buffer: ArrayBuffer | Uint8Array): void {
+    if (!this.device || !this.isInitialized) return;
+    const byteLength = buffer.byteLength;
+    const isWn0p1Padded = byteLength === 26280192; // 14592 * 1801
+    const isWn0p1Raw = byteLength === 25934400;    // 14400 * 1801
+    const is0p25Padded = byteLength === 4245248;   // 5888 * 721
+    const is0p25Raw = byteLength === 4152960;      // 5760 * 721
+    const is1p0Padded = byteLength === 278016;     // 1536 * 181
+    const is1p0Raw = byteLength === 260640;        // 1440 * 181
+
+    let windW: number;
+    let windH: number;
+    let rowBytesRaw: number;
+    let rowBytesPadded: number;
+    let padded: Uint8Array;
+
+    const rawArrayBuffer = buffer instanceof ArrayBuffer ? buffer : buffer.buffer;
+
+    if (isWn0p1Padded) {
+      windW = 3600;
+      windH = 1801;
+      rowBytesRaw = 14400;
+      rowBytesPadded = 14592;
+      padded = new Uint8Array(rawArrayBuffer);
+    } else if (isWn0p1Raw) {
+      windW = 3600;
+      windH = 1801;
+      rowBytesRaw = 14400;
+      rowBytesPadded = 14592;
+      padded = new Uint8Array(rowBytesPadded * windH);
+      const srcU8 = new Uint8Array(rawArrayBuffer);
+      for (let y = 0; y < windH; y++) {
+        padded.set(srcU8.subarray(y * rowBytesRaw, y * rowBytesRaw + rowBytesRaw), y * rowBytesPadded);
+      }
+    } else if (is0p25Padded) {
+      windW = 1440;
+      windH = 721;
+      rowBytesRaw = 5760;
+      rowBytesPadded = 5888;
+      padded = new Uint8Array(rawArrayBuffer);
+    } else if (is0p25Raw) {
+      windW = 1440;
+      windH = 721;
+      rowBytesRaw = 5760;
+      rowBytesPadded = 5888;
+      padded = new Uint8Array(rawArrayBuffer);
+      const srcU8 = new Uint8Array(rawArrayBuffer);
+      for (let y = 0; y < windH; y++) {
+        padded.set(srcU8.subarray(y * rowBytesRaw, y * rowBytesRaw + rowBytesRaw), y * rowBytesPadded);
+      }
+    } else if (is1p0Padded) {
+      windW = 360;
+      windH = 181;
+      rowBytesRaw = 1440;
+      rowBytesPadded = 1536;
+      padded = new Uint8Array(rawArrayBuffer);
+    } else if (is1p0Raw) {
+      windW = 360;
+      windH = 181;
+      rowBytesRaw = 1440;
+      rowBytesPadded = 1536;
+      padded = new Uint8Array(rawArrayBuffer);
+      const srcU8 = new Uint8Array(rawArrayBuffer);
+      for (let y = 0; y < windH; y++) {
+        padded.set(srcU8.subarray(y * rowBytesRaw, y * rowBytesRaw + rowBytesRaw), y * rowBytesPadded);
+      }
+    } else {
+      const bytesPerTexel = 4;
+      windW = Math.max(1, Math.round(Math.sqrt(byteLength / (2 * bytesPerTexel))));
+      windH = Math.max(1, Math.floor(byteLength / (windW * bytesPerTexel)));
+      rowBytesRaw = windW * bytesPerTexel;
+      rowBytesPadded = Math.ceil(rowBytesRaw / 256) * 256;
+      padded = new Uint8Array(rowBytesPadded * windH);
+      const srcU8 = new Uint8Array(rawArrayBuffer);
+      for (let y = 0; y < windH; y++) {
+        padded.set(srcU8.subarray(y * rowBytesRaw, y * rowBytesRaw + rowBytesRaw), y * rowBytesPadded);
+      }
+    }
+
+    let targetTexture = slot === 1 ? this.windTexture1 : this.windTexture;
+    let targetView = slot === 1 ? this.windTextureView1 : this.windTextureView;
+
+    if (!targetTexture || targetTexture.width !== windW || targetTexture.height !== windH) {
+      targetTexture?.destroy();
+      targetTexture = this.device.createTexture({
+        label: `wind_velocity_texture_slot${slot}`,
+        size: [windW, windH, 1],
+        format: 'rg16float',
+        usage: (typeof GPUTextureUsage !== 'undefined'
+          ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
+          : (4 | 8)),
+      });
+      targetView = targetTexture.createView();
+      if (slot === 1) {
+        this.windTexture1 = targetTexture;
+        this.windTextureView1 = targetView;
+      } else {
+        this.windTexture = targetTexture;
+        this.windTextureView = targetView;
+      }
+    }
+
+    try {
+      this.device.queue.writeTexture(
+        { texture: targetTexture },
+        padded,
+        { bytesPerRow: rowBytesPadded, rowsPerImage: windH },
+        [windW, windH, 1]
+      );
+      this.updateWindBindGroups();
+    } catch {}
   }
 
   /**
@@ -5444,6 +5597,18 @@ export class WebGPUEngine {
 
   public setWindSpeedMultiplier(multiplier: number): void {
     this.windSpeedMultiplier = Math.max(0.1, Math.min(10.0, multiplier));
+    if (this.windUniformBuffer && this.device) {
+      this.windUniformFloats[5] = this.windSpeedMultiplier;
+      this.device.queue.writeBuffer(this.windUniformBuffer, 0, this.windUniformFloats);
+    }
+  }
+
+  public setWindParticleLifetime(lifetime: number): void {
+    this.windParticleLifetime = Math.max(0.5, Math.min(30.0, lifetime));
+    if (this.windUniformBuffer && this.device) {
+      this.windUniformFloats[11] = this.windParticleLifetime;
+      this.device.queue.writeBuffer(this.windUniformBuffer, 0, this.windUniformFloats);
+    }
   }
 
   private updateDepthTexture(width: number, height: number): void {
@@ -8237,19 +8402,20 @@ export class WebGPUEngine {
       windU[2] = (params.time ?? 0.0) + timelineOffsetSec;
       windU[3] = params.dt;
       windU32[4] = this.windParticleCount;
-      windU[5] = this.windSpeedMultiplier;
+      windU[5] = params.windSpeedMultiplier !== undefined ? params.windSpeedMultiplier : this.windSpeedMultiplier;
       windU[6] = showSurf ? 1.0 : 0.0;
       windU[7] = showJet ? 1.0 : 0.0;
       windU[8] = params.displacementScale !== undefined ? params.displacementScale : 0.055;
       windU[9] = params.peakExponent !== undefined ? params.peakExponent : 1.4;
       windU32[10] = params.verticalScaleMode !== undefined ? params.verticalScaleMode : this.verticalScaleMode;
-      windU[11] = 0.0;
+      windU[11] = params.windParticleLifetime !== undefined ? params.windParticleLifetime : this.windParticleLifetime;
       if (params.camera?.position) {
         windU[12] = params.camera.position.x;
         windU[13] = params.camera.position.y;
         windU[14] = params.camera.position.z;
-        windU[15] = 1.0;
       }
+      const scrubVal = params.scrubTau ?? params.tau ?? params.weatherTau;
+      windU[15] = (scrubVal !== undefined && Number.isFinite(scrubVal)) ? scrubVal : this._weatherTau;
       this.device.queue.writeBuffer(this.windUniformBuffer, 0, windU.buffer);
     }
 
@@ -10394,6 +10560,9 @@ export class WebGPUEngine {
     this.windTexture?.destroy();
     this.windTexture = null;
     this.windTextureView = null;
+    this.windTexture1?.destroy();
+    this.windTexture1 = null;
+    this.windTextureView1 = null;
     this.windSampler = null;
     this.jetStreamTexture?.destroy();
     this.jetStreamTexture = null;

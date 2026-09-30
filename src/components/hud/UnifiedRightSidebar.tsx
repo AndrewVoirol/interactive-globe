@@ -20,6 +20,7 @@ import { AtmosphereDrawer, PrognosticModelBackend } from '../AtmosphereDrawer';
 export type { PrognosticModelBackend };
 import { TimelineScrubber, type TimelineScrubberState } from './TimelineScrubber';
 import { CuratorsColophon } from './CuratorsColophon';
+import type { MeteorologicalProvenance } from '../../core/data/WeatherNextDataSource';
 
 const PIGMENT_SWATCHES: Record<0 | 1 | 2, Array<{ hex: string; depth: string }>> = {
   0: [{ hex: '#0f171f', depth: '-11,000m' }, { hex: '#22384a', depth: 'Shelf Break' }, { hex: '#3b788a', depth: 'Coastal' }, { hex: '#cbb692', depth: 'Steppe' }, { hex: '#f4ede1', depth: 'Glacial' }],
@@ -128,6 +129,11 @@ export interface UnifiedRightSidebarProps {
   cdlodDiagnosticMode?: number;
   onCdlodDiagnosticModeChange?: (mode: number) => void;
   setCdlodDiagnosticMode?: (mode: number) => void;
+  provenance?: MeteorologicalProvenance;
+  windSpeedMultiplier?: number;
+  onWindSpeedMultiplierChange?: (v: number) => void;
+  windParticleLifetime?: number;
+  onWindParticleLifetimeChange?: (v: number) => void;
 }
 
 export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
@@ -233,6 +239,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   cdlodDiagnosticMode: cdlodDiagnosticModeProp,
   onCdlodDiagnosticModeChange,
   setCdlodDiagnosticMode,
+  provenance,
+  windSpeedMultiplier,
+  onWindSpeedMultiplierChange,
+  windParticleLifetime,
+  onWindParticleLifetimeChange,
 }) => {
   const handleToggleClouds = (val: boolean) => {
     onShowCloudsChange?.(val);
@@ -1594,6 +1605,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   timelineMinutes={timelineMinutes} onTimelineChange={onTimelineChange}
                   onSnapCamera={onSnapCamera}
                   onTogglePlanetaryLayer={handleTogglePlanetaryLayer}
+                  provenance={provenance}
+                  windSpeedMultiplier={windSpeedMultiplier}
+                  onWindSpeedMultiplierChange={onWindSpeedMultiplierChange}
+                  windParticleLifetime={windParticleLifetime}
+                  onWindParticleLifetimeChange={onWindParticleLifetimeChange}
                 />
 
                 {/* Global Geodesic Feeds Card */}

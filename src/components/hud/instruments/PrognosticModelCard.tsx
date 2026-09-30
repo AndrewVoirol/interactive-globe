@@ -8,6 +8,8 @@
 
 import React, { useRef, useState, useCallback, useMemo } from 'react';
 import { SegmentedControl } from '../../ui/SegmentedControl';
+import { VernierSlider } from '../../ui/VernierSlider';
+import { MeteorologicalProvenance } from '../../../core/data/WeatherNextDataSource';
 
 export type PrognosticModelBackend =
   | 'noaa-gfs'
@@ -37,6 +39,11 @@ export interface PrognosticModelCardProps {
   theme?: 0 | 1 | 2; // 0: Marie Tharp, 1: Cream Rag, 2: Prussian Cyanotype
   isLight?: boolean;
   className?: string;
+  provenance?: MeteorologicalProvenance;
+  windSpeedMultiplier?: number;
+  onWindSpeedMultiplierChange?: (v: number) => void;
+  windParticleLifetime?: number;
+  onWindParticleLifetimeChange?: (v: number) => void;
 }
 
 export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
@@ -57,6 +64,11 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
   theme: propTheme,
   isLight = false,
   className = '',
+  provenance,
+  windSpeedMultiplier: propWindSpeed,
+  onWindSpeedMultiplierChange,
+  windParticleLifetime: propWindLifetime,
+  onWindParticleLifetimeChange,
 }) => {
   // 1. Dual-mode state management (Controlled with internal fallback)
   const [internalModel, setInternalModel] = useState<PrognosticModelBackend>('gfs');
@@ -123,6 +135,45 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
     }
     return rawVariable || 'total_precipitation_1hr_mean';
   }, [rawVariable]);
+
+  // Wind Advection Dynamics State & Direct Zero-Placebo Dispatch
+  const [internalWindSpeed, setInternalWindSpeed] = useState<number>(1.0);
+  const curWindSpeed = propWindSpeed !== undefined ? propWindSpeed : internalWindSpeed;
+  const handleWindSpeedChange = useCallback(
+    (val: number) => {
+      setInternalWindSpeed(val);
+      onWindSpeedMultiplierChange?.(val);
+      if (typeof window !== 'undefined') {
+        if (typeof (window as any).__INDICATRIX_SET_WIND_SPEED_MULTIPLIER__ === 'function') {
+          (window as any).__INDICATRIX_SET_WIND_SPEED_MULTIPLIER__(val);
+        }
+        const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+        if (engine && typeof engine.setWindSpeedMultiplier === 'function') {
+          engine.setWindSpeedMultiplier(val);
+        }
+      }
+    },
+    [onWindSpeedMultiplierChange]
+  );
+
+  const [internalWindLifetime, setInternalWindLifetime] = useState<number>(6.0);
+  const curWindLifetime = propWindLifetime !== undefined ? propWindLifetime : internalWindLifetime;
+  const handleWindLifetimeChange = useCallback(
+    (val: number) => {
+      setInternalWindLifetime(val);
+      onWindParticleLifetimeChange?.(val);
+      if (typeof window !== 'undefined') {
+        if (typeof (window as any).__INDICATRIX_SET_WIND_PARTICLE_LIFETIME__ === 'function') {
+          (window as any).__INDICATRIX_SET_WIND_PARTICLE_LIFETIME__(val);
+        }
+        const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+        if (engine && typeof engine.setWindParticleLifetime === 'function') {
+          engine.setWindParticleLifetime(val);
+        }
+      }
+    },
+    [onWindParticleLifetimeChange]
+  );
 
   // 4. Interactive Viewport & Drag Caliper Logic
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -755,6 +806,44 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
         </div>
       )}
 
+      {/* Wind Advection Dynamics Vernier Sliders (Phase 3 Requirement) */}
+      {isWeatherNext && normalizedVariable === 'wind_10m_vector' && (
+        <div className="space-y-1.5 pt-1 border-t border-[var(--theme-control-border)]/50">
+          <div className="flex items-center justify-between text-nano font-mono">
+            <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
+              Lagrangian Advection Dynamics
+            </span>
+            <span className="text-[var(--theme-text-muted)] text-[9px]">
+              Geodesic RK2
+            </span>
+          </div>
+          <VernierSlider
+            id="wind-speed-multiplier-slider"
+            label="Speed Multiplier"
+            sublabel="Eulerian flow magnitude"
+            value={curWindSpeed}
+            min={0.1}
+            max={10.0}
+            step={0.1}
+            unit="×"
+            readout={`${curWindSpeed.toFixed(1)}×`}
+            onChange={handleWindSpeedChange}
+          />
+          <VernierSlider
+            id="wind-particle-lifetime-slider"
+            label="Particle Lifetime"
+            sublabel="Lagrangian decay"
+            value={curWindLifetime}
+            min={0.5}
+            max={20.0}
+            step={0.5}
+            unit="s"
+            readout={`${curWindLifetime.toFixed(1)}s`}
+            onChange={handleWindLifetimeChange}
+          />
+        </div>
+      )}
+
       {/* 5. Integrated Data Provenance & WeatherNext Zarr v3 Telemetry */}
       {isWeatherNext && (
         <div className="p-1.5 rounded-[2px] border border-[var(--theme-control-border)]/60 bg-[var(--theme-control-bg)]/40 space-y-1 font-mono text-nano text-[var(--theme-text-muted)]">
@@ -774,7 +863,9 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pt-1 border-t border-[var(--theme-control-border)]/30 text-[9px] opacity-85">
             <div className="flex items-center justify-between">
               <span className="text-[var(--theme-text-secondary)]">Resolution:</span>
-              <span className="font-bold text-[var(--theme-text-primary)]">0.1° (~10 km)</span>
+              <span className="font-bold text-[var(--theme-text-primary)]">
+                {provenance ? `${provenance.spatialResolutionDeg}° (~10 km)` : '0.1° (~10 km)'}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[var(--theme-text-secondary)]">Chunk Spec:</span>
@@ -782,12 +873,30 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[var(--theme-text-secondary)]">Cycle:</span>
-              <span className="font-bold text-[var(--theme-text-primary)]">00Z Hybrid</span>
+              <span className="font-bold text-[var(--theme-text-primary)]">
+                {provenance?.runTimestamp ? (provenance.runTimestamp.includes('T') ? provenance.runTimestamp.slice(11, 13) + 'Z Hybrid' : provenance.runTimestamp) : '00Z Hybrid'}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[var(--theme-text-secondary)]">Ensemble Spread:</span>
               <span className="font-bold text-[var(--theme-text-primary)]">±0.42 m/s</span>
             </div>
+            {provenance && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--theme-text-secondary)]">Temporal Blend:</span>
+                  <span className="font-bold text-[var(--theme-text-primary)]">
+                    τ={provenance.temporalBlendTau.toFixed(2)} (Slot {provenance.activeSlotIndex})
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--theme-text-secondary)]">Valid Prediction:</span>
+                  <span className="font-bold text-[var(--theme-text-primary)] truncate max-w-[85px]" title={provenance.validTimestamp}>
+                    {provenance.validTimestamp.includes('T') ? provenance.validTimestamp.slice(11, 16) + 'Z' : provenance.validTimestamp}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

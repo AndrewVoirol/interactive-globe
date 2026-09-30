@@ -112,7 +112,8 @@ describe('Milestone 2: Topographic Barrier Wind Deflection', () => {
 
       // Must use textureSampleLevel with explicit LOD 0.0
       expect(shaderSource).toContain('textureSampleLevel(u_jetTexture, u_windSampler, uv, 0.0)');
-      expect(shaderSource).toContain('textureSampleLevel(u_windTexture, u_windSampler, uv, 0.0)');
+      expect(shaderSource).toContain('textureSampleLevel(u_windTexture0, u_windSampler, uv, 0.0)');
+      expect(shaderSource).toContain('textureSampleLevel(u_windTexture1, u_windSampler, uv, 0.0)');
       expect(shaderSource).toContain('textureSampleLevel(u_demTexture, u_demSampler, vec2<f32>(u, v), 0.0)');
     });
 

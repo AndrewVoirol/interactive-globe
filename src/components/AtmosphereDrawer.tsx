@@ -17,6 +17,7 @@ import { CloudDriftSpeedInstrument } from './hud/instruments/CloudDriftSpeedInst
 import { PrognosticModelCard } from './hud/instruments/PrognosticModelCard';
 import { StratosphericTelemetryInstrument } from './hud/instruments/StratosphericTelemetryInstrument';
 import type { ResolutionTier } from '../types';
+import type { MeteorologicalProvenance } from '../core/data/WeatherNextDataSource';
 
 export type PrognosticModelBackend =
   | 'noaa-gfs'
@@ -90,6 +91,11 @@ export interface AtmosphereDrawerProps {
   onCloudMultiRateRaymarchChange?: (v: boolean) => void;
   volumetricClouds?: boolean;
   onVolumetricCloudsChange?: (v: boolean) => void;
+  provenance?: MeteorologicalProvenance;
+  windSpeedMultiplier?: number;
+  onWindSpeedMultiplierChange?: (v: number) => void;
+  windParticleLifetime?: number;
+  onWindParticleLifetimeChange?: (v: number) => void;
 }
 
 export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
@@ -97,6 +103,11 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   isLight = false,
   hideScrubber = false,
   isRadarActive = false,
+  provenance,
+  windSpeedMultiplier,
+  onWindSpeedMultiplierChange,
+  windParticleLifetime,
+  onWindParticleLifetimeChange,
   showClouds: propShowClouds,
   onShowCloudsChange,
   showCloudLow: propShowCloudLow,
@@ -789,6 +800,11 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             theme={theme}
             isLight={isLight}
             onTogglePlanetaryLayer={onTogglePlanetaryLayer}
+            provenance={provenance}
+            windSpeedMultiplier={windSpeedMultiplier}
+            onWindSpeedMultiplierChange={onWindSpeedMultiplierChange}
+            windParticleLifetime={windParticleLifetime}
+            onWindParticleLifetimeChange={onWindParticleLifetimeChange}
           />
 
           {/* Plate IV.B: Atmospheric Chronology & Temporal Scrubber */}

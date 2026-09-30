@@ -21,8 +21,9 @@ struct WindSimUniforms {
     u_displacementScale: f32,
     u_peakExponent: f32,
     u_verticalScaleMode: u32,
-    u_pad2: f32,
-    u_cameraPos: vec4<f32>,
+    u_particleLifetime: f32,
+    u_cameraPos: vec3<f32>,
+    u_tau: f32,
 };
 
 struct WindParticle {
@@ -38,8 +39,8 @@ struct WindParticle {
 @group(0) @binding(1) var<storage, read> particlesIn: array<WindParticle>;
 @group(0) @binding(2) var<storage, read_write> particlesOut: array<WindParticle>;
 @group(0) @binding(3) var u_windSampler: sampler;
-@group(0) @binding(4) var u_windTexture: texture_2d<f32>;
-@group(0) @binding(5) var u_jetTexture: texture_2d<f32>;
+@group(0) @binding(4) var u_windTexture0: texture_2d<f32>;
+@group(0) @binding(5) var u_windTexture1: texture_2d<f32>;
 @group(0) @binding(6) var u_demSampler: sampler;
 @group(0) @binding(7) var u_demTexture: texture_2d<f32>;
 @group(0) @binding(8) var u_regionalDEMTexture: texture_2d<f32>;
@@ -55,6 +56,7 @@ struct RegionalOverlayUniforms {
 };
 
 @group(0) @binding(9) var<uniform> u_regionalOverlay: RegionalOverlayUniforms;
+@group(0) @binding(10) var u_jetTexture: texture_2d<f32>;
 
 // Deterministic fast hash for particle respawning
 fn hash12(p: vec2<f32>) -> f32 {
@@ -187,7 +189,10 @@ fn sampleVelocity(lonRad: f32, latRad: f32, isJet: bool) -> vec2<f32> {
         return textureSampleLevel(u_jetTexture, u_windSampler, uv, 0.0).xy;
     }
 
-    let rawVel = textureSampleLevel(u_windTexture, u_windSampler, uv, 0.0).xy;
+    // Bilinear-temporal vector interpolation between Slot 0 and Slot 1 across ring buffer interval
+    let w0 = textureSampleLevel(u_windTexture0, u_windSampler, uv, 0.0).xy;
+    let w1 = textureSampleLevel(u_windTexture1, u_windSampler, uv, 0.0).xy;
+    let rawVel = mix(w0, w1, clamp(sim.u_tau, 0.0, 1.0));
 
     // Evaluate surface terrain elevation and spherical metric gradient
     let terrain = sampleTerrain(lonRad, latRad);
@@ -276,6 +281,41 @@ fn geodeticToManifold(lonRad: f32, latRad: f32, altOffset: f32, mode: u32, unfur
     return deformed.pos;
 }
 
+// ============================================================================
+// Riemannian Exponential Map & Spherical Geodesic Displacement on S^2
+// Transports coordinates along great-circle geodesics with zero polar singularities
+// ============================================================================
+fn geodesicDisplacement(lon: f32, lat: f32, dLamRad: f32, dPhiRad: f32) -> vec2<f32> {
+    let sigma_sq = dLamRad * dLamRad + dPhiRad * dPhiRad;
+    if (sigma_sq < 1e-12) {
+        return vec2<f32>(lon, lat);
+    }
+    let cos_phi = cos(lat);
+    let sin_phi = sin(lat);
+    let sigma = sqrt(sigma_sq);
+    let sinc = select(1.0 - sigma_sq * 0.16666667, sin(sigma) / max(sigma, 1e-7), sigma > 1e-4);
+    let cos_sigma = cos(sigma);
+    let c_lam = sinc * dLamRad;
+    let c_phi = sinc * dPhiRad;
+    let sin_phi_d = clamp(c_phi * cos_phi + cos_sigma * sin_phi, -1.0, 1.0);
+    let phi_d = asin(sin_phi_d);
+    let y = c_lam;
+    let x = cos_sigma * cos_phi - c_phi * sin_phi;
+    let delta_lambda = atan2(y, x);
+
+    var lon_new = lon + delta_lambda;
+    if (lon_new > PI) { lon_new = lon_new - TWO_PI; }
+    if (lon_new < -PI) { lon_new = lon_new + TWO_PI; }
+
+    return vec2<f32>(lon_new, phi_d);
+}
+
+fn advectSphericalGeodesic(lon: f32, lat: f32, velMps: vec2<f32>, dtSeconds: f32) -> vec2<f32> {
+    let dLamRad = (velMps.x * dtSeconds) / EARTH_RADIUS;
+    let dPhiRad = (velMps.y * dtSeconds) / EARTH_RADIUS;
+    return geodesicDisplacement(lon, lat, dLamRad, dPhiRad);
+}
+
 @compute @workgroup_size(256, 1, 1)
 fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let index = global_id.x;
@@ -306,11 +346,13 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var age = pIn.pos.w;
 
     let dt = sim.u_deltaTime * sim.u_speedMultiplier;
-    // Lifespan of ~550-800 frames (~4.5 - 7.0 seconds at 120 FPS) prevents rapid popping static
-    let ageIncrement = select(0.0018, 0.0012, isJetStream);
+    // Dynamic lifetime modulation: u_particleLifetime in seconds (calibrated default ~6.0s)
+    let baseLifetime = select(6.0, sim.u_particleLifetime, sim.u_particleLifetime >= 0.5);
+    let stratumLifetime = select(baseLifetime, baseLifetime * 1.5, isJetStream);
+    let ageIncrement = dt / stratumLifetime;
 
     // Check if particle should respawn
-    let shouldRespawn = age >= 1.0 || (lon != lon) || (lat != lat) || abs(lat) > (PI * 0.495);
+    let shouldRespawn = age >= 1.0 || (lon != lon) || (lat != lat) || abs(lat) > (PI * 0.499);
 
     if (shouldRespawn) {
         // Spawn at randomized geographic position
@@ -329,27 +371,20 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
         age = fract(rnd.x * 3.7) * 0.4; // Stagger initial ages with headroom for smooth fade-in
     } else {
-        // 2nd-Order Runge-Kutta (RK2) Advection forward in time
+        // 2nd-Order Runge-Kutta (RK2) Geodesic Advection forward on S^2
         let v0 = sampleVelocity(lon, lat, isJetStream);
         let simScale = select(6000.0, 10000.0, isJetStream);
-        let cosLat = max(0.05, cos(lat));
+        let dtStep = dt * simScale;
 
-        let dLon0 = (v0.x * dt * simScale / EARTH_RADIUS) / cosLat;
-        let dLat0 = (v0.y * dt * simScale / EARTH_RADIUS);
+        // Midpoint geodesic step
+        let posMid = advectSphericalGeodesic(lon, lat, v0, dtStep * 0.5);
+        let vMid = sampleVelocity(posMid.x, posMid.y, isJetStream);
 
-        // Midpoint evaluation
-        let lonMid = lon + dLon0 * 0.5;
-        let latMid = clamp(lat + dLat0 * 0.5, -PI * 0.49, PI * 0.49);
-        let vMid = sampleVelocity(lonMid, latMid, isJetStream);
+        // Full geodesic step from initial position using midpoint velocity
+        let posNext = advectSphericalGeodesic(lon, lat, vMid, dtStep);
 
-        let dLon1 = (vMid.x * dt * simScale / EARTH_RADIUS) / max(0.05, cos(latMid));
-        let dLat1 = (vMid.y * dt * simScale / EARTH_RADIUS);
-
-        lon = lon + dLon1;
-        if (lon > PI) { lon = lon - TWO_PI; }
-        if (lon < -PI) { lon = lon + TWO_PI; }
-
-        lat = clamp(lat + dLat1, -PI * 0.49, PI * 0.49);
+        lon = posNext.x;
+        lat = posNext.y;
         age = age + ageIncrement;
     }
 
@@ -364,7 +399,8 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Calculate fade alpha: smooth fade in at birth, fade out at end of life
     let fadeIn = smoothstep(0.0, 0.12, age);
     let fadeOut = 1.0 - smoothstep(0.85, 1.0, age);
-    let alpha = fadeIn * fadeOut;
+    let polarFade = 1.0 - smoothstep(PI * 0.472, PI * 0.497, abs(lat));
+    let alpha = fadeIn * fadeOut * polarFade;
 
     let worldPos0 = geodeticToManifold(lon, lat, alt0, sim.u_mode, sim.u_unfurl);
 
@@ -376,14 +412,12 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let speedFactor = clamp(speed / speedNorm, select(0.5, 0.8, isJetStream), select(1.7, 2.6, isJetStream));
     let stepLen = baseStep * speedFactor;
 
-    // Backward streamline integration (instantaneous streamline curve)
+    // Backward streamline integration (instantaneous streamline curve along great-circle geodesics)
     // Step 0 -> 1
     let dir0 = currentVel / max(speed, 0.01);
-    let cosLat0 = max(0.08, cos(lat));
-    var lon1 = lon - (dir0.x * stepLen) / cosLat0;
-    if (lon1 > PI) { lon1 = lon1 - TWO_PI; }
-    if (lon1 < -PI) { lon1 = lon1 + TWO_PI; }
-    let lat1 = clamp(lat - dir0.y * stepLen, -PI * 0.49, PI * 0.49);
+    let pos1 = geodesicDisplacement(lon, lat, -dir0.x * stepLen, -dir0.y * stepLen);
+    let lon1 = pos1.x;
+    let lat1 = clamp(pos1.y, -PI * 0.499, PI * 0.499);
     let v1 = sampleVelocity(lon1, lat1, isJetStream);
     let alt1 = computeLiftedAltitude(lon1, lat1, v1, isJetStream);
     let worldPos1 = geodeticToManifold(lon1, lat1, alt1, sim.u_mode, sim.u_unfurl);
@@ -391,11 +425,9 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Step 1 -> 2
     let s1 = max(length(v1), 0.01);
     let dir1 = v1 / s1;
-    let cosLat1 = max(0.08, cos(lat1));
-    var lon2 = lon1 - (dir1.x * stepLen) / cosLat1;
-    if (lon2 > PI) { lon2 = lon2 - TWO_PI; }
-    if (lon2 < -PI) { lon2 = lon2 + TWO_PI; }
-    let lat2 = clamp(lat1 - dir1.y * stepLen, -PI * 0.49, PI * 0.49);
+    let pos2 = geodesicDisplacement(lon1, lat1, -dir1.x * stepLen, -dir1.y * stepLen);
+    let lon2 = pos2.x;
+    let lat2 = clamp(pos2.y, -PI * 0.499, PI * 0.499);
     let v2 = sampleVelocity(lon2, lat2, isJetStream);
     let alt2 = computeLiftedAltitude(lon2, lat2, v2, isJetStream);
     let worldPos2 = geodeticToManifold(lon2, lat2, alt2, sim.u_mode, sim.u_unfurl);
@@ -403,11 +435,9 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Step 2 -> 3
     let s2 = max(length(v2), 0.01);
     let dir2 = v2 / s2;
-    let cosLat2 = max(0.08, cos(lat2));
-    var lon3 = lon2 - (dir2.x * stepLen) / cosLat2;
-    if (lon3 > PI) { lon3 = lon3 - TWO_PI; }
-    if (lon3 < -PI) { lon3 = lon3 + TWO_PI; }
-    let lat3 = clamp(lat2 - dir2.y * stepLen, -PI * 0.49, PI * 0.49);
+    let pos3 = geodesicDisplacement(lon2, lat2, -dir2.x * stepLen, -dir2.y * stepLen);
+    let lon3 = pos3.x;
+    let lat3 = clamp(pos3.y, -PI * 0.499, PI * 0.499);
     let v3 = sampleVelocity(lon3, lat3, isJetStream);
     let alt3 = computeLiftedAltitude(lon3, lat3, v3, isJetStream);
     let worldPos3 = geodeticToManifold(lon3, lat3, alt3, sim.u_mode, sim.u_unfurl);

@@ -12,8 +12,9 @@ import { DataLayerToastNotification, ToastMessage } from './DataLayerToastNotifi
 import { DataLayerItem } from './DataLayersDrawer';
 import { BlendModeType, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
 import { TimelineScrubberState } from './TimelineScrubber';
+import type { MeteorologicalProvenance } from '../../core/data/WeatherNextDataSource';
 
-export type { DataLayerItem, ToastMessage, LoadedDataInfo, ResolutionTier, PrognosticModelBackend };
+export type { DataLayerItem, ToastMessage, LoadedDataInfo, ResolutionTier, PrognosticModelBackend, MeteorologicalProvenance };
 
 export interface TelemetryHUDProps {
   isZenMode: boolean;
@@ -138,6 +139,14 @@ export interface TelemetryHUDProps {
   onPurityModeToggle?: () => void;
   cdlodEnabled?: boolean;
   onCdlodToggle?: (enabled: boolean) => void;
+  cdlodDiagnosticMode?: number;
+  onCdlodDiagnosticModeChange?: (mode: number) => void;
+  setCdlodDiagnosticMode?: (mode: number) => void;
+  provenance?: MeteorologicalProvenance;
+  windSpeedMultiplier?: number;
+  onWindSpeedMultiplierChange?: (v: number) => void;
+  windParticleLifetime?: number;
+  onWindParticleLifetimeChange?: (v: number) => void;
 }
 
 export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
@@ -270,6 +279,11 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         cdlodDiagnosticMode={props.cdlodDiagnosticMode}
         onCdlodDiagnosticModeChange={props.onCdlodDiagnosticModeChange}
         setCdlodDiagnosticMode={props.setCdlodDiagnosticMode}
+        provenance={props.provenance}
+        windSpeedMultiplier={props.windSpeedMultiplier}
+        onWindSpeedMultiplierChange={props.onWindSpeedMultiplierChange}
+        windParticleLifetime={props.windParticleLifetime}
+        onWindParticleLifetimeChange={props.onWindParticleLifetimeChange}
       />
 
       {/* Bottom-Left Non-Intrusive Glassmorphic Toast Notification Stack */}

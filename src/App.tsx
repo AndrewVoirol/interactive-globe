@@ -90,6 +90,9 @@ export default function App() {
     cloudFreqHoriz, setCloudFreqHoriz,
     cloudFreqVert, setCloudFreqVert,
     cloudExtinction, setCloudExtinction,
+    provenance, setProvenance,
+    windSpeedMultiplier, setWindSpeedMultiplier,
+    windParticleLifetime, setWindParticleLifetime,
   } = engineState;
 
   const {
@@ -187,8 +190,14 @@ export default function App() {
         const weatherNextDS =
           window.__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ ||
           window.__INDICATRIX_WEATHERNEXT_SOURCE__;
-        if (weatherNextDS && !weatherNextDS.disposed && typeof weatherNextDS.setTime === 'function') {
-          weatherNextDS.setTime(state.bracketHour, state.tau);
+        if (weatherNextDS && !weatherNextDS.disposed) {
+          if (typeof weatherNextDS.setTime === 'function') {
+            weatherNextDS.setTime(state.bracketHour, state.tau);
+          }
+          if (typeof weatherNextDS.getProvenance === 'function') {
+            const prov = weatherNextDS.getProvenance(state.tau);
+            if (prov) setProvenance(prov);
+          }
         }
 
         const isWn =
@@ -199,12 +208,14 @@ export default function App() {
           const windHour = Math.min(23, Math.max(0, state.bracketHour));
           if (windHour !== lastWindHourRef.current) {
             lastWindHourRef.current = windHour;
-            engine.loadWindTexture(`/data/weathernext/wind_10m_vector-${windHour}.bin`).catch(() => {});
+            engine.loadWindTexture(`/data/weathernext/wind_10m_vector-${windHour}.bin`, 0).catch(() => {});
+            const nextWindHour = Math.min(23, windHour + 1);
+            engine.loadWindTexture(`/data/weathernext/wind_10m_vector-${nextWindHour}.bin`, 1).catch(() => {});
           }
         }
       }
     }
-  }, [prognosticModel, prognosticVariable]);
+  }, [prognosticModel, prognosticVariable, setProvenance]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -750,6 +761,8 @@ export default function App() {
                 prognosticModel={prognosticModel}
                 onTogglePlanetaryLayer={(id) => handleToggleDataLayer(id)}
                 purityMode={purityMode}
+                windSpeedMultiplier={windSpeedMultiplier}
+                windParticleLifetime={windParticleLifetime}
               />
             </React.Suspense>
           ) : (
@@ -901,6 +914,11 @@ export default function App() {
           cdlodDiagnosticMode={cdlodDiagnosticMode}
           onCdlodDiagnosticModeChange={setCdlodDiagnosticMode}
           setCdlodDiagnosticMode={setCdlodDiagnosticMode}
+          provenance={provenance}
+          windSpeedMultiplier={windSpeedMultiplier}
+          onWindSpeedMultiplierChange={setWindSpeedMultiplier}
+          windParticleLifetime={windParticleLifetime}
+          onWindParticleLifetimeChange={setWindParticleLifetime}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}

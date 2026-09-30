@@ -3,8 +3,9 @@ import { isWebGPUSupported } from '../webgpu/support';
 import { ThemeManager, ThemePalette, ThemeMode, ArchivalMediumId } from '../core/themes';
 
 import { LoadedDataInfo, SimulationMode, GeodesicOverlayMode, ResolutionTier } from '../types';
+import { MeteorologicalProvenance } from '../core/data/WeatherNextDataSource';
 
-export type { SimulationMode, GeodesicOverlayMode, LoadedDataInfo, ResolutionTier };
+export type { SimulationMode, GeodesicOverlayMode, LoadedDataInfo, ResolutionTier, MeteorologicalProvenance };
 
 export function useEngineState() {
   const [backend, setBackend] = useState<'webgl2' | 'webgpu'>(
@@ -311,6 +312,78 @@ export function useEngineState() {
       (window as any).__INDICATRIX_SET_CDLOD_DIAGNOSTIC_MODE__ = setCdlodDiagnosticMode;
     }
   }, [cdlodDiagnosticMode]);
+
+  // Provenance & Wind Advection Telemetry State (Phase 3 Requirement)
+  const [provenance, setProvenanceState] = useState<MeteorologicalProvenance>({
+    modelName: 'Google DeepMind WeatherNext 3',
+    runTimestamp: '2026-03-30T00:00:00Z',
+    validTimestamp: '2026-03-30T00:00:00Z',
+    forecastHour: 0,
+    spatialResolutionDeg: 0.1,
+    temporalBlendTau: 0.0,
+    activeSlotIndex: 0,
+    strata: {
+      surface10m: true,
+      jetStream250hPa: true,
+    },
+  });
+
+  const setProvenance = useCallback((prov: Partial<MeteorologicalProvenance> | ((prev: MeteorologicalProvenance) => MeteorologicalProvenance)) => {
+    setProvenanceState((prev) => {
+      const next = typeof prov === 'function' ? prov(prev) : { ...prev, ...prov };
+      if (typeof window !== 'undefined') {
+        (window as any).__INDICATRIX_PROVENANCE__ = next;
+      }
+      return next;
+    });
+  }, []);
+
+  const [windSpeedMultiplier, setWindSpeedMultiplierState] = useState<number>(1.0);
+  const setWindSpeedMultiplier = useCallback((v: number | ((prev: number) => number)) => {
+    setWindSpeedMultiplierState((prev) => {
+      const val = typeof v === 'function' ? v(prev) : v;
+      if (typeof val !== 'number' || !Number.isFinite(val)) return prev;
+      const clamped = Math.max(0.1, Math.min(10.0, val));
+      if (typeof window !== 'undefined') {
+        const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+        if (engine && typeof engine.setWindSpeedMultiplier === 'function') {
+          engine.setWindSpeedMultiplier(clamped);
+        }
+        if ((window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+          (window as any).__INDICATRIX_LIVE_UNIFORMS__.windSpeedMultiplier = clamped;
+        }
+      }
+      return clamped;
+    });
+  }, []);
+
+  const [windParticleLifetime, setWindParticleLifetimeState] = useState<number>(6.0);
+  const setWindParticleLifetime = useCallback((v: number | ((prev: number) => number)) => {
+    setWindParticleLifetimeState((prev) => {
+      const val = typeof v === 'function' ? v(prev) : v;
+      if (typeof val !== 'number' || !Number.isFinite(val)) return prev;
+      const clamped = Math.max(0.5, Math.min(20.0, val));
+      if (typeof window !== 'undefined') {
+        const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+        if (engine && typeof engine.setWindParticleLifetime === 'function') {
+          engine.setWindParticleLifetime(clamped);
+        }
+        if ((window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+          (window as any).__INDICATRIX_LIVE_UNIFORMS__.windParticleLifetime = clamped;
+        }
+      }
+      return clamped;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__INDICATRIX_SET_WIND_SPEED_MULTIPLIER__ = setWindSpeedMultiplier;
+      (window as any).__INDICATRIX_SET_WIND_PARTICLE_LIFETIME__ = setWindParticleLifetime;
+      (window as any).__INDICATRIX_SET_PROVENANCE__ = setProvenance;
+      (window as any).__INDICATRIX_PROVENANCE__ = provenance;
+    }
+  }, [setWindSpeedMultiplier, setWindParticleLifetime, setProvenance, provenance]);
 
   const [dataInfo, setDataInfo] = useState<LoadedDataInfo>({ 
     pointCount: 100000, 
@@ -665,6 +738,9 @@ export function useEngineState() {
     cloudExtinction, setCloudExtinction,
     setCloudOptions,
     cdlodDiagnosticMode, setCdlodDiagnosticMode,
+    provenance, setProvenance,
+    windSpeedMultiplier, setWindSpeedMultiplier,
+    windParticleLifetime, setWindParticleLifetime,
     glideToAlpha,
     glideToMode,
     cancelGlide,

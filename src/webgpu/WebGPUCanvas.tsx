@@ -188,6 +188,8 @@ export interface WebGPUCanvasProps {
   sheenIntensity?: number;
   absorptionFeathering?: number;
   cameraPitchDeg?: number;
+  windSpeedMultiplier?: number;
+  windParticleLifetime?: number;
 }
 
 interface RegionalManifestEntry {
@@ -293,6 +295,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
   sheenIntensity,
   absorptionFeathering,
   cameraPitchDeg,
+  windSpeedMultiplier = 1.0,
+  windParticleLifetime = 6.0,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -574,6 +578,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     cameraPitchDeg,
     cdlodDiagnosticMode,
     prognosticModel,
+    windSpeedMultiplier,
+    windParticleLifetime,
   });
   useEffect(() => {
     stateRef.current = {
@@ -635,9 +641,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
       cameraPitchDeg,
       cdlodDiagnosticMode,
       prognosticModel,
+      windSpeedMultiplier,
+      windParticleLifetime,
     };
     cachedLayersRef.current = computeCachedLayers(dataLayers);
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudMultiRateRaymarch, cloudDriftSpeed, cloudOpacity, cloudThickness, cloudLowTop, cloudErosion, cloudFreqHoriz, cloudFreqVert, cloudExtinction, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode, prognosticModel]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudMultiRateRaymarch, cloudDriftSpeed, cloudOpacity, cloudThickness, cloudLowTop, cloudErosion, cloudFreqHoriz, cloudFreqVert, cloudExtinction, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode, prognosticModel, windSpeedMultiplier, windParticleLifetime]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -3114,6 +3122,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
           scrubTau: stateRef.current.scrubTau,
           weatherTau: stateRef.current.weatherTau,
           tau: stateRef.current.scrubTau,
+          windSpeedMultiplier: liveOverrides?.windSpeedMultiplier ?? stateRef.current.windSpeedMultiplier,
+          windParticleLifetime: liveOverrides?.windParticleLifetime ?? stateRef.current.windParticleLifetime,
           thermodynamicGating: stateRef.current.thermodynamicGating,
           lclGating: stateRef.current.thermodynamicGating,
           vortexStrength: curVortexStrength,
