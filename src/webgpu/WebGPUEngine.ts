@@ -7748,6 +7748,8 @@ export class WebGPUEngine {
           { binding: 7, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
           { binding: 8, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
           { binding: 9, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 10, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 11, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
         ],
       });
 
@@ -9701,6 +9703,9 @@ export class WebGPUEngine {
     const windSamp = this.windSampler || this.demSampler || sampler;
     const jetView = this.jetStreamTextureView || windView;
 
+    const midView = this.cloudTextures.mid.createView();
+    const highView = this.cloudTextures.high.createView();
+
     this.cloudBindGroups = {
       low: this.device.createBindGroup({
         label: 'cloud_bg_low',
@@ -9716,6 +9721,8 @@ export class WebGPUEngine {
           { binding: 7, resource: windView },
           { binding: 8, resource: windSamp },
           { binding: 9, resource: jetView },
+          { binding: 10, resource: midView },
+          { binding: 11, resource: highView },
         ],
       }),
       mid: this.device.createBindGroup({
@@ -9732,6 +9739,8 @@ export class WebGPUEngine {
           { binding: 7, resource: windView },
           { binding: 8, resource: windSamp },
           { binding: 9, resource: jetView },
+          { binding: 10, resource: midView },
+          { binding: 11, resource: highView },
         ],
       }),
       high: this.device.createBindGroup({
@@ -9748,6 +9757,8 @@ export class WebGPUEngine {
           { binding: 7, resource: windView },
           { binding: 8, resource: windSamp },
           { binding: 9, resource: jetView },
+          { binding: 10, resource: midView },
+          { binding: 11, resource: highView },
         ],
       }),
     };

@@ -64,6 +64,8 @@ struct RegionalOverlayUniforms {
 @group(0) @binding(7) var u_windTexture: texture_2d<f32>;
 @group(0) @binding(8) var u_windSampler: sampler;
 @group(0) @binding(9) var u_jetStreamTexture: texture_2d<f32>;
+@group(0) @binding(10) var u_midCloudTexture: texture_2d<f32>;
+@group(0) @binding(11) var u_highCloudTexture: texture_2d<f32>;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
@@ -299,6 +301,20 @@ fn mapSphericalGeodesicUV(
     return vec2<f32>(uv_x, uv_y);
 }
 
+// Single-lobe Henyey-Greenstein scattering phase function (Spec §11)
+fn henyeyGreenstein(mu: f32, g: f32) -> f32 {
+    let g2 = g * g;
+    let denom = 1.0 + g2 - 2.0 * g * mu;
+    return (1.0 - g2) / (4.0 * PI * pow(max(denom, 1e-4), 1.5));
+}
+
+// Dual-lobe Henyey-Greenstein phase function with analytical energy conservation (Spec §11)
+fn dualLobePhase(mu: f32, gFwd: f32, gBwd: f32, wFwd: f32) -> f32 {
+    let fwd = henyeyGreenstein(mu, gFwd);
+    let bwd = henyeyGreenstein(mu, -gBwd);
+    return wFwd * fwd + (1.0 - wFwd) * bwd;
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Invariant §3: Mandatory Unconditional Derivative Evaluation
@@ -407,6 +423,80 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // 3-Tap composite slab density (Weights: Top 0.45, Mid 0.35, Base 0.20)
     let rawCloudSlab = rawCloud * 0.45 + rawCloudMid * 0.35 + rawCloudBase * 0.20;
+
+    // Multi-Stratum Solar Ray Projection & Inter-Deck Shadows (Spec §10, Phase 2)
+    let azDeg = select(315.0, degrees(atan2(cloud.u_sunDirection.x, cloud.u_sunDirection.y)), length(cloud.u_sunDirection.xy) > 1e-4);
+    let altDeg = select(45.0, cloud.u_sunDirection.w, cloud.u_sunDirection.w > 0.0);
+    let radAz = radians(azDeg);
+    let radAlt = clamp(radians(altDeg), radians(5.0), radians(85.0));
+    let tanAlt = tan(radAlt);
+
+    let cosLatShadow = max(0.15, cos((in.uv.y - 0.5) * PI));
+    let invTwoPiRe = 1.0 / (TWO_PI_RE_KM * cosLatShadow * tanAlt);
+    let invPiRe = 1.0 / (PI_RE_KM * tanAlt);
+    let cosAz = cos(radAz);
+    let sinAz = sin(radAz);
+
+    // Delta h offsets:
+    // Mid -> Low (2.5 km), High -> Low (7.0 km), High -> Mid (4.5 km)
+    let shadowOffset_mid2low = vec2<f32>(-(2.5 * invTwoPiRe) * cosAz, (2.5 * invPiRe) * sinAz);
+    let shadowOffset_high2low = vec2<f32>(-(7.0 * invTwoPiRe) * cosAz, (7.0 * invPiRe) * sinAz);
+    let shadowOffset_high2mid = vec2<f32>(-(4.5 * invTwoPiRe) * cosAz, (4.5 * invPiRe) * sinAz);
+
+    // Penumbra filter radii in UV space
+    // 2.5 km -> 20 km; 4.5 km -> 28 km; 7.0 km -> 35 km
+    let rU_20 = (20.0 / TWO_PI_RE_KM) / cosLatShadow;
+    let rV_20 = 20.0 / PI_RE_KM;
+    let rU_28 = (28.0 / TWO_PI_RE_KM) / cosLatShadow;
+    let rV_28 = 28.0 / PI_RE_KM;
+    let rU_35 = (35.0 / TWO_PI_RE_KM) / cosLatShadow;
+    let rV_35 = 35.0 / PI_RE_KM;
+
+    // Center coordinates for upper decks
+    let centerUV_mid = vec2<f32>(fract(in.uv.x + shadowOffset_mid2low.x), clamp(in.uv.y + shadowOffset_mid2low.y, 0.001, 0.999));
+    let centerUV_high = select(
+        vec2<f32>(fract(in.uv.x + shadowOffset_high2mid.x), clamp(in.uv.y + shadowOffset_high2mid.y, 0.001, 0.999)),
+        vec2<f32>(fract(in.uv.x + shadowOffset_high2low.x), clamp(in.uv.y + shadowOffset_high2low.y, 0.001, 0.999)),
+        layerIdx == 0u
+    );
+    let rU_highSelect = select(rU_28, rU_35, layerIdx == 0u);
+    let rV_highSelect = select(rV_28, rV_35, layerIdx == 0u);
+
+    // 4-Tap Poisson disk taps for Mid cloud (sampled unconditionally at explicit LOD 0.0 per Rule 4)
+    let tapMid0 = vec2<f32>(fract(centerUV_mid.x - 0.38 * rU_20), clamp(centerUV_mid.y - 0.92 * rV_20, 0.0, 1.0));
+    let tapMid1 = vec2<f32>(fract(centerUV_mid.x + 0.92 * rU_20), clamp(centerUV_mid.y - 0.38 * rV_20, 0.0, 1.0));
+    let tapMid2 = vec2<f32>(fract(centerUV_mid.x + 0.38 * rU_20), clamp(centerUV_mid.y + 0.92 * rV_20, 0.0, 1.0));
+    let tapMid3 = vec2<f32>(fract(centerUV_mid.x - 0.92 * rU_20), clamp(centerUV_mid.y + 0.38 * rV_20, 0.0, 1.0));
+
+    let m0 = textureSampleLevel(u_midCloudTexture, u_cloudSampler, tapMid0, 0.0).r;
+    let m1 = textureSampleLevel(u_midCloudTexture, u_cloudSampler, tapMid1, 0.0).r;
+    let m2 = textureSampleLevel(u_midCloudTexture, u_cloudSampler, tapMid2, 0.0).r;
+    let m3 = textureSampleLevel(u_midCloudTexture, u_cloudSampler, tapMid3, 0.0).r;
+    let midCloudShadowDens = (m0 + m1 + m2 + m3) * 0.25;
+
+    // 4-Tap Poisson disk taps for High cloud (sampled unconditionally at explicit LOD 0.0 per Rule 4)
+    let tapHigh0 = vec2<f32>(fract(centerUV_high.x - 0.38 * rU_highSelect), clamp(centerUV_high.y - 0.92 * rV_highSelect, 0.0, 1.0));
+    let tapHigh1 = vec2<f32>(fract(centerUV_high.x + 0.92 * rU_highSelect), clamp(centerUV_high.y - 0.38 * rV_highSelect, 0.0, 1.0));
+    let tapHigh2 = vec2<f32>(fract(centerUV_high.x + 0.38 * rU_highSelect), clamp(centerUV_high.y + 0.92 * rV_highSelect, 0.0, 1.0));
+    let tapHigh3 = vec2<f32>(fract(centerUV_high.x - 0.92 * rU_highSelect), clamp(centerUV_high.y + 0.38 * rV_highSelect, 0.0, 1.0));
+
+    let h0 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh0, 0.0).r;
+    let h1 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh1, 0.0).r;
+    let h2 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh2, 0.0).r;
+    let h3 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh3, 0.0).r;
+    let highCloudShadowDens = (h0 + h1 + h2 + h3) * 0.25;
+
+    // Inter-deck Beer-Lambert optical depth accumulation (§10.4)
+    let tauMid = smoothstep(0.10, 0.40, midCloudShadowDens) * 0.55;
+    let tauHigh = smoothstep(0.12, 0.45, highCloudShadowDens) * 0.30;
+    var interdeckTau: f32 = 0.0;
+    if (layerIdx == 0u) {
+        interdeckTau = tauMid + tauHigh;
+    } else if (layerIdx == 1u) {
+        interdeckTau = tauHigh;
+    } // layerIdx == 2u receives zero shadow (interdeckTau = 0.0)
+
+    let interdeckShadow = clamp(1.0 - cloud.u_shadowIntensity * interdeckTau, 0.0, 1.0);
 
     // Orographic lift & rain shadows via 2D wind-terrain coupling (Invariant §3, §15, §18, RFC Mechanic 4)
     // Sample u_demTexture and u_windTexture in unconditional uniform control flow at explicit LOD 0.0 strictly before discards
@@ -533,14 +623,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let slabPathFactor = clamp(1.0 / muEff, 1.0, 2.5);
     alpha = (1.0 - exp(-alpha * slabPathFactor * 1.8));
 
-    // Cloud self-shadowing and anisotropic phase function (RFC Mechanic 1, §4.1)
+    // Dual-lobe Henyey-Greenstein anisotropic phase function (Spec §11, Phase 3)
     let sunDir = normalize(cloud.u_sunDirection.xyz);
     let viewDir = normalize(cloud.u_cameraPos.xyz - in.worldPos);
     let cosTheta = dot(viewDir, sunDir);
-    const g: f32 = 0.40;
-    const kPhase: f32 = 1.55 * g - 0.55 * g * g * g;
-    let phase = (1.0 - kPhase * kPhase) / (4.0 * PI * (1.0 - kPhase * cosTheta) * (1.0 - kPhase * cosTheta));
-    let phaseFactor = clamp(phase * 4.0 * PI, 0.6, 1.4);
+    let muScat = -cosTheta;
+    let phase = dualLobePhase(muScat, 0.72, 0.28, 0.82);
+    let phaseFactor = clamp(phase * 4.0 * PI, 0.55, 1.85);
 
     let NdotL = max(0.0, dot(in.normal, sunDir));
     let selfShadow = mix(1.0 - cloud.u_shadowIntensity * 0.5, 1.0, NdotL);
@@ -600,6 +689,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         // Fallback branch
         cloudColor = vec3<f32>(0.96, 0.96, 0.94);
     }
+
+    // Multi-Stratum Beer-Lambert inter-deck cast shadow attenuation (Spec §10)
+    cloudColor = cloudColor * interdeckShadow;
 
     // Invariant §5: Premultiplied Alpha Transparent Clear & Compositing
     // Output must be premultiplied alpha: vec4<f32>(color.rgb * alpha, alpha)
