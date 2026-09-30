@@ -5597,10 +5597,18 @@ export class WebGPUEngine {
 
   public setWindSpeedMultiplier(multiplier: number): void {
     this.windSpeedMultiplier = Math.max(0.1, Math.min(10.0, multiplier));
+    if (this.windUniformBuffer && this.device) {
+      this.windUniformFloats[5] = this.windSpeedMultiplier;
+      this.device.queue.writeBuffer(this.windUniformBuffer, 0, this.windUniformFloats);
+    }
   }
 
   public setWindParticleLifetime(lifetime: number): void {
     this.windParticleLifetime = Math.max(0.5, Math.min(30.0, lifetime));
+    if (this.windUniformBuffer && this.device) {
+      this.windUniformFloats[11] = this.windParticleLifetime;
+      this.device.queue.writeBuffer(this.windUniformBuffer, 0, this.windUniformFloats);
+    }
   }
 
   private updateDepthTexture(width: number, height: number): void {

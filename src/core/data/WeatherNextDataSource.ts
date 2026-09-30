@@ -125,6 +125,20 @@ export interface WeatherNextMeta {
 
 export type WeatherNextMetadata = WeatherNextMeta;
 
+export interface MeteorologicalProvenance {
+  modelName: string;
+  runTimestamp: string;
+  validTimestamp: string;
+  forecastHour: number;
+  spatialResolutionDeg: number;
+  temporalBlendTau: number;
+  activeSlotIndex: number;
+  strata: {
+    surface10m: boolean;
+    jetStream250hPa: boolean;
+  };
+}
+
 export interface WeatherNextDataSourceOptions {
   basePath?: string;
   baseDataPath?: string;
@@ -662,6 +676,11 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
       return;
     }
 
+    if (!this.ringBuffer || this.ringBuffer.disposed) {
+      this.currentHour = clampedHour;
+      return;
+    }
+
     if (clampedHour === this.currentHour + 1) {
       // Sequential 1-hour step forward
       await this.advanceHour();
@@ -684,6 +703,41 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
    */
   public getActiveVariable(): string {
     return this.activeVariable;
+  }
+
+  /**
+   * Returns authoritative meteorological provenance telemetry for UI/HUD reflection.
+   */
+  public getProvenance(tau: number = 0.0, showSurf: boolean = true, showJet: boolean = true): MeteorologicalProvenance {
+    const model = this.metadata?.model || 'Google DeepMind WeatherNext 3';
+    const runTimestamp = this.metadata?.forecastInitTimestamp || '2026-03-30T00:00:00Z';
+    const hour = this.currentHour;
+    const resDeg = this.metadata?.gridDimensions?.resolutionDeg ?? 0.1;
+
+    let validTimestamp = runTimestamp;
+    try {
+      const d = new Date(runTimestamp);
+      if (!isNaN(d.getTime())) {
+        d.setUTCHours(d.getUTCHours() + hour);
+        validTimestamp = d.toISOString();
+      }
+    } catch {
+      // Fallback preserves runTimestamp
+    }
+
+    return {
+      modelName: model,
+      runTimestamp,
+      validTimestamp,
+      forecastHour: hour,
+      spatialResolutionDeg: resDeg,
+      temporalBlendTau: Math.max(0.0, Math.min(1.0, tau)),
+      activeSlotIndex: tau >= 0.5 ? 1 : 0,
+      strata: {
+        surface10m: showSurf,
+        jetStream250hPa: showJet,
+      },
+    };
   }
 
   /**
