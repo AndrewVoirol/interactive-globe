@@ -123,24 +123,24 @@ describe('Live Doppler Radar Pipeline & Data Source Suite', () => {
   // --------------------------------------------------------------------------
   // Suite 3: TimelineScrubber absoluteMinutes Integration (-60m to 0m)
   // --------------------------------------------------------------------------
-  describe('3. TimelineScrubber Frame Selection (-60m to 0m)', () => {
-    it('manages frame indexing across the -60m to 0m radar zone in normalized mode', async () => {
+  describe('3. TimelineScrubber Frame Selection (-110m to 0m)', () => {
+    it('manages frame indexing across the -110m to 0m radar zone in normalized mode', async () => {
       const ds = new LiveRadarDataSource({
         frameSelectionMode: 'normalized',
         autoLoad: false,
       });
       await ds.load();
 
-      // At -60m (oldest point): frame 0
-      ds.setAbsoluteMinutes(-60);
-      expect(ds.getCurrentMinutes()).toBe(-60);
+      // At -110m (oldest point): frame 0
+      ds.setAbsoluteMinutes(-110);
+      expect(ds.getCurrentMinutes()).toBe(-110);
       expect(ds.getCurrentFrameIndex()).toBe(0);
       expect(ds.getNextFrameIndex()).toBe(1);
       expect(ds.getTau()).toBeCloseTo(0.0, 3);
 
-      // At -30m (midpoint): frame 5, next 6, tau = 0.5
-      ds.setAbsoluteMinutes(-30);
-      expect(ds.getCurrentMinutes()).toBe(-30);
+      // At -55m (midpoint): frame 5, next 6, tau = 0.5
+      ds.setAbsoluteMinutes(-55);
+      expect(ds.getCurrentMinutes()).toBe(-55);
       expect(ds.getCurrentFrameIndex()).toBe(5);
       expect(ds.getNextFrameIndex()).toBe(6);
       expect(ds.getTau()).toBeCloseTo(0.5, 3);
@@ -153,10 +153,10 @@ describe('Live Doppler Radar Pipeline & Data Source Suite', () => {
       expect(ds.getTau()).toBeCloseTo(0.0, 3);
     });
 
-    it('clamps out-of-bounds minutes cleanly to [-60, 0]', () => {
+    it('clamps out-of-bounds minutes cleanly to [-110, 0]', () => {
       const ds = new LiveRadarDataSource({ autoLoad: false });
-      ds.setAbsoluteMinutes(-120);
-      expect(ds.getCurrentMinutes()).toBe(-60);
+      ds.setAbsoluteMinutes(-150);
+      expect(ds.getCurrentMinutes()).toBe(-110);
       expect(ds.getCurrentFrameIndex()).toBe(0);
 
       ds.setAbsoluteMinutes(100);
