@@ -582,14 +582,11 @@ fn sampleCloudDensity(pos: vec3<f32>, rInner: f32, deltaR: f32) -> f32 {
 // Low Deck (0–2 km): Amber-Gold (#ffa026)
 // Mid Deck (2–6 km): Cyan-Aqua (#1fd9f5)
 // High Cirrus (6–12 km): Magenta-Orchid (#f547e0)
-fn evaluateStrataDiagnosticColor(pos: vec3<f32>, rInner: f32, deltaR: f32) -> vec3<f32> {
-    let unfurl = cloud.u_simControl.y;
-    let inv = invertMacroChartWGSL(pos, unfurl, rInner);
-    let hNorm = clamp(inv.z / deltaR, 0.0, 1.0);
-
+fn evaluateStrataDiagnosticColorFromUVW(uvw: vec3<f32>) -> vec3<f32> {
+    let hNorm = clamp(uvw.z, 0.0, 1.0);
     let driftRate = cloud.u_noiseParams.w;
     let timeDrift = cloud.u_simControl.x * driftRate;
-    let uv = vec2<f32>(fract((inv.x / TWO_PI) + 0.5), clamp(0.5 - (inv.y / PI), 0.001, 0.999));
+    let uv = uvw.xy;
     let advectedUV = vec2<f32>(fract(uv.x + timeDrift), uv.y);
 
     let lowFraction = textureSampleLevel(u_cloudLowTexture, u_cloud2DSampler, advectedUV, 0.0).r;
@@ -618,6 +615,14 @@ fn evaluateStrataDiagnosticColor(pos: vec3<f32>, rInner: f32, deltaR: f32) -> ve
     let colHigh = vec3<f32>(0.96, 0.28, 0.88); // Magenta-Orchid
 
     return (colLow * wLow + colMid * wMid + colHigh * wHigh) / totalW;
+}
+
+fn evaluateStrataDiagnosticColor(pos: vec3<f32>, rInner: f32, deltaR: f32) -> vec3<f32> {
+    let unfurl = cloud.u_simControl.y;
+    let inv = invertMacroChartWGSL(pos, unfurl, rInner);
+    let hNorm = clamp(inv.z / deltaR, 0.0, 1.0);
+    let uv = vec2<f32>(fract((inv.x / TWO_PI) + 0.5), clamp(0.5 - (inv.y / PI), 0.001, 0.999));
+    return evaluateStrataDiagnosticColorFromUVW(vec3<f32>(uv.x, uv.y, hNorm));
 }
 
 
@@ -962,7 +967,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         if (density > 0.002) {
             // In false-color diagnostic mode, evaluate vibrant emissive strata color per step
             if (isFalseColor) {
-                let strataCol = evaluateStrataDiagnosticColor(p, rInner, deltaR);
+                var strataCol: vec3<f32>;
+                if (isMultiRate) {
+                    strataCol = evaluateStrataDiagnosticColorFromUVW(currentUVW);
+                } else {
+                    strataCol = evaluateStrataDiagnosticColor(p, rInner, deltaR);
+                }
                 pal.sunColor = strataCol * 1.6;
                 pal.midColor = strataCol * 0.9;
                 pal.ambientColor = strataCol * 0.45;

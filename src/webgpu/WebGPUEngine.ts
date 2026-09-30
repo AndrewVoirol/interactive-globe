@@ -8156,11 +8156,8 @@ export class WebGPUEngine {
         : (this.cloudOptions.showHigh !== false);
       const anyStrataActive = showLow || showMid || showHigh;
 
-      const isGfsActive = params.prognosticModel !== undefined
-        ? (params.prognosticModel === 'gfs' || params.prognosticModel === 'noaa-gfs')
-        : true; // Default to true if omitted for backwards-compatibility with isolated unit test harnesses
       const cloudsActive = Boolean(params.showClouds) && (this.cloudEnabled !== false);
-      const shadowsActive = cloudsActive && showLow && anyStrataActive && isGfsActive;
+      const shadowsActive = cloudsActive && showLow && anyStrataActive;
       const rawShadow = shadowsActive
         ? (params.shadowIntensity !== undefined ? params.shadowIntensity : this.shadowIntensity)
         : 0.0;
