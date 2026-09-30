@@ -96,6 +96,7 @@ export interface AtmosphereDrawerProps {
   onWindSpeedMultiplierChange?: (v: number) => void;
   windParticleLifetime?: number;
   onWindParticleLifetimeChange?: (v: number) => void;
+  isWindActive?: boolean;
 }
 
 export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
@@ -103,6 +104,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   isLight = false,
   hideScrubber = false,
   isRadarActive = false,
+  isWindActive = false,
   provenance,
   windSpeedMultiplier,
   onWindSpeedMultiplierChange,
@@ -805,6 +807,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             onWindSpeedMultiplierChange={onWindSpeedMultiplierChange}
             windParticleLifetime={windParticleLifetime}
             onWindParticleLifetimeChange={onWindParticleLifetimeChange}
+            isWindActive={isWindActive}
           />
 
           {/* Plate IV.B: Atmospheric Chronology & Temporal Scrubber */}

@@ -572,6 +572,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
   const isNoaaActive = dataLayers.some((l) => l.id === 'noaa-gfs-wind' && l.visible);
   const isRadarActive = dataLayers.some((l) => l.id === 'live-doppler-radar' && l.visible);
+  const isWindActive = dataLayers.some((l) => (l.id.includes('wind') || l.id === 'noaa-gfs-wind') && l.visible);
 
   const handleSelectGeodesicFeed = useCallback(
     (feed: GeodesicOverlayMode) => {
@@ -1610,6 +1611,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   onWindSpeedMultiplierChange={onWindSpeedMultiplierChange}
                   windParticleLifetime={windParticleLifetime}
                   onWindParticleLifetimeChange={onWindParticleLifetimeChange}
+                  isWindActive={isWindActive}
                 />
 
                 {/* Global Geodesic Feeds Card */}
