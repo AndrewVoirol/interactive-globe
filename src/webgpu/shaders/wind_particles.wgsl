@@ -22,7 +22,8 @@ struct WindSimUniforms {
     u_peakExponent: f32,
     u_verticalScaleMode: u32,
     u_particleLifetime: f32,
-    u_cameraPos: vec4<f32>,
+    u_cameraPos: vec3<f32>,
+    u_tau: f32,
 };
 
 struct WindParticle {
@@ -38,8 +39,8 @@ struct WindParticle {
 @group(0) @binding(1) var<storage, read> particlesIn: array<WindParticle>;
 @group(0) @binding(2) var<storage, read_write> particlesOut: array<WindParticle>;
 @group(0) @binding(3) var u_windSampler: sampler;
-@group(0) @binding(4) var u_windTexture: texture_2d<f32>;
-@group(0) @binding(5) var u_jetTexture: texture_2d<f32>;
+@group(0) @binding(4) var u_windTexture0: texture_2d<f32>;
+@group(0) @binding(5) var u_windTexture1: texture_2d<f32>;
 @group(0) @binding(6) var u_demSampler: sampler;
 @group(0) @binding(7) var u_demTexture: texture_2d<f32>;
 @group(0) @binding(8) var u_regionalDEMTexture: texture_2d<f32>;
@@ -55,6 +56,7 @@ struct RegionalOverlayUniforms {
 };
 
 @group(0) @binding(9) var<uniform> u_regionalOverlay: RegionalOverlayUniforms;
+@group(0) @binding(10) var u_jetTexture: texture_2d<f32>;
 
 // Deterministic fast hash for particle respawning
 fn hash12(p: vec2<f32>) -> f32 {
@@ -187,7 +189,10 @@ fn sampleVelocity(lonRad: f32, latRad: f32, isJet: bool) -> vec2<f32> {
         return textureSampleLevel(u_jetTexture, u_windSampler, uv, 0.0).xy;
     }
 
-    let rawVel = textureSampleLevel(u_windTexture, u_windSampler, uv, 0.0).xy;
+    // Bilinear-temporal vector interpolation between Slot 0 and Slot 1 across ring buffer interval
+    let w0 = textureSampleLevel(u_windTexture0, u_windSampler, uv, 0.0).xy;
+    let w1 = textureSampleLevel(u_windTexture1, u_windSampler, uv, 0.0).xy;
+    let rawVel = mix(w0, w1, clamp(sim.u_tau, 0.0, 1.0));
 
     // Evaluate surface terrain elevation and spherical metric gradient
     let terrain = sampleTerrain(lonRad, latRad);
