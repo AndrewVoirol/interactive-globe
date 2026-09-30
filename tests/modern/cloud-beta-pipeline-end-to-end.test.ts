@@ -191,7 +191,7 @@ describe('Atmospheric Cloud Strata Beta Controls: End-to-End Wiring & Pipeline P
 
       await act(async () => {
         root.render(
-          React.createElement(TelemetryHUD, {
+          React.createElement(TelemetryHUD as any, {
             theme: 0,
             isZenMode: false,
             showClouds: true,

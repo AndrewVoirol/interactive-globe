@@ -83,7 +83,10 @@ describe('Milestone 3 Suite: Orographic Ridge Interaction & Stratum Blocking (§
         const val = 1.0 - smoothstep(a, b, z);
         if (z <= a) expect(val).toBe(1.0);
         else if (z >= b) expect(val).toBe(0.0);
-        else expect(val).toBeGreaterThan(0.0).toBeLessThan(1.0);
+        else {
+          expect(val).toBeGreaterThan(0.0);
+          expect(val).toBeLessThan(1.0);
+        }
       }
     });
   });

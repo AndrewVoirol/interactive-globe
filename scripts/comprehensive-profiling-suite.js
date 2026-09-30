@@ -548,5 +548,5 @@ export async function runComprehensiveProfilingSuite(options = {}) {
 }
 
 if (typeof window !== 'undefined') {
-  (window as any).runComprehensiveProfilingSuite = runComprehensiveProfilingSuite;
+  window.runComprehensiveProfilingSuite = runComprehensiveProfilingSuite;
 }
