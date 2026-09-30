@@ -30,6 +30,16 @@ No shader, geometry, or thematic refactor is complete based solely on compilatio
 - **Show real content**: A large screenshot file (> 50KB) is NOT proof of feature implementation. If a feature is claimed to be implemented, the screenshot must show that feature clearly visible.
 - **No Uniform or Algorithm Placebos (End-to-End Shader Execution & Anti-Metric Gaming)**: Verifying that a React control updates component state, packs a float into `SimUniforms`, or compiles a WGSL helper function is completely insufficient. The implementing agent must verify that the target fragment/vertex shader actually consumes that uniform or algorithm in its **active, default execution path** without early `discard` statements, hardcoded masks, or bypassed branches. If a uniform is uploaded but discarded, or if an algorithm exists as dead code while older fallback math continues to sample the texture, it is a placebo. Optical flow, FFT cross-correlation, and pixel delta metrics must NEVER be gamed by tilting the camera into an edge or cropping arbitrary screen-space sub-regions to isolate noise while ignoring zero motion across the rest of the canvas.
 - **Dual-State Visual Contrast**: For interactive parameters (e.g. Sea Level ±100m, Solar Angle, or Water Clarity), visual verification must capture before/after states at opposing parameter bounds and demonstrate an observable pixel delta on the canvas.
+- **Mandatory Video Screencast & Quantitative Optical Flow for Motion-Coupled Systems**: For any feature whose core mechanical or visual value involves motion (fluid dynamics, spherical wind advection, cloud drift, orbital tracks, multi-stratum vertical shear):
+  1. A static screenshot is strictly insufficient to certify completion.
+  2. The agent must record a $\ge 2.0$-second screencast via Chrome DevTools MCP (`screencast_start` / `screencast_stop`).
+  3. Extract sequential video frames at 5 FPS using `ffmpeg`.
+  4. Run 2D Lucas-Kanade optical flow and temporal pixel delta analysis on the canvas viewport (excluding static UI chrome):
+     - **Active Moving Pixel Ratio**: $\ge 25.0\%$ of active canvas pixels.
+     - **Mean Temporal Delta**: $\Delta \bar{I} > 3.50$ units.
+     - **2D Vector Displacement**: Both $dx \ne 0$ and $dy \ne 0$ (verifying true multi-dimensional transport rather than 1D slide).
+     - **UI Stability Invariant**: Delta on static HUD chrome (sidebar dock, neatline) must be identically $0.00$.
+  5. Generate and visually inspect a motion difference heatmap confirming that motion is distributed across the planetary canvas rather than isolated to screen edges.
 
 ## 6. Cartographic Framing & HUD Layout
 - **10px Spatial Clearance Moat**: All floating HUD instruments align to a 20px grid axis. The distance from neatline to panel edge is a strict 10px moat.
