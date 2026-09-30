@@ -35,6 +35,8 @@ export interface FrameProfileReport {
   ribbonsMs: number;
   contoursMs: number;
   pointsMs: number;
+  volumetricMs?: number;
+  substrateMs?: number;
   totalGpuMs: number;
 }
 

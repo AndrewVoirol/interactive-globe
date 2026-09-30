@@ -110,7 +110,7 @@ export default function App() {
   const [atmosphericScale, setAtmosphericScale] = useState<number>(3.5);
   const [shadowIntensity, setShadowIntensity] = useState<number>(0.45);
   const [verticalScaleMode, setVerticalScaleMode] = useState<number>(1);
-  const [rainShadowFeedback, setRainShadowFeedback] = useState<number>(0.0);
+  const [rainShadowFeedback, setRainShadowFeedback] = useState<number>(0.50);
   const [pluvialGamma, setPluvialGamma] = useState<number>(0.0);
   const [weatherOpticalMode, setWeatherOpticalMode] = useState<number>(0);
   const [timelineMinutes, setTimelineMinutes] = useState<number>(0);

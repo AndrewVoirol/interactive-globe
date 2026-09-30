@@ -284,7 +284,7 @@ describe('Tier 2: Lifting Condensation Level (LCL) Thermodynamics', () => {
 
       expect(capturedLayoutDescriptor).not.toBeNull();
       const entries = capturedLayoutDescriptor.entries;
-      expect(entries.length).toBe(15); // 0 to 14
+      expect(entries.length).toBe(16); // 0 to 15
 
       const entry11 = entries.find((e: any) => e.binding === 11);
       expect(entry11).toBeDefined();

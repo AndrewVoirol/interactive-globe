@@ -213,8 +213,10 @@ export class LiveRadarDataSource implements IDataSource<LiveRadarMetadata> {
    * Manages frame selection based on the TimelineScrubber's absoluteMinutes value (radar zone: -60m to 0m).
    */
   public setAbsoluteMinutes(minutes: number): void {
+    const minTime = this.metadata?.timeRangeMinutes?.[0] ?? -110;
+    const maxTime = this.metadata?.timeRangeMinutes?.[1] ?? 0;
     const safeMinutes = Number.isFinite(minutes) ? minutes : 0;
-    this.currentMinutes = Math.max(-60, Math.min(0, safeMinutes));
+    this.currentMinutes = Math.max(minTime, Math.min(maxTime, safeMinutes));
 
     const numFrames = this.frames.length > 0 ? this.frames.length : this.frameCount;
     if (numFrames <= 1) {
@@ -227,18 +229,19 @@ export class LiveRadarDataSource implements IDataSource<LiveRadarMetadata> {
     const mode = this.resolveSelectionMode();
 
     if (mode === 'interval') {
-      // 10-minute step backward from 0 (NOW = index numFrames - 1)
+      // 10-minute step backward from maxTime (NOW = index numFrames - 1)
       const intervalMinutes = this.metadata?.frameIntervalMinutes ?? 10;
-      const continuousOffset = this.currentMinutes / intervalMinutes; // e.g. -60m -> -6.0
-      const continuousIndex = (numFrames - 1) + continuousOffset; // e.g. 11 + (-6) = 5.0
+      const continuousOffset = (this.currentMinutes - maxTime) / intervalMinutes; // e.g. -110m -> -11.0
+      const continuousIndex = (numFrames - 1) + continuousOffset;
       const clampedIndex = Math.max(0, Math.min(numFrames - 1, continuousIndex));
 
       this.currentFrameIndex = Math.floor(clampedIndex);
       this.nextFrameIndex = Math.min(numFrames - 1, this.currentFrameIndex + 1);
       this.interpolationTau = clampedIndex - this.currentFrameIndex;
     } else {
-      // Normalized span mode: maps [-60m, 0m] across all available frames [0, numFrames - 1]
-      const u = (this.currentMinutes + 60) / 60; // 0.0 at -60m -> 1.0 at 0m
+      // Normalized span mode: maps [minTime, maxTime] across all available frames [0, numFrames - 1]
+      const span = Math.max(1, maxTime - minTime);
+      const u = (this.currentMinutes - minTime) / span; // 0.0 at minTime -> 1.0 at maxTime
       const continuousIndex = u * (numFrames - 1);
       const clampedIndex = Math.max(0, Math.min(numFrames - 1, continuousIndex));
 
@@ -431,12 +434,8 @@ export class LiveRadarDataSource implements IDataSource<LiveRadarMetadata> {
     if (this.frameSelectionMode === 'interval') return 'interval';
     if (this.frameSelectionMode === 'normalized') return 'normalized';
 
-    // Auto resolution: if metadata indicates timeRangeMinutes is [-60, 0], use normalized span
-    if (
-      this.metadata?.timeRangeMinutes &&
-      this.metadata.timeRangeMinutes[0] === -60 &&
-      this.metadata.timeRangeMinutes[1] === 0
-    ) {
+    // Auto resolution: if metadata indicates timeRangeMinutes, use normalized span
+    if (this.metadata?.timeRangeMinutes) {
       return 'normalized';
     }
 

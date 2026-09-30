@@ -757,3 +757,455 @@ Remove the geometric standoff (line 49):
 // AFTER:
 let offsetPos = pos;
 ```
+
+---
+
+## §5: Spherical Geodesic Wind Advection on S²
+
+### Problem Statement
+Previous cloud advection implementations used 1D zonal translation (`uv.x - dt`), causing rigid cylindrical slides across the sphere, severe convergence pinching and coordinate singularity artifacts near the poles ($\cos\phi \to 0$), and zero meridional transport ($dy \equiv 0$). Furthermore, `loadWindTexture()` failed to refresh `cloudBindGroups`, stranding the cloud shells on dummy $(0,0)$ wind textures and forcing fallback to 1D translation.
+
+### Mathematical Specification: Riemannian Exponential Map on $S^2$
+For an arrival coordinate $\mathbf{x}_a = (\lambda_a, \phi_a)$ on the unit sphere and wind velocity $\mathbf{u} = (u, v)$ in m/s over backward time step $\Delta t$, the departure point $\mathbf{x}_d = (\lambda_d, \phi_d)$ along the great circle is obtained via the closed-form Riemannian exponential map:
+
+1. **Angular displacements on Earth sphere ($R_E = 6,371,000$ m)**:
+   $$\lambda'_p = u \cdot \frac{\Delta t}{R_E}, \quad \phi'_p = v \cdot \frac{\Delta t}{R_E}$$
+2. **Geodesic arc distance $\sigma$**:
+   $$\sigma^2 = (\lambda'_p)^2 + (\phi'_p)^2, \quad \sigma = \sqrt{\sigma^2}$$
+   $$\text{sinc}(\sigma) = \begin{cases} \frac{\sin\sigma}{\sigma} & \sigma > 10^{-4} \\ 1 - \frac{\sigma^2}{6} & \text{otherwise} \end{cases}$$
+3. **Spherical departure latitude $\phi_d$**:
+   $$\sin\phi_d = \text{clamp}\left(\text{sinc}(\sigma)\phi'_p \cos\phi_a + \cos\sigma \sin\phi_a, -1.0, 1.0\right)$$
+   $$\phi_d = \arcsin(\sin\phi_d)$$
+4. **Spherical departure longitude offset $\Delta \lambda$**:
+   $$y = \text{sinc}(\sigma)\lambda'_p, \quad x = \cos\sigma \cos\phi_a - \text{sinc}(\sigma)\phi'_p \sin\phi_a$$
+   $$\Delta \lambda = \text{atan2}(y, x)$$
+5. **Texture coordinate departure mapping**:
+   $$u_d = \left(u_a + \frac{\Delta \lambda}{2\pi} + 1\right) \pmod 1$$
+   $$v_d = \text{clamp}\left(0.5 - \frac{\phi_d}{\pi}, 0.0001, 0.9999\right)$$
+
+### Dual-Phase Cyclic Semi-Lagrangian Blending
+To prevent texture coordinate distortion from accumulating indefinitely, advection uses dual-phase cyclic blending with period $T_{\text{cycle}} = 16.0$s:
+$$\tau = \frac{t}{T_{\text{cycle}}}, \quad p_0 = \text{fract}(\tau), \quad p_1 = \text{fract}(\tau + 0.5)$$
+$$\Delta t_0 = (p_0 - 0.5) T_{\text{cycle}} \cdot v_{\text{drift}}, \quad \Delta t_1 = (p_1 - 0.5) T_{\text{cycle}} \cdot v_{\text{drift}}$$
+$$w_{\text{blend}} = 2.0 \cdot |p_0 - 0.5|$$
+$$\rho(\mathbf{x}, t) = (1 - w_{\text{blend}}) c(\mathbf{x}_{d0}) + w_{\text{blend}} c(\mathbf{x}_{d1})$$
+
+### Invariant & Boundary Verification Matrix
+- [x] **M1-MATH-01 (Identity)**: At $\mathbf{u} = \mathbf{0}$ or $\Delta t = 0$, $\mathbf{x}_d = \mathbf{x}_a$ exactly.
+- [x] **M1-MATH-02 (Metric Arc Distance)**: Geodesic arc distance $\arccos(\mathbf{p}_a \cdot \mathbf{p}_d) = \|\mathbf{u}\|\Delta t / R_E$ verified across 10,000 Monte Carlo trials with error $< 10^{-4}$.
+- [x] **M1-MATH-03 (Antimeridian Continuity)**: Seamless $180^\circ$ wrapping across $[0, 1]$ cyclic domain without boundary tear.
+- [x] **M1-MATH-04 (Polar Stability)**: Absolute numerical stability at $\pm 89.9^\circ$ latitude without NaN or infinities.
+- [x] **M1-WGSL-01 (WGSL Formulation)**: `mapSphericalGeodesicUV` implemented with closed-form exponential map in `cloud_shell.wgsl`.
+- [x] **M1-WGSL-02 (Uniform Control Flow)**: `u_windTexture` sampled unconditionally at top of `fs_main` with explicit LOD 0.0 before branches or discards.
+- [x] **M1-WGSL-03 (Dual-Phase Sampling)**: Dual-phase cyclic sampling with $T_{\text{cycle}} = 16.0$s.
+- [x] **M1-WGSL-04 (Zero-Drift Invariant)**: `effectiveSpeed = select(baseDriftSpeed * 2500.0, 0.0, baseDriftSpeed <= 0.0001)` guarantees exact static stability at speed 0.
+- [x] **M1-ENG-01 (Bind Group Refresh)**: `loadWindTexture()` calls `this.updateCloudBindGroups()` immediately upon receiving WeatherNext 3 wind textures.
+- [x] **M1-ENG-02 (Binding 7 Integrity)**: `cloudBindGroups` binds `windTextureView` at `@binding(7)` and `windSampler` at `@binding(8)`.
+- [x] **M1-CAM-01 (Authoritative Perspectives)**: `window.__GO` exposed in `WebGPUCanvas.tsx` for all 4 calibrated benchmark views (Views 1A, 1B, 2A, 2B).
+- [x] **M1-OPT-01 (Live Optical Flow)**: View 1A South America centered ROI `[0.20H:0.80H, 0.20W:0.80W]` achieves active moving ratio of $28.11\%$ with $dx = -0.0057$ px, $dy = +0.0095$ px.
+- [x] **M1-OPT-02 (Zero-Drift Baseline)**: At `cloudDriftSpeed = 0`, active moving ratio drops to $0.03\%$ with motion $< 0.0001$ px.
+
+---
+
+## §6: Multi-Stratum Vertical Wind Shear
+
+### Problem Statement
+In previous iterations, all tropospheric cloud decks (low boundary stratus, mid altocumulus, high cirrus) moved either as a monolithic slab or scaled along a single surface wind vector. In the real atmosphere, surface winds are constrained by frictional drag against terrain ($10\,\text{m}$ boundary layer), whereas upper-tropospheric jet streams ($250\,\text{hPa}$, $9\text{–}12\,\text{km}$) blow at high speeds ($30\text{–}90\,\text{m/s}$) and frequently diverge in direction from surface flow.
+
+### Physical & Mathematical Formulation
+Each stratum is advected by its physically authentic atmospheric wind field:
+1. **Low Stratus ($0\text{–}2\,\text{km}$, Layer Index 0)**:
+   $$\mathbf{u}_{\text{stratum}, 0} = \mathbf{u}_{10\text{m}}$$
+   Coupled to WeatherNext 3 $10\,\text{m}$ surface wind (`wind_10m_vector-0.bin`) or GFS surface fallback.
+2. **Mid Altocumulus ($2\text{–}6\,\text{km}$, Layer Index 1)**:
+   $$\mathbf{u}_{\text{stratum}, 1} = \text{mix}(\mathbf{u}_{10\text{m}}, \mathbf{u}_{250\text{hPa}}, 0.40)$$
+   Linear interpolation modeling mid-tropospheric baroclinic shear and veering.
+3. **High Cirrus ($6\text{–}12\,\text{km}$, Layer Index 2)**:
+   $$\mathbf{u}_{\text{stratum}, 2} = \mathbf{u}_{250\text{hPa}}$$
+   Upper-tropospheric Jet Stream wind vector field (`gfs-jetstream-latest.bin`).
+
+### WebGPU Binding Architecture
+To avoid collisions with `@binding(6)` (`u_regionalOverlay` uniform buffer) while strictly maintaining existing bindings 0–8:
+- `@group(0) @binding(7)`: `u_windTexture` (`texture_2d<f32>`, surface 10m wind)
+- `@group(0) @binding(8)`: `u_windSampler` (`sampler`, shared bilinear sampler)
+- `@group(0) @binding(9)`: `u_jetStreamTexture` (`texture_2d<f32>`, 250 hPa jet stream wind)
+
+### Invariant & Boundary Verification Matrix
+- [x] **M2-WGSL-01 (Binding 9)**: `@group(0) @binding(9) var u_jetStreamTexture: texture_2d<f32>;` declared in `cloud_shell.wgsl`.
+- [x] **M2-WGSL-02 (Uniform Control Flow)**: `rawJetStream` sampled unconditionally at explicit LOD 0.0 at top of `fs_main` before branches or discards (Rule 4).
+- [x] **M2-WGSL-03 (Stratum Velocity Assignment)**: Layer 0 uses surface wind; Layer 1 uses `mix(..., 0.40)`; Layer 2 uses jet stream wind.
+- [x] **M2-WGSL-04 (Zero-Drift Invariant)**: Zero-drift invariant preserved for all strata when `baseDriftSpeed <= 0.0001`.
+- [x] **M2-ENG-01 (Layout Entry 9)**: `cloudBindGroupLayout` declares binding 9 with `visibility: GPUShaderStage.FRAGMENT`.
+- [x] **M2-ENG-02 (Bind Group Wiring)**: `cloudBindGroups.low`, `mid`, and `high` bind `jetView` at index 9.
+- [x] **M2-ENG-03 (Rule 56 Invalidation)**: `loadJetStreamTexture()` calls `this.updateCloudBindGroups()` to rebuild bindings synchronously.
+- [x] **M2-CANV-01 (Canvas Loading)**: `WebGPUCanvas.tsx` triggers jet stream asset load whenever `showClouds` is active.
+- [x] **M2-PHYS-01 (Asset Integrity)**: NOAA GFS $250\,\text{hPa}$ asset validated with peak wind $> 51\,\text{m/s}$ and $> 8\%$ coverage over $30\,\text{m/s}$.
+- [x] **M2-PHYS-02 (Cascades Shear)**: Real-data Cascades Arc test verifies speed differential $> 2.5\times$ and spherical UV departure separation.
+- [x] **M2-PHYS-03 (Mid-Stratum Bounds)**: Mid altocumulus velocity rigorously verified bounded between Low and High speeds.
+- [x] **M2-VIS-01 (Live DevTools View 1A)**: South America Synoptic Nadir live capture demonstrating planar differential velocity (`view_1a_synoptic_cream_rag.webp`).
+- [x] **M2-VIS-02 (Live DevTools View 1B)**: Andes Spine Oblique live capture demonstrating 3D vertical stratum separation (`view_1b_oblique_cream_rag.webp`).
+- [x] **M2-VIS-03 (Live DevTools View 2A)**: PNW Regional Synoptic live capture demonstrating synoptic directional shear (`view_2a_synoptic_cream_rag.webp`).
+- [x] **M2-VIS-04 (Live DevTools View 2B)**: Cascades Volcanic Arc live capture demonstrating high-speed summit shearing (`view_2b_oblique_cream_rag.webp`).
+- [x] **M2-THEME-01 (Dual-Theme Fidelity)**: Verified zero visual regression across Cream Rag (Theme 1) and Prussian Cyanotype (Theme 2) (`view_2b_oblique_prussian_cyanotype.webp`).
+
+---
+
+## §7: Orographic Ridge Interaction & Rain Shadow Dissipation
+
+### Problem Statement
+In previous iterations, cloud shells followed crust topography via additive displacement in the vertex shader (`totalOffset = crustDisp + effStandoff`). While this mathematically prevented subterranean clipping beneath solid rock, it permitted low boundary stratus decks ($0\text{–}2,000\,\text{m}$) to drape over high mountain summits (such as the $6,000\,\text{m}$ Andes spine and $4,392\,\text{m}$ Cascade volcanoes) at full density. In physical reality, planetary boundary layer clouds cannot exist above their equilibrium condensation level, while high cirrus ($6,000\text{–}12,000\,\text{m}$) glides over terrain unhindered. Furthermore, leeward subsidence ($\mathbf{u} \cdot \nabla h < 0$) must actively dissipate cloud density over rain-shadow regions (such as the Atacama Desert and Columbia Plateau).
+
+### Physical & Mathematical Formulation
+
+1. **Full-Resolution DEM Center Elevation Decoding ($z_{\text{terrain}}$)**:
+   In `cloud_shell.wgsl:fs_main`, center elevation is sampled in **unconditional uniform control flow** at explicit LOD 0.0 before any branches or discards:
+   ```wgsl
+   let demCenterGlobal = textureSampleLevel(u_demTexture, u_demSampler, in.uv, 0.0);
+   let demCenter = sampleRegionalComposite(in.uv, demCenterGlobal, 0.0);
+   let zTerrain = decodeElevation(demCenter);
+   ```
+   where `decodeElevation(demCenter)` implements Invariant §15 / Rule 8:
+   $$z_{\text{terrain}} = \text{demCenter.a} \cdot 19772.0 - 10924.0$$
+
+2. **Stratum Altitude Boundaries**:
+   - **Low Boundary Stratus (Layer 0)**: $z_{\text{base}} = 0\,\text{m}$, $z_{\text{top}} = 2,000\,\text{m}$
+   - **Mid Altocumulus (Layer 1)**: $z_{\text{base}} = 2,000\,\text{m}$, $z_{\text{top}} = 6,000\,\text{m}$
+   - **High Cirrus (Layer 2)**: $z_{\text{base}} = 6,000\,\text{m}$, $z_{\text{top}} = 12,000\,\text{m}$
+
+3. **W3C WGSL §14.4 Compliant Attenuation Formulation ($\alpha_{\text{stratum}}$)**:
+   Per W3C WGSL §14.4, `smoothstep(edge0, edge1, x)` is undefined if $edge0 \ge edge1$. To achieve the physical reverse smoothstep $\text{smoothstep}(z_{\text{top}}, z_{\text{base}}, z_{\text{terrain}})$ without undefined GPU behavior, we evaluate the strictly ascending formulation:
+   $$\alpha_{\text{stratum}} = 1.0 - \text{smoothstep}(z_{\text{stratum,base}}, z_{\text{stratum,top}}, z_{\text{terrain}})$$
+   where $z_{\text{stratum,base}} < z_{\text{stratum,top}}$ is strictly guaranteed.
+
+4. **Orographic Lift & Leeward Rain Shadow Dissipation**:
+   - Orographic vertical velocity: $w_{\text{orographic}} = \mathbf{u} \cdot \nabla h$
+   - Dynamic lift condensation:
+     $$\Delta \rho_{\text{lift}} = 0.35 \cdot \tanh(0.05 \cdot w_{\text{orographic}} \cdot 50.0) \cdot c_{\text{stratum}}$$
+   - Leeward subsidence & rain shadow dissipation:
+     $$\text{rainShadowAtten} = 1.0 - u_{\text{rainShadowFeedback}} \cdot \text{clamp}(-w_{\text{orographic}} \cdot 40.0, 0.0, 0.85) \cdot c_{\text{stratum}}$$
+     $$\text{baseDensity} = \text{clamp}((\rho_{\text{cloud}} + \Delta \rho_{\text{lift}}) \cdot \text{poleAtten}, 0.0, 1.0) \cdot \text{rainShadowAtten}$$
+     $$\text{condensedCloud} = \text{baseDensity}$$
+   - Stratum-blocked density:
+     $$\rho_{\text{effective}} = \text{clamp}(\text{condensedCloud} \cdot \text{featheredCloud}, 0.0, 1.0) \cdot \alpha_{\text{stratum}}$$
+     with early discard when $\rho_{\text{effective}} \le 0.001$.
+
+### Invariant & Boundary Verification Matrix
+- [x] **M3-MATH-01 (W3C WGSL §14.4 Invariant)**: Edge ordering $edge0 < edge1$ strictly preserved; zero undefined behavior across backends.
+- [x] **M3-MATH-02 (Low Stratus Ridge Blocking)**: $\alpha_{\text{stratum}} \equiv 0.0$ for $z_{\text{terrain}} \ge 2,000\,\text{m}$; zero low stratus drapes over high peaks.
+- [x] **M3-MATH-03 (Mid Altocumulus Plateau Taper)**: $\alpha_{\text{stratum}} \in [0.40, 0.60]$ across Altiplano ($3,800\,\text{m}$); partial blocking on high crests.
+- [x] **M3-MATH-04 (High Cirrus Planetary Passage)**: $\alpha_{\text{stratum}} \equiv 1.0$ for all $z_{\text{terrain}} \le 6,000\,\text{m}$; $>0.50$ at Mt. Everest ($8,848\,\text{m}$).
+- [x] **M3-WGSL-01 (Uniform Control Flow)**: `u_demTexture` center sampled unconditionally at explicit LOD 0.0 at top of `fs_main` before discards (Rule 4).
+- [x] **M3-WGSL-02 (DEM Decoding Parity)**: Decoding formula matches `crust_hydrosphere.wgsl` identically (Rule 8).
+- [x] **M3-WGSL-03 (AST String Compatibility)**: Preserves exact AST strings for existing challenger suites (`challenger-m2-uniform-placebo-anti-bypass.test.ts`, `challenger-r14-m3-deck-hierarchy-rain-shadow.test.ts`).
+- [x] **M3-CALIB-01 (Default State Activation)**: `App.tsx` activates `rainShadowFeedback: 0.50` default without breaking `WebGPUEngine` class baseline tests (Rule 5 & 22).
+- [x] **M3-VIS-01 (Live DevTools View 1B)**: Andes Spine Oblique live capture confirms low clouds pool on Amazon flank, terminate at crest, and leave Atacama clear.
+- [x] **M3-VIS-02 (Live DevTools View 2B)**: Cascades Volcanic Arc live capture confirms marine low clouds stop at ridge and dissolve over Columbia Plateau.
+- [x] **M3-THEME-01 (Dual-Theme Fidelity)**: Verified zero visual regression across Cream Rag (Theme 1) and Prussian Cyanotype (Theme 2).
+
+---
+
+## §8: Cartographic Depth, Stratum Ink Pigmentation & Multi-Deck Parallax Ground Shadows
+
+### Problem Statement
+While earlier milestones established single-height cloud ground shadows and uniform cloud shell rendering, cartographic authenticity requires distinct visual identities for each cloud stratum, mirroring archival drafting techniques:
+1. **Stratum Ink Pigmentation**: Rather than uniform ivory or white across all altitudes, Cream Rag (Theme 1) requires physical medium differentiation:
+   - **Low Boundary Stratus ($0\text{–}2,000\,\text{m}$)**: Layered gouache body with subtle crevice density in deeper cloud masses.
+   - **Mid Altocumulus ($2,000\text{–}6,000\,\text{m}$)**: Soft raw umber watercolor wash.
+   - **High Cirrus ($6,000\text{–}12,000\,\text{m}$)**: Translucent silverpoint hairlines (`#4A423B`) with steep exponential alpha falloff ($\rho^{2.4}$) and micro-fiber hairline modulation.
+2. **Multi-Stratum Parallax Ground Shadows**: Shadows projected onto Swiss relief terrain must originate from both low stratus ($h_{\text{low}} = 2.5\,\text{km}$) and high cirrus ($h_{\text{high}} = 8.5\,\text{km}$) shells along the solar illumination vector $\mathbf{L}$. Low cloud shadows must exhibit sharp penumbral footprints and decouple from high mountain peaks ($z_{\text{terrain}} \ge h_{\text{low}}$), while high cirrus casts diffuse, elongated shadows across mountain ridges and valleys.
+3. **Archival Ink Wash Pigmentation**: Cloud drop shadows must never render as pitch-black voids. On Cream Rag, shadows are warm bistre/umber washes (`#5A4D41`); on Prussian Cyanotype, shadows are deep photochemical cyan-navy (`#0B1D3A`).
+
+### Mathematical & Physical Formulation
+
+1. **Multi-Stratum Shadow Ray Projection**:
+   Given terrain surface coordinates $(u, v)$ and decoded elevation $z_{\text{terrain}} = \text{demCenter.a} \cdot 19772.0 - 10924.0$ (meters), the terrain height in kilometers is $h_{\text{terrain}} = \max(0.0, z_{\text{terrain}}) \cdot 0.001$.
+   The solar direction angles in the local frame are $\theta_{\text{az}} = \text{radians}(u_{\text{sunAzimuth}})$ and $\alpha_{\text{alt}} = \text{clamp}(\text{radians}(u_{\text{sunAltitude}}), \text{radians}(5.0^\circ), \text{radians}(85.0^\circ))$.
+   The effective clearance to each cloud deck is:
+   $$\Delta h_{\text{low}} = \max(0.0, h_{\text{low}} - h_{\text{terrain}}), \quad h_{\text{low}} = 2.5\,\text{km}$$
+   $$\Delta h_{\text{high}} = \max(0.0, h_{\text{high}} - h_{\text{terrain}}), \quad h_{\text{high}} = 8.5\,\text{km}$$
+   The equirectangular ground shadow displacement offsets are:
+   $$\Delta u_{\text{low}} = -\frac{\Delta h_{\text{low}}}{\tan(\alpha_{\text{alt}}) \cdot 2\pi R_E \cos\phi} \cos(\theta_{\text{az}}), \quad \Delta v_{\text{low}} = \frac{\Delta h_{\text{low}}}{\tan(\alpha_{\text{alt}}) \cdot \pi R_E} \sin(\theta_{\text{az}})$$
+   $$\Delta u_{\text{high}} = -\frac{\Delta h_{\text{high}}}{\tan(\alpha_{\text{alt}}) \cdot 2\pi R_E \cos\phi} \cos(\theta_{\text{az}}), \quad \Delta v_{\text{high}} = \frac{\Delta h_{\text{high}}}{\tan(\alpha_{\text{alt}}) \cdot \pi R_E} \sin(\theta_{\text{az}})$$
+   where $2\pi R_E \approx 40,030.17\,\text{km}$, $\pi R_E \approx 20,015.09\,\text{km}$, and $\cos\phi = \max(0.15, \cos((v - 0.5)\pi))$.
+
+2. **Stratum-Coupled Optical Depth Accumulation**:
+   Both low and high shadow ray intercepts are sampled via 4-tap Poisson-disk jitter distributions at **explicit LOD 0.0** strictly in unconditional uniform control flow:
+   $$\tau_{\text{low}} = \text{smoothstep}(0.10, 0.35, \rho_{\text{low}}) \cdot 0.70 \cdot \text{smoothstep}(0.0, 0.5, \Delta h_{\text{low}})$$
+   $$\tau_{\text{high}} = \text{smoothstep}(0.12, 0.45, \rho_{\text{high}}) \cdot 0.30 \cdot \text{smoothstep}(0.0, 1.0, \Delta h_{\text{high}})$$
+   $$\tau_{\text{total}} = \tau_{\text{low}} + \tau_{\text{high}}$$
+   $$S = \text{clamp}(1.0 - u_{\text{shadowIntensity}} \cdot \tau_{\text{total}}, 0.0, 1.0)$$
+
+3. **Archival Medium Ink Wash Shadow Modulation in `crust_hydrosphere.wgsl`**:
+   - **Cream Rag (Theme 1)**: Shadowed terrain blends into warm bistre/umber wash `#5A4D41` ($[0.353, 0.302, 0.255]$).
+   - **Prussian Cyanotype (Theme 2)**: Shadowed terrain blends into deep photochemical cyan-navy `#0B1D3A` ($[0.043, 0.114, 0.228]$).
+   - **Marie Tharp (Theme 0)**: Shadowed terrain blends into soft sepia-indigo ($[0.220, 0.250, 0.300]$).
+
+4. **Archival Stratum Ink Pigmentation in `cloud_shell.wgsl`**:
+   - **Theme 1 (Cream Rag)**:
+     - Low Stratus: $\mathbf{C} = \text{mix}(\text{vec3}(0.78, 0.72, 0.64), \text{vec3}(0.98, 0.95, 0.89), \text{smoothstep}(0.20, 0.75, \rho))$
+     - Mid Altocumulus: $\mathbf{C} = \text{mix}(\text{vec3}(0.74, 0.67, 0.58), \text{vec3}(0.98, 0.95, 0.89), \text{smoothstep}(0.15, 0.65, \rho))$
+     - High Cirrus: $\mathbf{C} = \text{mix}(\text{vec3}(0.290, 0.259, 0.231), \text{vec3}(0.98, 0.95, 0.89), \text{smoothstep}(0.25, 0.80, \rho))$
+       with $\alpha = \alpha \cdot \rho^{2.4} \cdot \text{hairlineFactor}$.
+
+### Invariant & Boundary Verification Matrix
+- [x] **M4-MATH-01 (Multi-Stratum Projection)**: Low ($2.5\,\text{km}$) and high ($8.5\,\text{km}$) shadow rays evaluated with altitude-dependent parallax displacement.
+- [x] **M4-MATH-02 (Terrain Summit Decoupling)**: Peaks above $h_{\text{low}}$ ($z_{\text{terrain}} \ge 2,500\,\text{m}$) pierce low stratus; $\tau_{\text{low}} \to 0$ on summits.
+- [x] **M4-PIGM-01 (Cream Rag Stratum Inks)**: Layer 0 gouache crevice density, Layer 1 umber wash, Layer 2 silverpoint hairlines (`#4A423B`).
+- [x] **M4-PIGM-02 (Silverpoint Alpha Falloff)**: Cirrus exhibits non-linear exponential falloff $\rho^{2.4}$ and hairline modulation.
+- [x] **M4-SHAD-01 (Archival Shadow Washes)**: Theme 1 uses `#5A4D41` bistre wash; Theme 2 uses `#0B1D3A` cyan-navy wash.
+- [x] **M4-WGSL-01 (Uniform Control Flow)**: Multi-deck shadow sampling executes strictly at explicit LOD 0.0 before any branches or discards (Rule 4).
+- [x] **M4-WGSL-02 (AST Test Backward Compatibility)**: Preserves required token strings for `r14-m1-preflight-cloud-shadows.test.ts` and `r13-cloud-shader-parity.test.ts` (Rule 21).
+- [x] **M4-VIS-01 (Live Compass Shadow Dynamic)**: Toggling sun azimuth/altitude in Sun Compass visibly casts sweeping shadows across relief valleys.
+- [x] **M4-VIS-02 (Benchmark Quad Capture)**: Live visual capture verified across Views 1A, 1B, 2A, 2B with multi-medium fidelity (Rule 3).
+
+---
+
+## §9: Vertical Slab Parallax Extrusion & Volumetric Deck Thickness (Phase 1)
+
+### Problem Statement
+The raster cloud shells (`cloud_shell.wgsl`) render as mathematically infinitely thin 2D spherical polygonal surfaces.
+When the camera views the planet at nadir ($\mu = \mathbf{V} \cdot \mathbf{N} \to 1.0$), 2D textures appear adequate.
+However, when the camera pitches toward an oblique angle (e.g. $30^\circ\text{–}78^\circ$ Oblique horizon) or views the planetary limb:
+1. The optical path length through a zero-thickness shell approaches zero or remains identical to nadir.
+2. The clouds vanish into paper-thin razor edges or transparent films, exposing empty voids between shells.
+3. Clouds possess zero vertical sidewalls, zero visible under-deck shadow, and zero volumetric fluff.
+4. The human visual system immediately detects that the clouds are flat decals stamped onto concentric wire spheres.
+
+### Mathematical & Physical Formulation
+
+1. **Stratum Physical Deck Thickness**:
+   Each stratum has an authoritative physical vertical thickness $\Delta H$ and base altitude $z_{\text{base}}$:
+   - **Low Boundary Stratus (Layer 0)**: $z_{\text{base}} = 800\,\text{m}$, $\Delta H_0 = 1{,}400\,\text{m}$ (Top: $2{,}200\,\text{m}$)
+   - **Mid Altocumulus (Layer 1)**: $z_{\text{base}} = 2{,}800\,\text{m}$, $\Delta H_1 = 2{,}400\,\text{m}$ (Top: $5{,}200\,\text{m}$)
+   - **High Cirrus (Layer 2)**: $z_{\text{base}} = 8{,}000\,\text{m}$, $\Delta H_2 = 2{,}000\,\text{m}$ (Top: $10{,}000\,\text{m}$)
+   In kilometers: $\Delta H_{\text{km}} = [1.4, 2.4, 2.0]$.
+
+2. **View-Ray Oblique Parallax Step on $S^2$**:
+   Let $\mathbf{N} = \text{in.normal}$ and $\mathbf{V} = \text{normalize}(\text{cloud.u_cameraPos.xyz} - \text{in.worldPos})$.
+   The cosine of the viewing angle to the local surface normal is:
+   $$\mu = \text{dot}(\mathbf{N}, \mathbf{V}) = \text{in.facing}$$
+   To eliminate numerical divergence at glancing angles ($\mu \to 0$) without violating horizon falloff:
+   $$\mu_{\text{eff}} = \max(\mu, 0.15)$$
+
+   The view ray's projection onto the local equirectangular tangent frame:
+   Let $\lambda = (\text{in.uv}.x - 0.5) \cdot 2\pi$ and $\phi = (0.5 - \text{in.uv}.y) \cdot \pi$.
+   $$\mathbf{E} = \text{vec3<f32>}(-\sin\lambda, 0.0, \cos\lambda)$$
+   $$\mathbf{North} = \text{cross}(\mathbf{N}, \mathbf{E})$$
+   $$V_x = \text{dot}(\mathbf{V}, \mathbf{E}), \quad V_y = \text{dot}(\mathbf{V}, \mathbf{North})$$
+
+   For a downward vertical step $z_k = k \cdot \frac{\Delta H_{\text{km}}}{N_{\text{steps}}}$ below cloud top ($k \in \{0, 1, 2\}$):
+   $$\Delta u_k = -\frac{z_k \cdot V_x}{\mu_{\text{eff}} \cdot 2\pi R_E \cos\phi}, \quad \Delta v_k = \frac{z_k \cdot V_y}{\mu_{\text{eff}} \cdot \pi R_E}$$
+   where $2\pi R_E = 40{,}030.17\,\text{km}$, $\pi R_E = 20{,}015.09\,\text{km}$, and $\cos\phi = \max(0.15, \cos\phi)$.
+
+3. **3-Tap Parallax Slab Integration at Explicit LOD 0.0 (Rule 4)**:
+   In unconditional uniform control flow at the top of `fs_main`:
+   Evaluate 3 interior depth slices:
+   - Slice 0 ($k=0$): Top surface, $z_0 = 0.0$, weight $W_0 = 0.45$.
+   - Slice 1 ($k=1$): Interior core, $z_1 = 0.5 \cdot \Delta H_{\text{km}}$, weight $W_1 = 0.35$.
+   - Slice 2 ($k=2$): Base boundary, $z_2 = 1.0 \cdot \Delta H_{\text{km}}$, weight $W_2 = 0.20$.
+
+   For each slice $k$, sample advected coordinates:
+   $$\mathbf{uv}_{0, k} = \text{vec2<f32>}(\text{fract}(\text{sampleUV}.x + \Delta u_k), \text{clamp}(\text{sampleUV}.y + \Delta v_k, 0.001, 0.999))$$
+   $$\mathbf{uv}_{1, k} = \text{vec2<f32>}(\text{fract}(\text{sampleUV1}.x + \Delta u_k), \text{clamp}(\text{sampleUV1}.y + \Delta v_k, 0.001, 0.999))$$
+   $$\rho_k = \text{mix}(\text{sample}(\mathbf{uv}_{0, k}), \text{sample}(\mathbf{uv}_{1, k}), \text{blendWeight})$$
+
+   The composite slab density is:
+   $$\rho_{\text{slab}} = W_0 \rho_0 + W_1 \rho_1 + W_2 \rho_2$$
+
+4. **Oblique Slant Path Optical Depth Amplification (Beer-Lambert Law)**:
+   The effective line-of-sight path length through the slab scales with $1/\mu_{\text{eff}}$:
+   $$\text{pathFactor} = \text{clamp}\left(\frac{1.0}{\mu_{\text{eff}}}, 1.0, 3.5\right)$$
+   $$\alpha_{\text{volumetric}} = 1.0 - \exp(-\rho_{\text{slab}} \cdot \text{pathFactor} \cdot \kappa_{\text{stratum}})$$
+   where $\kappa_{\text{stratum}}$ is tuned to maintain exact nadir opacity parity:
+   - Layer 0 (Low): $\kappa_0 = 1.25$ ($\alpha_{\text{nadir}} \approx 0.60\text{–}0.75$, $\alpha_{\text{oblique}} \to 0.98$)
+   - Layer 1 (Mid): $\kappa_1 = 0.85$ ($\alpha_{\text{nadir}} \approx 0.40\text{–}0.55$, $\alpha_{\text{oblique}} \to 0.90$)
+   - Layer 2 (High): $\kappa_2 = 0.45$ ($\alpha_{\text{nadir}} \approx 0.20\text{–}0.35$, $\alpha_{\text{oblique}} \to 0.65$)
+
+### Boundary Condition Evaluations
+| Coordinate / State | $\mu = \mathbf{V} \cdot \mathbf{N}$ | $\Delta u_k, \Delta v_k$ | $\text{pathFactor}$ | Slab Alpha $\alpha$ | Compliance / Physical Invariant |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Nadir Center** ($\mu = 1.0$) | $1.0$ | $0.0, 0.0$ | $1.0$ | Calibrated 2D opacity | Nadir parity preserved |
+| **45° Oblique** ($\mu = 0.707$) | $0.707$ | Modest shift ($0.5\text{–}1.5\,\text{km}$) | $1.414$ | $+30\%$ density boost | Subtle rounded billow |
+| **78° Horizon View** ($\mu = 0.20$) | $0.20$ | Full slab shift ($3\text{–}7\,\text{km}$) | $3.50$ (clamped) | Dense opaque wall | 3D sidewall visible |
+| **True Limb** ($\mu \le 0.0$) | $\le 0.0$ | Clamped at $\mu_{\text{eff}} = 0.15$ | $3.50$ | $0.0$ via `horizonFalloff` | Rule 7 zero-at-limb invariant |
+| **Zero Cloud Density** ($\rho = 0$) | Any | Evaluated | Any | Identically $0.0$ | Clear skies remain 100% transparent |
+
+### Invariant & Boundary Verification Matrix
+- [x] **M5-MATH-01 (Deck Thickness Definition)**: Explicit $\Delta H_{\text{km}}$ ($1.4, 2.4, 2.0\,\text{km}$) evaluated per layer index.
+- [x] **M5-MATH-02 (View Parallax Coordinate Step)**: Tangent basis $(\mathbf{E}, \mathbf{North})$ evaluated in equirectangular space with $\mu_{\text{eff}} \ge 0.15$.
+- [x] **M5-MATH-03 (3-Tap Slab Integration)**: Top, mid, base slices evaluated with normalized weights $W = [0.45, 0.35, 0.20]$.
+- [x] **M5-MATH-04 (Slant-Path Optical Amplification)**: Beer-Lambert path factor $\text{clamp}(1/\mu_{\text{eff}}, 1.0, 3.5)$ produces dense oblique cloud rims without blowing out nadir transparency.
+- [x] **M5-WGSL-01 (Uniform Control Flow Invariant)**: All 3 slice depths evaluated unconditionally at explicit LOD 0.0 at the top of `fs_main` before discards (Rule 4).
+- [x] **M5-WGSL-02 (Zero-Zombie Pass & Zero-GC)**: Zero CPU allocations per frame (Rule 26) and zero pipeline recompilations (Rule 18).
+- [x] **M5-VIS-01 (Live DevTools 78° Oblique Horizon)**: Visual verification at 78° Oblique confirms clouds display visible vertical thickness and rounded silhouettes instead of vanishing into wafer hairlines.
+- [x] **M5-THEME-01 (Multi-Medium Integrity)**: Verified zero regression across Theme 0 (Tharp), Theme 1 (Cream Rag), and Theme 2 (Cyanotype) (Rule 3).
+- [x] **M5-TEST-01 (Test Suite Baseline)**: 269/269 test files pass with 0 regressions (3,825 tests passing).
+
+---
+
+## §10: Stratum-on-Stratum Shadow Coupling (Phase 2)
+
+### Problem Statement
+In real planetary atmospheres, upper cloud strata (e.g. dense altocumulus decks and thick cirrus anvils) cast pronounced, moving cast shadows onto lower cloud decks (such as boundary layer stratocumulus sheets).
+In the legacy rendering model:
+1. Clouds only cast shadows downward onto the terrestrial terrain crust (`crust_hydrosphere.wgsl`).
+2. Cloud shells render completely isolated from one another in the fragment shader; lower cloud decks have no awareness of the presence or optical thickness of upper cloud decks.
+3. As a result, low stratus decks remain uniformly illuminated even when directly underneath massive upper altocumulus sheets, creating a visually disconnected, synthetic appearance where strata look like floating paper layers rather than a physically coupled 3D atmosphere.
+
+### Mathematical & Physical Formulation
+
+1. **Stratum Nominal Altitudes & Inter-Deck Clearances**:
+   The cloud strata occupy authoritative nominal altitude midpoints:
+   - **Low Boundary Stratus (Layer 0)**: $h_0 = 1.5\,\text{km}$ ($1{,}500\,\text{m}$)
+   - **Mid Altocumulus (Layer 1)**: $h_1 = 4.0\,\text{km}$ ($4{,}000\,\text{m}$)
+   - **High Cirrus (Layer 2)**: $h_2 = 8.5\,\text{km}$ ($8{,}500\,\text{m}$)
+
+   The relative vertical clearances $\Delta h_{j \to i} = h_j - h_i$ between upper stratum $j$ and lower stratum $i$ are:
+   $$\Delta h_{2 \to 1} = 8.5\,\text{km} - 4.0\,\text{km} = 4.5\,\text{km} \quad (\text{High } \to \text{ Mid})$$
+   $$\Delta h_{2 \to 0} = 8.5\,\text{km} - 1.5\,\text{km} = 7.0\,\text{km} \quad (\text{High } \to \text{ Low})$$
+   $$\Delta h_{1 \to 0} = 4.0\,\text{km} - 1.5\,\text{km} = 2.5\,\text{km} \quad (\text{Mid } \to \text{ Low})$$
+
+2. **Solar Ray Projection in Spherical Manifold Tangent Frame**:
+   Let the sun direction vector be $\mathbf{L} = \text{normalize}(\text{cloud.u_sunDirection.xyz})$ with solar altitude $\alpha_{\text{alt}} = \text{cloud.u_sunDirection.w}$ in degrees.
+   The sun azimuth angle $\theta_{\text{az}}$ and clamped altitude $\alpha_{\text{alt}}$ are:
+   $$\theta_{\text{az}} = \text{select}(315.0, \text{degrees}(\text{atan2}(L_x, L_y)), \text{length}(\mathbf{L}_{xy}) > 10^{-4})$$
+   $$\alpha_{\text{alt, clamped}} = \text{clamp}(\text{radians}(\text{select}(45.0, \alpha_{\text{alt}}, \alpha_{\text{alt}} > 0.0)), \text{radians}(5.0), \text{radians}(85.0))$$
+   $$\tan\alpha = \tan(\alpha_{\text{alt, clamped}})$$
+
+   On an equirectangular coordinate manifold where $u \in [0, 1)$ represents longitude $\lambda \in [-\pi, \pi)$ and $v \in [0, 1]$ represents latitude $\phi \in [\pi/2, -\pi/2]$:
+   $$\cos\phi = \max(0.15, \cos((v - 0.5)\pi))$$
+   $$2\pi R_E = 40{,}030.17\,\text{km}, \quad \pi R_E = 20{,}015.09\,\text{km}$$
+
+   The equirectangular shadow displacement for vertical clearance $\Delta h$ along the solar ray is:
+   $$\Delta u_{\text{shadow}}(\Delta h) = -\frac{\Delta h \cdot \cos(\text{radians}(\theta_{\text{az}}))}{\tan\alpha \cdot 2\pi R_E \cos\phi}$$
+   $$\Delta v_{\text{shadow}}(\Delta h) = \frac{\Delta h \cdot \sin(\text{radians}(\theta_{\text{az}}))}{\tan\alpha \cdot \pi R_E}$$
+
+3. **Penumbra Blur Filter Radius & 4-Tap Poisson Disk Sampling**:
+   Sunlight subtends an angular diameter of $\sim 0.53^\circ \approx 0.0093\,\text{rad}$. The physical penumbra radius expands with vertical distance $\Delta h$:
+   - For Mid $\to$ Low ($\Delta h = 2.5\,\text{km}$): $r_{\text{penumbra}} = 20.0\,\text{km}$
+   - For High $\to$ Mid ($\Delta h = 4.5\,\text{km}$): $r_{\text{penumbra}} = 28.0\,\text{km}$
+   - For High $\to$ Low ($\Delta h = 7.0\,\text{km}$): $r_{\text{penumbra}} = 35.0\,\text{km}$
+
+   In equirectangular UV space, the filter radii are:
+   $$r_u = \frac{r_{\text{penumbra}}}{2\pi R_E \cos\phi}, \quad r_v = \frac{r_{\text{penumbra}}}{\pi R_E}$$
+
+   A 4-tap rotated Poisson disk distribution is evaluated unconditionally at explicit LOD 0.0 (Rule 4):
+   $$\mathbf{tap}_0 = (\text{fract}(u_{\text{shadow}} - 0.38 r_u), \text{clamp}(v_{\text{shadow}} - 0.92 r_v, 0.0, 1.0))$$
+   $$\mathbf{tap}_1 = (\text{fract}(u_{\text{shadow}} + 0.92 r_u), \text{clamp}(v_{\text{shadow}} - 0.38 r_v, 0.0, 1.0))$$
+   $$\mathbf{tap}_2 = (\text{fract}(u_{\text{shadow}} + 0.38 r_u), \text{clamp}(v_{\text{shadow}} + 0.92 r_v, 0.0, 1.0))$$
+   $$\mathbf{tap}_3 = (\text{fract}(u_{\text{shadow}} - 0.92 r_u), \text{clamp}(v_{\text{shadow}} + 0.38 r_v, 0.0, 1.0))$$
+
+   $$\bar{\rho}_{\text{upper}} = \frac{1}{4} \sum_{k=0}^3 \text{textureSampleLevel}(\mathbf{T}_{\text{upper}}, \mathbf{S}, \mathbf{tap}_k, 0.0).r$$
+
+4. **Multi-Stratum Beer-Lambert Inter-Deck Attenuation**:
+   Upper cloud optical depth is extracted via smooth activation curves:
+   $$\tau_{\text{mid}} = \text{smoothstep}(0.10, 0.40, \bar{\rho}_{\text{mid}}) \cdot 0.55$$
+   $$\tau_{\text{high}} = \text{smoothstep}(0.12, 0.45, \bar{\rho}_{\text{high}}) \cdot 0.30$$
+
+   The accumulated inter-deck optical depth $\tau_{\text{interdeck}}$ received by stratum $i = \text{cloud.u_layerIndex}$ is:
+   $$\tau_{\text{interdeck}} = \begin{cases} \tau_{\text{mid}} + \tau_{\text{high}}, & \text{for Layer 0 (Low Stratus)} \\ \tau_{\text{high}}, & \text{for Layer 1 (Mid Altocumulus)} \\ 0.0, & \text{for Layer 2 (High Cirrus)} \end{cases}$$
+
+5. **Inter-Deck Shadow Modulation**:
+   Let $I_{\text{shadow}} = \text{cloud.u_shadowIntensity} \in [0.0, 0.60]$.
+   The inter-deck shadow transmission factor is:
+   $$S_{\text{interdeck}} = \text{clamp}(1.0 - I_{\text{shadow}} \cdot \tau_{\text{interdeck}}, 0.0, 1.0)$$
+
+   Coupling into deck illumination preserves the Rule 21 AST invariant:
+   $$\text{let selfShadow} = \text{mix}(1.0 - \text{cloud.u_shadowIntensity} * 0.5, 1.0, NdotL);$$
+   $$\text{let effectiveIllum} = \text{selfShadow} \cdot S_{\text{interdeck}};$$
+   The effective illumination attenuates the deck color across Theme 0 (Marie Tharp underside shade), Theme 1 (Cream Rag sepia ink depth), and Theme 2 (Cyanotype deep actinic blue).
+
+### Boundary Condition Evaluations (§10)
+| Test Scenario | Layer Index | Sun Alt $\alpha_{\text{alt}}$ | Sun Az $\theta_{\text{az}}$ | Upper Cloud Density | Inter-Deck $\tau$ | Shadow Factor $S_{\text{interdeck}}$ | Invariant / Physical Rationale |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Nadir Sun** | Layer 0 (Low) | $85^{\circ}$ | $315^{\circ}$ | $\rho_{\text{mid}}=0.5, \rho_{\text{high}}=0.5$ | $\tau_{\text{mid}} + \tau_{\text{high}} > 0$ | $1.0 - I_{\text{shadow}}\tau$ | Minimal lateral offset, near-vertical projection |
+| **Oblique Key Light** | Layer 0 (Low) | $45^{\circ}$ | $315^{\circ}$ | $\rho_{\text{mid}}=0.5, \rho_{\text{high}}=0$ | $\tau_{\text{mid}} = 0.55, \tau_{\text{high}} = 0$ | $1.0 - I_{\text{shadow}} \cdot 0.55$ | Moderate lateral offset ($\Delta h = 2.5\,\text{km}$) |
+| **Horizon Grazing** | Layer 0 (Low) | $5^{\circ}$ | $0^{\circ}$ | $\rho_{\text{mid}}=0.5, \rho_{\text{high}}=0.5$ | Clamped at $\alpha_{\text{alt}} = 5^{\circ}$ | Bounded in $[0, 1]$ | No division-by-zero singularity at horizon |
+| **Mid Deck Receive** | Layer 1 (Mid) | $45^{\circ}$ | $315^{\circ}$ | $\rho_{\text{mid}}=0.9, \rho_{\text{high}}=0.5$ | Only high deck contributes ($\tau_{\text{high}}$) | $1.0 - I_{\text{shadow}}\tau_{\text{high}}$ | Mid deck cannot cast shadow on itself ($\Delta h = 0$) |
+| **High Deck Immunity** | Layer 2 (High) | Any | Any | $\rho_{\text{all}} = 1.0$ | $\tau_{\text{interdeck}} \equiv 0.0$ | $1.0$ | Highest deck has no cloud strata above it |
+| **Clear Skies** | Any | Any | Any | $\rho_{\text{upper}} = 0.0$ | $\tau_{\text{interdeck}} \equiv 0.0$ | $1.0$ | Zero cloud density yields zero attenuation |
+
+### Invariant & Boundary Verification Matrix (§10)
+- [x] **M10-MATH-01 (Clearance Geometry)**: Correct relative clearances ($\Delta h_{2\to 1}=4.5\,\text{km}, \Delta h_{2\to 0}=7.0\,\text{km}, \Delta h_{1\to 0}=2.5\,\text{km}$) evaluated per active stratum.
+- [x] **M10-MATH-02 (Equirectangular Shadow Step)**: Shadow offset coordinates evaluated with metric tensor $\cos\phi$ and clamped solar altitude $\alpha \in [5^\circ, 85^\circ]$.
+- [x] **M10-MATH-03 (Penumbra Filtering)**: 4-tap Poisson disk filtering evaluated with altitude-scaled radii ($20\,\text{km}, 28\,\text{km}, 35\,\text{km}$).
+- [x] **M10-MATH-04 (Inter-Deck Coupling)**: Low stratus receives shadows from Mid + High; Mid altocumulus receives shadows from High; High cirrus receives zero shadow.
+- [x] **M10-WGSL-01 (Uniform Control Flow Invariant)**: All upper deck shadow taps evaluated unconditionally at explicit LOD 0.0 before dynamic branches or discards (Rule 4).
+- [x] **M10-WGSL-02 (AST Preservation)**: Exact AST tokens (`let selfShadow = mix(1.0 - cloud.u_shadowIntensity * 0.5, 1.0, NdotL);`, `baseDensity *= rainShadowAtten;`) preserved verbatim (Rule 21).
+
+---
+
+## §11: Anisotropic Solar Phase Scattering (Phase 3)
+
+### Problem Statement
+Cloud droplets and ice crystals exhibit pronounced anisotropic light scattering governed by Mie scattering theory.
+When viewing clouds towards the sun (backlit clouds), intense forward diffraction creates a brilliant luminous rim ("silver lining").
+When viewing clouds with the sun behind the camera, back-scattering causes a noticeable opposition brightening ("glory").
+In the legacy implementation:
+1. Cloud scattering used an ad-hoc single-parameter polynomial approximation with $g=0.40$ clamped to $[0.6, 1.4]$.
+2. The legacy formula lacked a physical dual-lobe forward/backward decomposition, failing to reproduce both forward silver-lining brilliance and opposition back-scatter.
+3. The approximation lacked rigorous energy conservation ($\int_{4\pi} P\,d\Omega = 1$), risking either energy loss or blown-out white halos that overwhelm delicate cartographic paper substrates.
+
+### Mathematical & Physical Formulation
+
+1. **Dual-Lobe Henyey-Greenstein Formulation**:
+   The authoritative single-lobe Henyey-Greenstein phase function for asymmetry factor $g \in (-1, 1)$ is:
+   $$p_{\text{HG}}(\mu, g) = \frac{1}{4\pi} \frac{1 - g^2}{(1 + g^2 - 2g\mu)^{3/2}}$$
+
+   The composite dual-lobe phase function combines a forward scattering lobe and a backward scattering lobe:
+   $$P(\mu, g_{\text{fwd}}, g_{\text{bwd}}, w_{\text{fwd}}) = w_{\text{fwd}} \cdot p_{\text{HG}}(\mu, g_{\text{fwd}}) + (1 - w_{\text{fwd}}) \cdot p_{\text{HG}}(\mu, -g_{\text{bwd}})$$
+
+2. **Calibrated Optical Parameters for Atmospheric Clouds**:
+   - Forward lobe asymmetry factor: $g_{\text{fwd}} = 0.72$ (sharp forward diffraction peak)
+   - Backward lobe asymmetry factor: $g_{\text{bwd}} = 0.28$ (gentle retro-reflection opposition surge)
+   - Forward lobe weight: $w_{\text{fwd}} = 0.82$
+
+3. **Scattering Angle Geometry & Coordinate Definition**:
+   Let $\mathbf{L} = \text{normalize}(\text{cloud.u_sunDirection.xyz})$ point towards the sun.
+   Let $\mathbf{V} = \text{normalize}(\text{cloud.u_cameraPos.xyz} - \text{in.worldPos})$ point towards the camera eye.
+   The cosine of the scattering angle between the incoming solar ray and outgoing camera view ray is:
+   $$\cos\theta = \text{dot}(\mathbf{V}, \mathbf{L})$$
+   $$\mu = -\mathbf{L} \cdot \mathbf{V} = -\cos\theta$$
+
+   - When $\cos\theta \to -1$ ($\mu \to +1$): Camera looks directly towards the sun through the cloud $\implies$ Peak forward scattering (silver lining).
+   - When $\cos\theta \to +1$ ($\mu \to -1$): Sun is directly behind the camera $\implies$ Opposition back-scatter surge.
+   - When $\cos\theta \approx 0$ ($\mu \approx 0$): Side-lit orthogonal illumination $\implies$ Neutral baseline.
+
+4. **Strict Analytical Energy Conservation Proof**:
+   The phase function is normalized over the unit sphere $\Omega$:
+   $$\int_{4\pi} P(\mu)\,d\Omega = 2\pi \int_{-1}^{1} \left[ w_{\text{fwd}} p_{\text{HG}}(\mu, g_{\text{fwd}}) + (1 - w_{\text{fwd}}) p_{\text{HG}}(\mu, -g_{\text{bwd}}) \right] d\mu$$
+
+   For any single lobe $p_{\text{HG}}(\mu, g)$:
+   Substitute $u = 1 + g^2 - 2g\mu$, $du = -2g\,d\mu$:
+   $$\int_{-1}^1 (1 + g^2 - 2g\mu)^{-3/2}\,d\mu = \left[ \frac{1}{g} (1 + g^2 - 2g\mu)^{-1/2} \right]_{-1}^1 = \frac{1}{g} \left( \frac{1}{1-g} - \frac{1}{1+g} \right) = \frac{2}{1 - g^2}$$
+   Multiplying by $\frac{1 - g^2}{4\pi}$:
+   $$\int_{-1}^1 p_{\text{HG}}(\mu, g)\,d\mu = \frac{1 - g^2}{4\pi} \cdot \frac{2}{1 - g^2} = \frac{1}{2\pi}$$
+   Integrating azimuthally over $\int_0^{2\pi} d\phi = 2\pi$:
+   $$\int_{4\pi} p_{\text{HG}}(\mu, g)\,d\Omega = 2\pi \cdot \frac{1}{2\pi} = 1.0 \quad \forall g \in (-1, 1)$$
+
+   Therefore, for any weight $w_{\text{fwd}} \in [0, 1]$:
+   $$\int_{4\pi} P(\mu)\,d\Omega = w_{\text{fwd}} \cdot 1.0 + (1 - w_{\text{fwd}}) \cdot 1.0 = 1.0 \equiv \text{constant}$$
+   Energy conservation is strictly and unconditionally satisfied.
+
+5. **Archival Medium Substrate Protection**:
+   In cartographic drafting, clouds rest upon cellulose cotton rag (Theme 1), cyanotype photochemical paper (Theme 2), or physiographic ocean charts (Theme 0).
+   The raw phase intensity $4\pi P(\mu)$ varies from $\approx 0.36$ to $18.89$.
+   To prevent blowing out delicate paper fiber backgrounds while preserving high-contrast silver lining brilliance:
+   $$\text{phaseFactor} = \text{clamp}(P(\mu) \cdot 4\pi, 0.55, 1.85)$$
+
+### Boundary Condition Evaluations (§11)
+| Scattering Geometry | Alignment | $\cos\theta$ | Scattering Parameter $\mu$ | Analytical $4\pi P(\mu)$ | Clamped Factor | Visual Characteristic |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Direct Forward** | Looking into Sun (Backlit) | $-1.0$ | $+1.0$ | $18.89$ | $1.85$ | Brilliant silver lining around cloud rims |
+| **Forward Oblique** | $30^{\circ}$ from Sun vector | $-0.866$ | $+0.866$ | $\sim 5.20$ | $1.85$ | Luminous forward scattering halo |
+| **Side Lighting** | Orthogonal View ($\theta = 90^{\circ}$) | $0.0$ | $0.0$ | $\sim 0.36$ | $0.55$ | Neutral baseline, paper tooth preserved |
+| **Opposition Back-Scatter** | Sun behind camera | $+1.0$ | $-1.0$ | $\sim 2.65$ | $1.35$ | Opposition surge / glory brightening |
+| **Grazing Horizon Limb** | 78° Oblique cross-section | Any | Bounded $[-1, 1]$ | Bounded & finite | $[0.55, 1.85]$ | Bounded transmission, zero NaNs / Infs |
+
+### Invariant & Boundary Verification Matrix (§11)
+- [x] **M11-MATH-01 (Dual-Lobe Formulation)**: Forward lobe ($g_{\text{fwd}}=0.72$), backward lobe ($g_{\text{bwd}}=0.28$), and weight ($w_{\text{fwd}}=0.82$) evaluated.
+- [x] **M11-MATH-02 (Energy Conservation)**: Strict spherical integral normalization $\int_{4\pi} P(\mu)\,d\Omega = 1.0 \pm 10^{-4}$ verified analytically and empirically.
+- [x] **M11-MATH-03 (Scattering Coordinates)**: View and solar vectors normalized, $\mu = -\mathbf{L} \cdot \mathbf{V}$ evaluated without singularities.
+- [x] **M11-MATH-04 (Substrate Protection)**: Clamping to $[0.55, 1.85]$ prevents substrate burnout while delivering forward silver linings.
+- [x] **M11-WGSL-01 (Uniform Control Flow)**: Phase function computed in uniform control flow without dynamic branching (Rule 4).
+- [x] **M11-THEME-01 (Medium Identity)**: Archival medium characteristics intact across Theme 0, Theme 1, and Theme 2.

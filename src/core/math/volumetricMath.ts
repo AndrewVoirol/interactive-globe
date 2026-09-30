@@ -972,7 +972,11 @@ export function invertMacroChart(
     const rPar = radius * parallelWidth;
     const Rc = rPar / sDiv;
     const Cz = rPar * (s - 1.0 / sDiv);
-    const dz = tz - Cz;
+    const sZero = smoothstep(0.0, 0.10, alphaClamped);
+    const sOne = 1.0 - smoothstep(0.90, 1.0, alphaClamped);
+    const env = Math.sin(Math.PI * alphaClamped) * sZero * sOne;
+    const dz_lift = (0.60 + 0.40 * cosLat) * radius * 0.06 * env;
+    const dz = (tz - dz_lift) - Cz;
     lambda = Math.atan2(tx, dz) / s;
     h = Math.hypot(tx, dz) - Rc;
   }
@@ -1013,6 +1017,403 @@ export function invertMacroChart(
   }
 
   return { lambda, phi, h };
+}
+
+/**
+ * Canonical CPU evaluation of volumetric macro chart coordinate mapping.
+ * Matches evaluateMacroChartWGSL in volumetric_cloud.wgsl line-for-line.
+ */
+export function evaluateMacroChartVolumetric(
+  lonRad: number,
+  latRad: number,
+  h: number,
+  alpha: number,
+  radius: number = EARTH_RADIUS_UNITS
+): Vec3 {
+  const alphaClamped = Math.max(0.0, Math.min(1.0, alpha));
+  const alphaEased = alphaClamped * alphaClamped * (3.0 - 2.0 * alphaClamped);
+  const tParallel = smoothstep(0.05, 0.85, alphaEased);
+  const cosLat = Math.cos(latRad);
+  const sinLat = Math.sin(latRad);
+  const parallelWidth = cosLat * (1.0 - tParallel) + tParallel;
+  const rPar = radius * parallelWidth;
+  const s = Math.max(0.0001, 1.0 - alphaEased);
+  const uAngle = s * lonRad;
+
+  let curX: number;
+  let curZ: number;
+  if (Math.abs(uAngle) > 0.02) {
+    const sDiv = Math.max(0.0001, s);
+    curX = rPar * (Math.sin(uAngle) / sDiv);
+    curZ = rPar * ((Math.cos(uAngle) - 1.0) / sDiv + s);
+  } else {
+    const u2 = uAngle * uAngle;
+    curX = rPar * lonRad * (1.0 - u2 / 6.0);
+    curZ = rPar * s * (1.0 - lonRad * lonRad * 0.5 * (1.0 - u2 / 12.0));
+  }
+
+  const tStraighten = smoothstep(0.20, 0.95, alphaEased);
+  const curY = (1.0 - tStraighten) * radius * sinLat + tStraighten * radius * latRad;
+
+  const sZero = smoothstep(0.0, 0.10, alphaClamped);
+  const sOne = 1.0 - smoothstep(0.90, 1.0, alphaClamped);
+  const env = Math.sin(Math.PI * alphaClamped) * sZero * sOne;
+  const dz_lift = (0.60 + 0.40 * cosLat) * radius * 0.06 * env;
+
+  const normX = Math.sin(uAngle);
+  const normY = 0.0;
+  const normZ = Math.cos(uAngle);
+
+  const pDev: Vec3 = [
+    curX + normX * h,
+    curY + normY * h,
+    curZ + normZ * h + dz_lift,
+  ];
+
+  const pSph: Vec3 = [
+    (radius + h) * cosLat * Math.sin(lonRad),
+    (radius + h) * sinLat,
+    (radius + h) * cosLat * Math.cos(lonRad),
+  ];
+
+  const pFlat: Vec3 = [
+    radius * lonRad,
+    radius * latRad,
+    h,
+  ];
+
+  const tSphere = 1.0 - smoothstep(0.0, 0.05, alphaClamped);
+  const tFlat = smoothstep(0.95, 1.0, alphaClamped);
+
+  let px = pDev[0] * (1.0 - tSphere) + pSph[0] * tSphere;
+  let py = pDev[1] * (1.0 - tSphere) + pSph[1] * tSphere;
+  let pz = pDev[2] * (1.0 - tSphere) + pSph[2] * tSphere;
+
+  px = px * (1.0 - tFlat) + pFlat[0] * tFlat;
+  py = py * (1.0 - tFlat) + pFlat[1] * tFlat;
+  pz = pz * (1.0 - tFlat) + pFlat[2] * tFlat;
+
+  return [px, py, pz];
+}
+
+export interface Jacobian3x3 {
+  dl: Vec3;
+  dp: Vec3;
+  dh: Vec3;
+}
+
+export function computeJacobianVolumetric(
+  lambda: number,
+  phi: number,
+  h: number,
+  unfurl: number,
+  radius: number = EARTH_RADIUS_UNITS
+): Jacobian3x3 {
+  const DELTA = 0.001;
+  const inv2Delta = 1.0 / (2.0 * DELTA);
+
+  const p_l_plus = evaluateMacroChartVolumetric(lambda + DELTA, phi, h, unfurl, radius);
+  const p_l_minus = evaluateMacroChartVolumetric(lambda - DELTA, phi, h, unfurl, radius);
+  const dl: Vec3 = [
+    (p_l_plus[0] - p_l_minus[0]) * inv2Delta,
+    (p_l_plus[1] - p_l_minus[1]) * inv2Delta,
+    (p_l_plus[2] - p_l_minus[2]) * inv2Delta,
+  ];
+
+  const p_p_plus = evaluateMacroChartVolumetric(lambda, phi + DELTA, h, unfurl, radius);
+  const p_p_minus = evaluateMacroChartVolumetric(lambda, phi - DELTA, h, unfurl, radius);
+  const dp: Vec3 = [
+    (p_p_plus[0] - p_p_minus[0]) * inv2Delta,
+    (p_p_plus[1] - p_p_minus[1]) * inv2Delta,
+    (p_p_plus[2] - p_p_minus[2]) * inv2Delta,
+  ];
+
+  const p_h_plus = evaluateMacroChartVolumetric(lambda, phi, h + DELTA, unfurl, radius);
+  const p_h_minus = evaluateMacroChartVolumetric(lambda, phi, h - DELTA, unfurl, radius);
+  const dh: Vec3 = [
+    (p_h_plus[0] - p_h_minus[0]) * inv2Delta,
+    (p_h_plus[1] - p_h_minus[1]) * inv2Delta,
+    (p_h_plus[2] - p_h_minus[2]) * inv2Delta,
+  ];
+
+  return { dl, dp, dh };
+}
+
+export function computeJacobianDeterminant(J: Jacobian3x3): number {
+  return (
+    J.dl[0] * (J.dp[1] * J.dh[2] - J.dp[2] * J.dh[1]) -
+    J.dl[1] * (J.dp[0] * J.dh[2] - J.dp[2] * J.dh[0]) +
+    J.dl[2] * (J.dp[0] * J.dh[1] - J.dp[1] * J.dh[0])
+  );
+}
+
+export function computeInverseJacobian(J: Jacobian3x3): {
+  r0: Vec3;
+  r1: Vec3;
+  r2: Vec3;
+  det: number;
+} {
+  const cross12: Vec3 = [
+    J.dp[1] * J.dh[2] - J.dp[2] * J.dh[1],
+    J.dp[2] * J.dh[0] - J.dp[0] * J.dh[2],
+    J.dp[0] * J.dh[1] - J.dp[1] * J.dh[0],
+  ];
+  const cross20: Vec3 = [
+    J.dh[1] * J.dl[2] - J.dh[2] * J.dl[1],
+    J.dh[2] * J.dl[0] - J.dh[0] * J.dl[2],
+    J.dh[0] * J.dl[1] - J.dh[1] * J.dl[0],
+  ];
+  const cross01: Vec3 = [
+    J.dl[1] * J.dp[2] - J.dl[2] * J.dp[1],
+    J.dl[2] * J.dp[0] - J.dl[0] * J.dp[2],
+    J.dl[0] * J.dp[1] - J.dl[1] * J.dp[0],
+  ];
+
+  const det = J.dl[0] * cross12[0] + J.dl[1] * cross12[1] + J.dl[2] * cross12[2];
+  const invDet = 1.0 / (Math.abs(det) < 1e-8 ? 1.0 : det);
+
+  return {
+    r0: [cross12[0] * invDet, cross12[1] * invDet, cross12[2] * invDet],
+    r1: [cross20[0] * invDet, cross20[1] * invDet, cross20[2] * invDet],
+    r2: [cross01[0] * invDet, cross01[1] * invDet, cross01[2] * invDet],
+    det,
+  };
+}
+
+export function computeParameterVelocity(
+  rayDir: Vec3,
+  lambda: number,
+  phi: number,
+  h: number,
+  unfurl: number,
+  radius: number = EARTH_RADIUS_UNITS
+): Vec3 {
+  const J = computeJacobianVolumetric(lambda, phi, h, unfurl, radius);
+  const inv = computeInverseJacobian(J);
+
+  return [
+    inv.r0[0] * rayDir[0] + inv.r0[1] * rayDir[1] + inv.r0[2] * rayDir[2],
+    inv.r1[0] * rayDir[0] + inv.r1[1] * rayDir[1] + inv.r1[2] * rayDir[2],
+    inv.r2[0] * rayDir[0] + inv.r2[1] * rayDir[1] + inv.r2[2] * rayDir[2],
+  ];
+}
+
+export function evaluateCloudSelfShadow(shadowIntensity: number, NdotL: number): number {
+  return (1.0 - shadowIntensity * 0.5) * (1.0 - NdotL) + 1.0 * NdotL;
+}
+
+export function evaluateCloudColor(
+  theme: number,
+  selfShadow: number,
+  phaseFactor: number,
+  featheredCloud: number,
+  paperTooth: number = 0.5
+): Vec3 {
+  if (theme === 0) {
+    const coreWhite: Vec3 = [0.96, 0.96, 0.94];
+    const undersideShade: Vec3 = [
+      0.82 * selfShadow,
+      0.85 * selfShadow,
+      0.89 * selfShadow,
+    ];
+    const t = Math.max(0.0, Math.min(1.0, (featheredCloud - 0.15) / (0.70 - 0.15)));
+    const smoothT = t * t * (3.0 - 2.0 * t);
+
+    const illuminated: Vec3 = [
+      coreWhite[0] * phaseFactor * selfShadow,
+      coreWhite[1] * phaseFactor * selfShadow,
+      coreWhite[2] * phaseFactor * selfShadow,
+    ];
+    return [
+      undersideShade[0] * (1.0 - smoothT) + illuminated[0] * smoothT,
+      undersideShade[1] * (1.0 - smoothT) + illuminated[1] * smoothT,
+      undersideShade[2] * (1.0 - smoothT) + illuminated[2] * smoothT,
+    ];
+  } else if (theme === 1) {
+    const ivoryWash: Vec3 = [0.98, 0.95, 0.89];
+    const toothFactor = 1.0 - (0.5 - 0.5) * (paperTooth * 0.35);
+    const scale = toothFactor * phaseFactor * selfShadow;
+    return [ivoryWash[0] * scale, ivoryWash[1] * scale, ivoryWash[2] * scale];
+  } else {
+    const actinicWhite: Vec3 = [0.95, 0.98, 1.00];
+    const scale = phaseFactor * selfShadow;
+    return [actinicWhite[0] * scale, actinicWhite[1] * scale, actinicWhite[2] * scale];
+  }
+}
+
+export function evaluateOrographicAttenuation(
+  wOrographic: number,
+  rainShadowFeedback: number,
+  layerIdx: number
+): { rainShadowAtten: number; stratumCoupling: number } {
+  const stratumCoupling = layerIdx === 0 ? 1.0 : layerIdx === 1 ? 0.50 : 0.15;
+  const clampedDesc = Math.max(0.0, Math.min(0.85, -wOrographic * 40.0));
+  const rainShadowAtten = 1.0 - rainShadowFeedback * clampedDesc * stratumCoupling;
+  return { rainShadowAtten, stratumCoupling };
+}
+
+export function evaluateKExagg(NdotV: number, atmosphericScale: number): number {
+  const clampedNdotV = Math.max(0.0, Math.min(1.0, NdotV / 0.35));
+  const oneMinus = 1.0 - clampedNdotV;
+  return 1.0 + (atmosphericScale - 1.0) * (oneMinus * oneMinus);
+}
+
+export function evaluateCrustDisp(
+  elevMeters: number,
+  dispScale: number = 0.08,
+  dynamicExp: number = 1.4,
+  poleAtten: number = 1.0
+): number {
+  const normH = Math.max(0.0, elevMeters) / 8848.0;
+  return Math.pow(normH, Math.max(0.5, dynamicExp)) * (dispScale * 2.8) * poleAtten;
+}
+
+export function evaluateCloudOffset(
+  layerIdx: number,
+  elevMeters: number,
+  atmosphericScale: number = 1.0,
+  NdotV: number = 0.5,
+  dispScale: number = 0.08,
+  orbitT: number = 0.5,
+  peakExponent: number = 1.4,
+  poleDist: number = 0.3
+): {
+  baseStandoff: number;
+  kExagg: number;
+  effStandoff: number;
+  crustDisp: number;
+  totalOffset: number;
+} {
+  let baseStandoff = 0.0010;
+  if (layerIdx === 1) {
+    baseStandoff = 0.0040;
+  } else if (layerIdx === 2) {
+    baseStandoff = 0.0080;
+  }
+
+  const dynamicExp = (1.0 + 0.8 * orbitT) * (Math.max(0.5, peakExponent) / 1.4);
+  const poleAtten = 1.0 - Math.max(0.0, Math.min(1.0, (poleDist - 0.85) / (0.98 - 0.85)));
+  const crustDisp = evaluateCrustDisp(elevMeters, dispScale, dynamicExp, poleAtten);
+
+  const kExagg = evaluateKExagg(NdotV, atmosphericScale);
+  const effStandoff = baseStandoff * kExagg;
+  const totalOffset = crustDisp + effStandoff;
+
+  return { baseStandoff, kExagg, effStandoff, crustDisp, totalOffset };
+}
+
+export function evaluateOrographicEffect(
+  elevEast: number,
+  elevWest: number,
+  layerIdx: number
+): {
+  deltaH: number;
+  windwardBoost: number;
+  leewardShadow: number;
+  stratumCoupling: number;
+  orographicFactor: number;
+} {
+  const deltaH = (elevEast - elevWest) / 8848.0;
+  const windwardBoost = Math.max(0.0, Math.min(0.35, deltaH * 3.5));
+  const leewardShadow = Math.max(0.0, Math.min(0.70, -deltaH * 4.0));
+  const stratumCoupling = layerIdx >= 1 ? (layerIdx === 2 ? 0.15 : 0.50) : 1.0;
+  const orographicFactor = 1.0 + (windwardBoost - leewardShadow) * stratumCoupling;
+
+  return { deltaH, windwardBoost, leewardShadow, stratumCoupling, orographicFactor };
+}
+
+export function evaluate2DOrographicCondensation(
+  windVel: [number, number],
+  gradH: [number, number],
+  rawCloud: number,
+  layerIdx: number,
+  rainShadowFeedback: number = 0.0
+): {
+  wOrographic: number;
+  orographicLift: number;
+  condensedCloud: number;
+  rainShadowAtten: number;
+  stratumCoupling: number;
+} {
+  const wOrographic = windVel[0] * gradH[0] + windVel[1] * gradH[1];
+  const stratumCoupling = layerIdx === 0 ? 1.0 : layerIdx === 1 ? 0.50 : 0.15;
+  const orographicLift = 0.35 * Math.tanh(0.05 * wOrographic * 50.0) * stratumCoupling;
+  const clampedDesc = Math.max(0.0, Math.min(0.85, -wOrographic * 40.0));
+  const rainShadowAtten = 1.0 - rainShadowFeedback * clampedDesc * stratumCoupling;
+  const baseDensity = Math.max(0.0, Math.min(1.0, rawCloud + orographicLift));
+  const condensedCloud = baseDensity * rainShadowAtten;
+
+  return {
+    wOrographic,
+    orographicLift,
+    condensedCloud,
+    rainShadowAtten,
+    stratumCoupling,
+  };
+}
+
+export function evaluateMacroChartF32(
+  lonRad: number,
+  latRad: number,
+  h: number,
+  alpha: number,
+  radius: number = EARTH_RADIUS_UNITS
+): { pos: Vec3; normal: Vec3 } {
+  const f32 = new Float32Array(32);
+  const smoothstepSim = (e0: number, e1: number, x: number): number => {
+    const t = Math.max(0.0, Math.min(1.0, (x - e0) / (e1 - e0)));
+    return Math.fround(t * t * (3.0 - 2.0 * t));
+  };
+
+  f32[0] = Math.fround(Math.max(0.0, Math.min(1.0, alpha)));
+  const alphaClamped = f32[0];
+  const alphaEased = Math.fround(alphaClamped * alphaClamped * (3.0 - 2.0 * alphaClamped));
+  const tParallel = smoothstepSim(0.05, 0.85, alphaEased);
+  const cosLat = Math.fround(Math.cos(latRad));
+  const sinLat = Math.fround(Math.sin(latRad));
+  const parallelWidth = Math.fround(cosLat * (1.0 - tParallel) + tParallel);
+  const rPar = Math.fround(radius * parallelWidth);
+  const s = Math.fround(Math.max(0.0, 1.0 - alphaEased));
+  const uAngle = Math.fround(s * lonRad);
+
+  let curX: number;
+  let curZ: number;
+  if (Math.abs(uAngle) > 0.02) {
+    const sDiv = Math.fround(Math.max(0.0001, s));
+    curX = Math.fround(rPar * (Math.sin(uAngle) / sDiv));
+    curZ = Math.fround(rPar * ((Math.cos(uAngle) - 1.0) / sDiv + s));
+  } else {
+    const u2 = Math.fround(uAngle * uAngle);
+    curX = Math.fround(rPar * lonRad * (1.0 - u2 / 6.0));
+    curZ = Math.fround(rPar * s * (1.0 - lonRad * lonRad * 0.5 * (1.0 - u2 / 12.0)));
+  }
+
+  const tStraighten = smoothstepSim(0.20, 0.95, alphaEased);
+  const curY = Math.fround((1.0 - tStraighten) * radius * sinLat + tStraighten * radius * latRad);
+
+  const dyDPhi = Math.fround(radius * (cosLat * (1.0 - tStraighten) + tStraighten));
+  const negDrDPhi = Math.fround(radius * sinLat * (1.0 - tParallel));
+  let bracket: number;
+  if (Math.abs(uAngle) > 0.02) {
+    const sDiv = Math.fround(Math.max(0.0001, s));
+    bracket = Math.fround((1.0 - Math.cos(uAngle)) / sDiv + s * Math.cos(uAngle));
+  } else {
+    const u2 = Math.fround(uAngle * uAngle);
+    bracket = Math.fround(s * (lonRad * lonRad * (0.5 - u2 / 24.0) + (1.0 - u2 * 0.5)));
+  }
+
+  const rawNx = Math.fround(dyDPhi * Math.sin(uAngle));
+  const rawNy = Math.fround(negDrDPhi * bracket);
+  const rawNz = Math.fround(dyDPhi * Math.cos(uAngle));
+  const rawLen = Math.fround(Math.hypot(rawNx, rawNy, rawNz));
+  const norm: Vec3 = rawLen > 0.00001
+    ? [Math.fround(rawNx / rawLen), Math.fround(rawNy / rawLen), Math.fround(rawNz / rawLen)]
+    : [0.0, 0.0, 1.0];
+
+  return {
+    pos: [Math.fround(curX + norm[0] * h), Math.fround(curY + norm[1] * h), Math.fround(curZ + norm[2] * h)],
+    normal: norm,
+  };
 }
 
 

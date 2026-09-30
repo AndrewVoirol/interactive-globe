@@ -28,8 +28,18 @@ No shader, geometry, or thematic refactor is complete based solely on compilatio
 - **Test all 3 mediums**: No visual verification may pass based on captures of a single theme.
 - **Live browser verification**: Use Chrome DevTools MCP (`take_screenshot`, `list_console_messages`) to confirm zero runtime errors and correct visual output.
 - **Show real content**: A large screenshot file (> 50KB) is NOT proof of feature implementation. If a feature is claimed to be implemented, the screenshot must show that feature clearly visible.
-- **No Uniform Placebos (End-to-End Shader Execution)**: Verifying that a React control updates component state or packs a float into `SimUniforms` is completely insufficient. The implementing agent must verify that the target fragment/vertex shader actually consumes that uniform in its **active, default execution path** without early `discard` statements, hardcoded masks, or bypassed branches. If a uniform is uploaded but discarded in the default view, it is a placebo.
+- **No Uniform or Algorithm Placebos (End-to-End Shader Execution & Anti-Metric Gaming)**: Verifying that a React control updates component state, packs a float into `SimUniforms`, or compiles a WGSL helper function is completely insufficient. The implementing agent must verify that the target fragment/vertex shader actually consumes that uniform or algorithm in its **active, default execution path** without early `discard` statements, hardcoded masks, or bypassed branches. If a uniform is uploaded but discarded, or if an algorithm exists as dead code while older fallback math continues to sample the texture, it is a placebo. Optical flow, FFT cross-correlation, and pixel delta metrics must NEVER be gamed by tilting the camera into an edge or cropping arbitrary screen-space sub-regions to isolate noise while ignoring zero motion across the rest of the canvas.
 - **Dual-State Visual Contrast**: For interactive parameters (e.g. Sea Level ±100m, Solar Angle, or Water Clarity), visual verification must capture before/after states at opposing parameter bounds and demonstrate an observable pixel delta on the canvas.
+- **Mandatory Video Screencast & Quantitative Optical Flow for Motion-Coupled Systems**: For any feature whose core mechanical or visual value involves motion (fluid dynamics, spherical wind advection, cloud drift, orbital tracks, multi-stratum vertical shear):
+  1. A static screenshot is strictly insufficient to certify completion.
+  2. The agent must record a $\ge 2.0$-second screencast via Chrome DevTools MCP (`screencast_start` / `screencast_stop`).
+  3. Extract sequential video frames at 5 FPS using `ffmpeg`.
+  4. Run 2D Lucas-Kanade optical flow and temporal pixel delta analysis on the canvas viewport (excluding static UI chrome):
+     - **Active Moving Pixel Ratio**: $\ge 25.0\%$ of active canvas pixels.
+     - **Mean Temporal Delta**: $\Delta \bar{I} > 3.50$ units.
+     - **2D Vector Displacement**: Both $dx \ne 0$ and $dy \ne 0$ (verifying true multi-dimensional transport rather than 1D slide).
+     - **UI Stability Invariant**: Delta on static HUD chrome (sidebar dock, neatline) must be identically $0.00$.
+  5. Generate and visually inspect a motion difference heatmap confirming that motion is distributed across the planetary canvas rather than isolated to screen edges.
 
 ## 6. Cartographic Framing & HUD Layout
 - **10px Spatial Clearance Moat**: All floating HUD instruments align to a 20px grid axis. The distance from neatline to panel edge is a strict 10px moat.
@@ -288,3 +298,113 @@ When evaluating projection distortion, strain ellipses, or Tissot indicatrices:
   $$E = R^2 \cos^2\phi, \quad F = 0, \quad G = R^2$$
   $$a = \sec\phi, \quad b = 1.000, \quad s = \sec\phi, \quad 2\omega = 2\arcsin\left(\frac{a - b}{a + b}\right)$$
 
+## 50. Architectural Default vs. Disk Fallback Invariant
+Before asserting which dataset, model backend, or pipeline is the "default" or "active" architecture, agents MUST verify default React state in `App.tsx` and component props, NOT merely inspect what sample files happen to exist in `public/data/` or observe an error fallback branch.
+
+A fallback triggered by missing local files is never an architectural specification. If primary dataset files (e.g. WeatherNext 3) are missing from disk, run the appropriate extraction tool (`scripts/fetch-weathernext3.py`) to stage the ground truth data immediately rather than redefining the project around the fallback.
+
+## 51. Local Baseline Machine Primacy (Zero Premature Mobile Downscaling)
+Development, shader complexity, volumetric raymarching step budgets, and texture resolutions are calibrated first and foremost for the user's local baseline machine (Apple Silicon Mac with unified GPU memory).
+
+Agents must never proactively degrade sampling quality, disable volumetric passes, or omit physical calculations under the pretext of "mobile budget" or "low-end GPU performance" unless specifically instructed by the user to profile for secondary targets.
+
+## 52. Empirical Motion & Optical Flow Verification Protocol
+When implementing, modifying, or tuning dynamic motion, velocity vectors, wind advection, or fluid flow:
+- **Static screenshots are insufficient proof of motion.** A stationary capture cannot distinguish between directional advection, in-place procedural noise boiling, or static placeholders.
+- **Mandatory Video Capture**: Capture a 1–2 second screencast (`screencast_start` / `screencast_stop`) via Chrome DevTools MCP.
+- **Quantitative Optical Flow**: Extract sequential frames via FFmpeg and compute empirical 2D displacement vectors (`dx`, `dy`) and active pixel deltas via Python (`PIL`, `scipy.signal.fftconvolve`).
+- **Placebo Invariant**: A feature claiming vector advection or vertical wind shear is a placebo if $\Delta y \equiv 0$ (rigid 1D horizontal sliding) or if all strata share identical bulk displacement.
+
+## 53. Anti-Compaction Operational Ledger Discipline
+In complex multi-phase refactors or workshops subject to context truncation and compaction:
+- Maintain a single master operational roadmap artifact in the conversation artifact directory (`<appDataDir>/brain/<conversation-id>/`).
+- Ground the artifact in verified coordinates, exact camera parameters (elevation, pitch, heading), and quantitative baseline metrics.
+- Do not re-litigate established baselines or re-prompt for known decisions across conversation turns; reference the master roadmap.
+
+## 54. The 4-View Dual-Benchmark Camera Suite (`window.__GO`)
+All visual verification, milestone acceptance gates, and optical flow analyses must execute against the approved 4-view dual-benchmark suite. Agents must use `window.__INDICATRIX_CAMERA__.setObliqueView(lon, lat, alt, pitch, hdg)` or the registered `window.__GO` console shortcuts:
+
+1. **Location 1: South America / Andes Cordillera**:
+   - **View 1A (Continental Synoptic / Nadir)**: `window.__GO.loc1_synoptic()`
+     `setObliqueView(-61.0, -15.0, 7.8, 0.0, 0.0)`
+     *Purpose*: Full continental 2D flow, Amazon trade winds, Cream Rag Swiss Relief plate beauty.
+   - **View 1B (Andes Spine Regional Oblique)**: `window.__GO.loc1_oblique()`
+     `setObliqueView(-68.0, -18.0, 6.8, 32.0, 345.0)`
+     *Purpose*: 3D mountain barrier perspective, curved horizon limb, windward cloud pooling.
+
+2. **Location 2: Pacific Northwest (Cascades & Mount Rainier)**:
+   - **View 2A (PNW Regional Synoptic / Nadir)**: `window.__GO.loc2_synoptic()`
+     `setObliqueView(-122.0, 46.5, 6.8, 0.0, 0.0)`
+     *Purpose*: Orthogonal map of Puget Sound, Olympic Peninsula, and Cascade volcanoes.
+   - **View 2B (Cascades Volcanic Arc Oblique)**: `window.__GO.loc2_oblique()`
+     `setObliqueView(-121.5, 45.0, 6.8, 30.0, 345.0)`
+     *Purpose*: Pacific storm tracks, upper Jet Stream shear aloft, and solitary summit piercing.
+
+## 55. Mesh-Aware Cartographic Perspective Limits (Anti-Curtain Invariant)
+The Indicatrix Engine simulates an archival cartographic drafting sheet, not a low-altitude first-person flight simulator.
+- **Architectural Pitch Ceiling**: When framing 3D oblique views at regional or continental altitudes ($R \le 7.0$), camera pitch MUST NOT exceed $35.0^\circ$ (recommended: $28.0^\circ\text{–}32.0^\circ$).
+- **Anti-Curtain Geometry**: Pitches $\ge 45.0^\circ$ at low altitudes force the camera into grazing edge angles that expose the discrete quad grid spacing of the global UV sphere across steep elevation gradients (e.g. the $12,000\,\text{m}$ drop from the Andes to the Peru-Chile trench), rendering artificial vertical striated curtain walls and causing volumetric raymarching over-accumulation.
+- **Centering & Framing**: Oblique views must look along or across mountain axes at a balanced perspective, keeping the planetary limb curved gracefully in the upper viewport while maintaining the 10px neatline breathing moat.
+
+## 56. WebGPU Texture Loader Downstream Bind-Group Fan-Out Invariant
+Whenever a texture loader or data streaming manager (`loadWindTexture`, `loadJetStreamTexture`, `loadRadarTexture`, `loadDEMTexture`) mutates, reallocates, or rebinds a GPU texture resource:
+- **Synchronous Consumer Invalidation**: The loader MUST immediately invoke the bind group update methods for ALL downstream consumer render passes that sample that texture.
+  - Wind texture updates (`this.windTexture`) MUST call:
+    1. `this.updateCloudBindGroups()` (updates bindings 7 and 8 across all cloud strata: low, mid, high)
+    2. `this.updateWindParticleBindGroups()`
+    3. `this.updateComputeBindGroups()`
+  - Upper-Air Jet Stream updates (`this.jetStreamTexture` in M2) MUST call:
+    1. `this.updateCloudBindGroups()` (binding 9 in `cloud_shell.wgsl`)
+- **Prohibition of Asynchronous Orphan Views**: No texture upload may resolve its Promise until all consumer pass bind groups have been re-created with the active `GPUTextureView`. Leaving consumer pipelines pointing to dummy fallback textures while data streaming succeeds is a critical defect.
+
+## 57. Orthogonal Perspective Pairing & Physical Stratum Provenance
+Atmospheric, hydrological, and relief verification must never evaluate a single isolated perspective or drop either half of a calibrated benchmark pair:
+- **Mandatory Orthogonal Pairing**:
+  - **View 1A & 1B (South America)**: View 1A (Synoptic Nadir, pitch 0°) captures 2D planar continental flow and trade-wind curvature; View 1B (Andes Oblique, pitch 32°) captures 3D elevation shear, Altiplano stagnation, and ridge interception.
+  - **View 2A & 2B (Pacific Northwest)**: View 2A (Synoptic Nadir, pitch 0°) captures 2D maritime frontal entry and Gorge channelling; View 2B (Cascades Oblique, pitch 30°) captures upper-tropospheric jet stream summit shearing over Mount Rainier/Hood against valley stratus.
+- **Dataset Provenance & Layer Realism**:
+  - Google DeepMind WeatherNext 3 ($10\,\text{m}$) represents the surface planetary boundary layer ($0\text{–}2\,\text{km}$).
+  - NOAA GFS ($250\,\text{hPa}$) represents the upper-tropospheric jet stream ($6\text{–}12\,\text{km}$).
+  - All subsequent atmospheric milestones (orographic lift, rain shadow, moisture condensation, semi-Lagrangian advection) must preserve this physical stratification.
+
+## 58. WebGPU DevTools Inspection & Compositor Readback Invariant
+When interacting with the engine in live browser sessions via Chrome DevTools MCP (`evaluate_script`):
+- **Facade vs Raw Engine**:
+  - `window.__INDICATRIX_ENGINE__`: UI/State facade (`getState`, `setMode`, `setTheme`, `setShowVectors`).
+  - `window.__INDICATRIX_WEBGPU_ENGINE__` (or `window.__ENGINE`): Concrete `WebGPUEngine` instance holding textures, uniform buffers, and data loader pipelines. Never invoke raw engine loaders on the UI facade.
+- **Zero 2D Context Canvas Readback**:
+  - Do NOT attempt to extract pixel differences via `canvas2d.drawImage(webgpuCanvas)`. WebGPU swapchain presentation clears the backbuffer each frame.
+  - All frame diffs, optical flow captures, and visual audits must be captured directly from the compositor via DevTools MCP `take_screenshot` or `screencast_start` / `screencast_stop`.
+
+## 59. W3C WGSL §14.4 Ascending Edge Invariant (`smoothstep` Safety)
+In WGSL fragment and vertex shaders, the built-in function `smoothstep(edge0, edge1, x)` requires that $edge0 < edge1$ strictly.
+- **Prohibition of Inverted Edges**: Passing descending bounds ($edge0 > edge1$) is undefined behavior under W3C WGSL §14.4 and produces NaNs, driver crashes, or erratic clamping on Apple Silicon Metal and Vulkan backends.
+- **Standard Ascending Formulation**: When implementing descending physical transitions (e.g., altitude stratum attenuation, falloff masks, horizon limbs, or shadow penumbras), shaders MUST use the strictly ascending invariant:
+  $$\alpha_{\text{descending}} = 1.0 - \text{smoothstep}(edge_{\text{base}}, edge_{\text{top}}, x)$$
+  where $edge_{\text{base}} < edge_{\text{top}}$.
+- **Spec Ledger Boundary Verification**: Specification ledgers must explicitly test boundaries with $edge0 < edge1$ before transferring mathematical formulas to WGSL.
+
+## 60. Dual-Layer State Calibration (Class Baseline vs. Production UI State)
+When introducing or tuning physical couplings, interactive sliders, or shader parameters:
+- **Engine Class Baseline Invariant**: Property declarations in `WebGPUEngine.ts` must retain their clean, uninitialized baseline values (e.g. `public rainShadowFeedback: number = 0.0;`) to guarantee that class-level unit and challenger tests pass without breaking backward compatibility.
+- **Top-Level React UI Calibration**: The active, calibrated production defaults must be set in top-level React state (`src/App.tsx`), ensuring the live application mounts with the intended physical and aesthetic manifestation out-of-the-box (e.g. `const [rainShadowFeedback, setRainShadowFeedback] = useState<number>(0.50);`).
+- **Zero-Bypass Verification**: When testing UI state propagation, verify both layers: unit tests assert the engine default, while integration/browser audits assert the active React prop delivery to the GPU uniform buffer.
+## 61. Async WebGPU Browser Automation & Canvas Stabilization Gate
+In automated browser sessions (Chrome DevTools MCP), React applications interfacing with WebGPU engines evaluate hardware support asynchronously (e.g., `isWebGPUSupported().then(setHasWebGPU)`).
+- **Prohibition of Immediate Post-Navigation Captures**: Agents must NEVER take a screenshot or start a screencast immediately following `navigate_page` or `new_page`. Immediate capture records the transient fallback modal (`<WebGPUFallback>`).
+- **Mandatory Stabilization Pre-Flight**: Before taking screenshots, capturing video, or evaluating WebGPU DOM state, agents must execute a stabilization guard:
+  ```js
+  await new Promise(r => setTimeout(r, 2000));
+  // Verify WebGPU canvas is mounted and fallback card is absent:
+  const ready = document.querySelectorAll('canvas').length >= 1 &&
+                document.querySelectorAll('.max-w-md').length === 0;
+  ```
+
+## 62. Shader Blast-Radius Preflight Filtering
+The test suite contains over 268 test files and 3,815+ tests, taking 35–45 seconds per full run. Many suites contain AST source scanners (`fs.readFileSync`) targeting specific WGSL files.
+- **Mandatory Blast-Radius Scan**: Before running the full repository suite (`npx vitest run`), any agent modifying a `.wgsl` shader MUST grep `tests/` for literal references to that shader file name (e.g. `grep -rn "cloud_shell.wgsl" tests/`).
+- **Cluster Preflight Execution**: Run all test files identified in the blast-radius search together in a single fast command:
+  ```bash
+  npx vitest run tests/modern/target-feature.test.ts tests/modern/challenger-anti-bypass.test.ts
+  ```
+- **Preservation of Base Formulations in Shader ASTs**: When extending or modulating an established WGSL color equation tested by Challenger anti-bypass scanners, structure the modification as an explicit modulation of the established base formulation (`cloudColor = baseColor; cloudColor = (stratumPigment / baseColor) * cloudColor;`) rather than replacing the base assignment outright, preventing AST regex collisions while guaranteeing active non-placebo execution.

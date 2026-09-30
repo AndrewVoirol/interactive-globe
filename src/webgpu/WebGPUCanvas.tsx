@@ -496,6 +496,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isEngineReady, setIsEngineReady] = useState<boolean>(false);
 
   // Regional High-Resolution DEM Overlay State (NOAA CUDEM ~10m)
   const regionalManifestRef = useRef<RegionalManifestEntry[]>([]);
@@ -753,7 +754,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     const hasWind = !!dataLayers?.find(
       (l) => (l.id === 'noaa-gfs-wind' || l.id === 'noaa-grib2-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
     );
-    if (hasWind) {
+    if (hasWind || showClouds) {
       if (isWnModel) {
         engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {
           engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
@@ -765,7 +766,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     const hasJetStream = !!dataLayers?.find(
       (l) => (l.id === 'noaa-gfs-jetstream' || l.id === 'gfs-jetstream') && l.visible
     );
-    if (hasJetStream) {
+    if (hasJetStream || showClouds) {
       engine.loadJetStreamTexture('/data/gfs-jetstream-latest.bin').catch(() => {});
     }
     const hasRadar = !!dataLayers?.find(
@@ -853,13 +854,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     if (hasPhotoreal && !engine.isOrbitalTexturesLoaded()) {
       engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
     }
-  }, [dataLayers, prognosticModel, showClouds, isLoading]);
+  }, [dataLayers, prognosticModel, showClouds, isLoading, isEngineReady]);
 
   // WebGPU Device Loss Recovery
   useEffect(() => {
     const engine = engineRef.current;
     engine.onDeviceLost((info) => {
       console.warn('WebGPU device lost, triggering fallback to WebGL2:', info);
+      setIsEngineReady(false);
       setLoadError(`WebGPU Device Lost: ${info?.message || 'Device disconnected'}`);
       callbacksRef.current.onError?.(new Error(`WebGPU Device Lost: ${info?.message || 'Device disconnected'}`));
     });
@@ -1646,6 +1648,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         cameraPos: [cameraRef.current.position.x, cameraRef.current.position.y, cameraRef.current.position.z],
       }),
     };
+    (window as any).__GO = {
+      loc1_synoptic: () => (window as any).__INDICATRIX_CAMERA__?.setObliqueView(-61.0, -15.0, 7.8, 0.0, 0.0),
+      loc1_oblique:  () => (window as any).__INDICATRIX_CAMERA__?.setObliqueView(-68.0, -18.0, 6.8, 32.0, 345.0),
+      loc2_synoptic: () => (window as any).__INDICATRIX_CAMERA__?.setObliqueView(-122.0, 46.5, 6.8, 0.0, 0.0),
+      loc2_oblique:  () => (window as any).__INDICATRIX_CAMERA__?.setObliqueView(-121.5, 45.0, 6.8, 30.0, 345.0),
+    };
     (window as any).tuneClouds = (options: {
       location?: 'iceland' | 'hawaii' | 'aleutians' | 'atlantic';
       erosion?: number;
@@ -2292,7 +2300,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     setLoadError(null);
 
     const t0 = performance.now();
-    console.log('[WebGPUCanvas] Starting load for:', binFile, 'isMounted:', isMounted);
 
     // If switching datasets (e.g. from 100k to 1M+ or vice versa), dispose previous engine state
     if (engineRef.current.initialized) {
@@ -2310,10 +2317,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
 
     fetch(binFile)
       .then(async (res) => {
-        console.log('[WebGPUCanvas] Fetch response received, ok:', res.ok, 'status:', res.status);
         if (!res.ok) throw new Error(`BIN fetch failed (${res.status})`);
         const buffer = await res.arrayBuffer();
-        console.log('[WebGPUCanvas] ArrayBuffer received, bytes:', buffer.byteLength, 'isMounted:', isMounted);
         if (!isMounted) return;
 
         const view = new DataView(buffer);
@@ -2332,7 +2337,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         const typeData = new Float32Array(buffer, typOffset, pointCount);
         const lineIndices = new Uint32Array(buffer, iOffset, indexCount);
 
-        console.log('[WebGPUCanvas] Initializing engine with pointCount:', pointCount);
         await engine.initialize({
           canvas,
           pointCount,
@@ -2341,7 +2345,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
           typeData,
           lineIndices,
         });
-        console.log('[WebGPUCanvas] engine.initialize completed successfully!');
         activeLodTierRef.current = resolution;
         (window as any).__INDICATRIX_WEBGPU_ENGINE__ = engine;
 
@@ -2372,10 +2375,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
 
         if (!isMounted) {
-          console.log('[WebGPUCanvas] isMounted is false after engine.initialize!');
           return;
         }
         setIsLoading(false);
+        setIsEngineReady(true);
 
         const t1 = performance.now();
         const vramBytes = pointsData.byteLength + target2DData.byteLength + typeData.byteLength + lineIndices.byteLength;
@@ -2460,6 +2463,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
 
           if (!isMounted) return;
           setIsLoading(false);
+          setIsEngineReady(true);
 
           const t1 = performance.now();
           const vramBytes = pointsData.byteLength + target2DData.byteLength + typeData.byteLength + lineIndices.byteLength;

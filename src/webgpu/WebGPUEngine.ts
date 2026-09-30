@@ -792,6 +792,7 @@ export class WebGPUEngine {
   private cloudBindGroupLayout: GPUBindGroupLayout | null = null;
   private cloudBindGroups: { low: GPUBindGroup; mid: GPUBindGroup; high: GPUBindGroup } | null = null;
   public cloudTextures: { low: GPUTexture | null; mid: GPUTexture | null; high: GPUTexture | null } = { low: null, mid: null, high: null };
+  public cloudTextureViews: { low: GPUTextureView | null; mid: GPUTextureView | null; high: GPUTextureView | null } = { low: null, mid: null, high: null };
   public cloudUniformBuffers: GPUBuffer[] | null = null;
   public cloudLayerUniformMirrors: Float32Array[] = [
     new Float32Array(72),
@@ -3745,6 +3746,9 @@ export class WebGPUEngine {
       const cloudView = this.cloudTextures?.low
         ? this.cloudTextures.low.createView({ label: 'crust_cloud_texture_view' })
         : this.dummyCloudTextureView;
+      const highCloudView = this.cloudTextures?.high
+        ? this.cloudTextures.high.createView({ label: 'crust_high_cloud_texture_view' })
+        : this.dummyCloudTextureView;
       const cloudSampler = this.cloudSampler || this.demSampler;
 
       this.ensurePrecipCrustTexture();
@@ -3776,6 +3780,7 @@ export class WebGPUEngine {
           { binding: 12, resource: dewpointView! },
           { binding: 13, resource: precipView! },
           { binding: 14, resource: windView! },
+          { binding: 15, resource: highCloudView },
         ],
       });
 
@@ -5082,6 +5087,7 @@ export class WebGPUEngine {
       this.updateWindBindGroups();
       this.updateComputeBindGroups();
       this.updateDEMBindGroups();
+      this.updateCloudBindGroups();
       this.cloudAdvectionComputeBindGroups = [null, null];
       this.updateCloudAdvectionBindGroups();
       if (this.precipRingBuffer) {
@@ -5295,6 +5301,7 @@ export class WebGPUEngine {
         [windW, windH, 1]
       );
       this.updateWindBindGroups();
+      this.updateCloudBindGroups();
     } catch {
       // Mock guard
     }
@@ -5478,6 +5485,7 @@ export class WebGPUEngine {
       this.cloudProxyBackDepthTexture = null;
       this.cloudProxyBackDepthView = null;
     }
+    this.volumetricCloudBindGroup = null;
     if (!this.device || typeof this.device.createTexture !== 'function') return;
     const w = Math.max(1, width);
     const h = Math.max(1, height);
@@ -6830,9 +6838,9 @@ export class WebGPUEngine {
     const depthView = this.depthTextureView || this.dummyDepthTextureView;
     const noiseView = this.cloudNoiseTextureView || this.dummy3DNoiseTextureView;
     const noiseSampler = this.volumetricNoiseSampler || this.demSampler;
-    const lowView = this.cloudTextures.low ? this.cloudTextures.low.createView() : this.dummyCloudTextureView;
-    const midView = this.cloudTextures.mid ? this.cloudTextures.mid.createView() : this.dummyCloudTextureView;
-    const highView = this.cloudTextures.high ? this.cloudTextures.high.createView() : this.dummyCloudTextureView;
+    const lowView = this.cloudTextureViews.low || (this.cloudTextures.low ? (this.cloudTextureViews.low = this.cloudTextures.low.createView({ label: 'cloud_view_low' })) : this.dummyCloudTextureView);
+    const midView = this.cloudTextureViews.mid || (this.cloudTextures.mid ? (this.cloudTextureViews.mid = this.cloudTextures.mid.createView({ label: 'cloud_view_mid' })) : this.dummyCloudTextureView);
+    const highView = this.cloudTextureViews.high || (this.cloudTextures.high ? (this.cloudTextureViews.high = this.cloudTextures.high.createView({ label: 'cloud_view_high' })) : this.dummyCloudTextureView);
     const cloud2DSampler = this.cloudSampler || this.demSampler;
     const proxyFrontView = this.cloudProxyFrontDepthView || this.dummyProxyFrontDepthView;
     const proxyBackView = this.cloudProxyBackDepthView || this.dummyProxyBackDepthView;
@@ -7337,7 +7345,9 @@ export class WebGPUEngine {
 
     this.ensureVolumetricCloudBuffers();
     this.renderCloudProxyPass(commandEncoder, params);
-    this.updateVolumetricCloudBindGroup();
+    if (!this.volumetricCloudBindGroup) {
+      this.updateVolumetricCloudBindGroup();
+    }
     if (!this.volumetricCloudBindGroup) {
       return;
     }
@@ -7468,6 +7478,7 @@ export class WebGPUEngine {
         { binding: 12, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
         { binding: 13, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
         { binding: 14, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 15, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
       ],
     });
 
@@ -7745,6 +7756,9 @@ export class WebGPUEngine {
           { binding: 6, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
           { binding: 7, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
           { binding: 8, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+          { binding: 9, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 10, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 11, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
         ],
       });
 
@@ -8142,11 +8156,8 @@ export class WebGPUEngine {
         : (this.cloudOptions.showHigh !== false);
       const anyStrataActive = showLow || showMid || showHigh;
 
-      const isGfsActive = params.prognosticModel !== undefined
-        ? (params.prognosticModel === 'gfs' || params.prognosticModel === 'noaa-gfs')
-        : true; // Default to true if omitted for backwards-compatibility with isolated unit test harnesses
       const cloudsActive = Boolean(params.showClouds) && (this.cloudEnabled !== false);
-      const shadowsActive = cloudsActive && showLow && anyStrataActive && isGfsActive;
+      const shadowsActive = cloudsActive && showLow && anyStrataActive;
       const rawShadow = shadowsActive
         ? (params.shadowIntensity !== undefined ? params.shadowIntensity : this.shadowIntensity)
         : 0.0;
@@ -9504,6 +9515,9 @@ export class WebGPUEngine {
       const cloudView = this.cloudTextures?.low
         ? this.cloudTextures.low.createView({ label: 'crust_cloud_texture_view' })
         : this.dummyCloudTextureView;
+      const highCloudView = this.cloudTextures?.high
+        ? this.cloudTextures.high.createView({ label: 'crust_high_cloud_texture_view' })
+        : this.dummyCloudTextureView;
       const cloudSampler = this.cloudSampler || this.demSampler;
       const precipSampler = this.precipSampler || this.dummyPrecipSampler || this.demSampler;
       const tempView = this.tempTextureView || this.dummyTempTextureView;
@@ -9530,6 +9544,7 @@ export class WebGPUEngine {
             { binding: 12, resource: dewpointView! },
             { binding: 13, resource: ring.getPhysicalTextureView(1) },
             { binding: 14, resource: windView! },
+            { binding: 15, resource: highCloudView },
           ],
         }),
         this.device.createBindGroup({
@@ -9551,6 +9566,7 @@ export class WebGPUEngine {
             { binding: 12, resource: dewpointView! },
             { binding: 13, resource: ring.getPhysicalTextureView(2) },
             { binding: 14, resource: windView! },
+            { binding: 15, resource: highCloudView },
           ],
         }),
         this.device.createBindGroup({
@@ -9572,6 +9588,7 @@ export class WebGPUEngine {
             { binding: 12, resource: dewpointView! },
             { binding: 13, resource: ring.getPhysicalTextureView(0) },
             { binding: 14, resource: windView! },
+            { binding: 15, resource: highCloudView },
           ],
         }),
       ];
@@ -9621,10 +9638,10 @@ export class WebGPUEngine {
     let texturesNeedRecreation = !this.cloudTextures.low || this.cloudTextures.low.width !== targetWidth || this.cloudTextures.low.height !== targetHeight;
 
     if (texturesNeedRecreation) {
-      if (this.cloudTextures.low) this.cloudTextures.low.destroy();
-      if (this.cloudTextures.mid) this.cloudTextures.mid.destroy();
-      if (this.cloudTextures.high) this.cloudTextures.high.destroy();
-      
+      const oldLow = this.cloudTextures.low;
+      const oldMid = this.cloudTextures.mid;
+      const oldHigh = this.cloudTextures.high;
+
       this.cloudTextures = {
         low: this.device.createTexture({
           label: 'cloud_texture_low',
@@ -9645,6 +9662,17 @@ export class WebGPUEngine {
           usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
         }),
       };
+
+      this.cloudTextureViews = {
+        low: this.cloudTextures.low.createView({ label: 'cloud_view_low' }),
+        mid: this.cloudTextures.mid.createView({ label: 'cloud_view_mid' }),
+        high: this.cloudTextures.high.createView({ label: 'cloud_view_high' }),
+      };
+      this.volumetricCloudBindGroup = null;
+
+      if (oldLow) oldLow.destroy();
+      if (oldMid) oldMid.destroy();
+      if (oldHigh) oldHigh.destroy();
     }
 
     if (!this.cloudSampler) {
@@ -9696,6 +9724,10 @@ export class WebGPUEngine {
 
     const windView = this.windTextureView || demView;
     const windSamp = this.windSampler || this.demSampler || sampler;
+    const jetView = this.jetStreamTextureView || windView;
+
+    const midView = this.cloudTextures.mid.createView();
+    const highView = this.cloudTextures.high.createView();
 
     this.cloudBindGroups = {
       low: this.device.createBindGroup({
@@ -9711,6 +9743,9 @@ export class WebGPUEngine {
           { binding: 6, resource: { buffer: regBuffer } },
           { binding: 7, resource: windView },
           { binding: 8, resource: windSamp },
+          { binding: 9, resource: jetView },
+          { binding: 10, resource: midView },
+          { binding: 11, resource: highView },
         ],
       }),
       mid: this.device.createBindGroup({
@@ -9726,6 +9761,9 @@ export class WebGPUEngine {
           { binding: 6, resource: { buffer: regBuffer } },
           { binding: 7, resource: windView },
           { binding: 8, resource: windSamp },
+          { binding: 9, resource: jetView },
+          { binding: 10, resource: midView },
+          { binding: 11, resource: highView },
         ],
       }),
       high: this.device.createBindGroup({
@@ -9741,6 +9779,9 @@ export class WebGPUEngine {
           { binding: 6, resource: { buffer: regBuffer } },
           { binding: 7, resource: windView },
           { binding: 8, resource: windSamp },
+          { binding: 9, resource: jetView },
+          { binding: 10, resource: midView },
+          { binding: 11, resource: highView },
         ],
       }),
     };
@@ -9802,12 +9843,16 @@ export class WebGPUEngine {
           { bytesPerRow: paddedRowBytes, rowsPerImage: height },
           { width, height, depthOrArrayLayers: 1 }
         );
-        if (layer === 'low') {
+        if (!this.cloudTextureViews[layer]) {
+          this.cloudTextureViews[layer] = targetTexture.createView({ label: `cloud_view_${layer}` });
+        }
+        if (layer === 'low' || layer === 'high') {
           this.updateDEMBindGroups();
         }
         this.updateVolumetricCloudBindGroup();
         this.cloudAdvectionComputeBindGroups = [null, null];
         this.updateCloudAdvectionBindGroups();
+        this.updateCloudBindGroups();
       } catch (err) {
         console.error('Failed to write cloud texture:', err);
       }
@@ -9821,7 +9866,6 @@ export class WebGPUEngine {
     height: number = 721
   ): Promise<void> {
     if (!this.device || !this.isInitialized) return;
-    this.ensureCloudBuffers(width, height);
 
     if (urlOrData instanceof Uint8Array || urlOrData instanceof ArrayBuffer) {
       this.setCloudData(layer, urlOrData, width, height);
@@ -9843,8 +9887,7 @@ export class WebGPUEngine {
 
     if (buffer) {
       this.setCloudData(layer, buffer, width, height);
-    } else if (width === 1440 && height === 721) {
-      this.ensureCloudBuffers(1440, 721);
+    } else {
       const procBuf = this.generateProceduralCloudBuffer(layer);
       this.setCloudData(layer, procBuf, 1440, 721);
     }
@@ -9853,7 +9896,6 @@ export class WebGPUEngine {
   public async loadAllCloudLayers(isWeatherNext: boolean = false): Promise<void> {
     if (isWeatherNext) {
       try {
-        this.ensureCloudBuffers(3600, 1801);
         const [lowRes, midRes, highRes] = await Promise.all([
           fetch('/data/weathernext/low_cloud_cover_mean-0.bin'),
           fetch('/data/weathernext/medium_cloud_cover_mean-0.bin'),
@@ -9878,7 +9920,6 @@ export class WebGPUEngine {
     }
     
     this.lastLoadedWeatherNextHour = -1;
-    this.ensureCloudBuffers(1440, 721);
     await Promise.all([
       this.loadCloudData('low', undefined, 1440, 721),
       this.loadCloudData('mid', undefined, 1440, 721),
@@ -9889,7 +9930,6 @@ export class WebGPUEngine {
   public async loadWeatherNextCloudLayers(hour: number): Promise<void> {
     const clampedHour = Math.max(0, Math.min(11, Math.floor(hour)));
     if (this.lastLoadedWeatherNextHour === clampedHour) return;
-    this.ensureCloudBuffers(3600, 1801);
     try {
       const [lowRes, midRes, highRes] = await Promise.all([
         fetch(`/data/weathernext/low_cloud_cover_mean-${clampedHour}.bin`),
@@ -10405,6 +10445,7 @@ export class WebGPUEngine {
     this.cloudTextures.mid?.destroy();
     this.cloudTextures.high?.destroy();
     this.cloudTextures = { low: null, mid: null, high: null };
+    this.cloudTextureViews = { low: null, mid: null, high: null };
 
     this.cloudPipeline = null;
     this.cloudSampler = null;

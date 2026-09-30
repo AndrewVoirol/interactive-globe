@@ -169,7 +169,7 @@ describe('Milestone 3: Cloud Shell WGSL Shader & Inking (R1, R4 / F28, F29)', ()
     });
 
     it('M3-HORIZON-02: Discards fragments past the planetary limb when in globe mode (u_unfurl < 0.20)', () => {
-      expect(cloudShellWGSL).toContain('if (cloud.u_unfurl < 0.20 && in.facing < -0.015)');
+      expect(cloudShellWGSL).toContain('if (cloud.u_unfurl < 0.20 && in.facing <= 0.0)');
     });
   });
 
@@ -262,9 +262,10 @@ describe('Milestone 3: Cloud Shell WGSL Shader & Inking (R1, R4 / F28, F29)', ()
   });
 
   describe('8. Independent Tropospheric Drift (R1)', () => {
-    it('M3-DRIFT-01: Longitude UV is modulated by driftOffset = fract(uv.x + driftOffset)', () => {
-      expect(cloudShellWGSL).toContain('let driftedU = fract(in.uv.x + driftOffset);');
-      expect(cloudShellWGSL).toContain('let sampleUV = vec2<f32>(driftedU, in.uv.y);');
+    it('M3-DRIFT-01: Advection coordinates are evaluated via Riemannian mapSphericalGeodesicUV on S²', () => {
+      expect(cloudShellWGSL).toContain('fn mapSphericalGeodesicUV');
+      expect(cloudShellWGSL).toContain('mapSphericalGeodesicUV(');
+      expect(cloudShellWGSL).toContain('textureSampleLevel(u_cloudTexture, u_cloudSampler, sampleUV, 0.0)');
     });
 
     it('M3-DRIFT-02: Drift speed varies with altitude (Low < Mid < High)', () => {
