@@ -65,8 +65,8 @@ describe('Requirement R3: Wind Ribbon Visual Polish & Physical Calibration', () 
       expect(windRibbonRenderWGSL).toContain('vec3<f32>(0.74, 0.38, 0.20)');
       // Brisk: vec3<f32>(0.94, 0.58, 0.26)
       expect(windRibbonRenderWGSL).toContain('vec3<f32>(0.94, 0.58, 0.26)');
-      // Alpha range: 0.40 - 0.78
-      expect(windRibbonRenderWGSL).toContain('mix(0.40, 0.78, smoothstep(0.06, 0.60, normSpeed))');
+      // Alpha range: 0.08 - 0.78
+      expect(windRibbonRenderWGSL).toContain('mix(0.08, 0.78, smoothstep(0.06, 0.60, normSpeed))');
 
       // Behavioral optical validation:
       // Ivory paper substrate: #F3ECE0 ≈ rgb(0.953, 0.925, 0.878)
@@ -92,17 +92,17 @@ describe('Requirement R3: Wind Ribbon Visual Polish & Physical Calibration', () 
       expect(brisk[0] - brisk[2]).toBeGreaterThan(0.60);
     });
 
-    it('M2-COLOR-02: Theme 2 (Cyanotype) surface winds render actinic white and photochemical amber with high indigo contrast', () => {
+    it('M2-COLOR-02: Theme 2 (Cyanotype) surface winds render actinic white and photochemical cerulean with high indigo contrast', () => {
       // Calm: vec3<f32>(0.92, 0.96, 1.00) (pure actinic white)
       expect(windRibbonRenderWGSL).toContain('vec3<f32>(0.92, 0.96, 1.00)');
-      // Brisk: vec3<f32>(1.00, 0.82, 0.40) (photochemical solar amber)
-      expect(windRibbonRenderWGSL).toContain('vec3<f32>(1.00, 0.82, 0.40)');
-      // Alpha range: 0.55 - 0.88
-      expect(windRibbonRenderWGSL).toContain('mix(0.55, 0.88, smoothstep(0.06, 0.60, normSpeed))');
+      // Brisk: vec3<f32>(0.42, 0.82, 0.98) (cold photochemical cerulean - zero amber contamination)
+      expect(windRibbonRenderWGSL).toContain('vec3<f32>(0.42, 0.82, 0.98)');
+      // Alpha range: 0.10 - 0.88
+      expect(windRibbonRenderWGSL).toContain('mix(0.10, 0.88, smoothstep(0.06, 0.60, normSpeed))');
 
       // Prussian blue ocean: #0E1824 ≈ rgb(0.055, 0.094, 0.141)
       const calm = [0.92, 0.96, 1.00];
-      const brisk = [1.00, 0.82, 0.40];
+      const brisk = [0.42, 0.82, 0.98];
       const prussianBlue = [0.055, 0.094, 0.141];
 
       // Relative luminance (sRGB weights 0.2126 R + 0.7152 G + 0.0722 B)
@@ -112,15 +112,15 @@ describe('Requirement R3: Wind Ribbon Visual Polish & Physical Calibration', () 
       expect(lum(calm)).toBeGreaterThan(0.90);
       expect(lum(calm) - lum(prussianBlue)).toBeGreaterThan(0.80);
 
-      // Warm amber must provide chromatic opposition to blue (R >> B, warm vs cool)
-      expect(brisk[0] - brisk[2]).toBeGreaterThan(0.55);
+      // Cold cerulean must be blue-dominant (B > R) with zero warm amber contamination
+      expect(brisk[2] - brisk[0]).toBeGreaterThan(0.50);
       expect(lum(brisk) - lum(prussianBlue)).toBeGreaterThan(0.65);
     });
 
     it('M2-COLOR-03: Theme 0 (Marie Tharp) maintains crisp marine cyan and lunar silver palette', () => {
       expect(windRibbonRenderWGSL).toContain('vec3<f32>(0.56, 0.66, 0.76)'); // Muted slate-pearl
       expect(windRibbonRenderWGSL).toContain('vec3<f32>(0.88, 0.94, 1.00)'); // Luminous silver filament
-      expect(windRibbonRenderWGSL).toContain('mix(0.38, 0.72, smoothstep(0.06, 0.60, normSpeed))');
+      expect(windRibbonRenderWGSL).toContain('mix(0.06, 0.72, smoothstep(0.06, 0.60, normSpeed))');
     });
   });
 

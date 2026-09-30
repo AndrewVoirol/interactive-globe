@@ -104,9 +104,9 @@ describe('Adversarial Challenger Suite: Wind Ribbon Polish & Physical Altitude (
       expect(minSepiaDist).toBeGreaterThanOrEqual(0.555);
     });
 
-    it('CHALLENGE-M2-03: Theme 2 (Cyanotype) relative luminance delta > 0.65 and chromatic opposition across 100,000 trials', () => {
+    it('CHALLENGE-M2-03: Theme 2 (Cyanotype) relative luminance delta > 0.65 and cold cerulean polarity across 100,000 trials', () => {
       const calmSurf = [0.92, 0.96, 1.00]; // Actinic chalk white
-      const briskSurf = [1.00, 0.82, 0.40]; // Solar photochemical amber
+      const briskSurf = [0.42, 0.82, 0.98]; // Cold photochemical cerulean (zero amber)
 
       const lumPrussian = relLuminance(PRUSSIAN_BLUE);
       expect(lumPrussian).toBeCloseTo(0.0891, 3);
@@ -118,14 +118,14 @@ describe('Adversarial Challenger Suite: Wind Ribbon Polish & Physical Altitude (
       const deltaBrisk = lumBrisk - lumPrussian;
 
       expect(deltaCalm).toBeCloseTo(0.8653, 3);
-      expect(deltaBrisk).toBeCloseTo(0.7388, 3);
+      expect(deltaBrisk).toBeCloseTo(0.6575, 3);
       expect(deltaCalm).toBeGreaterThan(0.65);
       expect(deltaBrisk).toBeGreaterThan(0.65);
 
-      // Chromatic opposition check: R - B at brisk wind
-      const chromaticOpposition = briskSurf[0] - briskSurf[2];
-      expect(chromaticOpposition).toBeCloseTo(0.60, 2);
-      expect(chromaticOpposition).toBeGreaterThan(0.55);
+      // Cold cerulean polarity check: B - R at brisk wind (strictly cold cyanotype, zero warm amber)
+      const coldPolarity = briskSurf[2] - briskSurf[0];
+      expect(coldPolarity).toBeCloseTo(0.56, 2);
+      expect(coldPolarity).toBeGreaterThan(0.50);
 
       // 2. 100,000 Monte Carlo trials
       let minLumDelta = Infinity;
@@ -146,7 +146,7 @@ describe('Adversarial Challenger Suite: Wind Ribbon Polish & Physical Altitude (
         expect(delta).toBeGreaterThan(0.65);
       }
 
-      expect(minLumDelta).toBeGreaterThanOrEqual(0.738);
+      expect(minLumDelta).toBeGreaterThanOrEqual(0.657);
     });
   });
 

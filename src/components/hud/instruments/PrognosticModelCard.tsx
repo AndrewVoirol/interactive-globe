@@ -44,6 +44,7 @@ export interface PrognosticModelCardProps {
   onWindSpeedMultiplierChange?: (v: number) => void;
   windParticleLifetime?: number;
   onWindParticleLifetimeChange?: (v: number) => void;
+  isWindActive?: boolean;
 }
 
 export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
@@ -69,6 +70,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
   onWindSpeedMultiplierChange,
   windParticleLifetime: propWindLifetime,
   onWindParticleLifetimeChange,
+  isWindActive = false,
 }) => {
   // 1. Dual-mode state management (Controlled with internal fallback)
   const [internalModel, setInternalModel] = useState<PrognosticModelBackend>('gfs');
@@ -135,6 +137,16 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
     }
     return rawVariable || 'total_precipitation_1hr_mean';
   }, [rawVariable]);
+
+  // Decoupled Wind Dynamics Visibility: active when wind variable is selected OR wind layer active
+  const isWindVariable =
+    normalizedVariable === 'wind_10m_vector' ||
+    normalizedVariable === 'ivt' ||
+    normalizedVariable.toLowerCase().includes('wind');
+
+  const showWindDynamics =
+    (normalizedModel !== 'off' && (isWindVariable || Boolean(isWindActive))) ||
+    Boolean(isWindActive);
 
   // Wind Advection Dynamics State & Direct Zero-Placebo Dispatch
   const [internalWindSpeed, setInternalWindSpeed] = useState<number>(1.0);
@@ -806,14 +818,14 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
         </div>
       )}
 
-      {/* Wind Advection Dynamics Vernier Sliders (Phase 3 Requirement) */}
-      {isWeatherNext && normalizedVariable === 'wind_10m_vector' && (
-        <div className="space-y-1.5 pt-1 border-t border-[var(--theme-control-border)]/50">
+      {/* Plate IV.C: Lagrangian Advection Dynamics (Decoupled Vernier Sliders) */}
+      {showWindDynamics && (
+        <div className="space-y-1.5 pt-1.5 border-t border-[var(--theme-card-border)]/60">
           <div className="flex items-center justify-between text-nano font-mono">
-            <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
+            <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider text-[10px]">
               Lagrangian Advection Dynamics
             </span>
-            <span className="text-[var(--theme-text-muted)] text-[9px]">
+            <span className="text-[var(--theme-text-muted)] text-[9px] uppercase tracking-widest font-mono">
               Geodesic RK2
             </span>
           </div>

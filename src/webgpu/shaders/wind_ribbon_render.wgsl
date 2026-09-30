@@ -123,6 +123,17 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     let unitNorm = vec2<f32>(-unitDir.y, unitDir.x);
 
     // Ribbon width in CSS pixels
+    // Rule 16: Camera-distance adaptive stroke scaling
+    // 0.42x scaling at planetary orbit (camDist >= 25.0) down to ultra-fine hairlines;
+    // 1.00x scaling zoomed in (camDist <= 8.0) for tactile drafting weight.
+    let camDist = length(sim.u_cameraPos.xyz);
+    let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
+    let zoomScale = mix(1.0, 0.42, orbitT);
+
+    // Longitudinal head-to-tail aerodynamic taper (segIdx 0..2, u 0..1)
+    let ribbonT = (f32(segIdx) + in.corner.x) / 3.0;
+    let taperWidth = mix(1.0, 0.22, ribbonT);
+
     // Surface winds: refined ~0.95px half-width (total ~1.9px stroke) for crisp filament visibility
     // Jet stream: wider ~2.40px half-width (total ~4.8px stroke) for continuous atmospheric river
     let baseHalfWidth = select(0.95, 2.40, isJet > 0.5) * sim.u_dpr;
@@ -131,7 +142,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
         clamp(p.vel.w / 40.0, 0.75, 1.60),
         isJet > 0.5
     );
-    let halfW = baseHalfWidth * widthAtten;
+    let halfW = baseHalfWidth * widthAtten * zoomScale * taperWidth;
 
     let u = in.corner.x; // [0..1] along segment
     let v = in.corner.y; // [-1..1] across segment
@@ -146,7 +157,9 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
     out.clipPos = vec4<f32>(finalNdc * finalW, mix(clipA.z, clipB.z, u), finalW);
     out.uv = in.corner;
-    out.alpha = mix(ptA.w, ptB.w, u); // Smooth continuous head-to-tail alpha interpolation
+    // Longitudinal power-law alpha decay for clean directional quill tapering
+    let trailDecay = pow(1.0 - ribbonT, 1.30);
+    out.alpha = mix(ptA.w, ptB.w, u) * mix(0.15, 1.0, trailDecay);
     out.speed = p.vel.w;
     out.isJetStream = isJet;
 
@@ -190,6 +203,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         // High-Altitude Jet Stream (250 hPa, real speeds up to 92 m/s / 180 kt):
         // Disciplined Thermal Metal Palette (Zero magenta / candy pink)
         let normSpeed = clamp(in.speed / 80.0, 0.0, 1.0);
+        let jetSpeedAtten = smoothstep(0.12, 0.65, normSpeed);
 
         if (sim.u_theme == 0u) {
             // Theme 0: Dark Obsidian / Marie Tharp theme:
@@ -206,7 +220,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             } else {
                 color = mix(coreJet, peakJet, (normSpeed - 0.82) / 0.18);
             }
-            alphaBase = 0.75;
+            alphaBase = mix(0.20, 0.78, jetSpeedAtten);
         } else if (sim.u_theme == 1u) {
             // Theme 1: Cream Rag (Swiss Relief): Charcoal to Deep Indigo-Navy
             let calmJet = vec3<f32>(0.42, 0.46, 0.54);
@@ -214,17 +228,17 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let coreJet = vec3<f32>(0.04, 0.08, 0.18);
             color = mix(calmJet, fastJet, smoothstep(0.2, 0.7, normSpeed));
             color = mix(color, coreJet, smoothstep(0.7, 1.0, normSpeed));
-            alphaBase = 0.75;
+            alphaBase = mix(0.20, 0.78, jetSpeedAtten);
         } else if (sim.u_theme == 2u) {
             // Theme 2: Prussian Cyanotype (Blueprint architectural drafting traces)
             // Chalk cerulean (#7AA2C8) to crisp chalk ruling pen white (#E8EDF2)
-            // Higher transparency (alpha ~ 0.50) suggesting blueprint drafting linework
+            // Zero amber contamination - cold photochemical linework
             let ceruleanJet = vec3<f32>(0.478, 0.635, 0.784); // #7AA2C8
             let midChalk    = vec3<f32>(0.72, 0.84, 0.94);
-            let coreChalk   = vec3<f32>(0.91, 0.93, 0.95);    // #E8EDF2
+            let coreChalk   = vec3<f32>(0.94, 0.97, 1.00);    // Crisp chalk white
             color = mix(ceruleanJet, midChalk, smoothstep(0.2, 0.65, normSpeed));
             color = mix(color, coreChalk, smoothstep(0.65, 0.98, normSpeed));
-            alphaBase = 0.50;
+            alphaBase = mix(0.15, 0.55, jetSpeedAtten);
         } else {
             // Fallback: Theme 1
             let calmJet = vec3<f32>(0.42, 0.46, 0.54);
@@ -232,11 +246,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let coreJet = vec3<f32>(0.04, 0.08, 0.18);
             color = mix(calmJet, fastJet, smoothstep(0.2, 0.7, normSpeed));
             color = mix(color, coreJet, smoothstep(0.7, 1.0, normSpeed));
-            alphaBase = 0.75;
+            alphaBase = mix(0.20, 0.78, jetSpeedAtten);
         }
     } else {
         // Surface Boundary Layer (10m, speeds up to 32 m/s):
-        // Fine, delicate filaments hugging terrain
+        // Fine, delicate filaments hugging terrain with low-velocity deadband suppression
         let normSpeed = clamp(in.speed / 18.0, 0.0, 1.0);
 
         if (sim.u_theme == 0u) {
@@ -245,27 +259,27 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let calmSurf  = vec3<f32>(0.56, 0.66, 0.76); // Muted slate-pearl
             let briskSurf = vec3<f32>(0.88, 0.94, 1.00); // Luminous silver filament
             color = mix(calmSurf, briskSurf, normSpeed);
-            alphaBase = mix(0.38, 0.72, smoothstep(0.06, 0.60, normSpeed));
+            alphaBase = mix(0.06, 0.72, smoothstep(0.06, 0.60, normSpeed));
         } else if (sim.u_theme == 1u) {
             // Theme 1: Cream Rag: Warm sienna-copper drafting filaments
             // Contrasts cleanly against both warm ivory paper (#F3ECE0) and dark sepia relief (#38302A)
             let calmSurf  = vec3<f32>(0.74, 0.38, 0.20); // Warm burnt sienna archival ink
             let briskSurf = vec3<f32>(0.94, 0.58, 0.26); // Luminous polished copper filament
             color = mix(calmSurf, briskSurf, normSpeed);
-            alphaBase = mix(0.40, 0.78, smoothstep(0.06, 0.60, normSpeed));
+            alphaBase = mix(0.08, 0.78, smoothstep(0.06, 0.60, normSpeed));
         } else if (sim.u_theme == 2u) {
-            // Theme 2: Prussian Cyanotype: Actinic chalk white & photochemical amber
-            // Contrasts sharply against ferroprussiate indigo oceans and cerulean terrain
+            // Theme 2: Prussian Cyanotype: Actinic chalk white & photochemical cerulean
+            // Contrasts sharply against ferroprussiate indigo oceans and cerulean terrain - zero amber contamination
             let calmSurf  = vec3<f32>(0.92, 0.96, 1.00); // Pure actinic white ruling pen line
-            let briskSurf = vec3<f32>(1.00, 0.82, 0.40); // Solar photochemical amber filament
+            let briskSurf = vec3<f32>(0.42, 0.82, 0.98); // Cold photochemical cerulean filament
             color = mix(calmSurf, briskSurf, normSpeed);
-            alphaBase = mix(0.55, 0.88, smoothstep(0.06, 0.60, normSpeed));
+            alphaBase = mix(0.10, 0.88, smoothstep(0.06, 0.60, normSpeed));
         } else {
             // Fallback: Theme 1
             let calmSurf  = vec3<f32>(0.74, 0.38, 0.20);
             let briskSurf = vec3<f32>(0.94, 0.58, 0.26);
             color = mix(calmSurf, briskSurf, normSpeed);
-            alphaBase = mix(0.40, 0.78, smoothstep(0.06, 0.60, normSpeed));
+            alphaBase = mix(0.08, 0.78, smoothstep(0.06, 0.60, normSpeed));
         }
     }
 
