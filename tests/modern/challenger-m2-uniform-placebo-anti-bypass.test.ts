@@ -21,63 +21,11 @@ const engineTsPath = path.join(projectRoot, 'src/webgpu/WebGPUEngine.ts');
 const cloudWgslSource = fs.readFileSync(cloudWgslPath, 'utf-8');
 const engineSource = fs.readFileSync(engineTsPath, 'utf-8');
 
-// ----------------------------------------------------------------------------
-// Mathematical mirror of WGSL cloud fragment pipeline
-// ----------------------------------------------------------------------------
-function evaluateCloudSelfShadow(shadowIntensity: number, NdotL: number): number {
-  return (1.0 - shadowIntensity * 0.5) * (1.0 - NdotL) + 1.0 * NdotL;
-}
-
-function evaluateCloudColor(
-  theme: number,
-  selfShadow: number,
-  phaseFactor: number,
-  featheredCloud: number,
-  paperTooth: number = 0.5
-): [number, number, number] {
-  if (theme === 0) {
-    const coreWhite: [number, number, number] = [0.96, 0.96, 0.94];
-    const undersideShade: [number, number, number] = [
-      0.82 * selfShadow,
-      0.85 * selfShadow,
-      0.89 * selfShadow,
-    ];
-    // smoothstep(0.15, 0.70, featheredCloud)
-    const t = Math.max(0.0, Math.min(1.0, (featheredCloud - 0.15) / (0.70 - 0.15)));
-    const smoothT = t * t * (3.0 - 2.0 * t);
-
-    const illuminated: [number, number, number] = [
-      coreWhite[0] * phaseFactor * selfShadow,
-      coreWhite[1] * phaseFactor * selfShadow,
-      coreWhite[2] * phaseFactor * selfShadow,
-    ];
-    return [
-      undersideShade[0] * (1.0 - smoothT) + illuminated[0] * smoothT,
-      undersideShade[1] * (1.0 - smoothT) + illuminated[1] * smoothT,
-      undersideShade[2] * (1.0 - smoothT) + illuminated[2] * smoothT,
-    ];
-  } else if (theme === 1) {
-    const ivoryWash: [number, number, number] = [0.98, 0.95, 0.89];
-    const toothFactor = 1.0 - (0.5 - 0.5) * (paperTooth * 0.35); // nominal middle noise
-    const scale = toothFactor * phaseFactor * selfShadow;
-    return [ivoryWash[0] * scale, ivoryWash[1] * scale, ivoryWash[2] * scale];
-  } else {
-    const actinicWhite: [number, number, number] = [0.95, 0.98, 1.00];
-    const scale = phaseFactor * selfShadow;
-    return [actinicWhite[0] * scale, actinicWhite[1] * scale, actinicWhite[2] * scale];
-  }
-}
-
-function evaluateOrographicAttenuation(
-  wOrographic: number,
-  rainShadowFeedback: number,
-  layerIdx: number
-): { rainShadowAtten: number; stratumCoupling: number } {
-  const stratumCoupling = layerIdx === 0 ? 1.0 : layerIdx === 1 ? 0.50 : 0.15;
-  const clampedDesc = Math.max(0.0, Math.min(0.85, -wOrographic * 40.0));
-  const rainShadowAtten = 1.0 - rainShadowFeedback * clampedDesc * stratumCoupling;
-  return { rainShadowAtten, stratumCoupling };
-}
+import {
+  evaluateCloudSelfShadow,
+  evaluateCloudColor,
+  evaluateOrographicAttenuation,
+} from '../../src/core/math/volumetricMath';
 
 describe('Challenger 2 Milestone 2: Adversarial Uniform Placebo & Orographic Coupling', () => {
 
