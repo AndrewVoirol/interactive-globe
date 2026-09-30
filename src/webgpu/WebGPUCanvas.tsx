@@ -2300,7 +2300,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     setLoadError(null);
 
     const t0 = performance.now();
-    console.log('[WebGPUCanvas] Starting load for:', binFile, 'isMounted:', isMounted);
 
     // If switching datasets (e.g. from 100k to 1M+ or vice versa), dispose previous engine state
     if (engineRef.current.initialized) {
@@ -2318,10 +2317,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
 
     fetch(binFile)
       .then(async (res) => {
-        console.log('[WebGPUCanvas] Fetch response received, ok:', res.ok, 'status:', res.status);
         if (!res.ok) throw new Error(`BIN fetch failed (${res.status})`);
         const buffer = await res.arrayBuffer();
-        console.log('[WebGPUCanvas] ArrayBuffer received, bytes:', buffer.byteLength, 'isMounted:', isMounted);
         if (!isMounted) return;
 
         const view = new DataView(buffer);
@@ -2340,7 +2337,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         const typeData = new Float32Array(buffer, typOffset, pointCount);
         const lineIndices = new Uint32Array(buffer, iOffset, indexCount);
 
-        console.log('[WebGPUCanvas] Initializing engine with pointCount:', pointCount);
         await engine.initialize({
           canvas,
           pointCount,
@@ -2349,7 +2345,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
           typeData,
           lineIndices,
         });
-        console.log('[WebGPUCanvas] engine.initialize completed successfully!');
         activeLodTierRef.current = resolution;
         (window as any).__INDICATRIX_WEBGPU_ENGINE__ = engine;
 
@@ -2380,7 +2375,6 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
 
         if (!isMounted) {
-          console.log('[WebGPUCanvas] isMounted is false after engine.initialize!');
           return;
         }
         setIsLoading(false);

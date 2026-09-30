@@ -267,8 +267,6 @@ export default function App() {
       window.__INDICATRIX_SET_PROGNOSTIC_MODEL__ = (model: PrognosticModelBackend) => {
         handlePrognosticModelChange(model);
       };
-      (window as any).__INDICATRIX_SET_ALPHA__ = (val: number) => setAlpha(val);
-      (window as any).__INDICATRIX_SET_THEME__ = (val: any) => setTheme(val);
       (window as any).__INDICATRIX_PURITY_MODE__ = purityMode;
       (window as any).setPurityMode = setPurityMode;
       (window as any).__INDICATRIX_SET_PURITY_MODE__ = setPurityMode;
@@ -383,20 +381,6 @@ export default function App() {
     },
     [handleAddDataLayer, setPrognosticModel, setShowClouds]
   );
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      (window as any).__INDICATRIX_ENABLE_RADAR__ = () => {
-        const existing = dataLayers.find((l) => l.id === 'live-doppler-radar');
-        if (existing) {
-          if (!existing.visible) handleToggleDataLayer('live-doppler-radar');
-        } else {
-          const preset = getPresetById('live-doppler-radar');
-          if (preset) handleAddDataLayer({ ...preset, visible: true });
-        }
-      };
-    }
-  }, [dataLayers, handleAddDataLayer, handleToggleDataLayer]);
 
   const fractureDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const vortexDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
