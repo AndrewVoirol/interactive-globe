@@ -201,7 +201,7 @@ describe('Adversarial Challenger: Stage 2 Precipitation Bindings & Coupled Hydro
 
       expect(capturedLayoutDescriptor).not.toBeNull();
       const entries = capturedLayoutDescriptor.entries;
-      expect(entries.length).toBe(15); // 0 to 14 (including bindings 13 & 14 for temporal advection and wind)
+      expect(entries.length).toBe(16); // 0 to 15 (including bindings 13 & 14 for temporal advection/wind and 15 for high cloud texture)
 
       const entry9 = entries.find((e: any) => e.binding === 9);
       expect(entry9).toBeDefined();
@@ -279,7 +279,7 @@ describe('Adversarial Challenger: Stage 2 Precipitation Bindings & Coupled Hydro
 
       expect(capturedBindGroup).not.toBeNull();
       const entries = capturedBindGroup.entries;
-      expect(entries.length).toBe(15); // bindings 0 through 14 (including LCL and advection textures)
+      expect(entries.length).toBe(16); // bindings 0 through 15 (including LCL, advection, and high cloud textures)
 
       const entry9 = entries.find((e: any) => e.binding === 9);
       const entry10 = entries.find((e: any) => e.binding === 10);

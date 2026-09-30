@@ -3745,6 +3745,9 @@ export class WebGPUEngine {
       const cloudView = this.cloudTextures?.low
         ? this.cloudTextures.low.createView({ label: 'crust_cloud_texture_view' })
         : this.dummyCloudTextureView;
+      const highCloudView = this.cloudTextures?.high
+        ? this.cloudTextures.high.createView({ label: 'crust_high_cloud_texture_view' })
+        : this.dummyCloudTextureView;
       const cloudSampler = this.cloudSampler || this.demSampler;
 
       this.ensurePrecipCrustTexture();
@@ -3776,6 +3779,7 @@ export class WebGPUEngine {
           { binding: 12, resource: dewpointView! },
           { binding: 13, resource: precipView! },
           { binding: 14, resource: windView! },
+          { binding: 15, resource: highCloudView },
         ],
       });
 
@@ -7470,6 +7474,7 @@ export class WebGPUEngine {
         { binding: 12, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
         { binding: 13, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
         { binding: 14, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+        { binding: 15, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
       ],
     });
 
@@ -9509,6 +9514,9 @@ export class WebGPUEngine {
       const cloudView = this.cloudTextures?.low
         ? this.cloudTextures.low.createView({ label: 'crust_cloud_texture_view' })
         : this.dummyCloudTextureView;
+      const highCloudView = this.cloudTextures?.high
+        ? this.cloudTextures.high.createView({ label: 'crust_high_cloud_texture_view' })
+        : this.dummyCloudTextureView;
       const cloudSampler = this.cloudSampler || this.demSampler;
       const precipSampler = this.precipSampler || this.dummyPrecipSampler || this.demSampler;
       const tempView = this.tempTextureView || this.dummyTempTextureView;
@@ -9535,6 +9543,7 @@ export class WebGPUEngine {
             { binding: 12, resource: dewpointView! },
             { binding: 13, resource: ring.getPhysicalTextureView(1) },
             { binding: 14, resource: windView! },
+            { binding: 15, resource: highCloudView },
           ],
         }),
         this.device.createBindGroup({
@@ -9556,6 +9565,7 @@ export class WebGPUEngine {
             { binding: 12, resource: dewpointView! },
             { binding: 13, resource: ring.getPhysicalTextureView(2) },
             { binding: 14, resource: windView! },
+            { binding: 15, resource: highCloudView },
           ],
         }),
         this.device.createBindGroup({
@@ -9577,6 +9587,7 @@ export class WebGPUEngine {
             { binding: 12, resource: dewpointView! },
             { binding: 13, resource: ring.getPhysicalTextureView(0) },
             { binding: 14, resource: windView! },
+            { binding: 15, resource: highCloudView },
           ],
         }),
       ];
@@ -9820,12 +9831,13 @@ export class WebGPUEngine {
           { bytesPerRow: paddedRowBytes, rowsPerImage: height },
           { width, height, depthOrArrayLayers: 1 }
         );
-        if (layer === 'low') {
+        if (layer === 'low' || layer === 'high') {
           this.updateDEMBindGroups();
         }
         this.updateVolumetricCloudBindGroup();
         this.cloudAdvectionComputeBindGroups = [null, null];
         this.updateCloudAdvectionBindGroups();
+        this.updateCloudBindGroups();
       } catch (err) {
         console.error('Failed to write cloud texture:', err);
       }

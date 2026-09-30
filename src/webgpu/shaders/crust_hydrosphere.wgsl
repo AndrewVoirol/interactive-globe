@@ -69,6 +69,7 @@ struct RegionalOverlayUniforms {
 @group(0) @binding(12) var u_dewpointTexture: texture_2d<f32>;
 @group(0) @binding(13) var u_precipNextTexture: texture_2d<f32>;
 @group(0) @binding(14) var u_windTexture: texture_2d<f32>;
+@group(0) @binding(15) var u_highCloudTexture: texture_2d<f32>;
 
 struct TerrainShadowUniforms {
     u_sunAzimuth: f32,             // offset 0  (radians, [0, 2*PI])
@@ -798,10 +799,10 @@ fn sampleCloudShadowFactor(uv: vec2<f32>, shadowOffset: vec2<f32>, intensity: f3
     let tapHigh2 = vec2<f32>(fract(highCenterUV.x + 0.38 * rU_high), clamp(highCenterUV.y + 0.92 * rV_high, 0.0, 1.0));
     let tapHigh3 = vec2<f32>(fract(highCenterUV.x - 0.92 * rU_high), clamp(highCenterUV.y + 0.38 * rV_high, 0.0, 1.0));
 
-    let h0 = textureSampleLevel(u_cloudTexture, u_cloudSampler, tapHigh0, 0.0).r;
-    let h1 = textureSampleLevel(u_cloudTexture, u_cloudSampler, tapHigh1, 0.0).r;
-    let h2 = textureSampleLevel(u_cloudTexture, u_cloudSampler, tapHigh2, 0.0).r;
-    let h3 = textureSampleLevel(u_cloudTexture, u_cloudSampler, tapHigh3, 0.0).r;
+    let h0 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh0, 0.0).r;
+    let h1 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh1, 0.0).r;
+    let h2 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh2, 0.0).r;
+    let h3 = textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh3, 0.0).r;
     let highCloudDens = (h0 + h1 + h2 + h3) * 0.25;
 
     // Elevation decoupling: mountain peaks above cloudAltKm pierce low stratus

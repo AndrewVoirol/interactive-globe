@@ -70,10 +70,10 @@ describe('Milestone 4: Cloud Strata Ground Shadows & Stratum Ink Pigmentation', 
     });
 
     it('M4-SHAD-02: High cloud taps use explicit LOD 0.0 with textureSampleLevel', () => {
-      expect(crustWgsl).toContain('textureSampleLevel(u_cloudTexture, u_cloudSampler, tapHigh0, 0.0)');
-      expect(crustWgsl).toContain('textureSampleLevel(u_cloudTexture, u_cloudSampler, tapHigh1, 0.0)');
-      expect(crustWgsl).toContain('textureSampleLevel(u_cloudTexture, u_cloudSampler, tapHigh2, 0.0)');
-      expect(crustWgsl).toContain('textureSampleLevel(u_cloudTexture, u_cloudSampler, tapHigh3, 0.0)');
+      expect(crustWgsl).toContain('textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh0, 0.0)');
+      expect(crustWgsl).toContain('textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh1, 0.0)');
+      expect(crustWgsl).toContain('textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh2, 0.0)');
+      expect(crustWgsl).toContain('textureSampleLevel(u_highCloudTexture, u_cloudSampler, tapHigh3, 0.0)');
     });
 
     it('M4-SHAD-03: Terrain peaks above cloudAltKm decouple from low stratus shadows', () => {
