@@ -390,7 +390,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // View-ray projection onto local equirectangular tangent frame
     let muEff = max(in.facing, 0.15);
-    let viewRay = normalize(cloud.u_cameraPos.xyz - in.worldPos);
+    let camDeltaRay = cloud.u_cameraPos.xyz - in.worldPos;
+    let camDistRay = length(camDeltaRay);
+    let viewRay = select(in.normal, camDeltaRay / camDistRay, camDistRay > 1e-4);
     let sphereLambda = (in.uv.x - 0.5) * TWO_PI;
     let eastVec = vec3<f32>(-sin(sphereLambda), 0.0, cos(sphereLambda));
     let northVec = cross(in.normal, eastVec);
@@ -452,13 +454,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let rU_35 = (35.0 / TWO_PI_RE_KM) / cosLatShadow;
     let rV_35 = 35.0 / PI_RE_KM;
 
-    // Center coordinates for upper decks
-    let centerUV_mid = vec2<f32>(fract(in.uv.x + shadowOffset_mid2low.x), clamp(in.uv.y + shadowOffset_mid2low.y, 0.001, 0.999));
-    let centerUV_high = select(
+    // Center coordinates for upper decks (advected along spherical streamlines §10.3)
+    let unadvectedMid = vec2<f32>(fract(in.uv.x + shadowOffset_mid2low.x), clamp(in.uv.y + shadowOffset_mid2low.y, 0.001, 0.999));
+    let unadvectedHigh = select(
         vec2<f32>(fract(in.uv.x + shadowOffset_high2mid.x), clamp(in.uv.y + shadowOffset_high2mid.y, 0.001, 0.999)),
         vec2<f32>(fract(in.uv.x + shadowOffset_high2low.x), clamp(in.uv.y + shadowOffset_high2low.y, 0.001, 0.999)),
         layerIdx == 0u
     );
+    let windMid = mix(activeSurfaceWind, activeJetWind, 0.40);
+    let centerUV_mid = mapSphericalGeodesicUV(unadvectedMid, -windMid, dt0);
+    let centerUV_high = mapSphericalGeodesicUV(unadvectedHigh, -activeJetWind, dt0);
     let rU_highSelect = select(rU_28, rU_35, layerIdx == 0u);
     let rV_highSelect = select(rV_28, rV_35, layerIdx == 0u);
 
@@ -536,8 +541,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let dy = 2.0 * EARTH_RADIUS * (dV * PI);
     let gradH = vec2<f32>((elevEast - elevWest) / dx, (elevNorth - elevSouth) / dy);
 
-    // Reuse 2D horizontal wind velocity (u, v) in m/s sampled at top of fs_main
-    let windVel = rawWind;
+    // Reuse 2D horizontal wind velocity (u, v) in m/s coupled to vertical stratum shear
+    let windVel = effectiveWind;
     let wOrographic = dot(windVel, gradH);
 
     // Stratum coupling attenuates vertical influence at higher layers
@@ -624,8 +629,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     alpha = (1.0 - exp(-alpha * slabPathFactor * 1.8));
 
     // Dual-lobe Henyey-Greenstein anisotropic phase function (Spec §11, Phase 3)
-    let sunDir = normalize(cloud.u_sunDirection.xyz);
-    let viewDir = normalize(cloud.u_cameraPos.xyz - in.worldPos);
+    let sunDirLen = length(cloud.u_sunDirection.xyz);
+    let sunDir = select(vec3<f32>(0.0, 1.0, 0.0), cloud.u_sunDirection.xyz / sunDirLen, sunDirLen > 1e-4);
+    let camDelta = cloud.u_cameraPos.xyz - in.worldPos;
+    let camDist = length(camDelta);
+    let viewDir = select(in.normal, camDelta / camDist, camDist > 1e-4);
     let cosTheta = dot(viewDir, sunDir);
     let muScat = -cosTheta;
     let phase = dualLobePhase(muScat, 0.72, 0.28, 0.82);
