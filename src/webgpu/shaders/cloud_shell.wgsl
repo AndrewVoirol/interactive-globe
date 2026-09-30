@@ -602,8 +602,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // Invariant §10 standard: smoothstep(0.02, 0.20, in.facing)
     // Horizon Limb Falloff Specification (§1) for tropospheric cloud shells:
-    let horizonAtten = horizonFalloff(in.facing, 0.08, -0.015, 0.04);
-    if (cloud.u_unfurl < 0.20 && in.facing < -0.015) {
+    let horizonAtten = horizonFalloff(in.facing, 0.08, 0.000, 0.05);
+    if (cloud.u_unfurl < 0.20 && in.facing <= 0.0) {
         discard;
     }
 
