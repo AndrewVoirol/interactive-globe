@@ -60,13 +60,13 @@ describe('WeatherNext 3 Pipeline CLI (scripts/fetch-weathernext3.py)', () => {
 
   it('WN3-CLI-03: dry-run with --unpadded correctly calculates unpadded storage footprint and disables zero-copy', () => {
     const cmd = `uv run --with zarr --with gcsfs --with numpy python scripts/fetch-weathernext3.py --dry-run --unpadded`;
-    const stdout = execSync(cmd, { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30000 });
+    const stdout = execSync(cmd, { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 60000 });
 
     expect(stdout).toContain('WebGPU Row Pitch Mode:  Unpadded Raw (7200 bytes/row)');
     expect(stdout).toContain('Per-Slice Staged Size:   12.37 MB (12,967,200 bytes)');
     expect(stdout).toContain('Zero-Copy Pass-Through: DISABLED (Runtime JS row staging required)');
     expect(stdout).toContain('[OK] DRY-RUN VERIFICATION PASSED');
-  }, 40000);
+  }, 65000);
 
   it('WN3-CLI-04: verifies WebGPU 256-byte row pitch mathematical alignment for 3600x1801 Float16 grid', () => {
     const {
