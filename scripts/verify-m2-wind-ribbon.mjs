@@ -63,20 +63,20 @@ console.log(`  100,000 Step Minimum Dist to Sepia: ${minSepia.toFixed(4)} > 0.45
 
 // Theme 2: Prussian Cyanotype
 const calmT2 = [0.92, 0.96, 1.00]; // Actinic White
-const briskT2 = [1.00, 0.82, 0.40]; // Photochemical Amber
+const briskT2 = [0.42, 0.82, 0.98]; // Photochemical Cerulean (zero amber)
 
 const lumPrussian = lum(PRUSSIAN_BLUE);
 const lumCalmT2 = lum(calmT2);
 const lumBriskT2 = lum(briskT2);
 const deltaCalm = lumCalmT2 - lumPrussian;
 const deltaBrisk = lumBriskT2 - lumPrussian;
-const chromaticOpp = briskT2[0] - briskT2[2];
+const coldPolarity = briskT2[2] - briskT2[0]; // B - R
 
 console.log(`\n[Theme 2: Prussian Cyanotype]`);
 console.log(`  Prussian Blue Ocean Lum: ${lumPrussian.toFixed(4)}`);
 console.log(`  Calm Surf  [0.92, 0.96, 1.00] Lum: ${lumCalmT2.toFixed(4)}, Delta: ${deltaCalm.toFixed(4)} (Req: > 0.65, PASS: ${deltaCalm > 0.65})`);
-console.log(`  Brisk Surf [1.00, 0.82, 0.40] Lum: ${lumBriskT2.toFixed(4)}, Delta: ${deltaBrisk.toFixed(4)} (Req: > 0.65, PASS: ${deltaBrisk > 0.65})`);
-console.log(`  Brisk Chromatic Opposition (R - B): ${chromaticOpp.toFixed(4)} (Req: > 0.55, PASS: ${chromaticOpp > 0.55})`);
+console.log(`  Brisk Surf [0.42, 0.82, 0.98] Lum: ${lumBriskT2.toFixed(4)}, Delta: ${deltaBrisk.toFixed(4)} (Req: > 0.65, PASS: ${deltaBrisk > 0.65})`);
+console.log(`  Brisk Cold Cerulean Polarity (B - R): ${coldPolarity.toFixed(4)} (Req: > 0.50, PASS: ${coldPolarity > 0.50})`);
 
 let minDeltaLum = Infinity;
 for (let i = 0; i <= 100000; i++) {
