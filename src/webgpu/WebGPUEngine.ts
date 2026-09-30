@@ -79,6 +79,8 @@ export interface WebGPUFrameParams {
   showWind?: boolean;
   showSurfaceWinds?: boolean;
   showJetStream?: boolean;
+  windSpeedMultiplier?: number;
+  windParticleLifetime?: number;
   showRelief?: boolean;
   showVectors?: boolean;
   showClouds?: boolean;
@@ -772,6 +774,7 @@ export class WebGPUEngine {
   public showSurfaceWinds: boolean = true;
   public showJetStream: boolean = true;
   public windSpeedMultiplier: number = 1.0;
+  public windParticleLifetime: number = 6.0;
   private jetStreamTexture: GPUTexture | null = null;
   private jetStreamTextureView: GPUTextureView | null = null;
   public windParticleBuffers: [GPUBuffer, GPUBuffer] | null = null;
@@ -5446,6 +5449,10 @@ export class WebGPUEngine {
     this.windSpeedMultiplier = Math.max(0.1, Math.min(10.0, multiplier));
   }
 
+  public setWindParticleLifetime(lifetime: number): void {
+    this.windParticleLifetime = Math.max(0.5, Math.min(30.0, lifetime));
+  }
+
   private updateDepthTexture(width: number, height: number): void {
     if (this.depthTexture) {
       this.depthTexture.destroy();
@@ -8237,13 +8244,13 @@ export class WebGPUEngine {
       windU[2] = (params.time ?? 0.0) + timelineOffsetSec;
       windU[3] = params.dt;
       windU32[4] = this.windParticleCount;
-      windU[5] = this.windSpeedMultiplier;
+      windU[5] = params.windSpeedMultiplier !== undefined ? params.windSpeedMultiplier : this.windSpeedMultiplier;
       windU[6] = showSurf ? 1.0 : 0.0;
       windU[7] = showJet ? 1.0 : 0.0;
       windU[8] = params.displacementScale !== undefined ? params.displacementScale : 0.055;
       windU[9] = params.peakExponent !== undefined ? params.peakExponent : 1.4;
       windU32[10] = params.verticalScaleMode !== undefined ? params.verticalScaleMode : this.verticalScaleMode;
-      windU[11] = 0.0;
+      windU[11] = params.windParticleLifetime !== undefined ? params.windParticleLifetime : this.windParticleLifetime;
       if (params.camera?.position) {
         windU[12] = params.camera.position.x;
         windU[13] = params.camera.position.y;
