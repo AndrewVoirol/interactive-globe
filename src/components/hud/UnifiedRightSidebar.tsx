@@ -307,8 +307,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   const [catalogFilter, setCatalogFilter] = useState<'all' | 'topo' | 'vectors' | 'satellite'>('all');
   const catalogSheetRef = useRef<HTMLDivElement>(null);
 
-  type SidebarPlate = 'scene' | 'data';
-  const [activePlate, setActivePlate] = useState<SidebarPlate>('scene');
+  type SidebarPlate = 'cartography' | 'atmosphere' | 'kinematics' | 'data';
+  const [activePlate, setActivePlate] = useState<SidebarPlate>('cartography');
   const [isBetaOpen, setIsBetaOpen] = useState(true);
   const [activeSnap, setActiveSnap] = useState<'equator' | 'pole' | 'seam' | 'isometric' | 'horizon' | null>(null);
 
@@ -727,11 +727,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
               isSidebarOpen ? 'opacity-100 max-h-[calc(100vh-8.5rem)] mt-1' : 'opacity-0 max-h-0 pointer-events-none'
             }`}
           >
-            {/* 2 Consolidated Tabs: SCENE and DATA */}
-            <div role="tablist" aria-label="Sidebar Sections" className="flex items-center justify-between py-1.5 border-b border-[var(--theme-panel-header-border)] gap-1 text-nano font-mono uppercase tracking-wider overflow-x-auto scrollbar-none shrink-0">
+            {/* 4 Consolidated Plates: CARTOGRAPHY, ATMOSPHERE, KINEMATICS, DATA */}
+            <div role="tablist" aria-label="Sidebar Sections" className="grid grid-cols-4 py-1.5 border-b border-[var(--theme-panel-header-border)] gap-1 text-nano font-mono uppercase tracking-wider overflow-x-auto scrollbar-none shrink-0">
               {(
                 [
-                  { id: 'scene', label: 'SCENE' },
+                  { id: 'cartography', label: 'CARTOGRAPHY' },
+                  { id: 'atmosphere', label: 'ATMOSPHERE' },
+                  { id: 'kinematics', label: 'KINEMATICS' },
                   { id: 'data', label: 'DATA' },
                 ] as const
               ).map((tab) => {
@@ -744,7 +746,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     aria-selected={isActive}
                     aria-controls={`sidebar-panel-${tab.id}`}
                     onClick={() => setActivePlate(tab.id)}
-                    className={`flex-1 py-1 rounded-[2px] font-bold transition-all border shrink-0 cursor-pointer text-center ${
+                    className={`py-1 px-0.5 rounded-[2px] font-bold transition-all border shrink-0 cursor-pointer text-center truncate ${
                       isActive
                         ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)]'
                         : 'border-transparent text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]'
@@ -758,12 +760,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
             {/* Main Content Area */}
             <div className="mt-2.5 space-y-3 overflow-y-auto pr-1 flex-1 min-h-0 scroll-fade-mask pt-1 pb-3">
-              {/* TAB 1: SCENE */}
+              {/* TAB 1: CARTOGRAPHY */}
               <div
-                id="sidebar-panel-scene"
+                id="sidebar-panel-cartography"
                 role="tabpanel"
-                aria-labelledby="sidebar-tab-scene"
-                className={activePlate === 'scene' ? 'space-y-2.5' : 'hidden'}
+                aria-labelledby="sidebar-tab-cartography"
+                className={activePlate === 'cartography' ? 'space-y-2.5' : 'hidden'}
               >
                 <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
                   <PolarSunCompass
@@ -889,6 +891,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         min={0.0}
                         max={1.0}
                         step={0.05}
+                        defaultValue={0.65}
                         readout={`${Math.round((primaryLayer?.ambientOcclusion ?? 0.65) * 100)}%`}
                         onChange={(v) => onAmbientOcclusionChangeDataLayer?.(primaryLayerId, v)}
                       />
@@ -934,223 +937,62 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     </div>
                   </div>
 
-                  {/* 2. Projection Manifold Station with Archival Parchment Strip */}
+
+
+                  {/* 3. Vector Ink & Geodetic Survey Feeds Station */}
                   <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
                     <div className="flex items-center justify-between">
-                      <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
-                        Projection
-                      </span>
-                      <span className="text-nano font-mono opacity-60 text-[var(--theme-text-muted)]">Mode {mode + 1}</span>
-                    </div>
-
-                    {/* Archival Parchment Strip for 4 Modes */}
-                    <div className="relative p-0.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] shadow-inner overflow-hidden select-none">
-                      <div
-                        className="absolute top-0.5 bottom-0.5 rounded-[2px] transition-all duration-300 ease-out pointer-events-none bg-[var(--theme-control-active-bg)] border border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)]"
-                        style={{
-                          left: `calc(${mode * 25}% + 2px)`,
-                          width: `calc(25% - 4px)`,
-                        }}
+                      <div className="flex flex-col">
+                        <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                          Vectors (V)
+                        </span>
+                        <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+                          Coastlines & graticule linework
+                        </span>
+                      </div>
+                      <TactileSwitch
+                        checked={showVectors}
+                        onChange={onVectorsToggle}
+                        title="Toggle Coastline & Boundary Vectors (Press V)"
+                        label={showVectors ? 'Active' : 'Off'}
                       />
-
-                      <div className="relative grid grid-cols-4 z-10">
-                        {PROJECTION_MODES.map((m) => {
-                          const isActive = mode === m.id;
-                          return (
-                            <button
-                              key={m.id}
-                              type="button"
-                              onClick={() => onModeChange(m.id as SimulationMode)}
-                              aria-pressed={isActive}
-                              className={`tactile-btn cursor-pointer py-1.5 px-0.5 rounded-[2px] text-nano font-mono uppercase tracking-tight text-center transition-all ${
-                                isActive
-                                  ? 'text-[var(--theme-control-active-text)] font-bold'
-                                  : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)]'
-                              }`}
-                              title={`${m.roman} · ${m.label} Projection`}
-                            >
-                              <span className="opacity-60 block text-nano">{m.roman}</span>
-                              <span className="truncate block font-semibold">{m.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
                     </div>
 
-                    {mode === 2 && (
-                      <div className="pt-1">
-                        <VernierSlider
-                          id="sidebar-fracture-intensity"
-                          label="Fracture"
-                          value={fractureIntensity ?? 1.0}
-                          min={0.5}
-                          max={2.5}
-                          step={0.05}
-                          readout={`${(fractureIntensity ?? 1.0).toFixed(2)}x`}
-                          onChange={(v) => onFractureIntensityChange?.(v)}
-                        />
-                      </div>
-                    )}
-
-                    {mode === 3 && (
-                      <div className="pt-1">
-                        <VernierSlider
-                          id="sidebar-vortex-strength"
-                          label="Vortex"
-                          value={fluidVortexStrength ?? 1.0}
-                          min={0.2}
-                          max={3.0}
-                          step={0.05}
-                          readout={`${(fluidVortexStrength ?? 1.0).toFixed(2)}x`}
-                          onChange={(v) => onFluidVortexStrengthChange?.(v)}
-                        />
-                      </div>
-                    )}
-
-                    {/* Distortion Indicatrix (Tissot) Docked Directly in Projection Card */}
-                    <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex flex-col">
-                          <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
-                            Distortion Indicatrix
-                          </span>
-                          <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
-                            Tissot deformation ellipses
-                          </span>
-                        </div>
-                        <TactileSwitch
-                          checked={showTissot}
-                          onChange={onTissotToggle}
-                          title="Toggle Tissot Distortion Indicatrix Ellipses"
-                          label={showTissot ? 'Active' : 'Off'}
-                        />
-                      </div>
-
-                      {showTissot && (
-                        <div className="p-2 rounded-[2px] border text-micro space-y-1.5 tabular-nums bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
-                          <div className="flex justify-between items-center text-nano uppercase tracking-wider font-semibold">
-                            <span>Distortion Metric</span>
-                            <span className="text-[var(--theme-status-sage)] font-bold">
-                              Morphing
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-1.5 text-nano font-mono">
-                            <div>
-                              <span className="text-[var(--theme-text-muted)] block truncate text-nano uppercase">Eq. Area:</span>
-                              <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.eqArea}x</span>
-                            </div>
-                            <div>
-                              <span className="text-[var(--theme-text-muted)] block truncate text-nano uppercase">Local ({latStr.trim()}):</span>
-                              <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.localArea}x</span>
-                            </div>
-                            <div>
-                              <span className="text-[var(--theme-text-muted)] block truncate text-nano uppercase">Polar Dilation:</span>
-                              <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.polarStr}</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 3. Spatial Vantage & Cinematics Station */}
-                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
-                        Spatial Vantage & Cinematics
-                      </div>
-                      <span className="text-nano font-mono opacity-60 text-[var(--theme-text-muted)]">
-                        Kinematics
-                      </span>
-                    </div>
-
-                    {/* Attitude Readout: Monospace coordinate strip */}
-                    <div className="px-2 py-1 rounded-[2px] bg-[var(--theme-control-bg)] border border-[var(--theme-control-border)] text-nano font-mono tracking-wider text-center text-[var(--theme-text-accent)] tabular-nums font-semibold">
-                      {attitudeReadout}
-                    </div>
-
-                    {/* 5 Presets with Cartographic Glyphs & Active State Highlighting */}
-                    <div className="grid grid-cols-5 gap-1 text-nano font-bold">
-                      {([
-                        { key: 'equator', label: 'Equator', glyph: '⊝' },
-                        { key: 'pole', label: 'Pole', glyph: '⊙' },
-                        { key: 'seam', label: 'Seam', glyph: '⦶' },
-                        { key: 'isometric', label: 'Iso', glyph: '◬' },
-                        { key: 'horizon', label: 'Horizon', glyph: '☵' },
-                      ] as const).map((snap) => {
-                        const isSnapActive = activeSnap === snap.key;
-                        return (
-                          <button
-                            key={snap.key}
-                            type="button"
-                            onClick={() => {
-                              setActiveSnap(snap.key);
-                              onSnapCamera(snap.key);
-                            }}
-                            data-glyph={snap.glyph}
-                            aria-pressed={isSnapActive}
-                            title={`${snap.label} (${snap.glyph})`}
-                            className={`py-1.5 px-0.5 rounded-[2px] border transition-all cursor-pointer text-center truncate select-none flex flex-col items-center justify-center before:content-[attr(data-glyph)] before:block before:text-micro before:leading-none before:opacity-75 before:mb-0.5 ${
-                              isSnapActive
-                                ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold ring-1 ring-[var(--theme-control-active-ring)]'
-                                : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] hover:bg-[var(--theme-card-bg)]'
-                            }`}
-                          >
-                            <span>{snap.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Flyover Tour / Demo Mode */}
+                    {/* Geodetic Survey Feeds: Soundings, Triangulation, Landmarks */}
                     <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex flex-col">
-                          <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
-                            Flyover Tour
-                          </span>
-                          <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
-                            Cinematic orbital & regional insets
-                          </span>
-                        </div>
+                      <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
+                        Geodetic Survey Feeds
+                      </div>
+                      <div className="space-y-1.5 pt-0.5">
                         <TactileSwitch
-                          checked={Boolean(isDemoMode)}
-                          onChange={() => onToggleDemoMode?.(demoSequence)}
-                          title="Toggle Continuous Cinematics & Regional Insets Tour"
-                          label={isDemoMode ? 'Active' : 'Off'}
+                          checked={showSoundings}
+                          onChange={onSoundingsToggle}
+                          title="Toggle Soundings"
+                          label="Soundings"
+                          sublabel="Marine bathymetric depth matrix"
+                          indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#10B981'}
+                        />
+                        <TactileSwitch
+                          checked={showTriangulation}
+                          onChange={onTriangulationToggle}
+                          title="Toggle Triangulation"
+                          label="Triangulation"
+                          sublabel="Geodetic Delaunay survey baseline"
+                          indicatorColor={theme === 1 ? '#9C2F2F' : '#F43F5E'}
+                        />
+                        <TactileSwitch
+                          checked={showLandmarks}
+                          onChange={onLandmarksToggle}
+                          title="Toggle Landmarks"
+                          label="Landmarks"
+                          sublabel="Astronomical observatories & promontories"
+                          indicatorColor={theme === 1 ? '#7D4700' : theme === 2 ? '#60A5FA' : '#F59E0B'}
                         />
                       </div>
-
-                      <TactileSelect
-                        id="sidebar-demo-sequence"
-                        value={demoSequence || 'hawaii'}
-                        ariaLabel="Demo Sequence Preset"
-                        disabled={!isDemoMode}
-                        onChange={(val) => onSelectDemoSequence?.(val as any)}
-                        options={DEMO_PRESETS}
-                      />
                     </div>
                   </div>
 
-                  {/* 4. Vector Ink Station */}
-                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] flex items-center justify-between transition-all shadow-sm">
-                    <div className="flex flex-col">
-                      <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
-                        Vectors (V)
-                      </span>
-                      <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
-                        Coastlines & graticule linework
-                      </span>
-                    </div>
-                    <TactileSwitch
-                      checked={showVectors}
-                      onChange={onVectorsToggle}
-                      title="Toggle Coastline & Boundary Vectors (Press V)"
-                      label={showVectors ? 'Active' : 'Off'}
-                    />
-                  </div>
-
-                  {/* 4b. Purity Diagnostic Station */}
+                  {/* 4. Purity Diagnostic Station */}
                   <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] flex items-center justify-between transition-all shadow-sm">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-1.5">
@@ -1174,7 +1016,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     />
                   </div>
 
-                  {/* 5. Collapsible Experimental / Beta Section */}
+                  {/* 5. Collapsible Experimental / Beta Section (Cartography) */}
                   <div className="rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] transition-all shadow-sm overflow-hidden">
                     <button
                       type="button"
@@ -1186,7 +1028,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           BETA
                         </span>
                         <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
-                          Experimental & Diagnostics
+                          Cartography Diagnostics
                         </span>
                       </div>
                       <span className="text-nano font-mono text-[var(--theme-text-muted)]">
@@ -1196,25 +1038,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     {isBetaOpen && (
                       <div className="p-2.5 pt-0 space-y-3 border-t border-[var(--theme-card-border)]/50 mt-1">
                         <div className="pt-2">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex flex-col">
-                              <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
-                                Cursor Physics
-                              </span>
-                              <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
-                                Fluid advection wake & Griffith stress
-                              </span>
-                            </div>
-                            <TactileSwitch
-                              checked={cursorPhysicsEnabled}
-                              onChange={() => onCursorPhysicsToggle(!cursorPhysicsEnabled)}
-                              title="Toggle cursor physics"
-                              label="Cursor Physics"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
                           <div className={`transition-opacity ${theme === 1 ? 'opacity-100' : 'opacity-70'}`}>
                             <VernierSlider
                               id="sidebar-paper-tooth"
@@ -1225,6 +1048,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               min={0.0}
                               max={1.0}
                               step={0.05}
+                              defaultValue={0.40}
                               readout={`${Math.round((primaryLayer?.paperTooth ?? 0.40) * 100)}%`}
                               onChange={(v) => onPaperToothChangeDataLayer?.(primaryLayerId, v)}
                             />
@@ -1260,7 +1084,406 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   </div>
                 </div>
 
-              {/* TAB 2: DATA */}
+              {/* TAB 2: ATMOSPHERE */}
+              <div
+                id="sidebar-panel-atmosphere"
+                role="tabpanel"
+                aria-labelledby="sidebar-tab-atmosphere"
+                className={activePlate === 'atmosphere' ? 'space-y-2.5' : 'hidden'}
+              >
+                <TimelineScrubber
+                  value={timelineMinutes}
+                  onTimeChange={onTimelineChange}
+                  isRadarActive={isRadarActive}
+                  onEnableRadar={handleEnableRadar}
+                  className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] !p-2.5 rounded-[3px]"
+                />
+
+                {/* Atmospheric Cloud Strata Instrumentation Card */}
+                <AtmosphereDrawer
+                  className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]"
+                  theme={theme}
+                  isLight={isLight}
+                  resolution={resolution}
+                  hideScrubber={true}
+                  isRadarActive={isRadarActive}
+                  showClouds={propShowClouds}
+                  onShowCloudsChange={handleToggleClouds}
+                  showCloudLow={propShowCloudLow} onShowCloudLowChange={onShowCloudLowChange}
+                  showCloudMid={propShowCloudMid} onShowCloudMidChange={onShowCloudMidChange}
+                  showCloudHigh={propShowCloudHigh} onShowCloudHighChange={onShowCloudHighChange}
+                  cloudFalseColor={propCloudFalseColor} onCloudFalseColorChange={onCloudFalseColorChange}
+                  cloudMultiRateRaymarch={propCloudMultiRateRaymarch} onCloudMultiRateRaymarchChange={onCloudMultiRateRaymarchChange}
+                  volumetricClouds={propVolumetricClouds} onVolumetricCloudsChange={onVolumetricCloudsChange}
+                  cloudDriftSpeed={propCloudDriftSpeed} onCloudDriftSpeedChange={onCloudDriftSpeedChange}
+                  cloudOpacity={propCloudOpacity} onCloudOpacityChange={onCloudOpacityChange}
+                  cloudThickness={propCloudThickness} onCloudThicknessChange={onCloudThicknessChange}
+                  cloudLowTop={propCloudLowTop} onCloudLowTopChange={onCloudLowTopChange}
+                  cloudErosion={propCloudErosion} onCloudErosionChange={onCloudErosionChange}
+                  cloudFreqHoriz={propCloudFreqHoriz} onCloudFreqHorizChange={onCloudFreqHorizChange}
+                  cloudFreqVert={propCloudFreqVert} onCloudFreqVertChange={onCloudFreqVertChange}
+                  cloudExtinction={propCloudExtinction} onCloudExtinctionChange={onCloudExtinctionChange}
+                  atmosphericScale={propAtmosphericScale} onAtmosphericScaleChange={onAtmosphericScaleChange}
+                  shadowIntensity={propShadowIntensity} onShadowIntensityChange={onShadowIntensityChange}
+                  verticalScaleMode={propVerticalScaleMode} onVerticalScaleModeChange={onVerticalScaleModeChange}
+                  rainShadowFeedback={propRainShadowFeedback} onRainShadowFeedbackChange={onRainShadowFeedbackChange}
+                  pluvialGamma={propPluvialGamma} onPluvialGammaChange={onPluvialGammaChange}
+                  weatherOpticalMode={propWeatherOpticalMode} onWeatherOpticalModeChange={onWeatherOpticalModeChange}
+                  thermodynamicGating={propThermodynamicGating} onThermodynamicGatingChange={onThermodynamicGatingChange}
+                  prognosticModel={prognosticModel} onPrognosticModelChange={onPrognosticModelChange}
+                  prognosticVariable={prognosticVariable} onPrognosticVariableChange={onPrognosticVariableChange}
+                  timelineMinutes={timelineMinutes} onTimelineChange={onTimelineChange}
+                  onSnapCamera={onSnapCamera}
+                  onTogglePlanetaryLayer={handleTogglePlanetaryLayer}
+                  provenance={provenance}
+                  windSpeedMultiplier={windSpeedMultiplier}
+                  onWindSpeedMultiplierChange={onWindSpeedMultiplierChange}
+                  windParticleLifetime={windParticleLifetime}
+                  onWindParticleLifetimeChange={onWindParticleLifetimeChange}
+                  isWindActive={isWindActive}
+                />
+              </div>
+
+              {/* TAB 3: KINEMATICS */}
+              <div
+                id="sidebar-panel-kinematics"
+                role="tabpanel"
+                aria-labelledby="sidebar-tab-kinematics"
+                className={activePlate === 'kinematics' ? 'space-y-2.5' : 'hidden'}
+              >
+                {/* 1. Spatial Vantage & Flight Deck */}
+                <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+                      Spatial Vantage & Flight Deck
+                    </div>
+                    <span className="text-nano font-mono opacity-60 text-[var(--theme-text-muted)]">
+                      Attitude
+                    </span>
+                  </div>
+
+                  {/* Attitude Readout: Monospace coordinate strip */}
+                  <div className="px-2 py-1 rounded-[2px] bg-[var(--theme-control-bg)] border border-[var(--theme-control-border)] text-nano font-mono tracking-wider text-center text-[var(--theme-text-accent)] tabular-nums font-semibold">
+                    {attitudeReadout}
+                  </div>
+
+                  {/* 5 Presets with Cartographic Glyphs & Active State Highlighting */}
+                  <div className="grid grid-cols-5 gap-1 text-nano font-bold">
+                    {([
+                      { key: 'equator', label: 'Equator', glyph: '⊝' },
+                      { key: 'pole', label: 'Pole', glyph: '⊙' },
+                      { key: 'seam', label: 'Seam', glyph: '⦶' },
+                      { key: 'isometric', label: 'Iso', glyph: '◬' },
+                      { key: 'horizon', label: 'Horizon', glyph: '☵' },
+                    ] as const).map((snap) => {
+                      const isSnapActive = activeSnap === snap.key;
+                      return (
+                        <button
+                          key={snap.key}
+                          type="button"
+                          onClick={() => {
+                            setActiveSnap(snap.key);
+                            onSnapCamera(snap.key);
+                          }}
+                          data-glyph={snap.glyph}
+                          aria-pressed={isSnapActive}
+                          title={`${snap.label} (${snap.glyph})`}
+                          className={`py-1.5 px-0.5 rounded-[2px] border transition-all cursor-pointer text-center truncate select-none flex flex-col items-center justify-center before:content-[attr(data-glyph)] before:block before:text-micro before:leading-none before:opacity-75 before:mb-0.5 ${
+                            isSnapActive
+                              ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold ring-1 ring-[var(--theme-control-active-ring)]'
+                              : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] hover:bg-[var(--theme-card-bg)]'
+                          }`}
+                        >
+                          <span>{snap.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* 1-Click Horizon Cross-Section Preset Button */}
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => onSnapCamera?.('horizon')}
+                      title="Set camera pitch to 78.0° tangent grazing angle for volumetric atmospheric profile view"
+                      className="w-full py-1.5 px-2 rounded-[2px] border text-nano font-mono uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-control-active-border)]"
+                    >
+                      <span>☵</span>
+                      <span>Horizon Cross-Section (78.0°)</span>
+                    </button>
+                  </div>
+
+                  {/* Flyover Tour / Demo Mode */}
+                  <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                          Flyover Tour
+                        </span>
+                        <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+                          Cinematic orbital & regional insets
+                        </span>
+                      </div>
+                      <TactileSwitch
+                        checked={Boolean(isDemoMode)}
+                        onChange={() => onToggleDemoMode?.(demoSequence)}
+                        title="Toggle Continuous Cinematics & Regional Insets Tour"
+                        label={isDemoMode ? 'Active' : 'Off'}
+                      />
+                    </div>
+
+                    <TactileSelect
+                      id="sidebar-demo-sequence"
+                      value={demoSequence || 'hawaii'}
+                      ariaLabel="Demo Sequence Preset"
+                      disabled={!isDemoMode}
+                      onChange={(val) => onSelectDemoSequence?.(val as any)}
+                      options={DEMO_PRESETS}
+                    />
+                  </div>
+                </div>
+
+                {/* 2. Projection Manifold Station with Archival Parchment Strip */}
+                <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+                      Projection Manifold
+                    </span>
+                    <span className="text-nano font-mono opacity-60 text-[var(--theme-text-muted)]">Mode {mode + 1}</span>
+                  </div>
+
+                  {/* Archival Parchment Strip for 4 Modes */}
+                  <div className="relative p-0.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] shadow-inner overflow-hidden select-none">
+                    <div
+                      className="absolute top-0.5 bottom-0.5 rounded-[2px] transition-all duration-300 ease-out pointer-events-none bg-[var(--theme-control-active-bg)] border border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)]"
+                      style={{
+                        left: `calc(${mode * 25}% + 2px)`,
+                        width: `calc(25% - 4px)`,
+                      }}
+                    />
+
+                    <div className="relative grid grid-cols-4 z-10">
+                      {PROJECTION_MODES.map((m) => {
+                        const isActive = mode === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => onModeChange(m.id as SimulationMode)}
+                            aria-pressed={isActive}
+                            className={`tactile-btn cursor-pointer py-1.5 px-0.5 rounded-[2px] text-nano font-mono uppercase tracking-tight text-center transition-all ${
+                              isActive
+                                ? 'text-[var(--theme-control-active-text)] font-bold'
+                                : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)]'
+                            }`}
+                            title={`${m.roman} · ${m.label} Projection`}
+                          >
+                            <span className="opacity-60 block text-nano">{m.roman}</span>
+                            <span className="truncate block font-semibold">{m.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {mode === 2 && (
+                    <div className="pt-1">
+                      <VernierSlider
+                        id="sidebar-fracture-intensity"
+                        label="Fracture"
+                        value={fractureIntensity ?? 1.0}
+                        min={0.5}
+                        max={2.5}
+                        step={0.05}
+                        defaultValue={1.0}
+                        readout={`${(fractureIntensity ?? 1.0).toFixed(2)}x`}
+                        onChange={(v) => onFractureIntensityChange?.(v)}
+                      />
+                    </div>
+                  )}
+
+                  {mode === 3 && (
+                    <div className="pt-1">
+                      <VernierSlider
+                        id="sidebar-vortex-strength"
+                        label="Vortex"
+                        value={fluidVortexStrength ?? 1.0}
+                        min={0.2}
+                        max={3.0}
+                        step={0.05}
+                        defaultValue={1.0}
+                        readout={`${(fluidVortexStrength ?? 1.0).toFixed(2)}x`}
+                        onChange={(v) => onFluidVortexStrengthChange?.(v)}
+                      />
+                    </div>
+                  )}
+
+                  {/* Distortion Indicatrix (Tissot) Docked Directly in Projection Card */}
+                  <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                          Distortion Indicatrix
+                        </span>
+                        <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+                          Tissot deformation ellipses
+                        </span>
+                      </div>
+                      <TactileSwitch
+                        checked={showTissot}
+                        onChange={onTissotToggle}
+                        title="Toggle Tissot Distortion Indicatrix Ellipses"
+                        label={showTissot ? 'Active' : 'Off'}
+                      />
+                    </div>
+
+                    {showTissot && (
+                      <div className="p-2 rounded-[2px] border text-micro space-y-1.5 tabular-nums bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
+                        <div className="flex justify-between items-center text-nano uppercase tracking-wider font-semibold">
+                          <span>Distortion Metric</span>
+                          <span className="text-[var(--theme-status-sage)] font-bold">
+                            Morphing
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5 text-nano font-mono">
+                          <div>
+                            <span className="text-[var(--theme-text-muted)] block truncate text-nano uppercase">Eq. Area:</span>
+                            <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.eqArea}x</span>
+                          </div>
+                          <div>
+                            <span className="text-[var(--theme-text-muted)] block truncate text-nano uppercase">Local ({latStr.trim()}):</span>
+                            <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.localArea}x</span>
+                          </div>
+                          <div>
+                            <span className="text-[var(--theme-text-muted)] block truncate text-nano uppercase">Polar Dilation:</span>
+                            <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.polarStr}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Global Geodesic Feeds Card */}
+                <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2.5 transition-all shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+                      Global Geodesic Feeds
+                    </div>
+                    <span className="text-nano font-mono text-[var(--theme-text-muted)] opacity-80">
+                      {activeOverlay === 'off' ? 'Off' : activeOverlay}
+                    </span>
+                  </div>
+
+                  {/* Thematic Overlays (Antipodes, Conveyor, Migration) */}
+                  <div className="grid grid-cols-4 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectGeodesicFeed('off')}
+                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
+                        activeOverlay === 'off'
+                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold'
+                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] bg-[var(--theme-control-bg)]'
+                      }`}
+                    >
+                      Off
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectGeodesicFeed('antipodes')}
+                      title="Antipodal Geodesic Connectors"
+                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
+                        activeOverlay === 'antipodes'
+                          ? theme === 1
+                            ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414] shadow-sm font-semibold ring-1 ring-[#8C4820]/40'
+                            : 'bg-rose-500/35 text-rose-200 border-rose-400/80 shadow-[0_0_10px_rgba(244,63,94,0.4)] ring-1 ring-rose-400/60 font-semibold'
+                          : theme === 1
+                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#8C4820] hover:border-[#8C4820]/40 bg-[var(--theme-control-bg)]'
+                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-rose-500 hover:border-rose-400/50 bg-[var(--theme-control-bg)]'
+                      }`}
+                    >
+                      Antipodes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectGeodesicFeed('conveyor')}
+                      title="Global Oceanic Conveyor Belt"
+                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
+                        activeOverlay === 'conveyor'
+                          ? theme === 1
+                            ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A] shadow-sm font-semibold ring-1 ring-[#1A4457]/40'
+                            : 'bg-sky-500/35 text-sky-200 border-sky-400/80 shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/60 font-semibold'
+                          : theme === 1
+                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#1A4457] hover:border-[#1A4457]/40 bg-[var(--theme-control-bg)]'
+                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-sky-500 hover:border-sky-400/50 bg-[var(--theme-control-bg)]'
+                      }`}
+                    >
+                      Conveyor
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectGeodesicFeed('migration')}
+                      title="Great Circle Migration"
+                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
+                        activeOverlay === 'migration'
+                          ? theme === 1
+                            ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] shadow-sm font-semibold ring-1 ring-[#7D4700]/40'
+                            : 'bg-[var(--theme-status-amber)]/35 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/80 shadow-[0_0_10px_var(--theme-status-amber)] ring-1 ring-[var(--theme-status-amber)]/60 font-semibold'
+                          : theme === 1
+                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#7D4700] hover:border-[#7D4700]/40 bg-[var(--theme-control-bg)]'
+                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-status-amber)] hover:border-[var(--theme-status-amber)]/50 bg-[var(--theme-control-bg)]'
+                      }`}
+                    >
+                      Migration
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4. Collapsible Experimental / Beta Section (Kinematics) */}
+                <div className="rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] transition-all shadow-sm overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setIsBetaOpen(!isBetaOpen)}
+                    className="w-full p-2.5 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border)]/15 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border border-[var(--theme-status-amber)]/30">
+                        BETA
+                      </span>
+                      <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+                        Kinematics Diagnostics
+                      </span>
+                    </div>
+                    <span className="text-nano font-mono text-[var(--theme-text-muted)]">
+                      {isBetaOpen ? '▲ Collapse' : '▼ Expand'}
+                    </span>
+                  </button>
+                  {isBetaOpen && (
+                    <div className="p-2.5 pt-0 space-y-3 border-t border-[var(--theme-card-border)]/50 mt-1">
+                      <div className="pt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex flex-col">
+                            <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                              Cursor Physics
+                            </span>
+                            <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+                              Fluid advection wake & Griffith stress
+                            </span>
+                          </div>
+                          <TactileSwitch
+                            checked={cursorPhysicsEnabled}
+                            onChange={() => onCursorPhysicsToggle(!cursorPhysicsEnabled)}
+                            title="Toggle cursor physics"
+                            label="Cursor Physics"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* TAB 4: DATA */}
               <div
                 id="sidebar-panel-data"
                 role="tabpanel"
@@ -1486,10 +1709,16 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   max="1"
                                   step="0.05"
                                   value={layer.opacity ?? 0.85}
+                                  title="Opacity (Double-click to reset: 85%)"
+                                  onDoubleClick={() => onOpacityChangeDataLayer?.(layer.id, 0.85)}
                                   onChange={(e) => onOpacityChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
                                   className="flex-1 slider-archival cursor-pointer h-1 rounded-[1px]"
                                 />
-                                <span className="w-8 text-right font-semibold tabular-nums text-[var(--theme-text-primary)]">
+                                <span
+                                  className="w-8 text-right font-semibold tabular-nums text-[var(--theme-text-primary)] cursor-pointer select-none"
+                                  title="Double-click to reset: 85%"
+                                  onDoubleClick={() => onOpacityChangeDataLayer?.(layer.id, 0.85)}
+                                >
                                   {Math.round((layer.opacity ?? 0.85) * 100)}%
                                 </span>
                               </div>
@@ -1523,12 +1752,22 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                       max="1"
                                       step="0.05"
                                       value={layer.ambientOcclusion ?? 0.65}
+                                      title="Ambient Occlusion (Double-click to reset: 65%)"
+                                      onDoubleClick={() =>
+                                        onAmbientOcclusionChangeDataLayer?.(layer.id, 0.65)
+                                      }
                                       onChange={(e) =>
                                         onAmbientOcclusionChangeDataLayer?.(layer.id, parseFloat(e.target.value))
                                       }
                                       className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
                                     />
-                                    <span className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums">
+                                    <span
+                                      className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums cursor-pointer select-none"
+                                      title="Double-click to reset: 65%"
+                                      onDoubleClick={() =>
+                                        onAmbientOcclusionChangeDataLayer?.(layer.id, 0.65)
+                                      }
+                                    >
                                       {Math.round((layer.ambientOcclusion ?? 0.65) * 100)}%
                                     </span>
                                   </div>
@@ -1561,167 +1800,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     </div>
                   )}
                 </div>
-
-                <TimelineScrubber
-                  value={timelineMinutes}
-                  onTimeChange={onTimelineChange}
-                  isRadarActive={isRadarActive}
-                  onEnableRadar={handleEnableRadar}
-                  className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] !p-2.5 rounded-[3px]"
-                />
-
-                {/* Atmospheric Cloud Strata Instrumentation Card */}
-                <AtmosphereDrawer
-                  className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]"
-                  theme={theme}
-                  isLight={isLight}
-                  resolution={resolution}
-                  hideScrubber={true}
-                  isRadarActive={isRadarActive}
-                  showClouds={propShowClouds}
-                  onShowCloudsChange={handleToggleClouds}
-                  showCloudLow={propShowCloudLow} onShowCloudLowChange={onShowCloudLowChange}
-                  showCloudMid={propShowCloudMid} onShowCloudMidChange={onShowCloudMidChange}
-                  showCloudHigh={propShowCloudHigh} onShowCloudHighChange={onShowCloudHighChange}
-                  cloudFalseColor={propCloudFalseColor} onCloudFalseColorChange={onCloudFalseColorChange}
-                  cloudMultiRateRaymarch={propCloudMultiRateRaymarch} onCloudMultiRateRaymarchChange={onCloudMultiRateRaymarchChange}
-                  volumetricClouds={propVolumetricClouds} onVolumetricCloudsChange={onVolumetricCloudsChange}
-                  cloudDriftSpeed={propCloudDriftSpeed} onCloudDriftSpeedChange={onCloudDriftSpeedChange}
-                  cloudOpacity={propCloudOpacity} onCloudOpacityChange={onCloudOpacityChange}
-                  cloudThickness={propCloudThickness} onCloudThicknessChange={onCloudThicknessChange}
-                  cloudLowTop={propCloudLowTop} onCloudLowTopChange={onCloudLowTopChange}
-                  cloudErosion={propCloudErosion} onCloudErosionChange={onCloudErosionChange}
-                  cloudFreqHoriz={propCloudFreqHoriz} onCloudFreqHorizChange={onCloudFreqHorizChange}
-                  cloudFreqVert={propCloudFreqVert} onCloudFreqVertChange={onCloudFreqVertChange}
-                  cloudExtinction={propCloudExtinction} onCloudExtinctionChange={onCloudExtinctionChange}
-                  atmosphericScale={propAtmosphericScale} onAtmosphericScaleChange={onAtmosphericScaleChange}
-                  shadowIntensity={propShadowIntensity} onShadowIntensityChange={onShadowIntensityChange}
-                  verticalScaleMode={propVerticalScaleMode} onVerticalScaleModeChange={onVerticalScaleModeChange}
-                  rainShadowFeedback={propRainShadowFeedback} onRainShadowFeedbackChange={onRainShadowFeedbackChange}
-                  pluvialGamma={propPluvialGamma} onPluvialGammaChange={onPluvialGammaChange}
-                  weatherOpticalMode={propWeatherOpticalMode} onWeatherOpticalModeChange={onWeatherOpticalModeChange}
-                  thermodynamicGating={propThermodynamicGating} onThermodynamicGatingChange={onThermodynamicGatingChange}
-                  prognosticModel={prognosticModel} onPrognosticModelChange={onPrognosticModelChange}
-                  prognosticVariable={prognosticVariable} onPrognosticVariableChange={onPrognosticVariableChange}
-                  timelineMinutes={timelineMinutes} onTimelineChange={onTimelineChange}
-                  onSnapCamera={onSnapCamera}
-                  onTogglePlanetaryLayer={handleTogglePlanetaryLayer}
-                  provenance={provenance}
-                  windSpeedMultiplier={windSpeedMultiplier}
-                  onWindSpeedMultiplierChange={onWindSpeedMultiplierChange}
-                  windParticleLifetime={windParticleLifetime}
-                  onWindParticleLifetimeChange={onWindParticleLifetimeChange}
-                  isWindActive={isWindActive}
-                />
-
-                {/* Global Geodesic Feeds Card */}
-                <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2.5 transition-all shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
-                      Global Geodesic Feeds
-                    </div>
-                    <span className="text-nano font-mono text-[var(--theme-text-muted)] opacity-80">
-                      {activeOverlay === 'off' ? 'Off' : activeOverlay}
-                    </span>
-                  </div>
-
-                  {/* Thematic Overlays (Antipodes, Conveyor, Migration) */}
-                  <div className="grid grid-cols-4 gap-1">
-                    <button
-                      type="button"
-                      onClick={() => handleSelectGeodesicFeed('off')}
-                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
-                        activeOverlay === 'off'
-                          ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold'
-                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] bg-[var(--theme-control-bg)]'
-                      }`}
-                    >
-                      Off
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectGeodesicFeed('antipodes')}
-                      title="Antipodal Geodesic Connectors"
-                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
-                        activeOverlay === 'antipodes'
-                          ? theme === 1
-                            ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414] shadow-sm font-semibold ring-1 ring-[#8C4820]/40'
-                            : 'bg-rose-500/35 text-rose-200 border-rose-400/80 shadow-[0_0_10px_rgba(244,63,94,0.4)] ring-1 ring-rose-400/60 font-semibold'
-                          : theme === 1
-                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#8C4820] hover:border-[#8C4820]/40 bg-[var(--theme-control-bg)]'
-                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-rose-500 hover:border-rose-400/50 bg-[var(--theme-control-bg)]'
-                      }`}
-                    >
-                      Antipodes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectGeodesicFeed('conveyor')}
-                      title="Global Oceanic Conveyor Belt"
-                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
-                        activeOverlay === 'conveyor'
-                          ? theme === 1
-                            ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A] shadow-sm font-semibold ring-1 ring-[#1A4457]/40'
-                            : 'bg-sky-500/35 text-sky-200 border-sky-400/80 shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/60 font-semibold'
-                          : theme === 1
-                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#1A4457] hover:border-[#1A4457]/40 bg-[var(--theme-control-bg)]'
-                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-sky-500 hover:border-sky-400/50 bg-[var(--theme-control-bg)]'
-                      }`}
-                    >
-                      Conveyor
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectGeodesicFeed('migration')}
-                      title="Great Circle Migration"
-                      className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
-                        activeOverlay === 'migration'
-                          ? theme === 1
-                            ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] shadow-sm font-semibold ring-1 ring-[#7D4700]/40'
-                            : 'bg-[var(--theme-status-amber)]/35 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/80 shadow-[0_0_10px_var(--theme-status-amber)] ring-1 ring-[var(--theme-status-amber)]/60 font-semibold'
-                          : theme === 1
-                          ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#7D4700] hover:border-[#7D4700]/40 bg-[var(--theme-control-bg)]'
-                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-status-amber)] hover:border-[var(--theme-status-amber)]/50 bg-[var(--theme-control-bg)]'
-                      }`}
-                    >
-                      Migration
-                    </button>
-                  </div>
-
-                  {/* Geodetic Survey Feeds: Soundings, Triangulation, Landmarks */}
-                  <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-1.5">
-                    <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-muted)]">
-                      Geodetic Survey Feeds
-                    </div>
-                    <div className="space-y-1.5 pt-0.5">
-                      <TactileSwitch
-                        checked={showSoundings}
-                        onChange={onSoundingsToggle}
-                        title="Toggle Soundings"
-                        label="Soundings"
-                        sublabel="Marine bathymetric depth matrix"
-                        indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#10B981'}
-                      />
-                      <TactileSwitch
-                        checked={showTriangulation}
-                        onChange={onTriangulationToggle}
-                        title="Toggle Triangulation"
-                        label="Triangulation"
-                        sublabel="Geodetic Delaunay survey baseline"
-                        indicatorColor={theme === 1 ? '#9C2F2F' : '#F43F5E'}
-                      />
-                      <TactileSwitch
-                        checked={showLandmarks}
-                        onChange={onLandmarksToggle}
-                        title="Toggle Landmarks"
-                        label="Landmarks"
-                        sublabel="Astronomical observatories & promontories"
-                        indicatorColor={theme === 1 ? '#7D4700' : theme === 2 ? '#60A5FA' : '#F59E0B'}
-                      />
-                    </div>
-                  </div>
-                </div>
-
                 {/* Archival Footer Colophon */}
                 <CuratorsColophon
                   theme={theme}

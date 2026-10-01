@@ -143,6 +143,31 @@ describe('Bite 2: Standardized Micro-Controls Library', () => {
       });
       expect(onChange).toHaveBeenCalledWith(5);
     });
+
+    it('resets value to defaultValue when double-clicked', async () => {
+      const onChange = vi.fn();
+      await act(async () => {
+        root.render(
+          React.createElement(VernierSlider, {
+            id: 'reset-slider',
+            label: 'Wind Speed',
+            value: 4.5,
+            defaultValue: 1.0,
+            min: 0.1,
+            max: 10.0,
+            step: 0.1,
+            onChange,
+          })
+        );
+      });
+
+      const label = container.querySelector('label') as HTMLLabelElement;
+      expect(label).not.toBeNull();
+      act(() => {
+        label.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      });
+      expect(onChange).toHaveBeenCalledWith(1.0);
+    });
   });
 
   describe('3. SegmentedControl', () => {

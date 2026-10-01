@@ -37,7 +37,8 @@ export async function refreshAllPlanetaryData(): Promise<{ gfsBytes: number; tle
   console.log('--- Step 1.75/3: Ingesting Live Doppler Radar Mosaics ---');
   try {
     const { fetchLiveRadarLoop } = await import('./fetch-live-radar');
-    await fetchLiveRadarLoop();
+    const isTest = Boolean(process.env.VITEST) || process.env.NODE_ENV === 'test';
+    await fetchLiveRadarLoop({ dryRun: isTest, forceWrite: !isTest });
     console.log(`[OK] Live Doppler Radar loop generated.`);
   } catch (err) {
     console.warn(`[WARN] Live Doppler Radar refresh deferred:`, err);

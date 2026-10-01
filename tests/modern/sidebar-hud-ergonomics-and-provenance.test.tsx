@@ -229,8 +229,11 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
   // 3. UnifiedRightSidebar Navigation & Plates
   // --------------------------------------------------------------------------
   describe('3. UnifiedRightSidebar Ergonomics & Tabs', () => {
-    it('contains DATA in the 2-tab navigation strip and SidebarPlate type', () => {
-      expect(sidebarSource).toContain("type SidebarPlate = 'scene' | 'data'");
+    it('contains 4-tab navigation strip and SidebarPlate type', () => {
+      expect(sidebarSource).toContain("type SidebarPlate = 'cartography' | 'atmosphere' | 'kinematics' | 'data'");
+      expect(sidebarSource).toMatch(/\{\s*id:\s*'cartography',\s*label:\s*'CARTOGRAPHY'\s*\}/);
+      expect(sidebarSource).toMatch(/\{\s*id:\s*'atmosphere',\s*label:\s*'ATMOSPHERE'\s*\}/);
+      expect(sidebarSource).toMatch(/\{\s*id:\s*'kinematics',\s*label:\s*'KINEMATICS'\s*\}/);
       expect(sidebarSource).toMatch(/\{\s*id:\s*'data',\s*label:\s*'DATA'\s*\}/);
     });
 
@@ -283,40 +286,55 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       });
 
       const tabs = Array.from(container.querySelectorAll('button'));
-      const sceneTab = tabs.find((b) => b.textContent?.trim() === 'SCENE');
+      const cartographyTab = tabs.find((b) => b.textContent?.trim() === 'CARTOGRAPHY');
+      const atmosphereTab = tabs.find((b) => b.textContent?.trim() === 'ATMOSPHERE');
+      const kinematicsTab = tabs.find((b) => b.textContent?.trim() === 'KINEMATICS');
       const dataTab = tabs.find((b) => b.textContent?.trim() === 'DATA');
 
-      expect(sceneTab).not.toBeUndefined();
+      expect(cartographyTab).not.toBeUndefined();
+      expect(atmosphereTab).not.toBeUndefined();
+      expect(kinematicsTab).not.toBeUndefined();
       expect(dataTab).not.toBeUndefined();
 
-      // Default SCENE tab: scene tab is active, scene panel is visible
-      expect(sceneTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
+      // Default CARTOGRAPHY tab: cartography tab is active, cartography panel is visible
+      expect(cartographyTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
       expect(dataTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
 
       const panels = container.querySelectorAll('.scroll-fade-mask > div');
-      expect(panels.length).toBe(2);
+      expect(panels.length).toBe(4);
       expect(panels[0].className).not.toContain('hidden');
       expect(panels[1].className).toContain('hidden');
+      expect(panels[2].className).toContain('hidden');
+      expect(panels[3].className).toContain('hidden');
 
-      // Click DATA tab: displays Data plate and hides Scene plate
+      // Click DATA tab: displays Data plate and hides Cartography plate
       await act(async () => {
         dataTab?.click();
       });
 
       expect(dataTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
-      expect(sceneTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
+      expect(cartographyTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
       expect(panels[0].className).toContain('hidden');
-      expect(panels[1].className).not.toContain('hidden');
+      expect(panels[3].className).not.toContain('hidden');
 
-      // Click SCENE tab: displays Scene plate and hides Data plate
+      // Click KINEMATICS tab: displays Kinematics plate
       await act(async () => {
-        sceneTab?.click();
+        kinematicsTab?.click();
       });
 
-      expect(sceneTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
+      expect(kinematicsTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
+      expect(panels[2].className).not.toContain('hidden');
+      expect(panels[3].className).toContain('hidden');
+
+      // Click CARTOGRAPHY tab: displays Cartography plate
+      await act(async () => {
+        cartographyTab?.click();
+      });
+
+      expect(cartographyTab?.className).toContain('bg-[var(--theme-control-active-bg)]');
       expect(dataTab?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
       expect(panels[0].className).not.toContain('hidden');
-      expect(panels[1].className).toContain('hidden');
+      expect(panels[2].className).toContain('hidden');
     });
 
     it('Plate 5 renders Opacity label with correct typography and prunes redundant relief sliders', async () => {
@@ -404,7 +422,7 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
         root.render(<UnifiedRightSidebar {...defaultProps} />);
       });
 
-      const buttons = Array.from(container.querySelectorAll('#sidebar-panel-scene button')).filter((b) =>
+      const buttons = Array.from(container.querySelectorAll('#sidebar-panel-kinematics button')).filter((b) =>
         ['Equator', 'Pole', 'Seam', 'Iso', 'Horizon'].includes(b.textContent?.trim() || '')
       );
       expect(buttons.map((b) => b.textContent?.trim())).toEqual(['Equator', 'Pole', 'Seam', 'Iso', 'Horizon']);

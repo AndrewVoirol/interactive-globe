@@ -580,6 +580,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
           max={0.60}
           step={0.05}
           value={shadowIntensity}
+          defaultValue={0.45}
           readout={`${Math.round(shadowIntensity * 100)}%`}
           onChange={handleIntensityChange}
         />

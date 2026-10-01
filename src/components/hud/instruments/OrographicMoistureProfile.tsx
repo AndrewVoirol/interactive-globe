@@ -708,6 +708,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
           max={1.0}
           step={0.05}
           value={rainShadowFeedback}
+          defaultValue={0.50}
           readout={`${Math.round(rainShadowFeedback * 100)}%`}
           onChange={(val) => onRainShadowChange?.(val)}
         />
@@ -734,6 +735,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
           max={2.0}
           step={0.1}
           value={pluvialGamma}
+          defaultValue={0.65}
           readout={`${pluvialGamma.toFixed(1)}x`}
           onChange={(val) => onPluvialGammaChange?.(val)}
         />

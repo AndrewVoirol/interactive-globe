@@ -583,6 +583,8 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             <div className="flex flex-col">
               <label
                 htmlFor="sidebar-atmospheric-scale"
+                onDoubleClick={handleReset}
+                title="Double-click to reset (6.0x)"
                 className="text-[var(--theme-text-primary)] font-bold uppercase tracking-wider cursor-pointer"
               >
                 Atmospheric Scale
@@ -592,7 +594,11 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               </span>
             </div>
             <div className="flex items-center gap-1 font-mono">
-              <span className="tabular-nums text-[var(--theme-text-accent)] font-bold">
+              <span
+                onDoubleClick={handleReset}
+                title="Double-click to reset (6.0x)"
+                className="tabular-nums text-[var(--theme-text-accent)] font-bold cursor-pointer hover:underline"
+              >
                 {atmosphericScale.toFixed(1)}x
               </span>
               <button
@@ -628,6 +634,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             max="12"
             step="0.1"
             value={atmosphericScale}
+            onDoubleClick={handleReset}
             onChange={(e) => onAtmosphericScaleChange(parseFloat(e.target.value))}
             className="w-full h-1 bg-[var(--theme-control-border)] rounded appearance-none cursor-pointer accent-[var(--theme-text-accent)]"
           />
@@ -639,6 +646,8 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             <div className="flex flex-col">
               <label
                 htmlFor="sidebar-cloud-opacity"
+                onDoubleClick={handleReset}
+                title="Double-click to reset (85%)"
                 className="text-[var(--theme-text-primary)] font-bold uppercase tracking-wider cursor-pointer"
               >
                 Cloud Opacity
@@ -648,7 +657,11 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               </span>
             </div>
             <div className="flex items-center gap-1 font-mono">
-              <span className="tabular-nums text-[var(--theme-text-accent)] font-bold">
+              <span
+                onDoubleClick={handleReset}
+                title="Double-click to reset (85%)"
+                className="tabular-nums text-[var(--theme-text-accent)] font-bold cursor-pointer hover:underline"
+              >
                 {Math.round(cloudOpacity * 100)}%
               </span>
               <button
@@ -684,6 +697,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             max="1"
             step="0.05"
             value={cloudOpacity}
+            onDoubleClick={handleReset}
             onChange={(e) => onCloudOpacityChange?.(parseFloat(e.target.value))}
             className="w-full h-1 bg-[var(--theme-control-border)] rounded appearance-none cursor-pointer accent-[var(--theme-text-accent)]"
           />

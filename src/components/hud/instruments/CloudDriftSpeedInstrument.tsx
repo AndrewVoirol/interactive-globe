@@ -502,6 +502,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
           max={2000}
           step={10}
           value={cloudDriftSpeed}
+          defaultValue={500}
           readout={`${Math.round(cloudDriftSpeed)}×`}
           onChange={handleSpeedChange}
         />
