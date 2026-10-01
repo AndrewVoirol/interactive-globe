@@ -247,12 +247,12 @@ describe('Milestone 6: AtmosphereDrawer Precision Instruments Suite', () => {
         );
       });
 
-      expect(container.textContent).toContain('8.5x');
+      expect(container.textContent).toMatch(/8\.5[x×]/);
       expect(container.textContent).toContain('45%');
       expect(container.textContent).toContain('1200×');
       expect(container.textContent).toContain('35%');
       expect(container.textContent).toContain('75%');
-      expect(container.textContent).toContain('1.5x');
+      expect(container.textContent).toMatch(/1\.5[x×]/);
     });
   });
 

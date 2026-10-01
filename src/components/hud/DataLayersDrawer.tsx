@@ -509,7 +509,7 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                                 onChange={(e) => onPeakExponentChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
                                 className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
                               />
-                              <span className="w-8 text-right font-bold text-[var(--theme-status-amber)] text-nano tabular-nums">{(layer.peakExponent ?? 1.4).toFixed(1)}x</span>
+                              <span className="w-8 text-right font-bold text-[var(--theme-status-amber)] text-nano tabular-nums">{(layer.peakExponent ?? 1.4).toFixed(1)}×</span>
                             </div>
                           </div>
                         )}

@@ -263,7 +263,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
           <span className="opacity-40">•</span>
           <span className="text-[var(--theme-text-secondary)]">Pluvial:</span>
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
-            {pluvialGamma.toFixed(1)}x
+            {pluvialGamma.toFixed(1)}×
           </span>
           <span className="opacity-40">•</span>
           <span className="text-[var(--theme-text-secondary)]">LCL:</span>
@@ -691,7 +691,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
               fontFamily="monospace"
               fontWeight="bold"
             >
-              {pluvialGamma.toFixed(1)}x
+              {pluvialGamma.toFixed(1)}×
             </text>
           </g>
         </svg>
@@ -736,7 +736,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
           step={0.1}
           value={pluvialGamma}
           defaultValue={0.65}
-          readout={`${pluvialGamma.toFixed(1)}x`}
+          readout={`${pluvialGamma.toFixed(1)}×`}
           onChange={(val) => onPluvialGammaChange?.(val)}
         />
 
@@ -779,11 +779,11 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
 
       {/* 4. Footer & Reset Action */}
       <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border)]/50 opacity-80">
-        <span className="truncate">OROGRAPHIC PROFILE (0.0–1.0 / 0.0–2.0x)</span>
+        <span className="truncate">OROGRAPHIC PROFILE (0.0–1.0 / 0.0–2.0×)</span>
         <button
           type="button"
           onClick={handleReset}
-          className="font-bold hover:underline text-[var(--theme-text-accent)] cursor-pointer shrink-0 ml-1"
+          className="inline-flex items-center justify-center min-h-[22px] px-1.5 py-0.5 -my-0.5 -mr-1 rounded-[1px] font-bold hover:underline text-[var(--theme-text-accent)] cursor-pointer shrink-0 ml-1"
         >
           [RESET]
         </button>

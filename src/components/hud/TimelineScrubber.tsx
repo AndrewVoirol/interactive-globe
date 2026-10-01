@@ -425,7 +425,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
         >
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--theme-status-amber)] shrink-0 animate-pulse" />
-            <span className="truncate">Doppler radar layer required for past nowcast frames (-60m..0m)</span>
+            <span className="truncate">Doppler radar layer required for past frames (-60m to 0m)</span>
           </div>
           {onEnableRadar && (
             <button

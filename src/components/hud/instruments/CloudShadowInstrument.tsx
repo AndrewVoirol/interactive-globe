@@ -575,7 +575,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
         <VernierSlider
           id="sidebar-shadow-intensity"
           label="Shadow Intensity"
-          sublabel="Dynamic Cloud Ground Shadows"
+          tooltip="Ground shadow opacity cast by raymarched cloud layer (0% to 60%)"
           min={0.0}
           max={0.60}
           step={0.05}
@@ -592,7 +592,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
         <button
           type="button"
           onClick={handleReset}
-          className="font-bold hover:underline text-[var(--theme-text-accent)] cursor-pointer shrink-0 ml-1"
+          className="inline-flex items-center justify-center min-h-[22px] px-1.5 py-0.5 -my-0.5 -mr-1 rounded-[1px] font-bold hover:underline text-[var(--theme-text-accent)] cursor-pointer shrink-0 ml-1"
         >
           [RESET]
         </button>

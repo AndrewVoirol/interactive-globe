@@ -91,13 +91,13 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
             <li className="flex items-start gap-1">
               <span className="opacity-50 select-none">•</span>
               <span>
-                <strong className="text-current font-semibold">Crust & Bathymetry:</strong> NOAA ETOPO 2022 (15&quot; DEM)
+                <strong className="text-current font-semibold">Crust & Bathymetry:</strong> NOAA ETOPO 2022 (15″ DEM)
               </span>
             </li>
             <li className="flex items-start gap-1">
               <span className="opacity-50 select-none">•</span>
               <span className="flex-1">
-                <strong className="text-current font-semibold">Atmospheric Modeling:</strong> WeatherNext 3 (0.1°) & NOAA GFS (10m winds)
+                <strong className="text-current font-semibold">Atmospheric Modeling:</strong> WeatherNext 3 (0.1°) & NOAA GFS (10 m winds)
                 {isWeatherActive && (
                   <span
                     data-testid="colophon-badge-weathernext"

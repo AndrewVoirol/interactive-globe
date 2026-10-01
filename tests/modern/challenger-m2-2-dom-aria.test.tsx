@@ -916,7 +916,7 @@ describe('Challenger 2: DOM, ARIA & Build Verification Suite (M2 - R2)', () => {
       const header = container.querySelector('.text-micro');
       expect(header).not.toBeNull();
       expect(header?.textContent).toContain('Scale:');
-      expect(header?.textContent).toContain('6.4x');
+      expect(header?.textContent).toMatch(/6\.4[x×]/);
       expect(header?.textContent).toContain('Opacity:');
       expect(header?.textContent).toContain('92%');
 

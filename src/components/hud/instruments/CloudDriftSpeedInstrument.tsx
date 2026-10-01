@@ -496,8 +496,8 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
       <div className="space-y-1 pt-1 border-t border-[var(--theme-card-border)]/50">
         <VernierSlider
           id="sidebar-cloud-drift"
-          label="Time-Lapse"
-          sublabel="Drift Multiplier"
+          label="Drift Speed"
+          tooltip="Advection time-lapse speed multiplier for cloud and wind motion (0× to 2,000×)"
           min={0}
           max={2000}
           step={10}
@@ -514,7 +514,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
         <button
           type="button"
           onClick={handleReset}
-          className="font-bold hover:underline text-[var(--theme-text-accent)] cursor-pointer shrink-0 ml-1"
+          className="inline-flex items-center justify-center min-h-[22px] px-1.5 py-0.5 -my-0.5 -mr-1 rounded-[1px] font-bold hover:underline text-[var(--theme-text-accent)] cursor-pointer shrink-0 ml-1"
         >
           [RESET]
         </button>

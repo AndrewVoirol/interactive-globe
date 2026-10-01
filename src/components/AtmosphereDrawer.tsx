@@ -190,8 +190,8 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const [internalPrognosticModel, setInternalPrognosticModel] = useState<PrognosticModelBackend>(propPrognosticModel ?? 'gfs');
   const [internalPrognosticVariable, setInternalPrognosticVariable] = useState<string>('total_precipitation_1hr_mean');
 
-  // Beta Volumetric Cloud Physics & Raymarching Levers (Rule 22)
-  const [isCloudBetaOpen, setIsCloudBetaOpen] = useState<boolean>(false);
+  // Tropospheric Raymarch Physics & Fine-Tuning Optics (Graduated from Beta)
+  const [isCloudPhysicsOpen, setIsCloudPhysicsOpen] = useState<boolean>(false);
   const [internalCloudThickness, setInternalCloudThickness] = useState<number>(() => {
     if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__?.cloudThickness !== undefined) {
       return (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudThickness;
@@ -902,45 +902,49 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             resolution={resolution}
           />
 
-          {/* Volumetric Clouds [BETA] Tray (Rule 22) */}
+          {/* 3D Volumetric Raymarch Station (Graduated from Beta) */}
+          <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] flex items-center justify-between transition-all shadow-sm mt-2">
+            <div className="flex flex-col">
+              <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                3D Volumetric Raymarch
+              </span>
+              <span className="text-nano text-[var(--theme-text-secondary)] font-mono">
+                {curVolumetricClouds ? 'Active · Multi-rate raymarching' : 'Bypassed · Fast raster strata (80+ FPS)'}
+              </span>
+            </div>
+            <TactileSwitch
+              id="beta-volumetric-clouds"
+              label={curVolumetricClouds ? 'Active' : 'Off'}
+              checked={curVolumetricClouds}
+              onChange={handleVolumetricCloudsToggle}
+              title="Toggle 3D volumetric raymarched clouds"
+              indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#38BDF8'}
+            />
+          </div>
+
+          {/* Tropospheric Physics & Optics Accordion */}
           <div className="rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] transition-all shadow-sm overflow-hidden mt-2">
             <button
               type="button"
-              onClick={() => setIsCloudBetaOpen(!isCloudBetaOpen)}
+              onClick={() => setIsCloudPhysicsOpen(!isCloudPhysicsOpen)}
               className="w-full p-2.5 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border)]/15 transition-colors"
+              title="Toggle fine-grained tropospheric raymarch physics and noise parameters"
             >
               <div className="flex items-center gap-2">
-                <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border border-[var(--theme-status-amber)]/30">
-                  BETA
+                <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm">
+                  PHYSICS
                 </span>
-                <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
-                  Volumetric Cloud Physics & Raymarching
+                <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)] truncate">
+                  Tropospheric Optics & Physics <span className="sr-only">Volumetric Cloud Physics</span>
                 </span>
               </div>
               <span className="text-nano font-mono text-[var(--theme-text-muted)]">
-                {isCloudBetaOpen ? '▲ Collapse' : '▼ Expand'}
+                {isCloudPhysicsOpen ? '▲ Collapse' : '▼ Expand'}
               </span>
             </button>
 
-            {isCloudBetaOpen && (
+            {isCloudPhysicsOpen && (
               <div className="p-2.5 pt-0 space-y-3 border-t border-[var(--theme-card-border)]/50 mt-1">
-                {/* 0. 3D Volumetric Raymarch Mode Toggle */}
-                <div className="pt-2 pb-2 border-b border-[var(--theme-card-border)]/50 flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-micro font-mono uppercase tracking-wider font-bold text-[var(--theme-text)]">
-                      3D Volumetric Raymarch
-                    </span>
-                    <span className="text-[10px] text-[var(--theme-text-muted)] font-mono">
-                      {curVolumetricClouds ? 'Active (Experimental raymarch)' : 'Bypassed (Fast 80+ FPS raster strata)'}
-                    </span>
-                  </div>
-                  <TactileSwitch
-                    id="beta-volumetric-clouds"
-                    label=""
-                    checked={curVolumetricClouds}
-                    onChange={handleVolumetricCloudsToggle}
-                  />
-                </div>
 
                 {/* 1. Tropospheric Shell Thickness */}
                 <div className="pt-2">
@@ -1005,7 +1009,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                     min={12.0}
                     max={56.0}
                     step={2.0}
-                    readout={`${Math.round(curCloudFreqHoriz)}x`}
+                    readout={`${Math.round(curCloudFreqHoriz)}×`}
                     onChange={handleCloudFreqHorizChange}
                   />
                 </div>
@@ -1022,7 +1026,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                     min={4.0}
                     max={24.0}
                     step={1.0}
-                    readout={`${Math.round(curCloudFreqVert)}x`}
+                    readout={`${Math.round(curCloudFreqVert)}×`}
                     onChange={handleCloudFreqVertChange}
                   />
                 </div>
