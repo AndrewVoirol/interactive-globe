@@ -928,14 +928,14 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
               type="button"
               onClick={() => setIsCloudPhysicsOpen(!isCloudPhysicsOpen)}
               className="w-full p-2.5 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border)]/15 transition-colors"
-              title="Toggle fine-grained tropospheric raymarch physics and noise parameters"
+              title="Toggle volumetric cloud dynamics and 3D raymarch calipers"
             >
               <div className="flex items-center gap-2">
                 <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm">
                   PHYSICS
                 </span>
                 <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)] truncate">
-                  Tropospheric Optics & Physics <span className="sr-only">Volumetric Cloud Physics</span>
+                  Volumetric Cloud Dynamics <span className="sr-only">Volumetric Cloud Physics</span>
                 </span>
               </div>
               <span className="text-nano font-mono text-[var(--theme-text-muted)]">
@@ -946,109 +946,112 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             {isCloudPhysicsOpen && (
               <div className="p-2.5 pt-0 space-y-3 border-t border-[var(--theme-card-border)]/50 mt-1">
 
-                {/* 1. Tropospheric Shell Thickness */}
-                <div className="pt-2">
-                  <VernierSlider
-                    id="beta-cloud-thickness"
-                    label="Vertical Thickness"
-                    sublabel="Expands tropospheric bounding shell for 3D vertical relief"
-                    tooltip="Troposphere vertical shell thickness (0.04 - 0.35, calibrated: 0.19)"
-                    value={curCloudThickness}
-                    defaultValue={0.19}
-                    min={0.04}
-                    max={0.35}
-                    step={0.01}
-                    readout={`${(curCloudThickness * 100).toFixed(1)}%`}
-                    onChange={handleCloudThicknessChange}
-                  />
+                {/* 1. Vertical Structure Pair */}
+                <div className="space-y-2 pt-2">
+                  <div className="text-nano font-mono uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+                    Vertical Structure
+                  </div>
+                  <div className="space-y-1.5">
+                    <VernierSlider
+                      id="beta-cloud-thickness"
+                      label="Vertical Thickness"
+                      sublabel="Expands tropospheric bounding shell for 3D vertical relief"
+                      tooltip="Troposphere vertical shell thickness (0.04 - 0.35, calibrated: 0.19)"
+                      value={curCloudThickness}
+                      defaultValue={0.19}
+                      min={0.04}
+                      max={0.35}
+                      step={0.01}
+                      readout={`${(curCloudThickness * 100).toFixed(1)}%`}
+                      onChange={handleCloudThicknessChange}
+                    />
+                    <VernierSlider
+                      id="beta-cloud-low-top"
+                      label="Cumulus Ceiling"
+                      sublabel="Vertical fraction of troposphere occupied by low cumulus"
+                      tooltip="Cumulus layer vertical ceiling (0.15 - 0.60, calibrated: 0.45)"
+                      value={curCloudLowTop}
+                      defaultValue={0.45}
+                      min={0.15}
+                      max={0.60}
+                      step={0.05}
+                      readout={`${Math.round(curCloudLowTop * 100)}%`}
+                      onChange={handleCloudLowTopChange}
+                    />
+                  </div>
                 </div>
 
-                {/* 2. Cumulus Low-Deck Ceiling */}
-                <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
-                  <VernierSlider
-                    id="beta-cloud-low-top"
-                    label="Cumulus Stratum Ceiling"
-                    sublabel="Vertical fraction of troposphere occupied by low cumulus"
-                    tooltip="Cumulus layer vertical ceiling (0.15 - 0.60, calibrated: 0.45)"
-                    value={curCloudLowTop}
-                    defaultValue={0.45}
-                    min={0.15}
-                    max={0.60}
-                    step={0.05}
-                    readout={`${Math.round(curCloudLowTop * 100)}%`}
-                    onChange={handleCloudLowTopChange}
-                  />
+                {/* 2. Billow Detail Pair */}
+                <div className="space-y-2 pt-2 border-t border-[var(--theme-card-border)]/50">
+                  <div className="text-nano font-mono uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+                    Billow Detail
+                  </div>
+                  <div className="space-y-1.5">
+                    <VernierSlider
+                      id="beta-cloud-erosion"
+                      label="Billow Erosion"
+                      sublabel="Worley noise carving strength on cauliflower cloud domes"
+                      tooltip="High-frequency 3D Worley displacement and erosion strength (calibrated: 0.85)"
+                      value={curCloudErosion}
+                      defaultValue={0.85}
+                      min={0.20}
+                      max={1.20}
+                      step={0.05}
+                      readout={curCloudErosion.toFixed(2)}
+                      onChange={handleCloudErosionChange}
+                    />
+                    <VernierSlider
+                      id="beta-cloud-extinction"
+                      label="Optical Extinction"
+                      sublabel="Raymarch absorption and scattering coefficient"
+                      tooltip="Volumetric extinction coefficient (calibrated: 28.0)"
+                      value={curCloudExtinction}
+                      defaultValue={28.0}
+                      min={10.0}
+                      max={50.0}
+                      step={2.0}
+                      readout={`${Math.round(curCloudExtinction)}`}
+                      onChange={handleCloudExtinctionChange}
+                    />
+                  </div>
                 </div>
 
-                {/* 3. 3D Billow Erosion */}
-                <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
-                  <VernierSlider
-                    id="beta-cloud-erosion"
-                    label="3D Billow Erosion"
-                    sublabel="Worley noise carving strength on cauliflower cloud domes"
-                    tooltip="High-frequency 3D Worley displacement and erosion strength (calibrated: 0.85)"
-                    value={curCloudErosion}
-                    defaultValue={0.85}
-                    min={0.20}
-                    max={1.20}
-                    step={0.05}
-                    readout={curCloudErosion.toFixed(2)}
-                    onChange={handleCloudErosionChange}
-                  />
+                {/* 3. Planetary Scale Pair */}
+                <div className="space-y-2 pt-2 border-t border-[var(--theme-card-border)]/50">
+                  <div className="text-nano font-mono uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+                    Planetary Scale
+                  </div>
+                  <div className="space-y-1.5">
+                    <VernierSlider
+                      id="beta-cloud-freq-horiz"
+                      label="Horizontal Clustering"
+                      sublabel="Cellular billow density across planetary surface"
+                      tooltip="Planetary horizontal noise frequency (calibrated: 32.0)"
+                      value={curCloudFreqHoriz}
+                      defaultValue={32.0}
+                      min={12.0}
+                      max={56.0}
+                      step={2.0}
+                      readout={`${Math.round(curCloudFreqHoriz)}×`}
+                      onChange={handleCloudFreqHorizChange}
+                    />
+                    <VernierSlider
+                      id="beta-cloud-freq-vert"
+                      label="Vertical Stratification"
+                      sublabel="Vertical octave density across troposphere shell"
+                      tooltip="Vertical noise frequency across shell (calibrated: 12.0)"
+                      value={curCloudFreqVert}
+                      defaultValue={12.0}
+                      min={4.0}
+                      max={24.0}
+                      step={1.0}
+                      readout={`${Math.round(curCloudFreqVert)}×`}
+                      onChange={handleCloudFreqVertChange}
+                    />
+                  </div>
                 </div>
 
-                {/* 4. Horizontal Noise Frequency */}
-                <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
-                  <VernierSlider
-                    id="beta-cloud-freq-horiz"
-                    label="Horizontal Frequency"
-                    sublabel="Cellular billow density across planetary surface"
-                    tooltip="Planetary horizontal noise frequency (calibrated: 32.0)"
-                    value={curCloudFreqHoriz}
-                    defaultValue={32.0}
-                    min={12.0}
-                    max={56.0}
-                    step={2.0}
-                    readout={`${Math.round(curCloudFreqHoriz)}×`}
-                    onChange={handleCloudFreqHorizChange}
-                  />
-                </div>
-
-                {/* 5. Vertical Strata Frequency */}
-                <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
-                  <VernierSlider
-                    id="beta-cloud-freq-vert"
-                    label="Vertical Strata Frequency"
-                    sublabel="Vertical octave density across troposphere shell"
-                    tooltip="Vertical noise frequency across shell (calibrated: 12.0)"
-                    value={curCloudFreqVert}
-                    defaultValue={12.0}
-                    min={4.0}
-                    max={24.0}
-                    step={1.0}
-                    readout={`${Math.round(curCloudFreqVert)}×`}
-                    onChange={handleCloudFreqVertChange}
-                  />
-                </div>
-
-                {/* 6. Optical Extinction */}
-                <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
-                  <VernierSlider
-                    id="beta-cloud-extinction"
-                    label="Optical Extinction"
-                    sublabel="Raymarch absorption and scattering coefficient"
-                    tooltip="Volumetric extinction coefficient (calibrated: 28.0)"
-                    value={curCloudExtinction}
-                    defaultValue={28.0}
-                    min={10.0}
-                    max={50.0}
-                    step={2.0}
-                    readout={`${Math.round(curCloudExtinction)}`}
-                    onChange={handleCloudExtinctionChange}
-                  />
-                </div>
-
-                {/* 7. Linearized Multi-Rate Raymarch (Pivot 2) */}
+                {/* 4. Linearized Multi-Rate Raymarch (Pivot 2) */}
                 <div className="pt-2 border-t border-[var(--theme-card-border)]/50 flex items-center justify-between">
                   <div className="space-y-0.5">
                     <div className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
@@ -1071,7 +1074,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                   </button>
                 </div>
 
-                {/* 8. Quick Camera Pitch Buttons */}
+                {/* 5. Quick Camera Pitch Buttons */}
                 <div className="pt-2 border-t border-[var(--theme-card-border)]/50 space-y-1">
                   <span className="text-nano font-mono uppercase tracking-wider text-[var(--theme-text-muted)]">
                     Camera Pitch Angle
@@ -1099,7 +1102,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                   </div>
                 </div>
 
-                {/* 8. Diagnostic Test Locations & Reset */}
+                {/* 6. Diagnostic Test Locations & Reset */}
                 <div className="pt-2 border-t border-[var(--theme-card-border)]/50 flex items-center justify-between gap-1">
                   <div className="flex gap-1 flex-wrap">
                     {[
@@ -1128,7 +1131,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                     className="py-0.5 px-2 rounded-[2px] border text-center font-mono text-[9px] uppercase font-bold tracking-wider bg-[var(--theme-status-amber)]/20 hover:bg-[var(--theme-status-amber)]/30 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40 transition-colors cursor-pointer shrink-0"
                     title="Reset all volumetric cloud levers to calibrated defaults"
                   >
-                    Reset Defaults
+                    Reset Calibrated Physics
                   </button>
                 </div>
               </div>

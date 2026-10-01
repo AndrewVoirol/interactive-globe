@@ -51,7 +51,7 @@ export interface UnifiedRightSidebarProps {
   onLayerModeChange: (l: 0 | 1 | 2) => void;
   mode: SimulationMode;
   onModeChange: (m: SimulationMode) => void;
-  cursorPhysicsEnabled: boolean;
+  cursorPhysicsEnabled?: boolean;
   onCursorPhysicsToggle: (enabled: boolean) => void;
   activeOverlay: GeodesicOverlayMode;
   onOverlayChange: (o: GeodesicOverlayMode) => void;
@@ -160,7 +160,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onLayerModeChange,
   mode,
   onModeChange,
-  cursorPhysicsEnabled,
   onCursorPhysicsToggle,
   prognosticModel,
   onPrognosticModelChange,

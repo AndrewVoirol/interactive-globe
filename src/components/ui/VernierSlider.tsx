@@ -147,6 +147,10 @@ export const VernierSlider: React.FC<VernierSliderProps> = ({
           step={step}
           value={localVal}
           disabled={disabled}
+          aria-label={label}
+          aria-valuemin={min}
+          aria-valuemax={max}
+          aria-valuenow={localVal}
           onDoubleClick={handleReset}
           onInput={(e) => {
             const next = parseFloat((e.target as HTMLInputElement).value);
