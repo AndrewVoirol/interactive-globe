@@ -51,7 +51,7 @@ export interface UnifiedRightSidebarProps {
   onLayerModeChange: (l: 0 | 1 | 2) => void;
   mode: SimulationMode;
   onModeChange: (m: SimulationMode) => void;
-  cursorPhysicsEnabled: boolean;
+  cursorPhysicsEnabled?: boolean;
   onCursorPhysicsToggle: (enabled: boolean) => void;
   activeOverlay: GeodesicOverlayMode;
   onOverlayChange: (o: GeodesicOverlayMode) => void;
@@ -134,6 +134,7 @@ export interface UnifiedRightSidebarProps {
   onWindSpeedMultiplierChange?: (v: number) => void;
   windParticleLifetime?: number;
   onWindParticleLifetimeChange?: (v: number) => void;
+  onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
 }
 
 export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
@@ -159,7 +160,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onLayerModeChange,
   mode,
   onModeChange,
-  cursorPhysicsEnabled,
   onCursorPhysicsToggle,
   prognosticModel,
   onPrognosticModelChange,
@@ -244,6 +244,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onWindSpeedMultiplierChange,
   windParticleLifetime,
   onWindParticleLifetimeChange,
+  onTogglePlanetaryLayer: propTogglePlanetaryLayer,
 }) => {
   const handleToggleClouds = (val: boolean) => {
     onShowCloudsChange?.(val);
@@ -548,6 +549,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   }, [isCatalogOpen]);
 
   const handleTogglePlanetaryLayer = (id: string, force?: boolean) => {
+    if (propTogglePlanetaryLayer) {
+      propTogglePlanetaryLayer(id, force);
+      return;
+    }
     const existing = dataLayers.find((l) => l.id === id);
     if (existing) {
       if (force === true && existing.visible) return;
@@ -572,7 +577,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
   const isNoaaActive = dataLayers.some((l) => l.id === 'noaa-gfs-wind' && l.visible);
   const isRadarActive = dataLayers.some((l) => l.id === 'live-doppler-radar' && l.visible);
-  const isWindActive = dataLayers.some((l) => (l.id.includes('wind') || l.id === 'noaa-gfs-wind') && l.visible);
+  const isWindActive =
+    prognosticVariable === 'wind_10m_vector' ||
+    prognosticVariable === 'ivt' ||
+    dataLayers.some((l) => (l.id.includes('wind') || l.id === 'noaa-gfs-wind') && l.visible);
 
   const handleSelectGeodesicFeed = useCallback(
     (feed: GeodesicOverlayMode) => {
