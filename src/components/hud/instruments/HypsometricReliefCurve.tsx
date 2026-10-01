@@ -219,26 +219,27 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
 
         {/* Labels */}
         <div className="absolute top-1 left-1.5 text-nano font-mono-draft pointer-events-none opacity-80 text-[var(--theme-text-secondary)]">
-          PEAK AMPLITUDE (0.25x)
+          Peak Relief (0.25×)
         </div>
         <div className="absolute bottom-1 left-1.5 text-nano font-mono-draft pointer-events-none opacity-80 text-[var(--theme-text-secondary)]">
-          SEA LEVEL BASELINE (0m)
+          Baseline (0 m)
         </div>
         <div className="absolute bottom-1 right-1.5 text-nano font-mono-draft pointer-events-none font-bold text-[var(--theme-text-accent)]">
-          ARÊTE SHARPNESS ◄►
+          Peak Sharpness ◄►
         </div>
       </div>
 
       <div className="flex items-center justify-between text-nano font-mono-draft mt-1 px-1 opacity-75">
-        <span>DRAG SUMMIT VERTICALLY / HORIZONTALLY</span>
+        <span>Drag summit vertically / horizontally</span>
         <button
+          type="button"
           onClick={() => {
             onDisplacementChange(theme === 1 ? 0.14 : (theme === 2 ? 0.11 : 0.12));
             onPeakExponentChange(theme === 1 ? 1.6 : (theme === 2 ? 1.4 : 1.3));
           }}
-          className="font-bold hover:underline text-[var(--theme-text-accent)]"
+          className="font-bold hover:underline text-[var(--theme-text-accent)] cursor-pointer"
         >
-          [RESET]
+          Reset
         </button>
       </div>
     </div>

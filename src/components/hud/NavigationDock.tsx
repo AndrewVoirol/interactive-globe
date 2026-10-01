@@ -113,6 +113,13 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
       onTogglePlay();
     }
 
+    if (onGlideToMode) {
+      onGlideToMode(newMode);
+      onModeChange?.(newMode);
+      onSelectMode?.(newMode);
+      return;
+    }
+
     // Determine the restore target alpha.
     // If a glide is already in progress, preserve the original resting restore target!
     const restoreAlpha = targetRestoreAlphaRef.current !== null ? targetRestoreAlphaRef.current : alpha;
@@ -203,38 +210,6 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
       }`}
       style={{ fontFamily: 'var(--theme-font-telemetry)' }}
     >
-      {/* 4-Segment Projection Mode Pill Selector */}
-      <div
-        role="radiogroup"
-        aria-label="Projection Mode Selector"
-        className={`flex items-center gap-1 p-0.5 rounded-[3px] shadow-lg pointer-events-auto border transition-colors bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${
-          theme === 1 ? 'paper-cream-panel' : theme === 2 ? 'paper-cyanotype' : 'paper-tharp'
-        }`}
-        style={{
-          backgroundColor: theme === 1 ? 'rgba(252, 249, 242, 0.94)' : undefined,
-        }}
-      >
-        {PROJECTION_MODES.map((m) => {
-          const isActive = mode === m.id;
-          return (
-            <button
-              key={m.id}
-              role="radio"
-              aria-checked={isActive}
-              onClick={() => handleSelectMode(m.id)}
-              title={`Switch to ${m.label} Projection Mode`}
-              className={`tactile-btn text-nano px-2.5 py-0.5 rounded-[2px] border transition-all font-mono uppercase tracking-wider ${
-                isActive
-                  ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-bold ring-1 ring-[var(--theme-control-active-ring)]'
-                  : 'bg-transparent text-[var(--theme-text-secondary)] border-transparent hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-control-hover-bg)]'
-              }`}
-            >
-              {m.label}
-            </button>
-          );
-        })}
-      </div>
-
       <div
         className={`flex items-center gap-3 px-5 py-2 rounded-[3px] shadow-2xl pointer-events-auto border transition-colors relative scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] ${
           theme === 1 ? 'paper-cream-panel' : theme === 2 ? 'paper-cyanotype' : 'paper-tharp'
@@ -243,28 +218,34 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         {/* Archival Drafting Hairline Divider (Preserves single-border HUD contract) */}
         <div className="hidden h-4 w-px bg-[var(--theme-neatline-border)]/40 shrink-0 z-10" />
 
-        {/* 4-Segment Projection Mode Selector */}
+        {/* 4-Segment Projection Mode Selector (Single Authoritative Switch) */}
         <div
-          role="group"
-          aria-label="Projection Mode Selection"
-          className="flex items-center rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] p-0.5 shrink-0 z-10 text-nano font-mono"
+          role="radiogroup"
+          aria-label="Projection Mode Selector"
+          className={`flex items-center rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] p-0.5 shrink-0 z-10 text-nano font-mono ${
+            theme === 1 ? 'paper-cream-panel' : theme === 2 ? 'paper-cyanotype' : 'paper-tharp'
+          }`}
+          style={{
+            backgroundColor: theme === 1 ? 'rgba(252, 249, 242, 0.94)' : undefined,
+          }}
         >
-          {(['Linear', 'Scroll', 'Fracture', 'Fluid'] as const).map((label, idx) => {
-            const isActive = mode === idx;
+          {PROJECTION_MODES.map((m) => {
+            const isActive = mode === m.id;
             return (
               <button
-                key={label}
+                key={m.id}
                 type="button"
-                onClick={() => onGlideToMode?.(idx as SimulationMode)}
-                aria-pressed={isActive}
-                title={`Switch to ${label} Mode (${idx + 1})`}
-                className={`tactile-btn px-2 py-0.5 rounded-[1px] transition-all uppercase tracking-wider font-semibold ${
+                role="radio"
+                aria-checked={isActive}
+                onClick={() => handleSelectMode(m.id)}
+                title={`Switch to ${m.label} Projection Mode (${m.id + 1})`}
+                className={`tactile-btn px-2.5 py-0.5 rounded-[1px] transition-all uppercase tracking-wider font-semibold ${
                   isActive
-                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] shadow-sm'
+                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] shadow-sm font-bold ring-1 ring-[var(--theme-control-active-ring)]'
                     : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)] hover:bg-[var(--theme-control-hover-bg)]'
                 }`}
               >
-                {label}
+                {m.label}
               </button>
             );
           })}
@@ -276,7 +257,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
             cancelGlide();
             onTogglePlay();
           }}
-          title={isPlaying ? 'Pause Morph (Space)' : 'Play Auto-Morph Loop (Space)'}
+          title={isPlaying ? 'Pause Continuous Unfurl Loop (Space)' : 'Play Continuous Unfurl Loop (Space)'}
           className={`tactile-btn w-7 h-7 rounded-[2px] flex items-center justify-center transition-all shrink-0 border z-10 ${
             isPlaying
               ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold'
@@ -292,10 +273,10 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
             cancelGlide();
             onToggleSpeed();
           }}
-          title="Toggle Auto-Morph Speed"
+          title={`Playback time-lapse speed multiplier (${playbackSpeed.toFixed(1)}×)`}
           className="tactile-btn text-micro font-medium px-1.5 py-0.5 rounded-[2px] border transition-colors tabular-nums shrink-0 z-10 bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)]"
         >
-          {playbackSpeed}x
+          {playbackSpeed.toFixed(1)}×
         </button>
 
         {/* Quick Snap to Globe (G) */}
@@ -304,7 +285,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
             cancelGlide();
             onGlideToAlpha(0.0);
           }}
-          title="Smooth glide to Spherical Globe (Press G)"
+          title="Glide camera and manifold to closed Riemannian sphere (Press G)"
           className={`tactile-btn text-body font-semibold uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] transition-all shrink-0 border z-10 ${
             alpha < 0.03
               ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)] font-semibold'
@@ -353,7 +334,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
             cancelGlide();
             onGlideToAlpha(1.0);
           }}
-          title="Smooth glide to Planar Map (Press M)"
+          title="Glide camera and manifold to planar map (Press M)"
           className={`tactile-btn text-body font-semibold uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] transition-all shrink-0 border z-10 ${
             alpha > 0.97
               ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)] font-semibold'

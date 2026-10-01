@@ -309,7 +309,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
   type SidebarPlate = 'cartography' | 'atmosphere' | 'kinematics' | 'data';
   const [activePlate, setActivePlate] = useState<SidebarPlate>('cartography');
-  const [isBetaOpen, setIsBetaOpen] = useState(true);
+  const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(true);
   const [activeSnap, setActiveSnap] = useState<'equator' | 'pole' | 'seam' | 'isometric' | 'horizon' | null>(null);
 
   const [internalCdlodDiagnosticMode, setInternalCdlodDiagnosticMode] = useState<number>(() => {
@@ -992,69 +992,82 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     </div>
                   </div>
 
-                  {/* 4. Purity Diagnostic Station */}
-                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] flex items-center justify-between transition-all shadow-sm">
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
-                          Purity · DEM Only
-                        </span>
-                        <span className="text-nano font-mono font-bold px-1 py-0.2 rounded-[2px] bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border border-[var(--theme-status-sage)]/30 uppercase">
-                          RAW
-                        </span>
-                      </div>
-                      <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
-                        Archival substrate + pure DEM mesh (zero atmosphere/water)
+                  {/* 4. Physical Substrate Grain (Graduated from Beta) */}
+                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-1.5 transition-all shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                        Paper Substrate
                       </span>
+                      {theme !== 1 && (
+                        <span className="text-nano font-mono px-1.5 py-0.2 rounded-[2px] bg-[var(--theme-control-border)]/40 text-[var(--theme-text-muted)] border border-[var(--theme-card-border)]">
+                          Cream Rag only
+                        </span>
+                      )}
                     </div>
-                    <TactileSwitch
-                      checked={Boolean(purityMode)}
-                      onChange={onPurityModeToggle || (() => {})}
-                      title="Toggle Geodetic Purity Diagnostic Mode (Strips water, atmosphere, clouds, and wind)"
-                      label={purityMode ? 'Active' : 'Off'}
-                      indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#10B981'}
-                    />
+                    <div className={`transition-opacity ${theme === 1 ? 'opacity-100' : 'opacity-60'}`}>
+                      <VernierSlider
+                        id="sidebar-paper-tooth"
+                        label="Paper Grain"
+                        sublabel={theme !== 1 ? '(Cream Rag only)' : 'Cellulose fiber roughness of 310 GSM cotton rag'}
+                        tooltip="Simulates physical micro-texture and cellulose fiber roughness of 310 GSM archival cotton rag paper"
+                        value={primaryLayer?.paperTooth ?? 0.40}
+                        min={0.0}
+                        max={1.0}
+                        step={0.05}
+                        defaultValue={0.40}
+                        readout={`${Math.round((primaryLayer?.paperTooth ?? 0.40) * 100)}%`}
+                        onChange={(v) => onPaperToothChangeDataLayer?.(primaryLayerId, v)}
+                      />
+                    </div>
                   </div>
 
-                  {/* 5. Collapsible Experimental / Beta Section (Cartography) */}
+                  {/* 5. Inspection & Diagnostics Accordion (Graduated from Beta) */}
                   <div className="rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] transition-all shadow-sm overflow-hidden">
                     <button
                       type="button"
-                      onClick={() => setIsBetaOpen(!isBetaOpen)}
+                      onClick={() => setIsDiagnosticsOpen(!isDiagnosticsOpen)}
                       className="w-full p-2.5 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border)]/15 transition-colors"
+                      title="Toggle Inspection & WebGPU CDLOD Diagnostics tools"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border border-[var(--theme-status-amber)]/30">
-                          BETA
+                        <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm">
+                          DIAGNOSTICS
                         </span>
                         <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
-                          Cartography Diagnostics
+                          Inspection & Mesh
                         </span>
                       </div>
                       <span className="text-nano font-mono text-[var(--theme-text-muted)]">
-                        {isBetaOpen ? '▲ Collapse' : '▼ Expand'}
+                        {isDiagnosticsOpen ? '▲ Collapse' : '▼ Expand'}
                       </span>
                     </button>
-                    {isBetaOpen && (
+                    {isDiagnosticsOpen && (
                       <div className="p-2.5 pt-0 space-y-3 border-t border-[var(--theme-card-border)]/50 mt-1">
-                        <div className="pt-2">
-                          <div className={`transition-opacity ${theme === 1 ? 'opacity-100' : 'opacity-70'}`}>
-                            <VernierSlider
-                              id="sidebar-paper-tooth"
-                              label="Paper Grain"
-                              sublabel={theme !== 1 ? '(Cream Rag only)' : 'Simulates physical cellulose fiber roughness of 310 GSM cotton rag paper'}
-                              tooltip="Simulates physical cellulose fiber roughness of 310 GSM cotton rag paper"
-                              value={primaryLayer?.paperTooth ?? 0.40}
-                              min={0.0}
-                              max={1.0}
-                              step={0.05}
-                              defaultValue={0.40}
-                              readout={`${Math.round((primaryLayer?.paperTooth ?? 0.40) * 100)}%`}
-                              onChange={(v) => onPaperToothChangeDataLayer?.(primaryLayerId, v)}
-                            />
+                        {/* Raw DEM Purity Switch */}
+                        <div className="pt-2 flex items-center justify-between">
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                                Purity · DEM Only
+                              </span>
+                              <span className="text-nano font-mono px-1 py-0.2 rounded-[2px] bg-[var(--theme-control-bg)] border border-[var(--theme-control-border)] text-[var(--theme-text-accent)] font-bold">
+                                RAW
+                              </span>
+                            </div>
+                            <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+                              Archival substrate + pure DEM mesh (zero atmosphere/water)
+                            </span>
                           </div>
+                          <TactileSwitch
+                            checked={Boolean(purityMode)}
+                            onChange={onPurityModeToggle || (() => {})}
+                            title="Toggle Raw DEM Purity Mode (Strips water, atmosphere, clouds, and wind)"
+                            label={purityMode ? 'Active' : 'Off'}
+                            indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#10B981'}
+                          />
                         </div>
 
+                        {/* CDLOD Mesh Diagnostics */}
                         <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
                           <div className="flex flex-col gap-1.5">
                             <div className="flex items-center justify-between">
@@ -1078,7 +1091,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             />
                           </div>
                         </div>
-
                       </div>
                     )}
                   </div>
@@ -1243,47 +1255,33 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   </div>
                 </div>
 
-                {/* 2. Projection Manifold Station with Archival Parchment Strip */}
+                {/* 2. Projection Manifold Station with Active Status Telemetry */}
                 <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
                       Projection Manifold
                     </span>
-                    <span className="text-nano font-mono opacity-60 text-[var(--theme-text-muted)]">Mode {mode + 1}</span>
+                    <span className="text-nano font-mono text-[var(--theme-text-muted)]">
+                      Dock Controlled
+                    </span>
                   </div>
 
-                  {/* Archival Parchment Strip for 4 Modes */}
-                  <div className="relative p-0.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] shadow-inner overflow-hidden select-none">
-                    <div
-                      className="absolute top-0.5 bottom-0.5 rounded-[2px] transition-all duration-300 ease-out pointer-events-none bg-[var(--theme-control-active-bg)] border border-[var(--theme-control-active-border)] shadow-sm ring-1 ring-[var(--theme-control-active-ring)]"
-                      style={{
-                        left: `calc(${mode * 25}% + 2px)`,
-                        width: `calc(25% - 4px)`,
-                      }}
-                    />
-
-                    <div className="relative grid grid-cols-4 z-10">
-                      {PROJECTION_MODES.map((m) => {
-                        const isActive = mode === m.id;
-                        return (
-                          <button
-                            key={m.id}
-                            type="button"
-                            onClick={() => onModeChange(m.id as SimulationMode)}
-                            aria-pressed={isActive}
-                            className={`tactile-btn cursor-pointer py-1.5 px-0.5 rounded-[2px] text-nano font-mono uppercase tracking-tight text-center transition-all ${
-                              isActive
-                                ? 'text-[var(--theme-control-active-text)] font-bold'
-                                : 'text-[var(--theme-control-text)] hover:text-[var(--theme-control-hover-text)]'
-                            }`}
-                            title={`${m.roman} · ${m.label} Projection`}
-                          >
-                            <span className="opacity-60 block text-nano">{m.roman}</span>
-                            <span className="truncate block font-semibold">{m.label}</span>
-                          </button>
-                        );
-                      })}
+                  {/* Active Projection Telemetry Badge (Dock is single authority for mode switching) */}
+                  <div
+                    className="p-2 rounded-[2px] border border-[var(--theme-card-border)] bg-[var(--theme-control-bg)] flex items-center justify-between transition-all"
+                    title="Projection mode is controlled via the Navigation Dock"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-nano font-mono uppercase tracking-wider text-[var(--theme-text-muted)]">
+                        Active Manifold
+                      </span>
+                      <span className="text-micro font-bold font-mono text-[var(--theme-text-primary)]">
+                        Mode {PROJECTION_MODES[mode]?.roman ?? 'I'} · {PROJECTION_MODES[mode]?.label ?? 'Linear'}
+                      </span>
                     </div>
+                    <span className="text-nano font-mono px-2 py-0.5 rounded-[2px] bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm font-semibold">
+                      Synchronized
+                    </span>
                   </div>
 
                   {mode === 2 && (
@@ -1291,12 +1289,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <VernierSlider
                         id="sidebar-fracture-intensity"
                         label="Fracture"
+                        tooltip="Griffith linear elastic fracture mechanics (LEFM) rift expansion multiplier (0.50× to 2.50×)"
                         value={fractureIntensity ?? 1.0}
                         min={0.5}
                         max={2.5}
                         step={0.05}
                         defaultValue={1.0}
-                        readout={`${(fractureIntensity ?? 1.0).toFixed(2)}x`}
+                        readout={`${(fractureIntensity ?? 1.0).toFixed(2)}×`}
                         onChange={(v) => onFractureIntensityChange?.(v)}
                       />
                     </div>
@@ -1307,12 +1306,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <VernierSlider
                         id="sidebar-vortex-strength"
                         label="Vortex"
+                        tooltip="Lamb-Oseen hydrodynamic vortex circulation intensity for fluid manifold unfurling (0.20× to 3.00×)"
                         value={fluidVortexStrength ?? 1.0}
                         min={0.2}
                         max={3.0}
                         step={0.05}
                         defaultValue={1.0}
-                        readout={`${(fluidVortexStrength ?? 1.0).toFixed(2)}x`}
+                        readout={`${(fluidVortexStrength ?? 1.0).toFixed(2)}×`}
                         onChange={(v) => onFluidVortexStrengthChange?.(v)}
                       />
                     </div>
@@ -1437,49 +1437,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       Migration
                     </button>
                   </div>
-                </div>
-
-                {/* 4. Collapsible Experimental / Beta Section (Kinematics) */}
-                <div className="rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] transition-all shadow-sm overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setIsBetaOpen(!isBetaOpen)}
-                    className="w-full p-2.5 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border)]/15 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border border-[var(--theme-status-amber)]/30">
-                        BETA
-                      </span>
-                      <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
-                        Kinematics Diagnostics
-                      </span>
-                    </div>
-                    <span className="text-nano font-mono text-[var(--theme-text-muted)]">
-                      {isBetaOpen ? '▲ Collapse' : '▼ Expand'}
-                    </span>
-                  </button>
-                  {isBetaOpen && (
-                    <div className="p-2.5 pt-0 space-y-3 border-t border-[var(--theme-card-border)]/50 mt-1">
-                      <div className="pt-2">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex flex-col">
-                            <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
-                              Cursor Physics
-                            </span>
-                            <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
-                              Fluid advection wake & Griffith stress
-                            </span>
-                          </div>
-                          <TactileSwitch
-                            checked={cursorPhysicsEnabled}
-                            onChange={() => onCursorPhysicsToggle(!cursorPhysicsEnabled)}
-                            title="Toggle cursor physics"
-                            label="Cursor Physics"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 

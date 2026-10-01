@@ -228,13 +228,13 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
 
         {/* Reference Geological Markers */}
         <div className="absolute left-1.5 top-1 text-nano font-mono pointer-events-none opacity-80 text-[var(--theme-text-secondary)]">
-          +100m (Flood)
+          +100 m (Highstand)
         </div>
         <div className="absolute left-1.5 top-[40%] text-nano font-mono font-bold pointer-events-none text-[var(--theme-text-accent)]">
-          0m (Datum MLLW)
+          0 m (Mean Sea Level)
         </div>
         <div className="absolute left-1.5 bottom-1 text-nano font-mono pointer-events-none opacity-80 text-[var(--theme-text-secondary)]">
-          -150m (Ice Age LGM)
+          -150 m (Glacial Maximum)
         </div>
       </div>
 

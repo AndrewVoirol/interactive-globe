@@ -137,10 +137,9 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
     expect(container.textContent).toContain("00°07'W");
     expect(container.textContent).toContain('1:25M');
 
-    // Verify paradigm mode buttons are rendered
-    const buttons = Array.from(container.querySelectorAll('button'));
-    const modeBtn = buttons.find(b => b.textContent?.includes('Fracture') || b.textContent?.includes('Griffith') || b.title?.includes('Griffith'));
-    expect(modeBtn).toBeDefined();
+    // Verify active projection manifold telemetry is rendered in sidebar
+    expect(container.textContent).toContain('Active Manifold');
+    expect(container.textContent).toContain('Fluid');
   });
 
   it('DOM-HUD-04: verifies backend switch button is excised from UnifiedRightSidebar', async () => {
@@ -202,23 +201,16 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
     expect(onThemeToggle).toHaveBeenCalledTimes(1);
   });
 
-  it('DOM-HUD-07: triggers onModeChange callback when user selects a different paradigm', async () => {
-    const onModeChange = vi.fn();
-    const props = createProps({ mode: 0, onModeChange });
+  it('DOM-HUD-07: displays active projection manifold badge synchronized with dock authority', async () => {
+    const props = createProps({ mode: 2 });
 
     await act(async () => {
       root.render(<TelemetryHUD {...props} />);
     });
 
-    const buttons = Array.from(container.querySelectorAll('button'));
-    const modeBtn = buttons.find(b => b.textContent?.includes('Fracture') || b.textContent?.includes('Griffith') || b.title?.includes('Griffith'));
-    expect(modeBtn).toBeDefined();
-
-    await act(async () => {
-      modeBtn?.click();
-    });
-
-    expect(onModeChange).toHaveBeenCalledWith(2);
+    expect(container.textContent).toContain('Active Manifold');
+    expect(container.textContent).toContain('Mode III · Fracture');
+    expect(container.textContent).toContain('Synchronized');
   });
 
   it('DOM-HUD-08: dynamically updates DOM when telemetry coordinates and FPS change', async () => {

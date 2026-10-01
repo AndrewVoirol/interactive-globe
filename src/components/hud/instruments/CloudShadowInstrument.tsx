@@ -575,7 +575,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
         <VernierSlider
           id="sidebar-shadow-intensity"
           label="Shadow Intensity"
-          sublabel="Dynamic Cloud Ground Shadows"
+          tooltip="Ground shadow opacity cast by raymarched cloud layer (0% to 60%)"
           min={0.0}
           max={0.60}
           step={0.05}

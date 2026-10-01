@@ -246,12 +246,13 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
       </div>
 
       <div className="flex items-center justify-between text-nano font-mono mt-1 px-1 opacity-75">
-        <span>IMHOF NW SWEETSPOT (315° / 45°)</span>
+        <span>NW Relief (315° · 45°)</span>
         <button
+          type="button"
           onClick={() => onChange(315, 45)}
-          className="font-bold hover:underline text-[var(--theme-text-accent)]"
+          className="font-bold hover:underline text-[var(--theme-text-accent)] cursor-pointer"
         >
-          [RESET]
+          Reset
         </button>
       </div>
     </div>

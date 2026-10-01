@@ -580,26 +580,21 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         {/* Atmospheric Scale Precision Control */}
         <div className="space-y-0.5">
           <div className="flex items-center justify-between text-nano">
-            <div className="flex flex-col">
-              <label
-                htmlFor="sidebar-atmospheric-scale"
-                onDoubleClick={handleReset}
-                title="Double-click to reset (6.0x)"
-                className="text-[var(--theme-text-primary)] font-bold uppercase tracking-wider cursor-pointer"
-              >
-                Atmospheric Scale
-              </label>
-              <span className="text-nano text-[var(--theme-text-muted)] opacity-75 font-mono">
-                Troposphere Standoff Exaggeration (k_exagg)
-              </span>
-            </div>
+            <label
+              htmlFor="sidebar-atmospheric-scale"
+              onDoubleClick={handleReset}
+              title="Vertical cloud strata standoff exaggeration (1.0× to 12.0×) — Double-click to reset (3.5×)"
+              className="text-[var(--theme-text-primary)] font-bold uppercase tracking-wider cursor-pointer"
+            >
+              Atmospheric Scale
+            </label>
             <div className="flex items-center gap-1 font-mono">
               <span
                 onDoubleClick={handleReset}
-                title="Double-click to reset (6.0x)"
+                title="Double-click to reset (3.5×)"
                 className="tabular-nums text-[var(--theme-text-accent)] font-bold cursor-pointer hover:underline"
               >
-                {atmosphericScale.toFixed(1)}x
+                {atmosphericScale.toFixed(1)}×
               </span>
               <button
                 type="button"
@@ -643,23 +638,18 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         {/* Cloud Opacity Precision Control */}
         <div className="space-y-0.5 pt-0.5">
           <div className="flex items-center justify-between text-nano">
-            <div className="flex flex-col">
-              <label
-                htmlFor="sidebar-cloud-opacity"
-                onDoubleClick={handleReset}
-                title="Double-click to reset (85%)"
-                className="text-[var(--theme-text-primary)] font-bold uppercase tracking-wider cursor-pointer"
-              >
-                Cloud Opacity
-              </label>
-              <span className="text-nano text-[var(--theme-text-muted)] opacity-75 font-mono">
-                Strata Density
-              </span>
-            </div>
+            <label
+              htmlFor="sidebar-cloud-opacity"
+              onDoubleClick={handleReset}
+              title="Cloud layer opacity (10% to 100%) — Double-click to reset (80%)"
+              className="text-[var(--theme-text-primary)] font-bold uppercase tracking-wider cursor-pointer"
+            >
+              Cloud Opacity
+            </label>
             <div className="flex items-center gap-1 font-mono">
               <span
                 onDoubleClick={handleReset}
-                title="Double-click to reset (85%)"
+                title="Double-click to reset (80%)"
                 className="tabular-nums text-[var(--theme-text-accent)] font-bold cursor-pointer hover:underline"
               >
                 {Math.round(cloudOpacity * 100)}%
