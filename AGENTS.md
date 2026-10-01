@@ -199,7 +199,7 @@ Static audit scripts (e.g. `audit-mode4.sh`) use literal token regular expressio
 ## 31. Runtime Test Artifact Isolation & Working Tree Purity
 Automated test suites that simulate live data ingestion or time-series updates must not pollute the repository with uncommitted runtime artifacts.
 - **Mock File Isolation**: Tests generating mock datasets or loop metadata must write to temporary memory or ephemeral fixtures in `tmp/`, not tracked production asset directories (`public/data/`).
-- **Post-Test Git Hygiene**: Before reporting milestone completion or performing phase gates, run `git status` to verify no test-generated artifacts (such as `radar-loop-meta.json`) remain dirty. Discard transient test mutations via `git checkout` if triggered.
+- **Post-Test Git Hygiene**: Before reporting milestone completion or performing phase gates, run `git status` to verify no test-generated artifacts remain dirty. Data ingestion pipelines (`fetch-live-radar.ts`, `fetch-or-generate-tle-starlink.ts`, `fetch-or-generate-gfs-wind.ts`) must retain existing valid cached records in test/dev mode and only overwrite tracked fixtures when explicitly commanded via dedicated CLI commands (`npm run refresh:radar`).
 
 ## 32. Visual & Automated Test Grounding (The Zero-Error Mirage Invariant)
 An automated browser test, Playwright script, or MCP verification pass CANNOT certify a feature or stress test as "PASS" solely on the absence of WebGPU device errors or console warnings (`errors.length === 0`).
