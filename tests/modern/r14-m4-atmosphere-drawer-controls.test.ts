@@ -366,9 +366,9 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
       expect(sliderInput.max).toBe('12');
       expect(sliderInput.step).toBe('0.1');
 
-      // Check readout text contains 6.0x
+      // Check readout text contains 6.0x or 6.0×
       const card = sliderInput.closest('.p-2');
-      expect(card?.textContent).toContain('6.0x');
+      expect(card?.textContent).toMatch(/6\.0[x×]/);
       expect(card?.textContent).toContain('Atmospheric Scale');
     });
 
@@ -496,7 +496,7 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
       expect(scaleInput).not.toBeNull();
       expect(shadowInput).not.toBeNull();
 
-      expect(container.textContent).toContain('8.5x');
+      expect(container.textContent).toMatch(/8\.5[x×]/);
       expect(container.textContent).toContain('50%');
 
       const presetBtn = container.querySelector('button[title*="Horizon Cross-Section"]') as HTMLButtonElement;
@@ -583,7 +583,7 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
       expect(sliderInput).not.toBeNull();
       expect(sliderInput.value).toBe('1');
       const card = sliderInput.closest('.p-2');
-      expect(card?.textContent).toContain('1.0x');
+      expect(card?.textContent).toMatch(/1\.0[x×]/);
 
       // Trigger snapHorizonCrossSection programmatic preset
       await act(async () => {
@@ -592,7 +592,7 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
 
       // Verify slider input and readout updated to 6.0 / 6.0x
       expect(sliderInput.value).toBe('6');
-      expect(card?.textContent).toContain('6.0x');
+      expect(card?.textContent).toMatch(/6\.0[x×]/);
 
       // Verify direct prop change updates readout
       await act(async () => {
@@ -607,7 +607,7 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
         );
       });
       const updatedCard = container.querySelector('#sidebar-atmospheric-scale')?.closest('.p-2');
-      expect(updatedCard?.textContent).toContain('8.5x');
+      expect(updatedCard?.textContent).toMatch(/8\.5[x×]/);
     });
   });
 

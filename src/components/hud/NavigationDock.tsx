@@ -215,9 +215,6 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
           theme === 1 ? 'paper-cream-panel' : theme === 2 ? 'paper-cyanotype' : 'paper-tharp'
         }`}
       >
-        {/* Archival Drafting Hairline Divider (Preserves single-border HUD contract) */}
-        <div className="hidden h-4 w-px bg-[var(--theme-neatline-border)]/40 shrink-0 z-10" />
-
         {/* 4-Segment Projection Mode Selector (Single Authoritative Switch) */}
         <div
           role="radiogroup"
@@ -251,6 +248,9 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
           })}
         </div>
 
+        {/* Archival Drafting Hairline Divider */}
+        <div className="h-4 w-px shrink-0 z-10" style={{ backgroundColor: 'var(--theme-neatline-border)', opacity: 0.45 }} />
+
         {/* Play/Pause Toggle */}
         <button
           onClick={() => {
@@ -278,6 +278,9 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         >
           {playbackSpeed.toFixed(1)}×
         </button>
+
+        {/* Archival Drafting Hairline Divider */}
+        <div className="h-4 w-px shrink-0 z-10" style={{ backgroundColor: 'var(--theme-neatline-border)', opacity: 0.45 }} />
 
         {/* Quick Snap to Globe (G) */}
         <button

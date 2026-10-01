@@ -407,9 +407,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
     const polarStr =
       mode === 1
         ? alpha < 0.01
-          ? '1.000x'
-          : `${polarVal.toFixed(1)}x (85° limit)`
-        : `${polarVal.toFixed(2)}x`;
+          ? '1.000×'
+          : `${polarVal.toFixed(1)}× (85° limit)`
+        : `${polarVal.toFixed(2)}×`;
 
     return { eqArea, localArea, polarStr };
   }, [parsedLat, alpha, mode]);
@@ -999,7 +999,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         Paper Substrate
                       </span>
                       {theme !== 1 && (
-                        <span className="text-nano font-mono px-1.5 py-0.2 rounded-[2px] bg-[var(--theme-control-border)]/40 text-[var(--theme-text-muted)] border border-[var(--theme-card-border)]">
+                        <span className="text-nano font-mono px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] border border-[var(--theme-control-border)]">
                           Cream Rag only
                         </span>
                       )}
@@ -1268,12 +1268,12 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
                   {/* Active Projection Telemetry Badge (Dock is single authority for mode switching) */}
                   <div
-                    className="p-2 rounded-[2px] border border-[var(--theme-card-border)] bg-[var(--theme-control-bg)] flex items-center justify-between transition-all"
+                    className="px-2.5 py-1.5 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] flex items-center justify-between transition-all"
                     title="Projection mode is controlled via the Navigation Dock"
                   >
                     <div className="flex flex-col">
                       <span className="text-nano font-mono uppercase tracking-wider text-[var(--theme-text-muted)]">
-                        Active Manifold
+                         Active Manifold
                       </span>
                       <span className="text-micro font-bold font-mono text-[var(--theme-text-primary)]">
                         Mode {PROJECTION_MODES[mode]?.roman ?? 'I'} · {PROJECTION_MODES[mode]?.label ?? 'Linear'}
@@ -1285,7 +1285,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   </div>
 
                   {mode === 2 && (
-                    <div className="pt-1">
+                    <div className="pt-1 animate-in fade-in slide-in-from-top-1 duration-150">
                       <VernierSlider
                         id="sidebar-fracture-intensity"
                         label="Fracture"
@@ -1302,7 +1302,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   )}
 
                   {mode === 3 && (
-                    <div className="pt-1">
+                    <div className="pt-1 animate-in fade-in slide-in-from-top-1 duration-150">
                       <VernierSlider
                         id="sidebar-vortex-strength"
                         label="Vortex"
@@ -1348,11 +1348,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         <div className="grid grid-cols-3 gap-1.5 text-nano font-mono">
                           <div>
                             <span className="text-[var(--theme-text-muted)] block truncate text-nano uppercase">Eq. Area:</span>
-                            <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.eqArea}x</span>
+                            <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.eqArea}×</span>
                           </div>
                           <div>
                             <span className="text-[var(--theme-text-muted)] block truncate text-nano uppercase">Local ({latStr.trim()}):</span>
-                            <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.localArea}x</span>
+                            <span className="font-semibold text-[var(--theme-text-primary)]">{tissotTelemetry.localArea}×</span>
                           </div>
                           <div>
                             <span className="text-[var(--theme-text-muted)] block truncate text-nano uppercase">Polar Dilation:</span>

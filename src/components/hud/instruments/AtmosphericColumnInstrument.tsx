@@ -209,7 +209,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         <div className="flex items-center gap-1 font-mono text-nano shrink-0 ml-1">
           <span className="text-[var(--theme-text-secondary)]">Scale:</span>
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
-            {atmosphericScale.toFixed(1)}x
+            {atmosphericScale.toFixed(1)}×
           </span>
           <span className="opacity-40">•</span>
           <span className="text-[var(--theme-text-secondary)]">Opacity:</span>
@@ -483,7 +483,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               fontFamily="monospace"
               fontWeight="bold"
             >
-              ▲ {atmosphericScale.toFixed(1)}x ▼
+              ▲ {atmosphericScale.toFixed(1)}× ▼
             </text>
           </g>
         </svg>
@@ -696,11 +696,11 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
 
       {/* 5. Footer & Reset Action */}
       <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border)]/50 opacity-80">
-        <span className="truncate">TROPOSPHERIC PROFILE (1.0–12.0x)</span>
+        <span className="truncate">TROPOSPHERIC PROFILE (1.0–12.0×)</span>
         <button
           type="button"
           onClick={handleReset}
-          className="font-bold hover:underline text-[var(--theme-text-accent)] cursor-pointer shrink-0 ml-1"
+          className="inline-flex items-center justify-center min-h-[22px] px-1.5 py-0.5 -my-0.5 -mr-1 rounded-[1px] font-bold hover:underline text-[var(--theme-text-accent)] cursor-pointer shrink-0 ml-1"
         >
           [RESET]
         </button>

@@ -934,8 +934,8 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                 <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm">
                   PHYSICS
                 </span>
-                <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
-                  Tropospheric Optics & Volumetric Cloud Physics
+                <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)] truncate">
+                  Tropospheric Optics & Physics <span className="sr-only">Volumetric Cloud Physics</span>
                 </span>
               </div>
               <span className="text-nano font-mono text-[var(--theme-text-muted)]">
@@ -1009,7 +1009,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                     min={12.0}
                     max={56.0}
                     step={2.0}
-                    readout={`${Math.round(curCloudFreqHoriz)}x`}
+                    readout={`${Math.round(curCloudFreqHoriz)}×`}
                     onChange={handleCloudFreqHorizChange}
                   />
                 </div>
@@ -1026,7 +1026,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                     min={4.0}
                     max={24.0}
                     step={1.0}
-                    readout={`${Math.round(curCloudFreqVert)}x`}
+                    readout={`${Math.round(curCloudFreqVert)}×`}
                     onChange={handleCloudFreqVertChange}
                   />
                 </div>

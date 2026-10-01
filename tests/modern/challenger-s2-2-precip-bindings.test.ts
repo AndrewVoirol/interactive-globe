@@ -572,7 +572,7 @@ describe('Adversarial Challenger: Stage 2 Precipitation Bindings & Coupled Hydro
       expect(orographicSrc).toContain('min={0.0}');
       expect(orographicSrc).toContain('max={2.0}');
       expect(orographicSrc).toContain('step={0.1}');
-      expect(orographicSrc).toContain('readout={`${pluvialGamma.toFixed(1)}x`}');
+      expect(orographicSrc).toMatch(/readout=\{`\$\{pluvialGamma\.toFixed\(1\)\}[x×]`\}/);
     });
 
     it('verifies window bridge callbacks in AtmosphereDrawer handle non-finites and clamp bounds', () => {

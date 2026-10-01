@@ -324,7 +324,7 @@ describe('Challenger M4.2.2: Prop Pipeline & UI Synchronization Stress (Pillar A
     // 2. DOM input and text badge reflect 6.0x
     expect(scaleInput.value).toBe('6');
     const scaleCard = scaleInput.closest('.p-2');
-    expect(scaleCard?.textContent).toContain('6.0x');
+    expect(scaleCard?.textContent).toMatch(/6\.0[x×]/);
 
     // 3. WebGPU uniform mirrors strictly match
     const mirror = (engine as any).cloudLayerUniformMirrors?.[0];
@@ -378,7 +378,7 @@ describe('Challenger M4.2.2: Prop Pipeline & UI Synchronization Stress (Pillar A
     expect(latestScale).toBe(3.5);
     expect(scaleInput.value).toBe('3.5');
     const scaleCard = scaleInput.closest('.p-2');
-    expect(scaleCard?.textContent).toContain('3.5x');
+    expect(scaleCard?.textContent).toMatch(/3\.5[x×]/);
 
     const mirror = (engine as any).cloudLayerUniformMirrors?.[0];
     expect(mirror[26]).toBe(3.5);

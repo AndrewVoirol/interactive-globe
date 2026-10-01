@@ -858,7 +858,7 @@ describe('Challenger 1: AtmosphericColumnInstrument Behavioral Adversarial Suite
       // Invariant: Tabular numbers on readouts
       const tabulars = container.querySelectorAll('.tabular-nums');
       expect(tabulars.length).toBeGreaterThanOrEqual(2);
-      expect(container.textContent).toContain('4.8x');
+      expect(container.textContent).toMatch(/4\.8[x×]/);
       expect(container.textContent).toContain('72%');
 
       // WAI-ARIA slider semantics
