@@ -33,6 +33,9 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
         waterClarity: 0.75,
         peakExponent: 1.4,
         paperTooth: 0.40,
+        sunAzimuth: 315.0,
+        sunAltitude: 45.0,
+        hillshadeIntensity: 0.65,
       },
     ]
   );

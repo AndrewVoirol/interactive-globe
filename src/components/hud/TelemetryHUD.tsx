@@ -147,6 +147,7 @@ export interface TelemetryHUDProps {
   onWindSpeedMultiplierChange?: (v: number) => void;
   windParticleLifetime?: number;
   onWindParticleLifetimeChange?: (v: number) => void;
+  onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
 }
 
 export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
@@ -198,6 +199,7 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onAddDataLayer={props.onAddDataLayer}
         onToggleDataLayer={props.onToggleDataLayer}
         onRemoveDataLayer={props.onRemoveDataLayer}
+        onTogglePlanetaryLayer={props.onTogglePlanetaryLayer}
         onOpacityChangeDataLayer={props.onOpacityChangeDataLayer}
         onBlendModeChangeDataLayer={props.onBlendModeChangeDataLayer}
         onDisplacementScaleChangeDataLayer={props.onDisplacementScaleChangeDataLayer}

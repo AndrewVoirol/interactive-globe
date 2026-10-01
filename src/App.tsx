@@ -393,6 +393,37 @@ export default function App() {
     [handleAddDataLayer, setPrognosticModel, setShowClouds]
   );
 
+  const handleTogglePlanetaryLayer = useCallback(
+    (id: string, force?: boolean) => {
+      const existing = dataLayers.find((l) => l.id === id);
+      if (existing) {
+        if (force === true && existing.visible) return;
+        handleToggleDataLayer(id);
+      } else {
+        const preset = getPresetById(id);
+        if (preset) {
+          handleAddDataLayerWithModelSync({
+            id: preset.id,
+            name: preset.name,
+            category: preset.category,
+            type: preset.type,
+            details: preset.details,
+            visible: true,
+            opacity: preset.defaultOpacity,
+            blendMode: preset.defaultBlendMode,
+            url: preset.url,
+            displacementScale: preset.defaultDisplacementScale,
+            renderStyle: preset.renderStyle,
+            sunAzimuth: 315.0,
+            sunAltitude: 45.0,
+            hillshadeIntensity: 0.65,
+          });
+        }
+      }
+    },
+    [dataLayers, handleToggleDataLayer, handleAddDataLayerWithModelSync]
+  );
+
   const fractureDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const vortexDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -759,7 +790,8 @@ export default function App() {
                 thermodynamicGating={thermodynamicGating}
                 onShowCloudsChange={setShowClouds}
                 prognosticModel={prognosticModel}
-                onTogglePlanetaryLayer={(id) => handleToggleDataLayer(id)}
+                prognosticVariable={prognosticVariable}
+                onTogglePlanetaryLayer={handleTogglePlanetaryLayer}
                 purityMode={purityMode}
                 windSpeedMultiplier={windSpeedMultiplier}
                 windParticleLifetime={windParticleLifetime}
@@ -833,6 +865,7 @@ export default function App() {
           onAddDataLayer={handleAddDataLayerWithModelSync}
           onToggleDataLayer={handleToggleDataLayer}
           onRemoveDataLayer={handleRemoveDataLayer}
+          onTogglePlanetaryLayer={handleTogglePlanetaryLayer}
           onOpacityChangeDataLayer={handleOpacityChangeDataLayer}
           onBlendModeChangeDataLayer={handleBlendModeChangeDataLayer}
           onDisplacementScaleChangeDataLayer={handleDisplacementScaleChangeDataLayer}

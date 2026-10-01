@@ -177,6 +177,7 @@ export interface WebGPUCanvasProps {
   onShowCloudsChange?: (v: boolean) => void;
   onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
   prognosticModel?: PrognosticModelBackend;
+  prognosticVariable?: string;
   purityMode?: boolean;
   substrateHaptics?: boolean;
   paperSubstrate?: boolean;
@@ -284,6 +285,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
   onShowCloudsChange,
   onTogglePlanetaryLayer,
   prognosticModel = 'weathernext3',
+  prognosticVariable,
   purityMode = false,
   substrateHaptics = true,
   paperSubstrate = true,
@@ -453,6 +455,15 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
   const telemetryForwardRef = useRef(new Vector3());
 
   const computeCachedLayers = (curDataLayers?: any[]) => {
+    const primaryReliefLayer =
+      curDataLayers?.find(
+        (l) => l.visible && (l.renderStyle || l.category === 'topo' || l.category === 'ocean' || l.category === 'topography' || l.type === 'raster')
+      ) ||
+      curDataLayers?.find(
+        (l) => l.renderStyle || l.category === 'topo' || l.category === 'ocean' || l.category === 'topography' || l.type === 'raster'
+      ) ||
+      null;
+
     const activeDataLayer = curDataLayers?.find(
       (l) => l.visible && (l.renderStyle || l.category === 'topo' || l.category === 'ocean' || l.category === 'topography' || l.type === 'raster')
     ) || curDataLayers?.find((l) => l.visible) || null;
@@ -470,9 +481,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     const showContours = !!curDataLayers?.find(
       (l) => l.id === 'usgs-elevation-contours' && l.visible
     );
-    const hasSurfaceWind = !!curDataLayers?.find(
-      (l) => (l.id === 'noaa-gfs-wind' || l.id === 'noaa-grib2-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
-    );
+    const hasSurfaceWind =
+      prognosticVariable === 'wind_10m_vector' ||
+      prognosticVariable === 'ivt' ||
+      !!curDataLayers?.find(
+        (l) => (l.id === 'noaa-gfs-wind' || l.id === 'noaa-grib2-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
+      );
     const hasJetStream = !!curDataLayers?.find(
       (l) => (l.id === 'noaa-gfs-jetstream' || l.id === 'gfs-jetstream') && l.visible
     );
@@ -486,6 +500,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
 
     return {
       activeDataLayer,
+      primaryReliefLayer,
       reliefActive,
       showContours,
       hasSurfaceWind,
@@ -578,6 +593,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     cameraPitchDeg,
     cdlodDiagnosticMode,
     prognosticModel,
+    prognosticVariable,
     windSpeedMultiplier,
     windParticleLifetime,
   });
@@ -641,11 +657,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
       cameraPitchDeg,
       cdlodDiagnosticMode,
       prognosticModel,
+      prognosticVariable,
       windSpeedMultiplier,
       windParticleLifetime,
     };
     cachedLayersRef.current = computeCachedLayers(dataLayers);
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudMultiRateRaymarch, cloudDriftSpeed, cloudOpacity, cloudThickness, cloudLowTop, cloudErosion, cloudFreqHoriz, cloudFreqVert, cloudExtinction, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode, prognosticModel, windSpeedMultiplier, windParticleLifetime]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudMultiRateRaymarch, cloudDriftSpeed, cloudOpacity, cloudThickness, cloudLowTop, cloudErosion, cloudFreqHoriz, cloudFreqVert, cloudExtinction, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode, prognosticModel, prognosticVariable, windSpeedMultiplier, windParticleLifetime]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -759,9 +776,12 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
       engine.loadAllCloudLayers(isWnModel).catch(() => {});
     }
 
-    const hasWind = !!dataLayers?.find(
-      (l) => (l.id === 'noaa-gfs-wind' || l.id === 'noaa-grib2-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
-    );
+    const hasWind =
+      prognosticVariable === 'wind_10m_vector' ||
+      prognosticVariable === 'ivt' ||
+      !!dataLayers?.find(
+        (l) => (l.id === 'noaa-gfs-wind' || l.id === 'noaa-grib2-wind' || l.id === 'gfs-surface-winds' || l.id === 'gfs-wind-velocity-grid') && l.visible
+      );
     if (hasWind || showClouds) {
       if (isWnModel) {
         engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {
@@ -862,7 +882,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     if (hasPhotoreal && !engine.isOrbitalTexturesLoaded()) {
       engine.loadOrbitalTextures('/earth-blue-marble-4k.webp', '/earth-night-lights-4k.webp').catch(() => {});
     }
-  }, [dataLayers, prognosticModel, showClouds, isLoading, isEngineReady]);
+  }, [dataLayers, prognosticModel, prognosticVariable, showClouds, isLoading, isEngineReady]);
 
   // WebGPU Device Loss Recovery
   useEffect(() => {
@@ -2941,22 +2961,23 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
 
         const liveOverrides = typeof window !== 'undefined' ? (window as any).__INDICATRIX_LIVE_UNIFORMS__ : null;
 
-        const displacementScale = liveOverrides?.displacementScale ?? activeDataLayer?.displacementScale ?? 0.055;
-        const hillshadeIntensity = liveOverrides?.hillshadeIntensity ?? activeDataLayer?.hillshadeIntensity ?? 1.0;
+        const displacementScale = liveOverrides?.displacementScale ?? activeDataLayer?.displacementScale ?? layerCache.primaryReliefLayer?.displacementScale ?? 0.055;
+        const hillshadeIntensity = liveOverrides?.hillshadeIntensity ?? activeDataLayer?.hillshadeIntensity ?? layerCache.primaryReliefLayer?.hillshadeIntensity ?? 1.0;
         const reliefActive = activeDataLayer ? layerCache.reliefActive : false;
-        const seaLevel = liveOverrides?.seaLevelOffset ?? activeDataLayer?.seaLevelOffset ?? 0.0;
-        const sunAzimuth = liveOverrides?.sunAzimuth ?? activeDataLayer?.sunAzimuth ?? 315.0;
-        const sunAltitude = liveOverrides?.sunAltitude ?? activeDataLayer?.sunAltitude ?? 45.0;
-        const ambientOcclusion = liveOverrides?.ambientOcclusion ?? activeDataLayer?.ambientOcclusion ?? 0.65;
-        const waterClarity = liveOverrides?.waterClarity ?? activeDataLayer?.waterClarity ?? 0.75;
-        const peakExponent = liveOverrides?.peakExponent ?? activeDataLayer?.peakExponent ?? 1.4;
-        const paperTooth = liveOverrides?.paperTooth ?? activeDataLayer?.paperTooth ?? 0.40;
+        const seaLevel = liveOverrides?.seaLevelOffset ?? activeDataLayer?.seaLevelOffset ?? layerCache.primaryReliefLayer?.seaLevelOffset ?? 0.0;
+        const sunAzimuth = liveOverrides?.sunAzimuth ?? activeDataLayer?.sunAzimuth ?? layerCache.primaryReliefLayer?.sunAzimuth ?? 315.0;
+        const sunAltitude = liveOverrides?.sunAltitude ?? activeDataLayer?.sunAltitude ?? layerCache.primaryReliefLayer?.sunAltitude ?? 45.0;
+        const ambientOcclusion = liveOverrides?.ambientOcclusion ?? activeDataLayer?.ambientOcclusion ?? layerCache.primaryReliefLayer?.ambientOcclusion ?? 0.65;
+        const waterClarity = liveOverrides?.waterClarity ?? activeDataLayer?.waterClarity ?? layerCache.primaryReliefLayer?.waterClarity ?? 0.75;
+        const peakExponent = liveOverrides?.peakExponent ?? activeDataLayer?.peakExponent ?? layerCache.primaryReliefLayer?.peakExponent ?? 1.4;
+        const paperTooth = liveOverrides?.paperTooth ?? activeDataLayer?.paperTooth ?? layerCache.primaryReliefLayer?.paperTooth ?? 0.40;
         const opacity = activeDataLayer?.opacity ?? 1.0;
         const renderStyle = activeDataLayer?.renderStyle ?? (activeDataLayer?.id === 'hybrid-crust-hydrosphere' ? 'hybrid' : 'architectural');
 
         const showContours = layerCache.showContours;
-        const hasSurfaceWind = layerCache.hasSurfaceWind;
-        const hasJetStream = layerCache.hasJetStream;
+        const hasSurfaceWind = liveOverrides?.showSurfaceWinds !== undefined ? liveOverrides.showSurfaceWinds : layerCache.hasSurfaceWind;
+        const hasJetStream = liveOverrides?.showJetStream !== undefined ? liveOverrides.showJetStream : layerCache.hasJetStream;
+        const showWind = liveOverrides?.showWind !== undefined ? liveOverrides.showWind : (hasSurfaceWind || hasJetStream);
 
         // Dynamic near-plane modulation: 0.1 at orbit (alt >= 1.0) -> 0.00005 in troposphere (alt <= 0.004)
         const camDist = camera.position.length();
@@ -3025,7 +3046,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         const cloudLayer = layerCache.cloudLayer;
         const masterShowClouds = stateRef.current.showClouds ?? true;
         const effectiveShowClouds = liveOverrides?.showClouds !== undefined
-          ? (liveOverrides.showClouds && masterShowClouds)
+          ? liveOverrides.showClouds
           : (cloudLayer !== null
             ? (masterShowClouds && cloudLayer.visible)
             : masterShowClouds);
@@ -3084,7 +3105,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
           showContours,
           showSatellites: layerCache.showSatellites,
           showStarlink: layerCache.showSatellites,
-          showWind: hasSurfaceWind || hasJetStream,
+          showWind,
           showSurfaceWinds: hasSurfaceWind,
           showJetStream: hasJetStream,
           showClouds: effectiveShowClouds,
