@@ -244,6 +244,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           id="tide-gauge-water-clarity"
           label="Beer-Lambert Clarity:"
           value={waterClarity}
+          defaultValue={0.65}
           min={0.10}
           max={1.00}
           step={0.05}

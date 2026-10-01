@@ -12,12 +12,14 @@ export interface VernierSliderProps {
   sublabel?: string;
   tooltip?: string;
   value: number;
+  defaultValue?: number;
   min: number;
   max: number;
   step: number;
   unit?: string;
   readout?: string;
   onChange?: (val: number) => void;
+  onDoubleClick?: (e: React.MouseEvent) => void;
   disabled?: boolean;
   showSteppers?: boolean;
   showTicks?: boolean;
@@ -30,12 +32,14 @@ export const VernierSlider: React.FC<VernierSliderProps> = ({
   sublabel,
   tooltip,
   value,
+  defaultValue,
   min,
   max,
   step,
   unit = '',
   readout,
   onChange,
+  onDoubleClick,
   disabled = false,
   showSteppers = true,
   showTicks = true,
@@ -55,20 +59,36 @@ export const VernierSlider: React.FC<VernierSliderProps> = ({
     onChange(next);
   };
 
+  const handleReset = (e: React.MouseEvent) => {
+    if (disabled) return;
+    if (onDoubleClick) {
+      onDoubleClick(e);
+    }
+    if (defaultValue !== undefined && onChange) {
+      setLocalVal(defaultValue);
+      onChange(defaultValue);
+    }
+  };
+
   const formattedReadout = readout !== undefined ? readout : `${localVal}${unit}`;
+  const effectiveTooltip = tooltip 
+    ? (defaultValue !== undefined ? `${tooltip} (Double-click to reset: ${defaultValue}${unit})` : tooltip)
+    : (defaultValue !== undefined ? `${label} (Double-click to reset: ${defaultValue}${unit})` : sublabel);
 
   return (
     <div
+      onDoubleClick={handleReset}
       className={`p-2 rounded-[2px] border space-y-1.5 transition-colors bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] ${
         disabled ? 'opacity-50 pointer-events-none' : ''
       } ${className}`}
     >
       {/* Header: Label, Sublabel & Readout/Steppers */}
       <div className="flex items-center justify-between text-micro">
-        <div className="flex flex-col min-w-0 pr-1" title={tooltip || sublabel}>
+        <div className="flex flex-col min-w-0 pr-1" title={effectiveTooltip}>
           <label
             htmlFor={id}
-            title={tooltip || sublabel}
+            title={effectiveTooltip}
+            onDoubleClick={handleReset}
             className="font-bold uppercase tracking-wider text-[var(--theme-text-primary)] cursor-pointer truncate text-body"
           >
             {label}
@@ -93,7 +113,13 @@ export const VernierSlider: React.FC<VernierSliderProps> = ({
             </button>
           )}
 
-          <span className="font-mono font-bold tabular-nums text-body min-w-[36px] text-right text-[var(--theme-text-primary)]">
+          <span
+            onDoubleClick={handleReset}
+            title={defaultValue !== undefined ? `Double-click to reset (${defaultValue}${unit})` : undefined}
+            className={`font-mono font-bold tabular-nums text-body min-w-[36px] text-right text-[var(--theme-text-primary)] ${
+              defaultValue !== undefined ? 'cursor-pointer hover:underline' : ''
+            }`}
+          >
             {formattedReadout}
           </span>
 
@@ -121,6 +147,7 @@ export const VernierSlider: React.FC<VernierSliderProps> = ({
           step={step}
           value={localVal}
           disabled={disabled}
+          onDoubleClick={handleReset}
           onInput={(e) => {
             const next = parseFloat((e.target as HTMLInputElement).value);
             if (!Number.isNaN(next)) {

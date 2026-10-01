@@ -241,8 +241,9 @@ describe('Empirical Challenger R4-M4: Test Quality & Behavioral Integrity Verifi
       const modeNames = ['Linear', 'Scroll', 'Fracture', 'Fluid'];
       for (let m = 0; m <= 3; m++) {
         const modeBtn = buttons.find(b =>
-          b.textContent?.toLowerCase().includes(modeNames[m].toLowerCase()) ||
-          b.title?.toLowerCase().includes(modeNames[m].toLowerCase())
+          b.title?.toLowerCase().includes(`${modeNames[m].toLowerCase()} projection`) ||
+          (b.title?.toLowerCase().includes(`mode ${m}`) && b.textContent?.toLowerCase().includes(modeNames[m].toLowerCase())) ||
+          (b.textContent?.toLowerCase().includes(modeNames[m].toLowerCase()) && !b.textContent?.includes('Legacy'))
         );
         if (modeBtn) {
           await act(async () => {
