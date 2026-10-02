@@ -279,7 +279,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
   weatherTau = 0,
   thermodynamicGating = true,
   showAtmosphere,
-  volumetricClouds = false,
+  volumetricClouds = true,
   onShowCloudsChange,
   onTogglePlanetaryLayer,
   prognosticModel = 'weathernext3',
@@ -491,7 +491,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     const showSatellites = !!curDataLayers?.find(
       (l) => (l.id === 'starlink-iss-orbits' || l.id === 'spacex-satellite-constellation') && l.visible
     );
-    const cloudLayer = curDataLayers?.find((l) => l.id === 'noaa-gfs-clouds') || null;
+    const cloudLayer = curDataLayers?.find((l) => l.id === 'noaa-gfs-clouds' || l.id === 'google-weathernext3' || l.id === 'weathernext3') || null;
     const atmLayer = curDataLayers?.find(
       (l) => (l.id === 'atmosphere-scatter' || l.id === 'planetary-atmosphere')
     ) || null;
@@ -3056,7 +3056,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
 
         const effectiveVolumetricClouds = liveOverrides?.volumetricClouds !== undefined
           ? liveOverrides.volumetricClouds
-          : (stateRef.current.volumetricClouds ?? false);
+          : (stateRef.current.volumetricClouds ?? true);
 
         const effectiveShowCloudLow = liveOverrides?.showCloudLow !== undefined
           ? liveOverrides.showCloudLow

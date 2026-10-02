@@ -222,7 +222,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
     if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__?.volumetricClouds !== undefined) {
       return Boolean((window as any).__INDICATRIX_LIVE_UNIFORMS__.volumetricClouds);
     }
-    return propVolumetricClouds ?? false;
+    return propVolumetricClouds ?? true;
   });
 
   const curCloudThickness = propCloudThickness !== undefined ? propCloudThickness : internalCloudThickness;

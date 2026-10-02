@@ -726,7 +726,7 @@ export class WebGPUEngine {
   private volumetricCameraUniformBuffer: GPUBuffer | null = null;
   private volumetricCloudUniformBuffer: GPUBuffer | null = null;
   private volumetricNoiseSampler: GPUSampler | null = null;
-  private volumetricCloudsEnabled: boolean = false;
+  private volumetricCloudsEnabled: boolean = true;
   private volumetricPipelineDescriptor: GPURenderPipelineDescriptor | null = null;
   private dummyDepthTextureView: GPUTextureView | null = null;
   private dummy3DNoiseTextureView: GPUTextureView | null = null;
@@ -10051,7 +10051,7 @@ export class WebGPUEngine {
     }
   }
 
-  public async loadAllCloudLayers(isWeatherNext: boolean = false): Promise<void> {
+  public async loadAllCloudLayers(isWeatherNext: boolean = true): Promise<void> {
     if (isWeatherNext) {
       try {
         const [lowRes, midRes, highRes] = await Promise.all([

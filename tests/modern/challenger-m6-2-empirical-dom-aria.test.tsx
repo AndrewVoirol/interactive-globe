@@ -425,14 +425,14 @@ describe('Challenger 2 Empirical Verification: Milestone 6 DOM & ARIA', () => {
       expect(btnWn.getAttribute('aria-checked')).toBe('true');
       expect(btnWn.getAttribute('tabindex')).toBe('0');
 
-      // Dispatch ArrowRight from btnWn -> next option is btnOff
+      // Dispatch ArrowRight from btnWn -> next option is btnGfs
       await act(async () => {
         btnWn.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
       });
 
-      const btnOff = container.querySelector('#sidebar-model-off') as HTMLButtonElement;
-      expect(btnOff.getAttribute('aria-checked')).toBe('true');
-      expect(btnOff.getAttribute('tabindex')).toBe('0');
+      const btnGfs = container.querySelector('#sidebar-model-gfs') as HTMLButtonElement;
+      expect(btnGfs.getAttribute('aria-checked')).toBe('true');
+      expect(btnGfs.getAttribute('tabindex')).toBe('0');
 
       const btnWnAfter = container.querySelector('#sidebar-model-weathernext') as HTMLButtonElement;
       expect(btnWnAfter.getAttribute('aria-checked')).toBe('false');

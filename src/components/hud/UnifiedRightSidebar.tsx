@@ -246,6 +246,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 }) => {
   const handleToggleClouds = (val: boolean) => {
     onShowCloudsChange?.(val);
+    if (val && onVolumetricCloudsChange && propVolumetricClouds !== true) {
+      onVolumetricCloudsChange(true);
+    }
     const isGfs = prognosticModel === 'gfs' || prognosticModel === 'noaa-gfs';
     const cloudLayer = dataLayers.find((l) => l.id === 'noaa-gfs-clouds');
     const wnLayer = dataLayers.find((l) => l.id === 'google-weathernext3');
@@ -273,8 +276,26 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
             });
           }
         }
-      } else if (wnLayer && !wnLayer.visible) {
-        onToggleDataLayer?.('google-weathernext3');
+      } else {
+        // Google DeepMind WeatherNext 3 canonical standard
+        if (wnLayer) {
+          if (!wnLayer.visible) onToggleDataLayer?.('google-weathernext3');
+        } else if (onAddDataLayer) {
+          const preset = getPresetById('google-weathernext3');
+          if (preset) {
+            onAddDataLayer({
+              id: preset.id,
+              name: preset.name,
+              category: preset.category,
+              type: preset.type,
+              details: preset.details,
+              visible: true,
+              opacity: preset.defaultOpacity,
+              blendMode: preset.defaultBlendMode,
+              url: preset.url,
+            });
+          }
+        }
       }
     }
   };
@@ -995,6 +1016,28 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           indicatorColor={theme === 1 ? '#7D4700' : theme === 2 ? '#60A5FA' : '#F59E0B'}
                         />
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Atmospheric Clouds & DeepMind WeatherNext 3 Master Switch */}
+                  <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                          Atmospheric Clouds
+                        </span>
+                        <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+                          DeepMind WeatherNext 3 (0.1° AI) & 3D Raymarch
+                        </span>
+                      </div>
+                      <TactileSwitch
+                        id="sidebar-cartography-clouds-toggle"
+                        checked={Boolean(propShowClouds)}
+                        onChange={handleToggleClouds}
+                        title="Master toggle for atmospheric cloud cover and 3D volumetric raymarching"
+                        label={propShowClouds ? 'Active' : 'Off'}
+                        indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#10B981'}
+                      />
                     </div>
                   </div>
 

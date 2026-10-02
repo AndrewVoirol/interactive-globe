@@ -58,7 +58,7 @@ export function useEngineState() {
   const [cloudDriftSpeed, setCloudDriftSpeedState] = useState<number>(500);
   const [cloudOpacity, setCloudOpacityState] = useState<number>(0.8);
   const [cloudFalseColor, setCloudFalseColorState] = useState<boolean>(false);
-  const [volumetricClouds, setVolumetricCloudsState] = useState<boolean>(false);
+  const [volumetricClouds, setVolumetricCloudsState] = useState<boolean>(true);
   const [cloudThickness, setCloudThicknessState] = useState<number>(0.19);
   const [cloudLowTop, setCloudLowTopState] = useState<number>(0.45);
   const [cloudErosion, setCloudErosionState] = useState<number>(0.85);
