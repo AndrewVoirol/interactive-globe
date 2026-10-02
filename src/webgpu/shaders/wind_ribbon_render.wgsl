@@ -54,6 +54,9 @@ struct VertexOutput {
     @location(5) vertVel: f32,
 };
 
+const PI: f32 = 3.141592653589793;
+const RADIUS: f32 = 5.0;
+
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
@@ -81,7 +84,8 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
     // Degenerate checks: if segment alpha too low, endpoints identical, or crossing flat map seam
     let segLenSq = dot(ptA.xyz - ptB.xyz, ptA.xyz - ptB.xyz);
-    if (ptA.w <= 0.01 || ptB.w <= 0.01 || segLenSq < 0.000001 || segLenSq > 2.5) {
+    let isCrossAntimeridian = select(false, abs(ptA.x - ptB.x) > PI * RADIUS * 0.75, sim.u_unfurl > 0.05);
+    if (ptA.w <= 0.01 || ptB.w <= 0.01 || segLenSq < 0.000001 || segLenSq > 2.5 || isCrossAntimeridian) {
         out.clipPos = vec4<f32>(0.0, 0.0, -1.0, 0.0);
         return out;
     }
@@ -196,6 +200,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let featherMin = mix(0.18, 0.06, condensation * 0.5);
     let edgeFeather = 1.0 - smoothstep(featherMin, 0.95 + dUv.y * 0.02, lateralDist);
 
+    // Capillary absorption feathering into cellulose paper tooth (Theme 1 Cream Rag)
+    let toothNoise = sin(in.uv.x * 180.0 + in.uv.y * 60.0) * cos(in.uv.x * 90.0 - in.uv.y * 120.0);
+    let capillaryFeather = select(edgeFeather, edgeFeather * (1.0 - 0.15 * abs(toothNoise) * smoothstep(0.35, 0.95, lateralDist)), sim.u_theme == 1u);
+
     var color: vec3<f32>;
     var alphaBase: f32;
 
@@ -220,6 +228,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             } else {
                 color = mix(coreJet, peakJet, (normSpeed - 0.82) / 0.18);
             }
+            // Physiographic ink glaze: amber-gold core along spine with platinum-cyan wash at ribbon margins
+            let coreSpine = 1.0 - smoothstep(0.0, 0.42, lateralDist);
+            color = mix(color, coreJet, coreSpine * smoothstep(0.40, 0.85, normSpeed) * 0.35);
             alphaBase = mix(0.20, 0.78, jetSpeedAtten);
         } else if (sim.u_theme == 1u) {
             // Theme 1: Cream Rag (Swiss Relief): Charcoal to Deep Indigo-Navy
@@ -266,6 +277,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let calmSurf  = vec3<f32>(0.74, 0.38, 0.20); // Warm burnt sienna archival ink
             let briskSurf = vec3<f32>(0.94, 0.58, 0.26); // Luminous polished copper filament
             color = mix(calmSurf, briskSurf, normSpeed);
+            // Capillary ink bleed into cellulose fibers at stroke margins
+            let inkBleed = smoothstep(0.45, 0.95, lateralDist) * 0.18;
+            color = mix(color, vec3<f32>(0.64, 0.44, 0.30), inkBleed);
             alphaBase = mix(0.08, 0.78, smoothstep(0.06, 0.60, normSpeed));
         } else if (sim.u_theme == 2u) {
             // Theme 2: Prussian Cyanotype: Actinic chalk white & photochemical cerulean
@@ -305,6 +319,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         alphaBase = alphaBase + condensation * 0.18;
     }
 
-    let finalAlpha = in.alpha * edgeFeather * alphaBase + dVertVel * 0.000001;
+    let finalAlpha = in.alpha * capillaryFeather * alphaBase + dVertVel * 0.000001;
     return vec4<f32>(color, finalAlpha);
 }

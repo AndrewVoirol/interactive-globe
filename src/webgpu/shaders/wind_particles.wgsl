@@ -263,22 +263,83 @@ fn computeLiftedAltitude(lonRad: f32, latRad: f32, vel: vec2<f32>, isJet: bool) 
 }
 
 fn geodeticToManifold(lonRad: f32, latRad: f32, altOffset: f32, mode: u32, unfurl: f32) -> vec3<f32> {
-    let r = RADIUS + altOffset;
     let cosLat = cos(latRad);
     let sinLat = sin(latRad);
     let cosLon = cos(lonRad);
     let sinLon = sin(lonRad);
-    let p3D = vec3<f32>(r * cosLat * sinLon, r * sinLat, r * cosLat * cosLon);
+    let p3D = vec3<f32>(RADIUS * cosLat * sinLon, RADIUS * sinLat, RADIUS * cosLat * cosLon);
     let clampedLat = clamp(latRad, -1.4835, 1.4835);
-    let mercator2D = vec2<f32>(
-        lonRad * RADIUS,
-        log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS
-    );
+    let mercatorY = log(tan(PI * 0.25 + clampedLat * 0.5)) * RADIUS;
+    // Developable unroll (Mode 0 parity): Equirectangular 2:1 mapping (lonRad * RADIUS, latRad * RADIUS)
+    // guarantees exact 1:1 spatial alignment with Mode 0 evaluateModeZero and eliminates latitudinal drift.
+    let targetY = select(mercatorY, latRad * RADIUS, mode == 0u);
+    let target2D = vec2<f32>(lonRad * RADIUS, targetY);
+
     let deformed = evaluateManifoldCore(
-        p3D, mercator2D, unfurl, mode,
+        p3D, target2D, unfurl, mode,
         sim.u_time, vec4<f32>(0.0), 0.0, vec4<f32>(0.0)
     );
-    return deformed.pos;
+
+    // Apply physical altitude standoff along the deformed surface normal.
+    // Conforms ribbons to Mode 1 scroll curvature (r_scroll) without paper penetration,
+    // and elevates filaments along Mode 3 traveling capillary waves.
+    var finalPos = deformed.pos + deformed.normal * altOffset;
+
+    // Mode 2 Tectonic Fracture: cancel discontinuous crust rift displacement across Mid-Atlantic Ridge calving rift
+    // to maintain continuous atmospheric streamline transport without tearing or stretching over the opening chasm.
+    if (mode == 2u) {
+        let lambdaRift: f32 = -0.48869219;
+        let dRift = abs(lonRad - lambdaRift);
+        let fSeam = 1.0 - smoothstep(0.0, 0.70, dRift);
+        let crackSign = select(-1.0, 1.0, lonRad >= lambdaRift);
+        let sphereNorm = normalize(p3D);
+        let tEast = normalize(vec3<f32>(sphereNorm.z, 0.0, -sphereNorm.x));
+        let ease = clamp(unfurl, 0.0, 1.0);
+        if (ease <= 0.15) {
+            let crackProg = smoothstep(0.01, 0.15, ease);
+            let crackDilation = crackSign * fSeam * (0.08 * crackProg);
+            finalPos = finalPos - tEast * crackDilation;
+        } else {
+            let tPeel = smoothstep(0.15, 1.0, ease);
+            let crackWidth = crackSign * fSeam * (0.08 + 0.40 * tPeel);
+            finalPos = finalPos - tEast * (crackWidth * (1.0 - tPeel));
+        }
+    }
+
+    return finalPos;
+}
+
+// ============================================================================
+// Mode 3 Solenoidal Fluid Shear & Effective Velocity Entrainment
+// Blends planetary GFS wind with manifold solenoidal curl noise during liquefaction
+// ============================================================================
+fn sampleEffectiveVelocity(lonRad: f32, latRad: f32, isJet: bool) -> vec2<f32> {
+    let u_GFS = sampleVelocity(lonRad, latRad, isJet);
+    let alpha_clamped = clamp(sim.u_unfurl, 0.0, 1.0);
+    let alpha_fluid = select(0.0, sin(PI * alpha_clamped) * (1.0 - 0.35 * alpha_clamped), sim.u_mode == 3u);
+    if (alpha_fluid <= 0.0001) {
+        return u_GFS;
+    }
+
+    let cosLat = cos(latRad);
+    let sinLat = sin(latRad);
+    let cosLon = cos(lonRad);
+    let sinLon = sin(lonRad);
+    let n = vec3<f32>(cosLat * sinLon, sinLat, cosLat * cosLon);
+    let pos3D = n * RADIUS;
+
+    let u_curl = computeCurlNoise(pos3D, sim.u_time * 1.5);
+    let u_fluid3D = u_curl - n * dot(n, u_curl);
+
+    let eEast = vec3<f32>(cosLon, 0.0, -sinLon);
+    let eNorth = cross(n, eEast);
+
+    let u_fluid = vec2<f32>(dot(u_fluid3D, eEast), dot(u_fluid3D, eNorth));
+    let beta_shear: f32 = 25.0;
+    let u_vortex = vec2<f32>(0.0);
+
+    let u_eff = (1.0 - alpha_fluid) * u_GFS + alpha_fluid * (beta_shear * u_fluid + u_vortex);
+    return u_eff;
 }
 
 // ============================================================================
@@ -372,13 +433,13 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
         age = fract(rnd.x * 3.7) * 0.4; // Stagger initial ages with headroom for smooth fade-in
     } else {
         // 2nd-Order Runge-Kutta (RK2) Geodesic Advection forward on S^2
-        let v0 = sampleVelocity(lon, lat, isJetStream);
+        let v0 = sampleEffectiveVelocity(lon, lat, isJetStream);
         let simScale = select(6000.0, 10000.0, isJetStream);
         let dtStep = dt * simScale;
 
         // Midpoint geodesic step
         let posMid = advectSphericalGeodesic(lon, lat, v0, dtStep * 0.5);
-        let vMid = sampleVelocity(posMid.x, posMid.y, isJetStream);
+        let vMid = sampleEffectiveVelocity(posMid.x, posMid.y, isJetStream);
 
         // Full geodesic step from initial position using midpoint velocity
         let posNext = advectSphericalGeodesic(lon, lat, vMid, dtStep);
@@ -388,7 +449,7 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
         age = age + ageIncrement;
     }
 
-    let currentVel = sampleVelocity(lon, lat, isJetStream);
+    let currentVel = sampleEffectiveVelocity(lon, lat, isJetStream);
     let speed = length(currentVel);
 
     // Orographic vertical velocity w = u_h · ∇h (in m/s) and terrain-lifted altitude
@@ -418,7 +479,7 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pos1 = geodesicDisplacement(lon, lat, -dir0.x * stepLen, -dir0.y * stepLen);
     let lon1 = pos1.x;
     let lat1 = clamp(pos1.y, -PI * 0.499, PI * 0.499);
-    let v1 = sampleVelocity(lon1, lat1, isJetStream);
+    let v1 = sampleEffectiveVelocity(lon1, lat1, isJetStream);
     let alt1 = computeLiftedAltitude(lon1, lat1, v1, isJetStream);
     let worldPos1 = geodeticToManifold(lon1, lat1, alt1, sim.u_mode, sim.u_unfurl);
 
@@ -428,7 +489,7 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pos2 = geodesicDisplacement(lon1, lat1, -dir1.x * stepLen, -dir1.y * stepLen);
     let lon2 = pos2.x;
     let lat2 = clamp(pos2.y, -PI * 0.499, PI * 0.499);
-    let v2 = sampleVelocity(lon2, lat2, isJetStream);
+    let v2 = sampleEffectiveVelocity(lon2, lat2, isJetStream);
     let alt2 = computeLiftedAltitude(lon2, lat2, v2, isJetStream);
     let worldPos2 = geodeticToManifold(lon2, lat2, alt2, sim.u_mode, sim.u_unfurl);
 
@@ -438,15 +499,28 @@ fn cs_advect_wind(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pos3 = geodesicDisplacement(lon2, lat2, -dir2.x * stepLen, -dir2.y * stepLen);
     let lon3 = pos3.x;
     let lat3 = clamp(pos3.y, -PI * 0.499, PI * 0.499);
-    let v3 = sampleVelocity(lon3, lat3, isJetStream);
+    let v3 = sampleEffectiveVelocity(lon3, lat3, isJetStream);
     let alt3 = computeLiftedAltitude(lon3, lat3, v3, isJetStream);
     let worldPos3 = geodeticToManifold(lon3, lat3, alt3, sim.u_mode, sim.u_unfurl);
 
     // Jet stream retains high segment alpha to form continuous fluid ribbons;
     // Surface winds retain balanced alpha for clearly defined streamlines without noise.
-    let a1 = select(0.76, 0.90, isJetStream);
-    let a2 = select(0.50, 0.74, isJetStream);
-    let a3 = select(0.25, 0.52, isJetStream);
+    var a1 = select(0.76, 0.90, isJetStream);
+    var a2 = select(0.50, 0.74, isJetStream);
+    var a3 = select(0.25, 0.52, isJetStream);
+
+    // Analytic antimeridian seam segmentation:
+    // If consecutive history points cross the +/-180 deg boundary (|lambda_A - lambda_B| > pi),
+    // set segment alpha to 0.0 to eliminate cross-canvas horizontal streak artifacts on flat and unrolled maps.
+    if (abs(lon - lon1) > PI) {
+        a1 = 0.0;
+    }
+    if (abs(lon1 - lon2) > PI) {
+        a2 = 0.0;
+    }
+    if (abs(lon2 - lon3) > PI) {
+        a3 = 0.0;
+    }
 
     pOut.pos = vec4<f32>(lon, lat, alt0, age);
     pOut.vel = vec4<f32>(currentVel.x, currentVel.y, wOrographic, speed);
