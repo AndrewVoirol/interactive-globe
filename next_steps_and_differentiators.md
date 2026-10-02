@@ -288,29 +288,75 @@ struct PaperSubstrateUniforms {
 
 ---
 
-## 7. Comparative Technical Matrix: Current State vs. Recalibrated Roadmap
+## 7. Wind Strands & Multi-Fold Kinematic Entrainment
+
+### 7.1 Engineering Rationale & Current Limitation
+Atmospheric wind ribbons are currently modeled via 65,536 RK2 particles (`wind_particles.wgsl`) extruded into screen-space quads (`wind_ribbon_render.wgsl`) driven by NOAA GFS / WeatherNext 3 vector velocity grids. While spherical advection operates accurately on $S^2$, the system exhibits distinct decoupling when interacting with the engine's core manifold kinematics and folds:
+
+1. **Projection Mismatch in Mode 0 (Developable Unroll)**: When unrolling into the archival drafting sheet, `geodeticToManifold` passes a Mercator coordinate $\mathbf{u}_{\text{merc}} = (R\lambda, R\ln\tan(\pi/4 + \phi/2))$ into `evaluateManifoldCore`, whereas the developable sheet unrolls into an Equirectangular 2:1 sheet ($y = R\phi$). This causes vertical stretching and latitudinal drift between the wind ribbons and underlying topography during and after unrolling.
+2. **Kinematic Coupling Across Manifold Folds**:
+   - In **Mode 1 (Parchment Scroll Unfurl)**, wind filaments must roll conformally with the parchment cylinder ($r_{\text{scroll}}$) without penetrating the coiled paper layers.
+   - In **Mode 2 (Tectonic Fracture)**, filaments must maintain continuous fluid transport across the Mid-Atlantic Ridge calving rift without artificial coordinate tearing.
+   - In **Mode 3 (Hydrodynamic Fluid Relaxation)**, the entire manifold liquefies into fluid streamline shear with 3D solenoidal curl noise and Lamb-Oseen cursor vortices. The wind ribbons are currently decoupled from this fluid shear, creating an unnatural dissonance between static GFS wind vectors and the undulating manifold substrate.
+3. **Antimeridian Seam Crossing Artifacts**: In flat and unrolled states, particles advecting across the $\pm 180^\circ$ longitude boundary generate long 2D horizontal streak artifacts across the full width of the canvas because the history ring connects $(+\pi) \to (-\pi)$ without analytic seam clipping.
+
+### 7.2 Mathematical Formulation
+1. **Developable Manifold Conformance (Mode 0 Parity)**:
+   $$\mathbf{P}_{\text{flat}}(\lambda, \phi) = \left( R \cdot \lambda, R \cdot \phi \right)$$
+   $$\mathbf{P}_{\text{deformed}} = \mathcal{M}_{\text{developable}}\left( \mathbf{P}_{S^2}(\lambda, \phi, z), \mathbf{P}_{\text{flat}}(\lambda, \phi), \alpha \right)$$
+   Aligning particle extrusion with the exact analytical developable chart normal $\mathbf{N}_{\text{base}} = \mathbf{T}_\lambda \times \mathbf{T}_\phi$ preserves zero-standoff surface conformance across all unroll phases.
+
+2. **Mode 3 Hydrodynamic Fluid Shear Entrainment**:
+   During Mode 3 fluid relaxation ($\alpha_{\text{unfurl}} > 0$), particle advection velocities blend the planetary wind field $\mathbf{u}_{\text{GFS}}$ with the manifold's solenoidal curl vector field $\mathbf{u}_{\text{curl}}$ and cursor Lamb-Oseen vortex field $\mathbf{u}_{\text{vortex}}$:
+   $$\mathbf{u}_{\text{fluid}}(\mathbf{x}) = \mathbf{u}_{\text{curl}}(\mathbf{x}) - \mathbf{n}(\mathbf{n} \cdot \mathbf{u}_{\text{curl}}(\mathbf{x}))$$
+   $$\mathbf{u}_{\text{eff}}(\mathbf{x}, t) = (1.0 - \alpha_{\text{fluid}}) \mathbf{u}_{\text{GFS}}(\mathbf{x}, t) + \alpha_{\text{fluid}} \left[ \beta_{\text{shear}} \mathbf{u}_{\text{fluid}}(\mathbf{x}) + \mathbf{u}_{\text{vortex}}(\mathbf{x}) \right]$$
+   where $\alpha_{\text{fluid}} = \sin(\pi \alpha_{\text{unfurl}}) \cdot (1.0 - 0.35\alpha_{\text{unfurl}})$.
+
+3. **Analytic Seam Segmentation & Restart**:
+   For consecutive history points $\mathbf{p}_k, \mathbf{p}_{k+1}$ on the unrolled sheet:
+   $$\text{if } |\lambda_k - \lambda_{k+1}| > \pi \implies \text{flag degenerate segment, set } \alpha_{\text{seg}} = 0.0, \text{ and suppress quad extrusion}$$
+
+4. **Archival Inking Pigmentation**:
+   - *Theme 0 (Marie Tharp)*: Subdued aerospace slate-blue ($<35\text{ m/s}$) to luminescent platinum-cyan and solar amber core ($>70\text{ m/s}$) with physiographic wash glazes.
+   - *Theme 1 (Cream Rag)*: Warm sienna-copper intaglio filaments ($\Delta E > 0.60$ against ivory substrate) with capillary absorption feathering into cellulose paper tooth.
+   - *Theme 2 (Prussian Cyanotype)*: High-contrast actinic white ($\mathbf{c} = [0.92, 0.96, 1.00]$) and photochemical cerulean filaments with zero warm contamination.
+
+---
+
+## 8. Comparative Technical Matrix: Current State vs. Recalibrated Roadmap
 
 | Capability Domain | Milestone 7+ Current Achieved State | Recalibrated Roadmap / Backlog Architecture | Status & Strategic Priority |
 | :--- | :--- | :--- | :--- |
 | **Cloud Dynamics** | Spherical geodesic semi-Lagrangian advection on $S^2$ (`mapSphericalGeodesicUV`) coupled to live WeatherNext 3 wind + orographic blocking | Full 3D Eulerian advection-diffusion grid (`Texture3D` ping-pong compute pass) | **Completed / Operationally Sufficient** (Built in M1-WIND-S2 & M3-OROGRAPHIC-BLOCKING) |
-| **Terrain Shadows** | Imhof Swiss relief ($N \cdot L_1, N \cdot L_2$) + multi-deck cloud ground shadows | Activate & calibrate existing `horizon_occlusion.wgsl` compute pass with PolarSunCompass synchronization | **Milestone 9 (Ready for Activation)** (Shader written, needs UI control & calibration) |
+| **Substrate Realism** | Live procedural tooth in shaders across all 3 themes (Marie Tharp stippling, Cream Rag fibers, Cyanotype linen weave) | Substrate micro-relief pass (`substrate_micro_relief.wgsl`, `paper_composition.wgsl` neatline plate mark & fiber sheen) | **Milestone 8 (Immediate Step 1)** (Multi-medium archival tactile calibration) |
+| **Wind Strands & Folds** | 65,536 RK2 particles on $S^2$, but Mercator unroll mismatch and decoupled from Mode 3 fluid waves | Full multi-fold kinematic entrainment, Mode 3 solenoidal shear coupling, Equirectangular unroll parity, and seam clipping | **Milestone 9 (Immediate Step 2)** (Solves fold coupling & antimeridian tearing) |
+| **Terrain Shadows** | Imhof Swiss relief ($N \cdot L_1, N \cdot L_2$) + multi-deck cloud ground shadows | Activate & calibrate existing `horizon_occlusion.wgsl` compute pass with PolarSunCompass synchronization | **Milestone 10 (Immediate Step 3)** (Shader written, needs UI control & calibration) |
+| **Hydrology** | Laplacian curvature valley tracing ($W \propto \text{mix}(0.4, 1.98)$) modulated by local rainfall rate | D-Infinity flow routing + Leopold-Maddock hydraulic power laws ($W \propto Q^{0.50}$) & Flint's Law | **Milestone 11 (High Value)** (Couples real weather rainfall with realistic river tapering) |
+| **Prognostic Ingestion** | Local WeatherNext 3 Zarr v3 download script verified; manual triggering | Automated recurring cron schedule (`'0 1,7,13,19 * * *'`) + directional rolling cache window ($\pm 2$h) | **Operational Track (Active Protocol)** (Maintains continuous prognostic texture cache) |
 | **Shading Throughput** | Full-rate 4K shading sustained at 60 FPS via CDLOD culling & zero-GC loops | Metal-3 Variable Rate Shading / coarse tile classification pre-pass | **Deprioritized** (Non-standard WebGPU API; risks blurring abyssal bathymetry) |
-| **Hydrology** | Laplacian curvature valley tracing ($W \propto \text{mix}(0.4, 1.98)$) modulated by local rainfall rate | D-Infinity flow routing + Leopold-Maddock hydraulic power laws ($W \propto Q^{0.50}$) & Flint's Law | **Milestone 10 (High Value)** (Couples real weather rainfall with realistic river tapering) |
 | **Mesh Scalability** | CPU-dispatched 2-root parametric CDLOD quadtree (<0.5ms dispatch) | 100% GPU-driven indirect draw (`device.drawIndirect()`) | **Architectural Reserve** (Only needed when streaming dynamic 10m NOAA CUDEM regional insets) |
-| **Substrate Realism** | Live procedural tooth in shaders across all 3 themes (Marie Tharp stippling, Cream Rag fibers, Cyanotype linen weave) | Substrate micro-relief pass (`substrate_micro_relief.wgsl`, `paper_composition.wgsl` neatline plate mark & fiber sheen) | **Milestone 8 (Immediate Next Step)** (Multi-medium archival tactile calibration) |
 
 ---
 
-## 8. Recalibrated Milestone Execution Sequence
+## 9. Recalibrated Milestone Execution Sequence
 
 1. **Milestone 8: Physical Medium Fidelity Across All Three Archival Mediums**
    - Calibrate and elevate tactile substrate response across Theme 0 (Marie Tharp), Theme 1 (Cream Rag), and Theme 2 (Prussian Cyanotype);
    - Activate and tune neatline intaglio plate mark depression and anisotropic fiber sheen BRDF (`substrate_micro_relief.wgsl`, `paper_composition.wgsl`).
-2. **Milestone 9: Dynamic Terrain Horizon Self-Shadows & Canyon Lighting**
+2. **Milestone 9: Wind Strands & Multi-Fold Kinematic Entrainment**
+   - Harmonize `wind_particles.wgsl` with Mode 0 Equirectangular developable unrolling ($p = F + d$);
+   - Entrain particle velocity fields into Mode 3 hydrodynamic fluid relaxation waves and Lamb-Oseen cursor vortex dynamics;
+   - Implement analytic antimeridian seam segmentation in `wind_ribbon_render.wgsl` to eliminate horizontal streak artifacts in flat states;
+   - Calibrate medium-specific ink absorption feathering for wind filaments.
+3. **Milestone 10: Dynamic Terrain Horizon Self-Shadows & Canyon Lighting**
    - Activate dormant `horizon_occlusion.wgsl` compute pipeline in `WebGPUEngine.ts`;
    - Synchronize with live PolarSunCompass azimuth/altitude;
    - Expose dedicated HUD controls in Terrain/Sun instruments.
-3. **Milestone 10: Dynamic Geomorphic Drainage Basin Synthesis (Leopold-Maddock Hydrology)**
+4. **Milestone 11: Dynamic Geomorphic Drainage Basin Synthesis (Leopold-Maddock Hydrology)**
    - Author D-Infinity flow routing compute shader over DEM downhill slopes ($-\nabla h$);
    - Accumulate upstream catchment area $A(\mathbf{x})$ and couple to live precipitation grids;
    - Implement Leopold-Maddock river width tapering ($W \propto Q^{0.50}$) and Flint's Law incision.
+5. **Operational Infrastructure Track: WeatherNext 3 Ingestion & Rolling Pre-Warming**
+   - Schedule automated GCS forecast cycle ingestion via cron (`'0 1,7,13,19 * * *'`) using `scripts/fetch-weathernext3.py`;
+   - Implement directional rolling texture pre-warming window ($\pm 2$h) around the active timeline scrubber position with idle keyframe prefetching (+6h, +12h).
+

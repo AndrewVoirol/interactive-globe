@@ -429,27 +429,67 @@
 ---
 
 
-## Recalibrated Backlog & Strategic Next Milestones
+## Milestone 8: Physical Medium Fidelity Across All Three Archival Mediums
 
-### Milestone 8: Physical Medium Fidelity Across All Three Archival Mediums
-- [ ] **Task M8-T1**: Multi-Medium Substrate & Weave Micro-Fidelity Tuning
-  - **Phase**: `[PLANNING]`
+- [x] **Task M8-T1**: Multi-Medium Substrate & Weave Micro-Fidelity Tuning
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: Cartography & Shader Engineer / Materials Physicist
   - **Target Files**: `src/webgpu/shaders/crust_hydrosphere.wgsl`, `src/core/themes/ThemeManager.ts`
   - **Specification**: Calibrate and elevate tactile substrate response across all 3 archival mediums:
-    1. *Theme 0 (Marie Tharp 1977)*: Enhance lithographic illustration board stipple density, Mid-Atlantic rift chasm ink wash, and Heinrich Berann pictorial relief shading.
-    2. *Theme 1 (Cream Rag)*: Refine cellulose fiber flecks, subtractive sepia ink capillary absorption, and grazing raking-light micro-shadows under oblique sun angles.
-    3. *Theme 2 (Prussian Cyanotype 1842)*: Harmonize structured blueprint linen weave (warp & weft modulation) and actinic solarization to eliminate warm tone bleed.
-- [ ] **Task M8-T2**: Neatline Intaglio Plate Mark & Substrate Micro-Relief Pass
-  - **Phase**: `[PLANNING]`
-  - **Target Files**: `src/webgpu/shaders/substrate_micro_relief.wgsl`, `src/webgpu/shaders/paper_composition.wgsl`, `src/webgpu/WebGPUEngine.ts`
-  - **Specification**: Activate and tune existing substrate shaders to render physical 19th-century copperplate intaglio impression: neatline boundary plate depression, raised inked contours catching raking light, and anisotropic fiber sheen BRDF at glancing oblique camera pitch.
+    1. *Theme 0 (Marie Tharp 1977)*: Calibrated lithographic illustration board stipple density, Mid-Atlantic rift chasm ink wash, and Heinrich Berann pictorial relief shading.
+    2. *Theme 1 (Cream Rag)*: Refined cellulose fiber flecks, subtractive sepia ink capillary absorption (`#38302A`), and grazing raking-light micro-shadows under oblique sun angles:
+       $$\text{rakingOblique} = \text{mix}(0.70, 1.40, \text{clamp}((1.0 - N \cdot L_1) \cdot 1.5, 0.0, 1.0))$$
+       $$\text{toothGlaze} = 1.0 + \text{fiberTooth} \cdot \text{rakingOblique}$$
+    3. *Theme 2 (Prussian Cyanotype 1842)*: Harmonized structured blueprint linen weave (warp & weft modulation) and actinic solarization to eliminate warm tone bleed:
+       $$\text{warmBleed} = \max(0.0, \text{land}_R - \text{land}_B \cdot 0.85)$$
+       $$\text{finalLand} = \text{clamp}(\text{finalLand} - [\text{warmBleed}, 0.5 \cdot \text{warmBleed}, 0.0]^T, 0.0, 1.0)$$
+  - **Micro-Verification**: Syntax Gate (valid WGSL, `npm run lint:wgsl` passed with 0 errors/warnings across 21 shaders), Domain Gate (Rule 3 medium identity verified, Rule 4 uniform control flow satisfied).
+
+- [x] **Task M8-T2**: Neatline Intaglio Plate Mark & Substrate Micro-Relief Pass
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: Cartography & Shader Engineer / WebGPU Systems Engineer
+  - **Target Files**: `src/webgpu/shaders/substrate_micro_relief.wgsl`, `src/webgpu/shaders/paper_composition.wgsl`, `src/webgpu/WebGPUEngine.ts`, `src/webgpu/WebGPUCanvas.tsx`, `src/components/hud/UnifiedRightSidebar.tsx`
+  - **Specification**: Activated and calibrated substrate micro-relief haptics pipeline (`substrate_micro_relief.wgsl` and `paper_composition.wgsl`):
+    1. Activated `showHaptics` by default for Theme 1 (Cream Rag) and Theme 0 (Marie Tharp) via runtime canvas parameters in `WebGPUCanvas.tsx` while preserving zero-zombie pass and 5-buffer boot invariants in bare headless engine instances (Rule 24).
+    2. Zero-GC typed-array change detection in `WebGPUEngine.ts` via preallocated `prevPaperF: Float32Array(8)` instance mirror buffer (Rule 26).
+    3. Calibrated `PaperSubstrateUniforms`: $u_{\text{fiberFrequency}} = 45.0, u_{\text{fiberAnisotropy}} = 0.65, u_{\text{plateMarkDepthMeters}} = 0.0035, u_{\text{inkRidgeHeightMeters}} = 0.0018, u_{\text{grainAngleRadians}} = 0.2618, u_{\text{sheenIntensity}} = 0.45$.
+    4. Dynamic medium indicators updated across all 3 themes in `UnifiedRightSidebar.tsx`.
+    5. Visual verification captured via Chrome DevTools Metal WebGPU across all 3 themes (`screenshots/milestone8/theme0-hawaii.png`, `theme1-cream-rag.png`, `theme2-cape-cod.png`, and `theme1-intaglio-sheen-oblique.png` at 68° camera pitch) with 0 console errors and 0 WebGPU warnings.
+  - **Micro-Verification**: 272/272 test files passing (3,861/3,861 tests, 100% pass rate, 0 failures, 0 regressions in 38.55s).
 
 ---
 
-### Milestone 9: Dynamic Terrain Horizon Self-Shadows & Canyon Lighting
-- [ ] **Task M9-T1**: Horizon Occlusion Compute Activation & Sun Compass Synchronization
+## Recalibrated Backlog & Strategic Next Milestones
+
+### Milestone 9: Wind Strands & Multi-Fold Kinematic Entrainment
+- [ ] **Task M9-T1**: Mode 0-3 Manifold Fold Coupling & Developable Unroll Parity
   - **Phase**: `[PLANNING]`
-  - **Target Files**: `src/webgpu/shaders/horizon_occlusion.wgsl`, `src/webgpu/WebGPUEngine.ts`, `src/components/hud/instruments/PolarSunCompass.tsx`, `src/components/TerrainDrawer.tsx`
+  - **Target Files**: `src/webgpu/shaders/wind_particles.wgsl`, `src/webgpu/shaders/wind_ribbon_render.wgsl`
+  - **Specification**: Eliminate projection mismatch and geometry decoupling across manifold folds:
+    1. *Developable Unroll (Mode 0)*: Replace Mercator projection in `geodeticToManifold` with Equirectangular 2:1 mapping ($y = R\phi$) to match the developable chart unroll ($p = F + d$) and eliminate latitudinal stretching.
+    2. *Parchment Scroll (Mode 1)*: Ensure wind ribbons wrap conformally along the cylindrical parchment roll ($r_{\text{scroll}}$) during formation and tightening without penetrating paper layers.
+    3. *Tectonic Fracture (Mode 2)*: Maintain continuous streamline flow across the Mid-Atlantic Ridge calving seam without coordinate stretching over the rift.
+- [ ] **Task M9-T2**: Mode 3 Solenoidal Fluid Shear & Lamb-Oseen Vortex Coupling
+  - **Phase**: `[PLANNING]`
+  - **Target Files**: `src/webgpu/shaders/wind_particles.wgsl`, `src/webgpu/shaders/wind_ribbon_render.wgsl`
+  - **Specification**: Physically entrain the 65,536 wind ribbon strands into the Mode 3 hydrodynamic fluid relaxation waves:
+    1. Project particle velocity into the manifold's solenoidal curl field $\mathbf{u}_{\text{curl}}$ and Lamb-Oseen cursor vortex $\mathbf{u}_{\text{vortex}}$.
+    2. Transform planetary GFS streamlines into fluid manifold filaments that trace the traveling capillary waves during liquefaction ($\alpha > 0$).
+- [ ] **Task M9-T3**: Analytic Antimeridian Seam Segmentation & Archival Inking Feathering
+  - **Phase**: `[PLANNING]`
+  - **Target Files**: `src/webgpu/shaders/wind_ribbon_render.wgsl`
+  - **Specification**: Eliminate 2D seam artifacts and polish medium inking:
+    1. Segment quad ribbons at the $\pm 180^\circ$ antimeridian boundary ($|\lambda_A - \lambda_B| > \pi$) to eliminate cross-canvas streaks on flat and unrolled maps.
+    2. In Theme 1 (Cream Rag), apply capillary absorption feathering into cellulose paper tooth. In Theme 2 (Cyanotype), enforce actinic white and cerulean filaments with zero warm contamination.
+
+---
+
+### Milestone 10: Dynamic Terrain Horizon Self-Shadows & Canyon Lighting
+- [ ] **Task M10-T1**: Horizon Occlusion Compute Activation & Sun Compass Synchronization
+  - **Phase**: `[PLANNING]`
+  - **Target Files**: `src/webgpu/shaders/horizon_occlusion.wgsl`, `src/webgpu/WebGPUEngine.ts`, `src/components/hud/instruments/PolarSunCompass.tsx`, `src/components/hud/UnifiedRightSidebar.tsx`
   - **Specification**: Complete and activate existing dormant horizon occlusion pipeline (`horizon_occlusion.wgsl`):
     1. Synchronize compute dispatch with live PolarSunCompass azimuth/altitude and camera view updates.
     2. Calibrate soft penumbra filtering ($k_{\text{softness}} \cdot \tan\delta_{\text{sun}}$) across canyons (Grand Canyon, Yosemite) and volcanic peaks (Mauna Kea).
@@ -457,14 +497,24 @@
 
 ---
 
-### Milestone 10: Geomorphic Drainage Basin Synthesis & Leopold-Maddock Hydrology
-- [ ] **Task M10-T1**: D-Infinity Flow Accumulation & Upstream Catchment Synthesis
+### Milestone 11: Geomorphic Drainage Basin Synthesis & Leopold-Maddock Hydrology
+- [ ] **Task M11-T1**: D-Infinity Flow Accumulation & Upstream Catchment Synthesis
   - **Phase**: `[PLANNING]`
   - **Target Files**: `src/webgpu/shaders/drainage_accumulation.wgsl`, `src/webgpu/shaders/crust_hydrosphere.wgsl`, `src/core/weather/PluvialDynamics.ts`
   - **Specification**: Elevate river networks from local curvature crevices to genuine geomorphic drainage basins:
     1. Run parallel flow-routing pass over DEM downhill vectors ($-\nabla h$) to accumulate upstream contributing area $A(\mathbf{x})$.
     2. Modulate discharge $Q(\mathbf{x})$ using live WeatherNext 3 / RainViewer precipitation grids.
     3. Apply Leopold-Maddock (1953) hydraulic geometry power law ($W = a Q^{0.50}, D = c Q^{0.40}$) and Flint's Law bedrock incision, producing naturally widening river channels and coastal estuaries without needing 1m DEMs.
+
+---
+
+### Operational Infrastructure Track: WeatherNext 3 Data Ingestion & Prognostic Rolling Pre-Warming
+- [ ] **Task OPS-WN3-1**: Automated GCS Prognostic Ingestion & Cron Scheduling
+  - **Target Files**: `scripts/fetch-weathernext3.py`
+  - **Specification**: Operationalize automated GCS ingestion from `gs://weathernext3_statistics_spatial/` via cron schedule (`'0 1,7,13,19 * * *'`) using verified Application Default Credentials (`antigravity-agent-1765655548`).
+- [ ] **Task OPS-WN3-2**: Scrubber Directional Rolling Cache ($\pm 2$h) & Idle Keyframe Prefetching
+  - **Target Files**: `src/core/data/WeatherNextDataSource.ts`
+  - **Specification**: Implement directional rolling pre-warming window ($\pm 2$h) around active timeline scrubber position with background pre-fetching for $+6$h and $+12$h keyframes when scrubber is idle for $>1.5$s.
 
 ---
 
