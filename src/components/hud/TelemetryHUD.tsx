@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo, ResolutionTier } from '../../types';
-import { UnifiedRightSidebar, PrognosticModelBackend } from './UnifiedRightSidebar';
+import { UnifiedRightSidebar, PrognosticModelBackend, isWeatherNextModel } from './UnifiedRightSidebar';
 import { DataLayerToastNotification, ToastMessage } from './DataLayerToastNotification';
 import { DataLayerItem } from './DataLayersDrawer';
 import { BlendModeType, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
@@ -15,6 +15,7 @@ import { TimelineScrubberState } from './TimelineScrubber';
 import type { MeteorologicalProvenance } from '../../core/data/WeatherNextDataSource';
 
 export type { DataLayerItem, ToastMessage, LoadedDataInfo, ResolutionTier, PrognosticModelBackend, MeteorologicalProvenance };
+export { isWeatherNextModel };
 
 export interface TelemetryHUDProps {
   isZenMode: boolean;

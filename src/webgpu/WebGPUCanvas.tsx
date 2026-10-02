@@ -11,7 +11,7 @@ import { WebGPUEngine } from './WebGPUEngine';
 import { CursorTracker } from '../utils/raycast';
 import { invertMacroChart } from '../core/math/volumetricMath';
 import { useCursorTracker } from '../core/CursorContext';
-import { DataLayerItem, PrognosticModelBackend } from '../components/hud/TelemetryHUD';
+import { DataLayerItem, PrognosticModelBackend, isWeatherNextModel } from '../components/hud/TelemetryHUD';
 
 import { GeodesicOverlayMode, ResolutionTier, SimulationMode } from '../types';
 import { WhimsicalEffectsManager } from '../core/effects/WhimsicalEffectsManager';
@@ -695,10 +695,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         weatherNextDS.setTime(bracketHour, tau).catch(() => {});
       }
     }
-    const isWn =
-      prognosticModel === 'weathernext3' ||
-      prognosticModel === 'google-weathernext3' ||
-      prognosticModel === 'weathernext';
+    const isWn = isWeatherNextModel(prognosticModel);
     if (isWn && engineRef.current && timelineMinutes !== undefined && timelineMinutes >= 0) {
       const targetHour = Math.min(11, Math.max(0, Math.floor(timelineMinutes / 60)));
       engineRef.current.loadWeatherNextCloudLayers(targetHour).catch(() => {});
@@ -763,10 +760,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     if (hasSatellites) {
       engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
     }
-    const isWnModel =
-      prognosticModel === 'weathernext3' ||
-      prognosticModel === 'google-weathernext3' ||
-      prognosticModel === 'weathernext';
+    const isWnModel = isWeatherNextModel(prognosticModel);
 
     if (showClouds) {
       engine.loadAllCloudLayers(isWnModel).catch(() => {});
@@ -854,9 +848,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
             if (!weatherNextDS || weatherNextDS.disposed) {
               weatherNextDS = new WeatherNextDataSource({ ringBuffer: wnRing });
               (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__ = weatherNextDS;
-              weatherNextDS.seekHour(0).catch((err: any) => {
-                console.warn('[WeatherNext] Initial seekHour(0) error:', err);
-              });
+              weatherNextDS
+                .loadMetadata()
+                .then(() => weatherNextDS.seekHour(0, prognosticVariable))
+                .catch(() => weatherNextDS.seekHour(0, prognosticVariable))
+                .catch((err: any) => {
+                  console.warn('[WeatherNext] Initial seekHour(0) error:', err);
+                });
             }
           }
         });
@@ -2382,10 +2380,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         engine.loadVectorData('/geo-vectors.bin').catch(() => {});
         engine.loadContourMesh('/geo-contour-mesh.bin').catch(() => {});
         engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
-        const isWnModel =
-          prognosticModel === 'weathernext3' ||
-          prognosticModel === 'google-weathernext3' ||
-          prognosticModel === 'weathernext';
+        const isWnModel = isWeatherNextModel(prognosticModel);
 
         if (isWnModel) {
           engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {
@@ -2469,10 +2464,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
           engine.loadVectorData('/geo-vectors.bin').catch(() => {});
           engine.loadContourMesh('/geo-contour-mesh.bin').catch(() => {});
           engine.loadSatelliteTrajectories('/data/tle-starlink.json').catch(() => {});
-          const isWnModel =
-            prognosticModel === 'weathernext3' ||
-            prognosticModel === 'google-weathernext3' ||
-            prognosticModel === 'weathernext';
+          const isWnModel = isWeatherNextModel(prognosticModel);
 
           if (isWnModel) {
             engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {

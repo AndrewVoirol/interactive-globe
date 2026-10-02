@@ -726,7 +726,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               id: 'weathernext3',
               domId: 'sidebar-model-weathernext',
               label: 'WeatherNext 3',
-              sublabel: 'DeepMind 0.1° AI',
+              sublabel: 'DeepMind WeatherNext 3',
               title: 'Google DeepMind WeatherNext 3 (0.1° / 10km Graph Neural Tensor / Zarr v3)',
               className: 'w-full',
             },

@@ -726,7 +726,7 @@ export class WebGPUEngine {
   private volumetricCameraUniformBuffer: GPUBuffer | null = null;
   private volumetricCloudUniformBuffer: GPUBuffer | null = null;
   private volumetricNoiseSampler: GPUSampler | null = null;
-  private volumetricCloudsEnabled: boolean = true;
+  private volumetricCloudsEnabled: boolean = false;
   private volumetricPipelineDescriptor: GPURenderPipelineDescriptor | null = null;
   private dummyDepthTextureView: GPUTextureView | null = null;
   private dummy3DNoiseTextureView: GPUTextureView | null = null;

@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { DATA_LAYER_CATALOG, DataLayerPreset, BlendModeType, getPresetById } from '../../core/data/DataLayerCatalog';
 import { SegmentedControl } from '../ui/SegmentedControl';
+import { isWeatherNextModel } from '../AtmosphereDrawer';
 
 export interface DataLayerItem {
   id: string;
@@ -72,10 +73,7 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const isLight = theme === 1;
-  const isWnModel =
-    prognosticModel === 'weathernext3' ||
-    prognosticModel === 'google-weathernext3' ||
-    prognosticModel === 'weathernext';
+  const isWnModel = isWeatherNextModel(prognosticModel);
 
   const noaaLayer = dataLayers.find((l) => l.id === 'noaa-gfs-wind');
   const isNoaaActive = noaaLayer ? noaaLayer.visible : false;

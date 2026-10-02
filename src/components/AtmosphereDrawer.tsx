@@ -29,6 +29,10 @@ export type PrognosticModelBackend =
   | 'off'
   | 'climatology';
 
+export function isWeatherNextModel(model?: string): boolean {
+  return model === 'weathernext3' || model === 'google-weathernext3' || model === 'weathernext';
+}
+
 export interface AtmosphereDrawerProps {
   theme?: 0 | 1 | 2;
   isLight?: boolean;
