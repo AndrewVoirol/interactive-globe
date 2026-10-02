@@ -157,6 +157,7 @@ export interface WebGPUFrameParams {
   sheenIntensity?: number;
   absorptionFeathering?: number;
   cameraPitchDeg?: number;
+  paperNormalDirty?: boolean;
   terrainShadows?: boolean;
   showTerrainShadows?: boolean;
   maxRayDistanceMeters?: number;
@@ -884,6 +885,7 @@ export class WebGPUEngine {
   public paperNormalDirty: boolean = true;
   public paperNormalComputed: boolean = false;
   public currentSubstrateTheme: number = -1;
+  private prevPaperF: Float32Array = new Float32Array(8);
 
   // ==========================================================================
   // Section 2: Directional Horizon & Canyon Self-Shadowing
@@ -8426,10 +8428,14 @@ export class WebGPUEngine {
 
     // 14. Cartographic Intaglio Substrate Micro-Relief & Paper Composition Uniforms (Milestone §6)
     const isPurity = params.purityMode !== undefined ? Boolean(params.purityMode) : Boolean(this.purityMode);
+    const themeVal = params.theme !== undefined ? params.theme : 1;
+    const defaultThemeHaptics = (themeVal === 1 || themeVal === 0);
     const showHaptics = !isPurity && Boolean(
-      params.substrateHaptics ||
-      params.paperSubstrate ||
-      this.paperSubstrateEnabled
+      params.substrateHaptics !== undefined
+        ? params.substrateHaptics
+        : (params.paperSubstrate !== undefined
+            ? params.paperSubstrate
+            : (this.paperSubstrateEnabled && defaultThemeHaptics))
     );
 
     if (showHaptics) {
@@ -8450,11 +8456,23 @@ export class WebGPUEngine {
       paperF[4] = params.grainAngleRadians !== undefined ? params.grainAngleRadians : 0.2618;
       paperF[5] = params.sheenIntensity !== undefined
         ? params.sheenIntensity
-        : (params.theme === 1 ? 0.85 : params.theme === 2 ? 0.50 : 0.40);
+        : 0.45;
       paperF[6] = params.absorptionFeathering !== undefined
         ? params.absorptionFeathering
-        : (params.theme === 1 ? 0.35 : params.theme === 2 ? 0.15 : 0.20);
+        : (themeVal === 1 ? 0.35 : themeVal === 2 ? 0.15 : 0.20);
       paperF[7] = 0.0;
+
+      let paperChanged = false;
+      for (let i = 0; i < 7; i++) {
+        if (Math.abs(this.prevPaperF[i] - paperF[i]) > 1e-5) {
+          paperChanged = true;
+          this.prevPaperF[i] = paperF[i];
+        }
+      }
+      if (paperChanged || params.paperNormalDirty) {
+        this.paperNormalDirty = true;
+      }
+
       this.device.queue.writeBuffer(this.paperSubstrateUniformBuffer, 0, paperF.buffer);
 
       const canvasW = this.context?.canvas?.width || 800;
@@ -8462,7 +8480,6 @@ export class WebGPUEngine {
 
       const confF = this.substrateConfigFloats;
       const confU = this.substrateConfigUints;
-      const themeVal = params.theme !== undefined ? params.theme : 1;
       if (this.currentSubstrateTheme !== themeVal) {
         this.currentSubstrateTheme = themeVal;
         this.paperNormalDirty = true;
@@ -8539,10 +8556,14 @@ export class WebGPUEngine {
     if (params.camera) {
       this.camera = params.camera;
     }
+    const themeVal = params.theme !== undefined ? params.theme : 1;
+    const defaultThemeHaptics = (themeVal === 1 || themeVal === 0);
     const showHaptics = !isPurity && Boolean(
-      params.substrateHaptics ||
-      params.paperSubstrate ||
-      this.paperSubstrateEnabled
+      params.substrateHaptics !== undefined
+        ? params.substrateHaptics
+        : (params.paperSubstrate !== undefined
+            ? params.paperSubstrate
+            : (this.paperSubstrateEnabled && defaultThemeHaptics))
     );
 
     if (showHaptics) {

@@ -1048,18 +1048,28 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                       <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
                         Paper Substrate
                       </span>
-                      {theme !== 1 && (
-                        <span className="text-nano font-mono px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] border border-[var(--theme-control-border)]">
-                          Cream Rag only
-                        </span>
-                      )}
+                      <span className="text-nano font-mono px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] border border-[var(--theme-control-border)]">
+                        {theme === 1 ? '310 GSM Rag' : theme === 2 ? 'Drafting Linen' : 'Illustration Board'}
+                      </span>
                     </div>
-                    <div className={`transition-opacity ${theme === 1 ? 'opacity-100' : 'opacity-60'}`}>
+                    <div className="transition-opacity opacity-100">
                       <VernierSlider
                         id="sidebar-paper-tooth"
                         label="Paper Grain"
-                        sublabel={theme !== 1 ? '(Cream Rag only)' : 'Cellulose fiber roughness of 310 GSM cotton rag'}
-                        tooltip="Simulates physical micro-texture and cellulose fiber roughness of 310 GSM archival cotton rag paper"
+                        sublabel={
+                          theme === 1
+                            ? 'Cellulose fiber roughness of 310 GSM cotton rag'
+                            : theme === 2
+                            ? 'Structured warp & weft weave of drafting linen'
+                            : 'Lithographic illustration board tooth & stipple'
+                        }
+                        tooltip={
+                          theme === 1
+                            ? 'Simulates physical micro-texture and cellulose fiber roughness of 310 GSM archival cotton rag paper'
+                            : theme === 2
+                            ? 'Simulates structured blueprint drafting linen weave with orthogonal warp and weft fibers'
+                            : 'Simulates 1977 Marie Tharp physiographic illustration board tooth and stipple relief'
+                        }
                         value={primaryLayer?.paperTooth ?? 0.40}
                         min={0.0}
                         max={1.0}

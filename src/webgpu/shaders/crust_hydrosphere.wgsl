@@ -1497,9 +1497,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let fiberStrand = hashPaper2D(vec2<f32>(fiberCoord.x * 0.45 + 37.0, fiberCoord.y * 1.95 + 83.0));
         let fiberTooth = (fiberFleck * 0.60 + fiberStrand * 0.40 - 0.50) * (sim.u_roughness * 0.85);
 
-        // Grazing raking light amplifies micro-shadows behind individual fibers
-        let grazingFactor = pow(max(0.0, NdotL1), 0.65);
-        let toothGlaze = 1.0 + fiberTooth * grazingFactor;
+        // Grazing raking light amplifies micro-shadows behind individual fibers under oblique sun angles
+        let rakingOblique = mix(0.70, 1.40, clamp((1.0 - NdotL1) * 1.5, 0.0, 1.0));
+        let toothGlaze = 1.0 + fiberTooth * rakingOblique;
         finalLand = clamp(finalLand * toothGlaze, vec3<f32>(0.0), vec3<f32>(1.0));
 
         // 2. Johann Georg Lehmann (1799) slope-angle hachuring (steep alpine faces theta > 20°)
@@ -1590,6 +1590,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let ferricContrast = pow(clamp(ferricSlope * 3.8, 0.0, 1.0), 1.25);
         let ferricModulation = mix(0.92, 1.18, ferricContrast * (NdotL1 - 0.45));
         finalLand = clamp(finalLand * ferricModulation, vec3<f32>(0.0), vec3<f32>(1.0));
+
+        // Actinic solarization to eliminate warm tone bleed: ensure cold actinic hue and zero warm tint (Rule 3)
+        let warmBleed = max(0.0, finalLand.r - finalLand.b * 0.85);
+        finalLand = clamp(finalLand - vec3<f32>(warmBleed, warmBleed * 0.5, 0.0), vec3<f32>(0.0), vec3<f32>(1.0));
     }
 
     // Continental crust uses archival matte paper ink absorption — zero computer-game specular glare

@@ -285,14 +285,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
   prognosticModel = 'weathernext3',
   prognosticVariable,
   purityMode = false,
-  substrateHaptics = true,
-  paperSubstrate = true,
+  substrateHaptics,
+  paperSubstrate,
   fiberFrequency = 45.0,
   fiberAnisotropy = 0.65,
   plateMarkDepthMeters = 0.0035,
   inkRidgeHeightMeters = 0.0018,
   grainAngleRadians = 0.2618,
-  sheenIntensity,
+  sheenIntensity = 0.45,
   absorptionFeathering,
   cameraPitchDeg,
   windSpeedMultiplier = 1.0,
@@ -3161,10 +3161,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
               : false,
           substrateHaptics: liveOverrides?.substrateHaptics !== undefined
             ? Boolean(liveOverrides.substrateHaptics)
-            : (stateRef.current.substrateHaptics ?? true),
+            : (stateRef.current.substrateHaptics !== undefined
+                ? Boolean(stateRef.current.substrateHaptics)
+                : (stateRef.current.theme === 1 || stateRef.current.theme === 0)),
           paperSubstrate: liveOverrides?.paperSubstrate !== undefined
             ? Boolean(liveOverrides.paperSubstrate)
-            : (stateRef.current.paperSubstrate ?? true),
+            : (stateRef.current.paperSubstrate !== undefined
+                ? Boolean(stateRef.current.paperSubstrate)
+                : (stateRef.current.theme === 1 || stateRef.current.theme === 0)),
           fiberFrequency: liveOverrides?.fiberFrequency ?? stateRef.current.fiberFrequency,
           fiberAnisotropy: liveOverrides?.fiberAnisotropy ?? stateRef.current.fiberAnisotropy,
           plateMarkDepthMeters: liveOverrides?.plateMarkDepthMeters ?? stateRef.current.plateMarkDepthMeters,
