@@ -1385,17 +1385,19 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // Eduard Imhof Dual-Temperature Vector Illumination:
         // Warm golden ochre on NW 315° direct illuminated slopes vs cool violet-umber on SE 135° shadowed slopes
         let cWarmDirect = vec3<f32>(1.14, 1.06, 0.94);
-        let cCoolShadow = vec3<f32>(0.35, 0.36, 0.45);
+        let cSepiaCharcoal = vec3<f32>(0.22, 0.19, 0.16); // Archival sepia-charcoal ink #38302A
+        let cCoolShadow = mix(vec3<f32>(0.35, 0.36, 0.45), cSepiaCharcoal, (1.0 - terrainShadow) * 0.65);
         let sunWeight = smoothstep(0.04, 0.68, NdotL1 * shadowFactor);
         let directComponent = cWarmDirect * (sunDirect * 0.90 + ridgeEnhance * 0.8 * shadowFactor);
         let shadowComponent = cCoolShadow * (skyIndirect * creviceAO);
-        let lowlandLift = lowlandWeight * 0.12 * (1.0 + lowlandMicroShade);
+        let lowlandLift = lowlandWeight * 0.12 * (1.0 + lowlandMicroShade) * terrainShadow;
         landIllum = mix(shadowComponent, directComponent, sunWeight) + cWarmDirect * lowlandLift;
     } else if (sim.u_theme == 2u) {
         // Prussian Cyanotype: Actinic Monochromatic Photochemical Illumination
         // STRICTLY MONOCHROMATIC — pure cool actinic blueprint lighting, zero warm/yellow sun component
         let cActinicDirect = vec3<f32>(0.96, 0.98, 1.02);
-        let cActinicShadow = vec3<f32>(0.18, 0.32, 0.48);
+        let cPrussianNavyShadow = vec3<f32>(0.07, 0.14, 0.24); // Cold photochemical Prussian navy
+        let cActinicShadow = mix(vec3<f32>(0.18, 0.32, 0.48), cPrussianNavyShadow, (1.0 - terrainShadow) * 0.70);
         let sunWeight = clamp(NdotL1 * 1.4 * shadowFactor, 0.0, 1.0);
         let directComponent = cActinicDirect * (sunDirect * 0.85 + ridgeEnhance * 0.8 * shadowFactor);
         let shadowComponent = cActinicShadow * (skyIndirect * creviceAO);
@@ -1404,7 +1406,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let cWarmSun = vec3<f32>(1.04, 0.98, 0.88);
         let cCoolHaze = vec3<f32>(0.84, 0.90, 1.06);
         let skyHaze = mix(cCoolHaze, cWarmSun, clamp(NdotL1 * 1.5 * shadowFactor, 0.0, 1.0));
-        landIllum = (cSunLight * (sunDirect * 0.85 + ridgeEnhance * shadowFactor) + cSkyAmbient * (skyIndirect * creviceAO)) * skyHaze;
+        let cUmberCastShadow = vec3<f32>(0.22, 0.16, 0.12); // Berann hand-painted rich umber wash #2E241C
+        let cEffectiveAmbient = mix(cSkyAmbient, cUmberCastShadow, (1.0 - terrainShadow) * 0.75);
+        landIllum = (cSunLight * (sunDirect * 0.85 + ridgeEnhance * shadowFactor) + cEffectiveAmbient * (skyIndirect * creviceAO)) * skyHaze;
     }
     landIllum = landIllum * (1.0 + lowlandMicroShade * 0.30);
     let tintedLand = cRamp * landIllum;
@@ -1526,7 +1530,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let kSepia = vec3<f32>(1.45, 1.72, 2.15); // Sepia spectral absorption
         let shadowDepth = clamp(1.0 - diffuseTotal, 0.0, 1.0);
         let slopeGrip = smoothstep(0.04, 0.25, length(vec2<f32>(effDHx, effDHy)));
-        let inkDensity = clamp(shadowDepth * slopeGrip * 0.45, 0.0, 0.60);
+        let shadowCastGrip = max(slopeGrip, (1.0 - terrainShadow) * 0.60);
+        let inkDensity = clamp(shadowDepth * shadowCastGrip * 0.45, 0.0, 0.60);
         let cPaperBase = vec3<f32>(0.953, 0.925, 0.878); // Arches 300gsm Cream Rag #F3ECE0
         let intaglioAbsorbed = cPaperBase * exp(-kSepia * (inkDensity * (1.0 + capillaryBleed)));
         let inkBlend = clamp(inkDensity * 1.5 * sim.u_mediumProperties.x, 0.0, 0.70);

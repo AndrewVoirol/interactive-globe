@@ -135,6 +135,11 @@ export interface UnifiedRightSidebarProps {
   windParticleLifetime?: number;
   onWindParticleLifetimeChange?: (v: number) => void;
   onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
+  terrainShadows?: boolean;
+  onTerrainShadowsToggle?: () => void;
+  onTerrainShadowsChange?: (enabled: boolean) => void;
+  penumbraSoftness?: number;
+  onPenumbraSoftnessChange?: (softness: number) => void;
 }
 
 export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
@@ -244,6 +249,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   windParticleLifetime,
   onWindParticleLifetimeChange,
   onTogglePlanetaryLayer: propTogglePlanetaryLayer,
+  terrainShadows: propTerrainShadows,
+  onTerrainShadowsToggle,
+  onTerrainShadowsChange,
+  penumbraSoftness: propPenumbraSoftness,
+  onPenumbraSoftnessChange,
 }) => {
   const handleToggleClouds = (val: boolean) => {
     onShowCloudsChange?.(val);
@@ -369,6 +379,73 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       window.dispatchEvent(new CustomEvent('indicatrix:cdlod-diag', { detail: mode }));
     }
   }, [onCdlodDiagnosticModeChange, setCdlodDiagnosticMode]);
+
+  const [internalTerrainShadows, setInternalTerrainShadows] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const live = (window as any).__INDICATRIX_LIVE_UNIFORMS__;
+      if (live?.terrainShadows !== undefined) return Boolean(live.terrainShadows);
+      if (live?.showTerrainShadows !== undefined) return Boolean(live.showTerrainShadows);
+      const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__;
+      if (engine && typeof engine.isTerrainShadowsEnabled === 'function') {
+        return engine.isTerrainShadowsEnabled();
+      }
+    }
+    return false;
+  });
+
+  const [internalPenumbraSoftness, setInternalPenumbraSoftness] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const live = (window as any).__INDICATRIX_LIVE_UNIFORMS__;
+      if (live?.penumbraSoftness !== undefined) return live.penumbraSoftness;
+    }
+    return 1.5;
+  });
+
+  const activeTerrainShadows = propTerrainShadows !== undefined ? propTerrainShadows : internalTerrainShadows;
+  const activePenumbraSoftness = propPenumbraSoftness !== undefined ? propPenumbraSoftness : internalPenumbraSoftness;
+
+  const handleToggleTerrainShadows = useCallback((nextVal?: boolean) => {
+    const val = nextVal !== undefined ? nextVal : !activeTerrainShadows;
+    setInternalTerrainShadows(val);
+    if (onTerrainShadowsChange) {
+      onTerrainShadowsChange(val);
+    } else if (onTerrainShadowsToggle) {
+      onTerrainShadowsToggle();
+    }
+    if (typeof window !== 'undefined') {
+      const live = (window as any).__INDICATRIX_LIVE_UNIFORMS__ || {};
+      live.terrainShadows = val;
+      live.showTerrainShadows = val;
+      (window as any).__INDICATRIX_LIVE_UNIFORMS__ = live;
+      const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__;
+      if (engine) {
+        if (typeof engine.setTerrainShadowsEnabled === 'function') {
+          engine.setTerrainShadowsEnabled(val);
+        }
+        if (typeof engine.updateTerrainShadowUniforms === 'function') {
+          engine.updateTerrainShadowUniforms({
+            penumbraSoftness: activePenumbraSoftness,
+          });
+        }
+      }
+    }
+  }, [activeTerrainShadows, activePenumbraSoftness, onTerrainShadowsChange, onTerrainShadowsToggle]);
+
+  const handlePenumbraSoftnessChange = useCallback((val: number) => {
+    setInternalPenumbraSoftness(val);
+    onPenumbraSoftnessChange?.(val);
+    if (typeof window !== 'undefined') {
+      const live = (window as any).__INDICATRIX_LIVE_UNIFORMS__ || {};
+      live.penumbraSoftness = val;
+      (window as any).__INDICATRIX_LIVE_UNIFORMS__ = live;
+      const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__;
+      if (engine && typeof engine.updateTerrainShadowUniforms === 'function') {
+        engine.updateTerrainShadowUniforms({
+          penumbraSoftness: val,
+        });
+      }
+    }
+  }, [onPenumbraSoftnessChange]);
 
   const isLight = theme === 1;
 
@@ -800,16 +877,85 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                     theme={theme}
                     azimuth={primaryLayer?.sunAzimuth ?? 315}
                     altitude={primaryLayer?.sunAltitude ?? 45}
-                    onChange={(azimuth, altitude) =>
+                    onChange={(azimuth, altitude) => {
                       onHillshadeChangeDataLayer?.(
                         primaryLayerId,
                         azimuth,
                         primaryLayer?.hillshadeIntensity ?? 0.65,
                         altitude
-                      )
-                    }
+                      );
+                      if (typeof window !== 'undefined') {
+                        const live = (window as any).__INDICATRIX_LIVE_UNIFORMS__ || {};
+                        live.sunAzimuth = azimuth;
+                        live.sunAltitude = altitude;
+                        (window as any).__INDICATRIX_LIVE_UNIFORMS__ = live;
+                        const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__;
+                        if (engine && typeof engine.updateTerrainShadowUniforms === 'function') {
+                          engine.updateTerrainShadowUniforms({
+                            sunAzimuth: azimuth,
+                            sunAltitude: altitude,
+                          });
+                        }
+                      }
+                    }}
                     isLight={isLight}
                   />
+
+                  {/* Dynamic Terrain Horizon Self-Shadows & Canyon Lighting */}
+                  <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                          Terrain Self-Shadows
+                        </span>
+                        <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+                          Horizon occlusion & canyon shadow rays
+                        </span>
+                      </div>
+                      <TactileSwitch
+                        id="sidebar-terrain-shadows-toggle"
+                        checked={activeTerrainShadows}
+                        onChange={handleToggleTerrainShadows}
+                        title="Toggle Dynamic Terrain Horizon Self-Shadows"
+                        label={activeTerrainShadows ? 'Active' : 'Off'}
+                        indicatorColor={theme === 1 ? '#7D4700' : theme === 2 ? '#38BDF8' : '#F59E0B'}
+                      />
+                    </div>
+
+                    {/* Collapsible Slider: Penumbra Softness */}
+                    <div
+                      className={`transition-all duration-150 ease-out overflow-hidden ${
+                        activeTerrainShadows
+                          ? 'max-h-[120px] opacity-100 space-y-1.5 pointer-events-auto'
+                          : 'max-h-0 opacity-0 p-0 m-0 pointer-events-none'
+                      }`}
+                      style={{ transitionTimingFunction: 'var(--theme-spring-switch, cubic-bezier(0.34, 1.35, 0.64, 1))' }}
+                    >
+                      <div className="flex items-center justify-between text-nano pt-1">
+                        <span className="text-[var(--theme-text-secondary)] font-bold uppercase tracking-wider">
+                          Penumbra Softness:
+                        </span>
+                        <span className="font-semibold tabular-nums text-[var(--theme-text-primary)] font-mono">
+                          {activePenumbraSoftness.toFixed(2)}×
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="sidebar-terrain-shadow-softness"
+                          name="penumbraSoftness"
+                          type="range"
+                          min="0.5"
+                          max="3.0"
+                          step="0.05"
+                          value={activePenumbraSoftness}
+                          title="Penumbra Softness (Double-click to reset: 1.5×)"
+                          onDoubleClick={() => handlePenumbraSoftnessChange(1.5)}
+                          onChange={(e) => handlePenumbraSoftnessChange(parseFloat(e.target.value))}
+                          className="flex-1 slider-archival cursor-pointer h-1 rounded-[1px]"
+                        />
+                      </div>
+                    </div>
+                  </div>
 
                   <HypsometricReliefCurve
                     theme={theme}

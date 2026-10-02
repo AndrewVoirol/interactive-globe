@@ -147,6 +147,11 @@ export interface TelemetryHUDProps {
   windParticleLifetime?: number;
   onWindParticleLifetimeChange?: (v: number) => void;
   onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
+  terrainShadows?: boolean;
+  onTerrainShadowsToggle?: () => void;
+  onTerrainShadowsChange?: (enabled: boolean) => void;
+  penumbraSoftness?: number;
+  onPenumbraSoftnessChange?: (softness: number) => void;
 }
 
 export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
@@ -283,6 +288,11 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onWindSpeedMultiplierChange={props.onWindSpeedMultiplierChange}
         windParticleLifetime={props.windParticleLifetime}
         onWindParticleLifetimeChange={props.onWindParticleLifetimeChange}
+        terrainShadows={props.terrainShadows}
+        onTerrainShadowsToggle={props.onTerrainShadowsToggle}
+        onTerrainShadowsChange={props.onTerrainShadowsChange}
+        penumbraSoftness={props.penumbraSoftness}
+        onPenumbraSoftnessChange={props.onPenumbraSoftnessChange}
       />
 
       {/* Bottom-Left Non-Intrusive Glassmorphic Toast Notification Stack */}

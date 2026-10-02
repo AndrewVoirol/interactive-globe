@@ -321,8 +321,14 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
     setInternalVariable(nextVar);
     onPrognosticVariableChange?.(nextVar);
     onVariableChange?.(nextVar);
-    if (nextVar === 'wind_10m_vector') {
+    if (nextVar === 'wind_10m_vector' || nextVar === 'ivt') {
       onTogglePlanetaryLayer?.('noaa-gfs-wind', true);
+      if (typeof window !== 'undefined') {
+        const live = (window as any).__INDICATRIX_LIVE_UNIFORMS__ || {};
+        live.showSurfaceWinds = true;
+        live.showWind = true;
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__ = live;
+      }
     }
     if (
       !onPrognosticVariableChange &&

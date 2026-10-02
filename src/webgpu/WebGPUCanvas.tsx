@@ -190,6 +190,13 @@ export interface WebGPUCanvasProps {
   cameraPitchDeg?: number;
   windSpeedMultiplier?: number;
   windParticleLifetime?: number;
+  terrainShadows?: boolean;
+  showTerrainShadows?: boolean;
+  maxRayDistanceMeters?: number;
+  penumbraSoftness?: number;
+  sampleStepCount?: number;
+  onTerrainShadowsChange?: (enabled: boolean) => void;
+  onPenumbraSoftnessChange?: (softness: number) => void;
 }
 
 interface RegionalManifestEntry {
@@ -297,6 +304,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
   cameraPitchDeg,
   windSpeedMultiplier = 1.0,
   windParticleLifetime = 6.0,
+  terrainShadows = false,
+  showTerrainShadows = false,
+  maxRayDistanceMeters = 50000.0,
+  penumbraSoftness = 1.5,
+  sampleStepCount = 16,
+  onTerrainShadowsChange,
+  onPenumbraSoftnessChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -593,6 +607,11 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     prognosticVariable,
     windSpeedMultiplier,
     windParticleLifetime,
+    terrainShadows: terrainShadows || showTerrainShadows,
+    showTerrainShadows: terrainShadows || showTerrainShadows,
+    maxRayDistanceMeters,
+    penumbraSoftness,
+    sampleStepCount,
   });
   useEffect(() => {
     stateRef.current = {
@@ -656,9 +675,25 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
       prognosticVariable,
       windSpeedMultiplier,
       windParticleLifetime,
+      terrainShadows: terrainShadows || showTerrainShadows,
+      showTerrainShadows: terrainShadows || showTerrainShadows,
+      maxRayDistanceMeters,
+      penumbraSoftness,
+      sampleStepCount,
     };
     cachedLayersRef.current = computeCachedLayers(dataLayers);
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudDriftSpeed, cloudOpacity, cloudThickness, cloudLowTop, cloudErosion, cloudFreqHoriz, cloudFreqVert, cloudExtinction, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode, prognosticModel, prognosticVariable, windSpeedMultiplier, windParticleLifetime]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudDriftSpeed, cloudOpacity, cloudThickness, cloudLowTop, cloudErosion, cloudFreqHoriz, cloudFreqVert, cloudExtinction, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode, prognosticModel, prognosticVariable, windSpeedMultiplier, windParticleLifetime, terrainShadows, showTerrainShadows, maxRayDistanceMeters, penumbraSoftness, sampleStepCount]);
+
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.setTerrainShadowsEnabled(Boolean(terrainShadows || showTerrainShadows));
+      engineRef.current.updateTerrainShadowUniforms({
+        penumbraSoftness,
+        maxRayDistanceMeters,
+        sampleStepCount,
+      });
+    }
+  }, [terrainShadows, showTerrainShadows, penumbraSoftness, maxRayDistanceMeters, sampleStepCount]);
 
   useEffect(() => {
     if (engineRef.current) {

@@ -122,6 +122,8 @@ export default function App() {
   const [prognosticVariable, setPrognosticVariable] = useState<string>('total_precipitation_1hr_mean');
   const [purityMode, setPurityMode] = useState<boolean>(false);
   const [cdlodEnabled, setCdlodEnabled] = useState<boolean>(true);
+  const [terrainShadows, setTerrainShadows] = useState<boolean>(false);
+  const [penumbraSoftness, setPenumbraSoftness] = useState<number>(1.5);
   const lastWindHourRef = useRef<number>(-1);
 
   const handlePrognosticVariableChange = useCallback((variable: string) => {
@@ -790,6 +792,11 @@ export default function App() {
                 purityMode={purityMode}
                 windSpeedMultiplier={windSpeedMultiplier}
                 windParticleLifetime={windParticleLifetime}
+                terrainShadows={terrainShadows}
+                showTerrainShadows={terrainShadows}
+                penumbraSoftness={penumbraSoftness}
+                onTerrainShadowsChange={setTerrainShadows}
+                onPenumbraSoftnessChange={setPenumbraSoftness}
               />
             </React.Suspense>
           ) : (
@@ -945,6 +952,11 @@ export default function App() {
           onWindSpeedMultiplierChange={setWindSpeedMultiplier}
           windParticleLifetime={windParticleLifetime}
           onWindParticleLifetimeChange={setWindParticleLifetime}
+          terrainShadows={terrainShadows}
+          onTerrainShadowsToggle={() => setTerrainShadows((s) => !s)}
+          onTerrainShadowsChange={setTerrainShadows}
+          penumbraSoftness={penumbraSoftness}
+          onPenumbraSoftnessChange={setPenumbraSoftness}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}
