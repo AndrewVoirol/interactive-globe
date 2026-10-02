@@ -288,30 +288,29 @@ struct PaperSubstrateUniforms {
 
 ---
 
-## 7. Comparative Technical Matrix: Current State vs. Future Differentiators
+## 7. Comparative Technical Matrix: Current State vs. Recalibrated Roadmap
 
-| Capability Domain | Milestone 7 Achieved State | Proposed Differentiator Architecture | Primary Technical Benefit |
+| Capability Domain | Milestone 7+ Current Achieved State | Recalibrated Roadmap / Backlog Architecture | Status & Strategic Priority |
 | :--- | :--- | :--- | :--- |
-| **Cloud Dynamics** | Static GFS/WeatherNext time slices with linear UV drift | RK2 Semi-Lagrangian 3D advection with pluvial condensation | True fluid vortex deformation and lee-wave cloud dynamics |
-| **Terrain Shadows** | Local Swiss relief ($N \cdot L_1, N \cdot L_2$) + 5-tap crevice AO | Horizon angle elevation raymarching with penumbra | Full canyon, mountain, and sunset terrain cast shadows |
-| **Shading Throughput** | Full-rate 4K shading across 8.3M pixels (24.1 ms) | Metal-3 Variable Rate Shading / coarse tile classification | Drops 4K GPU frame time to ~8.5 ms (60+ FPS sustained) |
-| **Hydrology** | Laplacian curvature valley tracing ($W \propto \text{mix}(0.4, 1.98)$) | Parallel flow routing + Leopold-Maddock power laws ($W \propto Q^{0.5}$) | True hierarchical river networks with physical estuarine tapering |
-| **Mesh Scalability** | CPU-driven draw calls for fixed 1M node mesh | 100% GPU-driven indirect draw with frustum/horizon culling | Scales to 16M nodes and seamless 10m regional CUDEM insets |
-| **Substrate Realism** | Procedural albedo/specular noise modulation | Intaglio plate-mark embossing + anisotropic fiber BRDF | Tactile archival realism matching physical 310 GSM cotton rag |
+| **Cloud Dynamics** | Spherical geodesic semi-Lagrangian advection on $S^2$ (`mapSphericalGeodesicUV`) coupled to live WeatherNext 3 wind + orographic blocking | Full 3D Eulerian advection-diffusion grid (`Texture3D` ping-pong compute pass) | **Completed / Operationally Sufficient** (Built in M1-WIND-S2 & M3-OROGRAPHIC-BLOCKING) |
+| **Terrain Shadows** | Imhof Swiss relief ($N \cdot L_1, N \cdot L_2$) + multi-deck cloud ground shadows | Activate & calibrate existing `horizon_occlusion.wgsl` compute pass with PolarSunCompass synchronization | **Milestone 9 (Ready for Activation)** (Shader written, needs UI control & calibration) |
+| **Shading Throughput** | Full-rate 4K shading sustained at 60 FPS via CDLOD culling & zero-GC loops | Metal-3 Variable Rate Shading / coarse tile classification pre-pass | **Deprioritized** (Non-standard WebGPU API; risks blurring abyssal bathymetry) |
+| **Hydrology** | Laplacian curvature valley tracing ($W \propto \text{mix}(0.4, 1.98)$) modulated by local rainfall rate | D-Infinity flow routing + Leopold-Maddock hydraulic power laws ($W \propto Q^{0.50}$) & Flint's Law | **Milestone 10 (High Value)** (Couples real weather rainfall with realistic river tapering) |
+| **Mesh Scalability** | CPU-dispatched 2-root parametric CDLOD quadtree (<0.5ms dispatch) | 100% GPU-driven indirect draw (`device.drawIndirect()`) | **Architectural Reserve** (Only needed when streaming dynamic 10m NOAA CUDEM regional insets) |
+| **Substrate Realism** | Live procedural tooth in shaders across all 3 themes (Marie Tharp stippling, Cream Rag fibers, Cyanotype linen weave) | Substrate micro-relief pass (`substrate_micro_relief.wgsl`, `paper_composition.wgsl` neatline plate mark & fiber sheen) | **Milestone 8 (Immediate Next Step)** (Multi-medium archival tactile calibration) |
 
 ---
 
-## 8. Implementation Roadmap & Milestones
+## 8. Recalibrated Milestone Execution Sequence
 
-1. **Phase 1: Performance & Horizon Relief (Weeks 1–2)**
-   - Implement VRS Coarse Tile Classification compute pass;
-   - Implement Dynamic Horizon Terrain Shadowing in `crust_hydrosphere.wgsl`.
-2. **Phase 2: Dynamic Hydrology & Geomorphology (Weeks 3–4)**
-   - Build D-Infinity flow routing and upstream drainage area compute shader;
-   - Wire Leopold-Maddock hydraulic power laws into river vertex/fragment shaders.
-3. **Phase 3: Atmospheric Fluid Advection (Weeks 5–6)**
-   - Implement 3D RK2 Semi-Lagrangian compute advection;
-   - Couple advected density ping-pong textures to the Wrenninge volumetric cloud raymarcher.
-4. **Phase 4: GPU-Driven Mesh Scaling & Substrate Haptics (Weeks 7–8)**
-   - Transition pipeline to `drawIndirect` with compute-driven quadtree culling;
-   - Integrate intaglio plate-mark micro-relief and anisotropic cellulose fiber shading.
+1. **Milestone 8: Physical Medium Fidelity Across All Three Archival Mediums**
+   - Calibrate and elevate tactile substrate response across Theme 0 (Marie Tharp), Theme 1 (Cream Rag), and Theme 2 (Prussian Cyanotype);
+   - Activate and tune neatline intaglio plate mark depression and anisotropic fiber sheen BRDF (`substrate_micro_relief.wgsl`, `paper_composition.wgsl`).
+2. **Milestone 9: Dynamic Terrain Horizon Self-Shadows & Canyon Lighting**
+   - Activate dormant `horizon_occlusion.wgsl` compute pipeline in `WebGPUEngine.ts`;
+   - Synchronize with live PolarSunCompass azimuth/altitude;
+   - Expose dedicated HUD controls in Terrain/Sun instruments.
+3. **Milestone 10: Dynamic Geomorphic Drainage Basin Synthesis (Leopold-Maddock Hydrology)**
+   - Author D-Infinity flow routing compute shader over DEM downhill slopes ($-\nabla h$);
+   - Accumulate upstream catchment area $A(\mathbf{x})$ and couple to live precipitation grids;
+   - Implement Leopold-Maddock river width tapering ($W \propto Q^{0.50}$) and Flint's Law incision.

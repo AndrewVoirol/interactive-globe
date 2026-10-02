@@ -429,14 +429,46 @@
 ---
 
 
-## Future Research & Physical Medium Fidelity Backlog
+## Recalibrated Backlog & Strategic Next Milestones
 
-- [ ] **Task M8-T1**: Method B: Procedural Micro-Fiber Surface Roughness in Shaders
+### Milestone 8: Physical Medium Fidelity Across All Three Archival Mediums
+- [ ] **Task M8-T1**: Multi-Medium Substrate & Weave Micro-Fidelity Tuning
   - **Phase**: `[PLANNING]`
   - **Target Files**: `src/webgpu/shaders/crust_hydrosphere.wgsl`, `src/core/themes/ThemeManager.ts`
-  - **Specification**: In `crust_hydrosphere.wgsl`, inject high-frequency procedural fiber micro-roughness into diffuse reflectance when `sim.u_theme == 1u` (Theme 1: Cream Rag).
-
-- [ ] **Task M8-T2**: Method C: Screen-Space Intaglio Plate Tone & Paper Tooth Pass
+  - **Specification**: Calibrate and elevate tactile substrate response across all 3 archival mediums:
+    1. *Theme 0 (Marie Tharp 1977)*: Enhance lithographic illustration board stipple density, Mid-Atlantic rift chasm ink wash, and Heinrich Berann pictorial relief shading.
+    2. *Theme 1 (Cream Rag)*: Refine cellulose fiber flecks, subtractive sepia ink capillary absorption, and grazing raking-light micro-shadows under oblique sun angles.
+    3. *Theme 2 (Prussian Cyanotype 1842)*: Harmonize structured blueprint linen weave (warp & weft modulation) and actinic solarization to eliminate warm tone bleed.
+- [ ] **Task M8-T2**: Neatline Intaglio Plate Mark & Substrate Micro-Relief Pass
   - **Phase**: `[PLANNING]`
-  - **Target Files**: `src/webgpu/WebGPUEngine.ts`, `src/webgpu/shaders/`
-  - **Specification**: Implement post-process screen-space paper texture pass across entire viewport rendering micro-tooth and edge plate tone emulating an engraved intaglio print on Arches 300gsm cotton rag.
+  - **Target Files**: `src/webgpu/shaders/substrate_micro_relief.wgsl`, `src/webgpu/shaders/paper_composition.wgsl`, `src/webgpu/WebGPUEngine.ts`
+  - **Specification**: Activate and tune existing substrate shaders to render physical 19th-century copperplate intaglio impression: neatline boundary plate depression, raised inked contours catching raking light, and anisotropic fiber sheen BRDF at glancing oblique camera pitch.
+
+---
+
+### Milestone 9: Dynamic Terrain Horizon Self-Shadows & Canyon Lighting
+- [ ] **Task M9-T1**: Horizon Occlusion Compute Activation & Sun Compass Synchronization
+  - **Phase**: `[PLANNING]`
+  - **Target Files**: `src/webgpu/shaders/horizon_occlusion.wgsl`, `src/webgpu/WebGPUEngine.ts`, `src/components/hud/instruments/PolarSunCompass.tsx`, `src/components/TerrainDrawer.tsx`
+  - **Specification**: Complete and activate existing dormant horizon occlusion pipeline (`horizon_occlusion.wgsl`):
+    1. Synchronize compute dispatch with live PolarSunCompass azimuth/altitude and camera view updates.
+    2. Calibrate soft penumbra filtering ($k_{\text{softness}} \cdot \tan\delta_{\text{sun}}$) across canyons (Grand Canyon, Yosemite) and volcanic peaks (Mauna Kea).
+    3. Expose dedicated HUD toggle and penumbra slider in the Terrain/Sun instruments.
+
+---
+
+### Milestone 10: Geomorphic Drainage Basin Synthesis & Leopold-Maddock Hydrology
+- [ ] **Task M10-T1**: D-Infinity Flow Accumulation & Upstream Catchment Synthesis
+  - **Phase**: `[PLANNING]`
+  - **Target Files**: `src/webgpu/shaders/drainage_accumulation.wgsl`, `src/webgpu/shaders/crust_hydrosphere.wgsl`, `src/core/weather/PluvialDynamics.ts`
+  - **Specification**: Elevate river networks from local curvature crevices to genuine geomorphic drainage basins:
+    1. Run parallel flow-routing pass over DEM downhill vectors ($-\nabla h$) to accumulate upstream contributing area $A(\mathbf{x})$.
+    2. Modulate discharge $Q(\mathbf{x})$ using live WeatherNext 3 / RainViewer precipitation grids.
+    3. Apply Leopold-Maddock (1953) hydraulic geometry power law ($W = a Q^{0.50}, D = c Q^{0.40}$) and Flint's Law bedrock incision, producing naturally widening river channels and coastal estuaries without needing 1m DEMs.
+
+---
+
+### Architectural Reserve (Deprioritized / Non-Immediate)
+- **Variable Rate Shading (VRS) & Coarse Tile Classification**: Deprioritized. WebGPU lacks standardized cross-platform VRS APIs, and quarter-rate tile subsampling risks blurring fine bathymetric stippling and isoline contours on abyssal plains. (Current CDLOD already sustains 60 FPS at 4K on Apple Silicon).
+- **GPU-Driven Multi-Draw Indirect (`drawIndirect`)**: Deprioritized. Global 1M–4M vertex meshes currently operate well within CPU dispatch limits (<0.5ms). Deferred until dynamic multi-tile ingestion of high-resolution 10m regional insets (NOAA CUDEM) requires it.
+- **3D Volumetric Eulerian Cloud Advection**: Deprioritized / Replaced. Milestone 1 (Task `M1-WIND-S2`) already implemented spherical geodesic semi-Lagrangian advection along WeatherNext 3 winds with orographic ridge blocking and rain shadows. Full 3D Eulerian grid advection would duplicate existing high-performance advection.
