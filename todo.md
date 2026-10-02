@@ -2,8 +2,8 @@
 
 **Master Orchestrator**: Antigravity 2.0 Multi-Agent Framework  
 **Target Codebase**: `ais-interactive-globe-to-map`  
-**Operational Status**: `[ALL MILESTONES COMPLETED - 3,861/3,861 TESTS PASSING]`  
-**Current Baseline**: 272 test files, 3,861 tests passing (100% pass rate, 0 failures, 0 regressions)  
+**Operational Status**: `[ALL MILESTONES COMPLETED - 3,871/3,871 TESTS PASSING]`  
+**Current Baseline**: 273 test files, 3,871 tests passing (100% pass rate, 0 failures, 0 regressions)  
 **Circuit Breaker Rule**: `MAX_RETRIES = 2` (Halts on 2 consecutive failed iterations per task ➔ `escalation.md`)
 
 ---
@@ -464,25 +464,39 @@
 ## Recalibrated Backlog & Strategic Next Milestones
 
 ### Milestone 9: Wind Strands & Multi-Fold Kinematic Entrainment
-- [ ] **Task M9-T1**: Mode 0-3 Manifold Fold Coupling & Developable Unroll Parity
-  - **Phase**: `[PLANNING]`
+- [x] **Task M9-T1**: Mode 0-3 Manifold Fold Coupling & Developable Unroll Parity
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: Fluid Dynamics & Kinematics Engineer / Shader Specialist
+  - **Target Files**: `src/webgpu/shaders/wind_particles.wgsl`, `src/webgpu/shaders/wind_ribbon_render.wgsl`, `src/webgpu/shaders/manifold.wgsl`
+  - **Specification**: Eliminated projection mismatch and geometry decoupling across manifold folds:
+    1. *Developable Unroll (Mode 0 Parity)*: Replaced Mercator projection in `geodeticToManifold` with Equirectangular 2:1 mapping ($y = R\phi$) matching `manifold.wgsl:evaluateModeZero` ($\mathbf{p} = \mathbf{F} + \mathbf{d}$), eliminating latitudinal drift between wind ribbons and terrain.
+    2. *Parchment Scroll (Mode 1)*: Conformed normal offset standoff $\mathbf{p}_{\text{final}} = \mathbf{p}_{\text{deformed}} + \mathbf{n}_{\text{deformed}} \cdot h_{\text{lift}}$ to the cylindrical scroll $r_{\text{scroll}}$, preventing ribbons from penetrating coiled paper layers.
+    3. *Tectonic Fracture (Mode 2)*: Canceled discontinuous crust rift displacement $(t_{\text{East}} \cdot \text{crackDilation})$ for atmospheric particles, maintaining smooth continuous streamline transport across the Mid-Atlantic Ridge calving rift without coordinate tearing or stretching over the chasm.
+  - **Micro-Verification**: Logic Gate (tests `M9-UNROLL-01`, `M9-SCROLL-02`, `M9-FRACTURE-03` passed), Syntax Gate (`npm run lint:wgsl` passed with 0 errors/warnings).
+
+- [x] **Task M9-T2**: Mode 3 Solenoidal Fluid Shear & Lamb-Oseen Vortex Coupling
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: Fluid Dynamics & WebGPU Systems Engineer
   - **Target Files**: `src/webgpu/shaders/wind_particles.wgsl`, `src/webgpu/shaders/wind_ribbon_render.wgsl`
-  - **Specification**: Eliminate projection mismatch and geometry decoupling across manifold folds:
-    1. *Developable Unroll (Mode 0)*: Replace Mercator projection in `geodeticToManifold` with Equirectangular 2:1 mapping ($y = R\phi$) to match the developable chart unroll ($p = F + d$) and eliminate latitudinal stretching.
-    2. *Parchment Scroll (Mode 1)*: Ensure wind ribbons wrap conformally along the cylindrical parchment roll ($r_{\text{scroll}}$) during formation and tightening without penetrating paper layers.
-    3. *Tectonic Fracture (Mode 2)*: Maintain continuous streamline flow across the Mid-Atlantic Ridge calving seam without coordinate stretching over the rift.
-- [ ] **Task M9-T2**: Mode 3 Solenoidal Fluid Shear & Lamb-Oseen Vortex Coupling
-  - **Phase**: `[PLANNING]`
-  - **Target Files**: `src/webgpu/shaders/wind_particles.wgsl`, `src/webgpu/shaders/wind_ribbon_render.wgsl`
-  - **Specification**: Physically entrain the 65,536 wind ribbon strands into the Mode 3 hydrodynamic fluid relaxation waves:
-    1. Project particle velocity into the manifold's solenoidal curl field $\mathbf{u}_{\text{curl}}$ and Lamb-Oseen cursor vortex $\mathbf{u}_{\text{vortex}}$.
-    2. Transform planetary GFS streamlines into fluid manifold filaments that trace the traveling capillary waves during liquefaction ($\alpha > 0$).
-- [ ] **Task M9-T3**: Analytic Antimeridian Seam Segmentation & Archival Inking Feathering
-  - **Phase**: `[PLANNING]`
-  - **Target Files**: `src/webgpu/shaders/wind_ribbon_render.wgsl`
-  - **Specification**: Eliminate 2D seam artifacts and polish medium inking:
-    1. Segment quad ribbons at the $\pm 180^\circ$ antimeridian boundary ($|\lambda_A - \lambda_B| > \pi$) to eliminate cross-canvas streaks on flat and unrolled maps.
-    2. In Theme 1 (Cream Rag), apply capillary absorption feathering into cellulose paper tooth. In Theme 2 (Cyanotype), enforce actinic white and cerulean filaments with zero warm contamination.
+  - **Specification**: Physically entrained the 65,536 wind ribbon strands and 65,536 jet stream particles into Mode 3 hydrodynamic fluid relaxation:
+    1. Projected particle velocities into the manifold's solenoidal curl field $\mathbf{u}_{\text{curl}}$ and tangent basis $(\mathbf{e}_{\text{East}}, \mathbf{e}_{\text{North}})$ with calibrated shear multiplier $\beta_{\text{shear}} = 25.0$:
+       $$\mathbf{u}_{\text{fluid3D}}(\mathbf{x}) = \mathbf{u}_{\text{curl}}(\mathbf{x}) - \mathbf{n}(\mathbf{n} \cdot \mathbf{u}_{\text{curl}}(\mathbf{x}))$$
+       $$\mathbf{u}_{\text{eff}}(\mathbf{x}, t) = (1 - \alpha_{\text{fluid}})\,\mathbf{u}_{\text{GFS}}(\mathbf{x}, t) + \alpha_{\text{fluid}} \left[\beta_{\text{shear}}\,\mathbf{u}_{\text{fluid}}(\mathbf{x}) + \mathbf{u}_{\text{vortex}}(\mathbf{x})\right]$$
+    2. Wired $\mathbf{u}_{\text{eff}}$ into 2nd-order Runge-Kutta advection and all 3 backward streamline history taps ($\mathbf{x}_1, \mathbf{x}_2, \mathbf{x}_3$) in `cs_advect_wind`.
+  - **Micro-Verification**: Logic Gate (tests `M9-SHEAR-01` and `M9-SHEAR-02` passed), Domain Gate (Rule 4 uniform control flow satisfied).
+
+- [x] **Task M9-T3**: Analytic Antimeridian Seam Segmentation & Archival Inking Feathering
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: Cartographic Ink & Visual Verification Engineer
+  - **Target Files**: `src/webgpu/shaders/wind_particles.wgsl`, `src/webgpu/shaders/wind_ribbon_render.wgsl`, `tests/modern/milestone9-wind-strands-kinematics.test.ts`
+  - **Specification**: Eliminated 2D seam artifacts and polished archival medium inking:
+    1. *Antimeridian Seam Segmentation*: Zeroed segment alpha ($a_1, a_2, a_3 = 0.0$) in `wind_particles.wgsl` when consecutive history points cross $|\lambda_k - \lambda_{k+1}| > \pi$, and suppressed quad extrusion in `wind_ribbon_render.wgsl` when $|\Delta x| > 0.75\pi R$ during unrolled states ($\alpha_{\text{unfurl}} > 0.05$), eliminating horizontal streak artifacts.
+    2. *Archival Medium Inking*: In Theme 1 (Cream Rag), applied capillary absorption feathering into cellulose paper tooth with burnt-sienna ink bleed (`#a3704d`). In Theme 2 (Cyanotype), enforced pure photochemical actinic white and cerulean filaments with zero warm contamination. In Theme 0 (Marie Tharp), enhanced physiographic ink glaze with amber-gold core along the ribbon spine.
+    3. *Live Browser Verification*: Verified via Chrome DevTools MCP with 0 console errors and 0 WebGPU warnings.
+  - **Micro-Verification**: 273/273 test files passing (3,871/3,871 tests, 100% pass rate, 0 failures, 0 regressions in 46.08s).
 
 ---
 
