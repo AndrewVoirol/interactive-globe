@@ -82,7 +82,6 @@ export default function App() {
     cloudDriftSpeed, setCloudDriftSpeed,
     cloudOpacity, setCloudOpacity,
     cloudFalseColor, setCloudFalseColor,
-    cloudMultiRateRaymarch, setCloudMultiRateRaymarch,
     volumetricClouds, setVolumetricClouds,
     cloudThickness, setCloudThickness,
     cloudLowTop, setCloudLowTop,
@@ -767,7 +766,6 @@ export default function App() {
                 showCloudMid={showCloudMid}
                 showCloudHigh={showCloudHigh}
                 cloudFalseColor={cloudFalseColor}
-                cloudMultiRateRaymarch={cloudMultiRateRaymarch}
                 cloudDriftSpeed={cloudDriftSpeed}
                 cloudOpacity={cloudOpacity}
                 cloudThickness={cloudThickness}
@@ -900,8 +898,6 @@ export default function App() {
           onShowCloudHighChange={setShowCloudHigh}
           cloudFalseColor={cloudFalseColor}
           onCloudFalseColorChange={setCloudFalseColor}
-          cloudMultiRateRaymarch={cloudMultiRateRaymarch}
-          onCloudMultiRateRaymarchChange={setCloudMultiRateRaymarch}
           volumetricClouds={volumetricClouds}
           onVolumetricCloudsChange={setVolumetricClouds}
           cloudDriftSpeed={cloudDriftSpeed}

@@ -919,7 +919,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var pal = getMediumPalette(theme);
 
     let isFalseColor = cloud.u_padCloud.x > 0.5;
-    let isMultiRate = cloud.u_padCloud.y > 0.5;
 
     let sigmaT = cloud.u_opticalParams.x * pal.inkDensityFactor;
     let albedo = cloud.u_opticalParams.y;
@@ -928,7 +927,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var accumTransmittance: f32 = 1.0;
     var t: f32 = tStart + jitter;
 
-    // Linearized Multi-Rate Tangent Frame Tracking (Pivot 2)
+    // Linearized Multi-Rate Tangent Frame Tracking (Pivot 2 - Architectural Default)
     var currentUVW = vec3<f32>(0.0);
     var v_uvw = vec3<f32>(0.0);
     var lastStepT = t;
@@ -940,23 +939,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         }
 
         let p = rayOrigin + rayDir * t;
-        var rawDensity: f32 = 0.0;
-        var shadowRes: SunShadowResult;
-
-        if (isMultiRate) {
-            let currentStepDist = t - lastStepT;
-            lastStepT = t;
-            if (step == 0 || (step % 8) == 0) {
-                currentUVW = invertMacroChartWGSL(p, unfurl, rInner);
-                v_uvw = getParameterVelocity(rayDir, currentUVW.x, currentUVW.y, currentUVW.z, unfurl, rInner);
-            } else {
-                currentUVW += v_uvw * currentStepDist;
-                currentUVW.x = fract((currentUVW.x / TWO_PI) + 0.5) * TWO_PI - PI;
-            }
-            rawDensity = sampleCloudDensityFromUVW(currentUVW, p, rInner, deltaR);
+        let currentStepDist = t - lastStepT;
+        lastStepT = t;
+        if (step == 0 || (step % 8) == 0) {
+            currentUVW = invertMacroChartWGSL(p, unfurl, rInner);
+            v_uvw = getParameterVelocity(rayDir, currentUVW.x, currentUVW.y, currentUVW.z, unfurl, rInner);
         } else {
-            rawDensity = sampleCloudDensity(p, rInner, deltaR);
+            currentUVW += v_uvw * currentStepDist;
+            currentUVW.x = fract((currentUVW.x / TWO_PI) + 0.5) * TWO_PI - PI;
         }
+        let rawDensity = sampleCloudDensityFromUVW(currentUVW, p, rInner, deltaR);
 
         // Near-Plane Camera Penetration Fade Envelope
         let distFromCam = t;
@@ -967,12 +959,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         if (density > 0.002) {
             // In false-color diagnostic mode, evaluate vibrant emissive strata color per step
             if (isFalseColor) {
-                var strataCol: vec3<f32>;
-                if (isMultiRate) {
-                    strataCol = evaluateStrataDiagnosticColorFromUVW(currentUVW);
-                } else {
-                    strataCol = evaluateStrataDiagnosticColor(p, rInner, deltaR);
-                }
+                let strataCol = evaluateStrataDiagnosticColorFromUVW(currentUVW);
                 pal.sunColor = strataCol * 1.6;
                 pal.midColor = strataCol * 0.9;
                 pal.ambientColor = strataCol * 0.45;
@@ -983,11 +970,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
             let stepT = exp(-stepTau);
 
             // 4-Step Solar Crevice Shadow Raymarch (Linearized zero-inversion in multi-rate mode)
-            if (isMultiRate) {
-                shadowRes = sampleSunShadowTransmittanceLinear(currentUVW, p, sunDir, rInner, deltaR);
-            } else {
-                shadowRes = sampleSunShadowTransmittance(p, sunDir, rInner, deltaR);
-            }
+            let shadowRes = sampleSunShadowTransmittanceLinear(currentUVW, p, sunDir, rInner, deltaR);
             let sunT = shadowRes.transmittance;
             let shadowDensity = shadowRes.density;
 
