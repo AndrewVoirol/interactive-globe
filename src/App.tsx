@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { SimulationMode, LoadedDataInfo } from './types';
 import { DataLayerRenderStyle, getPresetById } from './core/data/DataLayerCatalog';
-import { TelemetryHUD, type PrognosticModelBackend } from './components/hud/TelemetryHUD';
+import { TelemetryHUD, type PrognosticModelBackend, isWeatherNextModel } from './components/hud/TelemetryHUD';
 import { NavigationDock } from './components/hud/NavigationDock';
 import type { TimelineScrubberState } from './components/hud/TimelineScrubber';
 import { useEngineState } from './hooks/useEngineState';
@@ -82,7 +82,6 @@ export default function App() {
     cloudDriftSpeed, setCloudDriftSpeed,
     cloudOpacity, setCloudOpacity,
     cloudFalseColor, setCloudFalseColor,
-    cloudMultiRateRaymarch, setCloudMultiRateRaymarch,
     volumetricClouds, setVolumetricClouds,
     cloudThickness, setCloudThickness,
     cloudLowTop, setCloudLowTop,
@@ -142,7 +141,7 @@ export default function App() {
         const currentHour = weatherNextDS?.getCurrentHour?.() ?? 0;
         const clampedHour = Math.min(23, Math.max(0, currentHour));
         lastWindHourRef.current = clampedHour;
-        if (variable === 'wind_10m_vector' || prognosticModel === 'weathernext3' || prognosticModel === 'google-weathernext3' || prognosticModel === 'weathernext') {
+        if (variable === 'wind_10m_vector' || isWeatherNextModel(prognosticModel)) {
           engine.loadWindTexture(`/data/weathernext/wind_10m_vector-${clampedHour}.bin`).catch(() => {
             engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
           });
@@ -200,10 +199,7 @@ export default function App() {
           }
         }
 
-        const isWn =
-          prognosticModel === 'weathernext3' ||
-          prognosticModel === 'google-weathernext3' ||
-          prognosticModel === 'weathernext';
+        const isWn = isWeatherNextModel(prognosticModel);
         if (engine && typeof engine.loadWindTexture === 'function' && (isWn || prognosticVariable === 'wind_10m_vector')) {
           const windHour = Math.min(23, Math.max(0, state.bracketHour));
           if (windHour !== lastWindHourRef.current) {
@@ -480,7 +476,7 @@ export default function App() {
   const handlePrognosticModelChange = useCallback(
     (model: PrognosticModelBackend) => {
       setPrognosticModel(model);
-      if (model === 'weathernext3' || model === 'google-weathernext3' || model === 'weathernext') {
+      if (isWeatherNextModel(model)) {
         const exists = dataLayers.find((l) => l.id === 'google-weathernext3');
         if (exists && !exists.visible) {
           handleToggleDataLayer('google-weathernext3');
@@ -505,7 +501,7 @@ export default function App() {
       if (typeof window !== 'undefined') {
         const engine = window.__INDICATRIX_WEBGPU_ENGINE__ || window.__ENGINE;
         if (engine && typeof engine.loadWindTexture === 'function') {
-          if (model === 'weathernext3' || model === 'google-weathernext3' || model === 'weathernext') {
+          if (isWeatherNextModel(model)) {
             engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {});
           } else {
             engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
@@ -767,7 +763,6 @@ export default function App() {
                 showCloudMid={showCloudMid}
                 showCloudHigh={showCloudHigh}
                 cloudFalseColor={cloudFalseColor}
-                cloudMultiRateRaymarch={cloudMultiRateRaymarch}
                 cloudDriftSpeed={cloudDriftSpeed}
                 cloudOpacity={cloudOpacity}
                 cloudThickness={cloudThickness}
@@ -900,8 +895,6 @@ export default function App() {
           onShowCloudHighChange={setShowCloudHigh}
           cloudFalseColor={cloudFalseColor}
           onCloudFalseColorChange={setCloudFalseColor}
-          cloudMultiRateRaymarch={cloudMultiRateRaymarch}
-          onCloudMultiRateRaymarchChange={setCloudMultiRateRaymarch}
           volumetricClouds={volumetricClouds}
           onVolumetricCloudsChange={setVolumetricClouds}
           cloudDriftSpeed={cloudDriftSpeed}

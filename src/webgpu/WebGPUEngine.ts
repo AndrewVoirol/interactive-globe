@@ -96,7 +96,6 @@ export interface WebGPUFrameParams {
   showCloudMid?: boolean;
   showCloudHigh?: boolean;
   cloudFalseColor?: boolean;
-  cloudMultiRateRaymarch?: boolean;
   showAtmosphere?: boolean;
   cloudOpacity?: number;
   cloudDriftSpeed?: number;
@@ -200,7 +199,6 @@ export interface CloudOptions {
   showMid: boolean;
   showHigh: boolean;
   falseColor?: boolean;
-  multiRateRaymarch?: boolean;
 }
 
 const U16_TO_F16_LUT = (() => {
@@ -833,7 +831,6 @@ export class WebGPUEngine {
     showMid: true,
     showHigh: true,
     falseColor: false,
-    multiRateRaymarch: false,
   };
   private atmosphereScatterPipeline: GPURenderPipeline | null = null;
   private atmosphereBindGroupLayout: GPUBindGroupLayout | null = null;
@@ -7263,13 +7260,8 @@ export class WebGPUEngine {
     );
     cloudFloats[36] = falseColor ? 1.0 : 0.0;
 
-    // Linearized Multi-Rate Tangent Frame Raymarch (Pivot 2, u_padCloud.y)
-    const multiRate = Boolean(
-      (params as any).cloudMultiRateRaymarch ??
-      (params as any).multiRateRaymarch ??
-      this.cloudOptions.multiRateRaymarch
-    );
-    cloudFloats[37] = multiRate ? 1.0 : 0.0;
+    // Padding floats (offset 148..156, floats 37..39: reserved 16-byte alignment, Pivot 2 permanent)
+    cloudFloats[37] = 0.0;
     cloudFloats[38] = 0.0;
     cloudFloats[39] = 0.0;
 
@@ -9082,12 +9074,12 @@ export class WebGPUEngine {
     }
   }
 
-  public setCloudMultiRateRaymarch(enabled: boolean): void {
-    this.cloudOptions.multiRateRaymarch = enabled;
+  public setCloudMultiRateRaymarch(_enabled: boolean): void {
+    // Pivot 2 linearized multi-rate raymarching is now the permanent architectural standard.
   }
 
   public isCloudMultiRateRaymarchEnabled(): boolean {
-    return Boolean(this.cloudOptions.multiRateRaymarch);
+    return true; // Permanently enabled
   }
 
   public ensurePrecipCrustTexture(): GPUTextureView | void {
@@ -10059,7 +10051,7 @@ export class WebGPUEngine {
     }
   }
 
-  public async loadAllCloudLayers(isWeatherNext: boolean = false): Promise<void> {
+  public async loadAllCloudLayers(isWeatherNext: boolean = true): Promise<void> {
     if (isWeatherNext) {
       try {
         const [lowRes, midRes, highRes] = await Promise.all([

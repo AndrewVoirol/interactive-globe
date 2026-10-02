@@ -348,19 +348,19 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
         let buffer: ArrayBuffer;
         try {
           buffer = await this.fetchBuffer(filePath);
+          // Hardware invariant check: slice must be at least raw 3600x1801 Float16 (12,967,200 bytes)
+          if (buffer.byteLength < 12967200) {
+            throw new Error(
+              `Insufficient data length for slice '${variable}-${hour}': expected at least 12967200 bytes, got ${buffer.byteLength}`
+            );
+          }
         } catch (fetchErr) {
           const isMock = typeof globalThis.fetch === 'function' && Boolean((globalThis.fetch as any).mock);
           if (isMock) {
             throw fetchErr;
           }
+          console.warn(`[WeatherNextDataSource] Falling back to synthesized slice for '${variable}-${hour}':`, fetchErr);
           buffer = this.synthesizeDeterministicSlice(variable, hour);
-        }
-
-        // Hardware invariant check: slice must be at least raw 3600x1801 Float16 (12,967,200 bytes)
-        if (buffer.byteLength < 12967200) {
-          throw new Error(
-            `Insufficient data length for slice '${variable}-${hour}': expected at least 12967200 bytes, got ${buffer.byteLength}`
-          );
         }
 
         // Enforce cache capacity limit (evict oldest inserted)
@@ -395,6 +395,10 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
           throw new Error(
             `Failed to fetch slice from ${url}: HTTP ${res.status} ${res.statusText || ''}`.trim()
           );
+        }
+        const contentType = res.headers?.get?.('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error(`Expected binary slice from ${url}, but received text/html fallback`);
         }
         return await res.arrayBuffer();
       } catch (err) {

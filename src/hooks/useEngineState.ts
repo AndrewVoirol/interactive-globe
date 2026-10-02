@@ -58,8 +58,7 @@ export function useEngineState() {
   const [cloudDriftSpeed, setCloudDriftSpeedState] = useState<number>(500);
   const [cloudOpacity, setCloudOpacityState] = useState<number>(0.8);
   const [cloudFalseColor, setCloudFalseColorState] = useState<boolean>(false);
-  const [cloudMultiRateRaymarch, setCloudMultiRateRaymarchState] = useState<boolean>(false);
-  const [volumetricClouds, setVolumetricCloudsState] = useState<boolean>(false);
+  const [volumetricClouds, setVolumetricCloudsState] = useState<boolean>(true);
   const [cloudThickness, setCloudThicknessState] = useState<number>(0.19);
   const [cloudLowTop, setCloudLowTopState] = useState<number>(0.45);
   const [cloudErosion, setCloudErosionState] = useState<number>(0.85);
@@ -87,18 +86,6 @@ export function useEngineState() {
   };
   const setCloudFalseColor = (v: boolean | ((prev: boolean) => boolean)) => {
     setCloudFalseColorState(v);
-  };
-  const setCloudMultiRateRaymarch = (v: boolean | ((prev: boolean) => boolean)) => {
-    setCloudMultiRateRaymarchState((prev) => {
-      const val = typeof v === 'function' ? v(prev) : v;
-      if (typeof window !== 'undefined') {
-        if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) {
-          (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
-        }
-        (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudMultiRateRaymarch = val;
-      }
-      return val;
-    });
   };
   const setVolumetricClouds = (v: boolean | ((prev: boolean) => boolean)) => {
     setVolumetricCloudsState((prev) => {
@@ -209,8 +196,6 @@ export function useEngineState() {
       cloudDriftSpeed: number;
       cloudOpacity: number;
       cloudFalseColor: boolean;
-      cloudMultiRateRaymarch: boolean;
-      multiRateRaymarch: boolean;
       cloudThickness: number;
       cloudLowTop: number;
       cloudErosion: number;
@@ -233,16 +218,6 @@ export function useEngineState() {
     if (options.showCloudMid !== undefined) setShowCloudMidState(options.showCloudMid);
     if (options.showCloudHigh !== undefined) setShowCloudHighState(options.showCloudHigh);
     if (options.cloudFalseColor !== undefined) setCloudFalseColorState(options.cloudFalseColor);
-    const multiRate = options.cloudMultiRateRaymarch ?? options.multiRateRaymarch;
-    if (multiRate !== undefined) {
-      setCloudMultiRateRaymarchState(multiRate);
-      if (typeof window !== 'undefined') {
-        if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) {
-          (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
-        }
-        (window as any).__INDICATRIX_LIVE_UNIFORMS__.cloudMultiRateRaymarch = multiRate;
-      }
-    }
     if (options.cloudDriftSpeed !== undefined && typeof options.cloudDriftSpeed === 'number' && Number.isFinite(options.cloudDriftSpeed)) {
       setCloudDriftSpeedState(Math.max(0, Math.min(2000, options.cloudDriftSpeed)));
     }
@@ -280,7 +255,6 @@ export function useEngineState() {
         cloudDriftSpeed,
         cloudOpacity,
         cloudFalseColor,
-        cloudMultiRateRaymarch,
         cloudThickness,
         cloudLowTop,
         cloudErosion,
@@ -290,7 +264,7 @@ export function useEngineState() {
       };
       (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__ = setCloudOptions;
     }
-  }, [showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, cloudFalseColor, cloudMultiRateRaymarch, cloudThickness, cloudLowTop, cloudErosion, cloudFreqHoriz, cloudFreqVert, cloudExtinction]);
+  }, [showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudDriftSpeed, cloudOpacity, cloudFalseColor, cloudThickness, cloudLowTop, cloudErosion, cloudFreqHoriz, cloudFreqVert, cloudExtinction]);
 
   const [cdlodDiagnosticMode, setCdlodDiagnosticModeState] = useState<number>(0);
 
@@ -728,7 +702,6 @@ export function useEngineState() {
     cloudDriftSpeed, setCloudDriftSpeed,
     cloudOpacity, setCloudOpacity,
     cloudFalseColor, setCloudFalseColor,
-    cloudMultiRateRaymarch, setCloudMultiRateRaymarch,
     volumetricClouds, setVolumetricClouds,
     cloudThickness, setCloudThickness,
     cloudLowTop, setCloudLowTop,

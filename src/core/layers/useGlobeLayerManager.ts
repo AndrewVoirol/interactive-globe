@@ -37,6 +37,17 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
         sunAltitude: 45.0,
         hillshadeIntensity: 0.65,
       },
+      {
+        id: 'google-weathernext3',
+        name: 'Google DeepMind WeatherNext 3 (0.1° AI)',
+        category: 'field',
+        type: '0.1° (10km) AI',
+        details: 'Global 0.1° (10km) AI prognostic weather model with 48-hour continuous time horizon across 6 prognostic fields',
+        visible: true,
+        url: '/data/weathernext/meta.json',
+        opacity: 0.85,
+        blendMode: 0,
+      },
     ]
   );
 

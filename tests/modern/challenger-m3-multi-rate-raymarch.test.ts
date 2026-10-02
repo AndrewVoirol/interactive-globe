@@ -241,69 +241,42 @@ describe('Challenger M3-Pivot-2: Linearized Multi-Rate Tangent Frame Raymarcher 
     });
   });
 
-  describe('Pillar 3: Engine State & Uniform Buffer Allocation Invariants', () => {
-    it('CH-PIVOT2-11: verifies WebGPUEngine correctly initializes and packs cloudMultiRateRaymarch at slot 37', () => {
+  describe('Pillar 3: Engine State & Permanent Architecture Invariants', () => {
+    it('CH-PIVOT2-11: verifies WebGPUEngine permanently enables multi-rate raymarching', () => {
       const engine = new WebGPUEngine();
-      expect(engine.isCloudMultiRateRaymarchEnabled()).toBe(false);
-
-      engine.setCloudMultiRateRaymarch(true);
       expect(engine.isCloudMultiRateRaymarchEnabled()).toBe(true);
 
       engine.setCloudMultiRateRaymarch(false);
-      expect(engine.isCloudMultiRateRaymarchEnabled()).toBe(false);
+      expect(engine.isCloudMultiRateRaymarchEnabled()).toBe(true);
     });
 
-    it('CH-PIVOT2-12: verifies volumetricCloudFloats[37] reflects multiRate boolean state', () => {
-      const engine = new WebGPUEngine();
-      const floats = (engine as any).volumetricCloudFloats as Float32Array;
-      expect(floats).toBeDefined();
-      expect(floats.length).toBe(40);
-
-      // Default state
-      expect(floats[37]).toBe(0.0);
-
-      // Fake device to allow updateVolumetricUniforms execution
-      const fakeQueueWrites: any[] = [];
-      (engine as any).device = {
-        queue: {
-          writeBuffer: (buf: any, offset: number, data: any) => {
-            fakeQueueWrites.push({ buf, offset, data });
-          },
-        },
-      };
-      (engine as any).volumetricCameraUniformBuffer = {};
-      (engine as any).volumetricCloudUniformBuffer = {};
-
-      // Test with multiRate enabled via params
-      engine.updateVolumetricUniforms({
-        cloudMultiRateRaymarch: true,
-      } as any);
-      expect(floats[37]).toBe(1.0);
-
-      // Test with multiRate disabled
-      engine.updateVolumetricUniforms({
-        cloudMultiRateRaymarch: false,
-      } as any);
-      expect(floats[37]).toBe(0.0);
+    it('CH-PIVOT2-12: verifies volumetric_cloud.wgsl permanently includes sampleSunShadowTransmittanceLinear and 8-step logic without isMultiRate branch', () => {
+      expect(shaderSource).toContain('fn sampleSunShadowTransmittanceLinear(');
+      expect(shaderSource).toContain('fn computeJacobian(');
+      expect(shaderSource).toContain('fn inverse3x3(');
+      expect(shaderSource).toContain('fn getParameterVelocity(');
+      expect(shaderSource).toContain('fn sampleCloudDensityFromUVW(');
+      expect(shaderSource).toContain('if (step == 0 || (step % 8) == 0)');
+      expect(shaderSource).not.toContain('let isMultiRate =');
     });
 
-    it('CH-PIVOT2-13: verifies useEngineState setCloudOptions handles multiRateRaymarch and cloudMultiRateRaymarch', () => {
-      const liveUniforms: any = {};
-      (globalThis as any).window = {
-        __INDICATRIX_LIVE_UNIFORMS__: liveUniforms,
-      };
-
-      // Ensure setCloudOptions in useEngineState updates live uniforms
+    it('CH-PIVOT2-13: verifies cloudMultiRateRaymarch state and beta toggle are removed from UI and state', () => {
       const hooksFile = fs.readFileSync(
         path.resolve(__dirname, '../../src/hooks/useEngineState.ts'),
         'utf-8'
       );
-      expect(hooksFile).toContain('cloudMultiRateRaymarch, setCloudMultiRateRaymarchState');
-      expect(hooksFile).toContain('options.cloudMultiRateRaymarch ?? options.multiRateRaymarch');
-      expect(hooksFile).toContain('__INDICATRIX_LIVE_UNIFORMS__.cloudMultiRateRaymarch = multiRate');
+      expect(hooksFile).not.toContain('cloudMultiRateRaymarch');
+      expect(hooksFile).not.toContain('multiRateRaymarch');
+
+      const drawerFile = fs.readFileSync(
+        path.resolve(__dirname, '../../src/components/AtmosphereDrawer.tsx'),
+        'utf-8'
+      );
+      expect(drawerFile).not.toContain('beta-cloud-multirate');
+      expect(drawerFile).not.toContain('cloudMultiRateRaymarch');
     });
 
-    it('CH-PIVOT2-14: verifies UnifiedRightSidebar and AtmosphereDrawer prop pipeline wiring', () => {
+    it('CH-PIVOT2-14: verifies prop drilling is eliminated across HUD and Canvas', () => {
       const sidebarFile = fs.readFileSync(
         path.resolve(__dirname, '../../src/components/hud/UnifiedRightSidebar.tsx'),
         'utf-8'
@@ -316,11 +289,16 @@ describe('Challenger M3-Pivot-2: Linearized Multi-Rate Tangent Frame Raymarcher 
         path.resolve(__dirname, '../../src/components/hud/TelemetryHUD.tsx'),
         'utf-8'
       );
+      const canvasFile = fs.readFileSync(
+        path.resolve(__dirname, '../../src/webgpu/WebGPUCanvas.tsx'),
+        'utf-8'
+      );
 
-      // Verify prop chain: App -> TelemetryHUD -> UnifiedRightSidebar -> AtmosphereDrawer
-      expect(appFile).toContain('cloudMultiRateRaymarch={cloudMultiRateRaymarch}');
-      expect(telemetryFile).toContain('cloudMultiRateRaymarch={props.cloudMultiRateRaymarch}');
-      expect(sidebarFile).toContain('cloudMultiRateRaymarch={propCloudMultiRateRaymarch}');
+      // Verify prop chain no longer drills cloudMultiRateRaymarch
+      expect(appFile).not.toContain('cloudMultiRateRaymarch');
+      expect(telemetryFile).not.toContain('cloudMultiRateRaymarch');
+      expect(sidebarFile).not.toContain('cloudMultiRateRaymarch');
+      expect(canvasFile).not.toContain('cloudMultiRateRaymarch');
     });
   });
 });

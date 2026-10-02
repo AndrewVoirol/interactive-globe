@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo, ResolutionTier } from '../../types';
-import { UnifiedRightSidebar, PrognosticModelBackend } from './UnifiedRightSidebar';
+import { UnifiedRightSidebar, PrognosticModelBackend, isWeatherNextModel } from './UnifiedRightSidebar';
 import { DataLayerToastNotification, ToastMessage } from './DataLayerToastNotification';
 import { DataLayerItem } from './DataLayersDrawer';
 import { BlendModeType, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
@@ -15,6 +15,7 @@ import { TimelineScrubberState } from './TimelineScrubber';
 import type { MeteorologicalProvenance } from '../../core/data/WeatherNextDataSource';
 
 export type { DataLayerItem, ToastMessage, LoadedDataInfo, ResolutionTier, PrognosticModelBackend, MeteorologicalProvenance };
+export { isWeatherNextModel };
 
 export interface TelemetryHUDProps {
   isZenMode: boolean;
@@ -95,8 +96,6 @@ export interface TelemetryHUDProps {
   onShowCloudHighChange?: (v: boolean) => void;
   cloudFalseColor?: boolean;
   onCloudFalseColorChange?: (v: boolean) => void;
-  cloudMultiRateRaymarch?: boolean;
-  onCloudMultiRateRaymarchChange?: (v: boolean) => void;
   volumetricClouds?: boolean;
   onVolumetricCloudsChange?: (v: boolean) => void;
   cloudDriftSpeed?: number;
@@ -234,8 +233,6 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onShowCloudHighChange={props.onShowCloudHighChange}
         cloudFalseColor={props.cloudFalseColor}
         onCloudFalseColorChange={props.onCloudFalseColorChange}
-        cloudMultiRateRaymarch={props.cloudMultiRateRaymarch}
-        onCloudMultiRateRaymarchChange={props.onCloudMultiRateRaymarchChange}
         volumetricClouds={props.volumetricClouds}
         onVolumetricCloudsChange={props.onVolumetricCloudsChange}
         cloudDriftSpeed={props.cloudDriftSpeed}

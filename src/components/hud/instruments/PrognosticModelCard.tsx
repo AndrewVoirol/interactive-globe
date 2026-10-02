@@ -73,7 +73,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
   isWindActive = false,
 }) => {
   // 1. Dual-mode state management (Controlled with internal fallback)
-  const [internalModel, setInternalModel] = useState<PrognosticModelBackend>('gfs');
+  const [internalModel, setInternalModel] = useState<PrognosticModelBackend>('weathernext3');
   const [internalVariable, setInternalVariable] = useState<string>('total_precipitation_1hr_mean');
   const [internalLeadTime, setInternalLeadTime] = useState<number>(24);
 
@@ -723,27 +723,27 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           className="grid grid-cols-2 sm:grid-cols-4 gap-1 font-mono text-[10px] tracking-wider w-full"
           options={[
             {
-              id: 'ecmwf',
-              domId: 'sidebar-model-ecmwf',
-              label: 'ECMWF IFS',
-              sublabel: '9km Spectral',
-              title: 'ECMWF IFS HRES (Global Spectral 9km Numerical Weather Prediction)',
+              id: 'weathernext3',
+              domId: 'sidebar-model-weathernext',
+              label: 'WeatherNext 3',
+              sublabel: 'DeepMind WeatherNext 3',
+              title: 'Google DeepMind WeatherNext 3 (0.1° / 10km Graph Neural Tensor / Zarr v3)',
               className: 'w-full',
             },
             {
               id: 'gfs',
               domId: 'sidebar-model-gfs',
               label: 'NOAA GFS',
-              sublabel: '13km FV3',
+              sublabel: '13km FV3 (Comparison)',
               title: 'NOAA GFS FV3 (Finite-Volume Cubed-Sphere 13km / 0.25° NWP)',
               className: 'w-full',
             },
             {
-              id: 'weathernext3',
-              domId: 'sidebar-model-weathernext',
-              label: 'WeatherNext AI',
-              sublabel: 'DeepMind WeatherNext 3',
-              title: 'Google DeepMind WeatherNext 3 (0.1° / 10km Graph Neural Tensor / Zarr v3)',
+              id: 'ecmwf',
+              domId: 'sidebar-model-ecmwf',
+              label: 'ECMWF IFS',
+              sublabel: '9km Spectral',
+              title: 'ECMWF IFS HRES (Global Spectral 9km Numerical Weather Prediction)',
               className: 'w-full',
             },
             {
