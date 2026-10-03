@@ -149,7 +149,7 @@ fn cs_main(@builtin(global_invocation_id) globalId: vec3<u32>) {
     // Physical Discharge Q(x) = \int_{B(x)} P(y) dy
     // Pluvial factor coupling: baseline pluvial runoff augmented by accumulated precipitation
     let meanPrecip = accumulatedPrecip / f32(upstreamSteps + 1u);
-    let pluvialFactor = 1.0 + sqrt(clamp(meanPrecip, 0.0, 50.0)) * 0.35;
+    let pluvialFactor = 1.0 + sqrt(clamp(meanPrecip, 0.0, 50.0)) * 0.35 * uniforms.u_depthExponentF;
     let dischargeQ = accumulatedArea * pluvialFactor;
 
     // Flint's Law Bedrock Incision: delta_z = K * A^m * ||grad(h)||^n

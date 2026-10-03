@@ -6300,7 +6300,7 @@ export class WebGPUEngine {
             : (64 | 8),
         });
         this.drainageFloats[0] = 0.50; // u_widthExponentB
-        this.drainageFloats[1] = 0.40; // u_depthExponentF
+        this.drainageFloats[1] = this.pluvialCouplingFactor; // u_depthExponentF (repurposed for pluvial coupling, default 1.0)
         this.drainageFloats[2] = 1.00; // u_erodibilityConstantK
         this.drainageFloats[3] = 0.45; // u_flintExponentM
         this.drainageFloats[4] = 1.00; // u_flintExponentN
@@ -6428,6 +6428,7 @@ export class WebGPUEngine {
     demWidth: number;
     demHeight: number;
     pluvialCoupling: number;
+    pluvialDischargeCoupling: number;
     bedrockIncision: number;
   }>): void {
     if (!this.drainageUniformBuffer || !this.device) return;
@@ -6452,8 +6453,13 @@ export class WebGPUEngine {
       this.drainageUints[6] = params.demWidth;
       this.drainageUints[7] = params.demHeight;
     }
-    if (params.pluvialCoupling !== undefined) {
-      this.pluvialCouplingFactor = params.pluvialCoupling;
+    const pluvialVal = params.pluvialCoupling !== undefined ? params.pluvialCoupling : params.pluvialDischargeCoupling;
+    if (pluvialVal !== undefined) {
+      this.pluvialCouplingFactor = pluvialVal;
+      this.drainageFloats[1] = pluvialVal;
+    }
+    if (params.depthExponentF !== undefined) {
+      this.drainageFloats[1] = params.depthExponentF;
     }
     if (params.bedrockIncision !== undefined) {
       this.bedrockIncisionFactor = params.bedrockIncision;
@@ -8566,9 +8572,8 @@ export class WebGPUEngine {
       cf[20] = params.cursorActive ? 1.0 : 0.0;
       cf[21] = params.displacementScale !== undefined ? params.displacementScale : 0.055;
       cf[22] = params.seaLevel !== undefined ? params.seaLevel : 0.0;
-      cf[23] = params.theme === 1
-        ? (params.paperTooth !== undefined ? params.paperTooth : 0.40)
-        : 0.04; // u_roughness (Theme 1: Paper Tooth, other themes: water specular roughness)
+      const defaultTooth = params.theme === 1 ? 0.40 : params.theme === 0 ? 0.25 : 0.15;
+      cf[23] = params.paperTooth !== undefined ? params.paperTooth : defaultTooth;
 
       // u_viewMatrix (offset 96 = 24 floats)
       if (params.camera?.matrixWorldInverse && params.camera?.projectionMatrix) {
@@ -8624,7 +8629,8 @@ export class WebGPUEngine {
         ? Math.max(0.0, Math.min(0.59999996, rawShadow))
         : (shadowsActive && Number.isFinite(this.shadowIntensity) ? Math.min(0.59999996, this.shadowIntensity) : 0.0);
       const baseDrift = params.cloudDriftSpeed ?? this.cloudOptions?.driftSpeed ?? 1.2;
-      this.crustFloats[69] = 5.0 * baseDrift; // u_cloudDriftRate
+      const normalizedDrift = baseDrift > 10.0 ? (baseDrift / 500.0) * 1.2 : baseDrift;
+      this.crustFloats[69] = 5.0 * normalizedDrift;
       this.crustFloats[70] = 2.5;             // u_cloudAltitudeKm
       this.crustUints[71] = params.verticalScaleMode !== undefined ? params.verticalScaleMode : this.verticalScaleMode;
 
@@ -8950,7 +8956,7 @@ export class WebGPUEngine {
     this.updateTerrainShadowUniforms(params);
     this.updateDrainageUniforms({
       bedrockIncision: params.bedrockIncision,
-      pluvialCoupling: params.pluvialDischargeCoupling,
+      pluvialCoupling: params.pluvialDischargeCoupling ?? this.pluvialCouplingFactor,
       widthExponentB: params.drainageWidthExponentB,
       depthExponentF: params.drainageDepthExponentF,
     });
