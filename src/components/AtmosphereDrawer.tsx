@@ -38,6 +38,8 @@ export interface AtmosphereDrawerProps {
   isLight?: boolean;
   showClouds?: boolean;
   onShowCloudsChange?: (v: boolean) => void;
+  showAtmosphere?: boolean;
+  onShowAtmosphereChange?: (v: boolean) => void;
   showCloudLow?: boolean;
   onShowCloudLowChange?: (v: boolean) => void;
   showCloudMid?: boolean;
@@ -114,6 +116,8 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   onWindParticleLifetimeChange,
   showClouds: propShowClouds,
   onShowCloudsChange,
+  showAtmosphere: propShowAtmosphere,
+  onShowAtmosphereChange,
   showCloudLow: propShowCloudLow,
   onShowCloudLowChange,
   showCloudMid: propShowCloudMid,
@@ -228,6 +232,12 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
     }
     return propVolumetricClouds ?? true;
   });
+  const [internalShowAtmosphere, setInternalShowAtmosphere] = useState<boolean>(() => {
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__?.showAtmosphere !== undefined) {
+      return Boolean((window as any).__INDICATRIX_LIVE_UNIFORMS__.showAtmosphere);
+    }
+    return propShowAtmosphere ?? false;
+  });
 
   const curCloudThickness = propCloudThickness !== undefined ? propCloudThickness : internalCloudThickness;
   const curCloudLowTop = propCloudLowTop !== undefined ? propCloudLowTop : internalCloudLowTop;
@@ -236,6 +246,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const curCloudFreqVert = propCloudFreqVert !== undefined ? propCloudFreqVert : internalCloudFreqVert;
   const curCloudExtinction = propCloudExtinction !== undefined ? propCloudExtinction : internalCloudExtinction;
   const curVolumetricClouds = propVolumetricClouds !== undefined ? propVolumetricClouds : internalVolumetricClouds;
+  const curShowAtmosphere = propShowAtmosphere !== undefined ? propShowAtmosphere : internalShowAtmosphere;
 
   const updateLiveUniforms = useCallback((delta: Record<string, any>) => {
     if (typeof window !== 'undefined') {
@@ -316,6 +327,12 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
     setInternalVolumetricClouds(val);
     onVolumetricCloudsChange?.(val);
     updateLiveUniforms({ volumetricClouds: val });
+  };
+
+  const handleAtmosphereScatterToggle = (val: boolean) => {
+    setInternalShowAtmosphere(val);
+    onShowAtmosphereChange?.(val);
+    updateLiveUniforms({ showAtmosphere: val });
   };
 
   const curShowClouds = propShowClouds !== undefined ? propShowClouds : internalShowClouds;
@@ -894,6 +911,26 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
               checked={curVolumetricClouds}
               onChange={handleVolumetricCloudsToggle}
               title="Toggle 3D volumetric raymarched clouds"
+              indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#38BDF8'}
+            />
+          </div>
+
+          {/* Atmospheric Scatter / Rayleigh & Mie Limb Scattering Station */}
+          <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] flex items-center justify-between transition-all shadow-sm mt-2">
+            <div className="flex flex-col">
+              <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                Atmospheric Scatter
+              </span>
+              <span className="text-nano text-[var(--theme-text-secondary)] font-mono">
+                {curShowAtmosphere ? 'Active · Rayleigh & Mie limb scattering' : 'Bypassed · Limb scatter off'}
+              </span>
+            </div>
+            <TactileSwitch
+              id="sidebar-atmospheric-scatter"
+              label={curShowAtmosphere ? 'Active' : 'Off'}
+              checked={curShowAtmosphere}
+              onChange={handleAtmosphereScatterToggle}
+              title="Toggle Rayleigh & Mie atmospheric limb scattering"
               indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#38BDF8'}
             />
           </div>

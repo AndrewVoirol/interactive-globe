@@ -88,6 +88,8 @@ export interface TelemetryHUDProps {
   onSelectDemoSequence?: (seq: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji') => void;
   showClouds?: boolean;
   onShowCloudsChange?: (v: boolean) => void;
+  showAtmosphere?: boolean;
+  onShowAtmosphereChange?: (v: boolean) => void;
   showCloudLow?: boolean;
   onShowCloudLowChange?: (v: boolean) => void;
   showCloudMid?: boolean;
@@ -237,6 +239,8 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onSelectDemoSequence={props.onSelectDemoSequence}
         showClouds={props.showClouds}
         onShowCloudsChange={props.onShowCloudsChange}
+        showAtmosphere={props.showAtmosphere}
+        onShowAtmosphereChange={props.onShowAtmosphereChange}
         showCloudLow={props.showCloudLow}
         onShowCloudLowChange={props.onShowCloudLowChange}
         showCloudMid={props.showCloudMid}

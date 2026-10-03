@@ -292,7 +292,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
   scrubTau = 0,
   weatherTau = 0,
   thermodynamicGating = true,
-  showAtmosphere,
+  showAtmosphere = false,
   volumetricClouds = true,
   onShowCloudsChange,
   onTogglePlanetaryLayer,

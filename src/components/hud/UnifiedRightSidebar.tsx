@@ -99,6 +99,7 @@ export interface UnifiedRightSidebarProps {
   onToggleDemoMode?: (seq?: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji') => void;
   onSelectDemoSequence?: (seq: 'hawaii' | 'cape-cod' | 'grand-canyon' | 'fuji') => void;
   showClouds?: boolean; onShowCloudsChange?: (v: boolean) => void;
+  showAtmosphere?: boolean; onShowAtmosphereChange?: (v: boolean) => void;
   showCloudLow?: boolean; onShowCloudLowChange?: (v: boolean) => void;
   showCloudMid?: boolean; onShowCloudMidChange?: (v: boolean) => void;
   showCloudHigh?: boolean; onShowCloudHighChange?: (v: boolean) => void;
@@ -222,6 +223,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onToggleDemoMode,
   onSelectDemoSequence,
   showClouds: propShowClouds, onShowCloudsChange,
+  showAtmosphere: propShowAtmosphere, onShowAtmosphereChange,
   showCloudLow: propShowCloudLow, onShowCloudLowChange,
   showCloudMid: propShowCloudMid, onShowCloudMidChange,
   showCloudHigh: propShowCloudHigh, onShowCloudHighChange,
@@ -1518,6 +1520,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                   isRadarActive={isRadarActive}
                   showClouds={propShowClouds}
                   onShowCloudsChange={handleToggleClouds}
+                  showAtmosphere={propShowAtmosphere}
+                  onShowAtmosphereChange={onShowAtmosphereChange}
                   showCloudLow={propShowCloudLow} onShowCloudLowChange={onShowCloudLowChange}
                   showCloudMid={propShowCloudMid} onShowCloudMidChange={onShowCloudMidChange}
                   showCloudHigh={propShowCloudHigh} onShowCloudHighChange={onShowCloudHighChange}
@@ -1872,11 +1876,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                         !!(l.renderStyle || l.category === 'topo' || l.category === 'ocean' || l.category === 'satellite' || l.category === 'night');
                       const activeRasterId = dataLayers.find((l) => l.visible && isRasterLayer(l))?.id;
 
-                      return dataLayers.map((layer, idx) => {
+                      return dataLayers.map((layer) => {
                         const preset = getPresetById(layer.id);
                         const legend = preset?.legend;
-                        const isFirst = idx === 0;
-                        const isLast = idx === dataLayers.length - 1;
                         const isExpanded = expandedLayerId === layer.id;
                         const isRaster = isRasterLayer(layer);
                         const isPrimaryRaster = isRaster && layer.id === activeRasterId && layer.visible;
@@ -1964,43 +1966,9 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                     </span>
                                   )}
                                 </div>
-
-                                <span className="text-nano font-mono opacity-50 shrink-0 self-start pt-0.5">
-                                  Z:{dataLayers.length - idx}
-                                </span>
                               </div>
 
                               <div className="flex items-center gap-1 shrink-0 pt-0.5">
-                                <button
-                                  disabled={isFirst}
-                                  onClick={() => onReorderDataLayer?.(layer.id, 'up')}
-                                  title="Move Layer Up"
-                                  className={`p-1 rounded-[2px] border transition-all ${
-                                    isFirst
-                                      ? 'opacity-25 cursor-not-allowed border-transparent text-[var(--theme-text-muted)]'
-                                      : 'cursor-pointer border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                                  }`}
-                                >
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 15l7-7 7 7" />
-                                  </svg>
-                                </button>
-
-                                <button
-                                  disabled={isLast}
-                                  onClick={() => onReorderDataLayer?.(layer.id, 'down')}
-                                  title="Move Layer Down"
-                                  className={`p-1 rounded-[2px] border transition-all ${
-                                    isLast
-                                      ? 'opacity-25 cursor-not-allowed border-transparent text-[var(--theme-text-muted)]'
-                                      : 'cursor-pointer border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-card-bg)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                                  }`}
-                                >
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                                  </svg>
-                                </button>
-
                                 <button
                                   onClick={() => onToggleDataLayer?.(layer.id)}
                                   title={layer.visible ? 'Hide layer' : 'Show layer'}

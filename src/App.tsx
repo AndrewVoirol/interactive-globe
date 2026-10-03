@@ -76,6 +76,7 @@ export default function App() {
     dataInfo, setDataInfo,
     isolatedStratum,
     showClouds, setShowClouds,
+    showAtmosphere, setShowAtmosphere,
     showCloudLow, setShowCloudLow,
     showCloudMid, setShowCloudMid,
     showCloudHigh, setShowCloudHigh,
@@ -764,6 +765,7 @@ export default function App() {
                 demoSequence={demoSequence}
                 onDemoModeChange={handleDemoModeChange}
                 showClouds={showClouds}
+                showAtmosphere={showAtmosphere}
                 showCloudLow={showCloudLow}
                 showCloudMid={showCloudMid}
                 showCloudHigh={showCloudHigh}
@@ -904,6 +906,8 @@ export default function App() {
           onSelectDemoSequence={selectDemoSequence}
           showClouds={showClouds}
           onShowCloudsChange={setShowClouds}
+          showAtmosphere={showAtmosphere}
+          onShowAtmosphereChange={setShowAtmosphere}
           showCloudLow={showCloudLow}
           onShowCloudLowChange={setShowCloudLow}
           showCloudMid={showCloudMid}

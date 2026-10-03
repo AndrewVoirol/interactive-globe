@@ -50,8 +50,9 @@ export function useEngineState() {
   const [fluidVortexStrength, setFluidVortexStrength] = useState<number>(1.0);
   const [gpuReport, setGpuReport] = useState<any>(null);
 
-  // Atmospheric Cloud Strata State (Milestone 5)
+  // Atmospheric Cloud Strata & Limb Scatter State (Milestone 5)
   const [showClouds, setShowCloudsState] = useState<boolean>(true);
+  const [showAtmosphere, setShowAtmosphereState] = useState<boolean>(false);
   const [showCloudLow, setShowCloudLowState] = useState<boolean>(true);
   const [showCloudMid, setShowCloudMidState] = useState<boolean>(true);
   const [showCloudHigh, setShowCloudHighState] = useState<boolean>(true);
@@ -71,6 +72,15 @@ export function useEngineState() {
       const val = typeof v === 'function' ? v(prev) : v;
       if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__) {
         (window as any).__INDICATRIX_LIVE_UNIFORMS__.showClouds = val;
+      }
+      return val;
+    });
+  };
+  const setShowAtmosphere = (v: boolean | ((prev: boolean) => boolean)) => {
+    setShowAtmosphereState((prev) => {
+      const val = typeof v === 'function' ? v(prev) : v;
+      if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__.showAtmosphere = val;
       }
       return val;
     });
@@ -696,6 +706,7 @@ export function useEngineState() {
     gpuReport, setGpuReport,
     dataInfo, setDataInfo,
     showClouds, setShowClouds,
+    showAtmosphere, setShowAtmosphere,
     showCloudLow, setShowCloudLow,
     showCloudMid, setShowCloudMid,
     showCloudHigh, setShowCloudHigh,
