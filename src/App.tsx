@@ -696,8 +696,8 @@ export default function App() {
           <div className="absolute inset-[2px] border border-current/15" />
           <span className="absolute top-[1px] left-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80">⌜ 00.00°</span>
           <span className={`absolute top-[1px] right-2 ${isSidebarActive ? 'max-md:hidden' : ''} text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌝ 90.00°</span>
-          <span className="absolute bottom-1 left-[268px] text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300">⌞ 180.00°</span>
-          <span className={`absolute bottom-1 ${isSidebarActive ? (isCatalogOpen ? 'xl:right-[50.5rem] md:right-[26rem] max-md:hidden' : 'md:right-[26rem] max-md:hidden') : ''} right-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌟ 270.00°</span>
+          <span className="absolute bottom-1 left-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300">⌞ 180.00°</span>
+          <span className={`absolute bottom-1 right-2 ${isSidebarActive ? 'max-md:hidden' : ''} text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌟ 270.00°</span>
         </div>
 
         {/* Top Technical Calibration Bar (Aligned on 20px grid axis with 10px neatline clearance moat) */}

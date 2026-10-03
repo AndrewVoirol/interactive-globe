@@ -28,13 +28,13 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
   // Issue 1: Neatline Coordinate Collisions
   // --------------------------------------------------------------------------
   describe('1. Neatline Coordinate Anti-Collision', () => {
-    it('verifies 180.00° label clears the bottom-left Cartouche box', () => {
-      expect(appContent).toContain('left-[268px]');
+    it('verifies 180.00° label is anchored at bottom-left neatline corner', () => {
+      expect(appContent).toContain('left-2');
       expect(appContent).toContain('⌞ 180.00°');
     });
 
-    it('verifies 90.00° and 270.00° labels maintain clearance from the right sidebar plate', () => {
-      expect(appContent).toContain('md:right-[26rem]');
+    it('verifies 90.00° and 270.00° labels remain anchored at right neatline boundary', () => {
+      expect(appContent).toContain('right-2');
       expect(appContent).toContain('⌝ 90.00°');
       expect(appContent).toContain('⌟ 270.00°');
     });

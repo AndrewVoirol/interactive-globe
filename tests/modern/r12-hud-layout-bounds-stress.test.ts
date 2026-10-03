@@ -131,8 +131,8 @@ export function calculateHUDBoundingBoxes(state: HUDState): Record<string, Bound
     zIndex: 20,
   };
 
-  // ⌞ 180.00° (bottom-1, left-[268px] if showCartouche, else left-2)
-  const mark180Left = showCartouche ? 8 + 268 : 8 + 8;
+  // ⌞ 180.00° (bottom-1, left-2 anchored to neatline boundary)
+  const mark180Left = 8 + 8; // 16px
   boxes.mark180 = {
     id: 'mark180',
     x1: mark180Left,
@@ -145,16 +145,9 @@ export function calculateHUDBoundingBoxes(state: HUDState): Record<string, Bound
     zIndex: 20,
   };
 
-  // ⌟ 270.00° (bottom-1, right position depends on sidebar/catalog and breakpoint)
+  // ⌟ 270.00° (bottom-1, right-2 anchored to neatline boundary, max-md:hidden when sidebar active)
   const mark270Hidden = isSidebarActive && W < 768;
-  let mark270RightDist = 16; // right-2 default (8 + 8 = 16)
-  if (isSidebarActive) {
-    if (W >= 1280 && isCatalogOpen) {
-      mark270RightDist = 8 + 50.5 * 16; // 816px
-    } else if (W >= 768) {
-      mark270RightDist = 8 + 26 * 16; // 424px
-    }
-  }
+  const mark270RightDist = 16; // right-2 default (8 + 8 = 16)
   boxes.mark270 = {
     id: 'mark270',
     x1: W - mark270RightDist - markW,
@@ -416,7 +409,7 @@ describe('R12: HUD Layout Geometry & Boundary Challenger Stress Suite', () => {
         expect(hasAABBCollision(boxes.mark90, boxes.sidebar)).toBe(false);
       });
 
-      it.each(tabletWidths)('W=%ipx: ⌟ 270.00° shifts left to md:right-[26rem] (424px), clearing Sidebar left by 20px', (w) => {
+      it.each(tabletWidths)('W=%ipx: ⌟ 270.00° remains anchored at right-2 neatline corner beneath floating sidebar', (w) => {
         const boxes = calculateHUDBoundingBoxes({
           viewportWidth: w,
           viewportHeight: 1024,
@@ -427,11 +420,7 @@ describe('R12: HUD Layout Geometry & Boundary Challenger Stress Suite', () => {
         });
 
         expect(boxes.mark270.visible).toBe(true);
-        // Sidebar left is at w - 404
-        // Mark right is at w - 424
-        const markToSidebarClearance = boxes.sidebar.x1 - boxes.mark270.x2;
-        expect(markToSidebarClearance).toBe(20);
-        expect(hasAABBCollision(boxes.mark270, boxes.sidebar)).toBe(false);
+        expect(boxes.mark270.x2).toBe(w - 16);
       });
     });
 
@@ -620,9 +609,8 @@ describe('R12: HUD Layout Geometry & Boundary Challenger Stress Suite', () => {
       const asideToToastGutter = getVerticalGutter(boxesOn.toast, boxesOn.aside);
       expect(asideToToastGutter).toBe(20);
 
-      // Corner mark 180 clearance from Cartouche right (256px)
-      expect(boxesOn.mark180.x1).toBe(276);
-      expect(boxesOn.mark180.x1 - boxesOn.cartouche.x2).toBe(20);
+      // Corner mark 180 remains anchored at left-2 (16px)
+      expect(boxesOn.mark180.x1).toBe(16);
     });
 
     it('State 2 (OFF): Aside bottom = 20px, Toast bottom = 78px (gutter = 20px)', () => {
@@ -657,7 +645,7 @@ describe('R12: HUD Layout Geometry & Boundary Challenger Stress Suite', () => {
       const asideToToastGutter = getVerticalGutter(boxesOff.toast, boxesOff.aside);
       expect(asideToToastGutter).toBe(20);
 
-      // Corner mark 180 drops to left-2 (16px)
+      // Corner mark 180 remains anchored at left-2 (16px)
       expect(boxesOff.mark180.x1).toBe(16);
     });
 
@@ -676,7 +664,7 @@ describe('R12: HUD Layout Geometry & Boundary Challenger Stress Suite', () => {
       expect(H - boxesOnAgain.toast.y2).toBe(170);
       expect(getVerticalGutter(boxesOnAgain.aside, boxesOnAgain.cartouche)).toBe(20);
       expect(getVerticalGutter(boxesOnAgain.toast, boxesOnAgain.aside)).toBe(20);
-      expect(boxesOnAgain.mark180.x1 - boxesOnAgain.cartouche.x2).toBe(20);
+      expect(boxesOnAgain.mark180.x1).toBe(16);
     });
   });
 
@@ -691,7 +679,7 @@ describe('R12: HUD Layout Geometry & Boundary Challenger Stress Suite', () => {
 
     it('S3-02: App.tsx enforces max-md:hidden on corner marks 90 and 270 when sidebar is active', () => {
       expect(appSrc).toContain("top-[1px] right-2 ${isSidebarActive ? 'max-md:hidden' : ''}");
-      expect(appSrc).toMatch(/(?:xl|2xl):right-\[50\.5rem\] md:right-\[26rem\] max-md:hidden' : 'md:right-\[26rem\] max-md:hidden'/);
+      expect(appSrc).toContain("bottom-1 right-2 ${isSidebarActive ? 'max-md:hidden' : ''}");
     });
 
     it('S3-03: App.tsx verifies Aside has been excised', () => {

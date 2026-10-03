@@ -152,8 +152,7 @@ describe('Milestone 6: UI Integrity & Purity Wiring Test Suite', () => {
       expect(sidebarSource).toMatch(/fixed top-5 right-5 xl:right-\[26\.5rem\] z-40 pointer-events-auto w-96/);
     });
 
-    it('M6-07: App.tsx responsive offsets use xl:right-[50.5rem] and xl:right-[51.75rem]', () => {
-      expect(appSource).toContain('xl:right-[50.5rem]');
+    it('M6-07: App.tsx responsive offsets use xl:right-[51.75rem] for header', () => {
       expect(appSource).toContain('xl:right-[51.75rem]');
     });
 
