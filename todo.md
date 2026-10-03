@@ -2,8 +2,8 @@
 
 **Master Orchestrator**: Antigravity 2.0 Multi-Agent Framework  
 **Target Codebase**: `ais-interactive-globe-to-map`  
-**Operational Status**: `[ALL MILESTONES COMPLETED - 3,901/3,901 TESTS PASSING]`  
-**Current Baseline**: 275 test files, 3,901 tests passing (100% pass rate, 0 failures, 0 regressions)  
+**Operational Status**: `[ALL MILESTONES COMPLETED - 3,917/3,917 TESTS PASSING]`  
+**Current Baseline**: 276 test files, 3,917 tests passing (100% pass rate, 0 failures, 0 regressions)  
 **Circuit Breaker Rule**: `MAX_RETRIES = 2` (Halts on 2 consecutive failed iterations per task ➔ `escalation.md`)
 
 ---
@@ -576,12 +576,21 @@
 ---
 
 ### Operational Infrastructure Track: WeatherNext 3 Data Ingestion & Prognostic Rolling Pre-Warming
-- [ ] **Task OPS-WN3-1**: Automated GCS Prognostic Ingestion & Cron Scheduling
-  - **Target Files**: `scripts/fetch-weathernext3.py`
-  - **Specification**: Operationalize automated GCS ingestion from `gs://weathernext3_statistics_spatial/` via cron schedule (`'0 1,7,13,19 * * *'`) using verified Application Default Credentials (`antigravity-agent-1765655548`).
-- [ ] **Task OPS-WN3-2**: Scrubber Directional Rolling Cache ($\pm 2$h) & Idle Keyframe Prefetching
-  - **Target Files**: `src/core/data/WeatherNextDataSource.ts`
-  - **Specification**: Implement directional rolling pre-warming window ($\pm 2$h) around active timeline scrubber position with background pre-fetching for $+6$h and $+12$h keyframes when scrubber is idle for $>1.5$s.
+- [x] **Task OPS-WN3-1**: Automated GCS Prognostic Ingestion & Manifest Generation
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: Data Pipeline Engineer
+  - **Target Files**: `scripts/fetch-weathernext3.py`, `public/data/weathernext/meta.json`
+  - **Specification**: Ingested latest finalized prognostic cycle (`20261002_19hr_01_preds`) from requester-pays bucket `gs://weathernext3_statistics_spatial/` with billing project `antigravity-agent-1765655548`. Generated 72 scalar prognostic slices (6 variables × 12 hours) and 12 interleaved vector slices (`wind_10m_vector-0..11.bin`, `rg16float`). Output valid `meta.json` adhering to Invariant §40 (256-byte aligned hardware row pitch: 7,424 bytes/row, 13,370,624 bytes/scalar slice; 14,592 bytes/vector row, 26,280,192 bytes/vector slice).
+  - **Micro-Verification**: Verified via `uv run scripts/fetch-weathernext3.py --dry-run` (<2s cycle discovery) and complete disk staging; verified with `tests/modern/milestone12-weathernext-pipeline.test.ts`.
+
+- [x] **Task OPS-WN3-2**: Scrubber Directional Rolling Cache ($\pm 2$h) & Idle Keyframe Prefetching
+  - **Phase**: `[COMPLETED]`
+  - **Iteration_Count**: 1
+  - **Role**: Systems & WebGPU Engineer
+  - **Target Files**: `src/core/data/WeatherNextDataSource.ts`, `tests/modern/milestone12-weathernext-pipeline.test.ts`
+  - **Specification**: Enhanced `WeatherNextDataSource.ts` with directional pre-warming cache ($\pm 2$h) around active timeline position (`currentHour`). Implemented forward/backward scrub priority ordering (`[+1, +2, -1, -2]` vs `[-1, -2, +1, +2]`) with safe boundary clamping [0, 11]. Added debounced Idle Keyframe Prefetcher (1.5s idle threshold) prefetching synoptic anchors $+6$h and $+12$h. Preallocated tracking buffers satisfying Rule 26 (Zero-GC Buffer Loop). Validated live HUD synchronization with dual-zone chronology (Invariant §72) and 3-slot texture ring buffer (Invariant §73).
+  - **Micro-Verification**: 16/16 tests passing in `tests/modern/milestone12-weathernext-pipeline.test.ts`; live Chrome DevTools MCP verification confirmed zero console errors, zero WebGPU warnings, and clean live prognostic rendering across all 3 cartographic mediums (Cream Rag, Prussian Cyanotype, Marie Tharp). Full suite gate: 276/276 test files passing (3,917/3,917 tests, 100% pass rate).
 
 ---
 

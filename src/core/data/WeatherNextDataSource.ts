@@ -148,6 +148,10 @@ export interface WeatherNextDataSourceOptions {
   defaultVariable?: string;
   maxCachedSlices?: number;
   id?: string;
+  prewarmRadius?: number;
+  enablePrewarm?: boolean;
+  idlePrefetchDelayMs?: number;
+  enableIdlePrefetch?: boolean;
 }
 
 export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
@@ -160,6 +164,12 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
   public readonly basePath: string;
   public readonly metaUrl: string;
   public readonly maxCachedSlices: number;
+
+  // --- Directional Rolling Pre-Warming & Idle Prefetching State (Rule 26) ---
+  public readonly prewarmRadius: number;
+  public readonly idlePrefetchDelayMs: number;
+  public readonly enablePrewarm: boolean;
+  public readonly enableIdlePrefetch: boolean;
 
   // --- Public State ---
   public metadata: WeatherNextMeta | null = null;
@@ -174,6 +184,13 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
   private isDisposed: boolean = false;
   private advanceQueue: Promise<void> = Promise.resolve();
   private residentHours: [number, number, number] | null = null;
+
+  // Tracking for directional scrubbing & idle prefetch debounce (Rule 26 Zero-GC)
+  private lastScrubHour: number = 0;
+  private scrubDirection: 1 | -1 | 0 = 0;
+  private idlePrefetchTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly prewarmTargets: number[] = [0, 0, 0, 0];
+  private readonly anchorOffsets: readonly [number, number] = [6, 12];
 
   constructor(
     idOrOptions?: string | WeatherNextDataSourceOptions,
@@ -197,6 +214,10 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
     this.metaUrl = opts.metaUrl ?? opts.metadataUrl ?? `${this.basePath}/meta.json`;
     this.activeVariable = opts.defaultVariable ?? 'total_precipitation_1hr_mean';
     this.maxCachedSlices = opts.maxCachedSlices ?? 24;
+    this.prewarmRadius = opts.prewarmRadius ?? 2;
+    this.idlePrefetchDelayMs = opts.idlePrefetchDelayMs ?? 1500;
+    this.enablePrewarm = opts.enablePrewarm ?? true;
+    this.enableIdlePrefetch = opts.enableIdlePrefetch ?? true;
 
     if (opts.ringBuffer) {
       this.bindRingBuffer(opts.ringBuffer);
@@ -540,6 +561,7 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
     }
 
     this.currentHour = clampedHour;
+    this.lastScrubHour = clampedHour;
     this.activeVariable = targetVar;
     this.residentHours = [h0, h1, h2];
   }
@@ -669,16 +691,31 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
   /**
    * Primary time update handler invoked by TimelineScrubber onTimeChange.
    * Handles intra-hour scrubbing (zero I/O), sequential advance, and arbitrary seek.
+   * Integrates directional rolling pre-warming (±2h) and debounced idle keyframe prefetching.
    */
   public async setTime(bracketHour: number, tau: number = 0.0): Promise<void> {
     if (this.isDisposed) return;
     const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 47;
     const clampedHour = Math.max(0, Math.min(maxHour, Math.floor(bracketHour)));
 
+    // Reset debounced idle keyframe prefetcher (1.5s idle threshold)
+    this.resetIdlePrefetchTimer();
+
     if (clampedHour === this.currentHour) {
-      // Intra-hour progression: tau changed smoothly, slots remain resident in VRAM
+      // Intra-hour progression: tau changed smoothly, slots remain resident in VRAM (Zero I/O)
       return;
     }
+
+    // Inter-hour scrub: track directional velocity/sign
+    if (clampedHour > this.currentHour) {
+      this.scrubDirection = 1;
+    } else if (clampedHour < this.currentHour) {
+      this.scrubDirection = -1;
+    }
+    this.lastScrubHour = clampedHour;
+
+    // Trigger directional rolling pre-warming (±2h around active scrubber position)
+    this.prewarmWindow(clampedHour, this.scrubDirection);
 
     if (!this.ringBuffer || this.ringBuffer.disposed) {
       this.currentHour = clampedHour;
@@ -713,7 +750,7 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
    * Returns authoritative meteorological provenance telemetry for UI/HUD reflection.
    */
   public getProvenance(tau: number = 0.0, showSurf: boolean = true, showJet: boolean = true): MeteorologicalProvenance {
-    const model = this.metadata?.model || 'Google DeepMind WeatherNext 3';
+    const model = this.metadata?.source || 'Google DeepMind WeatherNext 3';
     const runTimestamp = this.metadata?.forecastInitTimestamp || '2026-03-30T00:00:00Z';
     const hour = this.currentHour;
     const resDeg = this.metadata?.gridDimensions?.resolutionDeg ?? 0.1;
@@ -745,6 +782,159 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
   }
 
   /**
+   * Directional rolling pre-warming cache (±2h around centerHour).
+   * Directional ordering:
+   * - If scrubbing forward (dir >= 0): prioritizes upcoming hours (+1, +2, then -1, -2)
+   * - If scrubbing backward (dir < 0): prioritizes past hours (-1, -2, then +1, +2)
+   */
+  public prewarmWindow(
+    centerHour: number = this.currentHour,
+    direction: 1 | -1 | 0 = this.scrubDirection,
+    variable: string = this.activeVariable
+  ): void {
+    if (this.isDisposed || !this.enablePrewarm) return;
+    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 47;
+
+    let count = 0;
+    if (direction < 0) {
+      // Backward scrubbing: prioritize past hours
+      for (let r = 1; r <= this.prewarmRadius; r++) {
+        const h = centerHour - r;
+        if (h >= 0 && h <= maxHour) this.prewarmTargets[count++] = h;
+      }
+      for (let r = 1; r <= this.prewarmRadius; r++) {
+        const h = centerHour + r;
+        if (h >= 0 && h <= maxHour) this.prewarmTargets[count++] = h;
+      }
+    } else {
+      // Forward scrubbing or stationary: prioritize upcoming hours
+      for (let r = 1; r <= this.prewarmRadius; r++) {
+        const h = centerHour + r;
+        if (h >= 0 && h <= maxHour) this.prewarmTargets[count++] = h;
+      }
+      for (let r = 1; r <= this.prewarmRadius; r++) {
+        const h = centerHour - r;
+        if (h >= 0 && h <= maxHour) this.prewarmTargets[count++] = h;
+      }
+    }
+
+    for (let i = 0; i < count; i++) {
+      const targetH = this.prewarmTargets[i];
+      const key = `${variable}-${targetH}`;
+      if (!this.sliceCache.has(key) && !this.pendingRequests.has(key)) {
+        this.getSlice(variable, targetH).catch(() => {
+          // Prewarm background failures are non-fatal
+        });
+      }
+    }
+  }
+
+  /**
+   * Resets the idle prefetch timer. Debounced to idlePrefetchDelayMs (1.5s).
+   */
+  public resetIdlePrefetchTimer(): void {
+    if (this.isDisposed || !this.enableIdlePrefetch) return;
+    if (this.idlePrefetchTimer !== null) {
+      clearTimeout(this.idlePrefetchTimer);
+      this.idlePrefetchTimer = null;
+    }
+    this.idlePrefetchTimer = setTimeout(() => {
+      this.idlePrefetchTimer = null;
+      if (!this.isDisposed) {
+        this.prefetchIdleKeyframes();
+      }
+    }, this.idlePrefetchDelayMs);
+  }
+
+  /**
+   * Cancels any pending idle prefetch timer.
+   */
+  public cancelIdlePrefetch(): void {
+    if (this.idlePrefetchTimer !== null) {
+      clearTimeout(this.idlePrefetchTimer);
+      this.idlePrefetchTimer = null;
+    }
+  }
+
+  /**
+   * Dispatches background pre-fetches for +6h and +12h synoptic anchor slices.
+   */
+  public prefetchIdleKeyframes(variable: string = this.activeVariable): void {
+    if (this.isDisposed || !this.enableIdlePrefetch) return;
+    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 47;
+    for (let i = 0; i < this.anchorOffsets.length; i++) {
+      const anchorHour = this.currentHour + this.anchorOffsets[i];
+      if (anchorHour <= maxHour) {
+        const key = `${variable}-${anchorHour}`;
+        if (!this.sliceCache.has(key) && !this.pendingRequests.has(key)) {
+          this.getSlice(variable, anchorHour).catch(() => {
+            // Anchor prefetch failures are non-fatal
+          });
+        }
+      }
+    }
+  }
+
+  /**
+   * Returns whether a specific variable and hour is resident in in-memory slice cache.
+   */
+  public isSliceCached(variable: string, hour: number): boolean {
+    return this.sliceCache.has(`${variable}-${hour}`);
+  }
+
+  /**
+   * Returns current count of cached slices in memory.
+   */
+  public getCachedSliceCount(): number {
+    return this.sliceCache.size;
+  }
+
+  /**
+   * Returns current count of in-flight pending network requests.
+   */
+  public getPendingRequestCount(): number {
+    return this.pendingRequests.size;
+  }
+
+  /**
+   * Returns the current detected scrubbing direction (1 = forward, -1 = backward, 0 = stationary).
+   */
+  public getScrubDirection(): 1 | -1 | 0 {
+    return this.scrubDirection;
+  }
+
+  /**
+   * Returns a snapshot array of target hours computed for a given centerHour and direction.
+   */
+  public getPrewarmTargets(
+    centerHour: number = this.currentHour,
+    direction: 1 | -1 | 0 = this.scrubDirection
+  ): number[] {
+    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 47;
+    const targets: number[] = [];
+    if (direction < 0) {
+      for (let r = 1; r <= this.prewarmRadius; r++) {
+        const h = centerHour - r;
+        if (h >= 0 && h <= maxHour) targets.push(h);
+      }
+      for (let r = 1; r <= this.prewarmRadius; r++) {
+        const h = centerHour + r;
+        if (h >= 0 && h <= maxHour) targets.push(h);
+      }
+    } else {
+      for (let r = 1; r <= this.prewarmRadius; r++) {
+        const h = centerHour + r;
+        if (h >= 0 && h <= maxHour) targets.push(h);
+      }
+      for (let r = 1; r <= this.prewarmRadius; r++) {
+        const h = centerHour - r;
+        if (h >= 0 && h <= maxHour) targets.push(h);
+      }
+    }
+    return targets;
+  }
+
+  /**
    * Changes active prognostic variable and restages the current 3-slot window.
    */
   public async setActiveVariable(variable: string): Promise<void> {
@@ -769,9 +959,10 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
   }
 
   /**
-   * Clears in-memory slice cache.
+   * Clears in-memory slice cache and cancels pending idle prefetch timers.
    */
   public clearCache(): void {
+    this.cancelIdlePrefetch();
     this.sliceCache.clear();
     this.pendingRequests.clear();
   }
@@ -794,6 +985,7 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
   public dispose(): void {
     if (this.isDisposed) return;
     this.isDisposed = true;
+    this.cancelIdlePrefetch();
     this.advanceQueue = Promise.resolve();
     this.residentHours = null;
     this.seekSequenceId++;

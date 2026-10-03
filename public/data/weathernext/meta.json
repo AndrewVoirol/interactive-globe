@@ -2,9 +2,9 @@
   "source": "Google DeepMind WeatherNext 3",
   "model": "weathernext_3_0_0_statistics",
   "dataset": "gs://weathernext3_statistics_spatial/weathernext_3_0_0_statistics/zarr/2026_to_present/",
-  "forecastInitTimestamp": "2026-09-29T12:00:00Z",
-  "forecastRunCycle": "20260929_12hr_01_preds",
-  "ingestedAtUTC": "2026-09-29T19:08:48.413029+00:00",
+  "forecastInitTimestamp": "2026-10-02T19:00:00Z",
+  "forecastRunCycle": "20261002_19hr_01_preds",
+  "ingestedAtUTC": "2026-10-03T02:02:56.106759+00:00",
   "billingProject": "antigravity-agent-1765655548",
   "gridDimensions": {
     "width": 3600,
@@ -19,43 +19,68 @@
   },
   "timeHorizon": {
     "startHour": 0,
-    "endHour": 0,
+    "endHour": 11,
     "stepHours": 1,
-    "totalHours": 1
+    "totalHours": 12
   },
   "validPredictionHours": [
-    0
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
   ],
   "variables": [
-    "low_cloud_cover_mean",
-    "medium_cloud_cover_mean",
-    "high_cloud_cover_mean",
-    "wind_10m_vector"
+    "u_component_of_wind_10m_mean",
+    "v_component_of_wind_10m_mean",
+    "total_precipitation_1hr_mean",
+    "temperature_2m_mean",
+    "dewpoint_temperature_2m_mean",
+    "total_cloud_cover_mean"
   ],
   "variableMetadata": {
-    "low_cloud_cover_mean": {
-      "longName": "Low Cloud Cover Fraction (0-2000m)",
-      "units": "fraction",
-      "canonicalMin": 0.0,
-      "canonicalMax": 1.0
-    },
-    "medium_cloud_cover_mean": {
-      "longName": "Medium Cloud Cover Fraction (2000-6000m)",
-      "units": "fraction",
-      "canonicalMin": 0.0,
-      "canonicalMax": 1.0
-    },
-    "high_cloud_cover_mean": {
-      "longName": "High Cloud Cover Fraction (6000-12000m)",
-      "units": "fraction",
-      "canonicalMin": 0.0,
-      "canonicalMax": 1.0
-    },
-    "wind_10m_vector": {
-      "longName": "10m Wind Velocity Vector Field (rg16float)",
+    "u_component_of_wind_10m_mean": {
+      "longName": "10m Eastward Wind Velocity",
       "units": "m/s",
       "canonicalMin": -45.0,
       "canonicalMax": 45.0
+    },
+    "v_component_of_wind_10m_mean": {
+      "longName": "10m Northward Wind Velocity",
+      "units": "m/s",
+      "canonicalMin": -45.0,
+      "canonicalMax": 45.0
+    },
+    "total_precipitation_1hr_mean": {
+      "longName": "Accumulated Precipitation Rate",
+      "units": "kg/m^2",
+      "canonicalMin": 0.0,
+      "canonicalMax": 50.0
+    },
+    "temperature_2m_mean": {
+      "longName": "2m Ambient Surface Temperature",
+      "units": "\u00b0C",
+      "canonicalMin": -90.0,
+      "canonicalMax": 60.0
+    },
+    "dewpoint_temperature_2m_mean": {
+      "longName": "2m Surface Dewpoint Temperature",
+      "units": "\u00b0C",
+      "canonicalMin": -90.0,
+      "canonicalMax": 60.0
+    },
+    "total_cloud_cover_mean": {
+      "longName": "Column-Integrated Total Cloud Fraction",
+      "units": "fraction",
+      "canonicalMin": 0.0,
+      "canonicalMax": 1.0
     }
   },
   "textureEncoding": {
@@ -80,7 +105,7 @@
   },
   "filePattern": "/data/weathernext/{variable}-{hour}.bin",
   "provenance": {
-    "sourceBucket": "gs://weathernext3_statistics_spatial/weathernext_3_0_0_statistics/zarr/2026_to_present/20260929_12hr_01_preds/predictions.zarr",
+    "sourceBucket": "gs://weathernext3_statistics_spatial/weathernext_3_0_0_statistics/zarr/2026_to_present/20261002_19hr_01_preds/predictions.zarr",
     "chunkShape": [
       1,
       1801,
