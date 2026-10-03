@@ -14,7 +14,16 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
   const indexCssPath = path.resolve(__dirname, '../../index.css');
   const atmosphereDrawerPath = path.resolve(__dirname, '../../src/components/AtmosphereDrawer.tsx');
   const appContent = fs.readFileSync(appTsxPath, 'utf-8');
-  const sidebarContent = fs.readFileSync(sidebarPath, 'utf-8');
+  const sidebarContent = [
+    fs.readFileSync(sidebarPath, 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/CrustHydrosphereTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/AtmosphereTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/DataLayersTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/InspectionTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/CatalogSheet.tsx'), 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/KinematicsTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/SidebarTelemetry.tsx'), 'utf-8'),
+  ].join('\n');
   const segmentedContent = fs.readFileSync(segmentedControlPath, 'utf-8');
   const cssContent = fs.readFileSync(indexCssPath, 'utf-8');
   const atmosphereDrawerContent = fs.readFileSync(atmosphereDrawerPath, 'utf-8');
@@ -99,17 +108,17 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
   // --------------------------------------------------------------------------
   describe('5. Palette Harmony in Cream Rag Mode', () => {
     it('verifies Antipodes button in Cream Rag uses Terracotta / Burnt Sienna instead of raw rose-600', () => {
-      expect(sidebarContent).toContain("theme === 1\n                            ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414]");
+      expect(sidebarContent).toContain("theme === 1\n                  ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414]");
       expect(sidebarContent).not.toContain("? isLight\n                              ? 'bg-rose-600 text-white");
     });
 
     it('verifies Conveyor button in Cream Rag uses Prussian Slate instead of raw sky-600', () => {
-      expect(sidebarContent).toContain("theme === 1\n                            ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A]");
+      expect(sidebarContent).toContain("theme === 1\n                  ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A]");
       expect(sidebarContent).not.toContain("? isLight\n                              ? 'bg-sky-600 text-white");
     });
 
     it('verifies Migration button in Cream Rag uses Raw Ochre instead of raw amber-600', () => {
-      expect(sidebarContent).toContain("theme === 1\n                            ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300]");
+      expect(sidebarContent).toContain("theme === 1\n                  ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300]");
       expect(sidebarContent).not.toContain("? isLight\n                              ? 'bg-amber-600 text-white");
     });
 
@@ -121,13 +130,13 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
     });
 
     it('verifies 16M resolution tier button in Cream Rag uses mineral pigment', () => {
-      expect(sidebarContent).toContain("tier === '16M'\n                            ? theme === 1\n                              ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300]");
+      expect(sidebarContent).toContain("tier === '16M'\n                    ? theme === 1\n                      ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300]");
     });
 
     it('verifies catalog preset category pills in Cream Rag use readable dark mineral pigments on cream paper', () => {
-      expect(sidebarContent).toContain("preset.category === 'topo'\n                            ? 'bg-[#2e6b47]/15 text-[#1b432b] border-[#2e6b47]/30'");
-      expect(sidebarContent).toContain("preset.category === 'satellite'\n                            ? 'bg-[#2b6b88]/15 text-[#1a4457] border-[#2b6b88]/30'");
-      expect(sidebarContent).toContain("preset.category === 'vectors'\n                            ? 'bg-[#96641e]/15 text-[#52350c] border-[#96641e]/30'");
+      expect(sidebarContent).toContain("preset.category === 'topo'\n                        ? 'bg-[#2e6b47]/15 text-[#1b432b] border-[#2e6b47]/30'");
+      expect(sidebarContent).toContain("preset.category === 'satellite'\n                        ? 'bg-[#2b6b88]/15 text-[#1a4457] border-[#2b6b88]/30'");
+      expect(sidebarContent).toContain("preset.category === 'vectors'\n                        ? 'bg-[#96641e]/15 text-[#52350c] border-[#96641e]/30'");
     });
 
     it('verifies Zen Mode restore pill uses contrast styling for theme 1', () => {

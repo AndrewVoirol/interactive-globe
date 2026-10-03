@@ -7,6 +7,7 @@ describe('Milestone 11: Geomorphic Drainage Basin Synthesis & Leopold-Maddock Hy
   const drainageShaderPath = path.resolve(__dirname, '../../src/webgpu/shaders/drainage_accumulation.wgsl');
   const crustShaderPath = path.resolve(__dirname, '../../src/webgpu/shaders/crust_hydrosphere.wgsl');
   const sidebarPath = path.resolve(__dirname, '../../src/components/hud/UnifiedRightSidebar.tsx');
+  const crustHydrosphereTabPath = path.resolve(__dirname, '../../src/components/hud/tabs/CrustHydrosphereTab.tsx');
   const canvasPath = path.resolve(__dirname, '../../src/webgpu/WebGPUCanvas.tsx');
   const appPath = path.resolve(__dirname, '../../src/App.tsx');
   const telemetryHudPath = path.resolve(__dirname, '../../src/components/hud/TelemetryHUD.tsx');
@@ -14,6 +15,7 @@ describe('Milestone 11: Geomorphic Drainage Basin Synthesis & Leopold-Maddock Hy
   const drainageShaderSrc = fs.readFileSync(drainageShaderPath, 'utf8');
   const crustShaderSrc = fs.readFileSync(crustShaderPath, 'utf8');
   const sidebarSrc = fs.readFileSync(sidebarPath, 'utf8');
+  const crustHydrosphereTabSrc = fs.readFileSync(crustHydrosphereTabPath, 'utf8');
   const canvasSrc = fs.readFileSync(canvasPath, 'utf8');
   const appSrc = fs.readFileSync(appPath, 'utf8');
   const telemetryHudSrc = fs.readFileSync(telemetryHudPath, 'utf8');
@@ -184,15 +186,15 @@ describe('Milestone 11: Geomorphic Drainage Basin Synthesis & Leopold-Maddock Hy
 
   describe('4. Task M11-T4: Tactile HUD Instrument & Property Plumbing', () => {
     it('UnifiedRightSidebar renders dedicated Geomorphic Hydrology switch and collapsible sliders', () => {
-      expect(sidebarSrc).toContain('id="sidebar-geomorphic-hydrology-toggle"');
-      expect(sidebarSrc).toContain('id="sidebar-pluvial-discharge-coupling"');
-      expect(sidebarSrc).toContain('id="sidebar-bedrock-incision"');
-      expect(sidebarSrc).toContain('Geomorphic Hydrology');
-      expect(sidebarSrc).toContain('D-∞ catchment routing & Leopold-Maddock');
+      expect(crustHydrosphereTabSrc).toContain('id="sidebar-geomorphic-hydrology-toggle"');
+      expect(crustHydrosphereTabSrc).toContain('id="sidebar-pluvial-discharge-coupling"');
+      expect(crustHydrosphereTabSrc).toContain('id="sidebar-bedrock-incision"');
+      expect(crustHydrosphereTabSrc).toContain('Geomorphic Hydrology');
+      expect(crustHydrosphereTabSrc).toContain('D-∞ catchment routing & Leopold-Maddock');
     });
 
     it('enforces semantic typography on hydrology controls without raw pixel font utilities', () => {
-      const hydroMatch = sidebarSrc.match(/id="sidebar-geomorphic-hydrology-toggle"[\s\S]*?id="sidebar-bedrock-incision"/);
+      const hydroMatch = crustHydrosphereTabSrc.match(/id="sidebar-geomorphic-hydrology-toggle"[\s\S]*?id="sidebar-bedrock-incision"/);
       expect(hydroMatch).not.toBeNull();
       const snippet = hydroMatch![0];
       expect(snippet).not.toMatch(/text-\[\d+(\.\d+)?px\]/);

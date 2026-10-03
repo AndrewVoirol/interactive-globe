@@ -28,7 +28,15 @@ describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety',
   const tailwindConfig = fs.readFileSync(tailwindConfigPath, 'utf-8');
   const themeManagerCode = fs.readFileSync(themeManagerPath, 'utf-8');
   const appCode = fs.readFileSync(appPath, 'utf-8');
-  const sidebarCode = fs.readFileSync(sidebarPath, 'utf-8');
+  const sidebarCode = [
+    fs.readFileSync(sidebarPath, 'utf-8'),
+    fs.readFileSync(path.join(rootDir, 'src/components/hud/tabs/CrustHydrosphereTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(rootDir, 'src/components/hud/tabs/CatalogSheet.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(rootDir, 'src/components/hud/tabs/DataLayersTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(rootDir, 'src/components/hud/tabs/InspectionTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(rootDir, 'src/components/hud/tabs/SidebarTelemetry.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(rootDir, 'src/components/hud/tabs/KinematicsTab.tsx'), 'utf-8'),
+  ].join('\n');
 
   describe('Defect 1 & 6: Hover Border Token Synchronization Across Themes', () => {
     it('defines --theme-card-border-hover in all 3 themes in index.css', () => {

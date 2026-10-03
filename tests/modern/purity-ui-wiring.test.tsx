@@ -26,6 +26,9 @@ describe('Milestone 6: UI Integrity & Purity Wiring Test Suite', () => {
   const appSource = fs.readFileSync(path.join(projectRoot, 'src/App.tsx'), 'utf-8');
   const telemetrySource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/TelemetryHUD.tsx'), 'utf-8');
   const sidebarSource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/UnifiedRightSidebar.tsx'), 'utf-8');
+  const inspectionTabSource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/InspectionTab.tsx'), 'utf-8');
+  const catalogSheetSource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/CatalogSheet.tsx'), 'utf-8');
+  const telemetryTabSource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/SidebarTelemetry.tsx'), 'utf-8');
   const canvasSource = fs.readFileSync(path.join(projectRoot, 'src/webgpu/WebGPUCanvas.tsx'), 'utf-8');
 
   let container: HTMLDivElement;
@@ -143,13 +146,13 @@ describe('Milestone 6: UI Integrity & Purity Wiring Test Suite', () => {
     });
 
     it('M6-05: UnifiedRightSidebar.tsx contains Card 4b "Purity · DEM Only" markup with RAW badge', () => {
-      expect(sidebarSource).toContain('Purity · DEM Only');
-      expect(sidebarSource).toContain('RAW');
-      expect(sidebarSource).toContain('Archival substrate + pure DEM mesh (zero atmosphere/water)');
+      expect(inspectionTabSource).toContain('Purity · DEM Only');
+      expect(inspectionTabSource).toContain('RAW');
+      expect(inspectionTabSource).toContain('Archival substrate + pure DEM mesh (zero atmosphere/water)');
     });
 
     it('M6-06: UnifiedRightSidebar.tsx catalog sheet uses xl:right-[26.5rem]', () => {
-      expect(sidebarSource).toMatch(/fixed top-5 right-5 xl:right-\[26\.5rem\] z-40 pointer-events-auto w-96/);
+      expect(catalogSheetSource).toMatch(/fixed top-5 right-5 xl:right-\[26\.5rem\] z-40 pointer-events-auto w-96/);
     });
 
     it('M6-07: App.tsx responsive offsets use xl:right-[51.75rem] for header', () => {
@@ -157,10 +160,10 @@ describe('Milestone 6: UI Integrity & Purity Wiring Test Suite', () => {
     });
 
     it('M6-08: GPU Profiler telemetry labels are compacted to single-line budget', () => {
-      expect(sidebarSource).toContain('Sim: {(gpuReport.computeMs ?? 0).toFixed(1)}ms');
-      expect(sidebarSource).toContain('Crust: {(gpuReport.reliefMs ?? 0).toFixed(1)}ms');
-      expect(sidebarSource).toContain('Lines: {(gpuReport.linesMs ?? 0).toFixed(1)}ms');
-      expect(sidebarSource).toContain('Cont: {(gpuReport.contoursMs ?? 0).toFixed(1)}ms');
+      expect(telemetryTabSource).toContain('Sim: {(gpuReport.computeMs ?? 0).toFixed(1)}ms');
+      expect(telemetryTabSource).toContain('Crust: {(gpuReport.reliefMs ?? 0).toFixed(1)}ms');
+      expect(telemetryTabSource).toContain('Lines: {(gpuReport.linesMs ?? 0).toFixed(1)}ms');
+      expect(telemetryTabSource).toContain('Cont: {(gpuReport.contoursMs ?? 0).toFixed(1)}ms');
     });
 
     it('M6-09: WebGPUCanvas.tsx reuses _scratchVecA and ORIGIN_VEC for camera kinematics', () => {

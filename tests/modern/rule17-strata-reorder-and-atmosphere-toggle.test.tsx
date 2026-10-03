@@ -23,6 +23,7 @@ import { DataLayerItem } from '../../src/types';
 describe('Rule 17 Strata Reorder Removal & Atmospheric Scatter Toggle Wiring', () => {
   const projectRoot = path.resolve(__dirname, '../..');
   const sidebarSource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/UnifiedRightSidebar.tsx'), 'utf-8');
+  const atmosphereTabSource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/AtmosphereTab.tsx'), 'utf-8');
   const atmosphereDrawerSource = fs.readFileSync(path.join(projectRoot, 'src/components/AtmosphereDrawer.tsx'), 'utf-8');
   const engineStateSource = fs.readFileSync(path.join(projectRoot, 'src/hooks/useEngineState.ts'), 'utf-8');
   const appSource = fs.readFileSync(path.join(projectRoot, 'src/App.tsx'), 'utf-8');
@@ -175,8 +176,10 @@ describe('Rule 17 Strata Reorder Removal & Atmospheric Scatter Toggle Wiring', (
 
     it('ATMOS-04: UnifiedRightSidebar declares and forwards showAtmosphere to AtmosphereDrawer', () => {
       expect(sidebarSource).toContain('showAtmosphere?: boolean; onShowAtmosphereChange?: (v: boolean) => void;');
-      expect(sidebarSource).toMatch(/<AtmosphereDrawer[\s\S]*?showAtmosphere=\{propShowAtmosphere\}/);
-      expect(sidebarSource).toMatch(/<AtmosphereDrawer[\s\S]*?onShowAtmosphereChange=\{onShowAtmosphereChange\}/);
+      expect(sidebarSource).toMatch(/<(AtmosphereDrawer|AtmosphereTab)[\s\S]*?(?:showAtmosphere|propShowAtmosphere)=\{propShowAtmosphere\}/);
+      expect(sidebarSource).toMatch(/<(AtmosphereDrawer|AtmosphereTab)[\s\S]*?onShowAtmosphereChange=\{onShowAtmosphereChange\}/);
+      expect(atmosphereTabSource).toMatch(/<AtmosphereDrawer[\s\S]*?showAtmosphere=\{propShowAtmosphere\}/);
+      expect(atmosphereTabSource).toMatch(/<AtmosphereDrawer[\s\S]*?onShowAtmosphereChange=\{onShowAtmosphereChange\}/);
     });
 
     it('ATMOS-05: WebGPUCanvas defaults showAtmosphere to false', () => {

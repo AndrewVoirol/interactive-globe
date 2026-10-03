@@ -21,7 +21,10 @@ describe('Verification of Cartographic Pipeline Inconsistency Fixes', () => {
   const engineStateCode = fs.readFileSync(engineStatePath, 'utf-8');
 
   const sidebarPath = path.resolve(__dirname, '../../src/components/hud/UnifiedRightSidebar.tsx');
-  const sidebarCode = fs.readFileSync(sidebarPath, 'utf-8');
+  const sidebarCode = [
+    fs.readFileSync(sidebarPath, 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/CrustHydrosphereTab.tsx'), 'utf-8'),
+  ].join('\n');
 
   const appPath = path.resolve(__dirname, '../../src/App.tsx');
   const appCode = fs.readFileSync(appPath, 'utf-8');

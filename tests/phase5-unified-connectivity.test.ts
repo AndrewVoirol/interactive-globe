@@ -18,7 +18,16 @@ describe('Phase 5: Unified Architectural Connectivity & Hardware Parity', () => 
   const overlayCode = fs.readFileSync(overlayPath, 'utf-8');
 
   const sidebarPath = path.join(projectRoot, 'src/components/hud/UnifiedRightSidebar.tsx');
-  const sidebarCode = fs.readFileSync(sidebarPath, 'utf-8');
+  const sidebarCode = [
+    fs.readFileSync(sidebarPath, 'utf-8'),
+    fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/CrustHydrosphereTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/AtmosphereTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/DataLayersTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/InspectionTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/CatalogSheet.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/KinematicsTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/SidebarTelemetry.tsx'), 'utf-8'),
+  ].join('\n');
 
   const webgpuCanvasPath = path.join(projectRoot, 'src/webgpu/WebGPUCanvas.tsx');
   const webgpuCanvasCode = fs.readFileSync(webgpuCanvasPath, 'utf-8');

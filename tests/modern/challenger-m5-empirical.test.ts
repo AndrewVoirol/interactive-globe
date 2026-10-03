@@ -317,9 +317,11 @@ describe('Challenger M5 Empirical Adversarial Verification', () => {
   // --------------------------------------------------------------------------
   // Domain 4: Layout Invariant Static and Structural Verification
   // --------------------------------------------------------------------------
-  describe('Domain 4: Layout Invariant Verification (UnifiedRightSidebar.tsx)', () => {
+  describe('Domain 4: Layout Invariant Verification (UnifiedRightSidebar.tsx & AtmosphereTab.tsx)', () => {
     const sidebarPath = path.resolve(__dirname, '../../src/components/hud/UnifiedRightSidebar.tsx');
+    const atmosphereTabPath = path.resolve(__dirname, '../../src/components/hud/tabs/AtmosphereTab.tsx');
     const sidebarSource = fs.readFileSync(sidebarPath, 'utf8');
+    const atmosphereTabSource = fs.readFileSync(atmosphereTabPath, 'utf8');
 
     it('4.1 verifies zero instances of forbidden nested inner neatlines (inset-1, inset-[2px])', () => {
       // Invariant §2: Single-Border HUD Enclosure Contract
@@ -349,11 +351,11 @@ describe('Challenger M5 Empirical Adversarial Verification', () => {
 
     it('4.3 verifies Atmospheric Cloud Strata card has single-border enclosure with no nested borders', () => {
       const cardMarker = 'Atmospheric Cloud Strata Instrumentation Card';
-      expect(sidebarSource).toContain(cardMarker);
+      expect(atmosphereTabSource).toContain(cardMarker);
 
-      const cardSlice = sidebarSource.substring(
-        sidebarSource.indexOf(cardMarker),
-        sidebarSource.indexOf(cardMarker) + 1500
+      const cardSlice = atmosphereTabSource.substring(
+        atmosphereTabSource.indexOf(cardMarker),
+        atmosphereTabSource.indexOf(cardMarker) + 1500
       );
 
       // Verify single border classes

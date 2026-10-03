@@ -13,7 +13,16 @@ describe('Option A & Option B Cartographic Pipeline Upgrades', () => {
   const rasterCode = fs.existsSync(rasterRendererPath) ? fs.readFileSync(rasterRendererPath, 'utf-8') : '';
 
   const sidebarPath = path.resolve(__dirname, '../../src/components/hud/UnifiedRightSidebar.tsx');
-  const sidebarCode = fs.readFileSync(sidebarPath, 'utf-8');
+  const sidebarCode = [
+    fs.readFileSync(sidebarPath, 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/CrustHydrosphereTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/AtmosphereTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/DataLayersTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/InspectionTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/CatalogSheet.tsx'), 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/KinematicsTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.resolve(__dirname, '../../src/components/hud/tabs/SidebarTelemetry.tsx'), 'utf-8'),
+  ].join('\n');
 
 
   const appPath = path.resolve(__dirname, '../../src/App.tsx');

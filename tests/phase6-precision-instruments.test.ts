@@ -21,7 +21,16 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
   const tidePath = path.join(projectRoot, 'src/components/hud/instruments/BathymetricTideGauge.tsx');
   const sextantPath = path.join(projectRoot, 'src/components/hud/instruments/CurvatureUnfurlSextant.tsx');
 
-  const sidebarCode = fs.readFileSync(sidebarPath, 'utf-8');
+  const sidebarCode = [
+    fs.readFileSync(sidebarPath, 'utf-8'),
+    fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/CrustHydrosphereTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/AtmosphereTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/DataLayersTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/InspectionTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/CatalogSheet.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/KinematicsTab.tsx'), 'utf-8'),
+    fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/SidebarTelemetry.tsx'), 'utf-8'),
+  ].join('\n');
   const dockCode = fs.readFileSync(dockPath, 'utf-8');
   const sunCode = fs.readFileSync(sunPath, 'utf-8');
   const reliefCode = fs.readFileSync(reliefPath, 'utf-8');

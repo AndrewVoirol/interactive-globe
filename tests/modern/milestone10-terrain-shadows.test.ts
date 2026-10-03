@@ -7,6 +7,7 @@ describe('Milestone 10: Dynamic Terrain Horizon Self-Shadows & Canyon Lighting',
   const horizonShaderPath = path.resolve(__dirname, '../../src/webgpu/shaders/horizon_occlusion.wgsl');
   const crustShaderPath = path.resolve(__dirname, '../../src/webgpu/shaders/crust_hydrosphere.wgsl');
   const sidebarPath = path.resolve(__dirname, '../../src/components/hud/UnifiedRightSidebar.tsx');
+  const crustHydrosphereTabPath = path.resolve(__dirname, '../../src/components/hud/tabs/CrustHydrosphereTab.tsx');
   const canvasPath = path.resolve(__dirname, '../../src/webgpu/WebGPUCanvas.tsx');
   const appPath = path.resolve(__dirname, '../../src/App.tsx');
   const prognosticCardPath = path.resolve(__dirname, '../../src/components/hud/instruments/PrognosticModelCard.tsx');
@@ -14,6 +15,7 @@ describe('Milestone 10: Dynamic Terrain Horizon Self-Shadows & Canyon Lighting',
   const horizonShaderSrc = fs.readFileSync(horizonShaderPath, 'utf8');
   const crustShaderSrc = fs.readFileSync(crustShaderPath, 'utf8');
   const sidebarSrc = fs.readFileSync(sidebarPath, 'utf8');
+  const crustHydrosphereTabSrc = fs.readFileSync(crustHydrosphereTabPath, 'utf8');
   const canvasSrc = fs.readFileSync(canvasPath, 'utf8');
   const appSrc = fs.readFileSync(appPath, 'utf8');
   const prognosticCardSrc = fs.readFileSync(prognosticCardPath, 'utf8');
@@ -68,16 +70,16 @@ describe('Milestone 10: Dynamic Terrain Horizon Self-Shadows & Canyon Lighting',
     });
 
     it('synchronizes PolarSunCompass changes with updateTerrainShadowUniforms in UnifiedRightSidebar', () => {
-      expect(sidebarSrc).toContain('id="sidebar-terrain-shadows-toggle"');
-      expect(sidebarSrc).toContain('id="sidebar-terrain-shadow-softness"');
+      expect(crustHydrosphereTabSrc).toContain('id="sidebar-terrain-shadows-toggle"');
+      expect(crustHydrosphereTabSrc).toContain('id="sidebar-terrain-shadow-softness"');
       // Sun compass onChange synchronizes terrain shadow uniforms
-      expect(sidebarSrc).toContain('engine.updateTerrainShadowUniforms({');
-      expect(sidebarSrc).toContain('sunAzimuth: azimuth');
-      expect(sidebarSrc).toContain('sunAltitude: altitude');
+      expect(crustHydrosphereTabSrc).toContain('engine.updateTerrainShadowUniforms({');
+      expect(crustHydrosphereTabSrc).toContain('sunAzimuth: azimuth');
+      expect(crustHydrosphereTabSrc).toContain('sunAltitude: altitude');
     });
 
     it('enforces semantic typography on terrain shadow controls without raw pixel font utilities', () => {
-      const terrainControlsMatch = sidebarSrc.match(/id="sidebar-terrain-shadows-toggle"[\s\S]*?id="sidebar-terrain-shadow-softness"/);
+      const terrainControlsMatch = crustHydrosphereTabSrc.match(/id="sidebar-terrain-shadows-toggle"[\s\S]*?id="sidebar-terrain-shadow-softness"/);
       expect(terrainControlsMatch).not.toBeNull();
       const snippet = terrainControlsMatch![0];
       expect(snippet).not.toMatch(/text-\[\d+(\.\d+)?px\]/);

@@ -14,11 +14,13 @@ describe('Stage 2 Cartography: Remediation of 9 Known HUD Layout Violations', ()
   const appPath = path.join(projectRoot, 'src/App.tsx');
   const toastPath = path.join(projectRoot, 'src/components/hud/DataLayerToastNotification.tsx');
   const sidebarPath = path.join(projectRoot, 'src/components/hud/UnifiedRightSidebar.tsx');
+  const catalogPath = path.join(projectRoot, 'src/components/hud/tabs/CatalogSheet.tsx');
   const canvasPath = path.join(projectRoot, 'src/webgpu/WebGPUCanvas.tsx');
 
   const appContent = fs.readFileSync(appPath, 'utf-8');
   const toastContent = fs.readFileSync(toastPath, 'utf-8');
   const sidebarContent = fs.readFileSync(sidebarPath, 'utf-8');
+  const catalogContent = fs.readFileSync(catalogPath, 'utf-8');
   const canvasContent = fs.readFileSync(canvasPath, 'utf-8');
 
   // --------------------------------------------------------------------------
@@ -181,7 +183,7 @@ describe('Stage 2 Cartography: Remediation of 9 Known HUD Layout Violations', ()
   // --------------------------------------------------------------------------
   describe('Violation 9: Catalog Sheet Height Constraint on Compact 2xl', () => {
     it('V9-01: verifies catalog sheet adds 2xl:max-h-[calc(100vh-8.5rem)]', () => {
-      expect(sidebarContent).toContain('2xl:max-h-[calc(100vh-8.5rem)]');
+      expect(catalogContent).toContain('2xl:max-h-[calc(100vh-8.5rem)]');
     });
 
     it('V9-02: mathematically proves catalog sheet bottom stops above NavigationDock top', () => {

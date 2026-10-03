@@ -435,8 +435,9 @@ describe('Milestone 5 (R5): Real-Time CDLOD Diagnostic Plate', () => {
       expect(container.textContent).toContain('COMBINED');
     });
 
-    it('verifies static UI structure in UnifiedRightSidebar.tsx', () => {
-      const sidebarSrc = fs.readFileSync(sidebarPath, 'utf8');
+    it('verifies static UI structure in InspectionTab.tsx', () => {
+      const inspectionPath = path.join(projectRoot, 'src/components/hud/tabs/InspectionTab.tsx');
+      const sidebarSrc = fs.readFileSync(inspectionPath, 'utf8');
 
       expect(sidebarSrc).toContain('CDLOD Mesh Diagnostics');
       expect(sidebarSrc).toContain("{ id: 0, label: 'Off', title: 'Normal Cartographic Rendering' }");

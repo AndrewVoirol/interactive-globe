@@ -12,12 +12,14 @@ describe('Requirement R7: Cartographic Neatline Hierarchy & Spatial Clearance Mo
   const projectRoot = path.resolve(__dirname, '../..');
   const appPath = path.join(projectRoot, 'src/App.tsx');
   const sidebarPath = path.join(projectRoot, 'src/components/hud/UnifiedRightSidebar.tsx');
+  const catalogPath = path.join(projectRoot, 'src/components/hud/tabs/CatalogSheet.tsx');
   const dockPath = path.join(projectRoot, 'src/components/hud/NavigationDock.tsx');
   const ethosPath = path.join(projectRoot, 'DESIGN_ETHOS.md');
   const designLangPath = path.join(projectRoot, 'design-language.md');
 
   const appContent = fs.readFileSync(appPath, 'utf-8');
   const sidebarContent = fs.readFileSync(sidebarPath, 'utf-8');
+  const catalogContent = fs.readFileSync(catalogPath, 'utf-8');
   const dockContent = fs.readFileSync(dockPath, 'utf-8');
   const ethosContent = fs.readFileSync(ethosPath, 'utf-8');
   const designLangContent = fs.readFileSync(designLangPath, 'utf-8');
@@ -60,8 +62,8 @@ describe('Requirement R7: Cartographic Neatline Hierarchy & Spatial Clearance Mo
     });
 
     it('R7-06: verifies slide-out catalog sheet docks at top-5 right-5 with 20px axis alignment', () => {
-      expect(sidebarContent).toMatch(/fixed top-5 right-5 (?:xl|2xl):right-\[26\.5rem\] z-40 pointer-events-auto w-96/);
-      expect(sidebarContent).not.toContain('fixed top-4 right-4 2xl:right-[25.5rem] z-40 pointer-events-auto w-96');
+      expect(catalogContent).toMatch(/fixed top-5 right-5 (?:xl|2xl):right-\[26\.5rem\] z-40 pointer-events-auto w-96/);
+      expect(catalogContent).not.toContain('fixed top-4 right-4 2xl:right-[25.5rem] z-40 pointer-events-auto w-96');
     });
 
     it('R7-06b: verifies top header maintains 20px inter-instrument gutter and eliminates catalog overlap', () => {

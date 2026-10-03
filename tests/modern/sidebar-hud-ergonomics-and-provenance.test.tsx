@@ -27,6 +27,10 @@ import { TactileSelect } from '../../src/components/ui/TactileSelect';
 describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
   const projectRoot = path.resolve(__dirname, '../..');
   const sidebarSource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/UnifiedRightSidebar.tsx'), 'utf-8');
+  const crustTabSource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/CrustHydrosphereTab.tsx'), 'utf-8');
+  const kinematicsTabSource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/KinematicsTab.tsx'), 'utf-8');
+  const inspectionTabSource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/InspectionTab.tsx'), 'utf-8');
+  const sidebarBundleSource = sidebarSource + crustTabSource + kinematicsTabSource + inspectionTabSource;
   const canvasSource = fs.readFileSync(path.join(projectRoot, 'src/webgpu/WebGPUCanvas.tsx'), 'utf-8');
   const telemetrySource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/TelemetryHUD.tsx'), 'utf-8');
   const crustShaderSource = fs.readFileSync(path.join(projectRoot, 'src/webgpu/shaders/crust_hydrosphere.wgsl'), 'utf-8');
@@ -239,21 +243,21 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
     });
 
     it('uses "Crevice Depth" label', () => {
-      expect(sidebarSource).toContain('label="Crevice Depth"');
-      expect(sidebarSource).not.toContain('label="Crevice AO:"');
+      expect(crustTabSource).toContain('label="Crevice Depth"');
+      expect(crustTabSource).not.toContain('label="Crevice AO:"');
     });
 
     it('renders projection modes with short labels', () => {
-      expect(sidebarSource).toContain("'Linear'");
-      expect(sidebarSource).toContain("'Scroll'");
-      expect(sidebarSource).toContain("'Fracture'");
-      expect(sidebarSource).toContain("'Fluid'");
+      expect(kinematicsTabSource).toContain("'Linear'");
+      expect(kinematicsTabSource).toContain("'Scroll'");
+      expect(kinematicsTabSource).toContain("'Fracture'");
+      expect(kinematicsTabSource).toContain("'Fluid'");
     });
 
     it('does not contain removed features (Base Lattice, pinned footer, compact colophon)', () => {
-      expect(sidebarSource).not.toContain('Base Lattice:');
-      expect(sidebarSource).not.toContain('Pinned Footer');
-      expect(sidebarSource).not.toContain('compact={true}');
+      expect(sidebarBundleSource).not.toContain('Base Lattice:');
+      expect(sidebarBundleSource).not.toContain('Pinned Footer');
+      expect(sidebarBundleSource).not.toContain('compact={true}');
     });
 
     it('header theme toggle synchronizes calibrated relief parameters', () => {
@@ -262,12 +266,12 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
     });
 
     it('declares CDLOD Tessellation and Cursor Physics toggles calling respective handlers', () => {
-      expect(sidebarSource).toContain('title="Toggle CDLOD Tessellation"');
-      expect(sidebarSource).toContain('label="CDLOD Tessellation"');
-      expect(sidebarSource).toContain('onCdlodToggle?.(checked)');
-      expect(sidebarSource).toContain('title="Toggle Cursor Physics"');
-      expect(sidebarSource).toContain('label="Cursor Physics"');
-      expect(sidebarSource).toContain('onCursorPhysicsToggle?.(checked)');
+      expect(inspectionTabSource).toContain('title="Toggle CDLOD Tessellation"');
+      expect(inspectionTabSource).toContain('label="CDLOD Tessellation"');
+      expect(inspectionTabSource).toContain('onCdlodToggle?.(checked)');
+      expect(inspectionTabSource).toContain('title="Toggle Cursor Physics"');
+      expect(inspectionTabSource).toContain('label="Cursor Physics"');
+      expect(inspectionTabSource).toContain('onCursorPhysicsToggle?.(checked)');
     });
   });
 

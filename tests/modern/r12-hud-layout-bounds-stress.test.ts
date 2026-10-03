@@ -303,6 +303,7 @@ describe('R12: HUD Layout Geometry & Boundary Challenger Stress Suite', () => {
   const appSrc = fs.readFileSync(path.join(projectRoot, 'src/App.tsx'), 'utf-8');
   const toastSrc = fs.readFileSync(path.join(projectRoot, 'src/components/hud/DataLayerToastNotification.tsx'), 'utf-8');
   const sidebarSrc = fs.readFileSync(path.join(projectRoot, 'src/components/hud/UnifiedRightSidebar.tsx'), 'utf-8');
+  const catalogSrc = fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/CatalogSheet.tsx'), 'utf-8');
   const canvasSrc = fs.readFileSync(path.join(projectRoot, 'src/webgpu/WebGPUCanvas.tsx'), 'utf-8');
 
   // ==========================================================================
@@ -696,7 +697,7 @@ describe('R12: HUD Layout Geometry & Boundary Challenger Stress Suite', () => {
     });
 
     it('S3-06: UnifiedRightSidebar.tsx restricts catalog sheet on 2xl to 2xl:max-h-[calc(100vh-8.5rem)]', () => {
-      expect(sidebarSrc).toContain('2xl:max-h-[calc(100vh-8.5rem)]');
+      expect(catalogSrc).toContain('2xl:max-h-[calc(100vh-8.5rem)]');
     });
 
     it('S3-07: WebGPUCanvas.tsx verifies 2D canvas Cartouche has been excised in favor of DOM CuratorsColophon', () => {
