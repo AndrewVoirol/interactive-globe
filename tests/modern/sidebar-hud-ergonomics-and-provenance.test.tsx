@@ -29,6 +29,7 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
   const sidebarSource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/UnifiedRightSidebar.tsx'), 'utf-8');
   const canvasSource = fs.readFileSync(path.join(projectRoot, 'src/webgpu/WebGPUCanvas.tsx'), 'utf-8');
   const telemetrySource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/TelemetryHUD.tsx'), 'utf-8');
+  const crustShaderSource = fs.readFileSync(path.join(projectRoot, 'src/webgpu/shaders/crust_hydrosphere.wgsl'), 'utf-8');
 
   let container: HTMLDivElement;
   let root: Root;
@@ -259,6 +260,15 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       expect(sidebarSource).toContain('onClick={handleHeaderThemeToggle}');
       expect(sidebarSource).toContain('applyMediumCalibration(nextTheme)');
     });
+
+    it('declares CDLOD Tessellation and Cursor Physics toggles calling respective handlers', () => {
+      expect(sidebarSource).toContain('title="Toggle CDLOD Tessellation"');
+      expect(sidebarSource).toContain('label="CDLOD Tessellation"');
+      expect(sidebarSource).toContain('onCdlodToggle?.(checked)');
+      expect(sidebarSource).toContain('title="Toggle Cursor Physics"');
+      expect(sidebarSource).toContain('label="Cursor Physics"');
+      expect(sidebarSource).toContain('onCursorPhysicsToggle?.(checked)');
+    });
   });
 
   // --------------------------------------------------------------------------
@@ -270,6 +280,10 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       expect(canvasSource).not.toMatch(/cy\s*=\s*h\s*-\s*92/);
       expect(canvasSource).not.toMatch(/ch\s*=\s*72/);
       expect(canvasSource).not.toContain('curShowCartouche');
+    });
+
+    it('verifies crust_hydrosphere.wgsl modulates base land lithosphere raster alpha by layer opacity uniform', () => {
+      expect(crustShaderSource).toContain('return vec4<f32>(finalCrust, sim.u_layerOpacity);');
     });
   });
 
@@ -592,9 +606,11 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       });
 
       expect(button.getAttribute('aria-expanded')).toBe('true');
-      const listbox = container.querySelector('#test-tactile-select-listbox');
+      const listbox = document.querySelector('#test-tactile-select-listbox');
       expect(listbox).not.toBeNull();
       expect(listbox?.getAttribute('role')).toBe('listbox');
+      expect(document.body.contains(listbox)).toBe(true);
+      expect((listbox as HTMLElement).style.position).toBe('fixed');
 
       const optionButtons = Array.from(listbox!.querySelectorAll('[role="option"]'));
       expect(optionButtons.length).toBe(4);

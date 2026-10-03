@@ -64,6 +64,9 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
 
     const slider = container.querySelector('[role="slider"]') as HTMLDivElement;
     expect(slider).not.toBeNull();
+    expect(slider.getAttribute('role')).toBe('slider');
+    expect(slider.getAttribute('aria-valuemin')).toBe('0');
+    expect(slider.getAttribute('aria-valuemax')).toBe('1');
     expect(slider.className).toContain('touch-none');
     expect(slider.style.touchAction).toBe('none');
   });

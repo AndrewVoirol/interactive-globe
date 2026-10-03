@@ -196,6 +196,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onLayerModeChange,
   mode,
   onModeChange,
+  cursorPhysicsEnabled = false,
   onCursorPhysicsToggle,
   prognosticModel,
   onPrognosticModelChange,
@@ -1488,6 +1489,32 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             onChange={onPurityModeToggle || (() => {})}
                             title="Toggle Raw DEM Purity Mode (Strips water, atmosphere, clouds, and wind)"
                             label={purityMode ? 'Active' : 'Off'}
+                            indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#10B981'}
+                          />
+                        </div>
+
+                        {/* CDLOD Tessellation Switch */}
+                        <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
+                          <TactileSwitch
+                            id="sidebar-cdlod-toggle"
+                            checked={Boolean(cdlodEnabled)}
+                            onChange={(checked) => onCdlodToggle?.(checked)}
+                            title="Toggle CDLOD Tessellation"
+                            label="CDLOD Tessellation"
+                            sublabel="Continuous distance-dependent quadtree tessellation"
+                            indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#10B981'}
+                          />
+                        </div>
+
+                        {/* Cursor Physics Switch */}
+                        <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
+                          <TactileSwitch
+                            id="sidebar-cursor-physics-toggle"
+                            checked={Boolean(cursorPhysicsEnabled)}
+                            onChange={(checked) => onCursorPhysicsToggle?.(checked)}
+                            title="Toggle Cursor Physics"
+                            label="Cursor Physics"
+                            sublabel="Kinematic damping and elastic spring reticle"
                             indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#10B981'}
                           />
                         </div>

@@ -2192,5 +2192,5 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         finalCrust = diagColor * hillshade;
     }
 
-    return vec4<f32>(finalCrust, 1.0);
+    return vec4<f32>(finalCrust, sim.u_layerOpacity);
 }
