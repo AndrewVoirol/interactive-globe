@@ -786,8 +786,8 @@ describe('Challenger 1: AtmosphericColumnInstrument Behavioral Adversarial Suite
         );
       });
       expect(container.querySelector('.acoustic-trace-tharp')).not.toBeNull();
-      expect(container.textContent).toContain('INVERSION CEILING (LCL)');
-      expect(container.textContent).toContain('CIRRUS SHIELD');
+      expect(container.textContent).toContain('LCL CEILING');
+      expect(container.textContent).toContain('CIRRUS');
 
       // Theme 1: Cream Rag (Victorian meteorological engravings, Luke Howard 1803 Latin taxonomy)
       await act(async () => {

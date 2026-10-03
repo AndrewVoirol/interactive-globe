@@ -191,6 +191,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
 
   return (
     <div
+      data-instrument="atmospheric-column"
       className={`p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${className}`}
     >
       {/* 1. Status Header */}
@@ -198,10 +199,10 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse shrink-0" />
           <div className="flex flex-col min-w-0">
-            <span className="font-bold tracking-wider text-[var(--theme-text-accent)] uppercase truncate">
+            <span className="font-bold tracking-wider text-[var(--theme-text-accent)] uppercase">
               ATMOSPHERIC PROFILE
             </span>
-            <span className="text-nano text-[var(--theme-text-muted)] truncate">
+            <span className="text-nano text-[var(--theme-text-muted)]">
               Tropospheric Strata Column
             </span>
           </div>
@@ -240,7 +241,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         <svg
           className="w-full h-full pointer-events-none"
           viewBox="0 0 280 130"
-          preserveAspectRatio="none"
+          preserveAspectRatio="xMidYMid meet"
         >
           {/* Base Strata Column Bands */}
           {/* High Strata Band (Cirrus, 10–12 km) */}
@@ -393,7 +394,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
                 ALTOSTRATUS [500 hPa]
               </text>
               <text x="48" y="107" fill="#a5d5ff" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
-                BOUNDARY STRATUS [850 hPa]
+                STRATUS [850 hPa]
               </text>
 
               {/* Radiosonde Sounding Ascent Trajectory */}
@@ -417,7 +418,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               {/* Temperature Inversion Boundary Line (LCL) */}
               <line x1="42" y1="88" x2="272" y2="88" stroke="#34d399" strokeWidth="0.8" strokeDasharray="4 2" opacity="0.8" />
               <text x="48" y="86" fill="#34d399" fontSize="6.5" fontFamily="monospace" opacity="0.9">
-                ▲ INVERSION CEILING (LCL)
+                ▲ LCL CEILING
               </text>
 
               {/* Sonar Acoustic Pulse Echo Circles */}
@@ -426,13 +427,13 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
 
               {/* Strata Designations */}
               <text x="48" y="37" fill="#00e5ff" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
-                CIRRUS SHIELD (10–12 km)
+                CIRRUS (10–12 km)
               </text>
               <text x="48" y="73" fill="#00e5ff" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
-                ALTOCUMULUS STRATA (4–6 km)
+                ALTOCUMULUS (4–6 km)
               </text>
               <text x="48" y="107" fill="#00e5ff" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
-                MARINE BOUNDARY LAYER (1–2 km)
+                MARINE LAYER (1–2 km)
               </text>
 
               {/* Altitude Labels */}

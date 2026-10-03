@@ -62,10 +62,10 @@ describe('Challenger 2: DOM, ARIA & Build Verification Suite (M2 - R2)', () => {
 
       // Check for Tharp-specific sounding artifacts
       const tharpText = tharpGroup?.textContent || '';
-      expect(tharpText).toContain('INVERSION CEILING (LCL)');
-      expect(tharpText).toContain('CIRRUS SHIELD (10–12 km)');
-      expect(tharpText).toContain('ALTOCUMULUS STRATA (4–6 km)');
-      expect(tharpText).toContain('MARINE BOUNDARY LAYER (1–2 km)');
+      expect(tharpText).toContain('LCL CEILING');
+      expect(tharpText).toContain('CIRRUS (10–12 km)');
+      expect(tharpText).toContain('ALTOCUMULUS (4–6 km)');
+      expect(tharpText).toContain('MARINE LAYER (1–2 km)');
       expect(tharpText).toContain('15km');
       expect(tharpText).toContain('12km');
       expect(tharpText).toContain('5km');
@@ -156,7 +156,7 @@ describe('Challenger 2: DOM, ARIA & Build Verification Suite (M2 - R2)', () => {
       // Check radiosonde altitude tags
       expect(cyanoText).toContain('JET / CIRRUS [250 hPa]');
       expect(cyanoText).toContain('ALTOSTRATUS [500 hPa]');
-      expect(cyanoText).toContain('BOUNDARY STRATUS [850 hPa]');
+      expect(cyanoText).toContain('STRATUS [850 hPa]');
 
       // Check radiosonde ascent polyline and tracking stations
       const polyline = cyanotypeGroup?.querySelector('polyline');
