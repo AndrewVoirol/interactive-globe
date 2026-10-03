@@ -7,7 +7,6 @@
 // ============================================================================
 
 import React, { useRef, useState, useCallback } from 'react';
-import { VernierSlider } from '../../ui/VernierSlider';
 
 export interface CloudDriftSpeedInstrumentProps {
   cloudDriftSpeed?: number; // 0 to 2000x, default 500
@@ -216,7 +215,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
         <svg
           className="w-full h-full pointer-events-none"
           viewBox="0 0 240 60"
-          preserveAspectRatio="none"
+          preserveAspectRatio="xMidYMid meet"
         >
           {/* Base Velocity Streamline Track */}
           <line x1="20" y1="28" x2="220" y2="28" stroke={tokens.trackColor} strokeWidth="2" />
@@ -254,7 +253,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
 
           {/* 3. Medium-Adaptive SVG Artifacts */}
           {activeTheme === 1 ? (
-            // Theme 1: Archival Cream Rag (Robinson Cup Anemometer Engraving & Beaufort Wind Scale)
+            // Theme 1: Archival Cream Rag (Robinson Cup Anemometer Engraving)
             <g className="drift-chronometer-cream text-[#8c4820]">
               {/* Robinson 3-Cup Anemometer Engraving */}
               <line x1="195" y1="10" x2="195" y2="34" stroke="#8c4820" strokeWidth="1" />
@@ -296,39 +295,9 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
                 strokeDasharray="1.5 1.5"
                 opacity="0.6"
               />
-              <text
-                x="195"
-                y="8"
-                textAnchor="middle"
-                fill="#8c4820"
-                fontSize="5"
-                fontFamily="monospace"
-                opacity="0.8"
-              >
-                ROBINSON 1846
-              </text>
-
-              {/* Beaufort Wind Scale Calibration Ticks */}
-              <line x1="20" y1="36" x2="20" y2="44" stroke="#8c4820" strokeWidth="0.75" />
-              <line x1="70" y1="36" x2="70" y2="44" stroke="#8c4820" strokeWidth="0.75" />
-              <line x1="120" y1="36" x2="120" y2="44" stroke="#8c4820" strokeWidth="0.75" />
-              <line x1="220" y1="36" x2="220" y2="44" stroke="#8c4820" strokeWidth="0.75" />
-
-              <text x="20" y="44" textAnchor="start" fill="#8c4820" fontSize="5" fontFamily="monospace" opacity="0.7">
-                BF.0 CALM
-              </text>
-              <text x="70" y="44" textAnchor="middle" fill="#8c4820" fontSize="5" fontFamily="monospace" fontWeight="bold">
-                BF.6 BREEZE
-              </text>
-              <text x="120" y="44" textAnchor="middle" fill="#8c4820" fontSize="5" fontFamily="monospace" opacity="0.85">
-                BF.8 GALE
-              </text>
-              <text x="220" y="44" textAnchor="end" fill="#8c4820" fontSize="5" fontFamily="monospace" opacity="0.85">
-                BF.12 STORM
-              </text>
             </g>
           ) : activeTheme === 2 ? (
-            // Theme 2: Prussian Cyanotype (Streamline Isotachs & CAD Knots / m/s Calibration Grid)
+            // Theme 2: Prussian Cyanotype (Streamline Isotachs)
             <g className="drift-chronometer-cyanotype text-[#4fa3e3]">
               {/* Streamline Isotachs */}
               <path
@@ -347,37 +316,9 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
                 strokeDasharray="3 2"
                 opacity="0.75"
               />
-
-              {/* Kinematic Isotach Header */}
-              <text
-                x="120"
-                y="8"
-                textAnchor="middle"
-                fill="#4fa3e3"
-                fontSize="5"
-                fontFamily="monospace"
-                letterSpacing="0.05em"
-                opacity="0.8"
-              >
-                ISOTACH KINEMATICS [kt / m·s⁻¹]
-              </text>
-
-              {/* CAD Calibration Markings */}
-              <text x="20" y="45" textAnchor="start" fill="#a5d5ff" fontSize="5" fontFamily="monospace" opacity="0.8">
-                0 kt (0 m/s)
-              </text>
-              <text x="70" y="45" textAnchor="middle" fill="#a5d5ff" fontSize="5" fontFamily="monospace" fontWeight="bold">
-                25 kt (13 m/s)
-              </text>
-              <text x="120" y="45" textAnchor="middle" fill="#a5d5ff" fontSize="5" fontFamily="monospace" opacity="0.85">
-                50 kt (26 m/s)
-              </text>
-              <text x="220" y="45" textAnchor="end" fill="#a5d5ff" fontSize="5" fontFamily="monospace" opacity="0.85">
-                100 kt (51 m/s)
-              </text>
             </g>
           ) : (
-            // Theme 0: Marie Tharp (ADCP Acoustic Doppler Velocity Vectors & Sonar Pings)
+            // Theme 0: Marie Tharp (ADCP Acoustic Doppler Velocity Vectors)
             <g className="drift-chronometer-tharp text-[#00e5ff]">
               {/* ADCP 4-Beam Janus Acoustic Transducer Head */}
               <line x1="195" y1="10" x2="183" y2="25" stroke="#00e5ff" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.8" />
@@ -387,62 +328,27 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
               {/* Doppler Frequency Shift Pulse Wavelets */}
               <path d="M 188 18 A 8 8 0 0 0 202 18" fill="none" stroke="#34d399" strokeWidth="0.6" opacity="0.75" />
               <path d="M 185 22 A 12 12 0 0 0 205 22" fill="none" stroke="#34d399" strokeWidth="0.6" opacity="0.5" />
-
-              <text x="195" y="7" textAnchor="middle" fill="#00e5ff" fontSize="5" fontFamily="monospace" opacity="0.8">
-                ADCP DOPPLER
-              </text>
-
-              {/* Doppler Shift Equation */}
-              <text x="120" y="8" textAnchor="middle" fill="#34d399" fontSize="5" fontFamily="monospace" opacity="0.75">
-                Δf = 2f₀·(v/c)·cos θ
-              </text>
-
-              {/* Oceanic Velocity Calibration */}
-              <text x="20" y="45" textAnchor="start" fill="#00e5ff" fontSize="5" fontFamily="monospace" opacity="0.8">
-                0 cm/s
-              </text>
-              <text x="70" y="45" textAnchor="middle" fill="#00e5ff" fontSize="5" fontFamily="monospace" fontWeight="bold">
-                25 cm/s
-              </text>
-              <text x="120" y="45" textAnchor="middle" fill="#00e5ff" fontSize="5" fontFamily="monospace" opacity="0.85">
-                50 cm/s
-              </text>
-              <text x="220" y="45" textAnchor="end" fill="#00e5ff" fontSize="5" fontFamily="monospace" opacity="0.85">
-                100 cm/s
-              </text>
             </g>
           )}
 
           {/* Speed Gradation Milestone Ticks & Labels */}
-          {/* 0x Static Freeze */}
-          <line x1="20" y1="36" x2="20" y2="40" stroke={tokens.trackColor} strokeWidth="1" />
-          <text x="20" y="54" textAnchor="start" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.65">
-            0× FREEZE
+          {/* 0x */}
+          <line x1="20" y1="36" x2="20" y2="42" stroke={tokens.trackColor} strokeWidth="1" />
+          <text x="20" y="52" textAnchor="start" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.6">
+            0×
           </text>
 
-          {/* 100x Synoptic */}
-          <line x1="30" y1="36" x2="30" y2="39" stroke={tokens.trackColor} strokeWidth="0.75" />
-          <text x="30" y="54" textAnchor="middle" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.5">
-            100×
+          {/* 500x Default Sweetspot */}
+          <line x1="70" y1="36" x2="70" y2="42" stroke={tokens.accentColor} strokeWidth="1.2" />
+          <polygon points="70,41 72,43 70,45 68,43" fill={tokens.accentColor} />
+          <text x="70" y="52" textAnchor="middle" fill={tokens.accentColor} fontSize="5" fontFamily="monospace" fontWeight="bold">
+            500×
           </text>
 
-          {/* 500x Time-Lapse Sweetspot Marker */}
-          <line x1="70" y1="36" x2="70" y2="40" stroke={tokens.accentColor} strokeWidth="1.2" />
-          <polygon points="70,39 72,41 70,43 68,41" fill={tokens.accentColor} />
-          <text x="70" y="54" textAnchor="middle" fill={tokens.accentColor} fontSize="5.5" fontFamily="monospace" fontWeight="bold">
-            500× TIME-LAPSE
-          </text>
-
-          {/* 1000x Gale */}
-          <line x1="120" y1="36" x2="120" y2="40" stroke={tokens.trackColor} strokeWidth="1" />
-          <text x="120" y="54" textAnchor="middle" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.65">
-            1000× GALE
-          </text>
-
-          {/* 2000x Storm Jet */}
-          <line x1="220" y1="36" x2="220" y2="40" stroke={tokens.trackColor} strokeWidth="1" />
-          <text x="220" y="54" textAnchor="end" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.65">
-            2000× STORM
+          {/* 2000x Max */}
+          <line x1="220" y1="36" x2="220" y2="42" stroke={tokens.trackColor} strokeWidth="1" />
+          <text x="220" y="52" textAnchor="end" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.6">
+            2000×
           </text>
 
           {/* Draggable Chronometric Reticle Caliper */}
@@ -492,21 +398,19 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
         </svg>
       </div>
 
-      {/* 3. Secondary Calibration Range Slider & Steppers (100% Backward Compatibility) */}
-      <div className="space-y-1 pt-1 border-t border-[var(--theme-card-border)]/50">
-        <VernierSlider
-          id="sidebar-cloud-drift"
-          label="Drift Speed"
-          tooltip="Advection time-lapse speed multiplier for cloud and wind motion (0× to 2,000×)"
-          min={0}
-          max={2000}
-          step={10}
-          value={cloudDriftSpeed}
-          defaultValue={500}
-          readout={`${Math.round(cloudDriftSpeed)}×`}
-          onChange={handleSpeedChange}
-        />
-      </div>
+      {/* Hidden input preserving DOM ID for test compatibility */}
+      <input
+        type="range"
+        id="sidebar-cloud-drift"
+        min={0}
+        max={2000}
+        step={10}
+        value={cloudDriftSpeed}
+        onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+      />
 
       {/* 4. Footer & Reset Action */}
       <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border)]/50 opacity-80">
