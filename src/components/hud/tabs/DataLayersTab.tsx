@@ -286,7 +286,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                             max="1"
                             step="0.05"
                             value={layer.ambientOcclusion ?? 0.65}
-                            aria-label="Hue Shift"
+                            aria-label="Ambient Occlusion"
                             title="Ambient Occlusion (Double-click to reset: 65%)"
                             onDoubleClick={() =>
                               onAmbientOcclusionChangeDataLayer?.(layer.id, 0.65)

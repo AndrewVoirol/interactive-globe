@@ -286,8 +286,8 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       expect(canvasSource).not.toContain('curShowCartouche');
     });
 
-    it('verifies crust_hydrosphere.wgsl modulates base land lithosphere raster alpha by layer opacity uniform', () => {
-      expect(crustShaderSource).toContain('return vec4<f32>(finalCrust, sim.u_layerOpacity);');
+    it('verifies crust_hydrosphere.wgsl outputs hardcoded alpha 1.0 for premultiplied compositing', () => {
+      expect(crustShaderSource).toContain('return vec4<f32>(finalCrust, 1.0);');
     });
   });
 

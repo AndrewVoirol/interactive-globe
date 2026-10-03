@@ -334,7 +334,7 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
                 max="3.0"
                 step="0.05"
                 value={activePenumbraSoftness}
-                aria-label="Water Clarity"
+                aria-label="Penumbra Softness"
                 title="Penumbra Softness (Double-click to reset: 1.5×)"
                 onDoubleClick={() => handlePenumbraSoftnessChange(1.5)}
                 onChange={(e) => handlePenumbraSoftnessChange(parseFloat(e.target.value))}
@@ -419,7 +419,7 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
                   max="2.0"
                   step="0.05"
                   value={activeBedrockIncision}
-                  aria-label="Sea Level Offset"
+                  aria-label="Bedrock Incision"
                   title="Bedrock Incision (Double-click to reset: 1.0×)"
                   onDoubleClick={() => handleBedrockIncisionChange(1.0)}
                   onChange={(e) => handleBedrockIncisionChange(parseFloat(e.target.value))}
