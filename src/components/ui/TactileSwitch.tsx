@@ -50,6 +50,7 @@ export const TactileSwitch: React.FC<TactileSwitchProps> = ({
       onKeyDown={handleKeyDown}
       title={title || label}
       role="switch"
+      aria-label={label}
       aria-checked={checked}
       aria-disabled={disabled}
       tabIndex={disabled ? -1 : 0}

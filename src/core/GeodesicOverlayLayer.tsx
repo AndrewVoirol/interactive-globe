@@ -12,7 +12,7 @@ export interface GeodesicOverlayLayerProps {
   activeOverlay: 'off' | 'antipodes' | 'conveyor' | 'migration';
   showLandmarks: boolean;
   showTissot: boolean;
-  theme: number; // 0 = Dark, 1 = Light
+  theme: number; // 0 = Tharp, 1 = Cream, 2 = Prussian
   startTime?: number;
 }
 

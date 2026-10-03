@@ -659,6 +659,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
                   key={opt.id}
                   type="button"
                   disabled={disabled}
+                  aria-pressed={isSelected}
                   onClick={() => {
                     setSpeed(opt.id);
                     speedRef.current = opt.id;
@@ -688,6 +689,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
               key={preset.label}
               type="button"
               disabled={disabled}
+              aria-pressed={isActive}
               title={preset.title}
               onClick={() => updateMinutes(preset.minutes)}
               className={`tactile-btn text-nano font-mono font-bold px-1.5 py-0.5 rounded-[1px] border transition-all flex-1 text-center truncate ${

@@ -93,6 +93,8 @@ const ToastItem: React.FC<{
           <span className="truncate text-body tracking-tight">{toast.title}</span>
         </div>
         <button
+          type="button"
+          aria-label="Dismiss notification"
           onClick={() => onDismissToast?.(toast.id)}
           className="text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-accent)] p-0.5 transition-colors cursor-pointer"
           title="Dismiss"

@@ -629,6 +629,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             max="12"
             step="0.1"
             value={atmosphericScale}
+            aria-label="Atmospheric Scale"
             onDoubleClick={handleReset}
             onChange={(e) => onAtmosphericScaleChange(parseFloat(e.target.value))}
             className="w-full h-1 bg-[var(--theme-control-border)] rounded appearance-none cursor-pointer accent-[var(--theme-text-accent)]"
@@ -687,6 +688,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             max="1"
             step="0.05"
             value={cloudOpacity}
+            aria-label="Cloud Opacity"
             onDoubleClick={handleReset}
             onChange={(e) => onCloudOpacityChange?.(parseFloat(e.target.value))}
             className="w-full h-1 bg-[var(--theme-control-border)] rounded appearance-none cursor-pointer accent-[var(--theme-text-accent)]"

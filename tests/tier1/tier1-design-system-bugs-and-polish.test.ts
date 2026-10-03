@@ -46,7 +46,7 @@ describe('Tier 1: Design System Bug Fixes & Architecture Polish', () => {
 
     // Must not treat theme 2 as light
     expect(fallbackContent).not.toContain('const isDark = theme === 0;');
-    expect(fallbackContent).toMatch(/isDark\s*=\s*theme\s*!==\s*1/);
+    expect(fallbackContent).not.toContain('isDark');
     expect(fallbackContent).toContain('paper-cyanotype');
     expect(fallbackContent).toContain('var(--theme-card-bg)');
   });

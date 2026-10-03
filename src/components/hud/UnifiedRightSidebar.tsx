@@ -1057,6 +1057,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           max="3.0"
                           step="0.05"
                           value={activePenumbraSoftness}
+                          aria-label="Water Clarity"
                           title="Penumbra Softness (Double-click to reset: 1.5×)"
                           onDoubleClick={() => handlePenumbraSoftnessChange(1.5)}
                           onChange={(e) => handlePenumbraSoftnessChange(parseFloat(e.target.value))}
@@ -1114,6 +1115,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             max="2.0"
                             step="0.05"
                             value={activePluvialDischargeCoupling}
+                            aria-label="Pluvial Discharge Coupling"
                             title="Pluvial Discharge Coupling (Double-click to reset: 1.0×)"
                             onDoubleClick={() => handlePluvialDischargeCouplingChange(1.0)}
                             onChange={(e) => handlePluvialDischargeCouplingChange(parseFloat(e.target.value))}
@@ -1140,6 +1142,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             max="2.0"
                             step="0.05"
                             value={activeBedrockIncision}
+                            aria-label="Sea Level Offset"
                             title="Bedrock Incision (Double-click to reset: 1.0×)"
                             onDoubleClick={() => handleBedrockIncisionChange(1.0)}
                             onChange={(e) => handleBedrockIncisionChange(parseFloat(e.target.value))}
@@ -2030,6 +2033,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   max="1"
                                   step="0.05"
                                   value={layer.opacity ?? 0.85}
+                                  aria-label="Layer Opacity"
                                   title="Opacity (Double-click to reset: 85%)"
                                   onDoubleClick={() => onOpacityChangeDataLayer?.(layer.id, 0.85)}
                                   onChange={(e) => onOpacityChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
@@ -2058,6 +2062,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                       max="1"
                                       step="0.05"
                                       value={layer.ambientOcclusion ?? 0.65}
+                                      aria-label="Hue Shift"
                                       title="Ambient Occlusion (Double-click to reset: 65%)"
                                       onDoubleClick={() =>
                                         onAmbientOcclusionChangeDataLayer?.(layer.id, 0.65)
@@ -2242,6 +2247,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
             </div>
 
             <button
+              type="button"
+              aria-label="Close catalog"
               onClick={() => setIsCatalogOpen(false)}
               title="Close Catalog Sheet (Esc)"
               className="p-1.5 rounded-[2px] border transition-all cursor-pointer border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]"

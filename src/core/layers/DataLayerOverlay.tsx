@@ -30,21 +30,26 @@ export interface DataLayerOverlayProps {
   ambientOcclusion?: number;
 }
 
-export const VectorBoundaryRenderer: React.FC<DataLayerOverlayProps> = (props) => (
-  <div data-testid="vector-boundary-renderer" {...props} />
-);
-export const VectorContourRenderer: React.FC<DataLayerOverlayProps> = (props) => (
-  <div data-testid="vector-contour-renderer" {...props} />
-);
-export const VectorFieldRenderer: React.FC<DataLayerOverlayProps> = (props) => (
-  <div data-testid="vector-field-renderer" {...props} />
-);
-export const SatelliteTrajectoryRenderer: React.FC<DataLayerOverlayProps> = (props) => (
-  <div data-testid="satellite-trajectory-renderer" {...props} />
-);
-export const RasterLayerRenderer: React.FC<DataLayerOverlayProps> = (props) => (
-  <div data-testid="raster-layer-renderer" {...props} />
-);
+export const VectorBoundaryRenderer: React.FC<DataLayerOverlayProps> = (props) => {
+  const { unfurlProgress, displacementScale, sunAzimuth, waterClarity, ...htmlProps } = props;
+  return <div data-testid="vector-boundary-renderer" {...htmlProps} />;
+};
+export const VectorContourRenderer: React.FC<DataLayerOverlayProps> = (props) => {
+  const { unfurlProgress, displacementScale, sunAzimuth, waterClarity, ...htmlProps } = props;
+  return <div data-testid="vector-contour-renderer" {...htmlProps} />;
+};
+export const VectorFieldRenderer: React.FC<DataLayerOverlayProps> = (props) => {
+  const { unfurlProgress, displacementScale, sunAzimuth, waterClarity, ...htmlProps } = props;
+  return <div data-testid="vector-field-renderer" {...htmlProps} />;
+};
+export const SatelliteTrajectoryRenderer: React.FC<DataLayerOverlayProps> = (props) => {
+  const { unfurlProgress, displacementScale, sunAzimuth, waterClarity, ...htmlProps } = props;
+  return <div data-testid="satellite-trajectory-renderer" {...htmlProps} />;
+};
+export const RasterLayerRenderer: React.FC<DataLayerOverlayProps> = (props) => {
+  const { unfurlProgress, displacementScale, sunAzimuth, waterClarity, ...htmlProps } = props;
+  return <div data-testid="raster-layer-renderer" {...htmlProps} />;
+};
 
 export const DataLayerOverlay: React.FC<DataLayerOverlayProps> = (props) => {
   if (!props.visible) return null;

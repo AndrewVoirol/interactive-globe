@@ -143,7 +143,7 @@ describe('Adversarial Challenger: Stage 2 Shader & Uniform Alignment Suite (R11)
       expect(engineSrc).toMatch(/cf\[20\]\s*=\s*params\.cursorActive/);
       expect(engineSrc).toMatch(/cf\[21\]\s*=\s*params\.displacementScale/);
       expect(engineSrc).toMatch(/cf\[22\]\s*=\s*params\.seaLevel/);
-      expect(engineSrc).toMatch(/cf\[23\]\s*=\s*params\.theme/);
+      expect(engineSrc).toMatch(/cf\[23\]\s*=\s*params\.paperTooth/);
 
       // Check matrices (24..55)
       expect(engineSrc).toMatch(/params\.camera\.matrixWorldInverse\.toArray\(cf,\s*24\)/);

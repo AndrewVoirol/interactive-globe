@@ -17,7 +17,6 @@ export const WebGPUFallback: React.FC<WebGPUFallbackProps> = ({
   errorMessage,
   onRetry,
 }) => {
-  const isDark = theme !== 1;
   const themeName = theme === 2 ? 'cyanotype' : theme === 1 ? 'cream' : 'tharp';
 
   return (
@@ -129,6 +128,7 @@ export const WebGPUFallback: React.FC<WebGPUFallbackProps> = ({
         <div className="flex items-center gap-3">
           {onRetry && (
             <button
+              type="button"
               onClick={onRetry}
               className="tactile-btn flex-1 py-2 px-4 rounded-[2px] font-mono text-micro font-bold transition-all border border-[var(--theme-control-active-border)] bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] shadow-sm"
             >
