@@ -2,8 +2,8 @@
 // File: src/components/hud/instruments/StratosphericTelemetryInstrument.tsx
 // Stratospheric Telemetry Caliper Instrument: Tropospheric Altitude & Kinematics HUD
 // Ported from testbed/weather.html #caliper-card into production React HUD card
-// Display: Cursor Target, Camera Elevation, Pitch/Heading, Tropospheric Regime,
-//          Raymarch Interval, Forecast Cycle, Strata Color Mode, Grid Resolution
+// Display: Cursor Target, Camera Elevation, Pitch, Tropospheric Regime,
+//          Raymarch Interval, Strata Color Mode, Grid Resolution
 // Invariants: Rule 6 (Single-Border, 10px Clearance, Ivory Vellum Card Tone)
 // ============================================================================
 
@@ -51,7 +51,6 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
 
   const [camDist, setCamDist] = useState<number>(15.0);
   const [pitch, setPitch] = useState<number>(0.0);
-  const [heading, setHeading] = useState<number>(0.0);
   const [coords, setCoords] = useState<{ lat?: number; lon?: number } | null>(null);
   const [cloudSteps, setCloudSteps] = useState<number>(32);
 
@@ -189,9 +188,6 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
             Stratospheric Telemetry
           </span>
         </div>
-        <span className="text-body font-mono font-bold text-[var(--theme-status-sage)] px-1 py-px rounded-[2px] bg-[var(--theme-status-sage)]/10 border border-[var(--theme-status-sage)]/30">
-          60 FPS
-        </span>
       </div>
 
       {/* Telemetry rows */}
@@ -209,9 +205,9 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body">Camera Pitch / Hdg:</span>
+          <span className="text-[var(--theme-text-muted)] text-body">Camera Pitch:</span>
           <span className="font-semibold text-[var(--theme-text-primary)] text-body">
-            {pitch.toFixed(1)}° (Hdg {heading.toFixed(0)}°)
+            {pitch.toFixed(1)}°
           </span>
         </div>
 
@@ -237,11 +233,6 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
           <span className="font-semibold text-[var(--theme-text-primary)] text-body">
             {cloudSteps} steps ({propResolution || (cloudSteps <= 16 ? '100k' : cloudSteps <= 32 ? '1M' : cloudSteps <= 40 ? '3M' : cloudSteps <= 48 ? '4M' : cloudSteps <= 56 ? '8M' : '16M')})
           </span>
-        </div>
-
-        <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body">Forecast Cycle:</span>
-          <span className="font-semibold text-[var(--theme-status-amber)] text-body">2026-09-24 10:00Z (+0–11h)</span>
         </div>
 
         <div className="flex justify-between items-center">

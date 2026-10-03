@@ -363,11 +363,10 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       expect(opacitySpan).not.toBeUndefined();
       expect(opacitySpan?.className).toContain('text-[var(--theme-text-secondary)]');
 
-      // Check Blend Mode control
-      expect(container.textContent).toContain('Norm');
-      expect(container.textContent).toContain('Add');
-      expect(container.textContent).toContain('Mult');
-      expect(container.textContent).toContain('Scrn');
+      // Check that Blend Mode placebo UI control is excised
+      expect(container.textContent).not.toContain('Blend:');
+      expect(container.textContent).not.toContain('Norm');
+      expect(container.textContent).not.toContain('Scrn');
 
       // Check that redundant per-layer sliders are pruned from the layer folio
       expect(container.querySelector('input[name*="layerSeaLevel"]')).toBeNull();

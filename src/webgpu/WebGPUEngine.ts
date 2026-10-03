@@ -1038,7 +1038,6 @@ export class WebGPUEngine {
   }
 
   public async initialize(config: WebGPUInitConfig): Promise<void> {
-    console.log('[WebGPUEngine] initialize start');
     if (this.isInitialized) {
       this.dispose();
     }
@@ -1048,7 +1047,6 @@ export class WebGPUEngine {
     }
 
     if (!this.device) {
-      console.log('[WebGPUEngine] acquiring device via getWebGPUDevice()...');
       const device = await getWebGPUDevice();
       if (!device) {
         throw new Error('Failed to acquire WebGPU device.');
@@ -1066,9 +1064,6 @@ export class WebGPUEngine {
       this.device.addEventListener?.('uncapturederror', (event: any) => {
         console.error('WebGPU Uncaptured Error:', event.error?.message || event);
       });
-      console.log('[WebGPUEngine] device acquired successfully via singleton!');
-    } else {
-      console.log('[WebGPUEngine] Reusing existing GPUDevice!');
     }
 
     this.context = config.canvas.getContext('webgpu') as GPUCanvasContext;
@@ -1088,7 +1083,6 @@ export class WebGPUEngine {
 
     this.updateDepthTexture(config.canvas.width || 800, config.canvas.height || 600);
     this.updateSubstrateTextures(config.canvas.width || 800, config.canvas.height || 600);
-    console.log('[WebGPUEngine] creating initial textures and samplers...');
 
     // ========================================================================
     // 1. DEM Ingestion Sampler & Default 2x2 Synchronous Placeholder Texture (M1-T1)
@@ -1386,10 +1380,8 @@ export class WebGPUEngine {
       initialStaticParticles,
     };
 
-    console.log('[WebGPUEngine] calling setupPipelines...');
     // Setup Pipelines & BindGroups
     await this.setupPipelines();
-    console.log('[WebGPUEngine] setupPipelines completed!');
     this.updateDEMBindGroups();
 
     // Milestone 2: Synthesize 3D Perlin-Worley noise volume on boot
@@ -1401,7 +1393,6 @@ export class WebGPUEngine {
 
     this.currentStep = 0;
     this.isInitialized = true;
-    console.log('[WebGPUEngine] ALL INITIALIZATION COMPLETE! isInitialized = true');
   }
 
   /**
@@ -6952,7 +6943,6 @@ export class WebGPUEngine {
 
       this.device.queue.submit([commandEncoder.finish()]);
       this.cloudNoiseComputeDurationMs = performance.now() - startTime;
-      console.log(`[WebGPUEngine] 3D Perlin-Worley noise volume synthesized successfully (128^3 rgba8unorm) in ${this.cloudNoiseComputeDurationMs.toFixed(2)}ms.`);
     } catch (err) {
       console.warn('[WebGPUEngine] Cloud noise compute generation failed (mock/headless guard):', err);
       this.cloudNoiseComputeDurationMs = performance.now() - startTime;

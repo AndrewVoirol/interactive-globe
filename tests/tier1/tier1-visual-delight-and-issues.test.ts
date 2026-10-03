@@ -49,16 +49,14 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
   // --------------------------------------------------------------------------
   // Issue 2: Segmented Control Text Clipping
   // --------------------------------------------------------------------------
-  describe('2. Segmented Control Text Clipping', () => {
-    it('verifies blend-mode segmented control uses concise "Scrn" with title tooltip', () => {
+  describe('2. Segmented Control Text Clipping & Placebo Control Excision', () => {
+    it('verifies blend-mode placebo UI control is excised from sidebar and drawer', () => {
       // In sidebar
-      expect(sidebarContent).toContain("label: 'Scrn'");
-      expect(sidebarContent).toContain("title: 'Screen Blend'");
+      expect(sidebarContent).not.toContain("title: 'Screen Blend'");
       expect(sidebarContent).not.toMatch(/label:\s*'Screen'/);
 
       // In data layers drawer
-      expect(drawerContent).toContain("label: 'Scrn'");
-      expect(drawerContent).toContain("title: 'Screen Blend'");
+      expect(drawerContent).not.toContain("title: 'Screen Blend'");
       expect(drawerContent).not.toMatch(/label:\s*'Screen'/);
     });
 

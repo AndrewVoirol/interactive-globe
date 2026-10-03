@@ -2044,21 +2044,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                 </span>
                               </div>
 
-                              <div className="flex items-center justify-between gap-1 pt-1 text-nano">
-                                <span className="text-[var(--theme-text-secondary)] font-bold text-nano uppercase tracking-wider">Blend:</span>
-                                <SegmentedControl<BlendModeType>
-                                  size="sm"
-                                  value={layer.blendMode ?? preset?.defaultBlendMode ?? 0}
-                                  onChange={(val) => onBlendModeChangeDataLayer?.(layer.id, val)}
-                                  options={[
-                                    { id: 0, label: 'Norm', title: 'Normal Blend' },
-                                    { id: 1, label: 'Add', title: 'Additive Blend' },
-                                    { id: 2, label: 'Mult', title: 'Multiply Blend' },
-                                    { id: 3, label: 'Scrn', title: 'Screen Blend' },
-                                  ]}
-                                />
-                              </div>
-
                               {(layer.renderStyle === 'architectural' || layer.id === 'architectural-topo-relief') && (
                                 <div className="pt-1.5 border-t border-white/10 space-y-1 text-micro">
                                   <div className="flex items-center gap-1.5">

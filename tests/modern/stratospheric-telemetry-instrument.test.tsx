@@ -44,12 +44,14 @@ describe('StratosphericTelemetryInstrument', () => {
     expect(card?.textContent).toContain('Stratospheric Telemetry');
     expect(card?.textContent).toContain('Cursor Target:');
     expect(card?.textContent).toContain('Camera Elevation:');
-    expect(card?.textContent).toContain('Camera Pitch / Hdg:');
+    expect(card?.textContent).toContain('Camera Pitch:');
+    expect(card?.textContent).not.toContain('Hdg');
+    expect(card?.textContent).not.toContain('60 FPS');
     expect(card?.textContent).toContain('Tropospheric Regime:');
     expect(card?.textContent).toContain('Current Stratum:');
     expect(card?.textContent).toContain('Raymarch Interval:');
     expect(card?.textContent).toContain('Raymarch Step Budget:');
-    expect(card?.textContent).toContain('Forecast Cycle:');
+    expect(card?.textContent).not.toContain('Forecast Cycle:');
     expect(card?.textContent).toContain('Strata Color Mode:');
     expect(card?.textContent).toContain('Grid Resolution:');
     expect(card?.textContent).toContain('Wind Vector Field:');

@@ -403,8 +403,7 @@ describe('Sidebar & Data Tab Engineering Remediations Suite', () => {
   // 9. Layer Stack & Blend SegmentedControl Scalability
   // --------------------------------------------------------------------------
   describe('9. Layer Stack & Blend SegmentedControl Scalability', () => {
-    it('BLEND-01: renders SegmentedControl for blend mode and propagates changes', async () => {
-      const blendModeChangeMock = vi.fn();
+    it('BLEND-01: verifies blend mode placebo UI control is excised to prevent invalid state', async () => {
       const testLayers: DataLayerItem[] = [
         {
           id: 'global-dem-crust',
@@ -424,22 +423,16 @@ describe('Sidebar & Data Tab Engineering Remediations Suite', () => {
           <UnifiedRightSidebar
             {...createSidebarProps({
               dataLayers: testLayers,
-              onBlendModeChangeDataLayer: blendModeChangeMock,
             })}
           />
         );
       });
 
-      // Find radio buttons for blend mode
+      // Verify no blend mode radio buttons or 'Blend:' label exist in layer card UI
+      expect(container.textContent).not.toContain('Blend:');
       const radioButtons = container.querySelectorAll('button[role="radio"]');
       const addRadio = Array.from(radioButtons).find((b) => b.textContent === 'Add');
-      expect(addRadio).toBeDefined();
-
-      await act(async () => {
-        (addRadio as HTMLButtonElement)!.click();
-      });
-
-      expect(blendModeChangeMock).toHaveBeenCalledWith('global-dem-crust', 1);
+      expect(addRadio).toBeUndefined();
     });
   });
 

@@ -380,21 +380,6 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                           />
                           <span className="w-7 text-right font-bold text-nano tabular-nums">{Math.round((layer.opacity ?? 0.85) * 100)}%</span>
                         </div>
-
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-zinc-500 font-bold text-nano">Blend:</span>
-                          <SegmentedControl<BlendModeType>
-                            size="sm"
-                            value={layer.blendMode ?? preset?.defaultBlendMode ?? 0}
-                            onChange={(val) => onBlendModeChangeDataLayer?.(layer.id, val)}
-                            options={[
-                              { id: 0, label: 'Norm', title: 'Normal Blend' },
-                              { id: 1, label: 'Add', title: 'Additive Blend' },
-                              { id: 2, label: 'Mult', title: 'Multiply Blend' },
-                              { id: 3, label: 'Scrn', title: 'Screen Blend' },
-                            ]}
-                          />
-                        </div>
                       </div>
 
                     {/* Terrain 3D Relief & Sun Azimuth Controls for Topo/Raster/Ocean Layers */}
