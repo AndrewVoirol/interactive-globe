@@ -3746,7 +3746,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
       )}
       {loadError && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
-          <div className="p-4 rounded-xl border border-rose-500/50 bg-rose-950/40 text-rose-300 font-mono text-xs max-w-md">
+          <div className="p-4 rounded-[3px] border border-rose-500/50 bg-rose-950/40 text-rose-300 font-mono text-xs max-w-md">
             <p className="font-bold mb-1">WebGPU Initialization Error</p>
             <p>{loadError}</p>
           </div>

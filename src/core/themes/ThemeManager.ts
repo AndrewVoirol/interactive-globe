@@ -251,7 +251,7 @@ export const LIGHT_MONOCHROME_UI_TOKENS: UIThemeTokens = {
   panelBg: 'rgba(252, 249, 242, 0.94)',
   panelBorder: '#CFC4AF',
   panelHeaderBorder: 'rgba(184, 173, 152, 0.60)',
-  cardBg: 'rgba(244, 237, 224, 0.85)',
+  cardBg: 'rgba(252, 249, 242, 0.94)',
   cardBorder: '#D8CFBC',
   cardBorderHover: '#B8AD98',
   neatlineBorder: '#B8AD98',
