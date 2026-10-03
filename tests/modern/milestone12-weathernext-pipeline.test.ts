@@ -204,7 +204,7 @@ describe('Milestone 12: WeatherNext 3 Prognostic Ingestion & Rolling Cache Pipel
         gridDimensions: { width: 3600, height: 1801, resolutionDeg: 0.1, latMin: -90, latMax: 90, lonMin: -180, lonMax: 180, lonPoints: 3600, latPoints: 1801 },
         textureEncoding: { format: 'r16float', bytesPerTexel: 2, rawRowBytes: 7200, paddedRowBytes: 7424, paddingBytesPerRow: 224, isPrePadded: true, sliceByteLength: 12967200, paddedSliceByteLength: 13370624 },
         variables: [] as any,
-      };
+      } as any;
 
       // At hour 0, backward targets cannot go negative
       const targets0 = ds.getPrewarmTargets(0, 1);
@@ -419,7 +419,7 @@ describe('Milestone 12: WeatherNext 3 Prognostic Ingestion & Rolling Cache Pipel
         gridDimensions: { width: 3600, height: 1801, resolutionDeg: 0.1, latMin: -90, latMax: 90, lonMin: -180, lonMax: 180, lonPoints: 3600, latPoints: 1801 },
         textureEncoding: { format: 'r16float', bytesPerTexel: 2, rawRowBytes: 7200, paddedRowBytes: 7424, paddingBytesPerRow: 224, isPrePadded: true, sliceByteLength: 12967200, paddedSliceByteLength: 13370624 },
         variables: [] as any,
-      };
+      } as any;
 
       ds.currentHour = 5;
       const prov = ds.getProvenance(0.42);
