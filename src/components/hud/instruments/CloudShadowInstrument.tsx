@@ -7,7 +7,6 @@
 // ============================================================================
 
 import React, { useRef, useState, useCallback } from 'react';
-import { VernierSlider } from '../../ui/VernierSlider';
 
 export interface CloudShadowInstrumentProps {
   shadowIntensity?: number; // 0.00 to 0.60, default 0.45, step 0.05
@@ -227,7 +226,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
         <svg
           className="w-full h-full pointer-events-none"
           viewBox="0 0 240 60"
-          preserveAspectRatio="none"
+          preserveAspectRatio="xMidYMid meet"
         >
           <defs>
             {/* Theme 1: Cream Rag Copperplate Penumbral Hatch Pattern */}
@@ -279,17 +278,6 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             strokeWidth="1.0"
             opacity="0.95"
           />
-          <text
-            x="63"
-            y="18"
-            textAnchor="middle"
-            fill={tokens.cloudStroke}
-            fontSize="5.5"
-            fontFamily="monospace"
-            opacity="0.85"
-          >
-            CIRRUS DECK (4.5 km)
-          </text>
 
           {/* Oblique Solar Ray Cones (315° NW / 45° Solar Angle) */}
           {/* Left Solar Ray: (28, 22) -> (58, 50) */}
@@ -350,30 +338,6 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
                 />
               )}
 
-              {/* Sol Incidence & Penumbra Annotation */}
-              <text
-                x="24"
-                y="9"
-                fill="#8c4820"
-                fontSize="6.5"
-                fontFamily="serif"
-                fontStyle="italic"
-                opacity="0.85"
-              >
-                Sol Incidence: 45° Intaglio Penumbra
-              </text>
-              <text
-                x="226"
-                y="47"
-                textAnchor="end"
-                fill="#8c4820"
-                fontSize="6"
-                fontFamily="monospace"
-                opacity="0.75"
-              >
-                TERRA FIRMA
-              </text>
-
               {/* Intaglio Crust Ticks */}
               <line x1="60" y1="52" x2="60" y2="56" stroke="#8c4820" strokeWidth="0.6" />
               <line x1="90" y1="52" x2="90" y2="56" stroke="#8c4820" strokeWidth="0.6" />
@@ -392,39 +356,6 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
                 strokeWidth="0.75"
                 opacity="0.85"
               />
-              <text
-                x="43"
-                y="27"
-                fill="#4fa3e3"
-                fontSize="5.5"
-                fontFamily="monospace"
-                fontWeight="bold"
-              >
-                ∠45° [315° NW]
-              </text>
-
-              {/* Technical CAD Headers */}
-              <text
-                x="24"
-                y="9"
-                fill="#4fa3e3"
-                fontSize="6.5"
-                fontFamily="monospace"
-                opacity="0.9"
-              >
-                RAY-TRACE: λ_sol = 315° / θ_alt = 45°
-              </text>
-              <text
-                x="226"
-                y="47"
-                textAnchor="end"
-                fill="#4fa3e3"
-                fontSize="6"
-                fontFamily="monospace"
-                opacity="0.8"
-              >
-                DATUM 0.0m
-              </text>
 
               {/* CAD Division Ticks along Baseline */}
               {[30, 60, 90, 120, 150, 180, 210].map((x) => (
@@ -438,17 +369,6 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
                     strokeWidth="0.6"
                     opacity="0.7"
                   />
-                  <text
-                    x={x}
-                    y="57"
-                    textAnchor="middle"
-                    fill="#4fa3e3"
-                    fontSize="4.5"
-                    fontFamily="monospace"
-                    opacity="0.6"
-                  >
-                    {((x - 30) / 300).toFixed(2)}
-                  </text>
                 </g>
               ))}
             </g>
@@ -469,29 +389,6 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               <circle cx="130" cy="50" r="1.5" fill="#34d399" opacity="0.8" />
               <circle cx="160" cy="50" r="1.5" fill="#34d399" opacity="0.8" />
               <circle cx="190" cy="50" r="1.5" fill="#34d399" opacity="0.8" />
-
-              {/* Acoustic Sounding Text */}
-              <text
-                x="24"
-                y="9"
-                fill="#00e5ff"
-                fontSize="6.5"
-                fontFamily="monospace"
-                opacity="0.9"
-              >
-                OPTICAL EXTINCTION: k_ext = {(shadowIntensity * 1.67).toFixed(2)} m⁻¹
-              </text>
-              <text
-                x="226"
-                y="47"
-                textAnchor="end"
-                fill="#34d399"
-                fontSize="6"
-                fontFamily="monospace"
-                opacity="0.8"
-              >
-                ABYSSAL FLOOR
-              </text>
             </g>
           )}
 
@@ -570,21 +467,19 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
         </svg>
       </div>
 
-      {/* 3. Secondary Precision Calibration Slider & Steppers (100% Backward-Compatibility with Tests) */}
-      <div className="space-y-1 pt-1 border-t border-[var(--theme-card-border)]/50">
-        <VernierSlider
-          id="sidebar-shadow-intensity"
-          label="Shadow Intensity"
-          tooltip="Ground shadow opacity cast by raymarched cloud layer (0% to 60%)"
-          min={0.0}
-          max={0.60}
-          step={0.05}
-          value={shadowIntensity}
-          defaultValue={0.45}
-          readout={`${Math.round(shadowIntensity * 100)}%`}
-          onChange={handleIntensityChange}
-        />
-      </div>
+      {/* Hidden input preserving DOM ID for test compatibility */}
+      <input
+        type="range"
+        id="sidebar-shadow-intensity"
+        min={0}
+        max={0.60}
+        step={0.05}
+        value={shadowIntensity}
+        onChange={(e) => handleIntensityChange(parseFloat(e.target.value))}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+      />
 
       {/* 4. Footer & Reset Action */}
       <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border)]/50 opacity-80">
