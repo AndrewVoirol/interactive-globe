@@ -197,6 +197,13 @@ export interface WebGPUCanvasProps {
   sampleStepCount?: number;
   onTerrainShadowsChange?: (enabled: boolean) => void;
   onPenumbraSoftnessChange?: (softness: number) => void;
+  geomorphicHydrology?: boolean;
+  showDrainageHydrology?: boolean;
+  pluvialDischargeCoupling?: number;
+  bedrockIncision?: number;
+  onGeomorphicHydrologyChange?: (enabled: boolean) => void;
+  onPluvialDischargeCouplingChange?: (coupling: number) => void;
+  onBedrockIncisionChange?: (incision: number) => void;
 }
 
 interface RegionalManifestEntry {
@@ -311,6 +318,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
   sampleStepCount = 16,
   onTerrainShadowsChange,
   onPenumbraSoftnessChange,
+  geomorphicHydrology = false,
+  showDrainageHydrology = false,
+  pluvialDischargeCoupling = 1.0,
+  bedrockIncision = 1.0,
+  onGeomorphicHydrologyChange,
+  onPluvialDischargeCouplingChange,
+  onBedrockIncisionChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -612,6 +626,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     maxRayDistanceMeters,
     penumbraSoftness,
     sampleStepCount,
+    geomorphicHydrology: geomorphicHydrology || showDrainageHydrology,
+    showDrainageHydrology: geomorphicHydrology || showDrainageHydrology,
+    pluvialDischargeCoupling,
+    bedrockIncision,
   });
   useEffect(() => {
     stateRef.current = {
@@ -680,9 +698,13 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
       maxRayDistanceMeters,
       penumbraSoftness,
       sampleStepCount,
+      geomorphicHydrology: geomorphicHydrology || showDrainageHydrology,
+      showDrainageHydrology: geomorphicHydrology || showDrainageHydrology,
+      pluvialDischargeCoupling,
+      bedrockIncision,
     };
     cachedLayersRef.current = computeCachedLayers(dataLayers);
-  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudDriftSpeed, cloudOpacity, cloudThickness, cloudLowTop, cloudErosion, cloudFreqHoriz, cloudFreqVert, cloudExtinction, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode, prognosticModel, prognosticVariable, windSpeedMultiplier, windParticleLifetime, terrainShadows, showTerrainShadows, maxRayDistanceMeters, penumbraSoftness, sampleStepCount]);
+  }, [unfurlProgress, mode, layerMode, theme, showSoundings, showTriangulation, showCartouche, showVectors, activeOverlay, showLandmarks, showTissot, dataLayers, vortexStrength, fractureIntensity, isolatedStratum, isDemoMode, demoSequence, showClouds, showCloudLow, showCloudMid, showCloudHigh, cloudFalseColor, cloudDriftSpeed, cloudOpacity, cloudThickness, cloudLowTop, cloudErosion, cloudFreqHoriz, cloudFreqVert, cloudExtinction, atmosphericScale, shadowIntensity, verticalScaleMode, rainShadowFeedback, pluvialGamma, weatherOpticalMode, timelineMinutes, scrubTau, weatherTau, thermodynamicGating, showAtmosphere, volumetricClouds, resolution, purityMode, substrateHaptics, paperSubstrate, fiberFrequency, fiberAnisotropy, plateMarkDepthMeters, inkRidgeHeightMeters, grainAngleRadians, sheenIntensity, absorptionFeathering, cameraPitchDeg, cdlodDiagnosticMode, prognosticModel, prognosticVariable, windSpeedMultiplier, windParticleLifetime, terrainShadows, showTerrainShadows, maxRayDistanceMeters, penumbraSoftness, sampleStepCount, geomorphicHydrology, showDrainageHydrology, pluvialDischargeCoupling, bedrockIncision]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -694,6 +716,16 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
       });
     }
   }, [terrainShadows, showTerrainShadows, penumbraSoftness, maxRayDistanceMeters, sampleStepCount]);
+
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.setDrainageHydrologyEnabled(Boolean(geomorphicHydrology || showDrainageHydrology));
+      engineRef.current.updateDrainageUniforms({
+        pluvialCoupling: pluvialDischargeCoupling,
+        bedrockIncision,
+      });
+    }
+  }, [geomorphicHydrology, showDrainageHydrology, pluvialDischargeCoupling, bedrockIncision]);
 
   useEffect(() => {
     if (engineRef.current) {
@@ -3225,6 +3257,18 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
           maxRayDistanceMeters: liveOverrides?.maxRayDistanceMeters ?? (stateRef.current as any).maxRayDistanceMeters,
           penumbraSoftness: liveOverrides?.penumbraSoftness ?? (stateRef.current as any).penumbraSoftness,
           sampleStepCount: liveOverrides?.sampleStepCount ?? (stateRef.current as any).sampleStepCount,
+          geomorphicHydrology: liveOverrides?.geomorphicHydrology !== undefined
+            ? liveOverrides.geomorphicHydrology
+            : (liveOverrides?.showDrainageHydrology !== undefined
+              ? liveOverrides.showDrainageHydrology
+              : ((stateRef.current as any).geomorphicHydrology ?? false)),
+          showDrainageHydrology: liveOverrides?.geomorphicHydrology !== undefined
+            ? liveOverrides.geomorphicHydrology
+            : (liveOverrides?.showDrainageHydrology !== undefined
+              ? liveOverrides.showDrainageHydrology
+              : ((stateRef.current as any).geomorphicHydrology ?? false)),
+          pluvialDischargeCoupling: liveOverrides?.pluvialDischargeCoupling ?? (stateRef.current as any).pluvialDischargeCoupling,
+          bedrockIncision: liveOverrides?.bedrockIncision ?? (stateRef.current as any).bedrockIncision,
           cloudAdvection: liveOverrides?.cloudAdvection !== undefined
             ? liveOverrides.cloudAdvection
             : ((stateRef.current as any).cloudAdvection ?? true),

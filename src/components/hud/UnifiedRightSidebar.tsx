@@ -140,6 +140,13 @@ export interface UnifiedRightSidebarProps {
   onTerrainShadowsChange?: (enabled: boolean) => void;
   penumbraSoftness?: number;
   onPenumbraSoftnessChange?: (softness: number) => void;
+  geomorphicHydrology?: boolean;
+  onGeomorphicHydrologyToggle?: () => void;
+  onGeomorphicHydrologyChange?: (enabled: boolean) => void;
+  pluvialDischargeCoupling?: number;
+  onPluvialDischargeCouplingChange?: (val: number) => void;
+  bedrockIncision?: number;
+  onBedrockIncisionChange?: (val: number) => void;
 }
 
 export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
@@ -254,6 +261,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
   onTerrainShadowsChange,
   penumbraSoftness: propPenumbraSoftness,
   onPenumbraSoftnessChange,
+  geomorphicHydrology: propGeomorphicHydrology,
+  onGeomorphicHydrologyToggle,
+  onGeomorphicHydrologyChange,
+  pluvialDischargeCoupling: propPluvialDischargeCoupling,
+  onPluvialDischargeCouplingChange,
+  bedrockIncision: propBedrockIncision,
+  onBedrockIncisionChange,
 }) => {
   const handleToggleClouds = (val: boolean) => {
     onShowCloudsChange?.(val);
@@ -446,6 +460,99 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
       }
     }
   }, [onPenumbraSoftnessChange]);
+
+  const [internalGeomorphicHydrology, setInternalGeomorphicHydrology] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const live = (window as any).__INDICATRIX_LIVE_UNIFORMS__;
+      if (live?.geomorphicHydrology !== undefined) return Boolean(live.geomorphicHydrology);
+      if (live?.showDrainageHydrology !== undefined) return Boolean(live.showDrainageHydrology);
+      const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__;
+      if (engine && typeof engine.isDrainageHydrologyEnabled === 'function') {
+        return engine.isDrainageHydrologyEnabled();
+      }
+    }
+    return false;
+  });
+
+  const [internalPluvialDischargeCoupling, setInternalPluvialDischargeCoupling] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const live = (window as any).__INDICATRIX_LIVE_UNIFORMS__;
+      if (live?.pluvialDischargeCoupling !== undefined) return live.pluvialDischargeCoupling;
+    }
+    return 1.0;
+  });
+
+  const [internalBedrockIncision, setInternalBedrockIncision] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const live = (window as any).__INDICATRIX_LIVE_UNIFORMS__;
+      if (live?.bedrockIncision !== undefined) return live.bedrockIncision;
+    }
+    return 1.0;
+  });
+
+  const activeGeomorphicHydrology = propGeomorphicHydrology !== undefined ? propGeomorphicHydrology : internalGeomorphicHydrology;
+  const activePluvialDischargeCoupling = propPluvialDischargeCoupling !== undefined ? propPluvialDischargeCoupling : internalPluvialDischargeCoupling;
+  const activeBedrockIncision = propBedrockIncision !== undefined ? propBedrockIncision : internalBedrockIncision;
+
+  const handleToggleGeomorphicHydrology = useCallback((nextVal?: boolean) => {
+    const val = nextVal !== undefined ? nextVal : !activeGeomorphicHydrology;
+    setInternalGeomorphicHydrology(val);
+    if (onGeomorphicHydrologyChange) {
+      onGeomorphicHydrologyChange(val);
+    } else if (onGeomorphicHydrologyToggle) {
+      onGeomorphicHydrologyToggle();
+    }
+    if (typeof window !== 'undefined') {
+      const live = (window as any).__INDICATRIX_LIVE_UNIFORMS__ || {};
+      live.geomorphicHydrology = val;
+      live.showDrainageHydrology = val;
+      (window as any).__INDICATRIX_LIVE_UNIFORMS__ = live;
+      const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__;
+      if (engine) {
+        if (typeof engine.setDrainageHydrologyEnabled === 'function') {
+          engine.setDrainageHydrologyEnabled(val);
+        }
+        if (typeof engine.updateDrainageUniforms === 'function') {
+          engine.updateDrainageUniforms({
+            pluvialCoupling: activePluvialDischargeCoupling,
+            bedrockIncision: activeBedrockIncision,
+          });
+        }
+      }
+    }
+  }, [activeGeomorphicHydrology, activePluvialDischargeCoupling, activeBedrockIncision, onGeomorphicHydrologyChange, onGeomorphicHydrologyToggle]);
+
+  const handlePluvialDischargeCouplingChange = useCallback((val: number) => {
+    setInternalPluvialDischargeCoupling(val);
+    onPluvialDischargeCouplingChange?.(val);
+    if (typeof window !== 'undefined') {
+      const live = (window as any).__INDICATRIX_LIVE_UNIFORMS__ || {};
+      live.pluvialDischargeCoupling = val;
+      (window as any).__INDICATRIX_LIVE_UNIFORMS__ = live;
+      const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__;
+      if (engine && typeof engine.updateDrainageUniforms === 'function') {
+        engine.updateDrainageUniforms({
+          pluvialCoupling: val,
+        });
+      }
+    }
+  }, [onPluvialDischargeCouplingChange]);
+
+  const handleBedrockIncisionChange = useCallback((val: number) => {
+    setInternalBedrockIncision(val);
+    onBedrockIncisionChange?.(val);
+    if (typeof window !== 'undefined') {
+      const live = (window as any).__INDICATRIX_LIVE_UNIFORMS__ || {};
+      live.bedrockIncision = val;
+      (window as any).__INDICATRIX_LIVE_UNIFORMS__ = live;
+      const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__;
+      if (engine && typeof engine.updateDrainageUniforms === 'function') {
+        engine.updateDrainageUniforms({
+          bedrockIncision: val,
+        });
+      }
+    }
+  }, [onBedrockIncisionChange]);
 
   const isLight = theme === 1;
 
@@ -953,6 +1060,90 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           onChange={(e) => handlePenumbraSoftnessChange(parseFloat(e.target.value))}
                           className="flex-1 slider-archival cursor-pointer h-1 rounded-[1px]"
                         />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Geomorphic Drainage Basin Synthesis & Leopold-Maddock Hydrology */}
+                  <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                          Geomorphic Hydrology
+                        </span>
+                        <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+                          D-∞ catchment routing & Leopold-Maddock
+                        </span>
+                      </div>
+                      <TactileSwitch
+                        id="sidebar-geomorphic-hydrology-toggle"
+                        checked={activeGeomorphicHydrology}
+                        onChange={handleToggleGeomorphicHydrology}
+                        title="Toggle Dynamic Geomorphic Hydrology & Basin Accumulation"
+                        label={activeGeomorphicHydrology ? 'Active' : 'Off'}
+                        indicatorColor={theme === 1 ? '#7D4700' : theme === 2 ? '#38BDF8' : '#F59E0B'}
+                      />
+                    </div>
+
+                    {/* Collapsible Sliders: Pluvial Discharge Coupling & Bedrock Incision */}
+                    <div
+                      className={`transition-all duration-150 ease-out overflow-hidden ${
+                        activeGeomorphicHydrology
+                          ? 'max-h-[160px] opacity-100 space-y-2 pointer-events-auto'
+                          : 'max-h-0 opacity-0 p-0 m-0 pointer-events-none'
+                      }`}
+                      style={{ transitionTimingFunction: 'var(--theme-spring-switch, cubic-bezier(0.34, 1.35, 0.64, 1))' }}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-nano pt-1">
+                          <span className="text-[var(--theme-text-secondary)] font-bold uppercase tracking-wider">
+                            Pluvial Coupling:
+                          </span>
+                          <span className="font-semibold tabular-nums text-[var(--theme-text-primary)] font-mono">
+                            {activePluvialDischargeCoupling.toFixed(2)}×
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            id="sidebar-pluvial-discharge-coupling"
+                            name="pluvialDischargeCoupling"
+                            type="range"
+                            min="0.0"
+                            max="2.0"
+                            step="0.05"
+                            value={activePluvialDischargeCoupling}
+                            title="Pluvial Discharge Coupling (Double-click to reset: 1.0×)"
+                            onDoubleClick={() => handlePluvialDischargeCouplingChange(1.0)}
+                            onChange={(e) => handlePluvialDischargeCouplingChange(parseFloat(e.target.value))}
+                            className="flex-1 slider-archival cursor-pointer h-1 rounded-[1px]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-nano">
+                          <span className="text-[var(--theme-text-secondary)] font-bold uppercase tracking-wider">
+                            Bedrock Incision:
+                          </span>
+                          <span className="font-semibold tabular-nums text-[var(--theme-text-primary)] font-mono">
+                            {activeBedrockIncision.toFixed(2)}×
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            id="sidebar-bedrock-incision"
+                            name="bedrockIncision"
+                            type="range"
+                            min="0.0"
+                            max="2.0"
+                            step="0.05"
+                            value={activeBedrockIncision}
+                            title="Bedrock Incision (Double-click to reset: 1.0×)"
+                            onDoubleClick={() => handleBedrockIncisionChange(1.0)}
+                            onChange={(e) => handleBedrockIncisionChange(parseFloat(e.target.value))}
+                            className="flex-1 slider-archival cursor-pointer h-1 rounded-[1px]"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -30,6 +30,7 @@ import substrateMicroReliefWGSL from './shaders/substrate_micro_relief.wgsl?raw'
 import paperCompositionWGSL from './shaders/paper_composition.wgsl?raw';
 import horizonOcclusionWGSL from './shaders/horizon_occlusion.wgsl?raw';
 import cloudAdvectionWGSL from './shaders/cloud_advection.wgsl?raw';
+import drainageAccumulationWGSL from './shaders/drainage_accumulation.wgsl?raw';
 import cullingWGSL from './shaders/culling.wgsl?raw';
 import { GPUProfiler, ProfilerPassSlot } from './profiling/GPUProfiler';
 import { encodeFloat16 } from '../core/math/float16';
@@ -163,6 +164,12 @@ export interface WebGPUFrameParams {
   maxRayDistanceMeters?: number;
   penumbraSoftness?: number;
   sampleStepCount?: number;
+  geomorphicHydrology?: boolean;
+  showDrainageHydrology?: boolean;
+  pluvialDischargeCoupling?: number;
+  bedrockIncision?: number;
+  drainageWidthExponentB?: number;
+  drainageDepthExponentF?: number;
   cloudAdvection?: boolean;
   cloudAdvectionSpeed?: number;
   condensationRate?: number;
@@ -919,6 +926,30 @@ export class WebGPUEngine {
   public horizonOcclusionBindGroupLayout: GPUBindGroupLayout | null = null;
   public horizonOcclusionPipeline: GPUComputePipeline | null = null;
   public horizonOcclusionBindGroup: GPUBindGroup | null = null;
+
+  // ==========================================================================
+  // Milestone 11: Geomorphic Drainage Basin Synthesis & Leopold-Maddock Hydrology
+  // ==========================================================================
+  public drainageHydrologyEnabled: boolean = false;
+  public drainageMapWidth: number = 2048;
+  public drainageMapHeight: number = 1024;
+  public drainageUniformBuffer: GPUBuffer | null = null;
+  public drainageUniformMirror: ArrayBuffer = new ArrayBuffer(32);
+  public drainageFloats: Float32Array = new Float32Array(this.drainageUniformMirror);
+  public drainageUints: Uint32Array = new Uint32Array(this.drainageUniformMirror);
+
+  public drainageTexture: GPUTexture | null = null;
+  public drainageTextureView: GPUTextureView | null = null;
+  public dummyDrainageTexture: GPUTexture | null = null;
+  public dummyDrainageTextureView: GPUTextureView | null = null;
+  public drainageSampler: GPUSampler | null = null;
+
+  public drainageBindGroupLayout: GPUBindGroupLayout | null = null;
+  public drainagePipeline: GPUComputePipeline | null = null;
+  public drainageBindGroup: GPUBindGroup | null = null;
+  public crustGroup1BindGroups: (GPUBindGroup | null)[] = [null, null, null, null];
+  public pluvialCouplingFactor: number = 1.0;
+  public bedrockIncisionFactor: number = 1.0;
 
   // Milestone Section 1: Temporal Cloud Morphing & Semi-Lagrangian Vector Advection
   private cloudAdvectionEnabled: boolean = true;
@@ -5972,6 +6003,8 @@ export class WebGPUEngine {
             { binding: 2, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
             { binding: 3, visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.VERTEX, texture: { sampleType: 'float', viewDimension: '2d' } },
             { binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+            { binding: 5, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+            { binding: 6, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
           ],
         });
       }
@@ -6111,34 +6144,86 @@ export class WebGPUEngine {
       const hydroView = this.ensureHydroTexture();
       const normalView = this.ensureNormalTexture();
 
-      // 2. Crust Active Shadow Bind Group
-      if (this.terrainShadowBindGroupLayout && this.terrainShadowTextureView && this.terrainShadowSampler) {
-        this.terrainShadowBindGroup = this.device.createBindGroup({
-          label: 'crust_terrain_shadow_bind_group',
-          layout: this.terrainShadowBindGroupLayout,
-          entries: [
-            { binding: 0, resource: { buffer: this.terrainShadowUniformBuffer } },
-            { binding: 1, resource: this.terrainShadowTextureView },
-            { binding: 2, resource: this.terrainShadowSampler },
-            { binding: 3, resource: hydroView },
-            { binding: 4, resource: normalView },
-          ],
-        });
+      // Ensure drainage resources exist for crust bindings 5 and 6
+      if (!this.drainageUniformBuffer || !this.dummyDrainageTextureView) {
+        this.ensureDrainageResources();
       }
+      const dummyDrainageView = this.dummyDrainageTextureView;
+      const drainageView = this.drainageTextureView || dummyDrainageView;
+      const drainageBuf = this.drainageUniformBuffer;
 
-      // 3. Crust Dummy Shadow Bind Group (1x1 white texture for unshadowed fallback)
-      if (this.terrainShadowBindGroupLayout && this.dummyTerrainShadowTextureView && this.terrainShadowSampler) {
-        this.terrainShadowDummyBindGroup = this.device.createBindGroup({
-          label: 'crust_terrain_shadow_dummy_bind_group',
+      if (this.terrainShadowBindGroupLayout && this.terrainShadowSampler && drainageBuf && dummyDrainageView) {
+        const shadowView = this.terrainShadowTextureView || this.dummyTerrainShadowTextureView;
+        const dummyShadowView = this.dummyTerrainShadowTextureView;
+
+        // [0]: shadow=false, drainage=false
+        this.crustGroup1BindGroups[0] = this.device.createBindGroup({
+          label: 'crust_group1_s0_d0',
           layout: this.terrainShadowBindGroupLayout,
           entries: [
             { binding: 0, resource: { buffer: this.terrainShadowUniformBuffer } },
-            { binding: 1, resource: this.dummyTerrainShadowTextureView },
+            { binding: 1, resource: dummyShadowView },
             { binding: 2, resource: this.terrainShadowSampler },
             { binding: 3, resource: hydroView },
             { binding: 4, resource: normalView },
+            { binding: 5, resource: dummyDrainageView },
+            { binding: 6, resource: { buffer: drainageBuf } },
           ],
         });
+
+        // [1]: shadow=true, drainage=false
+        if (shadowView) {
+          this.crustGroup1BindGroups[1] = this.device.createBindGroup({
+            label: 'crust_group1_s1_d0',
+            layout: this.terrainShadowBindGroupLayout,
+            entries: [
+              { binding: 0, resource: { buffer: this.terrainShadowUniformBuffer } },
+              { binding: 1, resource: shadowView },
+              { binding: 2, resource: this.terrainShadowSampler },
+              { binding: 3, resource: hydroView },
+              { binding: 4, resource: normalView },
+              { binding: 5, resource: dummyDrainageView },
+              { binding: 6, resource: { buffer: drainageBuf } },
+            ],
+          });
+        }
+
+        // [2]: shadow=false, drainage=true
+        if (drainageView) {
+          this.crustGroup1BindGroups[2] = this.device.createBindGroup({
+            label: 'crust_group1_s0_d1',
+            layout: this.terrainShadowBindGroupLayout,
+            entries: [
+              { binding: 0, resource: { buffer: this.terrainShadowUniformBuffer } },
+              { binding: 1, resource: dummyShadowView },
+              { binding: 2, resource: this.terrainShadowSampler },
+              { binding: 3, resource: hydroView },
+              { binding: 4, resource: normalView },
+              { binding: 5, resource: drainageView },
+              { binding: 6, resource: { buffer: drainageBuf } },
+            ],
+          });
+        }
+
+        // [3]: shadow=true, drainage=true
+        if (shadowView && drainageView) {
+          this.crustGroup1BindGroups[3] = this.device.createBindGroup({
+            label: 'crust_group1_s1_d1',
+            layout: this.terrainShadowBindGroupLayout,
+            entries: [
+              { binding: 0, resource: { buffer: this.terrainShadowUniformBuffer } },
+              { binding: 1, resource: shadowView },
+              { binding: 2, resource: this.terrainShadowSampler },
+              { binding: 3, resource: hydroView },
+              { binding: 4, resource: normalView },
+              { binding: 5, resource: drainageView },
+              { binding: 6, resource: { buffer: drainageBuf } },
+            ],
+          });
+        }
+
+        this.terrainShadowDummyBindGroup = this.crustGroup1BindGroups[0];
+        this.terrainShadowBindGroup = this.crustGroup1BindGroups[1] ?? this.crustGroup1BindGroups[0];
       }
     } catch {
       // Mock environment guard
@@ -6182,6 +6267,219 @@ export class WebGPUEngine {
 
   public getTerrainShadowTexture(): GPUTexture | null {
     return this.terrainShadowTexture;
+  }
+
+  // ==========================================================================
+  // Milestone 11: Geomorphic Drainage Basin Synthesis & Leopold-Maddock Hydrology
+  // ==========================================================================
+
+  public ensureDrainageResources(): void {
+    if (!this.device) return;
+
+    try {
+      if (!this.drainageBindGroupLayout) {
+        this.drainageBindGroupLayout = this.device.createBindGroupLayout({
+          label: 'drainage_compute_bind_group_layout',
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+            { binding: 1, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float', viewDimension: '2d' } },
+            { binding: 2, visibility: GPUShaderStage.COMPUTE, sampler: { type: 'filtering' } },
+            { binding: 3, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float', viewDimension: '2d' } },
+            { binding: 4, visibility: GPUShaderStage.COMPUTE, sampler: { type: 'filtering' } },
+            { binding: 5, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'rgba16float', viewDimension: '2d' } },
+          ],
+        });
+      }
+
+      if (!this.drainageUniformBuffer) {
+        this.drainageUniformBuffer = this.device.createBuffer({
+          label: 'drainage_uniform_buffer',
+          size: 32,
+          usage: typeof GPUBufferUsage !== 'undefined'
+            ? (GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST)
+            : (64 | 8),
+        });
+        this.drainageFloats[0] = 0.50; // u_widthExponentB
+        this.drainageFloats[1] = 0.40; // u_depthExponentF
+        this.drainageFloats[2] = 1.00; // u_erodibilityConstantK
+        this.drainageFloats[3] = 0.45; // u_flintExponentM
+        this.drainageFloats[4] = 1.00; // u_flintExponentN
+        this.drainageFloats[5] = 0.001; // u_minDischargeThreshold
+        this.drainageUints[6] = this.drainageMapWidth;
+        this.drainageUints[7] = this.drainageMapHeight;
+        this.device.queue.writeBuffer(this.drainageUniformBuffer, 0, this.drainageUniformMirror);
+      }
+
+      if (!this.dummyDrainageTexture) {
+        this.dummyDrainageTexture = this.device.createTexture({
+          label: 'dummy_drainage_texture',
+          size: [1, 1, 1],
+          format: 'rgba16float',
+          usage: typeof GPUTextureUsage !== 'undefined'
+            ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
+            : (4 | 2),
+        });
+        const zeroHalfFloats = new Uint16Array([0, 0, 0, 0]);
+        this.device.queue.writeTexture(
+          { texture: this.dummyDrainageTexture },
+          zeroHalfFloats,
+          { bytesPerRow: 256, rowsPerImage: 1 },
+          [1, 1, 1]
+        );
+        this.dummyDrainageTextureView = this.dummyDrainageTexture.createView({
+          label: 'dummy_drainage_texture_view',
+        });
+      }
+
+      if (!this.drainageTexture) {
+        this.drainageTexture = this.device.createTexture({
+          label: 'drainage_accumulation_texture',
+          size: [this.drainageMapWidth, this.drainageMapHeight, 1],
+          format: 'rgba16float',
+          usage: typeof GPUTextureUsage !== 'undefined'
+            ? (GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC)
+            : (8 | 4 | 1),
+        });
+        this.drainageTextureView = this.drainageTexture.createView({
+          label: 'drainage_accumulation_texture_view',
+        });
+      }
+
+      this.updateDrainageBindGroups();
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  public initDrainagePipelines(): void {
+    if (!this.device) return;
+
+    try {
+      this.ensureDrainageResources();
+
+      if (!this.drainagePipeline && this.drainageBindGroupLayout) {
+        const drainageModule = this.device.createShaderModule({
+          label: 'drainage_accumulation_shader',
+          code: drainageAccumulationWGSL,
+        });
+
+        const drainagePipelineLayout = this.device.createPipelineLayout({
+          label: 'drainage_accumulation_pipeline_layout',
+          bindGroupLayouts: [this.drainageBindGroupLayout],
+        });
+
+        this.drainagePipeline = this.device.createComputePipeline({
+          label: 'drainage_accumulation_pipeline',
+          layout: drainagePipelineLayout,
+          compute: {
+            module: drainageModule,
+            entryPoint: 'cs_main',
+          },
+        });
+      }
+
+      this.updateDrainageBindGroups();
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  public updateDrainageBindGroups(): void {
+    if (!this.device || !this.drainageUniformBuffer) return;
+
+    try {
+      const demView = this.demTextureView;
+      const demSampler = this.demSampler || this.terrainShadowSampler;
+      const precipView = (this.precipRingBuffer && !this.precipRingBuffer.disposed)
+        ? this.precipRingBuffer.getTextureView(0)
+        : (this.precipTextureView || this.dummyTerrainShadowTextureView);
+      const precipSampler = this.precipSampler || demSampler;
+
+      if (this.drainageBindGroupLayout && this.drainageTextureView && demView && demSampler && precipView && precipSampler) {
+        this.drainageBindGroup = this.device.createBindGroup({
+          label: 'drainage_compute_bind_group',
+          layout: this.drainageBindGroupLayout,
+          entries: [
+            { binding: 0, resource: { buffer: this.drainageUniformBuffer } },
+            { binding: 1, resource: demView },
+            { binding: 2, resource: demSampler },
+            { binding: 3, resource: precipView },
+            { binding: 4, resource: precipSampler },
+            { binding: 5, resource: this.drainageTextureView },
+          ],
+        });
+      }
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  public updateDrainageUniforms(params: Partial<{
+    widthExponentB: number;
+    depthExponentF: number;
+    erodibilityConstantK: number;
+    erodibilityK: number;
+    flintExponentM: number;
+    flintM: number;
+    flintExponentN: number;
+    flintN: number;
+    minDischargeThreshold: number;
+    demGridDimensions: [number, number];
+    demWidth: number;
+    demHeight: number;
+    pluvialCoupling: number;
+    bedrockIncision: number;
+  }>): void {
+    if (!this.drainageUniformBuffer || !this.device) return;
+
+    if (params.widthExponentB !== undefined) this.drainageFloats[0] = params.widthExponentB;
+    if (params.depthExponentF !== undefined) this.drainageFloats[1] = params.depthExponentF;
+    if (params.erodibilityConstantK !== undefined) this.drainageFloats[2] = params.erodibilityConstantK;
+    else if (params.erodibilityK !== undefined) this.drainageFloats[2] = params.erodibilityK;
+    else if (params.bedrockIncision !== undefined) this.drainageFloats[2] = params.bedrockIncision;
+
+    if (params.flintExponentM !== undefined) this.drainageFloats[3] = params.flintExponentM;
+    else if (params.flintM !== undefined) this.drainageFloats[3] = params.flintM;
+
+    if (params.flintExponentN !== undefined) this.drainageFloats[4] = params.flintExponentN;
+    else if (params.flintN !== undefined) this.drainageFloats[4] = params.flintN;
+
+    if (params.minDischargeThreshold !== undefined) this.drainageFloats[5] = params.minDischargeThreshold;
+    if (params.demGridDimensions) {
+      this.drainageUints[6] = params.demGridDimensions[0];
+      this.drainageUints[7] = params.demGridDimensions[1];
+    } else if (params.demWidth !== undefined && params.demHeight !== undefined) {
+      this.drainageUints[6] = params.demWidth;
+      this.drainageUints[7] = params.demHeight;
+    }
+    if (params.pluvialCoupling !== undefined) {
+      this.pluvialCouplingFactor = params.pluvialCoupling;
+    }
+    if (params.bedrockIncision !== undefined) {
+      this.bedrockIncisionFactor = params.bedrockIncision;
+    }
+
+    try {
+      this.device.queue.writeBuffer(this.drainageUniformBuffer, 0, this.drainageUniformMirror);
+    } catch {
+      // Mock environment guard
+    }
+  }
+
+  public setDrainageHydrologyEnabled(enabled: boolean): void {
+    this.drainageHydrologyEnabled = enabled;
+    if (enabled && this.device) {
+      this.ensureDrainageResources();
+      this.initDrainagePipelines();
+    }
+  }
+
+  public isDrainageHydrologyEnabled(): boolean {
+    return this.drainageHydrologyEnabled;
+  }
+
+  public getDrainageTexture(): GPUTexture | null {
+    return this.drainageTexture;
   }
 
   public getTerrainShadowTextureView(): GPUTextureView | null {
@@ -7837,6 +8135,8 @@ export class WebGPUEngine {
           { binding: 2, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
           { binding: 3, visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.VERTEX, texture: { sampleType: 'float', viewDimension: '2d' } },
           { binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 5, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
+          { binding: 6, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
         ],
       });
     }
@@ -8634,9 +8934,26 @@ export class WebGPUEngine {
       this.ensureTerrainShadowResources();
     }
 
-    // 2. Update Sim, Relief, Ribbon, and Wind Uniforms
+    // 1f. Ensure dynamic geomorphic drainage resources lazily on-demand (Milestone 11 / Rule 24)
+    const showDrainageHydrology = !isPurity && Boolean(
+      params.geomorphicHydrology !== undefined
+        ? params.geomorphicHydrology
+        : (params.showDrainageHydrology !== undefined ? params.showDrainageHydrology : this.drainageHydrologyEnabled)
+    );
+    if (showDrainageHydrology) {
+      this.ensureDrainageResources();
+      this.initDrainagePipelines();
+    }
+
+    // 2. Update Sim, Relief, Ribbon, Wind, Shadow, and Drainage Uniforms
     this.updateUniforms(params);
     this.updateTerrainShadowUniforms(params);
+    this.updateDrainageUniforms({
+      bedrockIncision: params.bedrockIncision,
+      pluvialCoupling: params.pluvialDischargeCoupling,
+      widthExponentB: params.drainageWidthExponentB,
+      depthExponentF: params.drainageDepthExponentF,
+    });
 
     // 2. Begin Frame Command Encoding
     const commandEncoder = this.device.createCommandEncoder();
@@ -8731,6 +9048,16 @@ export class WebGPUEngine {
       this.cloudAdvectionComputeBindGroups[1]
     );
 
+    // Pass 1e: Dynamic Geomorphic Drainage Basin Synthesis Compute Dispatch (Milestone 11 / Rule 24)
+    if (showDrainageHydrology && !this.drainageBindGroup && this.demTextureView) {
+      this.updateDrainageBindGroups();
+    }
+
+    const hasDrainageCompute = showDrainageHydrology && !!(
+      this.drainagePipeline &&
+      this.drainageBindGroup
+    );
+
     if (!isPurity && this.cdlodEnabled && (params.reliefActive || params.showRelief)) {
       this.ensureCDLODBuffers();
     }
@@ -8749,7 +9076,7 @@ export class WebGPUEngine {
       this.updateCDLOD(params.camera, params.mode ?? 0, params.unfurl ?? 0, Boolean(params.cursorActive));
     }
 
-    if (needsParticleCompute || hasWindCompute || hasHorizonCompute || hasCloudAdvectionCompute || hasCDLODCompute) {
+    if (needsParticleCompute || hasWindCompute || hasHorizonCompute || hasCloudAdvectionCompute || hasDrainageCompute || hasCDLODCompute) {
       const computePass = commandEncoder.beginComputePass({
         timestampWrites: this.profiler?.getComputeTimestampWrites(0),
       });
@@ -8792,6 +9119,14 @@ export class WebGPUEngine {
         computePass.setBindGroup(0, this.cloudAdvectionComputeBindGroups[pingIdx]!);
         computePass.dispatchWorkgroups(16, 16, 8);
         this.cloudAdvectionStep++;
+      }
+
+      if (hasDrainageCompute) {
+        computePass.setPipeline(this.drainagePipeline!);
+        computePass.setBindGroup(0, this.drainageBindGroup!);
+        const wgX = Math.ceil(this.drainageMapWidth / 16);
+        const wgY = Math.ceil(this.drainageMapHeight / 16);
+        computePass.dispatchWorkgroups(wgX, wgY, 1);
       }
 
       if (hasCDLODCompute) {
@@ -8873,9 +9208,12 @@ export class WebGPUEngine {
         : this.crustBindGroup;
       renderPass.setBindGroup(0, crustBg);
       if (this.terrainShadowBindGroupLayout) {
-        const shadowBg = (showTerrainShadows && this.terrainShadowBindGroup)
-          ? this.terrainShadowBindGroup
-          : this.terrainShadowDummyBindGroup;
+        const bgIndex = (showTerrainShadows ? 1 : 0) | (showDrainageHydrology ? 2 : 0);
+        const shadowBg = this.crustGroup1BindGroups[bgIndex] ?? (
+          (showTerrainShadows && this.terrainShadowBindGroup)
+            ? this.terrainShadowBindGroup
+            : this.terrainShadowDummyBindGroup
+        );
         if (shadowBg) {
           renderPass.setBindGroup(1, shadowBg);
         }
@@ -10753,6 +11091,21 @@ export class WebGPUEngine {
     this.terrainShadowBindGroupLayout = null;
     this.terrainShadowBindGroup = null;
     this.terrainShadowDummyBindGroup = null;
+
+    // Milestone 11: Geomorphic Drainage Basin Synthesis Cleanup
+    this.drainageUniformBuffer?.destroy();
+    this.drainageUniformBuffer = null;
+    this.drainageTexture?.destroy();
+    this.drainageTexture = null;
+    this.drainageTextureView = null;
+    this.dummyDrainageTexture?.destroy();
+    this.dummyDrainageTexture = null;
+    this.dummyDrainageTextureView = null;
+    this.drainageSampler = null;
+    this.drainagePipeline = null;
+    this.drainageBindGroupLayout = null;
+    this.drainageBindGroup = null;
+    this.crustGroup1BindGroups = [null, null, null, null];
 
     // Section 1: Temporal Cloud Morphing & Semi-Lagrangian Vector Advection Cleanup
     for (let i = 0; i < 2; i++) {

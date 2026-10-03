@@ -81,11 +81,23 @@ struct TerrainShadowUniforms {
     _pad: u32,                     // offset 28 (16-byte alignment)
 };
 
+struct DrainageBasinUniforms {
+    u_widthExponentB: f32,          // offset 0  (default 0.50)
+    u_depthExponentF: f32,          // offset 4  (default 0.40)
+    u_erodibilityConstantK: f32,    // offset 8  (default 1.00)
+    u_flintExponentM: f32,          // offset 12 (default 0.45)
+    u_flintExponentN: f32,          // offset 16 (default 1.00)
+    u_minDischargeThreshold: f32,   // offset 20 (minimum Q to render a stream hairline)
+    u_demGridDimensions: vec2<u32>, // offset 24 (e.g. 8192, 4096)
+};
+
 @group(1) @binding(0) var<uniform> u_terrainShadow: TerrainShadowUniforms;
 @group(1) @binding(1) var u_terrainShadowTexture: texture_2d<f32>;
 @group(1) @binding(2) var u_terrainShadowSampler: sampler;
 @group(1) @binding(3) var u_hydroTexture: texture_2d<f32>;
 @group(1) @binding(4) var u_normalTexture: texture_2d<f32>;
+@group(1) @binding(5) var u_drainageTexture: texture_2d<f32>;
+@group(1) @binding(6) var<uniform> u_drainageBasin: DrainageBasinUniforms;
 
 struct CDLODInstance {
     minUV: vec2<f32>,
@@ -1052,6 +1064,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let terrainShadowRaw = textureSampleLevel(u_terrainShadowTexture, u_terrainShadowSampler, input.uv, 0.0).r;
     let terrainShadow = select(1.0, terrainShadowRaw, u_terrainShadow.u_shadowMapDimensions.x > 0u && u_terrainShadow.u_sunAltitude > 0.0);
 
+    // Dynamic Geomorphic Drainage & Leopold-Maddock Hydrology sampling strictly before dynamic branching/discard (Rule 4)
+    let drainageSample = textureSampleLevel(u_drainageTexture, u_demSampler, input.uv, 0.0);
+
     // 4. Unconditional Precipitation, Next Precipitation, Wind, Temperature & Dewpoint Texture Sampling strictly before dynamic branching/discard (Invariant #3)
     let precipUV = input.uv;
     let precipRateRaw = textureSampleLevel(u_precipTexture, u_precipSampler, precipUV, 0.0).r;
@@ -1653,8 +1668,19 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let r_dist = distUv * 40075017.0;
         let distToAxis = r_dist;
 
-        // Incise fluvial channel into crust geometry and shade water albedo along channel corridor:
-        let channelIncise = -channelDepth * exp(-pow(2.0 * distToAxis / max(channelWidth, 15.0), 2.0));
+        // Dynamic Geomorphic Drainage Coupling (Task M11-T2):
+        // Integrate active discharge Q(x) and upstream area A(x) from dynamic drainage texture
+        let activeQ = select(A * (1.0 + sqrt(clamp(precipRate, 0.0, 50.0)) * 0.35), drainageSample.g, drainageSample.g > 0.0001);
+        let activeArea = select(A, drainageSample.r * A_max, drainageSample.r > 0.0001);
+        let normActiveQ = clamp(activeQ / A_max, 0.0, 1.0);
+
+        // Leopold-Maddock Downstream Hydraulic Geometry: W = a * Q^0.50, D = c * Q^0.40
+        let dynamicDescentAccum = clamp(pow(normActiveQ, u_drainageBasin.u_widthExponentB), 0.0, 1.0);
+        let leopoldWidthScale = pow(max(1e-4, normActiveQ), u_drainageBasin.u_widthExponentB - 0.50);
+
+        // Flint's Law Bedrock Incision: delta_z = K * A^0.45 * ||grad(h)||^1.0
+        let flintIncisionFactor = select(1.0, 1.0 + drainageSample.a * u_drainageBasin.u_erodibilityConstantK, drainageSample.a > 0.0001);
+        let channelIncise = -channelDepth * exp(-pow(2.0 * distToAxis / max(channelWidth, 15.0), 2.0)) * flintIncisionFactor;
         let delta_z = channelIncise;
 
         // 3. Self-Tapering Waterway Line Width (Invariant #7: 55-60% of coastline width 3.40px)
@@ -1663,6 +1689,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         var riverWidthPx = mix(0.40, 1.98, descentAccum);
         let pluvialFactor = 1.0 + sim.u_pluvial_gamma * sqrt(clamp(precipRate, 0.0, 50.0));
         riverWidthPx = riverWidthPx * pluvialFactor;
+
+        // Couple dynamic discharge into river width (scaled by Leopold-Maddock power law)
+        let dynamicWidthPx = mix(0.40, 1.98, dynamicDescentAccum) * leopoldWidthScale;
+        riverWidthPx = select(riverWidthPx, clamp(dynamicWidthPx, 0.40, 1.98), activeQ > u_drainageBasin.u_minDischargeThreshold && drainageSample.g > 0.0001);
+
         let riverHalfWidth = riverWidthPx * 0.5;
         let riverFeather = 0.45;
 
@@ -1672,7 +1703,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // 4. Leopold-Maddock Fluvial Presence Gate
         // Active on flat terrain if catchmentArea > 15.0 (Amazon Basin w(A) >= 1800m, active <20m elevation)
         // Inactive on dry alpine ridges (catchmentArea <= 15.0 -> w(A) = 0, riverPresence = 0)
-        let riverPresence = select(0.0, smoothstep(15.0, 45.0, A), A > 15.0);
+        let riverPresence = select(0.0, smoothstep(15.0, 45.0, activeArea), activeArea > 15.0);
         let valleyGate = riverPresence;
 
         // Cliff attenuation: in sheer vertical rock cliffs (>35°), water forms narrow chutes
@@ -1698,23 +1729,31 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 // Theme 1 (Cream Rag Paper): Archival Mineral Glazes / Washed Celadon-Lapis
                 // Alpine headwaters: washed mineral celadon (#77998B / vec3(0.32, 0.48, 0.46))
                 // Lowland confluences: deep archival lapis glaze (#263B52 / vec3(0.18, 0.32, 0.46))
+                // Copperplate ruling-pen intaglio ink (#38302A / vec3(0.22, 0.19, 0.16))
                 let cAlpineCeladon = vec3<f32>(0.32, 0.48, 0.46);
                 let cLowlandLapis   = vec3<f32>(0.18, 0.32, 0.46);
+                let cCopperplateInk = vec3<f32>(0.22, 0.19, 0.16);
                 cWaterway = mix(cAlpineCeladon, cLowlandLapis, descentAccum);
+                cWaterway = mix(cWaterway, cCopperplateInk, channelCoverage * 0.20 * sim.u_mediumProperties.x);
                 glazeAlpha = waterwayGlaze * mix(0.38, 0.52, descentAccum);
             } else if (sim.u_theme == 2u) {
                 // Theme 2 (Prussian Cyanotype): Washed Architectural Cerulean / Blueprint Drafting Ink
-                // Headwaters: delicate blueprint chalk cerulean (#7AA2C8)
+                // Pure photochemical actinic white to delicate blueprint chalk cerulean (#7AA2C8)
                 // Confluences: rich ferroprussiate cerulean (#4F79A3 / vec3(0.32, 0.58, 0.80))
+                let cActinicWhite  = vec3<f32>(0.92, 0.96, 1.00);
                 let cChalkCerulean = vec3<f32>(0.52, 0.76, 0.92);
                 let cDraftCerulean = vec3<f32>(0.32, 0.58, 0.80);
-                cWaterway = mix(cChalkCerulean, cDraftCerulean, descentAccum);
+                let cHeadwater = mix(cActinicWhite, cChalkCerulean, clamp(descentAccum * 2.0, 0.0, 1.0));
+                cWaterway = mix(cHeadwater, cDraftCerulean, descentAccum);
                 glazeAlpha = waterwayGlaze * mix(0.48, 0.65, descentAccum);
             } else {
                 // Theme 0 (Marie Tharp): Deep Marine Turquoise Drafting Glaze
+                // Hand-painted Heinrich Berann turquoise extending bathymetrically across continental shelf breaks
                 let cAlpineCyan = vec3<f32>(0.32, 0.64, 0.72);
                 let cEstuaryCyan = vec3<f32>(0.18, 0.46, 0.56);
+                let cSubmarineChasm = vec3<f32>(0.08, 0.28, 0.38);
                 cWaterway = mix(cAlpineCyan, cEstuaryCyan, descentAccum);
+                cWaterway = mix(cWaterway, cSubmarineChasm, clamp(descentAccum * 0.75, 0.0, 0.55));
                 glazeAlpha = waterwayGlaze * mix(0.42, 0.58, descentAccum);
             }
 

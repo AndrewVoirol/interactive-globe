@@ -152,6 +152,13 @@ export interface TelemetryHUDProps {
   onTerrainShadowsChange?: (enabled: boolean) => void;
   penumbraSoftness?: number;
   onPenumbraSoftnessChange?: (softness: number) => void;
+  geomorphicHydrology?: boolean;
+  onGeomorphicHydrologyToggle?: () => void;
+  onGeomorphicHydrologyChange?: (enabled: boolean) => void;
+  pluvialDischargeCoupling?: number;
+  onPluvialDischargeCouplingChange?: (val: number) => void;
+  bedrockIncision?: number;
+  onBedrockIncisionChange?: (val: number) => void;
 }
 
 export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
@@ -293,6 +300,13 @@ export const TelemetryHUD: React.FC<TelemetryHUDProps> = (props) => {
         onTerrainShadowsChange={props.onTerrainShadowsChange}
         penumbraSoftness={props.penumbraSoftness}
         onPenumbraSoftnessChange={props.onPenumbraSoftnessChange}
+        geomorphicHydrology={props.geomorphicHydrology}
+        onGeomorphicHydrologyToggle={props.onGeomorphicHydrologyToggle}
+        onGeomorphicHydrologyChange={props.onGeomorphicHydrologyChange}
+        pluvialDischargeCoupling={props.pluvialDischargeCoupling}
+        onPluvialDischargeCouplingChange={props.onPluvialDischargeCouplingChange}
+        bedrockIncision={props.bedrockIncision}
+        onBedrockIncisionChange={props.onBedrockIncisionChange}
       />
 
       {/* Bottom-Left Non-Intrusive Glassmorphic Toast Notification Stack */}

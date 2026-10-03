@@ -124,6 +124,9 @@ export default function App() {
   const [cdlodEnabled, setCdlodEnabled] = useState<boolean>(true);
   const [terrainShadows, setTerrainShadows] = useState<boolean>(false);
   const [penumbraSoftness, setPenumbraSoftness] = useState<number>(1.5);
+  const [geomorphicHydrology, setGeomorphicHydrology] = useState<boolean>(false);
+  const [pluvialDischargeCoupling, setPluvialDischargeCoupling] = useState<number>(1.0);
+  const [bedrockIncision, setBedrockIncision] = useState<number>(1.0);
   const lastWindHourRef = useRef<number>(-1);
 
   const handlePrognosticVariableChange = useCallback((variable: string) => {
@@ -797,6 +800,13 @@ export default function App() {
                 penumbraSoftness={penumbraSoftness}
                 onTerrainShadowsChange={setTerrainShadows}
                 onPenumbraSoftnessChange={setPenumbraSoftness}
+                geomorphicHydrology={geomorphicHydrology}
+                showDrainageHydrology={geomorphicHydrology}
+                pluvialDischargeCoupling={pluvialDischargeCoupling}
+                bedrockIncision={bedrockIncision}
+                onGeomorphicHydrologyChange={setGeomorphicHydrology}
+                onPluvialDischargeCouplingChange={setPluvialDischargeCoupling}
+                onBedrockIncisionChange={setBedrockIncision}
               />
             </React.Suspense>
           ) : (
@@ -957,6 +967,13 @@ export default function App() {
           onTerrainShadowsChange={setTerrainShadows}
           penumbraSoftness={penumbraSoftness}
           onPenumbraSoftnessChange={setPenumbraSoftness}
+          geomorphicHydrology={geomorphicHydrology}
+          onGeomorphicHydrologyToggle={() => setGeomorphicHydrology((s) => !s)}
+          onGeomorphicHydrologyChange={setGeomorphicHydrology}
+          pluvialDischargeCoupling={pluvialDischargeCoupling}
+          onPluvialDischargeCouplingChange={setPluvialDischargeCoupling}
+          bedrockIncision={bedrockIncision}
+          onBedrockIncisionChange={setBedrockIncision}
         />
 
         {/* Bottom Morph Slider & Kinematic Playback Dock */}
