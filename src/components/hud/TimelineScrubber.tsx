@@ -499,7 +499,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
                   className="absolute top-0 bottom-0 border-l border-[var(--theme-status-sage,#34d399)]/20 pointer-events-none"
                   style={{ left: `${tickPct}%` }}
                 >
-                  <span className="absolute bottom-0.5 left-0.5 text-[7px] font-mono text-[var(--theme-status-sage,#34d399)]/60 hidden sm:inline">
+                  <span className="absolute bottom-0.5 left-0.5 text-nano font-mono text-[var(--theme-status-sage,#34d399)]/60 hidden sm:inline">
                     -{60 - i * 10}
                   </span>
                 </div>
@@ -526,7 +526,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
                   style={{ left: `${tickPct}%` }}
                 >
                   <span
-                    className={`absolute bottom-0.5 text-[7px] font-mono text-[var(--theme-text-secondary)] opacity-60 hidden sm:inline ${
+                    className={`absolute bottom-0.5 text-nano font-mono text-[var(--theme-text-secondary)] opacity-60 hidden sm:inline ${
                       isEnd ? 'right-0.5' : 'left-0.5'
                     }`}
                   >

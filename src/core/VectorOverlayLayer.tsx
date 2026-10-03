@@ -232,6 +232,15 @@ void main() {
             color = vec3(0.94, 0.92, 0.89);
             alpha = 0.75;
         }
+    } else if (u_theme == 2) {
+        // Theme 2: Prussian Cyanotype — cold photochemical blue-white linework
+        if (vPointType < 0.75) {
+            color = vec3(0.55, 0.75, 0.95); // Photochemical cyan coastline
+            alpha = 0.70;
+        } else {
+            color = vec3(0.88, 0.94, 1.0);  // High-contrast blueprint white
+            alpha = 0.85;
+        }
     } else {
         // Theme 1: Light Monochrome Architectural / Swiss Relief
         if (vPointType < 0.75) {

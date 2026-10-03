@@ -726,7 +726,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
               size="sm"
               value={curWeatherOpticalMode}
               onChange={handleWeatherOpticalModeChange}
-              className="grid grid-cols-2 gap-1 font-mono text-[10px] tracking-wider w-full"
+              className="grid grid-cols-2 gap-1 font-mono text-body tracking-wider w-full"
               options={[
                 {
                   id: 0,
@@ -861,7 +861,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                       );
                     }
                   }}
-                  className="py-1 px-1 rounded-[2px] border text-center font-mono text-[9px] uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-border)] transition-colors cursor-pointer truncate"
+                  className="py-1 px-1 rounded-[2px] border text-center font-mono text-micro uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-border)] transition-colors cursor-pointer truncate"
                   title={preset.title}
                 >
                   {preset.label}
@@ -1048,7 +1048,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                             (window as any).__INDICATRIX_CAMERA__.setPitch(btn.pitch);
                           }
                         }}
-                        className="py-1 px-1 rounded-[2px] border text-center font-mono text-[9px] uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-border)] transition-colors cursor-pointer truncate"
+                        className="py-1 px-1 rounded-[2px] border text-center font-mono text-micro uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-border)] transition-colors cursor-pointer truncate"
                       >
                         {btn.label}
                       </button>
@@ -1073,7 +1073,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                             (window as any).tuneClouds({ location: btn.loc });
                           }
                         }}
-                        className="py-0.5 px-1.5 rounded-[2px] border text-center font-mono text-[9px] uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-border)] transition-colors cursor-pointer"
+                        className="py-0.5 px-1.5 rounded-[2px] border text-center font-mono text-micro uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-border)] transition-colors cursor-pointer"
                       >
                         {btn.label}
                       </button>
@@ -1082,7 +1082,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                   <button
                     type="button"
                     onClick={handleResetCloudDefaults}
-                    className="py-0.5 px-2 rounded-[2px] border text-center font-mono text-[9px] uppercase font-bold tracking-wider bg-[var(--theme-status-amber)]/20 hover:bg-[var(--theme-status-amber)]/30 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40 transition-colors cursor-pointer shrink-0"
+                    className="py-0.5 px-2 rounded-[2px] border text-center font-mono text-micro uppercase font-bold tracking-wider bg-[var(--theme-status-amber)]/20 hover:bg-[var(--theme-status-amber)]/30 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40 transition-colors cursor-pointer shrink-0"
                     title="Reset all volumetric cloud levers to calibrated defaults"
                   >
                     Reset Calibrated Physics

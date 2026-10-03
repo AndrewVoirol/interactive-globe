@@ -726,7 +726,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           size="sm"
           value={normalizedModel}
           onChange={handleModelSelect}
-          className="grid grid-cols-2 sm:grid-cols-4 gap-1 font-mono text-[10px] tracking-wider w-full"
+          className="grid grid-cols-2 sm:grid-cols-4 gap-1 font-mono text-body tracking-wider w-full"
           options={[
             {
               id: 'weathernext3',
@@ -785,7 +785,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
             size="sm"
             value={normalizedVariable}
             onChange={handleVariableSelect}
-            className="grid grid-cols-2 sm:grid-cols-4 gap-1 font-mono text-[10px] tracking-wider w-full"
+            className="grid grid-cols-2 sm:grid-cols-4 gap-1 font-mono text-body tracking-wider w-full"
             options={[
               {
                 id: 'total_precipitation_1hr_mean',
@@ -828,10 +828,10 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
       {showWindDynamics && (
         <div className="space-y-1.5 pt-1.5 border-t border-[var(--theme-card-border)]/60">
           <div className="flex items-center justify-between text-nano font-mono">
-            <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider text-[10px]">
+            <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider text-body">
               Lagrangian Advection Dynamics
             </span>
-            <span className="text-[var(--theme-text-muted)] text-[9px] uppercase tracking-widest font-mono">
+            <span className="text-[var(--theme-text-muted)] text-micro uppercase tracking-widest font-mono">
               Geodesic RK2
             </span>
           </div>
@@ -880,7 +880,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           </div>
 
           {/* Detailed Provenance Metadata Grid */}
-          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pt-1 border-t border-[var(--theme-control-border)]/30 text-[9px] opacity-85">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pt-1 border-t border-[var(--theme-control-border)]/30 text-micro opacity-85">
             <div className="flex items-center justify-between">
               <span className="text-[var(--theme-text-secondary)]">Resolution:</span>
               <span className="font-bold text-[var(--theme-text-primary)]">

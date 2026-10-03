@@ -217,7 +217,7 @@ describe('Stage 3: Weather Optical Modes & Archival Ink Weather Overlays', () =>
       expect(dopplerBtn).toBeDefined();
     });
 
-    it('applies cartographic styling classes (font-mono, text-[10px], tracking-wider)', async () => {
+    it('applies cartographic styling classes (font-mono, text-body, tracking-wider)', async () => {
       await act(async () => {
         root.render(
           React.createElement(AtmosphereDrawer, {
@@ -235,7 +235,7 @@ describe('Stage 3: Weather Optical Modes & Archival Ink Weather Overlays', () =>
       expect(toggleGrid).toBeDefined();
       expect(toggleGrid?.className).toContain('grid-cols-2');
       expect(toggleGrid?.className).toContain('font-mono');
-      expect(toggleGrid?.className).toContain('text-[10px]');
+      expect(toggleGrid?.className).toContain('text-body');
       expect(toggleGrid?.className).toContain('tracking-wider');
     });
 

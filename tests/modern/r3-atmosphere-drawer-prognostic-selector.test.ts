@@ -77,7 +77,7 @@ describe('Milestone 3 (R3) - AtmosphereDrawer Prognostic Model Selector', () => 
       expect(grid).toBeDefined();
       expect(grid!.className).toContain('grid-cols-2');
       expect(grid!.className).toContain('font-mono');
-      expect(grid!.className).toContain('text-[10px]');
+      expect(grid!.className).toContain('text-body');
       expect(grid!.className).toContain('tracking-wider');
     });
   });
