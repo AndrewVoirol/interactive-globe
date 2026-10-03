@@ -189,7 +189,7 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
             Stratospheric Telemetry
           </span>
         </div>
-        <span className="text-[10px] font-mono font-bold text-[#3fb950] px-1 py-0.2 rounded-[2px] bg-[#3fb950]/10 border border-[#3fb950]/30">
+        <span className="text-[10px] font-mono font-bold text-[#3fb950] px-1 py-px rounded-[2px] bg-[#3fb950]/10 border border-[#3fb950]/30">
           60 FPS
         </span>
       </div>

@@ -101,7 +101,7 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
                 {isWeatherActive && (
                   <span
                     data-testid="colophon-badge-weathernext"
-                    className="ml-1.5 px-1 py-0.2 rounded text-nano font-mono font-bold tracking-wider uppercase border border-emerald-500/40 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 align-middle inline-block"
+                    className="ml-1.5 px-1 py-px rounded text-nano font-mono font-bold tracking-wider uppercase border border-emerald-500/40 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 align-middle inline-block"
                   >
                     [WEATHERNEXT: ACTIVE]
                   </span>
@@ -115,7 +115,7 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
                 {isRadarActive && (
                   <span
                     data-testid="colophon-badge-radar"
-                    className="ml-1.5 px-1 py-0.2 rounded text-nano font-mono font-bold tracking-wider uppercase border border-emerald-500/40 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 align-middle inline-block"
+                    className="ml-1.5 px-1 py-px rounded text-nano font-mono font-bold tracking-wider uppercase border border-emerald-500/40 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 align-middle inline-block"
                   >
                     [RADAR: ACTIVE]
                   </span>

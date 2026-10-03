@@ -274,28 +274,28 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                           </div>
                           <div className="flex items-center gap-1 flex-wrap pl-3.5">
                             {isPrimaryRaster && (
-                              <span className="text-nano font-mono px-1.5 py-0.2 rounded border bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-semibold" title="Active Base Raster rendered on planetary crust">
+                              <span className="text-nano font-mono px-1.5 py-px rounded border bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-semibold" title="Active Base Raster rendered on planetary crust">
                                 (Active Raster)
                               </span>
                             )}
                             {isShadowedRaster && (
-                              <span className="text-nano font-mono px-1.5 py-0.2 rounded border bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40" title="This raster dataset is occluded by a higher active raster layer in the Z-order stack">
+                              <span className="text-nano font-mono px-1.5 py-px rounded border bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40" title="This raster dataset is occluded by a higher active raster layer in the Z-order stack">
                                 (Shadowed by higher raster layer)
                               </span>
                             )}
                             {preset?.unsupported && (
-                              <span className="text-nano font-mono px-1.5 py-0.2 rounded border bg-rose-500/20 text-rose-300 border-rose-500/40">
+                              <span className="text-nano font-mono px-1.5 py-px rounded border bg-rose-500/20 text-rose-300 border-rose-500/40">
                                 [UNSUPPORTED]
                               </span>
                             )}
                             {layer.id === 'starlink-iss-orbits' && (
-                              <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.2 rounded border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse shrink-0">
+                              <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-px rounded border bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse shrink-0">
                                 <span className="w-1 h-1 rounded-full bg-emerald-400 animate-ping"></span>
                                 Live Synced
                               </span>
                             )}
                             {(layer.id === 'noaa-gfs-wind' || layer.id === 'noaa-grib2-wind') && (
-                              <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.2 rounded border bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)] shrink-0">
+                              <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-px rounded border bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)] shrink-0">
                                 Physics Model
                               </span>
                             )}

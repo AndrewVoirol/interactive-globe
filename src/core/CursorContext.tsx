@@ -26,18 +26,17 @@ export const CursorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   );
 };
 
+let fallbackTrackerInstance: CursorTracker | null = null;
+
 export function useCursorTracker(): CursorTracker {
   const context = useContext(CursorContext);
   if (!context) {
-    // Fallback if rendered outside CursorProvider context
-    const fallbackRef = useRef<CursorTracker | null>(null);
-    if (!fallbackRef.current) {
-      fallbackRef.current = new CursorTracker();
-      if (typeof window !== 'undefined') {
-        fallbackRef.current.attach(window);
-      }
+    if (typeof window !== 'undefined' && !fallbackTrackerInstance) {
+      fallbackTrackerInstance = new CursorTracker();
+      fallbackTrackerInstance.attach(window);
     }
-    return fallbackRef.current;
+    return fallbackTrackerInstance!;
   }
   return context;
 }
+

@@ -1447,7 +1447,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                               <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
                                 Purity · DEM Only
                               </span>
-                              <span className="text-nano font-mono px-1 py-0.2 rounded-[2px] bg-[var(--theme-control-bg)] border border-[var(--theme-control-border)] text-[var(--theme-text-accent)] font-bold">
+                              <span className="text-nano font-mono px-1 py-px rounded-[2px] bg-[var(--theme-control-bg)] border border-[var(--theme-control-border)] text-[var(--theme-text-accent)] font-bold">
                                 RAW
                               </span>
                             </div>
@@ -1919,7 +1919,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
                                 <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
                                   <span
-                                    className="text-nano font-mono font-bold px-1 py-0.2 rounded-[1px] border shrink-0 uppercase tracking-wider select-none"
+                                    className="text-nano font-mono font-bold px-1 py-px rounded-[1px] border shrink-0 uppercase tracking-wider select-none"
                                     style={{
                                       borderColor: stratum.border,
                                       backgroundColor: stratum.bg,
@@ -1949,17 +1949,17 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                                   )}
 
                                   {isPrimaryRaster && (
-                                    <span className="text-nano font-mono px-1 py-0.2 rounded border bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 font-semibold" title="Active Base Raster rendered on planetary crust">
+                                    <span className="text-nano font-mono px-1 py-px rounded border bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 font-semibold" title="Active Base Raster rendered on planetary crust">
                                       (Active Raster)
                                     </span>
                                   )}
                                   {isShadowedRaster && (
-                                    <span className="text-nano font-mono px-1 py-0.2 rounded border bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40" title="This raster dataset is occluded by a higher active raster layer in the Z-order stack">
+                                    <span className="text-nano font-mono px-1 py-px rounded border bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40" title="This raster dataset is occluded by a higher active raster layer in the Z-order stack">
                                       (Shadowed by higher raster layer)
                                     </span>
                                   )}
                                   {preset?.unsupported && (
-                                    <span className="text-nano font-mono px-1 py-0.2 rounded border bg-rose-500/20 text-rose-300 border-rose-500/40">
+                                    <span className="text-nano font-mono px-1 py-px rounded border bg-rose-500/20 text-rose-300 border-rose-500/40">
                                       [UNSUPPORTED]
                                     </span>
                                   )}

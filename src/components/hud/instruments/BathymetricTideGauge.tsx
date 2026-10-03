@@ -221,7 +221,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           className={`absolute left-0 right-0 h-0.5 pointer-events-none ${tokens.caliperLine} shadow-[0_1px_4px_rgba(0,0,0,0.4)]`}
           style={{ bottom: `${waterPct}%` }}
         >
-          <div className={`absolute right-1.5 -top-2.5 px-1 py-0.2 rounded-[2px] border font-mono font-bold text-nano ${tokens.caliperBadge}`}>
+          <div className={`absolute right-1.5 -top-2.5 px-1 py-px rounded-[2px] border font-mono font-bold text-nano ${tokens.caliperBadge}`}>
             ◄ CALIPER ►
           </div>
         </div>

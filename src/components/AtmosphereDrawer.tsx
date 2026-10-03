@@ -861,7 +861,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                       );
                     }
                   }}
-                  className="py-1 px-1 rounded-[2px] border text-center font-mono text-[9px] uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text)] border-[var(--theme-control-border)] transition-colors cursor-pointer truncate"
+                  className="py-1 px-1 rounded-[2px] border text-center font-mono text-[9px] uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-border)] transition-colors cursor-pointer truncate"
                   title={preset.title}
                 >
                   {preset.label}
@@ -1048,7 +1048,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                             (window as any).__INDICATRIX_CAMERA__.setPitch(btn.pitch);
                           }
                         }}
-                        className="py-1 px-1 rounded-[2px] border text-center font-mono text-[9px] uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text)] border-[var(--theme-control-border)] transition-colors cursor-pointer truncate"
+                        className="py-1 px-1 rounded-[2px] border text-center font-mono text-[9px] uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-border)] transition-colors cursor-pointer truncate"
                       >
                         {btn.label}
                       </button>
@@ -1073,7 +1073,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                             (window as any).tuneClouds({ location: btn.loc });
                           }
                         }}
-                        className="py-0.5 px-1.5 rounded-[2px] border text-center font-mono text-[9px] uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text)] border-[var(--theme-control-border)] transition-colors cursor-pointer"
+                        className="py-0.5 px-1.5 rounded-[2px] border text-center font-mono text-[9px] uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-border)] transition-colors cursor-pointer"
                       >
                         {btn.label}
                       </button>

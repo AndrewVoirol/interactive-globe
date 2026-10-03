@@ -377,7 +377,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
               Chronometric Scrubber
             </span>
             <span
-              className={`text-nano font-bold uppercase px-1.5 py-0.2 rounded-[1px] border shrink-0 transition-colors ${readout.badgeColor}`}
+              className={`text-nano font-bold uppercase px-1.5 py-px rounded-[1px] border shrink-0 transition-colors ${readout.badgeColor}`}
             >
               {readout.badge}
             </span>
@@ -557,7 +557,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
           >
             <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[var(--theme-text-accent)] rotate-45" />
             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[var(--theme-text-accent)] rotate-45" />
-            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-1 py-0.2 rounded-[1px] bg-[var(--theme-panel-bg)] border border-[var(--theme-text-accent)] text-[var(--theme-text-accent)] text-[8px] font-mono font-bold uppercase tracking-wider leading-none shadow-xs">
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-1 py-px rounded-[1px] bg-[var(--theme-panel-bg)] border border-[var(--theme-text-accent)] text-[var(--theme-text-accent)] text-[8px] font-mono font-bold uppercase tracking-wider leading-none shadow-xs">
               NOW
             </div>
           </div>
