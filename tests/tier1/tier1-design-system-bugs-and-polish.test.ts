@@ -13,9 +13,6 @@ describe('Tier 1: Design System Bug Fixes & Architecture Polish', () => {
   const toastPath = path.resolve(__dirname, '../../src/components/hud/DataLayerToastNotification.tsx');
   const sidebarPath = path.resolve(__dirname, '../../src/components/hud/UnifiedRightSidebar.tsx');
   const indexCssPath = path.resolve(__dirname, '../../index.css');
-  const systemStatusPillPath = path.resolve(__dirname, '../../src/components/hud/SystemStatusPill.tsx');
-  const topologyDockPath = path.resolve(__dirname, '../../src/components/hud/TopologyControlDock.tsx');
-  const dataLayersDrawerPath = path.resolve(__dirname, '../../src/components/hud/DataLayersDrawer.tsx');
   const sunCompassPath = path.resolve(__dirname, '../../src/components/hud/instruments/PolarSunCompass.tsx');
   const tideGaugePath = path.resolve(__dirname, '../../src/components/hud/instruments/BathymetricTideGauge.tsx');
   const reliefCurvePath = path.resolve(__dirname, '../../src/components/hud/instruments/HypsometricReliefCurve.tsx');
@@ -107,13 +104,8 @@ describe('Tier 1: Design System Bug Fixes & Architecture Polish', () => {
     expect(sextant).toContain('var(--theme-card-border)');
   });
 
-  it('verifies that legacy testbed components support 3-theme type signatures', () => {
-    const pill = fs.readFileSync(systemStatusPillPath, 'utf-8');
-    const dock = fs.readFileSync(topologyDockPath, 'utf-8');
-    const drawer = fs.readFileSync(dataLayersDrawerPath, 'utf-8');
-
-    expect(pill).toMatch(/theme:\s*0\s*\|\s*1\s*\|\s*2/);
-    expect(dock).toMatch(/theme:\s*0\s*\|\s*1\s*\|\s*2/);
-    expect(drawer).toMatch(/theme:\s*0\s*\|\s*1\s*\|\s*2/);
+  it('verifies that UnifiedRightSidebar supports 3-theme type signatures', () => {
+    const sidebar = fs.readFileSync(sidebarPath, 'utf-8');
+    expect(sidebar).toMatch(/theme:\s*0\s*\|\s*1\s*\|\s*2/);
   });
 });

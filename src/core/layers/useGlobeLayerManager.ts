@@ -6,7 +6,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { GlobeLayerManager } from './GlobeLayerManager';
-import { DataLayerItem } from '../../components/hud/DataLayersDrawer';
+import { DataLayerItem } from '../../components/hud/UnifiedRightSidebar';
 import { ToastMessage } from '../../components/hud/DataLayerToastNotification';
 import { BlendModeType, getPresetById, DataLayerRenderStyle } from '../data/DataLayerCatalog';
 

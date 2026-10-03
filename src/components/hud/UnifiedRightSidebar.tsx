@@ -7,7 +7,30 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo, ResolutionTier } from '../../types';
 import { DATA_LAYER_CATALOG, BlendModeType, getPresetById, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
-import { DataLayerItem } from './DataLayersDrawer';
+export interface DataLayerItem {
+  id: string;
+  name: string;
+  category?: string;
+  type: string;
+  details: string;
+  visible: boolean;
+  opacity?: number;
+  blendMode?: BlendModeType;
+  displacementScale?: number;
+  elevationEncoding?: 'luminance' | 'mapbox' | 'terrarium';
+  sunAzimuth?: number;
+  sunAltitude?: number;
+  hillshadeIntensity?: number;
+  url?: string;
+  renderStyle?: 'architectural' | 'hybrid' | 'photoreal';
+  seaLevelOffset?: number;
+  waterClarity?: number;
+  peakExponent?: number;
+  ambientOcclusion?: number;
+  paperTooth?: number;
+  unsupported?: boolean;
+  unsupportedReason?: string;
+}
 import { PolarSunCompass } from './instruments/PolarSunCompass';
 import { HypsometricReliefCurve } from './instruments/HypsometricReliefCurve';
 import { BathymetricTideGauge } from './instruments/BathymetricTideGauge';
@@ -2427,5 +2450,998 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
         </>
       )}
     </>
+  );
+};
+
+// ============================================================================
+// Legacy HUD Component Compatibility Exports
+// ============================================================================
+
+export interface SystemStatusPillProps {
+  fps: number;
+  backend?: 'webgl2' | 'webgpu';
+  onBackendChange?: (b: 'webgl2' | 'webgpu') => void;
+  hasWebGPU: boolean;
+  resolution: ResolutionTier;
+  onResolutionChange: (r: ResolutionTier) => void;
+  theme: 0 | 1 | 2;
+  onThemeToggle: () => void;
+  particleNodes?: '1.05M' | '4.19M' | number;
+  isHighDensityNodes?: boolean;
+}
+
+export const TERRAIN_VERTICES: Record<ResolutionTier, string> = {
+  '100k': '264K Verts',
+  '1M': '1.05M Verts',
+  '3M': '2.99M Verts',
+  '4M': '4.20M Verts',
+  '8M': '8.40M Verts',
+  '16M': '16.78M Verts',
+};
+
+export const SystemStatusPill: React.FC<SystemStatusPillProps> = ({
+  fps,
+  backend,
+  onBackendChange,
+  hasWebGPU,
+  resolution,
+  onResolutionChange,
+  theme,
+  onThemeToggle,
+  particleNodes,
+  isHighDensityNodes,
+}) => {
+  const isLight = theme === 1;
+
+  const terrainVerts = TERRAIN_VERTICES[resolution] || '1.05M Verts';
+  const computeNodes =
+    particleNodes !== undefined
+      ? typeof particleNodes === 'number'
+        ? particleNodes >= 4000000
+          ? '4.19M Nodes'
+          : '1.05M Nodes'
+        : String(particleNodes).includes('Nodes')
+        ? String(particleNodes)
+        : `${particleNodes} Nodes`
+      : isHighDensityNodes || resolution === '4M' || resolution === '8M' || resolution === '16M'
+      ? '4.19M Nodes'
+      : '1.05M Nodes';
+
+  const emeraldDot = ['bg', 'emerald', '400'].join('-');
+  const emeraldText = ['text', 'emerald', '400'].join('-');
+
+  return (
+    <div className="fixed top-4 left-4 z-25 pointer-events-auto font-mono select-none transition-all duration-300 ease-out">
+      <div
+        className={`rounded-2xl border backdrop-blur-xl shadow-xl px-3.5 py-2 text-micro flex items-center gap-2.5 transition-all duration-300 ${
+          theme === 1
+            ? 'bg-white/90 border-zinc-200/80 text-zinc-800 shadow-zinc-200/50'
+            : theme === 2
+            ? 'bg-[#0f1c2b]/90 border-[#263c54]/80 text-[#e8edf2] shadow-[#071320]/60'
+            : 'bg-[#0F121A]/90 border-white/10 text-zinc-300 shadow-black/60'
+        }`}
+      >
+        {/* Live FPS Badge */}
+        <div className="flex items-center gap-1.5 font-bold pr-2 border-r border-white/10">
+          <span
+            className={`w-2 h-2 rounded-full ${
+              fps >= 100 ? 'bg-purple-400 animate-pulse' : fps >= 55 ? `${emeraldDot} animate-pulse` : 'bg-[var(--theme-status-amber)]'
+            }`}
+          ></span>
+          <span className={fps >= 100 ? 'text-purple-400 font-bold' : fps >= 55 ? `${emeraldText} font-bold` : 'text-[var(--theme-status-amber)] font-bold'}>
+            {fps} FPS
+          </span>
+        </div>
+
+        {/* Dedicated WebGPU Instrument Badge (Retiring WebGL2 Switcher) */}
+        <div
+          title="Active Instrument: WebGPU WGSL Compute & Rendering"
+          className="px-2.5 py-1 rounded-lg text-body font-bold border border-purple-500/50 bg-purple-600/30 text-purple-200 flex items-center gap-1.5 shadow-[0_0_8px_rgba(168,85,247,0.3)] select-none shrink-0"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+          <span>WebGPU</span>
+        </div>
+
+        {/* 3D Terrain Vertex Count & Active Particle Compute Nodes Telemetry */}
+        <div
+          className={`flex items-center gap-2 px-2 py-1 rounded-lg border text-micro font-mono shrink-0 ${
+            isLight ? 'bg-zinc-100 border-zinc-200 text-zinc-700' : 'bg-black/30 border-white/10 text-zinc-300'
+          }`}
+        >
+          <span className="flex items-center gap-1" title="Dual-surface 3D terrain vertex mesh density">
+            <span className="opacity-60 text-nano uppercase">Mesh:</span>
+            <span className="text-purple-400 dark:text-purple-300 font-bold">{terrainVerts}</span>
+          </span>
+          <span className="text-white/20 font-light">|</span>
+          <span className="flex items-center gap-1" title="Active WebGPU particle compute nodes">
+            <span className="opacity-60 text-nano uppercase">Sim:</span>
+            <span className="text-cyan-400 dark:text-cyan-300 font-bold">{computeNodes}</span>
+          </span>
+        </div>
+
+        {/* Grid Resolution Switch */}
+        <div className="flex items-center bg-black/20 rounded-lg p-0.5 border border-white/10 gap-0.5">
+          {(['100k', '1M', '3M', '4M', '8M', '16M'] as ResolutionTier[]).map((tier) => (
+            <button
+              key={tier}
+              onClick={() => onResolutionChange(tier)}
+              className={`px-1.5 py-0.5 rounded text-nano font-bold transition-all ${
+                resolution === tier
+                  ? tier === '16M'
+                    ? 'bg-[var(--theme-status-amber)] text-black font-semibold shadow-sm'
+                    : tier === '1M' || tier === '4M'
+                    ? 'bg-purple-600 text-white font-semibold shadow-sm'
+                    : isLight
+                    ? 'bg-zinc-900 text-white'
+                    : 'bg-white/20 text-white'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              {tier.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        {/* Theme Switch */}
+        <button
+          onClick={onThemeToggle}
+          title={isLight ? 'Switch to Dark Cyber' : 'Switch to Light Monochrome'}
+          className={`p-1.5 rounded-lg border transition-all flex items-center ${
+            isLight
+              ? 'border-zinc-300 bg-zinc-100 text-zinc-800 hover:bg-zinc-200'
+              : 'border-white/10 bg-white/5 text-zinc-300 hover:text-white'
+          }`}
+        >
+          {isLight ? (
+            <svg className="w-3.5 h-3.5 text-[var(--theme-status-amber)]" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.22 2.78a1 1 0 011.415 0l.707.707a1 1 0 01-1.414 1.415l-.707-.707a1 1 0 010-1.415zM17 9a1 1 0 100 2h1a1 1 0 100-2h-1zm-2.78 6.22a1 1 0 010 1.415l-.707.707a1 1 0 01-1.415-1.414l.707-.707a1 1 0 011.414 0zM10 16a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.56 14.78a1 1 0 01-1.415 0l-.707-.707a1 1 0 011.414-1.414l.707.707a1 1 0 010 1.414zM4 11a1 1 0 100-2H3a1 1 0 100 2h1zm2.78-6.22a1 1 0 011.415 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.415z" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5 text-sky-300" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export interface TopologyControlDockProps {
+  isZenMode: boolean;
+  onZenToggle: () => void;
+  theme: 0 | 1 | 2;
+  mode: SimulationMode;
+  onModeChange: (m: SimulationMode) => void;
+  layerMode: 0 | 1 | 2;
+  onLayerModeChange: (l: 0 | 1 | 2) => void;
+  cursorPhysicsEnabled: boolean;
+  onCursorPhysicsToggle: (enabled: boolean) => void;
+  activeOverlay: GeodesicOverlayMode;
+  onOverlayChange: (o: GeodesicOverlayMode) => void;
+  showLandmarks: boolean;
+  onLandmarksToggle: () => void;
+  showTissot: boolean;
+  onTissotToggle: () => void;
+  showVectors: boolean;
+  onVectorsToggle: () => void;
+  latStr: string;
+  lonStr: string;
+  mapScaleStr: string;
+  onSnapCamera: (v: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => void;
+  className?: string;
+}
+
+export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
+  isZenMode,
+  onZenToggle,
+  theme,
+  mode,
+  onModeChange,
+  layerMode,
+  onLayerModeChange,
+  cursorPhysicsEnabled,
+  onCursorPhysicsToggle,
+  activeOverlay,
+  onOverlayChange,
+  showLandmarks,
+  onLandmarksToggle,
+  showTissot,
+  onTissotToggle,
+  showVectors,
+  onVectorsToggle,
+  latStr,
+  lonStr,
+  mapScaleStr,
+  onSnapCamera,
+  className,
+}) => {
+  const [isDockOpen, setIsDockOpen] = useState(true);
+  const isLight = theme === 1;
+
+  if (isZenMode) return null;
+
+  return (
+    <div className={`fixed top-5 right-5 z-20 pointer-events-auto max-w-sm w-96 font-mono select-none transition-all duration-300 ease-out ${className || ''}`}>
+      <div
+        className={`rounded-2xl border backdrop-blur-xl shadow-2xl p-4 text-micro transition-all duration-300 ${
+          isLight
+            ? 'bg-white/90 border-zinc-200/80 text-zinc-800 shadow-zinc-200/50'
+            : 'bg-[#0F121A]/90 border-white/10 text-zinc-300 shadow-black/60'
+        }`}
+      >
+        {/* Dock Header */}
+        <div className={`flex items-center justify-between pb-3 border-b ${isLight ? 'border-zinc-200' : 'border-white/10'}`}>
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                mode === 3
+                  ? 'bg-indigo-400'
+                  : mode === 2
+                  ? 'bg-[#C86D51]'
+                  : mode === 1
+                  ? 'bg-slate-300'
+                  : 'bg-[var(--theme-status-amber)]'
+              }`}
+            ></span>
+            <span className={`text-title font-bold tracking-wider uppercase ${isLight ? 'text-zinc-900' : 'text-zinc-200'}`}>
+              INDICATRIX // TOPOLOGY CONTROL
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={onZenToggle}
+              title="Zen Presentation Mode (Press H)"
+              className={`text-micro font-bold px-2 py-1 rounded-lg border transition-all ${
+                isLight
+                  ? 'border-zinc-300 bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                  : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white'
+              }`}
+            >
+              Zen
+            </button>
+            <button
+              onClick={() => setIsDockOpen(!isDockOpen)}
+              className={`text-micro px-2 py-1 rounded-lg border transition-all ${
+                isLight
+                  ? 'border-zinc-300 text-zinc-600 hover:text-zinc-900'
+                  : 'border-white/10 text-zinc-400 hover:text-white'
+              }`}
+            >
+              {isDockOpen ? 'Collapse' : 'Expand'}
+            </button>
+          </div>
+        </div>
+
+        {isDockOpen && (
+          <div className="mt-3 space-y-3">
+            {/* Simulation Paradigms (Modes 0–3) */}
+            <div className="space-y-1.5">
+              <div className={`text-micro uppercase tracking-wider ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                Morph Paradigm (1–4)
+              </div>
+              <div className="grid grid-cols-4 gap-1">
+                <button
+                  onClick={() => onModeChange(0)}
+                  title="Mode 0: Standard Linear Spherical-to-Planar Interpolation"
+                  className={`py-1 px-1 rounded-lg text-nano font-bold transition-all text-center ${
+                    mode === 0
+                      ? isLight
+                        ? 'bg-[var(--theme-status-amber)] text-white shadow-sm'
+                        : 'bg-[var(--theme-status-amber)]/30 text-[var(--theme-status-amber)] border border-[var(--theme-status-amber)]/50'
+                      : isLight
+                      ? 'text-zinc-600 hover:text-[var(--theme-status-amber)]'
+                      : 'text-zinc-400 hover:text-[var(--theme-status-amber)]'
+                  }`}
+                >
+                  Linear
+                </button>
+                <button
+                  onClick={() => onModeChange(1)}
+                  title="Mode 1: Cylindrical Unrolling along Mercator Longitudinal Seam"
+                  className={`py-1 px-1 rounded-lg text-nano font-bold transition-all text-center ${
+                    mode === 1
+                      ? isLight
+                        ? 'bg-slate-700 text-white shadow-sm'
+                        : 'bg-slate-300/30 text-slate-100 border border-slate-400/50'
+                      : isLight
+                      ? 'text-zinc-600 hover:text-slate-800'
+                      : 'text-zinc-400 hover:text-slate-200'
+                  }`}
+                >
+                  Scroll
+                </button>
+                <button
+                  onClick={() => onModeChange(2)}
+                  title="Mode 2: Griffith Linear Elastic Fracture Mechanics Rupture"
+                  className={`py-1 px-1 rounded-lg text-nano font-bold transition-all text-center ${
+                    mode === 2
+                      ? isLight
+                        ? 'bg-[#C86D51] text-white shadow-sm'
+                        : 'bg-[#C86D51]/30 text-[#E08A6F] border border-[#C86D51]/50'
+                      : isLight
+                      ? 'text-zinc-600 hover:text-[#C86D51]'
+                      : 'text-zinc-400 hover:text-[#E08A6F]'
+                  }`}
+                >
+                  Griffith
+                </button>
+                <button
+                  onClick={() => onModeChange(3)}
+                  title="Mode 3: Hydrodynamic Liquefaction & Navier-Stokes Turbulent Flow"
+                  className={`py-1 px-1 rounded-lg text-nano font-bold transition-all text-center ${
+                    mode === 3
+                      ? isLight
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-indigo-500/30 text-indigo-200 border border-indigo-500/50'
+                      : isLight
+                      ? 'text-zinc-600 hover:text-indigo-600'
+                      : 'text-zinc-400 hover:text-indigo-300'
+                  }`}
+                >
+                  Fluid
+                </button>
+              </div>
+            </div>
+
+            {/* View Mode & Cursor Dynamics */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1 bg-black/20 rounded-lg p-0.5 border border-white/10">
+                <button
+                  onClick={() => onLayerModeChange(0)}
+                  className={`px-2 py-0.5 rounded text-nano font-bold transition-all ${
+                    layerMode === 0 ? (isLight ? 'bg-zinc-900 text-white' : 'bg-white/20 text-white') : 'text-zinc-400'
+                  }`}
+                >
+                  Both
+                </button>
+                <button
+                  onClick={() => onLayerModeChange(1)}
+                  className={`px-2 py-0.5 rounded text-nano font-bold transition-all ${
+                    layerMode === 1 ? (isLight ? 'bg-zinc-900 text-white' : 'bg-white/20 text-white') : 'text-zinc-400'
+                  }`}
+                >
+                  Points
+                </button>
+                <button
+                  onClick={() => onLayerModeChange(2)}
+                  className={`px-2 py-0.5 rounded text-nano font-bold transition-all ${
+                    layerMode === 2 ? (isLight ? 'bg-zinc-900 text-white' : 'bg-white/20 text-white') : 'text-zinc-400'
+                  }`}
+                >
+                  Wire
+                </button>
+              </div>
+
+              <button
+                onClick={() => onCursorPhysicsToggle(!cursorPhysicsEnabled)}
+                className={`py-1 px-2.5 rounded-lg text-micro font-bold border transition-all flex items-center gap-1.5 ${
+                  cursorPhysicsEnabled
+                    ? isLight
+                    ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
+                    : 'bg-teal-500/25 text-teal-300 border border-teal-500/40 shadow-sm'
+                    : isLight
+                    ? 'bg-zinc-100 border-zinc-200 text-zinc-500 hover:text-zinc-800'
+                    : 'bg-white/[0.02] border-white/10 text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${cursorPhysicsEnabled ? 'bg-teal-400' : 'bg-zinc-600'}`}></span>
+                <span>Cursor Physics</span>
+              </button>
+            </div>
+
+            {/* Geodesic & Overlay Modes */}
+            <div className="space-y-1.5">
+              <div className={`text-micro uppercase tracking-wider ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                Geodesic Arcs & Overlays
+              </div>
+              <div className="grid grid-cols-4 gap-1">
+                <button
+                  onClick={() => onOverlayChange('off')}
+                  className={`py-1 px-1 rounded-lg text-nano font-bold transition-all text-center ${
+                    activeOverlay === 'off' ? (isLight ? 'bg-zinc-800 text-white' : 'bg-white/20 text-white') : 'text-zinc-400'
+                  }`}
+                >
+                  Off
+                </button>
+                <button
+                  onClick={() => onOverlayChange('antipodes')}
+                  className={`py-1 px-1 rounded-lg text-nano font-bold transition-all text-center ${
+                    activeOverlay === 'antipodes' ? (isLight ? 'bg-[#8C4820] text-[#FDFCF9]' : 'bg-rose-500/25 text-rose-300') : 'text-zinc-400'
+                  }`}
+                >
+                  Antipodes
+                </button>
+                <button
+                  onClick={() => onOverlayChange('conveyor')}
+                  className={`py-1 px-1 rounded-lg text-nano font-bold transition-all text-center ${
+                    activeOverlay === 'conveyor' ? (isLight ? 'bg-[#1A4457] text-[#FDFCF9]' : 'bg-sky-500/25 text-sky-300') : 'text-zinc-400'
+                  }`}
+                >
+                  Conveyor
+                </button>
+                <button
+                  onClick={() => onOverlayChange('migration')}
+                  className={`py-1 px-1 rounded-lg text-nano font-bold transition-all text-center ${
+                    activeOverlay === 'migration' ? (isLight ? 'bg-[#7D4700] text-[#FDFCF9]' : 'bg-[var(--theme-status-amber)]/25 text-[var(--theme-status-amber)]') : 'text-zinc-400'
+                  }`}
+                >
+                  Migration
+                </button>
+              </div>
+            </div>
+
+            {/* Cartographic Features & Camera Snaps */}
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                onClick={onLandmarksToggle}
+                className={`py-1.5 px-1 rounded-xl text-micro font-bold border transition-all text-center flex items-center justify-center gap-1 ${
+                  showLandmarks ? (isLight ? 'bg-zinc-900 text-white' : 'bg-white/15 text-white') : 'text-zinc-400'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${showLandmarks ? 'bg-teal-400' : 'bg-zinc-600'}`}></span>
+                <span>Landmarks</span>
+              </button>
+              <button
+                onClick={onTissotToggle}
+                className={`py-1.5 px-1 rounded-xl text-micro font-bold border transition-all text-center flex items-center justify-center gap-1 ${
+                  showTissot ? (isLight ? 'bg-purple-700 text-white' : 'bg-purple-500/25 text-purple-200') : 'text-zinc-400'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${showTissot ? 'bg-purple-400' : 'bg-zinc-600'}`}></span>
+                <span>Tissot</span>
+              </button>
+              <button
+                onClick={onVectorsToggle}
+                className={`py-1.5 px-1 rounded-xl text-micro font-bold border transition-all text-center flex items-center justify-center gap-1 ${
+                  showVectors ? (isLight ? 'bg-zinc-900 text-white' : 'bg-white/20 text-white') : 'text-zinc-400'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${showVectors ? 'bg-[var(--theme-status-amber)]' : 'bg-zinc-600'}`}></span>
+                <span>Vectors (V)</span>
+              </button>
+            </div>
+
+            {/* Camera Snaps */}
+            <div className="space-y-1">
+              <div className={`text-nano uppercase tracking-wider ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>Camera Target Snap</div>
+              <div className="grid grid-cols-4 gap-1 text-nano font-bold">
+                <button onClick={() => onSnapCamera('equator')} className="py-1 rounded bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10">Equator</button>
+                <button onClick={() => onSnapCamera('pole')} className="py-1 rounded bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10">North Pole</button>
+                <button onClick={() => onSnapCamera('seam')} className="py-1 rounded bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10">Seam (0°)</button>
+                <button onClick={() => onSnapCamera('isometric')} className="py-1 rounded bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10">Isometric</button>
+              </div>
+            </div>
+
+            {/* Tissot Telemetry */}
+            {showTissot && (
+              <div className={`p-2.5 rounded-xl border text-micro space-y-1.5 tabular-nums ${isLight ? 'bg-purple-50/70 border-purple-200 text-zinc-800' : 'bg-purple-950/20 border-purple-500/30 text-purple-200'}`}>
+                <div className="flex justify-between items-center text-nano uppercase tracking-wider font-bold">
+                  <span>Distortion Tensor</span>
+                  <span className="text-teal-400">Morphing Tensor</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-nano">
+                  <div><span className="text-zinc-500 block">Equatorial Area:</span><span>1.000x</span></div>
+                  <div><span className="text-zinc-500 block">Polar Dilation:</span><span>1.000x</span></div>
+                </div>
+              </div>
+            )}
+
+            {/* Telemetry Footer */}
+            <div className={`pt-2 border-t text-nano grid grid-cols-2 gap-2 tabular-nums ${isLight ? 'border-zinc-200 text-zinc-500' : 'border-white/10 text-zinc-400'}`}>
+              <div><span className="block text-nano uppercase tracking-wider text-zinc-500">Center Coordinate</span><span className="font-bold">{latStr} {lonStr}</span></div>
+              <div className="text-right"><span className="block text-nano uppercase tracking-wider text-zinc-500">Nominal Scale</span><span className="font-bold">{mapScaleStr}</span></div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export interface DataLayersDrawerProps {
+  isZenMode: boolean;
+  theme: 0 | 1 | 2;
+  dataLayers?: DataLayerItem[];
+  onAddDataLayer?: (layer: DataLayerItem) => void;
+  onToggleDataLayer?: (id: string) => void;
+  onRemoveDataLayer?: (id: string) => void;
+  onOpacityChangeDataLayer?: (id: string, opacity: number) => void;
+  onBlendModeChangeDataLayer?: (id: string, blendMode: BlendModeType) => void;
+  onDisplacementScaleChangeDataLayer?: (id: string, scale: number) => void;
+  onHillshadeChangeDataLayer?: (id: string, azimuth: number, intensity: number) => void;
+  onSeaLevelOffsetChangeDataLayer?: (id: string, offset: number) => void;
+  onWaterClarityChangeDataLayer?: (id: string, clarity: number) => void;
+  onPeakExponentChangeDataLayer?: (id: string, exponent: number) => void;
+  onAmbientOcclusionChangeDataLayer?: (id: string, ao: number) => void;
+  onReorderDataLayer?: (id: string, direction: 'up' | 'down') => void;
+  prognosticModel?: string;
+}
+
+export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
+  isZenMode,
+  theme,
+  dataLayers = [],
+  onAddDataLayer,
+  onToggleDataLayer,
+  onRemoveDataLayer,
+  onOpacityChangeDataLayer,
+  onBlendModeChangeDataLayer,
+  onDisplacementScaleChangeDataLayer,
+  onHillshadeChangeDataLayer,
+  onSeaLevelOffsetChangeDataLayer,
+  onWaterClarityChangeDataLayer,
+  onPeakExponentChangeDataLayer,
+  onAmbientOcclusionChangeDataLayer,
+  onReorderDataLayer,
+  prognosticModel,
+}) => {
+  const [isDrawerOpen, setIsDrawerOpen] = useState(true);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  const isLight = theme === 1;
+  const isWnModel = isWeatherNextModel(prognosticModel);
+
+  const noaaLayer = dataLayers.find((l) => l.id === 'noaa-gfs-wind');
+  const isNoaaActive = noaaLayer ? noaaLayer.visible : false;
+
+  const starlinkLayer = dataLayers.find((l) => l.id === 'starlink-iss-orbits');
+  const isStarlinkActive = starlinkLayer ? starlinkLayer.visible : false;
+
+  const jetstreamLayer = dataLayers.find((l) => l.id === 'noaa-gfs-jetstream');
+  const isJetstreamActive = jetstreamLayer ? jetstreamLayer.visible : false;
+
+  const handleTogglePlanetaryLayer = (
+    id: 'noaa-gfs-wind' | 'starlink-iss-orbits' | 'noaa-gfs-jetstream'
+  ) => {
+    const existing = dataLayers.find((l) => l.id === id);
+    if (existing) {
+      onToggleDataLayer?.(id);
+    } else {
+      const preset = getPresetById(id);
+      if (preset && onAddDataLayer) {
+        onAddDataLayer({
+          id: preset.id,
+          name: preset.name,
+          category: preset.category,
+          type: preset.type,
+          details: preset.details,
+          visible: true,
+          opacity: preset.defaultOpacity,
+          blendMode: preset.defaultBlendMode,
+          url: preset.url,
+        });
+      }
+    }
+  };
+
+  if (isZenMode) return null;
+
+  return (
+    <div className="fixed bottom-24 right-4 z-20 pointer-events-auto max-w-sm w-96 font-mono select-none transition-all duration-300 ease-out">
+      <div
+        className={`rounded-2xl border backdrop-blur-xl shadow-2xl p-4 text-micro transition-all duration-300 ${
+          isLight
+            ? 'bg-white/90 border-zinc-200/80 text-zinc-800 shadow-zinc-200/50'
+            : 'bg-[#0F121A]/90 border-white/10 text-zinc-300 shadow-black/60'
+        }`}
+      >
+        {/* Drawer Header */}
+        <div className="flex items-center justify-between pb-2.5 border-b border-white/10">
+          <div className="flex items-center gap-2 font-bold">
+            <svg className="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0l-7 7m7-7l-7-7" />
+            </svg>
+            <span className="text-title tracking-wider uppercase">Data Layers ({dataLayers.length})</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setIsCatalogOpen(true)}
+              className={`text-micro font-bold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 ${
+                isLight
+                  ? 'border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100'
+                  : 'border-sky-500/40 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25'
+              }`}
+              title="Add New Layer from Catalog"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+              </svg>
+              <span>+ Catalog</span>
+            </button>
+
+            <button
+              onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+              className={`p-1.5 rounded-lg border transition-colors ${
+                isLight ? 'bg-zinc-100 border-zinc-300 hover:bg-zinc-200 text-zinc-700' : 'bg-white/5 border-white/10 hover:bg-white/10 text-zinc-300'
+              }`}
+            >
+              <svg className={`w-3.5 h-3.5 transform transition-transform ${isDrawerOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Planetary Instrumentation (Dedicated Live Synced Toggles) */}
+        <div className="mt-2.5 pt-2 border-t border-white/10 space-y-1.5">
+          <div className="flex items-center justify-between text-micro font-bold uppercase tracking-wider text-zinc-400">
+            <span>Planetary Instrumentation</span>
+            <span className="flex items-center gap-1 text-nano font-mono text-teal-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
+              Live Synced
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1.5">
+            {/* Real NOAA GFS Wind Toggle */}
+            <button
+              onClick={() => handleTogglePlanetaryLayer('noaa-gfs-wind')}
+              className={`p-2 rounded-xl border transition-all text-left flex flex-col justify-between gap-1 ${
+                isNoaaActive
+                  ? 'border-sky-500/60 bg-sky-500/20 text-sky-200 shadow-[0_0_10px_rgba(56,189,248,0.25)]'
+                  : isLight
+                  ? 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100'
+                  : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="font-bold text-micro truncate">
+                  {isWnModel ? 'Surface Winds' : 'NOAA Wind'}
+                </span>
+                <span className="flex items-center gap-1 text-nano font-bold px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                  {isWnModel ? 'DeepMind AI' : 'Physics Model'}
+                </span>
+              </div>
+              <span className="text-nano text-zinc-400 truncate">
+                {isWnModel ? '0.1° (10km) AI Grid' : '0.25° Operational Grid'}
+              </span>
+            </button>
+
+            {/* Starlink & ISS Orbits Toggle */}
+            <button
+              onClick={() => handleTogglePlanetaryLayer('starlink-iss-orbits')}
+              className={`p-2 rounded-xl border transition-all text-left flex flex-col justify-between gap-1 ${
+                isStarlinkActive
+                  ? 'border-purple-500/60 bg-purple-500/20 text-purple-200 shadow-[0_0_10px_rgba(168,85,247,0.25)]'
+                  : isLight
+                  ? 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100'
+                  : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="font-bold text-micro truncate">Starlink & ISS</span>
+                <span className="flex items-center gap-1 text-nano font-bold px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/40 animate-pulse">
+                  <span className="w-1 h-1 rounded-full bg-teal-400 animate-ping"></span>
+                  Live Synced
+                </span>
+              </div>
+              <span className="text-nano text-zinc-400 truncate">CelesTrak (110 Sats as of 2026)</span>
+            </button>
+
+            {/* NOAA GFS 250 hPa Jet Stream Toggle */}
+            <button
+              onClick={() => handleTogglePlanetaryLayer('noaa-gfs-jetstream')}
+              className={`p-2 rounded-xl border transition-all text-left flex flex-col justify-between gap-1 ${
+                isJetstreamActive
+                  ? 'border-indigo-500/60 bg-indigo-500/20 text-indigo-200 shadow-[0_0_10px_rgba(99,102,241,0.25)]'
+                  : isLight
+                  ? 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100'
+                  : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="font-bold text-micro truncate">Jet Stream</span>
+                <span className="flex items-center gap-1 text-nano font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                  250 hPa
+                </span>
+              </div>
+              <span className="text-nano text-zinc-400 truncate">High-Altitude Core</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Drawer Active Stack */}
+        {isDrawerOpen && (
+          <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pr-0.5">
+            {dataLayers && dataLayers.length > 0 ? (
+              (() => {
+                const isRasterLayer = (l: DataLayerItem) =>
+                  !!(l.renderStyle || l.category === 'topo' || l.category === 'ocean' || l.category === 'satellite' || l.category === 'night');
+                const activeRasterId = dataLayers.find((l) => l.visible && isRasterLayer(l))?.id;
+
+                return dataLayers.map((layer, idx) => {
+                  const preset = getPresetById(layer.id);
+                  const legend = preset?.legend;
+                  const isFirst = idx === 0;
+                  const isLast = idx === dataLayers.length - 1;
+                  const isRaster = isRasterLayer(layer);
+                  const isPrimaryRaster = isRaster && layer.id === activeRasterId && layer.visible;
+                  const isShadowedRaster = isRaster && layer.visible && !isPrimaryRaster;
+
+                  return (
+                    <div
+                      key={layer.id}
+                      className={`p-2.5 rounded-xl border flex flex-col gap-2 text-micro transition-all ${
+                        isLight
+                          ? 'bg-zinc-50 border-zinc-200 text-zinc-800'
+                          : 'bg-white/[0.04] border-white/10 text-zinc-200'
+                      }`}
+                    >
+                      {/* Layer Header */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 font-bold">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${layer.visible ? 'bg-sky-400 animate-pulse' : 'bg-zinc-500'}`}></span>
+                            <span className="text-micro font-bold break-words leading-tight" title={layer.name}>
+                              {layer.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 flex-wrap pl-3.5">
+                            {isPrimaryRaster && (
+                              <span className="text-nano font-mono px-1.5 py-px rounded border bg-teal-500/20 text-teal-300 border-teal-500/40 font-semibold" title="Active Base Raster rendered on planetary crust">
+                                (Active Raster)
+                              </span>
+                            )}
+                            {isShadowedRaster && (
+                              <span className="text-nano font-mono px-1.5 py-px rounded border bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40" title="This raster dataset is occluded by a higher active raster layer in the Z-order stack">
+                                (Shadowed by higher raster layer)
+                              </span>
+                            )}
+                            {preset?.unsupported && (
+                              <span className="text-nano font-mono px-1.5 py-px rounded border bg-rose-500/20 text-rose-300 border-rose-500/40">
+                                [UNSUPPORTED]
+                              </span>
+                            )}
+                            {layer.id === 'starlink-iss-orbits' && (
+                              <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-px rounded border bg-teal-500/20 text-teal-400 border-teal-500/40 shadow-[0_0_8px_rgba(20,184,166,0.4)] animate-pulse shrink-0">
+                                <span className="w-1 h-1 rounded-full bg-teal-400 animate-ping"></span>
+                                Live Synced
+                              </span>
+                            )}
+                            {(layer.id === 'noaa-gfs-wind' || layer.id === 'noaa-grib2-wind') && (
+                              <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-px rounded border bg-sky-500/20 text-sky-400 border-sky-500/40 shadow-[0_0_8px_rgba(56,189,248,0.4)] shrink-0">
+                                Physics Model
+                              </span>
+                            )}
+                            {layer.id === 'noaa-gfs-jetstream' && (
+                              <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-px rounded border bg-indigo-500/20 text-indigo-400 border-indigo-500/40 shadow-[0_0_8px_rgba(99,102,241,0.4)] shrink-0">
+                                250 hPa Core
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => onToggleDataLayer?.(layer.id)}
+                            className={`p-1 rounded-lg border transition-all ${
+                              layer.visible
+                                ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                                : 'bg-white/5 text-zinc-500 border-white/10'
+                            }`}
+                            title={layer.visible ? 'Hide Layer' : 'Show Layer'}
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={layer.visible ? 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' : 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18'} />
+                            </svg>
+                          </button>
+
+                          <button
+                            onClick={() => onRemoveDataLayer?.(layer.id)}
+                            className="p-1 rounded-lg border border-white/10 hover:border-rose-500/40 hover:bg-rose-500/10 text-zinc-400 hover:text-rose-400 transition-all"
+                            title="Remove Layer"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Controls (Opacity, Reorder) */}
+                      {layer.visible && (
+                        <div className="space-y-1.5 pt-1 border-t border-white/5">
+                          {/* Opacity Slider */}
+                          <div className="flex items-center justify-between gap-2 text-nano font-mono">
+                            <span className="text-zinc-400">Opacity:</span>
+                            <div className="flex items-center gap-2 flex-1 max-w-[140px]">
+                              <input
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.05"
+                                value={layer.opacity !== undefined ? layer.opacity : 1.0}
+                                onChange={(e) => onOpacityChangeDataLayer?.(layer.id, parseFloat(e.target.value))}
+                                className="w-full accent-sky-400 h-1 bg-white/10 rounded appearance-none cursor-pointer"
+                              />
+                              <span className="w-8 text-right text-zinc-300">
+                                {Math.round((layer.opacity !== undefined ? layer.opacity : 1.0) * 100)}%
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Reordering */}
+                          <div className="flex items-center justify-between text-nano font-mono pt-1">
+                            <span className="text-zinc-500 text-nano">Reorder Depth:</span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                disabled={isFirst}
+                                onClick={() => onReorderDataLayer?.(layer.id, 'up')}
+                                className={`px-1.5 py-0.5 rounded border text-nano ${
+                                  isFirst ? 'opacity-30 border-transparent text-zinc-600' : 'border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10'
+                                }`}
+                                title="Bring Forward (Higher Priority)"
+                              >
+                                ▲ Up
+                              </button>
+                              <button
+                                disabled={isLast}
+                                onClick={() => onReorderDataLayer?.(layer.id, 'down')}
+                                className={`px-1.5 py-0.5 rounded border text-nano ${
+                                  isLast ? 'opacity-30 border-transparent text-zinc-600' : 'border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10'
+                                }`}
+                                title="Send Backward (Lower Priority)"
+                              >
+                                ▼ Down
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Optional Legend Swatch */}
+                          {legend && (
+                            <div className="pt-1.5 border-t border-white/5 space-y-1">
+                              <div className="flex items-center justify-between text-nano font-mono text-zinc-400">
+                                <span>{legend.minLabel}</span>
+                                <span className="text-sky-300 uppercase tracking-wider">{legend.unit}</span>
+                                <span>{legend.maxLabel}</span>
+                              </div>
+                              <div
+                                className="h-1.5 rounded-full border border-white/10"
+                                style={{
+                                  background: `linear-gradient(to right, ${legend.colorStops.join(', ')})`,
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()
+            ) : (
+              <div className="p-4 rounded-xl border border-dashed border-white/10 text-center text-zinc-500 text-nano space-y-1">
+                <div>No active cartographic layers.</div>
+                <div className="text-nano text-zinc-600">Click '+ Catalog' or select a planetary preset above.</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Catalog Slide-out Modal / Sheet */}
+      {isCatalogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+          <div
+            className={`max-w-2xl w-full max-h-[85vh] rounded-2xl border shadow-2xl flex flex-col font-mono overflow-hidden ${
+              isLight ? 'bg-white border-zinc-300 text-zinc-900' : 'bg-[#0F121A] border-white/10 text-zinc-100'
+            }`}
+          >
+            {/* Modal Header */}
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0l-7 7m7-7l-7-7" />
+                </svg>
+                <span className="text-title font-bold tracking-wider uppercase">Cartographic Data Catalog</span>
+              </div>
+              <button
+                onClick={() => setIsCatalogOpen(false)}
+                className="p-1 rounded-lg border border-white/10 hover:bg-white/10 text-zinc-400 hover:text-white"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Catalog Presets Grid */}
+            <div className="p-4 overflow-y-auto space-y-2.5">
+              {DATA_LAYER_CATALOG.map((preset) => {
+                const isAlreadyAdded = dataLayers?.some((l) => l.id === preset.id);
+
+                return (
+                  <div
+                    key={preset.id}
+                    className={`p-3 rounded-xl border flex items-center justify-between gap-4 transition-all ${
+                      isLight
+                        ? 'bg-zinc-50 border-zinc-200 hover:border-zinc-300'
+                        : 'bg-white/[0.02] border-white/10 hover:border-white/20'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-bold text-micro truncate">{preset.name}</span>
+                        <span className="text-nano uppercase font-mono px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-400">
+                          {preset.category}
+                        </span>
+                        {preset.id === 'starlink-iss-orbits' && (
+                          <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-teal-500/20 text-teal-400 border-teal-500/40 animate-pulse">
+                            <span className="w-1 h-1 rounded-full bg-teal-400 animate-ping"></span>
+                            Live Synced
+                          </span>
+                        )}
+                        {(preset.id === 'noaa-gfs-wind' || preset.id === 'noaa-grib2-wind') && (
+                          <span className="flex items-center gap-1 text-nano uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-sky-500/20 text-sky-400 border-sky-500/40">
+                            Physics Model
+                          </span>
+                        )}
+                        {preset.unsupported && (
+                          <span className="text-nano font-mono px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                            Unsupported
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-nano text-zinc-400 line-clamp-2">{preset.details}</div>
+                    </div>
+
+                    <div className="shrink-0 flex items-center gap-2">
+                      <button
+                        disabled={isAlreadyAdded || preset.unsupported}
+                        onClick={() => {
+                          if (onAddDataLayer) {
+                            onAddDataLayer({
+                              id: preset.id,
+                              name: preset.name,
+                              category: preset.category,
+                              type: preset.type,
+                              details: preset.details,
+                              visible: true,
+                              opacity: preset.defaultOpacity,
+                              blendMode: preset.defaultBlendMode,
+                              displacementScale: preset.defaultDisplacementScale,
+                              renderStyle: preset.renderStyle,
+                              url: preset.url,
+                            });
+                          }
+                          setIsCatalogOpen(false);
+                        }}
+                        className={`px-3 py-1 rounded-lg text-nano font-bold border transition-all flex items-center gap-1 ${
+                          preset.unsupported
+                            ? 'opacity-40 cursor-not-allowed bg-zinc-800 text-zinc-400 border-zinc-700'
+                            : isAlreadyAdded
+                            ? 'bg-teal-500/20 text-teal-300 border-teal-500/40 cursor-default'
+                            : 'bg-sky-500/20 text-sky-200 border-sky-500/40 hover:bg-sky-500/30'
+                        }`}
+                      >
+                        {preset.unsupported ? (
+                          <span>Unsupported</span>
+                        ) : isAlreadyAdded ? (
+                          <>
+                            <svg className="w-3 h-3 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>Added</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span>Add Layer</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };

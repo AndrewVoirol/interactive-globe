@@ -10,16 +10,11 @@ import * as path from 'path';
 describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
   const appTsxPath = path.resolve(__dirname, '../../src/App.tsx');
   const sidebarPath = path.resolve(__dirname, '../../src/components/hud/UnifiedRightSidebar.tsx');
-  const drawerPath = path.resolve(__dirname, '../../src/components/hud/DataLayersDrawer.tsx');
-  const topologyDockPath = path.resolve(__dirname, '../../src/components/hud/TopologyControlDock.tsx');
   const segmentedControlPath = path.resolve(__dirname, '../../src/components/ui/SegmentedControl.tsx');
   const indexCssPath = path.resolve(__dirname, '../../index.css');
   const atmosphereDrawerPath = path.resolve(__dirname, '../../src/components/AtmosphereDrawer.tsx');
-
   const appContent = fs.readFileSync(appTsxPath, 'utf-8');
   const sidebarContent = fs.readFileSync(sidebarPath, 'utf-8');
-  const drawerContent = fs.readFileSync(drawerPath, 'utf-8');
-  const topologyContent = fs.readFileSync(topologyDockPath, 'utf-8');
   const segmentedContent = fs.readFileSync(segmentedControlPath, 'utf-8');
   const cssContent = fs.readFileSync(indexCssPath, 'utf-8');
   const atmosphereDrawerContent = fs.readFileSync(atmosphereDrawerPath, 'utf-8');
@@ -50,14 +45,10 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
   // Issue 2: Segmented Control Text Clipping
   // --------------------------------------------------------------------------
   describe('2. Segmented Control Text Clipping & Placebo Control Excision', () => {
-    it('verifies blend-mode placebo UI control is excised from sidebar and drawer', () => {
+    it('verifies blend-mode placebo UI control is excised from sidebar', () => {
       // In sidebar
       expect(sidebarContent).not.toContain("title: 'Screen Blend'");
       expect(sidebarContent).not.toMatch(/label:\s*'Screen'/);
-
-      // In data layers drawer
-      expect(drawerContent).not.toContain("title: 'Screen Blend'");
-      expect(drawerContent).not.toMatch(/label:\s*'Screen'/);
     });
 
     it('verifies SegmentedControl primitive applies tracking-tight and whitespace-nowrap', () => {
@@ -110,25 +101,16 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
     it('verifies Antipodes button in Cream Rag uses Terracotta / Burnt Sienna instead of raw rose-600', () => {
       expect(sidebarContent).toContain("theme === 1\n                            ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414]");
       expect(sidebarContent).not.toContain("? isLight\n                              ? 'bg-rose-600 text-white");
-
-      expect(topologyContent).toContain("isLight ? 'bg-[#8C4820] text-[#FDFCF9]'");
-      expect(topologyContent).not.toContain("isLight ? 'bg-rose-600 text-white'");
     });
 
     it('verifies Conveyor button in Cream Rag uses Prussian Slate instead of raw sky-600', () => {
       expect(sidebarContent).toContain("theme === 1\n                            ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A]");
       expect(sidebarContent).not.toContain("? isLight\n                              ? 'bg-sky-600 text-white");
-
-      expect(topologyContent).toContain("isLight ? 'bg-[#1A4457] text-[#FDFCF9]'");
-      expect(topologyContent).not.toContain("isLight ? 'bg-sky-600 text-white'");
     });
 
     it('verifies Migration button in Cream Rag uses Raw Ochre instead of raw amber-600', () => {
       expect(sidebarContent).toContain("theme === 1\n                            ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300]");
       expect(sidebarContent).not.toContain("? isLight\n                              ? 'bg-amber-600 text-white");
-
-      expect(topologyContent).toContain("isLight ? 'bg-[#7D4700] text-[#FDFCF9]'");
-      expect(topologyContent).not.toContain("isLight ? 'bg-amber-600 text-white'");
     });
 
     it('verifies Vectors (V) toggle in Scene tab', () => {

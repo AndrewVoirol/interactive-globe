@@ -2,9 +2,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import React, { act } from 'react';
 import { createRoot, Root } from 'react-dom/client';
-import { SystemStatusPill, SystemStatusPillProps } from '../../src/components/hud/SystemStatusPill';
-import { TopologyControlDock, TopologyControlDockProps } from '../../src/components/hud/TopologyControlDock';
-import { DataLayersDrawer, DataLayersDrawerProps, DataLayerItem } from '../../src/components/hud/DataLayersDrawer';
+import {
+  SystemStatusPill,
+  SystemStatusPillProps,
+  TopologyControlDock,
+  TopologyControlDockProps,
+  DataLayersDrawer,
+  DataLayersDrawerProps,
+  DataLayerItem,
+} from '../../src/components/hud/UnifiedRightSidebar';
 import { ResolutionTier, SimulationMode } from '../../src/types';
 import fs from 'fs';
 import path from 'path';

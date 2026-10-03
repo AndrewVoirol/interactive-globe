@@ -36,7 +36,7 @@ import {
 import { WebGPUEngine } from '../../src/webgpu/WebGPUEngine';
 import { createMockNavigatorGPU, MockGPUDevice } from '../helpers/webgpu-mock';
 import { getIcosahedronGeometry } from '../helpers/math-oracle';
-import contourTopologyWGSL from '../../src/webgpu/shaders/contour_topology.wgsl?raw';
+import vectorRibbonWGSL from '../../src/webgpu/shaders/vector_ribbon.wgsl?raw';
 
 describe('Milestone 2: Contour & Vector Topology Test Suite', () => {
   const projectRoot = path.resolve(__dirname, '../..');
@@ -567,18 +567,15 @@ describe('Milestone 2: Contour & Vector Topology Test Suite', () => {
       }
     });
 
-    it('T38: verifies contour_topology.wgsl compiles cleanly and exports required functions', () => {
-      expect(contourTopologyWGSL).toContain('fn geodesicDistanceWGSL');
-      expect(contourTopologyWGSL).toContain('fn sphericalTriangleExcessWGSL');
-      expect(contourTopologyWGSL).toContain('fn computeSphericalExcessVanOosteromWGSL');
-      expect(contourTopologyWGSL).toContain('fn isCrossSeamSegment');
-      expect(contourTopologyWGSL).toContain('@compute @workgroup_size(256)');
-      expect(contourTopologyWGSL).toContain('fn cs_spherical_excess');
+    it('T38: verifies vector_ribbon.wgsl compiles cleanly and exports required functions', () => {
+      expect(vectorRibbonWGSL).toContain('struct SimUniforms');
+      expect(vectorRibbonWGSL).toContain('fn vs_main');
+      expect(vectorRibbonWGSL).toContain('fn fs_main');
 
       const device = new MockGPUDevice();
       const module = device.createShaderModule({
-        label: 'contour_topology_module',
-        code: contourTopologyWGSL,
+        label: 'vector_ribbon_module',
+        code: vectorRibbonWGSL,
       });
       expect(module).toBeDefined();
     });

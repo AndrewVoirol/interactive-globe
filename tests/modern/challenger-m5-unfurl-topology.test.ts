@@ -12,7 +12,7 @@ import path from 'path';
 import {
   TopologyControlDock,
   TopologyControlDockProps,
-} from '../../src/components/hud/TopologyControlDock';
+} from '../../src/components/hud/UnifiedRightSidebar';
 import { SimulationMode } from '../../src/types';
 
 // Set React act environment flag

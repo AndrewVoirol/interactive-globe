@@ -15,8 +15,6 @@ describe('Option A & Option B Cartographic Pipeline Upgrades', () => {
   const sidebarPath = path.resolve(__dirname, '../../src/components/hud/UnifiedRightSidebar.tsx');
   const sidebarCode = fs.readFileSync(sidebarPath, 'utf-8');
 
-  const drawerPath = path.resolve(__dirname, '../../src/components/hud/DataLayersDrawer.tsx');
-  const drawerCode = fs.readFileSync(drawerPath, 'utf-8');
 
   const appPath = path.resolve(__dirname, '../../src/App.tsx');
   const appCode = fs.readFileSync(appPath, 'utf-8');
@@ -95,12 +93,10 @@ describe('Option A & Option B Cartographic Pipeline Upgrades', () => {
   // 3. HUD Controls & User Interface Verification
   // ==========================================================================
   describe('3. HUD & Sidebar Controls', () => {
-    it('AB-09: verifies UnifiedRightSidebar and DataLayersDrawer render AO slider for Option A', () => {
+    it('AB-09: verifies UnifiedRightSidebar renders AO slider for Option A', () => {
       // After refactor, sidebar uses VernierSlider with label="Crevice Depth" instead of 'Crevice AO:'
       expect(sidebarCode).toContain('label="Crevice Depth"');
       expect(sidebarCode).toContain('onAmbientOcclusionChangeDataLayer');
-      expect(drawerCode).toContain('Crevice AO:');
-      expect(drawerCode).toContain('onAmbientOcclusionChangeDataLayer');
     });
 
     it('AB-10: verifies UnifiedRightSidebar delegates Sea Level, Clarity, and Peak Sharpness to instrument components', () => {
@@ -111,14 +107,6 @@ describe('Option A & Option B Cartographic Pipeline Upgrades', () => {
       expect(sidebarCode).toContain('onPeakExponentChangeDataLayer');
       expect(sidebarCode).toContain('BathymetricTideGauge');
       expect(sidebarCode).toContain('HypsometricReliefCurve');
-
-      // DataLayersDrawer still has the inline labels
-      expect(drawerCode).toContain('Sea Level:');
-      expect(drawerCode).toContain('onSeaLevelOffsetChangeDataLayer');
-      expect(drawerCode).toContain('Clarity:');
-      expect(drawerCode).toContain('onWaterClarityChangeDataLayer');
-      expect(drawerCode).toContain('Peak Sharp:');
-      expect(drawerCode).toContain('onPeakExponentChangeDataLayer');
     });
   });
 });

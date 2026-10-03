@@ -7,9 +7,8 @@
 
 import React from 'react';
 import { SimulationMode, GeodesicOverlayMode, LoadedDataInfo, ResolutionTier } from '../../types';
-import { UnifiedRightSidebar, PrognosticModelBackend, isWeatherNextModel } from './UnifiedRightSidebar';
+import { UnifiedRightSidebar, PrognosticModelBackend, isWeatherNextModel, DataLayerItem } from './UnifiedRightSidebar';
 import { DataLayerToastNotification, ToastMessage } from './DataLayerToastNotification';
-import { DataLayerItem } from './DataLayersDrawer';
 import { BlendModeType, DataLayerRenderStyle } from '../../core/data/DataLayerCatalog';
 import { TimelineScrubberState } from './TimelineScrubber';
 import type { MeteorologicalProvenance } from '../../core/data/WeatherNextDataSource';

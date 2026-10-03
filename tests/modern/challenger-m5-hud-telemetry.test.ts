@@ -2,9 +2,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import React, { act, useState } from 'react';
 import { createRoot, Root } from 'react-dom/client';
-import { SystemStatusPill, SystemStatusPillProps, TERRAIN_VERTICES } from '../../src/components/hud/SystemStatusPill';
-import { DataLayersDrawer, DataLayersDrawerProps, DataLayerItem } from '../../src/components/hud/DataLayersDrawer';
-import { UnifiedRightSidebar, UnifiedRightSidebarProps } from '../../src/components/hud/UnifiedRightSidebar';
+import {
+  UnifiedRightSidebar,
+  UnifiedRightSidebarProps,
+  SystemStatusPill,
+  SystemStatusPillProps,
+  TERRAIN_VERTICES,
+  DataLayersDrawer,
+  DataLayersDrawerProps,
+  DataLayerItem,
+} from '../../src/components/hud/UnifiedRightSidebar';
 import { ResolutionTier, SimulationMode } from '../../src/types';
 import { getPresetById, DATA_LAYER_CATALOG } from '../../src/core/data/DataLayerCatalog';
 

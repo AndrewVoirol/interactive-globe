@@ -10,7 +10,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import * as THREE from 'three';
 
 import demUnpackWGSL from '../../src/webgpu/shaders/dem_unpack.wgsl?raw';
-import hydrosphereOpticsWGSL from '../../src/webgpu/shaders/hydrosphere_optics.wgsl?raw';
 import crustHydrosphereWGSL from '../../src/webgpu/shaders/crust_hydrosphere.wgsl?raw';
 import vectorRibbonWGSL from '../../src/webgpu/shaders/vector_ribbon.wgsl?raw';
 
@@ -126,10 +125,10 @@ describe('Milestone 1: WebGPU Shader & Ingestion Pipelines', () => {
   // Suite 3: Jerlov Radiative Transfer & Shallow Kubelka-Munk (M1-T3)
   // ==========================================================================
   describe('Suite 3: Jerlov Radiative Transfer & Shallow Kubelka-Munk (M1-T3)', () => {
-    it('M1-T12: verifies hydrosphere_optics.wgsl HydrosphereUniforms struct satisfies 16-byte alignment', () => {
-      expect(hydrosphereOpticsWGSL).toContain('struct HydrosphereUniforms');
+    it('M1-T12: verifies crust_hydrosphere.wgsl HydrosphereUniforms struct satisfies 16-byte alignment', () => {
+      expect(crustHydrosphereWGSL).toContain('struct HydrosphereUniforms');
       // 8 fields of 4 bytes each = 32 bytes (2 * 16 bytes)
-      const structBlock = hydrosphereOpticsWGSL.match(/struct HydrosphereUniforms\s*\{([^}]+)\}/)?.[1];
+      const structBlock = crustHydrosphereWGSL.match(/struct HydrosphereUniforms\s*\{([^}]+)\}/)?.[1];
       const fields = structBlock?.match(/u_[a-zA-Z0-9]+:\s*(f32|u32)/g);
       expect(fields?.length).toBe(8);
       expect((8 * 4) % 16).toBe(0);
@@ -551,7 +550,6 @@ describe('Milestone 1: WebGPU Shader & Ingestion Pipelines', () => {
     it('M1-T35: validates Zero-Regression Invariant: all 59 baseline suites and new Milestone 1 suites pass without failure', () => {
       // Confirms shader files are available and non-empty
       expect(demUnpackWGSL.length).toBeGreaterThan(100);
-      expect(hydrosphereOpticsWGSL.length).toBeGreaterThan(500);
       expect(crustHydrosphereWGSL.length).toBeGreaterThan(500);
       expect(vectorRibbonWGSL.length).toBeGreaterThan(500);
     });
