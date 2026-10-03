@@ -2237,10 +2237,17 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
 
       {/* Slide-Out Catalog Sheet */}
       {isCatalogOpen && (
-        <div
-          ref={catalogSheetRef}
-          className="fixed top-5 right-5 xl:right-[26.5rem] z-40 pointer-events-auto w-96 max-w-[calc(100vw-2.5rem)] xl:max-w-[calc(100vw-28rem)] max-h-[calc(100vh-2.5rem)] xl:max-h-[calc(100vh-8.5rem)] 2xl:max-h-[calc(100vh-8.5rem)] flex flex-col font-mono select-none rounded-[3px] border backdrop-blur-2xl shadow-2xl p-4 text-micro transition-all duration-300 ease-out animate-in fade-in slide-in-from-right-4 border-[var(--theme-panel-border)] bg-[var(--theme-panel-bg)] text-[var(--theme-text-primary)]"
-        >
+        <>
+          {/* Modal Backdrop below xl breakpoint (stacks over sidebar z-30) */}
+          <div
+            className="fixed inset-0 bg-black/20 z-35 z-[35] xl:hidden pointer-events-auto backdrop-blur-[1px] transition-opacity duration-300"
+            onClick={() => setIsCatalogOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            ref={catalogSheetRef}
+            className="fixed top-5 right-5 xl:right-[26.5rem] z-40 pointer-events-auto w-96 max-w-[calc(100vw-2.5rem)] xl:max-w-[calc(100vw-28rem)] max-h-[calc(100vh-2.5rem)] xl:max-h-[calc(100vh-8.5rem)] 2xl:max-h-[calc(100vh-8.5rem)] flex flex-col font-mono select-none rounded-[3px] border backdrop-blur-2xl shadow-2xl p-4 text-micro transition-all duration-300 ease-out animate-in fade-in slide-in-from-right-4 border-[var(--theme-panel-border)] bg-[var(--theme-panel-bg)] text-[var(--theme-text-primary)]"
+          >
           <div className="flex items-center justify-between pb-3 border-b border-[var(--theme-panel-border)]">
             <div>
               <h3 className="text-micro font-semibold uppercase tracking-wider text-[var(--theme-text-primary)]">Catalog</h3>
@@ -2425,6 +2432,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
             })}
           </div>
         </div>
+        </>
       )}
     </>
   );

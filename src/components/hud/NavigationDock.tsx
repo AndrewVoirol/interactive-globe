@@ -206,12 +206,12 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
   return (
     <div
       className={`absolute bottom-8 left-0 flex flex-col items-center gap-2.5 z-20 pointer-events-none font-mono select-none transition-all duration-300 ${
-        isSidebarOpen ? 'right-0 lg:right-[404px]' : 'right-0'
+        isSidebarOpen ? 'right-0 md:right-[404px]' : 'right-0'
       }`}
       style={{ fontFamily: 'var(--theme-font-telemetry)' }}
     >
       <div
-        className={`flex items-center gap-3 px-5 py-2 rounded-[3px] shadow-2xl pointer-events-auto border transition-colors relative scroll-curl-lip bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] ${
+        className={`flex items-center gap-3 px-5 py-2 rounded-[3px] shadow-2xl pointer-events-auto border transition-colors relative scroll-curl-lip max-w-[calc(100vw-2.5rem)] overflow-x-auto scrollbar-none bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] ${
           theme === 1 ? 'paper-cream-panel' : theme === 2 ? 'paper-cyanotype' : 'paper-tharp'
         }`}
       >
@@ -308,7 +308,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         </button>
 
         {/* Gaussian Curvature Unfurl Sextant Arc */}
-        <div className="shrink-0 z-10">
+        <div className="shrink-0 z-10 hidden sm:flex">
           <CurvatureUnfurlSextant
             alpha={alpha}
             onAlphaChange={(val) => {
