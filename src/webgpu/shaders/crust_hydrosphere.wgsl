@@ -83,7 +83,7 @@ struct TerrainShadowUniforms {
 
 struct DrainageBasinUniforms {
     u_widthExponentB: f32,          // offset 0  (default 0.50)
-    u_depthExponentF: f32,          // offset 4  (default 0.40)
+    _padding_4: f32,                // offset 4  (reserved)
     u_erodibilityConstantK: f32,    // offset 8  (default 1.00)
     u_flintExponentM: f32,          // offset 12 (default 0.45)
     u_flintExponentN: f32,          // offset 16 (default 1.00)

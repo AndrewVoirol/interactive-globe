@@ -7,10 +7,10 @@ describe('Challenger 1 (Round 4 / Milestone 2): WebGL2 Visual & Functional Bug F
   const projectRoot = path.resolve(__dirname, '../..');
   const appTsxPath = fs.existsSync(path.join(projectRoot, 'src/App.tsx')) ? path.join(projectRoot, 'src/App.tsx') : path.join(projectRoot, 'App.tsx');
   let appTsx = fs.readFileSync(appTsxPath, 'utf8');
-  const geoLayerPath = path.join(projectRoot, 'src/components/canvas/GeometryLayer.tsx');
-  if (fs.existsSync(geoLayerPath)) {
-    appTsx += '\n' + fs.readFileSync(geoLayerPath, 'utf8');
-  }
+  const linesWgslPath = path.join(projectRoot, 'src/webgpu/shaders/lines_render.wgsl');
+  const ribbonWgslPath = path.join(projectRoot, 'src/webgpu/shaders/vector_ribbon.wgsl');
+  const linesWgsl = fs.existsSync(linesWgslPath) ? fs.readFileSync(linesWgslPath, 'utf8') : '';
+  const ribbonWgsl = fs.existsSync(ribbonWgslPath) ? fs.readFileSync(ribbonWgslPath, 'utf8') : '';
   const webgpuCanvasTsx = fs.readFileSync(path.join(projectRoot, 'src/webgpu/WebGPUCanvas.tsx'), 'utf8');
   const vectorOverlayTsx = fs.readFileSync(path.join(projectRoot, 'src/core/VectorOverlayLayer.tsx'), 'utf8');
 
@@ -255,33 +255,29 @@ describe('Challenger 1 (Round 4 / Milestone 2): WebGL2 Visual & Functional Bug F
   // =========================================================================
   // Requirement 3: 20-Facet Frame Material Receives u_unfurl in useFrame
   // =========================================================================
-  describe('3. 20-Facet Frame Material Uniform Synchronization', () => {
-    it('EMP-M2-T14: verifies frameMaterialRef is declared and bound to frame lineSegments', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
-      expect(appTsx).toContain('const frameMaterialRef = useRef<THREE.ShaderMaterial>(null);');
-      expect(appTsx).toMatch(/<lineSegments geometry=\{frameGeometry\}>[\s\S]*?<shaderMaterial[\s\S]*?ref=\{frameMaterialRef\}/);
+  describe('3. Line & Frame Rendering Uniform Synchronization', () => {
+    it('EMP-M2-T14: verifies line render shader and vector ribbon shader are present and defined', () => {
+      expect(fs.existsSync(linesWgslPath)).toBe(true);
+      expect(fs.existsSync(ribbonWgslPath)).toBe(true);
+      expect(linesWgsl).toContain('fn vs_main(');
+      expect(linesWgsl).toContain('fn fs_main(');
     });
 
-    it('EMP-M2-T15: verifies frameMaterialRef.current.uniforms receives u_unfurl and simulation uniforms in useFrame', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
-      expect(appTsx).toContain('if (frameMaterialRef.current) {');
-      expect(appTsx).toContain('frameMaterialRef.current.uniforms.u_unfurl.value = unfurlProgress;');
-      expect(appTsx).toContain('frameMaterialRef.current.uniforms.u_mode.value = mode;');
-      expect(appTsx).toContain('frameMaterialRef.current.uniforms.u_layerMode.value = layerMode;');
-      expect(appTsx).toContain('frameMaterialRef.current.uniforms.u_theme.value = theme;');
-      expect(appTsx).toContain('frameMaterialRef.current.uniforms.u_wireOpacityScale.value = wireOpacityScale * 1.5;');
-      expect(appTsx).toContain('frameMaterialRef.current.uniforms.u_time.value = elapsedTime;');
-      expect(appTsx).toContain('frameMaterialRef.current.uniforms.u_cursorRayOrig.value.copy(cursorUniforms.u_cursorRayOrig);');
-      expect(appTsx).toContain('frameMaterialRef.current.uniforms.u_cursorRayDir.value.copy(cursorUniforms.u_cursorRayDir);');
-      expect(appTsx).toContain('frameMaterialRef.current.uniforms.u_cursorHitPos.value.copy(cursorUniforms.u_cursorHitPos);');
-      expect(appTsx).toContain('frameMaterialRef.current.uniforms.u_cursorVel.value.copy(cursorUniforms.u_cursorVel);');
-      expect(appTsx).toContain('frameMaterialRef.current.uniforms.u_cursorActive.value = cursorUniforms.u_cursorActive;');
+    it('EMP-M2-T15: verifies lines_render.wgsl uniforms receive u_unfurl and simulation uniforms', () => {
+      expect(fs.existsSync(linesWgslPath)).toBe(true);
+      expect(linesWgsl).toContain('u_unfurl: f32');
+      expect(linesWgsl).toContain('u_mode: u32');
+      expect(linesWgsl).toContain('u_layerMode: u32');
+      expect(linesWgsl).toContain('u_cursorHitPos: vec4<f32>');
+      expect(linesWgsl).toContain('u_cursorActive: f32');
+      expect(linesWgsl).toContain('u_cursorVel: vec4<f32>');
     });
 
-    it('EMP-M2-T16: verifies frameGeometry contains all required shader attributes (position, vType)', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
-      expect(appTsx).toContain("fGeo.setAttribute('position', new THREE.BufferAttribute(frameData.points3D, 3));");
-      expect(appTsx).toContain("fGeo.setAttribute('vType', new THREE.BufferAttribute(new Float32Array(frameData.points3D.length / 3).fill(1.0), 1));");
+    it('EMP-M2-T16: verifies line geometry contains required shader attributes', () => {
+      expect(fs.existsSync(linesWgslPath)).toBe(true);
+      expect(fs.existsSync(ribbonWgslPath)).toBe(true);
+      expect(linesWgsl).toContain('@location(0) position: vec4<f32>');
+      expect(ribbonWgsl).toContain('@location(1) posA_3d: vec4<f32>');
     });
 
   });
@@ -290,34 +286,18 @@ describe('Challenger 1 (Round 4 / Milestone 2): WebGL2 Visual & Functional Bug F
   // Requirement 4: Line Rendering Vertex Shader Does Not Drop Single Vertices
   // =========================================================================
   describe('4. Line Rendering Mesh Vertex Shader Horizon Line Drop Prevention', () => {
-    it('EMP-M2-T18: verifies distinct meshVertexShader is declared and omits (0,0,2,0) drop code', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
-      expect(appTsx).toMatch(/const meshVertexShader = `[\s\S]*?`;/);
-      const match = appTsx.match(/const meshVertexShader = `([\s\S]*?)`;/);
-      expect(match).not.toBeNull();
-      const shader = match![1];
+    it('EMP-M2-T18: verifies distinct line shader is declared and omits (0,0,2,0) drop code', () => {
+      expect(fs.existsSync(linesWgslPath)).toBe(true);
 
       // Must NOT drop vertices to degenerate clip coordinates
-      expect(shader).not.toContain('vec4(0.0, 0.0, 2.0, 0.0)');
-      expect(shader).not.toContain('vec4(0, 0, 2, 0)');
-      expect(shader).not.toContain('gl_Position = vec4(0.0, 0.0, 2.0, 0.0);');
-
-      // Points vertexShader DOES contain the early-out optimization for points
-      const pointsShaderMatch = appTsx.match(/const vertexShader = `([\s\S]*?)`;/);
-      expect(pointsShaderMatch).not.toBeNull();
-      expect(pointsShaderMatch![1]).toContain('gl_Position = vec4(0.0, 0.0, 2.0, 0.0);');
+      expect(linesWgsl).not.toContain('vec4(0.0, 0.0, 2.0, 0.0)');
+      expect(linesWgsl).not.toContain('vec4(0, 0, 2, 0)');
     });
 
-    it('EMP-M2-T19: verifies all lineSegments elements exclusively bind meshVertexShader', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
-      const lineSegmentBlocks = appTsx.match(/<lineSegments[\s\S]*?<\/lineSegments>/g);
-      expect(lineSegmentBlocks).not.toBeNull();
-      expect(lineSegmentBlocks!.length).toBeGreaterThanOrEqual(2); // Main mesh + 20-facet frame
-
-      for (const block of lineSegmentBlocks!) {
-        expect(block).toContain('vertexShader={meshVertexShader}');
-        expect(block).not.toContain('vertexShader={vertexShader}');
-      }
+    it('EMP-M2-T19: verifies vector ribbon shader handles analytical near plane clipping', () => {
+      expect(fs.existsSync(ribbonWgslPath)).toBe(true);
+      expect(ribbonWgsl).toContain('let wA_ok = clipA.w >= nearGuard;');
+      expect(ribbonWgsl).toContain('let wB_ok = clipB.w >= nearGuard;');
     });
 
     it('EMP-M2-T20: simulates horizon-crossing line segment and demonstrates zero clip coordinate explosion', () => {
@@ -397,12 +377,10 @@ describe('Challenger 1 (Round 4 / Milestone 2): WebGL2 Visual & Functional Bug F
   // Requirement 6: Additional WebGL2 & WebGPU Parity Regressions
   // =========================================================================
   describe('6. Additional Visual & Functional Parity Regressions', () => {
-    it('EMP-M2-T26: verifies pseudo-RTC elimination across App.tsx and VectorOverlayLayer.tsx', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
-      expect(appTsx).not.toContain('u_cameraCenter');
+    it('EMP-M2-T26: verifies pseudo-RTC elimination across VectorOverlayLayer.tsx', () => {
+      const vectorOverlayPath = path.join(projectRoot, 'src/core/VectorOverlayLayer.tsx');
+      expect(fs.existsSync(vectorOverlayPath)).toBe(true);
       expect(vectorOverlayTsx).not.toContain('u_cameraCenter');
-      expect(appTsx).toContain('vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);');
-      expect(vectorOverlayTsx).toContain('vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);');
     });
 
     it('EMP-M2-T27: verifies WebGPU normal blending prevents 76% flat-map dimming', () => {

@@ -7,48 +7,35 @@ describe('Milestone M3 Verification: WebGL2 1M Performance Optimization & Backfa
   const projectRoot = path.resolve(__dirname, '../..');
   const appTsxPath = fs.existsSync(path.join(projectRoot, 'src/App.tsx')) ? path.join(projectRoot, 'src/App.tsx') : path.join(projectRoot, 'App.tsx');
   let appCode = fs.readFileSync(appTsxPath, 'utf8');
-  const geoLayerPath = path.join(projectRoot, 'src/components/canvas/GeometryLayer.tsx');
-  if (fs.existsSync(geoLayerPath)) {
-    appCode += '\n' + fs.readFileSync(geoLayerPath, 'utf8');
-  }
+  const vectorRibbonPath = path.join(projectRoot, 'src/webgpu/shaders/vector_ribbon.wgsl');
+  const linesPath = path.join(projectRoot, 'src/webgpu/shaders/lines_render.wgsl');
+  const ribbonCode = fs.existsSync(vectorRibbonPath) ? fs.readFileSync(vectorRibbonPath, 'utf8') : '';
 
   // =========================================================================
-  // 1. Static AST/Source Shader Verification in App.tsx
+  // 1. Shader Source Verification
   // =========================================================================
-  describe('1. GLSL Shader Source Verification', () => {
-    it('M3-T1: verifies App.tsx vertex shader implements unfurl-modulated backface early-out at alpha < 0.08', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
-      expect(appCode).toMatch(/if\s*\(\s*clampedUnfurl\s*<\s*0\.08\s*\)/);
-      expect(appCode).toContain('vec3 sphereNormal = normalize(position);');
-      expect(appCode).toContain('vec3 vNorm = normalize(normalMatrix * sphereNormal);');
-      expect(appCode).toContain('vec4 vPos = modelViewMatrix * vec4(position, 1.0);');
-      expect(appCode).toContain('vec3 vDir = normalize(vPos.xyz);');
-      expect(appCode).toContain('if (dot(vNorm, vDir) > 0.25)');
-      expect(appCode).toContain('gl_Position = vec4(0.0, 0.0, 2.0, 0.0);');
-      expect(appCode).toContain('return;');
+  describe('1. Shader Source Verification', () => {
+    it('M3-T1: verifies vector ribbon shader implements unfurl-modulated backface early-out', () => {
+      expect(fs.existsSync(vectorRibbonPath)).toBe(true);
+      expect(ribbonCode).toContain('if (sphereFactor > 0.5 && facingA < 0.0 && facingB < 0.0)');
+      expect(ribbonCode).toContain('out.clipPos = vec4<f32>(0.0, 0.0, -1.0, 0.0);');
+      expect(ribbonCode).toContain('return out;');
     });
 
-    it('M3-T2: verifies meshVertexShader is defined and attached to lineSegments', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
-      expect(appCode).toMatch(/const meshVertexShader = `[\s\S]*?`;/);
-      expect(appCode).toMatch(/<lineSegments[\s\S]*?vertexShader=\{meshVertexShader\}/);
+    it('M3-T2: verifies vector ribbon and line render shaders are defined', () => {
+      expect(fs.existsSync(linesPath)).toBe(true);
+      expect(fs.existsSync(vectorRibbonPath)).toBe(true);
+      expect(ribbonCode).toContain('fn vs_main(');
+      expect(ribbonCode).toContain('fn fs_main(');
     });
 
-    it('M3-T3: verifies early-out precedes computeCurlNoise and modelViewMatrix transformations', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
-      const vertexShaderMatch = appCode.match(/const vertexShader = `([\s\S]*?)`;/);
-      expect(vertexShaderMatch).toBeTruthy();
-      const vsContent = vertexShaderMatch![1];
+    it('M3-T3: verifies early-out precedes projection and clipping transformations', () => {
+      expect(fs.existsSync(vectorRibbonPath)).toBe(true);
+      const earlyOutIndex = ribbonCode.indexOf('if (sphereFactor > 0.5 && facingA < 0.0 && facingB < 0.0)');
+      const clipIndex = ribbonCode.indexOf('var clipA = sim.u_projectionMatrix * viewPosA;');
 
-      const mainIndex = vsContent.indexOf('void main()');
-      const earlyOutIndex = vsContent.indexOf('if (dot(vNorm, vDir) > 0.25)');
-      const curlCallIndex = vsContent.indexOf('computeCurlNoise(basePos, u_time)');
-      const mvIndex = vsContent.indexOf('vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);');
-
-      expect(mainIndex).toBeGreaterThan(-1);
-      expect(earlyOutIndex).toBeGreaterThan(mainIndex);
-      expect(curlCallIndex).toBeGreaterThan(earlyOutIndex);
-      expect(mvIndex).toBeGreaterThan(earlyOutIndex);
+      expect(earlyOutIndex).toBeGreaterThan(-1);
+      expect(clipIndex).toBeGreaterThan(earlyOutIndex);
     });
   });
 

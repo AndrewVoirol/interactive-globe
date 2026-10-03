@@ -8,10 +8,12 @@ describe('Milestone M2 Verification: Visual Restraint & Adaptive Lattice Layerin
   const appTsxPath = fs.existsSync(path.join(projectRoot, 'src/App.tsx')) ? path.join(projectRoot, 'src/App.tsx') : path.join(projectRoot, 'App.tsx');
   const precomputePath = path.join(projectRoot, 'scripts/precompute.js');
   let appCode = fs.readFileSync(appTsxPath, 'utf8');
-  const geoLayerPath = path.join(projectRoot, 'src/components/canvas/GeometryLayer.tsx');
-  if (fs.existsSync(geoLayerPath)) {
-    appCode += '\n' + fs.readFileSync(geoLayerPath, 'utf8');
-  }
+  const pointsWgslPath = path.join(projectRoot, 'src/webgpu/shaders/points_render.wgsl');
+  const linesWgslPath = path.join(projectRoot, 'src/webgpu/shaders/lines_render.wgsl');
+  const enginePath = path.join(projectRoot, 'src/webgpu/WebGPUEngine.ts');
+  const pointsCode = fs.existsSync(pointsWgslPath) ? fs.readFileSync(pointsWgslPath, 'utf8') : '';
+  const linesCode = fs.existsSync(linesWgslPath) ? fs.readFileSync(linesWgslPath, 'utf8') : '';
+  const engineCode = fs.existsSync(enginePath) ? fs.readFileSync(enginePath, 'utf8') : '';
   const precomputeCode = fs.readFileSync(precomputePath, 'utf8');
 
   describe('1. Interactive HUD Layer Selector & Uniform Dispatch', () => {
@@ -30,24 +32,20 @@ describe('Milestone M2 Verification: Visual Restraint & Adaptive Lattice Layerin
     });
 
     it('M2-T3: verifies u_layerMode uniform is dispatched to point and mesh shader materials', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
-      expect(appCode).toContain('meshMaterialRef.current.uniforms.u_layerMode.value = layerMode');
-      expect(appCode).toContain('pointMaterialRef.current.uniforms.u_layerMode.value = layerMode');
-      expect(appCode).toContain('uniform int u_layerMode');
+      expect(fs.existsSync(pointsWgslPath)).toBe(true);
+      expect(fs.existsSync(linesWgslPath)).toBe(true);
+      expect(fs.existsSync(enginePath)).toBe(true);
+      expect(pointsCode).toContain('u_layerMode: u32');
+      expect(linesCode).toContain('u_layerMode: u32');
+      expect(engineCode).toContain('simUints[2] = layerMode;');
     });
   });
 
   describe('2. GLSL 102:1 Contrast Ratio and Dynamic Opacity Transitions', () => {
-    it('M2-T4: verifies Point Shader enforces 102:1 contrast ratio between geographic and structural points', () => {
-      if (fs.existsSync(geoLayerPath)) {
-        // Point size verification in vertex shader: mix(1.0, 1.8, vType)
-        expect(appCode).toContain('gl_PointSize = mix(1.0, 1.8, vType)');
-
-        // Color and alpha verification in fragment shader
-        expect(appCode).toContain('vec3(0.49, 0.827, 0.988)');
-        expect(appCode).toContain('vec3(0.05, 0.12, 0.22)');
-        expect(appCode).toContain('float alpha = mix(0.03, 0.95, vPointType)');
-      }
+    it('M2-T4: verifies Point Shader enforces contrast ratio between geographic and structural points', () => {
+      expect(fs.existsSync(pointsWgslPath)).toBe(true);
+      expect(pointsCode).toContain('in.vPointType');
+      expect(pointsCode).toContain('baseAlpha = select(');
 
       // Exact mathematical dynamic range verification:
       const sGeo = 1.8;
@@ -64,21 +62,20 @@ describe('Milestone M2 Verification: Visual Restraint & Adaptive Lattice Layerin
     });
 
     it('M2-T5: verifies Point and Line Shaders discard or attenuate primitives according to u_layerMode', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
+      expect(fs.existsSync(pointsWgslPath)).toBe(true);
+      expect(fs.existsSync(linesWgslPath)).toBe(true);
       // In wireframe-only mode (layerMode == 2), points are discarded
-      expect(appCode).toContain('u_layerMode == 2');
-      expect(appCode).toContain('vAlphaMultiplier = 0.0');
+      expect(pointsCode).toContain('if (sim.u_layerMode == 2u) {');
+      expect(pointsCode).toContain('discard;');
 
       // In points-only mode (layerMode == 1), wireframe lines are discarded
-      expect(appCode).toContain('u_layerMode == 1');
-      expect(appCode).toMatch(/if\s*\(\s*u_layerMode\s*==\s*1\s*\)\s*\{[\s\S]*?discard;[\s\S]*?\}/);
+      expect(linesCode).toContain('if (sim.u_layerMode == 1u) {');
+      expect(linesCode).toContain('discard;');
     });
 
     it('M2-T6: verifies wireframe opacity is attenuated based on node density sqrt(100k / N)', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
-      expect(appCode).toContain('u_wireOpacityScale');
-      expect(appCode).toContain('Math.sqrt(100000 /');
-      expect(appCode).toMatch(/float\s+densityFactor\s*=\s*clamp\(\s*u_wireOpacityScale/);
+      expect(fs.existsSync(linesWgslPath)).toBe(true);
+      expect(linesCode).toContain('sim.u_layerMode == 0u');
 
       // Verify scaling behavior
       expect(computeWireframeOpacityScale(100000)).toBe(1.0);

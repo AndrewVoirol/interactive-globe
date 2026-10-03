@@ -7,11 +7,8 @@ describe('Milestone M2: Visual & Functional Bug Fixes Verification', () => {
   const projectRoot = path.resolve(__dirname, '../..');
   const appTsxPath = fs.existsSync(path.join(projectRoot, 'src/App.tsx')) ? path.join(projectRoot, 'src/App.tsx') : path.join(projectRoot, 'App.tsx');
   let appCode = fs.readFileSync(appTsxPath, 'utf8');
-  const geoPath = path.join(projectRoot, 'src/components/canvas/GeometryLayer.tsx');
-  if (fs.existsSync(geoPath)) {
-    appCode += '\n' + fs.readFileSync(geoPath, 'utf8');
-  }
-  const vectorCode = fs.readFileSync(path.join(projectRoot, 'src/core/VectorOverlayLayer.tsx'), 'utf8');
+  const vectorPath = path.join(projectRoot, 'src/core/VectorOverlayLayer.tsx');
+  const vectorCode = fs.readFileSync(vectorPath, 'utf8');
   const pointsWGSL = fs.readFileSync(path.join(projectRoot, 'src/webgpu/shaders/points_render.wgsl'), 'utf8');
   const linesWGSL = fs.readFileSync(path.join(projectRoot, 'src/webgpu/shaders/lines_render.wgsl'), 'utf8');
   const engineCode = fs.readFileSync(path.join(projectRoot, 'src/webgpu/WebGPUEngine.ts'), 'utf8');
@@ -23,10 +20,9 @@ describe('Milestone M2: Visual & Functional Bug Fixes Verification', () => {
   // =========================================================================
   describe('Task 1: Pseudo-RTC Precision Elimination', () => {
     it('purges u_cameraCenter from App.tsx shaders and uniforms', () => {
+      expect(fs.existsSync(vectorPath)).toBe(true);
       expect(appCode).not.toContain('u_cameraCenter');
-      if (fs.existsSync(geoPath)) {
-        expect(appCode).toContain('vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);');
-      }
+      expect(vectorCode).not.toContain('u_cameraCenter');
     });
 
     it('purges u_cameraCenter from VectorOverlayLayer.tsx', () => {
@@ -121,17 +117,20 @@ describe('Milestone M2: Visual & Functional Bug Fixes Verification', () => {
   // =========================================================================
   // 4. Task 4: Icosahedral Frame Uniforms
   // =========================================================================
-  describe('Task 4: Icosahedral Frame Uniform Synchronization', () => {
-    it('declares frameMaterialRef and attaches to frame lineSegments', () => {
-      if (!fs.existsSync(geoPath)) return;
-      expect(appCode).toContain('const frameMaterialRef = useRef<THREE.ShaderMaterial>(null);');
-      expect(appCode).toMatch(/<lineSegments geometry=\{frameGeometry\}>[\s\S]*?<shaderMaterial[\s\S]*?ref=\{frameMaterialRef\}/);
+  // =========================================================================
+  // 4. Task 4: Frame & Line Uniforms
+  // =========================================================================
+  describe('Task 4: Frame & Line Uniform Synchronization', () => {
+    const linesPath = path.join(projectRoot, 'src/webgpu/shaders/lines_render.wgsl');
+    it('declares lines render shader with u_unfurl uniform', () => {
+      expect(fs.existsSync(linesPath)).toBe(true);
+      expect(linesWGSL).toContain('u_unfurl: f32');
     });
 
-    it('updates frameMaterialRef.current.uniforms.u_unfurl in useFrame', () => {
-      if (!fs.existsSync(geoPath)) return;
-      expect(appCode).toContain('if (frameMaterialRef.current)');
-      expect(appCode).toContain('frameMaterialRef.current.uniforms.u_unfurl.value = unfurlProgress;');
+    it('updates simulation uniforms in WebGPUCanvas and WebGPUEngine', () => {
+      expect(fs.existsSync(linesPath)).toBe(true);
+      expect(webgpuCanvasCode).toContain('unfurlProgress');
+      expect(engineCode).toContain('updateUniforms');
     });
   });
 
@@ -139,20 +138,17 @@ describe('Milestone M2: Visual & Functional Bug Fixes Verification', () => {
   // 5. Task 5: Backface Culling Artifact on Lines
   // =========================================================================
   describe('Task 5: Distinct Line Vertex Shader', () => {
-    it('defines distinct meshVertexShader without vertex-drop early-out', () => {
-      if (!fs.existsSync(geoPath)) return;
-      expect(appCode).toMatch(/const meshVertexShader = `[\s\S]*?`;/);
-      const match = appCode.match(/const meshVertexShader = `([\s\S]*?)`;/);
-      expect(match).toBeTruthy();
-      const shader = match![1];
-      expect(shader).not.toContain('gl_Position = vec4(0.0, 0.0, 2.0, 0.0);');
-      expect(shader).not.toContain('return;');
+    const linesPath = path.join(projectRoot, 'src/webgpu/shaders/lines_render.wgsl');
+    it('defines distinct line vertex shader without vertex-drop early-out', () => {
+      expect(fs.existsSync(linesPath)).toBe(true);
+      expect(linesWGSL).not.toContain('gl_Position = vec4(0.0, 0.0, 2.0, 0.0);');
+      expect(linesWGSL).not.toContain('vec4(0.0, 0.0, 2.0, 0.0)');
     });
 
-    it('attaches meshVertexShader to lineSegments and vertexShader to points', () => {
-      if (!fs.existsSync(geoPath)) return;
-      expect(appCode).toMatch(/<lineSegments[\s\S]*?vertexShader=\{meshVertexShader\}/);
-      expect(appCode).toMatch(/<points[\s\S]*?vertexShader=\{vertexShader\}/);
+    it('defines separate vs_main for lines and points shaders', () => {
+      expect(fs.existsSync(linesPath)).toBe(true);
+      expect(linesWGSL).toContain('fn vs_main(');
+      expect(pointsWGSL).toContain('fn vs_main(');
     });
   });
 

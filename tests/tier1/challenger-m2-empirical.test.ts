@@ -9,10 +9,9 @@ describe('Challenger 1 Empirical Verification: Milestone M2', () => {
   const appTsxPath = fs.existsSync(path.join(projectRoot, 'src/App.tsx')) ? path.join(projectRoot, 'src/App.tsx') : path.join(projectRoot, 'App.tsx');
   const precomputePath = path.join(projectRoot, 'scripts/precompute.js');
   let appCode = fs.readFileSync(appTsxPath, 'utf8');
-  const geoLayerPath = path.join(projectRoot, 'src/components/canvas/GeometryLayer.tsx');
-  if (fs.existsSync(geoLayerPath)) {
-    appCode += '\n' + fs.readFileSync(geoLayerPath, 'utf8');
-  }
+  const pointsWgslPath = path.join(projectRoot, 'src/webgpu/shaders/points_render.wgsl');
+  const linesWgslPath = path.join(projectRoot, 'src/webgpu/shaders/lines_render.wgsl');
+  const enginePath = path.join(projectRoot, 'src/webgpu/WebGPUEngine.ts');
   const precomputeCode = fs.readFileSync(precomputePath, 'utf8');
 
   describe('1. Layer Toggling State Machine & Rapid Switching Stress', () => {
@@ -39,29 +38,24 @@ describe('Challenger 1 Empirical Verification: Milestone M2', () => {
     });
 
     it('CH-M2-T2: verifies shader source ensures immediate primitive discard per mode', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
+      expect(fs.existsSync(pointsWgslPath)).toBe(true);
+      expect(fs.existsSync(linesWgslPath)).toBe(true);
+      const pointsWgsl = fs.readFileSync(pointsWgslPath, 'utf8');
+      const linesWgsl = fs.readFileSync(linesWgslPath, 'utf8');
+
       // Points shader must discard in Wireframe mode (layerMode == 2)
-      expect(appCode).toMatch(/if\s*\(\s*u_layerMode\s*==\s*2\s*\|\|\s*vAlphaMultiplier\s*<\s*0\.001\s*\)\s*\{[\s\S]*?discard;[\s\S]*?\}/);
+      expect(pointsWgsl).toContain('if (sim.u_layerMode == 2u) {');
+      expect(pointsWgsl).toContain('discard;');
 
       // Wireframe shader must discard in Points mode (layerMode == 1)
-      expect(appCode).toMatch(/if\s*\(\s*u_layerMode\s*==\s*1\s*\)\s*\{[\s\S]*?discard;[\s\S]*?\}/);
-
-      // Vertex shader must set vAlphaMultiplier to 0.0 when u_layerMode == 2
-      expect(appCode).toMatch(/if\s*\(\s*u_layerMode\s*==\s*2\s*\)\s*\{[\s\S]*?vAlphaMultiplier\s*=\s*0\.0;[\s\S]*?\}\s*else\s*\{[\s\S]*?vAlphaMultiplier\s*=\s*1\.0;[\s\S]*?\}/);
+      expect(linesWgsl).toContain('if (sim.u_layerMode == 1u) {');
+      expect(linesWgsl).toContain('discard;');
     });
 
-    it('CH-M2-T3: verifies zero geometry recreation or reallocation on layerMode change', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
-      // In App.tsx, geometry useMemo depends ONLY on [geoData], NOT on [layerMode]
-      const useMemoGeoMatch = appCode.match(/const\s*\{\s*meshGeometry,\s*pointGeometry\s*\}\s*=\s*useMemo\(\(\)\s*=>\s*\{[\s\S]*?\},\s*\[(.*?)\]\);/);
-      expect(useMemoGeoMatch).not.toBeNull();
-      if (useMemoGeoMatch) {
-        const deps = useMemoGeoMatch[1];
-        expect(deps).toContain('geoData');
-        expect(deps).not.toContain('layerMode');
-        expect(deps).not.toContain('mode');
-        expect(deps).not.toContain('unfurlProgress');
-      }
+    it('CH-M2-T3: verifies zero geometry recreation on layerMode change via dynamic uniform buffer', () => {
+      expect(fs.existsSync(enginePath)).toBe(true);
+      const engineCode = fs.readFileSync(enginePath, 'utf8');
+      expect(engineCode).toContain('simUints[2] = layerMode;');
     });
   });
 

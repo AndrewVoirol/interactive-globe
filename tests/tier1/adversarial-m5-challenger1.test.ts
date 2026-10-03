@@ -18,11 +18,9 @@ describe('Adversarial Challenger 1: Milestone M5 Passive Raycast Cursor Perturba
   const projectRoot = path.resolve(__dirname, '../..');
   const appTsxPath = fs.existsSync(path.join(projectRoot, 'src/App.tsx')) ? path.join(projectRoot, 'src/App.tsx') : path.join(projectRoot, 'App.tsx');
   const raycastTsPath = path.join(projectRoot, 'src/utils/raycast.ts');
-  let appCode = fs.readFileSync(appTsxPath, 'utf8');
-  const geoLayerPath = path.join(projectRoot, 'src/components/canvas/GeometryLayer.tsx');
-  if (fs.existsSync(geoLayerPath)) {
-    appCode += '\n' + fs.readFileSync(geoLayerPath, 'utf8');
-  }
+  const physicsShaderPath = path.join(projectRoot, 'src/webgpu/shaders/physics_sim.wgsl');
+  const ribbonShaderPath = path.join(projectRoot, 'src/webgpu/shaders/vector_ribbon.wgsl');
+  const canvasPath = path.join(projectRoot, 'src/webgpu/WebGPUCanvas.tsx');
   const raycastCode = fs.readFileSync(raycastTsPath, 'utf8');
 
   // =========================================================================
@@ -524,14 +522,14 @@ describe('Adversarial Challenger 1: Milestone M5 Passive Raycast Cursor Perturba
   // =========================================================================
   // 7. Source Code & GLSL Shader Integrity Audit
   // =========================================================================
-  describe('7. Source Code & GLSL Shader Architecture Audit', () => {
-    it('ADV-M5-T19: verifies App.tsx declares all required cursor uniforms with exact types', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
-      expect(appCode).toContain('uniform vec3 u_cursorRayOrig;');
-      expect(appCode).toContain('uniform vec3 u_cursorRayDir;');
-      expect(appCode).toContain('uniform vec3 u_cursorHitPos;');
-      expect(appCode).toContain('uniform vec4 u_cursorVel;');
-      expect(appCode).toContain('uniform float u_cursorActive;');
+  describe('7. Source Code & Shader Architecture Audit', () => {
+    it('ADV-M5-T19: verifies shaders declare all required cursor uniforms with exact types', () => {
+      expect(fs.existsSync(physicsShaderPath)).toBe(true);
+      expect(fs.existsSync(ribbonShaderPath)).toBe(true);
+      const ribbonCode = fs.readFileSync(ribbonShaderPath, 'utf8');
+      expect(ribbonCode).toContain('u_cursorHitPos: vec4<f32>');
+      expect(ribbonCode).toContain('u_cursorVel: vec4<f32>');
+      expect(ribbonCode).toContain('u_cursorActive: f32');
     });
 
     it('ADV-M5-T20: verifies passive event listeners { passive: true } and no stopPropagation calls in raycast.ts', () => {
@@ -540,12 +538,12 @@ describe('Adversarial Challenger 1: Milestone M5 Passive Raycast Cursor Perturba
       expect(raycastCode).not.toContain(".preventDefault()");
     });
 
-    it('ADV-M5-T21: verifies uniform binding in useFrame updates both meshMaterial and pointMaterial', () => {
-      if (!fs.existsSync(geoLayerPath)) return;
-      expect(appCode).toContain('meshMaterialRef.current.uniforms.u_cursorHitPos.value.copy');
-      expect(appCode).toContain('pointMaterialRef.current.uniforms.u_cursorHitPos.value.copy');
-      expect(appCode).toContain('meshMaterialRef.current.uniforms.u_cursorActive.value =');
-      expect(appCode).toContain('pointMaterialRef.current.uniforms.u_cursorActive.value =');
+    it('ADV-M5-T21: verifies WebGPUCanvas binds and forwards cursor tracking uniforms', () => {
+      expect(fs.existsSync(canvasPath)).toBe(true);
+      const canvasCode = fs.readFileSync(canvasPath, 'utf8');
+      expect(canvasCode).toContain('cursorUniforms.u_cursorHitPos');
+      expect(canvasCode).toContain('cursorUniforms.u_cursorActive');
+      expect(canvasCode).toContain('cursorUniforms.u_cursorVel');
     });
   });
 });

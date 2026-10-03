@@ -62,7 +62,7 @@ describe('F16: 120 FPS WebGPU Execution at 1,000,000 Scale', () => {
 
   it('F16-T6: verifies empirical benchmark results validate interactive performance across test matrix', () => {
     const reportPath = path.resolve(__dirname, '../../reports/fps-benchmark-m4pro.json');
-    if (!fs.existsSync(reportPath)) return;
+    expect(fs.existsSync(reportPath)).toBe(true);
 
     const raw = fs.readFileSync(reportPath, 'utf8');
     const report = JSON.parse(raw);

@@ -158,13 +158,12 @@ describe('Phase 5: Unified Architectural Connectivity & Hardware Parity', () => 
   // 5. Deferred HUD Archiving & Backward Compatibility
   // ==========================================================================
   describe('5. Deferred HUD Archiving & Backward Compatibility', () => {
-    it('CON-16: archives superseded HUD components in src/core/_deferred/hud/', () => {
-      const deferredDir = path.join(projectRoot, 'src/core/_deferred/hud');
-      if (!fs.existsSync(deferredDir)) return;
-      expect(fs.existsSync(deferredDir)).toBe(true);
-      expect(fs.existsSync(path.join(deferredDir, 'TopologyControlDock.tsx'))).toBe(true);
-      expect(fs.existsSync(path.join(deferredDir, 'SystemStatusPill.tsx'))).toBe(true);
-      expect(fs.existsSync(path.join(deferredDir, 'DataLayersDrawer.tsx'))).toBe(true);
+    it('CON-16: verifies superseded HUD functionality is unified in UnifiedRightSidebar and TelemetryHUD', () => {
+      const hudDir = path.join(projectRoot, 'src/components/hud');
+      expect(fs.existsSync(hudDir)).toBe(true);
+      expect(fs.existsSync(path.join(hudDir, 'UnifiedRightSidebar.tsx'))).toBe(true);
+      expect(fs.existsSync(path.join(hudDir, 'TelemetryHUD.tsx'))).toBe(true);
+      expect(fs.existsSync(path.join(hudDir, 'NavigationDock.tsx'))).toBe(true);
     });
 
     it('CON-17: documents deferred HUD components in src/core/_deferred/README.md', () => {
