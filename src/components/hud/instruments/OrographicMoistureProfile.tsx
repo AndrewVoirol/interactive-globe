@@ -754,7 +754,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             size="sm"
             value={thermodynamicGating}
             onChange={(enabled) => onThermodynamicGatingChange?.(enabled)}
-            className="grid grid-cols-2 gap-1 font-mono text-[10px] tracking-wider w-full"
+            className="grid grid-cols-2 gap-1 font-mono text-body tracking-wider w-full"
             options={[
               {
                 id: true,
