@@ -86,6 +86,9 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
         dialBorder: 'border-[#3b597a]',
         ringBorder: 'border-[#3b597a]/40',
         axisColor: 'bg-[#3b597a]/50',
+        notchBorder: 'border-[#7BB8D4]',
+        reticleBg: 'bg-[#7BB8D4]',
+        reticleBorder: 'border-[#4A7A94]',
       }
     : theme === 1
     ? {
@@ -93,12 +96,18 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
         dialBorder: 'border-[#b8ad98]',
         ringBorder: 'border-[#b8ad98]/50',
         axisColor: 'bg-[#b8ad98]/60',
+        notchBorder: 'border-[var(--theme-text-accent)]',
+        reticleBg: 'bg-[var(--theme-slider-thumb-bg)]',
+        reticleBorder: 'border-[var(--theme-slider-thumb-border)]',
       }
     : {
         dialBg: 'radial-gradient(circle, #1a2633 0%, #0c1219 100%)',
         dialBorder: 'border-[#3a4d61]',
         ringBorder: 'border-[#3a4d61]/40',
         axisColor: 'bg-[#3a4d61]/50',
+        notchBorder: 'border-[var(--theme-text-accent)]',
+        reticleBg: 'bg-[var(--theme-slider-thumb-bg)]',
+        reticleBorder: 'border-[var(--theme-slider-thumb-border)]',
       };
 
   return (
@@ -175,7 +184,7 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
                 <polygon points="75,75 54,54 50,50 56,52" fill="currentColor" opacity="0.5" />
                 <polygon points="25,25 46,46 50,50 44,48" fill="currentColor" opacity="0.5" />
                 {/* NW 315° Imhof solar notch target */}
-                <circle cx="28" cy="28" r="4" stroke="#c5a059" strokeWidth="1" strokeDasharray="1.5 1.5" fill="none" opacity="0.9" />
+                <circle cx="28" cy="28" r="4" stroke="var(--theme-text-accent)" strokeWidth="1" strokeDasharray="1.5 1.5" fill="none" opacity="0.9" />
               </g>
             ) : theme === 2 ? (
               // Prussian Cyanotype: Architectural CAD protractor with 5° division ticks
@@ -231,13 +240,13 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
 
           {/* NW Imhof Sweetspot Notch (315° / 45°) */}
           <div
-            className="absolute -top-0.5 -left-0.5 w-2.5 h-2.5 border-t-2 border-l-2 border-[#c5a059] pointer-events-none opacity-90"
+            className={`absolute -top-0.5 -left-0.5 w-2.5 h-2.5 border-t-2 border-l-2 ${tokens.notchBorder} pointer-events-none opacity-90`}
             title="Swiss Relief NW Light Angle (315° / 45°)"
           ></div>
 
           {/* Draggable Brass Sun Reticle */}
           <div
-            className="absolute w-3.5 h-3.5 -ml-[7px] -mt-[7px] rounded-full bg-[#c5a059] border border-[#7c6230] shadow-[0_1px_4px_rgba(0,0,0,0.5)] pointer-events-none transition-transform duration-75"
+            className={`absolute w-3.5 h-3.5 -ml-[7px] -mt-[7px] rounded-full ${tokens.reticleBg} border ${tokens.reticleBorder} shadow-[0_1px_4px_rgba(0,0,0,0.5)] pointer-events-none transition-transform duration-75`}
             style={{
               transform: `translate(${reticleX}px, ${reticleY}px)`,
             }}

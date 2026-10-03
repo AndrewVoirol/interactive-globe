@@ -51,10 +51,10 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
     <div
       className={`rounded-[3px] border p-3 font-mono text-nano transition-all shadow-sm select-none ${
         theme === 1
-          ? 'bg-[#FDFCFA]/90 border-[#D8C7B0] text-[#4A3B32]'
+          ? 'bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[#4A3B32]'
           : theme === 2
           ? 'bg-[#0E1E2E]/90 border-[#2A4B6E] text-[#B0D2F0]'
-          : 'bg-[#0F171F]/90 border-[#22384A] text-[#C5A059]'
+          : 'bg-[#0F171F]/90 border-[#22384A] text-[var(--theme-text-accent)]'
       } font-telemetry ${className}`}
     >
       {/* Header */}
@@ -101,7 +101,7 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
                 {isWeatherActive && (
                   <span
                     data-testid="colophon-badge-weathernext"
-                    className="ml-1.5 px-1 py-px rounded text-nano font-mono font-bold tracking-wider uppercase border border-emerald-500/40 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 align-middle inline-block"
+                    className="ml-1.5 px-1 py-px rounded text-nano font-mono font-bold tracking-wider uppercase border border-[var(--theme-status-sage)]/40 bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)] align-middle inline-block"
                   >
                     [WEATHERNEXT: ACTIVE]
                   </span>
@@ -115,7 +115,7 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
                 {isRadarActive && (
                   <span
                     data-testid="colophon-badge-radar"
-                    className="ml-1.5 px-1 py-px rounded text-nano font-mono font-bold tracking-wider uppercase border border-emerald-500/40 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 align-middle inline-block"
+                    className="ml-1.5 px-1 py-px rounded text-nano font-mono font-bold tracking-wider uppercase border border-[var(--theme-status-sage)]/40 bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)] align-middle inline-block"
                   >
                     [RADAR: ACTIVE]
                   </span>

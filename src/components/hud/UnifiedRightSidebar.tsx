@@ -1795,7 +1795,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                             : 'bg-rose-500/35 text-rose-200 border-rose-400/80 shadow-[0_0_10px_rgba(244,63,94,0.4)] ring-1 ring-rose-400/60 font-semibold'
                           : theme === 1
                           ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#8C4820] hover:border-[#8C4820]/40 bg-[var(--theme-control-bg)]'
-                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-rose-500 hover:border-rose-400/50 bg-[var(--theme-control-bg)]'
+                          : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-accent)] hover:border-[var(--theme-control-border-hover)] bg-[var(--theme-control-bg)]'
                       }`}
                     >
                       Antipodes
@@ -2376,8 +2376,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = ({
                           : preset.category === 'satellite'
                           ? 'bg-[#38bdf8]/20 text-[#38bdf8] border-[#38bdf8]/30'
                           : preset.category === 'vectors'
-                          ? 'bg-[#f59e0b]/20 text-[#f59e0b] border-[#f59e0b]/30'
-                          : 'bg-[#c5a059]/20 text-[#c5a059] border-[#c5a059]/30'
+                          ? 'bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/30'
+                          : 'bg-[var(--theme-text-accent)]/20 text-[var(--theme-text-accent)] border-[var(--theme-text-accent)]/30'
                       }`}
                     >
                       {preset.category}

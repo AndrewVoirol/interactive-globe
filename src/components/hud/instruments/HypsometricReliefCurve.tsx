@@ -211,7 +211,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
             cy={peakY}
             r="4.5"
             fill="#fdfcf9"
-            stroke={theme === 2 ? '#a5d5ff' : theme === 1 ? '#8c4820' : '#c5a059'}
+            stroke={theme === 2 ? '#a5d5ff' : theme === 1 ? '#8c4820' : 'var(--theme-text-accent)'}
             strokeWidth="2"
             className="shadow-sm"
           />

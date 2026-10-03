@@ -152,13 +152,13 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
   // Tropospheric Regime calculation
   const rOuter = GLOBE_RADIUS_UNITS + 0.035;
   let regimeText = 'REGIME 1: ORBITAL SPACE';
-  let regimeColor = 'text-[#388bfd]';
+  let regimeColor = 'text-[var(--theme-text-accent)]';
   if (camDist <= rOuter && camDist >= GLOBE_RADIUS_UNITS) {
     regimeText = 'REGIME 2: INSIDE TROPOSPHERE';
-    regimeColor = 'text-[#3fb950]';
+    regimeColor = 'text-[var(--theme-status-sage)]';
   } else if (camDist < GLOBE_RADIUS_UNITS) {
     regimeText = 'REGIME 3: SUB-CLOUD CEILING';
-    regimeColor = 'text-[#d29922]';
+    regimeColor = 'text-[var(--theme-status-amber)]';
   }
 
   // Raymarch interval through tropospheric bounding shell
@@ -189,7 +189,7 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
             Stratospheric Telemetry
           </span>
         </div>
-        <span className="text-[10px] font-mono font-bold text-[#3fb950] px-1 py-px rounded-[2px] bg-[#3fb950]/10 border border-[#3fb950]/30">
+        <span className="text-[10px] font-mono font-bold text-[var(--theme-status-sage)] px-1 py-px rounded-[2px] bg-[var(--theme-status-sage)]/10 border border-[var(--theme-status-sage)]/30">
           60 FPS
         </span>
       </div>
@@ -198,7 +198,7 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
       <div className="space-y-1 font-mono text-[11px] leading-tight">
         <div className="flex justify-between items-center">
           <span className="text-[var(--theme-text-muted)] text-[10px]">Cursor Target:</span>
-          <span className="font-semibold text-[#3fb950] text-[10px] truncate max-w-[170px]" title={cursorTargetStr}>
+          <span className="font-semibold text-[var(--theme-status-sage)] text-[10px] truncate max-w-[170px]" title={cursorTargetStr}>
             {cursorTargetStr}
           </span>
         </div>
@@ -222,7 +222,7 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
 
         <div className="flex justify-between items-center">
           <span className="text-[var(--theme-text-muted)] text-[10px]">Current Stratum:</span>
-          <span className="font-bold text-[#d29922] text-[10px] truncate max-w-[180px]">{stratum}</span>
+          <span className="font-bold text-[var(--theme-status-amber)] text-[10px] truncate max-w-[180px]">{stratum}</span>
         </div>
 
         <div className="flex justify-between items-center">
@@ -241,12 +241,12 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
 
         <div className="flex justify-between items-center">
           <span className="text-[var(--theme-text-muted)] text-[10px]">Forecast Cycle:</span>
-          <span className="font-semibold text-[#d29922] text-[10px]">2026-09-24 10:00Z (+0–11h)</span>
+          <span className="font-semibold text-[var(--theme-status-amber)] text-[10px]">2026-09-24 10:00Z (+0–11h)</span>
         </div>
 
         <div className="flex justify-between items-center">
           <span className="text-[var(--theme-text-muted)] text-[10px]">Strata Color Mode:</span>
-          <span className="font-semibold text-[#58a6ff] text-[10px]">
+          <span className="font-semibold text-[var(--theme-text-accent)] text-[10px]">
             {cloudFalseColor ? 'Doppler Spectral' : 'Archival Ink Wash'}
           </span>
         </div>
@@ -260,7 +260,7 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
 
         <div className="flex justify-between items-center">
           <span className="text-[var(--theme-text-muted)] text-[10px]">Wind Vector Field:</span>
-          <span className="font-semibold text-[#3fb950] text-[10px]">rg16float (Active)</span>
+          <span className="font-semibold text-[var(--theme-status-sage)] text-[10px]">rg16float (Active)</span>
         </div>
       </div>
 
