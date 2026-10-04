@@ -193,7 +193,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               CLOUD SHADOW
             </span>
             <span className="text-nano text-[var(--theme-text-muted)] truncate">
-              {isGfsActive ? 'Ground Projection Ray' : 'Ground Projection Ray (NOAA GFS only)'}
+              {isGfsActive ? 'Ground Projection Ray • Global Forecast System' : 'Ground Projection Ray (Inactive)'}
             </span>
           </div>
         </div>
@@ -246,45 +246,67 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               <stop
                 offset="0%"
                 stopColor="#00e5ff"
-                stopOpacity={0.15 + shadowIntensity * 0.4}
+                stopOpacity={0.10 + shadowIntensity * 0.45}
               />
               <stop
                 offset="100%"
                 stopColor="#34d399"
-                stopOpacity={0.25 + shadowIntensity * 0.75}
+                stopOpacity={0.20 + shadowIntensity * 0.85}
               />
             </linearGradient>
 
-            {/* General Oblique Solar Ray Cast Gradient */}
+            {/* General Oblique Luminous Solar Ray Cast Gradient */}
+            <linearGradient id="solar-beam-illumination" x1="0" y1="0" x2="0.6" y2="1">
+              <stop offset="0%" stopColor={tokens.rayStroke} stopOpacity="0.45" />
+              <stop offset="60%" stopColor={tokens.rayStroke} stopOpacity="0.18" />
+              <stop offset="100%" stopColor={tokens.rayStroke} stopOpacity="0.02" />
+            </linearGradient>
+
+            {/* Shadow Projection Volume Cone Gradient */}
             <linearGradient id="solar-ray-grad" x1="0" y1="0" x2="0.6" y2="1">
-              <stop offset="0%" stopColor={tokens.rayStroke} stopOpacity="0.40" />
-              <stop offset="100%" stopColor={tokens.shadowFill} stopOpacity="0.22" />
+              <stop offset="0%" stopColor={tokens.shadowFill} stopOpacity={0.12 + normIntensity * 0.4} />
+              <stop offset="100%" stopColor={tokens.shadowFill} stopOpacity={0.25 + normIntensity * 0.65} />
             </linearGradient>
 
             {/* Ground Shadow Umbra Surface Gradient */}
             <linearGradient id="ground-umbra-grad" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor={tokens.shadowFill} stopOpacity="0.15" />
-              <stop offset="18%" stopColor={tokens.shadowFill} stopOpacity="0.9" />
-              <stop offset="82%" stopColor={tokens.shadowFill} stopOpacity="0.9" />
+              <stop offset="18%" stopColor={tokens.shadowFill} stopOpacity={0.4 + normIntensity * 0.6} />
+              <stop offset="82%" stopColor={tokens.shadowFill} stopOpacity={0.4 + normIntensity * 0.6} />
               <stop offset="100%" stopColor={tokens.shadowFill} stopOpacity="0.15" />
+            </linearGradient>
+
+            {/* Baseline Optical Extinction Density Ramp Gradient */}
+            <linearGradient id="extinction-track-ramp" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={tokens.rayStroke} stopOpacity="0.1" />
+              <stop offset="100%" stopColor={tokens.shadowFill} stopOpacity="0.8" />
             </linearGradient>
           </defs>
 
-          {/* 1. Solar Emitter & Incoming Solar Rays (45° angle / 315° NW) */}
-          <g opacity="0.75">
-            {/* Stylized Sun Origin Glyph at Top-Left */}
-            <circle cx="14" cy="8" r="3.5" fill="none" stroke={tokens.rayStroke} strokeWidth="0.9" />
-            <circle cx="14" cy="8" r="1.5" fill={tokens.rayStroke} />
-            <line x1="14" y1="2" x2="14" y2="4" stroke={tokens.rayStroke} strokeWidth="0.75" />
-            <line x1="8" y1="8" x2="10" y2="8" stroke={tokens.rayStroke} strokeWidth="0.75" />
-            <line x1="18.5" y1="12.5" x2="21.5" y2="15.5" stroke={tokens.rayStroke} strokeWidth="0.9" />
+          {/* 1. Luminous Solar Emitter & Incoming Solar Rays (45° angle / 315° NW) */}
+          <g opacity="0.85">
+            {/* Luminous Sun Origin Glyph at Top-Left */}
+            <circle cx="14" cy="8" r="4.5" fill="none" stroke={tokens.rayStroke} strokeWidth="0.5" strokeDasharray="1.5 1.5" />
+            <circle cx="14" cy="8" r="2.8" fill="none" stroke={tokens.rayStroke} strokeWidth="0.8" />
+            <circle cx="14" cy="8" r="1.3" fill={tokens.rayStroke} />
+            {/* Primary Solar Rays radiating outward */}
+            <line x1="14" y1="1" x2="14" y2="3" stroke={tokens.rayStroke} strokeWidth="0.75" />
+            <line x1="7" y1="8" x2="9" y2="8" stroke={tokens.rayStroke} strokeWidth="0.75" />
+            <line x1="19" y1="13" x2="23" y2="17" stroke={tokens.rayStroke} strokeWidth="0.9" />
 
-            {/* Direct Incoming Solar Light Rays streaming down at 45° */}
-            <line x1="6" y1="14" x2="42" y2="50" stroke={tokens.rayStroke} strokeWidth="0.6" strokeDasharray="4 3" opacity="0.35" />
-            <line x1="20" y1="14" x2="28" y2="22" stroke={tokens.rayStroke} strokeWidth="0.75" opacity="0.55" />
-            <line x1="86" y1="10" x2="98" y2="22" stroke={tokens.rayStroke} strokeWidth="0.75" opacity="0.55" />
-            <line x1="130" y1="12" x2="168" y2="50" stroke={tokens.rayStroke} strokeWidth="0.6" strokeDasharray="4 3" opacity="0.35" />
-            <line x1="165" y1="12" x2="203" y2="50" stroke={tokens.rayStroke} strokeWidth="0.6" strokeDasharray="4 3" opacity="0.25" />
+            {/* Soft Ambient Illumination Wash through the Troposphere */}
+            <polygon
+              points="14,8 0,38 58,50 28,22"
+              fill="url(#solar-beam-illumination)"
+              opacity="0.6"
+            />
+
+            {/* Directional 45° Solar Light Rays projecting across the scene */}
+            <line x1="5" y1="13" x2="42" y2="50" stroke={tokens.rayStroke} strokeWidth="0.6" strokeDasharray="3 3" opacity="0.35" />
+            <line x1="19" y1="13" x2="28" y2="22" stroke={tokens.rayStroke} strokeWidth="0.85" opacity="0.7" />
+            <line x1="88" y1="12" x2="98" y2="22" stroke={tokens.rayStroke} strokeWidth="0.85" opacity="0.7" />
+            <line x1="132" y1="14" x2="168" y2="50" stroke={tokens.rayStroke} strokeWidth="0.6" strokeDasharray="4 3" opacity="0.4" />
+            <line x1="168" y1="14" x2="204" y2="50" stroke={tokens.rayStroke} strokeWidth="0.6" strokeDasharray="4 3" opacity="0.3" />
           </g>
 
           {/* 2. Terrestrial Crust Baseline Profile & Bedrock Strata */}
@@ -295,6 +317,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             strokeWidth="1.0"
             opacity="0.95"
           />
+          {/* Bedrock Strata Geological Cleavage Marks */}
           {[25, 45, 145, 175, 205].map((gx) => (
             <line
               key={gx}
@@ -314,7 +337,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             <polygon
               points="28,22 98,22 128,50 58,50"
               fill="url(#solar-ray-grad)"
-              opacity={0.25 + normIntensity * 0.7}
+              opacity={0.3 + normIntensity * 0.7}
             />
           )}
 
@@ -328,7 +351,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             stroke={tokens.rayStroke}
             strokeWidth="0.9"
             strokeDasharray="3 2"
-            opacity="0.75"
+            opacity="0.8"
           />
           {/* Leeward Ray: (98, 22) -> (128, 50) */}
           <line
@@ -339,32 +362,65 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             stroke={tokens.rayStroke}
             strokeWidth="0.9"
             strokeDasharray="3 2"
-            opacity="0.75"
+            opacity="0.8"
           />
 
           {/* Ground Umbra Core & Penumbra on Terrestrial Surface (58 to 128) */}
           {shadowIntensity > 0.001 && (
-            <g opacity={0.3 + normIntensity * 0.7}>
+            <g opacity={0.35 + normIntensity * 0.65}>
               {/* Surface cast shadow strip conforming to terrain profile */}
               <path
                 d="M 54 50 Q 75 48, 105 47 L 132 50 L 132 54 L 54 54 Z"
                 fill="url(#ground-umbra-grad)"
               />
-              {/* Dense Umbra baseline stroke */}
+              {/* Dense Umbra baseline stroke directly on ground */}
               <line
                 x1="58"
                 y1="50"
                 x2="128"
                 y2="50"
                 stroke={tokens.shadowFill}
-                strokeWidth="2.5"
-                opacity={0.4 + normIntensity * 0.6}
+                strokeWidth={1.5 + normIntensity * 2.5}
+                opacity={0.5 + normIntensity * 0.5}
               />
             </g>
           )}
 
-          {/* Caliper Track Guide on Ground Baseline */}
-          <line x1="30" y1="50" x2="210" y2="50" stroke={tokens.caliperLine} strokeWidth="0.8" strokeDasharray="1 3" opacity="0.45" />
+          {/* Ground Baseline Extinction Calibration Track (x in [30 .. 210]) */}
+          <line
+            x1="30"
+            y1="50"
+            x2="210"
+            y2="50"
+            stroke="url(#extinction-track-ramp)"
+            strokeWidth="1.2"
+          />
+          {/* Graduation Ticks along Extinction Track: 0%, 15%, 30%, 45%, 60% */}
+          {[30, 75, 120, 165, 210].map((tx) => (
+            <line
+              key={tx}
+              x1={tx}
+              y1="48"
+              x2={tx}
+              y2="52"
+              stroke={tokens.caliperLine}
+              strokeWidth="0.75"
+              opacity="0.6"
+            />
+          ))}
+
+          {/* Dynamic Optical Extinction Bridge connecting Ground Shadow to Caliper */}
+          {caliperX > 128 && (
+            <line
+              x1="128"
+              y1="50"
+              x2={caliperX}
+              y2="50"
+              stroke={tokens.caliperLine}
+              strokeWidth="1.8"
+              opacity={0.4 + normIntensity * 0.5}
+            />
+          )}
 
           {/* 4. Elevated Cloud Slab Deck (y = 12..22, x = 28..98) */}
           <path
@@ -374,16 +430,16 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             strokeWidth="1.0"
             opacity="0.95"
           />
-          {/* Cloud Top Solar Rim Highlight */}
+          {/* Cloud Top Solar Luminous Rim Highlight (facing 45° sun) */}
           <path
             d="M 28 17 Q 28 12 36 12 Q 44 10 52 13 Q 62 9 72 13 Q 84 9 92 14 Q 98 14 98 22"
             fill="none"
-            stroke={tokens.caliperLine}
-            strokeWidth="1.1"
-            opacity="0.8"
+            stroke={tokens.rayStroke}
+            strokeWidth="1.2"
+            opacity="0.9"
           />
-          {/* Cloud Deck Flat Base */}
-          <line x1="28" y1="22" x2="98" y2="22" stroke={tokens.cloudStroke} strokeWidth="1.2" opacity="0.85" />
+          {/* Cloud Deck Flat Condensation Base */}
+          <line x1="28" y1="22" x2="98" y2="22" stroke={tokens.cloudStroke} strokeWidth="1.2" opacity="0.9" />
 
           {/* 5. 3-Medium Adaptive SVG Graphics Groups */}
           {theme === 1 ? (
@@ -452,25 +508,25 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             </g>
           )}
 
-          {/* Draggable Ground Shadow Umbra Caliper */}
+          {/* 6. Draggable Ground Shadow Optical Extinction Caliper */}
           <g>
             {/* Caliper Vertical Hairline Indicator */}
             <line
               x1={caliperX}
-              y1="24"
+              y1="22"
               x2={caliperX}
-              y2="54"
+              y2="53"
               stroke={tokens.caliperLine}
               strokeWidth="1.2"
-              strokeDasharray="3 2"
+              strokeDasharray="2 2"
             />
 
             {/* Knurled Caliper Reticle Thumb on Baseline */}
             <rect
               x={caliperX - 5}
-              y="44"
+              y="45"
               width="10"
-              height="8"
+              height="7"
               rx="1.5"
               fill={tokens.caliperBadgeBg}
               stroke={tokens.caliperLine}
@@ -478,7 +534,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             />
             <line
               x1={caliperX - 2}
-              y1="46"
+              y1="47"
               x2={caliperX - 2}
               y2="50"
               stroke={tokens.caliperLine}
@@ -486,7 +542,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             />
             <line
               x1={caliperX}
-              y1="46"
+              y1="47"
               x2={caliperX}
               y2="50"
               stroke={tokens.caliperLine}
@@ -494,7 +550,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             />
             <line
               x1={caliperX + 2}
-              y1="46"
+              y1="47"
               x2={caliperX + 2}
               y2="50"
               stroke={tokens.caliperLine}
