@@ -182,100 +182,101 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
       data-testid="stratospheric-telemetry-instrument"
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[var(--theme-control-border)]/50 pb-1.5">
+      <div className="flex items-center justify-between border-b border-[var(--theme-control-border)]/50 pb-1.5 text-micro font-mono">
         <div className="flex items-center gap-1.5">
-          <span className="font-mono text-body text-[var(--theme-text-accent)] font-bold">◬</span>
-          <span className="font-mono text-nano uppercase tracking-wider font-bold">
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse shrink-0" />
+          <span className="font-bold tracking-wider text-[var(--theme-text-accent)] uppercase">
             Stratospheric Telemetry
+          </span>
+        </div>
+        <div className="flex items-center gap-1 font-mono text-nano">
+          <span className="text-[var(--theme-text-secondary)]">Pitch:</span>
+          <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
+            {pitch.toFixed(1)}°
           </span>
         </div>
       </div>
 
       {/* Telemetry rows */}
-      <div className="space-y-1 font-mono text-title leading-tight">
+      <div className="space-y-1 font-mono text-body leading-tight">
         <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body">Cursor Target:</span>
-          <span className="font-semibold text-[var(--theme-status-sage)] text-body truncate max-w-[170px]" title={cursorTargetStr}>
+          <span className="text-[var(--theme-text-muted)] text-body shrink-0">Cursor Target:</span>
+          <span className="font-semibold text-[var(--theme-status-sage)] text-body tabular-nums truncate max-w-[190px] text-right" title={cursorTargetStr}>
             {cursorTargetStr}
           </span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body">Camera Elevation:</span>
-          <span className="font-semibold text-[var(--theme-text-primary)] text-body">{kmStr}</span>
+          <span className="text-[var(--theme-text-muted)] text-body shrink-0">Camera Elevation:</span>
+          <span className="font-semibold text-[var(--theme-text-primary)] text-body tabular-nums">{kmStr}</span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body">Camera Pitch:</span>
-          <span className="font-semibold text-[var(--theme-text-primary)] text-body">
+          <span className="text-[var(--theme-text-muted)] text-body shrink-0">Camera Pitch:</span>
+          <span className="font-semibold text-[var(--theme-text-primary)] text-body tabular-nums">
             {pitch.toFixed(1)}°
           </span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body">Tropospheric Regime:</span>
+          <span className="text-[var(--theme-text-muted)] text-body shrink-0">Tropospheric Regime:</span>
           <span className={`font-bold text-body ${regimeColor}`}>{regimeText}</span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body">Current Stratum:</span>
-          <span className="font-bold text-[var(--theme-status-amber)] text-body truncate max-w-[180px]">{stratum}</span>
+          <span className="text-[var(--theme-text-muted)] text-body shrink-0">Current Stratum:</span>
+          <span className="font-bold text-[var(--theme-status-amber)] text-body truncate max-w-[200px] text-right" title={stratum}>{stratum}</span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body">Raymarch Interval:</span>
-          <span className="font-semibold text-[var(--theme-text-primary)] text-body">
+          <span className="text-[var(--theme-text-muted)] text-body shrink-0">Raymarch Interval:</span>
+          <span className="font-semibold text-[var(--theme-text-primary)] text-body tabular-nums">
             {rayRangeKm.toFixed(1)} km
           </span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body">Raymarch Step Budget:</span>
-          <span className="font-semibold text-[var(--theme-text-primary)] text-body">
+          <span className="text-[var(--theme-text-muted)] text-body shrink-0">Raymarch Step Budget:</span>
+          <span className="font-semibold text-[var(--theme-text-primary)] text-body tabular-nums">
             {cloudSteps} steps ({propResolution || (cloudSteps <= 16 ? '100k' : cloudSteps <= 32 ? '1M' : cloudSteps <= 40 ? '3M' : cloudSteps <= 48 ? '4M' : cloudSteps <= 56 ? '8M' : '16M')})
           </span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body">Strata Color Mode:</span>
+          <span className="text-[var(--theme-text-muted)] text-body shrink-0">Strata Color Mode:</span>
           <span className="font-semibold text-[var(--theme-text-accent)] text-body">
             {cloudFalseColor ? 'Doppler Spectral' : 'Archival Ink Wash'}
           </span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body">Grid Resolution:</span>
-          <span className="font-semibold text-[var(--theme-text-secondary)] text-body">
+          <span className="text-[var(--theme-text-muted)] text-body shrink-0">Grid Resolution:</span>
+          <span className="font-semibold text-[var(--theme-text-secondary)] text-body tabular-nums">
             3600 × 1801 (0.1°)
           </span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body">Wind Vector Field:</span>
+          <span className="text-[var(--theme-text-muted)] text-body shrink-0">Wind Vector Field:</span>
           <span className="font-semibold text-[var(--theme-status-sage)] text-body">rg16float (Active)</span>
         </div>
       </div>
 
       {/* Interactive Camera Horizon Pitch Vernier Slider */}
       <div className="space-y-1.5 pt-1.5 border-t border-[var(--theme-control-border)]/50">
-        <div className="flex items-center justify-between text-nano">
-          <span className="font-mono uppercase tracking-wider text-[var(--theme-text-muted)]">
-            Horizon Pitch Angle
-          </span>
-          <span className="font-mono font-bold text-body text-[var(--theme-text-primary)]">
-            {pitch.toFixed(1)}°
-          </span>
-        </div>
-
         <VernierSlider
-          id="camera-horizon-tilt"
+          id="camera-horizon-pitch"
           value={pitch}
+          defaultValue={0}
           min={0}
           max={85}
           step={1}
           onChange={handlePitchSliderChange}
-          label="Camera Horizon Tilt"
+          label="Camera Horizon Pitch"
           unit="°"
+          readout={`${pitch.toFixed(1)}°`}
+          tooltip="Camera Horizon Pitch Angle (0° Nadir to 85° Grazing)"
+          className="!border-0 !bg-transparent !p-0 !shadow-none"
         />
 
         {/* Quick Pitch Presets */}
@@ -292,7 +293,7 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
                 key={preset.label}
                 type="button"
                 onClick={() => handlePitchSliderChange(preset.val)}
-                className={`py-1 px-1 rounded-[2px] border text-center transition-all cursor-pointer font-mono text-micro ${
+                className={`py-1 px-0.5 rounded-[2px] border text-center transition-all cursor-pointer font-mono text-micro tracking-tight truncate ${
                   isActive
                     ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-bold shadow-2xs'
                     : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
