@@ -92,7 +92,10 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
       };
 
   return (
-    <div className="p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
+    <div
+      data-instrument="bathymetric-tide-gauge"
+      className="p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]"
+    >
       <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
         <span className="font-bold flex items-center gap-1.5 text-[var(--theme-text-accent)]">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)]"></span>
@@ -155,14 +158,14 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
       >
         {/* Continental Shelf Silhouette in background */}
         <div className="absolute inset-0 flex items-end opacity-15 pointer-events-none">
-          <svg className="w-full h-full" viewBox="0 0 300 100" preserveAspectRatio="none">
+          <svg className="w-full h-full" viewBox="0 0 300 100" preserveAspectRatio="xMidYMid meet">
             <polygon points="0,100 0,35 60,40 120,60 180,90 300,95 300,100" fill="currentColor" />
           </svg>
         </div>
 
         {/* Medium-Adaptive Hydrostatic Markings */}
         <div className="absolute top-0 bottom-0 right-14 w-8 pointer-events-none z-10 opacity-70">
-          <svg className="w-full h-full" viewBox="0 0 40 100" preserveAspectRatio="none">
+          <svg className="w-full h-full" viewBox="0 0 40 100" preserveAspectRatio="xMidYMid meet">
             {theme === 1 ? (
               // Cream Rag Paper: Archival hydrographic tide benchmark staff with decimeter blocks
               <g className="tide-staff-cream text-[#8c4820]">
