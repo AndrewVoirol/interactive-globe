@@ -350,24 +350,24 @@ describe('Challenger 2 Empirical Verification: Milestone 6 DOM & ARIA', () => {
   // Objective 2: Verification of ARIA Semantics
   // --------------------------------------------------------------------------
   describe('Objective 2: ARIA Semantics, Radiogroups, Roving Tabindex & Sliders', () => {
-    it('verifies exactly 5 radiogroups when clouds active and NWP active (WeatherNext)', async () => {
+    it('verifies exactly 3 radiogroups when clouds active and NWP active (WeatherNext)', async () => {
       await renderDrawer({
         showClouds: true,
         prognosticModel: 'weathernext3',
       });
 
       const radiogroups = container.querySelectorAll('[role="radiogroup"]');
-      expect(radiogroups.length).toBe(5);
+      expect(radiogroups.length).toBe(3);
     });
 
-    it('verifies exactly 4 radiogroups when clouds active and NWP model is off', async () => {
+    it('verifies exactly 2 radiogroups when clouds active and NWP model is off', async () => {
       await renderDrawer({
         showClouds: true,
         prognosticModel: 'off',
       });
 
       const radiogroups = container.querySelectorAll('[role="radiogroup"]');
-      expect(radiogroups.length).toBe(4);
+      expect(radiogroups.length).toBe(2);
     });
 
     it('verifies exactly 0 radiogroups when clouds are inactive (collapsed)', async () => {

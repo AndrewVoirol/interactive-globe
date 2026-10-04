@@ -442,42 +442,6 @@ describe('Milestone 1 Iteration 2: Challenger 1 Adversarial Stress-Testing', () 
       expect(mockSetCloudOptions).toHaveBeenCalledWith({ showClouds: true });
     });
 
-    it('VERIFY-BRIDGE-02: Vertical Scale Transfer SegmentedControl dispatches __INDICATRIX_SET_VERTICAL_SCALE_MODE__ with exact numeric mode', async () => {
-      const onVerticalScaleModeChange = vi.fn();
-
-      await act(async () => {
-        root.render(
-          React.createElement(AtmosphereDrawer, {
-            showClouds: true,
-            verticalScaleMode: 0,
-            onVerticalScaleModeChange,
-          })
-        );
-      });
-
-      // Find radio buttons
-      const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="radio"]'));
-      const dualLogBtn = buttons.find((b) => b.textContent?.includes('Dual-Logarithmic'));
-      const linearBtn = buttons.find((b) => b.textContent?.includes('Linear (Legacy)'));
-
-      expect(dualLogBtn).toBeDefined();
-      expect(linearBtn).toBeDefined();
-
-      // Click Dual-Logarithmic (1)
-      await act(async () => {
-        dualLogBtn?.click();
-      });
-      expect(onVerticalScaleModeChange).toHaveBeenCalledWith(1);
-      expect(mockSetVerticalScaleMode).toHaveBeenCalledWith(1);
-
-      // Click Linear (0)
-      await act(async () => {
-        linearBtn?.click();
-      });
-      expect(onVerticalScaleModeChange).toHaveBeenCalledWith(0);
-      expect(mockSetVerticalScaleMode).toHaveBeenCalledWith(0);
-    });
-
     it('VERIFY-BRIDGE-03: Thermodynamic Gating SegmentedControl dispatches __INDICATRIX_SET_THERMODYNAMIC_GATING__ and sets engine properties', async () => {
       const onGatingChange = vi.fn();
 
@@ -697,7 +661,7 @@ describe('Milestone 1 Iteration 2: Challenger 1 Adversarial Stress-Testing', () 
       });
 
       const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="radio"]'));
-      expect(buttons.length).toBeGreaterThanOrEqual(11);
+      expect(buttons.length).toBeGreaterThanOrEqual(8);
 
       await act(async () => {
         for (let i = 0; i < 500; i++) {
@@ -708,7 +672,7 @@ describe('Milestone 1 Iteration 2: Challenger 1 Adversarial Stress-Testing', () 
 
       // Radiogroups must still be intact and valid
       const radiogroups = container.querySelectorAll('[role="radiogroup"]');
-      expect(radiogroups.length).toBe(5);
+      expect(radiogroups.length).toBe(3);
       radiogroups.forEach((group) => {
         const radios = group.querySelectorAll('[role="radio"]');
         const active = Array.from(radios).filter((r) => r.getAttribute('aria-checked') === 'true');

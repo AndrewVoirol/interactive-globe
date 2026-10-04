@@ -160,54 +160,16 @@ describe('Challenger 1: AtmosphereDrawer Behavioral & Window Bridge Verification
         );
       });
 
-      // Now 4 radiogroups should be present (vertical scale, thermodynamic gating, weather optical mode, prognostic model)
+      // Now 2 radiogroups should be present (precipitation style, prognostic model)
       const visibleGroups = container.querySelectorAll('[role="radiogroup"]');
-      expect(visibleGroups.length).toBe(4);
+      expect(visibleGroups.length).toBe(2);
     });
   });
 
   // ==========================================================================
-  // Objective 2: 5 Segmented Controls & Window Bridge Dispatches
+  // Objective 2: Segmented Controls & Window Bridge Dispatches
   // ==========================================================================
-  describe('Objective 2: 5 Segmented Controls Window Bridge Dispatch Verification', () => {
-    it('CHALLENGE-04: Vertical Scale Transfer dispatches __INDICATRIX_SET_VERTICAL_SCALE_MODE__', async () => {
-      const onVerticalScaleModeChange = vi.fn();
-
-      await act(async () => {
-        root.render(
-          React.createElement(AtmosphereDrawer, {
-            showClouds: true,
-            verticalScaleMode: 0,
-            onVerticalScaleModeChange,
-          })
-        );
-      });
-
-      // Find Vertical Scale radiogroup
-      // It has options "Linear (Legacy)" and "Dual-Logarithmic"
-      const buttons = container.querySelectorAll<HTMLButtonElement>('[role="radio"]');
-      const dualLogBtn = Array.from(buttons).find((b) => b.textContent?.includes('Dual-Logarithmic'));
-      expect(dualLogBtn).toBeDefined();
-
-      await act(async () => {
-        dualLogBtn?.click();
-      });
-
-      expect(onVerticalScaleModeChange).toHaveBeenCalledWith(1);
-      expect(mockSetVerticalScaleMode).toHaveBeenCalledWith(1);
-
-      // Click Linear button
-      const linearBtn = Array.from(buttons).find((b) => b.textContent?.includes('Linear (Legacy)'));
-      expect(linearBtn).toBeDefined();
-
-      await act(async () => {
-        linearBtn?.click();
-      });
-
-      expect(onVerticalScaleModeChange).toHaveBeenCalledWith(0);
-      expect(mockSetVerticalScaleMode).toHaveBeenCalledWith(0);
-    });
-
+  describe('Objective 2: Segmented Controls Window Bridge Dispatch Verification', () => {
     it('CHALLENGE-05: Thermodynamic Gating dispatches __INDICATRIX_SET_THERMODYNAMIC_GATING__ and engine.setLclGating', async () => {
       const onThermodynamicGatingChange = vi.fn();
 

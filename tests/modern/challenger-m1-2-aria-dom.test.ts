@@ -297,13 +297,11 @@ describe('Challenger 2: DOM, Accessibility & ARIA Semantics Verification', () =>
       });
 
       const radiogroups = container.querySelectorAll('[role="radiogroup"]');
-      // When showClouds is true and prognosticModel is 'weathernext3', all 5 groups must be rendered:
-      // 1. Vertical Scale Transfer
-      // 2. Thermodynamic Gating
-      // 3. Weather Optical Mode
-      // 4. Prognostic Model
-      // 5. Prognostic Variable
-      expect(radiogroups.length).toBe(5);
+      // When showClouds is true and prognosticModel is 'weathernext3', all 3 groups must be rendered:
+      // 1. Precipitation Style
+      // 2. Prognostic Model
+      // 3. Prognostic Variable
+      expect(radiogroups.length).toBe(3);
 
       radiogroups.forEach((group) => {
         const radios = group.querySelectorAll('[role="radio"]');
@@ -424,11 +422,11 @@ describe('Challenger 2: DOM, Accessibility & ARIA Semantics Verification', () =>
       });
 
       const radiogroups = container.querySelectorAll('[role="radiogroup"]');
-      expect(radiogroups.length).toBe(5);
+      expect(radiogroups.length).toBe(3);
 
       // Perform 50 randomized toggle clicks across all radio buttons
       const allRadios = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="radio"]'));
-      expect(allRadios.length).toBeGreaterThanOrEqual(11);
+      expect(allRadios.length).toBeGreaterThanOrEqual(8);
 
       for (let trial = 0; trial < 50; trial++) {
         const randomIndex = Math.floor(Math.random() * allRadios.length);

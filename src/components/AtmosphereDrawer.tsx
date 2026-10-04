@@ -134,8 +134,6 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   onAtmosphericScaleChange,
   shadowIntensity: propShadowIntensity,
   onShadowIntensityChange,
-  verticalScaleMode: propVerticalScaleMode,
-  onVerticalScaleModeChange,
   rainShadowFeedback: propRainShadowFeedback,
   onRainShadowFeedbackChange,
   pluvialGamma: propPluvialGamma,
@@ -180,7 +178,6 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const [internalCloudOpacity, setInternalCloudOpacity] = useState<number>(0.8);
   const [internalAtmosphericScale, setInternalAtmosphericScale] = useState<number>(3.5);
   const [internalShadowIntensity, setInternalShadowIntensity] = useState<number>(0.45);
-  const [internalVerticalScaleMode, setInternalVerticalScaleMode] = useState<number>(1);
   const [internalRainShadowFeedback, setInternalRainShadowFeedback] = useState<number>(0.0);
   const [internalPluvialGamma, setInternalPluvialGamma] = useState<number>(0.0);
   const [internalWeatherOpticalMode, setInternalWeatherOpticalMode] = useState<number>(0);
@@ -344,7 +341,6 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   const curCloudOpacity = propCloudOpacity !== undefined ? propCloudOpacity : internalCloudOpacity;
   const curAtmosphericScale = propAtmosphericScale !== undefined ? propAtmosphericScale : internalAtmosphericScale;
   const curShadowIntensity = propShadowIntensity !== undefined ? propShadowIntensity : internalShadowIntensity;
-  const curVerticalScaleMode = propVerticalScaleMode !== undefined ? propVerticalScaleMode : internalVerticalScaleMode;
   const curRainShadowFeedback = propRainShadowFeedback !== undefined ? propRainShadowFeedback : internalRainShadowFeedback;
   const curPluvialGamma = propPluvialGamma !== undefined ? propPluvialGamma : internalPluvialGamma;
   const curWeatherOpticalMode = propWeatherOpticalMode !== undefined ? propWeatherOpticalMode : internalWeatherOpticalMode;
@@ -502,16 +498,6 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
       }
       if ((window as any).__INDICATRIX_SET_CLOUD_OPTIONS__) {
         (window as any).__INDICATRIX_SET_CLOUD_OPTIONS__({ shadowIntensity: clamped });
-      }
-    }
-  };
-
-  const handleVerticalScaleModeChange = (val: number) => {
-    setInternalVerticalScaleMode(val);
-    onVerticalScaleModeChange?.(val);
-    if (typeof window !== 'undefined') {
-      if ((window as any).__INDICATRIX_SET_VERTICAL_SCALE_MODE__) {
-        (window as any).__INDICATRIX_SET_VERTICAL_SCALE_MODE__(val);
       }
     }
   };
@@ -687,36 +673,6 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             isGfsActive={isGfs}
             onChange={handleShadowIntensityChange}
           />
-
-          {/* Physical Strata: Vertical Scale Mode Selector */}
-          <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border)]/50">
-            <div className="flex items-center justify-between text-nano">
-              <span className="font-bold text-[var(--theme-text-primary)]">Vertical Scale Transfer</span>
-              <span className="text-[var(--theme-text-muted)] font-mono">
-                {curVerticalScaleMode === 1 ? 'Dual-Log' : 'Linear'}
-              </span>
-            </div>
-            <SegmentedControl<number>
-              size="sm"
-              value={curVerticalScaleMode}
-              onChange={handleVerticalScaleModeChange}
-              className="grid grid-cols-2 gap-1 w-full"
-              options={[
-                {
-                  id: 0,
-                  label: 'Linear (Legacy)',
-                  title: 'Linear Power Scale (Legacy)',
-                  className: 'w-full',
-                },
-                {
-                  id: 1,
-                  label: 'Dual-Logarithmic',
-                  title: 'Symmetrical Dual-Logarithmic Scale (Piecewise Depth & Relief)',
-                  className: 'w-full',
-                },
-              ]}
-            />
-          </div>
 
           {/* Orographic Moisture Profile Instrument (R3) */}
           <OrographicMoistureProfile

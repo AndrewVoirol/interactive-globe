@@ -504,7 +504,7 @@ describe('Milestone 6: AtmosphereDrawer Precision Instruments Suite', () => {
   // 4. Exact 5-Radiogroup Budget & Keyboard Navigation
   // ==========================================================================
   describe('4. Exact 5-Radiogroup Budget & Keyboard Navigation', () => {
-    it('R15-RADIO-01: enforces exact 5-radiogroup budget when showClouds is true and prognosticModel is active', async () => {
+    it('R15-RADIO-01: enforces exact 3-radiogroup budget when showClouds is true and prognosticModel is active', async () => {
       await act(async () => {
         root.render(
           React.createElement(AtmosphereDrawer, {
@@ -515,21 +515,19 @@ describe('Milestone 6: AtmosphereDrawer Precision Instruments Suite', () => {
       });
 
       const radiogroups = container.querySelectorAll('[role="radiogroup"]');
-      expect(radiogroups.length).toBe(5);
+      expect(radiogroups.length).toBe(3);
 
-      // Verify the 5 segmented controls:
-      // 1. Vertical Scale Transfer (AtmosphereDrawer)
-      // 2. Thermodynamic Gating (OrographicMoistureProfile)
-      // 3. Weather Optical Mode (AtmosphereDrawer)
-      // 4. Model Selection (PrognosticModelCard)
-      // 5. Variable Selection (PrognosticModelCard)
+      // Verify the 3 segmented controls:
+      // 1. Precipitation Style (AtmosphereDrawer)
+      // 2. Model Selection (PrognosticModelCard)
+      // 3. Variable Selection (PrognosticModelCard)
       const groupLabels = Array.from(radiogroups).map(
         (rg) => rg.getAttribute('aria-label') || rg.className
       );
-      expect(groupLabels.length).toBe(5);
+      expect(groupLabels.length).toBe(3);
     });
 
-    it('R15-RADIO-02: conditionally suppresses variable radiogroup when prognosticModel is off (budget drops to 4)', async () => {
+    it('R15-RADIO-02: conditionally suppresses variable radiogroup when prognosticModel is off (budget drops to 2)', async () => {
       await act(async () => {
         root.render(
           React.createElement(AtmosphereDrawer, {
@@ -540,7 +538,7 @@ describe('Milestone 6: AtmosphereDrawer Precision Instruments Suite', () => {
       });
 
       const radiogroups = container.querySelectorAll('[role="radiogroup"]');
-      expect(radiogroups.length).toBe(4);
+      expect(radiogroups.length).toBe(2);
     });
 
     it('R15-RADIO-03: collapses all radiogroups when showClouds is false (budget drops to 0)', async () => {
@@ -566,28 +564,28 @@ describe('Milestone 6: AtmosphereDrawer Precision Instruments Suite', () => {
         );
       });
 
-      // Target Vertical Scale Transfer SegmentedControl
-      const verticalRadios = container.querySelectorAll<HTMLButtonElement>(
-        '.grid-cols-2 button[role="radio"]'
+      // Target Precipitation Style SegmentedControl
+      const precipRadios = container.querySelectorAll<HTMLButtonElement>(
+        '[data-instrument="precipitation-style"] button[role="radio"]'
       );
-      expect(verticalRadios.length).toBeGreaterThanOrEqual(2);
+      expect(precipRadios.length).toBe(2);
 
-      const linearRadio = verticalRadios[0];
-      const dualLogRadio = verticalRadios[1];
+      const cartographicRadio = precipRadios[0];
+      const dopplerRadio = precipRadios[1];
 
-      // Initially dual-log is active (tabIndex 0)
-      expect(dualLogRadio.getAttribute('tabIndex')).toBe('0');
-      expect(linearRadio.getAttribute('tabIndex')).toBe('-1');
+      // Initially Cartographic (mode 0) is active (tabIndex 0)
+      expect(cartographicRadio.getAttribute('tabIndex')).toBe('0');
+      expect(dopplerRadio.getAttribute('tabIndex')).toBe('-1');
 
-      // Navigate using ArrowLeft
+      // Navigate using ArrowRight
       await act(async () => {
-        dualLogRadio.dispatchEvent(
-          new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })
+        cartographicRadio.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })
         );
       });
 
-      // Linear becomes active
-      expect(linearRadio.getAttribute('aria-checked')).toBe('true');
+      // Doppler Radar becomes active
+      expect(dopplerRadio.getAttribute('aria-checked')).toBe('true');
     });
   });
 

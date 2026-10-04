@@ -112,7 +112,7 @@ export default function App() {
   // Atmospheric Controls & Stratification State (Milestone 4 & Physical Strata)
   const [atmosphericScale, setAtmosphericScale] = useState<number>(3.5);
   const [shadowIntensity, setShadowIntensity] = useState<number>(0.45);
-  const [verticalScaleMode, setVerticalScaleMode] = useState<number>(1);
+  const verticalScaleMode = 1;
   const [rainShadowFeedback, setRainShadowFeedback] = useState<number>(0.50);
   const [pluvialGamma, setPluvialGamma] = useState<number>(0.0);
   const [weatherOpticalMode, setWeatherOpticalMode] = useState<number>(0);
@@ -235,12 +235,7 @@ export default function App() {
           return Math.max(0.0, Math.min(0.60, v));
         });
       };
-      window.__INDICATRIX_SET_VERTICAL_SCALE_MODE__ = (valOrFn: any) => {
-        setVerticalScaleMode((prev) => {
-          const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
-          return v === 1 ? 1 : 0;
-        });
-      };
+      window.__INDICATRIX_SET_VERTICAL_SCALE_MODE__ = () => {};
       window.__INDICATRIX_SET_RAIN_SHADOW_FEEDBACK__ = (valOrFn: any) => {
         setRainShadowFeedback((prev) => {
           const v = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
@@ -939,7 +934,6 @@ export default function App() {
           shadowIntensity={shadowIntensity}
           onShadowIntensityChange={setShadowIntensity}
           verticalScaleMode={verticalScaleMode}
-          onVerticalScaleModeChange={setVerticalScaleMode}
           rainShadowFeedback={rainShadowFeedback}
           onRainShadowFeedbackChange={setRainShadowFeedback}
           pluvialGamma={pluvialGamma}

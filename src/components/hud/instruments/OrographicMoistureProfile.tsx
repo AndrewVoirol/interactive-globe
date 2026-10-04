@@ -653,6 +653,8 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
       {/* Thermodynamic gating toggle - hidden buttons for test DOM IDs */}
       <button
         id="sidebar-thermodynamic-gating-on"
+        role="radio"
+        aria-checked={thermodynamicGating ? 'true' : 'false'}
         onClick={() => onThermodynamicGatingChange?.(true)}
         className="sr-only"
         tabIndex={-1}
@@ -662,6 +664,8 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
       </button>
       <button
         id="sidebar-thermodynamic-gating-off"
+        role="radio"
+        aria-checked={!thermodynamicGating ? 'true' : 'false'}
         onClick={() => onThermodynamicGatingChange?.(false)}
         className="sr-only"
         tabIndex={-1}

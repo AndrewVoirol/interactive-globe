@@ -1047,7 +1047,7 @@ describe('Challenger 1: Milestone 5 PrognosticModelCard Behavioral Adversarial S
       expect(container.querySelector('#sidebar-model-weathernext')).not.toBeNull();
     });
 
-    it('M5-INT-02: verifies exactly 5 radiogroups in AtmosphereDrawer when WeatherNext is active', async () => {
+    it('M5-INT-02: verifies exactly 3 radiogroups in AtmosphereDrawer when WeatherNext is active', async () => {
       await act(async () => {
         root.render(
           React.createElement(AtmosphereDrawer, {
@@ -1058,10 +1058,10 @@ describe('Challenger 1: Milestone 5 PrognosticModelCard Behavioral Adversarial S
       });
 
       const radiogroups = container.querySelectorAll('[role="radiogroup"]');
-      expect(radiogroups.length).toBe(5);
+      expect(radiogroups.length).toBe(3);
     });
 
-    it('M5-INT-03: verifies exactly 4 radiogroups in AtmosphereDrawer when GFS is active', async () => {
+    it('M5-INT-03: verifies exactly 2 radiogroups in AtmosphereDrawer when GFS is active', async () => {
       await act(async () => {
         root.render(
           React.createElement(AtmosphereDrawer, {
@@ -1072,7 +1072,7 @@ describe('Challenger 1: Milestone 5 PrognosticModelCard Behavioral Adversarial S
       });
 
       const radiogroups = container.querySelectorAll('[role="radiogroup"]');
-      expect(radiogroups.length).toBe(4);
+      expect(radiogroups.length).toBe(2);
     });
 
     it('M5-INT-04: verifies Single-Border HUD Enclosure Contract in rendered AtmosphereDrawer cards', async () => {
