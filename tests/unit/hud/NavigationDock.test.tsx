@@ -42,11 +42,17 @@ describe('NavigationDock Mode Selector (Milestone 4 Verification)', () => {
     // Ivory vellum background
     expect(dockCode).toContain('rgba(252, 249, 242, 0.94)');
 
-    // 10px breathing clearance (gap-2.5 = 10px)
+    // 10px breathing clearance (gap-2.5 = 10px, pt-2.5 = 10px)
     expect(dockCode).toContain('gap-2.5');
+    expect(dockCode).toContain('pt-2.5');
+    expect(dockCode).toContain('pb-7');
 
     // Single perimeter border on pill
     expect(dockCode).toContain('border-[var(--theme-card-border)]');
+
+    // Archival drafting hairline divider standardization before alpha readout
+    expect(dockCode).not.toContain('border-l border-[var(--theme-card-border)]');
+    expect(dockCode).not.toContain('pl-2 border-l');
   });
 
   it('renders all 4 segments into the DOM with proper accessibility roles and aria-checked states', async () => {

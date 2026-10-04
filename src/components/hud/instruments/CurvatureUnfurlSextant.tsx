@@ -285,6 +285,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
 
   // Dynamic intermediate tick marker y-coordinates so ticks sit flush on the track line at alpha = 1.0 (no floating dots)
   const tick2Y = getBezierY(0.3);
+  const tickCenterY = getBezierY(0.5);
   const tick3Y = getBezierY(0.7);
 
   const milestones = MILESTONES_BY_MODE[mode] || MILESTONES_BY_MODE[0];
@@ -389,7 +390,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
           {/* Radial reference rays - dynamically calibrated to fiducial milestone detents */}
           <line x1="120" y1="34" x2="15" y2="26" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
           <line x1="120" y1="34" x2="78" y2={tick2Y} stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="120" y2={peakY} stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="120" y2={tickCenterY} stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
           <line x1="120" y1="34" x2="162" y2={tick3Y} stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
           <line x1="120" y1="34" x2="225" y2="26" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
 
@@ -430,7 +431,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
       </div>
 
       {/* Stage Telemetry Tag */}
-      <div className="absolute top-full mt-1.5 w-full h-3.5 leading-tight text-center truncate text-micro font-mono tracking-wider uppercase pointer-events-none">
+      <div className="absolute top-full mt-1 w-full h-3.5 leading-tight text-center truncate text-micro font-mono tracking-wider uppercase pointer-events-none">
         <span className="font-bold text-[var(--theme-text-accent)]">{currentMilestone.label}</span>
         <span className="opacity-70 text-[var(--theme-text-secondary)]"> · {currentMilestone.desc}</span>
       </div>

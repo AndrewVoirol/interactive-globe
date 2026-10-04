@@ -356,7 +356,10 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
           </kbd>
         </button>
 
-        <span className="text-micro tabular-nums pl-2 border-l border-[var(--theme-card-border)] text-[var(--theme-text-secondary)] min-w-[3.25rem] text-right shrink-0 z-10">
+        {/* Archival Drafting Hairline Divider */}
+        <div className="h-4 w-px shrink-0 z-10 border-[var(--theme-card-border)]" style={{ backgroundColor: 'var(--theme-neatline-border)', opacity: 0.45 }} />
+
+        <span className="text-micro tabular-nums text-[var(--theme-text-secondary)] min-w-[3.25rem] text-right shrink-0 z-10">
           {alpha.toFixed(3)}
         </span>
       </div>

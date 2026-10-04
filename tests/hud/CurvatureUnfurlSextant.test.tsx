@@ -1022,7 +1022,9 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
     // Assert rays target detent coordinates (x=15, 78, 120, 162, 225) instead of misaligned (68, 172)
     expect(sourceCode).toContain('x2="15" y2="26"');
     expect(sourceCode).toContain('x2="78" y2={tick2Y}');
-    expect(sourceCode).toContain('x2="120" y2={peakY}');
+    // Center ray terminates flush at Bezier apex getBezierY(0.5) without overshooting the arc
+    expect(sourceCode).toContain('const tickCenterY = getBezierY(0.5);');
+    expect(sourceCode).toContain('x2="120" y2={tickCenterY}');
     expect(sourceCode).toContain('x2="162" y2={tick3Y}');
     expect(sourceCode).toContain('x2="225" y2="26"');
     // Ensure legacy collision with K > 0 and K = 0 labels (y2="10") is eliminated
@@ -1047,7 +1049,8 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
     // Assert middle dot formatting
     expect(sourceCode).toContain(' · {currentMilestone.desc}');
     // Assert absolute top-full positioning ensures scrubber box height is 36px in flex flow
-    expect(sourceCode).toContain('absolute top-full mt-1.5');
+    // mt-1 ensures exact 10px breathing clearance moat inside the dock container
+    expect(sourceCode).toContain('absolute top-full mt-1');
     expect(sourceCode).toContain('relative flex flex-col items-center');
   });
 });
