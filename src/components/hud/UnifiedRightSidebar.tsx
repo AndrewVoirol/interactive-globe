@@ -516,6 +516,8 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
               theme={theme} resolution={resolution} onResolutionChange={onResolutionChange}
               latStr={latStr} lonStr={lonStr} mapScaleStr={mapScaleStr}
               fps={fps} backend={backend} gpuReport={gpuReport}
+              mode={mode} alpha={alpha} purityMode={purityMode}
+              isWindActive={isWindActive} cameraPosition={cameraPosition}
             />
           </div>
         </div>

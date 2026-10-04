@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ResolutionTier } from '../../../types';
+import { ResolutionTier, SimulationMode } from '../../../types';
+import { unitDistToKm, getStratumName } from '../instruments/StratosphericTelemetryInstrument';
 
 export interface SidebarTelemetryProps {
   theme: 0 | 1 | 2;
@@ -11,6 +12,13 @@ export interface SidebarTelemetryProps {
   fps: number;
   backend: 'webgl2' | 'webgpu';
   gpuReport?: any;
+  mode?: SimulationMode;
+  alpha?: number;
+  purityMode?: boolean;
+  isWindActive?: boolean;
+  cameraPosition?: [number, number, number];
+  stratum?: string;
+  gridResolution?: string;
 }
 
 export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
@@ -23,11 +31,40 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
   fps,
   backend,
   gpuReport,
+  mode = 0,
+  alpha = 0,
+  purityMode = false,
+  isWindActive = false,
+  cameraPosition,
+  stratum: propStratum,
+  gridResolution,
 }) => {
   const [liveVram, setLiveVram] = useState<{
     totalMb: number;
     subsystems: Record<string, { mb: number; bufferCount: number; textureCount: number }>;
   } | null>(null);
+
+  const [liveCamDist, setLiveCamDist] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const cam = (window as any).__INDICATRIX_CAMERA__;
+      if (cam) {
+        if (typeof cam.getCamDist === 'function') {
+          const cd = cam.getCamDist();
+          if (Number.isFinite(cd)) return cd;
+        } else if (typeof cam.getAltitudeUnits === 'function') {
+          const alt = cam.getAltitudeUnits();
+          if (Number.isFinite(alt)) return 5.0 + alt;
+        } else if (typeof cam.getSpherical === 'function') {
+          const s = cam.getSpherical();
+          if (s && Number.isFinite(s.radius)) return s.radius;
+        }
+      }
+    }
+    if (cameraPosition) {
+      return Math.hypot(cameraPosition[0], cameraPosition[1], cameraPosition[2]);
+    }
+    return 15.0;
+  });
 
   useEffect(() => {
     const pollVram = () => {
@@ -44,6 +81,35 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const pollCam = () => {
+      if (!active || typeof window === 'undefined') return;
+      const cam = (window as any).__INDICATRIX_CAMERA__;
+      if (cam) {
+        if (typeof cam.getCamDist === 'function') {
+          const cd = cam.getCamDist();
+          if (Number.isFinite(cd)) setLiveCamDist(cd);
+        } else if (typeof cam.getAltitudeUnits === 'function') {
+          const alt = cam.getAltitudeUnits();
+          if (Number.isFinite(alt)) setLiveCamDist(5.0 + alt);
+        } else if (typeof cam.getSpherical === 'function') {
+          const s = cam.getSpherical();
+          if (s && Number.isFinite(s.radius)) setLiveCamDist(s.radius);
+        }
+      } else if (cameraPosition) {
+        const d = Math.hypot(cameraPosition[0], cameraPosition[1], cameraPosition[2]);
+        if (Number.isFinite(d)) setLiveCamDist(d);
+      }
+    };
+    pollCam();
+    const timer = setInterval(pollCam, 100);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [cameraPosition]);
+
   const resolutionVramLabel = useMemo(() => {
     const tierConfig: Record<ResolutionTier, { verts: string; nodes: number }> = {
       '100k': { verts: '262K Verts', nodes: 262_144 },
@@ -59,8 +125,57 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
     return `${c.verts} · ${sizeStr}`;
   }, [resolution, liveVram]);
 
+  const mediumShortName = purityMode
+    ? 'Purity'
+    : theme === 1
+    ? 'Cotton Rag'
+    : theme === 2
+    ? 'Cyanotype'
+    : 'Marie Tharp';
+
+  const mediumFullName = purityMode
+    ? 'Purity Mode (Raw DEM Topography)'
+    : theme === 1
+    ? 'Cotton Rag (Swiss Relief)'
+    : theme === 2
+    ? 'Prussian Cyanotype (Blueprint)'
+    : 'Marie Tharp (Physiographic)';
+
+  const modeName =
+    mode === 0
+      ? 'Linear'
+      : mode === 1
+      ? 'Scroll'
+      : mode === 2
+      ? 'Fracture'
+      : mode === 3
+      ? 'Fluid'
+      : 'Linear';
+
+  const unfurlState =
+    alpha === undefined
+      ? 'Spherical'
+      : alpha < 0.02
+      ? 'Spherical'
+      : alpha > 0.98
+      ? 'Planar'
+      : `Morph (α=${alpha.toFixed(2)})`;
+
+  const currentStratum = useMemo(() => {
+    if (propStratum) return propStratum;
+    const km = unitDistToKm(liveCamDist);
+    return getStratumName(km);
+  }, [propStratum, liveCamDist]);
+
+  const activeGrid = gridResolution || '3600 × 1801 (0.1°)';
+  const windStatusText = isWindActive ? 'rg16float (Active)' : 'Inactive';
+
   return (
-    <div className="pt-2 border-t border-[var(--theme-card-border)] text-nano space-y-2 shrink-0">
+    <div
+      data-testid="sidebar-telemetry-footer"
+      className="pt-2 border-t border-[var(--theme-card-border)] text-nano space-y-2 shrink-0"
+    >
+      {/* 1. Resolution Tier Selector */}
       <div className="space-y-1">
         <div className="flex items-center justify-between text-nano font-mono">
           <span className="uppercase font-bold tracking-wider opacity-60">Resolution</span>
@@ -98,6 +213,7 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
         </div>
       </div>
 
+      {/* 2. Geodetic Coordinates & Nominal Scale */}
       <div className="grid grid-cols-2 gap-2 tabular-nums text-[var(--theme-text-secondary)]">
         <div>
           <span className="block text-nano uppercase font-bold tracking-wider opacity-60">
@@ -115,6 +231,75 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
         </div>
       </div>
 
+      {/* 3. Manifold & Medium Provenance (Always-Visible Cross-Tab Readout) */}
+      <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-[var(--theme-card-border)] font-mono text-nano">
+        <div>
+          <span className="block text-nano uppercase font-bold tracking-wider opacity-60">Medium</span>
+          <span
+            data-testid="telemetry-medium"
+            className="font-bold text-[var(--theme-text-primary)] truncate block"
+            title={mediumFullName}
+          >
+            {mediumShortName}
+          </span>
+        </div>
+        <div>
+          <span className="block text-nano uppercase font-bold tracking-wider opacity-60">Projection</span>
+          <span
+            data-testid="telemetry-projection"
+            className="font-bold text-[var(--theme-text-primary)] truncate block"
+            title={`${modeName} projection mode`}
+          >
+            {modeName}
+          </span>
+        </div>
+        <div className="text-right">
+          <span className="block text-nano uppercase font-bold tracking-wider opacity-60">Manifold</span>
+          <span
+            data-testid="telemetry-manifold"
+            className="font-bold text-[var(--theme-text-accent)] truncate block"
+            title={`Manifold deformation state: ${unfurlState}`}
+          >
+            {unfurlState}
+          </span>
+        </div>
+      </div>
+
+      {/* 4. Atmospheric & Kinematic Telemetry (Always-Visible Cross-Tab Readout) */}
+      <div className="grid grid-cols-3 gap-1.5 font-mono text-nano">
+        <div>
+          <span className="block text-nano uppercase font-bold tracking-wider opacity-60">Stratum</span>
+          <span
+            data-testid="telemetry-stratum"
+            className="font-bold text-[var(--theme-status-amber)] truncate block"
+            title={`Atmospheric Stratum: ${currentStratum}`}
+          >
+            {currentStratum}
+          </span>
+        </div>
+        <div>
+          <span className="block text-nano uppercase font-bold tracking-wider opacity-60">Grid</span>
+          <span
+            data-testid="telemetry-grid-resolution"
+            className="font-bold text-[var(--theme-text-secondary)] truncate block tabular-nums"
+            title={`NOAA GFS / WeatherNext 3 Grid: ${activeGrid}`}
+          >
+            {activeGrid}
+          </span>
+        </div>
+        <div className="text-right">
+          <span className="block text-nano uppercase font-bold tracking-wider opacity-60">Wind Field</span>
+          <span
+            data-testid="telemetry-wind-field"
+            className={`font-bold truncate block ${isWindActive ? 'text-[var(--theme-status-sage)]' : 'text-[var(--theme-text-muted)]'}`}
+            title={`Wind Vector Field: ${windStatusText}`}
+          >
+            {isWindActive ? 'rg16f (On)' : 'Off'}
+          </span>
+        </div>
+      </div>
+
+      {/* 5. GPU Profiler */}
       <div className="pt-1.5 mt-0.5 border-t border-[var(--theme-card-border)] flex flex-col gap-1 text-nano text-[var(--theme-text-secondary)]">
         <div className="flex items-center justify-between font-bold">
           <div className="flex items-center gap-1.5">
