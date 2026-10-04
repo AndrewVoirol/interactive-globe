@@ -74,7 +74,23 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
       expect(sunCode).toContain('315');
       expect(sunCode).toContain('45');
       expect(sunCode).toContain('Sun Azimuth:');
-      expect(sunCode).toContain('Sun Alt:');
+      expect(sunCode).toContain('Sun Altitude:');
+    });
+
+    it('INST-03b: PolarSunCompass guards against SVG opacity discs and layout regressions', () => {
+      // SVG circle elements must specify fill="none" to prevent default black fill discs
+      expect(sunCode).toMatch(/<circle[^>]*r="46"[^>]*fill="none"/);
+      expect(sunCode).toMatch(/<circle[^>]*r="32"[^>]*fill="none"/);
+
+      // No disconnected corner notch div floating outside the circular dial
+      expect(sunCode).not.toContain('border-t-2 border-l-2');
+      expect(sunCode).not.toContain('-top-0.5 -left-0.5');
+
+      // Cardinal labels have breathing room inside the chapter ring (no ring line collision)
+      expect(sunCode).toMatch(/top-1[^>]*>N</);
+      expect(sunCode).toMatch(/right-1\.5[^>]*>E</);
+      expect(sunCode).toMatch(/bottom-1[^>]*>S</);
+      expect(sunCode).toMatch(/left-1\.5[^>]*>W</);
     });
   });
 

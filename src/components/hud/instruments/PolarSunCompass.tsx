@@ -86,7 +86,6 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
         dialBorder: 'border-[#3b597a]',
         ringBorder: 'border-[#3b597a]/40',
         axisColor: 'bg-[#3b597a]/50',
-        notchBorder: 'border-[#7BB8D4]',
         reticleBg: 'bg-[#7BB8D4]',
         reticleBorder: 'border-[#4A7A94]',
       }
@@ -96,7 +95,6 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
         dialBorder: 'border-[#b8ad98]',
         ringBorder: 'border-[#b8ad98]/50',
         axisColor: 'bg-[#b8ad98]/60',
-        notchBorder: 'border-[var(--theme-text-accent)]',
         reticleBg: 'bg-[var(--theme-slider-thumb-bg)]',
         reticleBorder: 'border-[var(--theme-slider-thumb-border)]',
       }
@@ -105,7 +103,6 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
         dialBorder: 'border-[#3a4d61]',
         ringBorder: 'border-[#3a4d61]/40',
         axisColor: 'bg-[#3a4d61]/50',
-        notchBorder: 'border-[var(--theme-text-accent)]',
         reticleBg: 'bg-[var(--theme-slider-thumb-bg)]',
         reticleBorder: 'border-[var(--theme-slider-thumb-border)]',
       };
@@ -128,7 +125,7 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
           <span className="text-[var(--theme-text-secondary)]">Sun Azimuth:</span>
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">{Math.round(azimuth)}°</span>
           <span className="opacity-40">•</span>
-          <span className="text-[var(--theme-text-secondary)]">Sun Alt:</span>
+          <span className="text-[var(--theme-text-secondary)]">Sun Altitude:</span>
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">{Math.round(altitude)}°</span>
         </div>
       </div>
@@ -175,8 +172,8 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
             {theme === 1 ? (
               // Cream Rag Paper: Intaglio copper compass rose & Roman cardinal markers
               <g className="compass-rose-cream text-[#8c4820] opacity-60">
-                <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="0.75" strokeDasharray="1 2" />
-                <circle cx="50" cy="50" r="32" stroke="currentColor" strokeWidth="0.5" />
+                <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="0.75" strokeDasharray="1 2" fill="none" />
+                <circle cx="50" cy="50" r="32" stroke="currentColor" strokeWidth="0.5" fill="none" />
                 {/* 8-point compass star */}
                 <polygon points="50,14 52,42 50,50 48,42" fill="currentColor" opacity="0.8" />
                 <polygon points="50,86 48,58 50,50 52,58" fill="currentColor" opacity="0.8" />
@@ -192,8 +189,8 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
             ) : theme === 2 ? (
               // Prussian Cyanotype: Architectural CAD protractor with 5° division ticks
               <g className="protractor-cyanotype text-[#4fa3e3] opacity-60">
-                <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="0.75" />
-                <circle cx="50" cy="50" r="34" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 2" />
+                <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="0.75" fill="none" />
+                <circle cx="50" cy="50" r="34" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 2" fill="none" />
                 {/* 5-degree and 15-degree division graduation ticks */}
                 {Array.from({ length: 24 }).map((_, i) => {
                   const rad = (i * 15 * Math.PI) / 180;
@@ -209,9 +206,9 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
             ) : (
               // Marie Tharp: Acoustic sonar beam sweep with concentric sounding depth rings
               <g className="sonar-sweep-tharp text-[#34d399] opacity-50">
-                <circle cx="50" cy="50" r="44" stroke="currentColor" strokeWidth="0.75" strokeDasharray="3 3" />
-                <circle cx="50" cy="50" r="30" stroke="currentColor" strokeWidth="0.75" />
-                <circle cx="50" cy="50" r="16" stroke="currentColor" strokeWidth="0.75" />
+                <circle cx="50" cy="50" r="44" stroke="currentColor" strokeWidth="0.75" strokeDasharray="3 3" fill="none" />
+                <circle cx="50" cy="50" r="30" stroke="currentColor" strokeWidth="0.75" fill="none" />
+                <circle cx="50" cy="50" r="16" stroke="currentColor" strokeWidth="0.75" fill="none" />
                 {/* Radial sounding vectors */}
                 <line x1="50" y1="50" x2={50 + Math.cos(angleRad) * 44} y2={50 + Math.sin(angleRad) * 44} stroke="#00e5ff" strokeWidth="1.2" opacity="0.85" />
                 <path d={`M 50 50 L ${50 + Math.cos(angleRad - 0.25) * 44} ${50 + Math.sin(angleRad - 0.25) * 44} A 44 44 0 0 1 ${50 + Math.cos(angleRad + 0.25) * 44} ${50 + Math.sin(angleRad + 0.25) * 44} Z`} fill="#00e5ff" opacity="0.12" />
@@ -236,16 +233,10 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
           ></div>
 
           {/* Cardinal Directions */}
-          <span className="absolute top-0.5 text-nano font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]">N</span>
-          <span className="absolute right-1 text-nano font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]">E</span>
-          <span className="absolute bottom-0.5 text-nano font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]">S</span>
-          <span className="absolute left-1 text-nano font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]">W</span>
-
-          {/* NW Imhof Sweetspot Notch (315° / 45°) */}
-          <div
-            className={`absolute -top-0.5 -left-0.5 w-2.5 h-2.5 border-t-2 border-l-2 ${tokens.notchBorder} pointer-events-none opacity-90`}
-            title="Swiss Relief NW Light Angle (315° / 45°)"
-          ></div>
+          <span className="absolute top-1 text-nano font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]">N</span>
+          <span className="absolute right-1.5 text-nano font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]">E</span>
+          <span className="absolute bottom-1 text-nano font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]">S</span>
+          <span className="absolute left-1.5 text-nano font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]">W</span>
 
           {/* Draggable Brass Sun Reticle */}
           <div
