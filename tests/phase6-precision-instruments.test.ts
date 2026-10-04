@@ -339,6 +339,36 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
       expect(shadowCode).toContain('shadow-projection-cyanotype');
       expect(shadowCode).toContain('shadow-projection-tharp');
     });
+
+    it('INST-19B: CloudShadowInstrument preserves cartographic datum, indicator clearance, and alignment invariants', () => {
+      // 1. Header alignment: pulse dot and title grouped, subtitle indented with pl-3, readout top aligned
+      expect(shadowCode).toContain('flex items-start justify-between text-micro');
+      expect(shadowCode).toContain('pl-3');
+      expect(shadowCode).toContain('pt-0.5');
+
+      // 2. Solar illumination wash: true 45° parallel beam, no clipped edge wedge at (0, 38)
+      expect(shadowCode).not.toContain('0,38 58,50');
+      expect(shadowCode).toContain('points="14,8 28,22 56,50 42,50 5,13"');
+
+      // 3. Terrestrial datum scale bar: rectangular datum, no colliding curved hump
+      expect(shadowCode).not.toContain('Q 75 48, 105 47 T 165 50');
+      expect(shadowCode).toContain('width="220"');
+
+      // 4. Zero unphysical connecting bridge stroke
+      expect(shadowCode).not.toContain('Dynamic Optical Extinction Bridge');
+
+      // 5. Clean caliper vertical indicator bounds (connecting badge bottom y=33 to thumb top y=45)
+      expect(shadowCode).toContain('y1="33"');
+      expect(shadowCode).toContain('y2="45"');
+      expect(shadowCode).not.toContain('y1="22"\n              x2={caliperX}\n              y2="53"');
+
+      // 6. Clamped badge coordinate to guarantee clearance
+      expect(shadowCode).toContain('badgeX = Math.max(18, Math.min(222, caliperX))');
+
+      // 7. Harmonized calibration track and subdivisions
+      expect(shadowCode).toContain('[30, 75, 120, 165, 210]');
+      expect(shadowCode).toContain('[45, 60, 90, 105, 135, 150, 180, 195]');
+    });
   });
 
   // --------------------------------------------------------------------------
