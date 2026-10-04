@@ -351,6 +351,32 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             LCL
           </text>
 
+          {/* Windward Moist Inflow Streamlines & Sparse 'Moist' Label */}
+          <path
+            d="M 18 112 Q 38 108 55 96 T 100 62"
+            fill="none"
+            stroke={tokens.cloudStroke}
+            strokeWidth="0.8"
+            strokeDasharray="3 2"
+            opacity="0.65"
+          />
+          <path d="M 36 102 L 39 99 L 42 102" fill="none" stroke={tokens.cloudStroke} strokeWidth="0.75" opacity="0.6" />
+          <path d="M 68 84 L 71 81 L 74 84" fill="none" stroke={tokens.cloudStroke} strokeWidth="0.75" opacity="0.7" />
+          <text
+            x="32"
+            y="90"
+            fontSize="6"
+            fontFamily="monospace"
+            fill={tokens.cloudStroke}
+            opacity="0.85"
+            fontWeight="bold"
+          >
+            Moist
+          </text>
+          {/* Condensation Vapor Droplet Pips */}
+          <circle cx="48" cy="98" r="1.1" fill={tokens.cloudStroke} opacity="0.5" />
+          <circle cx="74" cy="78" r="1.3" fill={tokens.cloudStroke} opacity="0.6" />
+          <circle cx="98" cy="62" r="1.5" fill={tokens.cloudStroke} opacity="0.7" />
 
           {/* Dynamic Windward Condensation Cloud Deck */}
           {/* Cloud mass expands upward and along the windward face based on rainShadowFeedback */}
@@ -365,6 +391,15 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             stroke={tokens.cloudStroke}
             strokeWidth="0.8"
             strokeDasharray="3 1"
+          />
+
+          {/* Summit Crest Condensation Cap */}
+          <path
+            d="M 132 38 Q 138 30 144 38"
+            fill="none"
+            stroke={tokens.cloudStroke}
+            strokeWidth="0.8"
+            opacity="0.75"
           />
 
           {/* Additional Billow Arcs along Windward Ascent */}
@@ -416,10 +451,23 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             strokeLinecap="round"
             className="drop-shadow-sm"
           />
+          {/* Hydrological River Ripples */}
+          <path
+            d="M 160 122 Q 165 120 170 122 T 180 122"
+            fill="none"
+            stroke={tokens.riverStroke}
+            strokeWidth="0.6"
+            opacity={0.3 + pluvialGamma * 0.35}
+          />
+          <path
+            d="M 185 122 Q 190 120 195 122 T 205 122"
+            fill="none"
+            stroke={tokens.riverStroke}
+            strokeWidth="0.6"
+            opacity={0.3 + pluvialGamma * 0.35}
+          />
 
-
-
-          {/* Leeward Foehn / Rain Shadow Subsidence Airflow */}
+          {/* Leeward Foehn / Rain Shadow Subsidence Airflow & Sparse 'Arid' Label */}
           <path
             d="M 148 42 Q 175 75 205 98 T 255 112"
             fill="none"
@@ -433,6 +481,28 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             fill={tokens.mountainStroke}
             opacity="0.65"
           />
+          <path
+            d="M 154 50 Q 180 80 208 102 T 248 116"
+            fill="none"
+            stroke={tokens.mountainStroke}
+            strokeWidth="0.6"
+            strokeDasharray="2 3"
+            opacity="0.4"
+          />
+          <text
+            x="228"
+            y="90"
+            fontSize="6"
+            fontFamily="monospace"
+            fill={tokens.mountainStroke}
+            opacity="0.8"
+            fontWeight="bold"
+          >
+            Arid
+          </text>
+          {/* Rain Shadow Arid Surface Desiccation Cues */}
+          <line x1="220" y1="114" x2="228" y2="114" stroke={tokens.mountainStroke} strokeWidth="0.6" strokeDasharray="1.5 2" opacity="0.4" />
+          <line x1="235" y1="115" x2="245" y2="115" stroke={tokens.mountainStroke} strokeWidth="0.6" strokeDasharray="1.5 2" opacity="0.4" />
 
 
 
