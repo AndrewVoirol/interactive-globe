@@ -219,24 +219,24 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           ></div>
         </div>
 
-        {/* Sea Level Caliper Reticle Line */}
+        {/* Sea Level Caliper Reticle Line with Vertically Offset Badge */}
         <div
           className={`absolute left-0 right-0 h-0.5 pointer-events-none ${tokens.caliperLine} shadow-[0_1px_4px_rgba(0,0,0,0.4)]`}
           style={{ bottom: `${waterPct}%` }}
         >
-          <div className={`absolute right-1.5 -top-2.5 px-1 py-px rounded-[2px] border font-mono font-bold text-nano ${tokens.caliperBadge}`}>
+          <div className={`absolute right-1.5 ${seaLevelOffset > 75 ? 'top-1' : '-top-4.5'} px-1 py-px rounded-[2px] border font-mono font-bold text-nano shadow-sm ${tokens.caliperBadge}`}>
             ◄ CALIPER ►
           </div>
         </div>
 
-        {/* Reference Geological Markers */}
-        <div className="absolute left-1.5 top-1 text-nano font-mono pointer-events-none opacity-80 text-[var(--theme-text-secondary)]">
+        {/* Reference Geological Markers with Dynamic Proximity Fade/Shift */}
+        <div className={`absolute left-1.5 top-1 text-nano font-mono pointer-events-none transition-opacity duration-150 ${seaLevelOffset >= 80 ? 'opacity-40' : 'opacity-80'} text-[var(--theme-text-secondary)]`}>
           +100 m (Highstand)
         </div>
-        <div className="absolute left-1.5 top-[40%] text-nano font-mono font-bold pointer-events-none text-[var(--theme-text-accent)]">
+        <div className={`absolute left-1.5 ${Math.abs(seaLevelOffset) <= 15 ? 'top-[44%] opacity-70' : 'top-[39%] opacity-95'} px-1 rounded-[2px] bg-[var(--theme-card-bg)]/80 backdrop-blur-[1px] text-nano font-mono font-bold pointer-events-none text-[var(--theme-text-accent)] transition-all duration-150`}>
           0 m (Mean Sea Level)
         </div>
-        <div className="absolute left-1.5 bottom-1 text-nano font-mono pointer-events-none opacity-80 text-[var(--theme-text-secondary)]">
+        <div className={`absolute left-1.5 bottom-1 text-nano font-mono pointer-events-none transition-opacity duration-150 ${seaLevelOffset <= -135 ? 'opacity-40' : 'opacity-80'} text-[var(--theme-text-secondary)]`}>
           -150 m (Glacial Maximum)
         </div>
       </div>
