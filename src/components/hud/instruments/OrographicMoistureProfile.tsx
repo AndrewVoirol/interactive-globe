@@ -242,16 +242,19 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
       className={`p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${className}`}
     >
       {/* 1. Status Header */}
-      <div className="mb-1.5 font-mono">
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
+        <div className="flex items-center gap-1.5 min-w-0">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse shrink-0" />
-          <span className="font-bold tracking-wider text-micro text-[var(--theme-text-accent)] uppercase">
-            OROGRAPHIC MOISTURE
-          </span>
+          <div className="flex flex-col min-w-0">
+            <span className="font-bold tracking-wider text-[var(--theme-text-accent)] uppercase truncate">
+              OROGRAPHIC MOISTURE
+            </span>
+            <span className="text-nano text-[var(--theme-text-muted)] truncate">
+              Adiabatic Condensation Profile
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-1 text-nano mt-0.5 pl-[calc(0.375rem+6px)]">
-          <span className="text-[var(--theme-text-muted)]">Adiabatic Condensation Profile</span>
-          <span className="opacity-40 ml-auto">|</span>
+        <div className="flex items-center gap-1 font-mono text-nano shrink-0 ml-1">
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
             {(rainShadowFeedback * 100).toFixed(0)}%
           </span>
@@ -310,16 +313,6 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             </linearGradient>
           </defs>
 
-          {/* Background Earth Baseline & Sea Level */}
-          <line
-            x1="16"
-            y1="118"
-            x2="270"
-            y2="118"
-            stroke={tokens.mountainStroke}
-            strokeWidth="0.75"
-            opacity="0.6"
-          />
 
           {/* Terrestrial Mountain Elevation Cross-Section */}
           <path
@@ -344,7 +337,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             x="22"
             y="65"
             fontSize="5.5"
-            fontFamily="monospace"
+            fontFamily="var(--font-mono, monospace)"
             fill={tokens.lclLine}
             opacity="0.8"
             fontWeight="bold"
@@ -367,7 +360,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             x="32"
             y="89"
             fontSize="6.5"
-            fontFamily="monospace"
+            fontFamily="var(--font-mono, monospace)"
             fill={tokens.cloudStroke}
             opacity="0.9"
             fontWeight="bold"
@@ -386,7 +379,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
               60 - rainShadowFeedback * 25
             }, ${85 + rainShadowFeedback * 15} ${52 - rainShadowFeedback * 20} Q ${
               110 + rainShadowFeedback * 15
-            } ${38 - rainShadowFeedback * 16}, 138 38 L 138 68 Z`}
+            } ${38 - rainShadowFeedback * 16}, 138 38 Q 144 44, 138 68 L 56 68 Z`}
             fill="url(#windward-cloud-grad)"
             fillOpacity={0.15 + rainShadowFeedback * 0.72}
             stroke={tokens.cloudStroke}
@@ -417,12 +410,12 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
           )}
 
           {/* Vertical Rain Shaft Bracket & Precipitation Column connecting Crest to Valley Floor */}
-          {/* Continuous vertical guide line from summit crest to river channel */}
+          {/* Guide line from summit crest to caliper handle */}
           <line
             x1="162"
             y1="40"
             x2="162"
-            y2="118"
+            y2={pluvialThumbY - 6.5}
             stroke={tokens.rainStroke}
             strokeWidth="0.8"
             strokeDasharray="2 3"
@@ -518,7 +511,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             x="226"
             y="89"
             fontSize="6.5"
-            fontFamily="monospace"
+            fontFamily="var(--font-mono, monospace)"
             fill={tokens.mountainStroke}
             opacity="0.85"
             fontWeight="bold"
@@ -533,10 +526,12 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
           {theme === 1 ? (
             // Theme 1 (Cream Rag Paper): Victorian intaglio mountain hachures & engraving
             <g className="orographic-engraving-cream orographic-profile-cream text-[#8c4820]">
-              {/* Intaglio Geological Slope Hachures */}
+              {/* Intaglio Geological Slope Hachures conforming to mountain relief */}
               {Array.from({ length: 14 }).map((_, i) => {
                 const x = 54 + i * 6;
-                const yTop = 118 - (x - 48) * 0.95;
+                const t = Math.max(0, Math.min(1, (x - 48) / 88));
+                const mt = 1 - t;
+                const yTop = Math.round(mt * mt * mt * 118 + 3 * mt * mt * t * 118 + 3 * mt * t * t * 74 + t * t * t * 36);
                 return (
                   <line
                     key={i}
@@ -640,7 +635,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             {/* Value Callout Badge */}
             <rect
               x={cloudThumbX - 22}
-              y={cloudThumbY - 18}
+              y={cloudThumbY - 21}
               width="44"
               height="12"
               rx="2"
@@ -651,11 +646,11 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             />
             <text
               x={cloudThumbX}
-              y={cloudThumbY - 9.5}
+              y={cloudThumbY - 12.5}
               textAnchor="middle"
               fill={tokens.caliperBadgeText}
               fontSize="7"
-              fontFamily="monospace"
+              fontFamily="var(--font-mono, monospace)"
               fontWeight="bold"
             >
               {(rainShadowFeedback * 100).toFixed(0)}%
@@ -671,9 +666,9 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
               x2={pluvialThumbX}
               y2="118"
               stroke={tokens.rainStroke}
-              strokeWidth="1.2"
-              strokeDasharray="1.5 2"
-              opacity="0.8"
+              strokeWidth="0.8"
+              strokeDasharray="2 3"
+              opacity={0.4 + pluvialGamma * 0.3}
             />
             <circle
               cx={pluvialThumbX}
@@ -687,9 +682,9 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             <circle cx={pluvialThumbX} cy={pluvialThumbY} r="2.5" fill={tokens.rainStroke} />
             {/* Value Callout Badge */}
             <rect
-              x={pluvialThumbX + 8}
+              x={pluvialThumbX + 11}
               y={pluvialThumbY - 6}
-              width="36"
+              width="34"
               height="12"
               rx="2"
               fill={tokens.caliperBadgeBg}
@@ -698,12 +693,12 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
               className="drop-shadow"
             />
             <text
-              x={pluvialThumbX + 26}
+              x={pluvialThumbX + 28}
               y={pluvialThumbY + 2.5}
               textAnchor="middle"
               fill={tokens.caliperBadgeText}
               fontSize="7"
-              fontFamily="monospace"
+              fontFamily="var(--font-mono, monospace)"
               fontWeight="bold"
             >
               {pluvialGamma.toFixed(1)}×
@@ -775,11 +770,11 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
 
       {/* 4. Footer & Reset Action */}
       <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border)]/50 opacity-80">
-        <span className="truncate">OROGRAPHIC PROFILE (0.0–1.0 / 0.0–2.0×)</span>
+        <span className="truncate font-bold tracking-wide">OROGRAPHIC COUPLING & PLUVIAL RUNOFF</span>
         <button
           type="button"
           onClick={handleReset}
-          className="inline-flex items-center justify-center min-h-[22px] px-1.5 py-0.5 -my-0.5 -mr-1 rounded-[1px] font-bold hover:underline text-[var(--theme-text-accent)] cursor-pointer shrink-0 ml-1"
+          className="inline-flex items-center justify-center min-h-[20px] px-1.5 py-0.5 rounded-[1px] font-bold hover:underline text-[var(--theme-text-accent)] cursor-pointer shrink-0 ml-1"
         >
           [RESET]
         </button>
