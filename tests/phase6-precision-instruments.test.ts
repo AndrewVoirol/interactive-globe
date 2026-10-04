@@ -381,6 +381,31 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
       expect(driftCode).toContain('drift-chronometer-cyanotype');
       expect(driftCode).toContain('drift-chronometer-tharp');
     });
+
+    it('INST-22b: CloudDriftSpeedInstrument guarantees non-colliding caliper stem, buffered chevrons, and inline pulse dot', () => {
+      // 1. Status header alignment: pulse indicator is inline with CLOUD DRIFT and subtitle is indented
+      expect(driftCode).toContain('flex items-center gap-1.5');
+      expect(driftCode).toContain('Kinematic Temporal Motion');
+      expect(driftCode).toContain('truncate pl-3');
+
+      // 2. Caliper vertical hairline stem terminates at bottom diamond apex (y=34), preventing collision with milestone ticks
+      expect(driftCode).toContain('y1="13"');
+      expect(driftCode).toContain('y2="34"');
+      expect(driftCode).not.toContain('y2="49"');
+
+      // 3. Milestone tick morphology at 500x matches clean tick lines, eliminating collision under reticle
+      expect(driftCode).not.toContain('polygon points="70,41');
+
+      // 4. Gale chevrons (1750x) buffered with 8px clearance before storm cloud filaments
+      expect(driftCode).toContain('M 180 24.5 L 184 28');
+      expect(driftCode).not.toContain('M 198 24.5 L 202 28');
+
+      // 5. Theme 1 Robinson anemometer has bearing collar base and clearance above streamline
+      expect(driftCode).toContain('Central Anemometer Spindle & Bearing Collar');
+      expect(driftCode).not.toContain('polygon points="204,23');
+      expect(driftCode).toContain('line x1="206" y1="5" x2="206" y2="17"');
+      expect(driftCode).toContain('d="M 115 14 C 145 15, 175 16, 226 16"');
+    });
   });
 
   // --------------------------------------------------------------------------

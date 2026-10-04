@@ -134,7 +134,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
   // Reticle coordinate calculation
   const normSpeed = Math.max(0, Math.min(2000, cloudDriftSpeed)) / 2000;
   const thumbX = Math.round(20 + normSpeed * 200);
-  const badgeX = Math.max(22, Math.min(218, thumbX));
+  const badgeX = Math.max(16, Math.min(224, thumbX));
 
   // Medium tokens for SVG and HUD elements
   const tokens =
@@ -174,19 +174,19 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
       className={`p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${className}`}
     >
       {/* 1. Status Header */}
-      <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse shrink-0" />
-          <div className="flex flex-col min-w-0">
+      <div className="flex items-start justify-between text-micro mb-1.5 font-mono">
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse shrink-0" />
             <span className="font-bold tracking-wider text-[var(--theme-text-accent)] uppercase truncate">
               CLOUD DRIFT
             </span>
-            <span className="text-nano text-[var(--theme-text-muted)] truncate">
-              Kinematic Temporal Motion
-            </span>
           </div>
+          <span className="text-nano text-[var(--theme-text-muted)] truncate pl-3">
+            Kinematic Temporal Motion
+          </span>
         </div>
-        <div className="flex items-center gap-1 font-mono text-nano shrink-0 ml-1">
+        <div className="flex items-center gap-1 font-mono text-nano shrink-0 ml-1.5 pt-0.5">
           <span className="text-[var(--theme-text-secondary)]">Velocity:</span>
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
             {Math.round(cloudDriftSpeed)}×
@@ -256,7 +256,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
             opacity="0.5"
           />
           <path
-            d="M 115 14 C 145 13, 185 13, 226 12"
+            d="M 115 14 C 145 15, 175 16, 226 16"
             fill="none"
             stroke="url(#streamline-glow-grad)"
             strokeWidth="0.85"
@@ -295,7 +295,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
             {/* Brisk 1250x chevrons */}
             <path d="M 142 25 L 146 28 L 142 31 M 147 25 L 151 28 L 147 31" fill="none" stroke={tokens.accentColor} strokeWidth="1.1" opacity="0.8" />
             {/* Gale/Storm 1750x triple chevrons */}
-            <path d="M 188 24.5 L 192 28 L 188 31.5 M 193 24.5 L 197 28 L 193 31.5 M 198 24.5 L 202 28 L 198 31.5" fill="none" stroke={tokens.accentColor} strokeWidth="1.2" opacity="0.9" />
+            <path d="M 180 24.5 L 184 28 L 180 31.5 M 185 24.5 L 189 28 L 185 31.5 M 190 24.5 L 194 28 L 190 31.5" fill="none" stroke={tokens.accentColor} strokeWidth="1.2" opacity="0.9" />
           </g>
 
           {/* 3. Base Advection Track with Graduation Ticks */}
@@ -342,28 +342,28 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
           {activeTheme === 1 ? (
             // Theme 1: Archival Cream Rag (Robinson Cup Anemometer Engraving)
             <g className="drift-chronometer-cream text-[#8c4820]">
-              {/* Central Anemometer Spindle */}
-              <line x1="206" y1="7" x2="206" y2="23" stroke="#8c4820" strokeWidth="0.9" />
-              <polygon points="204,23 208,23 206,25" fill="#8c4820" />
+              {/* Central Anemometer Spindle & Bearing Collar */}
+              <line x1="206" y1="5" x2="206" y2="17" stroke="#8c4820" strokeWidth="0.9" />
+              <line x1="203" y1="17" x2="209" y2="17" stroke="#8c4820" strokeWidth="0.8" />
               {/* Horizontal Crossarms */}
-              <line x1="198" y1="12" x2="214" y2="12" stroke="#8c4820" strokeWidth="0.7" />
+              <line x1="198" y1="10" x2="214" y2="10" stroke="#8c4820" strokeWidth="0.7" />
               {/* Hemispherical Anemometer Cups */}
               <path
-                d="M 198 9.5 A 2.5 2.5 0 0 0 198 14.5 Z"
+                d="M 198 7.5 A 2.5 2.5 0 0 0 198 12.5 Z"
                 fill="#8c4820"
                 fillOpacity="0.5"
                 stroke="#8c4820"
                 strokeWidth="0.65"
               />
               <path
-                d="M 214 9.5 A 2.5 2.5 0 0 1 214 14.5 Z"
+                d="M 214 7.5 A 2.5 2.5 0 0 1 214 12.5 Z"
                 fill="#8c4820"
                 fillOpacity="0.7"
                 stroke="#8c4820"
                 strokeWidth="0.65"
               />
               {/* Rotational Intaglio Arc */}
-              <path d="M 199 7 Q 206 5 213 7" fill="none" stroke="#8c4820" strokeWidth="0.5" strokeDasharray="1.5 1.5" opacity="0.65" />
+              <path d="M 199 5 Q 206 3 213 5" fill="none" stroke="#8c4820" strokeWidth="0.5" strokeDasharray="1.5 1.5" opacity="0.65" />
             </g>
           ) : activeTheme === 2 ? (
             // Theme 2: Prussian Cyanotype (CAD Velocity Isotachs)
@@ -412,8 +412,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
           </text>
 
           {/* 500x Default Sweetspot */}
-          <line x1="70" y1="36" x2="70" y2="42" stroke={tokens.accentColor} strokeWidth="1.2" />
-          <polygon points="70,41 72,43 70,45 68,43" fill={tokens.accentColor} />
+          <line x1="70" y1="36" x2="70" y2="42" stroke={tokens.accentColor} strokeWidth="1" />
           <text x="70" y="52" textAnchor="middle" fill={tokens.accentColor} fontSize="5.5" fontFamily="monospace" fontWeight="bold">
             500×
           </text>
@@ -426,12 +425,12 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
 
           {/* 7. Draggable Chronometric Reticle Caliper */}
           <g>
-            {/* Vertical Hairline Crosshair */}
+            {/* Vertical Hairline Crosshair Stem */}
             <line
               x1={thumbX}
-              y1="7"
+              y1="13"
               x2={thumbX}
-              y2="49"
+              y2="34"
               stroke={tokens.reticleStroke}
               strokeWidth="1.2"
             />
