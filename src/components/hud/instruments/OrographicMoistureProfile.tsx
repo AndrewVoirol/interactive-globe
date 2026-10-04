@@ -238,6 +238,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
 
   return (
     <div
+      data-instrument="orographic-moisture"
       className={`p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${className}`}
     >
       {/* 1. Status Header */}
@@ -339,6 +340,16 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             strokeDasharray={thermodynamicGating ? '4 2' : '2 3'}
             opacity={thermodynamicGating ? '0.85' : '0.35'}
           />
+          <text
+            x="22"
+            y="65"
+            fontSize="5"
+            fontFamily="monospace"
+            fill={tokens.lclLine}
+            opacity="0.75"
+          >
+            LCL
+          </text>
 
 
           {/* Dynamic Windward Condensation Cloud Deck */}
