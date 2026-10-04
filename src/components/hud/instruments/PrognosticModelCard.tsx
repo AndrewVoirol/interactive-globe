@@ -390,19 +390,19 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
       className={`p-2 rounded-[3px] border shadow-sm transition-all space-y-2 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${className}`}
     >
       {/* 1. Status Header */}
-      <div className="flex items-center justify-between text-micro font-mono">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse shrink-0" />
-          <div className="flex flex-col min-w-0">
-            <span className="font-bold tracking-wider text-[var(--theme-text-accent)] uppercase">
+      <div className="flex items-start justify-between text-micro font-mono">
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse shrink-0" />
+            <span className="font-bold tracking-wider text-[var(--theme-text-accent)] uppercase truncate">
               PROGNOSTIC MODEL
             </span>
-            <span className="text-nano text-[var(--theme-text-muted)]">
-              Numerical Weather Prediction & Tensor Telemetry
-            </span>
           </div>
+          <span className="text-nano text-[var(--theme-text-muted)] truncate pl-3">
+            Numerical Weather Prediction & Tensor Telemetry
+          </span>
         </div>
-        <div className="flex items-center gap-1 font-mono text-nano shrink-0 ml-1">
+        <div className="flex items-center gap-1 font-mono text-nano shrink-0 ml-1.5 pt-0.5">
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
             {modelMetadata.badge}
           </span>
@@ -445,16 +445,36 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
             </pattern>
           </defs>
 
+          {/* Caliper Vertical Guideline (Rendered in background stratum so precision annotations float with halos above it) */}
+          <line
+            x1={caliperX}
+            y1="18"
+            x2={caliperX}
+            y2="96"
+            stroke={tokens.cursorColor}
+            strokeWidth="1.2"
+            strokeDasharray="3 1.5"
+          />
+
           {/* 3-Medium Adaptive Visual Artifacts */}
           {activeTheme === 1 ? (
             // Theme 1 (Cream Rag Paper): 19th-Century Synoptic Chart Isobar Engraving
             <g className="prognostic-model-cream text-[#8c4820]">
-              {/* Victorian Chart Neatline Frame */}
-              <rect x="10" y="8" width="260" height="94" fill="none" stroke="#8c4820" strokeWidth="0.5" strokeOpacity="0.4" />
-              <rect x="12" y="10" width="256" height="90" fill="none" stroke="#8c4820" strokeWidth="0.25" strokeOpacity="0.2" />
-
               {/* Title Cartouche Inscription */}
-              <text x="18" y="27" fill="#8c4820" fontSize="6" fontFamily="serif" fontStyle="italic" fontWeight="bold" opacity="0.85">
+              <text
+                x="18"
+                y="27"
+                fill="#8c4820"
+                fontSize="6"
+                fontFamily="serif"
+                fontStyle="italic"
+                fontWeight="bold"
+                paintOrder="stroke"
+                stroke={tokens.badgeBg}
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 Charta Synoptica Barometrica
               </text>
 
@@ -468,8 +488,8 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <text x="75" y="66" textAnchor="middle" fill="#8c4820" fontSize="5" fontFamily="serif" fontStyle="italic">
                 996 hPa
               </text>
-              <text x="96" y="52" fill="#8c4820" fontSize="5" fontFamily="monospace" opacity="0.75">1000</text>
-              <text x="106" y="44" fill="#8c4820" fontSize="5" fontFamily="monospace" opacity="0.75">1004</text>
+              <text x="96" y="52" fill="#8c4820" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1000</text>
+              <text x="106" y="44" fill="#8c4820" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1004</text>
 
               {/* High Pressure Anticyclone with Divergent Isobars */}
               <circle cx="210" cy="50" r="16" fill="none" stroke="#8c4820" strokeWidth="0.75" />
@@ -480,7 +500,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <text x="210" y="61" textAnchor="middle" fill="#8c4820" fontSize="5" fontFamily="serif" fontStyle="italic">
                 1024 hPa
               </text>
-              <text x="232" y="46" fill="#8c4820" fontSize="5" fontFamily="monospace" opacity="0.75">1020</text>
+              <text x="232" y="46" fill="#8c4820" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1020</text>
 
               {/* Beaufort Wind Barbs */}
               <g stroke="#8c4820" strokeWidth="0.6" fill="none">
@@ -499,7 +519,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               </g>
 
               {/* Frontal Boundary Incline Line with Intaglio Teeth */}
-              <path d="M 125 15 Q 135 50 155 100" fill="none" stroke="#8c4820" strokeWidth="1" />
+              <path d="M 125 18 Q 135 52 152 92" fill="none" stroke="#8c4820" strokeWidth="1" />
               <polygon points="128,30 134,34 130,37" fill="#8c4820" />
               <polygon points="135,55 141,59 137,62" fill="#8c4820" />
               <polygon points="144,80 150,84 146,87" fill="#8c4820" />
@@ -532,13 +552,13 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <line x1="180" y1="12" x2="180" y2="96" stroke="#4fa3e3" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
               <line x1="16" y1="54" x2="264" y2="54" stroke="#4fa3e3" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
 
-              <text x="20" y="27" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8">
+              <text x="20" y="27" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 CHUNK [0, 0] • 256×256
               </text>
-              <text x="105" y="27" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8">
+              <text x="105" y="27" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 CHUNK [0, 1] • 256×256
               </text>
-              <text x="195" y="27" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8">
+              <text x="195" y="27" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 CHUNK [0, 2] • 256×256
               </text>
 
@@ -565,10 +585,10 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               ))}
 
               {/* Tensor Metadata Inscriptions */}
-              <text x="20" y="74" fill="#a5d5ff" fontSize="5.5" fontFamily="monospace" fontWeight="bold">
+              <text x="20" y="74" fill="#a5d5ff" fontSize="5.5" fontFamily="monospace" fontWeight="bold" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 TENSOR: [B=1, T=24, C=6] FP16
               </text>
-              <text x="20" y="83" fill="#4fa3e3" fontSize="5" fontFamily="monospace" opacity="0.8">
+              <text x="20" y="83" fill="#4fa3e3" fontSize="5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 Tco1279 / N640 • 7424B ROW PITCH
               </text>
 
@@ -634,10 +654,10 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <polyline points="175,76 180,74 176,70" fill="none" stroke="#34d399" strokeWidth="1" />
 
               {/* Oceanographic Sounding Telemetry Inscriptions */}
-              <text x="18" y="27" fill="#00e5ff" fontSize="6.5" fontFamily="monospace" fontWeight="bold">
+              <text x="18" y="27" fill="#00e5ff" fontSize="6.5" fontFamily="monospace" fontWeight="bold" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 BAROCLINIC • Rossby λ = 4200 km
               </text>
-              <text x="18" y="35" fill="#34d399" fontSize="6" fontFamily="monospace" opacity="0.9">
+              <text x="18" y="35" fill="#34d399" fontSize="6" fontFamily="monospace" opacity="0.9" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 OCEANIC FLUX: Q = +142 W/m²
               </text>
 
@@ -670,7 +690,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           <g>
             {/* Top Indicator Flag with Readout */}
             <rect
-              x={Math.max(16, Math.min(226, caliperX - 19))}
+              x={Math.max(4, Math.min(238, caliperX - 19))}
               y="6"
               width="38"
               height="12"
@@ -682,7 +702,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               className="drop-shadow"
             />
             <text
-              x={Math.max(16, Math.min(226, caliperX - 19)) + 19}
+              x={Math.max(4, Math.min(238, caliperX - 19)) + 19}
               y="14.5"
               textAnchor="middle"
               fill={tokens.textColor}
@@ -692,17 +712,6 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
             >
               T+{leadTimeHours}h
             </text>
-
-            {/* Vertical Caliper Guideline */}
-            <line
-              x1={caliperX}
-              y1="18"
-              x2={caliperX}
-              y2="96"
-              stroke={tokens.cursorColor}
-              strokeWidth="1.2"
-              strokeDasharray="3 1.5"
-            />
 
             {/* Bottom Caliper Diamond */}
             <polygon

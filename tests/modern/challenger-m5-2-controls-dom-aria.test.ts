@@ -419,4 +419,93 @@ describe('Challenger 2: Milestone 5 DOM, ARIA & Medium Artifact Verification', (
       });
     });
   });
+
+  // ==========================================================================
+  // 8. Visual & Spatial Regression Invariants (§2 Clearance & §4 Enclosure)
+  // ==========================================================================
+  describe('8. Visual & Spatial Regression Invariants', () => {
+    it('M5-DOM-16: status header aligns pulse dot inline with title and prevents multiline subtitle overflow', async () => {
+      await act(async () => {
+        root.render(React.createElement(PrognosticModelCard, {}));
+      });
+
+      const pulseDot = container.querySelector('.bg-\\[var\\(--theme-pulse-indicator\\)\\]');
+      expect(pulseDot).not.toBeNull();
+      // The pulse indicator must share an inline flex parent with PROGNOSTIC MODEL
+      const titleRow = pulseDot?.parentElement;
+      expect(titleRow?.className).toContain('flex items-center gap-1.5');
+      expect(titleRow?.textContent).toContain('PROGNOSTIC MODEL');
+
+      // Subtitle must contain truncate and indentation to prevent multiline wrapping and ragged alignment
+      const subtitle = container.querySelector('.text-nano.text-\\[var\\(--theme-text-muted\\)\\]');
+      expect(subtitle?.className).toContain('truncate');
+      expect(subtitle?.className).toContain('pl-3');
+    });
+
+    it('M5-DOM-17: Theme 1 Cream Rag SVG excludes nested Victorian frame rects (Principle 16)', async () => {
+      await act(async () => {
+        root.render(React.createElement(PrognosticModelCard, { theme: 1 }));
+      });
+
+      const creamGroup = container.querySelector('.prognostic-model-cream');
+      expect(creamGroup).not.toBeNull();
+      // Zero nested frame rects inside the SVG chart
+      const innerNeatlineRects = creamGroup?.querySelectorAll('rect');
+      expect(innerNeatlineRects?.length ?? 0).toBe(0);
+    });
+
+    it('M5-DOM-18: Caliper top indicator flag centers precisely over vertical guideline and diamond', async () => {
+      // Test at T+0h (caliperX = 24)
+      await act(async () => {
+        root.render(React.createElement(PrognosticModelCard, { leadTimeHours: 0 }));
+      });
+
+      const badgeRectAt0 = container.querySelector('svg g rect.drop-shadow');
+      expect(badgeRectAt0).not.toBeNull();
+      const x0 = Number(badgeRectAt0?.getAttribute('x'));
+      const width0 = Number(badgeRectAt0?.getAttribute('width'));
+      // Center of badge must be exactly 24 (matching caliperX = 24)
+      expect(x0 + width0 / 2).toBe(24);
+
+      // Test at T+240h (caliperX = 256)
+      await act(async () => {
+        root.render(React.createElement(PrognosticModelCard, { leadTimeHours: 240 }));
+      });
+
+      const badgeRectAt240 = container.querySelector('svg g rect.drop-shadow');
+      const x240 = Number(badgeRectAt240?.getAttribute('x'));
+      const width240 = Number(badgeRectAt240?.getAttribute('width'));
+      // Center of badge must be exactly 256 (matching caliperX = 256)
+      expect(x240 + width240 / 2).toBe(256);
+    });
+
+    it('M5-DOM-19: Frontal boundary line terminates above chronometric axis line (y <= 92)', async () => {
+      await act(async () => {
+        root.render(React.createElement(PrognosticModelCard, { theme: 1 }));
+      });
+
+      const frontPath = container.querySelector('.prognostic-model-cream path');
+      expect(frontPath).not.toBeNull();
+      const d = frontPath?.getAttribute('d') || '';
+      expect(d).toContain('152 92');
+      // Must not plunge to y=100
+      expect(d).not.toContain('155 100');
+    });
+
+    it('M5-DOM-20: Archival text annotations in Theme 1 embed cartographic halos (paintOrder=stroke)', async () => {
+      await act(async () => {
+        root.render(React.createElement(PrognosticModelCard, { theme: 1 }));
+      });
+
+      const texts = Array.from(container.querySelectorAll('.prognostic-model-cream text'));
+      const cartouche = texts.find((t) => t.textContent?.includes('Charta Synoptica Barometrica'));
+      expect(cartouche?.getAttribute('paint-order') || cartouche?.getAttribute('paintOrder')).toBe('stroke');
+
+      const isobars = texts.filter((t) => ['1000', '1004', '1020'].includes(t.textContent || ''));
+      expect(isobars.length).toBe(3);
+      isobars.forEach((el) => {
+        expect(el.getAttribute('paint-order') || el.getAttribute('paintOrder')).toBe('stroke');
+      });
+    });
+  });
 });
