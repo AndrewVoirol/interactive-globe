@@ -80,10 +80,9 @@ describe('Challenger 2: Milestone 5 DOM, ARIA & Medium Artifact Verification', (
       expect(container.querySelector('.prognostic-model-cream')).toBeNull();
       expect(container.querySelector('.prognostic-model-cyanotype')).toBeNull();
 
-      expect(container.textContent).toContain('BAROCLINIC FLOW');
-      expect(container.textContent).toContain('Rossby Wave');
-      expect(container.textContent).toContain('OCEANIC HEAT FLUX');
-      expect(container.textContent).toContain('Sea Surface Boundary Layer');
+      expect(container.textContent).toContain('BAROCLINIC');
+      expect(container.textContent).toContain('Rossby');
+      expect(container.textContent).toContain('OCEANIC FLUX');
     });
 
     it('M5-DOM-04: Theme 1 (Cream Rag 310 GSM) renders .prognostic-model-cream and Victorian isobar engravings', async () => {
@@ -116,8 +115,8 @@ describe('Challenger 2: Milestone 5 DOM, ARIA & Medium Artifact Verification', (
       expect(container.textContent).toContain('CHUNK [0, 0]');
       expect(container.textContent).toContain('CHUNK [0, 1]');
       expect(container.textContent).toContain('CHUNK [0, 2]');
-      expect(container.textContent).toContain('TENSOR: [B=1, T=24, C=6, H=1801, W=3600] FP16');
-      expect(container.textContent).toContain('ROW PITCH: 7424 BYTES (256-BYTE ALIGNED)');
+      expect(container.textContent).toContain('TENSOR: [B=1, T=24, C=6] FP16');
+      expect(container.textContent).toContain('7424B ROW PITCH');
     });
   });
 

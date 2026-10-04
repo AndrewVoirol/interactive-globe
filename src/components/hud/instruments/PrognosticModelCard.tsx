@@ -386,6 +386,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
 
   return (
     <div
+      data-instrument="prognostic-model"
       className={`p-2 rounded-[3px] border shadow-sm transition-all space-y-2 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${className}`}
     >
       {/* 1. Status Header */}
@@ -393,10 +394,10 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse shrink-0" />
           <div className="flex flex-col min-w-0">
-            <span className="font-bold tracking-wider text-[var(--theme-text-accent)] uppercase truncate">
+            <span className="font-bold tracking-wider text-[var(--theme-text-accent)] uppercase">
               PROGNOSTIC MODEL
             </span>
-            <span className="text-nano text-[var(--theme-text-muted)] truncate">
+            <span className="text-nano text-[var(--theme-text-muted)]">
               Numerical Weather Prediction & Tensor Telemetry
             </span>
           </div>
@@ -435,7 +436,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
         <svg
           className="w-full h-full pointer-events-none"
           viewBox="0 0 280 110"
-          preserveAspectRatio="none"
+          preserveAspectRatio="xMidYMid meet"
         >
           <defs>
             <pattern id="prog-cyanotype-grid" width="16" height="16" patternUnits="userSpaceOnUse">
@@ -454,7 +455,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
 
               {/* Title Cartouche Inscription */}
               <text x="18" y="21" fill="#8c4820" fontSize="6" fontFamily="serif" fontStyle="italic" fontWeight="bold" opacity="0.85">
-                Charta Synoptica Barometrica — Isobaræ & Gradientia
+                Charta Synoptica Barometrica
               </text>
 
               {/* Low Pressure Depressions with Cyclonic Isobars */}
@@ -564,10 +565,10 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
 
               {/* Tensor Metadata Inscriptions */}
               <text x="20" y="88" fill="#a5d5ff" fontSize="6.5" fontFamily="monospace" fontWeight="bold">
-                TENSOR: [B=1, T=24, C=6, H=1801, W=3600] FP16
+                TENSOR: [B=1, T=24, C=6] FP16
               </text>
               <text x="20" y="96" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8">
-                SPECTRAL: Tco1279 / N640 • ROW PITCH: 7424 BYTES (256-BYTE ALIGNED)
+                Tco1279 / N640 • 7424B ROW PITCH
               </text>
 
               {/* Bottom Lead Time Scale */}
@@ -630,10 +631,10 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
 
               {/* Oceanographic Sounding Telemetry Inscriptions */}
               <text x="18" y="20" fill="#00e5ff" fontSize="6.5" fontFamily="monospace" fontWeight="bold">
-                BAROCLINIC FLOW • Rossby Wave: λ = 4200 km
+                BAROCLINIC • Rossby λ = 4200 km
               </text>
               <text x="18" y="28" fill="#34d399" fontSize="6" fontFamily="monospace" opacity="0.9">
-                OCEANIC HEAT FLUX: Q_net = +142 W/m² • Sea Surface Boundary Layer
+                OCEANIC FLUX: Q = +142 W/m²
               </text>
 
               {/* Radiosonde Sounding Ascent Trace */}
