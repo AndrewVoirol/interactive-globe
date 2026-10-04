@@ -92,7 +92,7 @@ export const CatalogSheet: React.FC<CatalogSheetProps> = ({
         </div>
 
         {/* Catalog List */}
-        <div className="overflow-y-auto space-y-2.5 pr-1 mt-3 flex-1 max-h-[calc(100vh-8rem)] pb-8 scroll-fade-mask pt-1">
+        <div className="overflow-y-auto space-y-2.5 pr-1 mt-3 flex-1 min-h-0 pb-4 scroll-fade-mask pt-1">
           {DATA_LAYER_CATALOG.filter((preset) => {
             if (catalogFilter === 'all') return true;
             if (catalogFilter === 'topo') {
@@ -118,13 +118,29 @@ export const CatalogSheet: React.FC<CatalogSheetProps> = ({
                     <div className="flex items-center gap-1.5">
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
-                          preset.category === 'topo'
-                            ? 'bg-amber-400'
-                            : preset.category === 'satellite'
-                            ? 'bg-cyan-400'
-                            : preset.category === 'vectors'
-                            ? 'bg-purple-400'
-                            : 'bg-[var(--theme-status-sage)]'
+                          theme === 1
+                            ? (preset.category === 'topo'
+                                ? 'bg-[#8c4820]'
+                                : preset.category === 'satellite'
+                                ? 'bg-[#2b6b88]'
+                                : preset.category === 'vectors'
+                                ? 'bg-[#7d4700]'
+                                : 'bg-[#2e6b47]')
+                            : theme === 2
+                            ? (preset.category === 'topo'
+                                ? 'bg-[#7dd3fc]'
+                                : preset.category === 'satellite'
+                                ? 'bg-[#38bdf8]'
+                                : preset.category === 'vectors'
+                                ? 'bg-[#b8d0e8]'
+                                : 'bg-[#9fc2e4]')
+                            : (preset.category === 'topo'
+                                ? 'bg-[#c86d51]'
+                                : preset.category === 'satellite'
+                                ? 'bg-[#38bdf8]'
+                                : preset.category === 'vectors'
+                                ? 'bg-[#f59e0b]'
+                                : 'bg-[var(--theme-status-sage)]')
                         }`}
                       />
                       <span className="font-semibold text-nano tracking-tight text-[var(--theme-text-primary)] truncate block">
@@ -138,7 +154,23 @@ export const CatalogSheet: React.FC<CatalogSheetProps> = ({
 
                   <span
                     className={`text-nano px-1.5 py-0.5 rounded-[2px] border font-bold uppercase shrink-0 ${
-                      preset.category === 'topo'
+                      theme === 2
+                        ? preset.category === 'topo'
+                          ? 'bg-[#3b6b99]/25 text-[#9fc2e4] border-[#5c82a6]/40'
+                          : preset.category === 'satellite'
+                          ? 'bg-[#38bdf8]/20 text-[#bae6fd] border-[#38bdf8]/40'
+                          : preset.category === 'vectors'
+                          ? 'bg-[#7dd3fc]/20 text-[#e0f2fe] border-[#7dd3fc]/40'
+                          : 'bg-[#4a729e]/20 text-[#caddf0] border-[#4a729e]/40'
+                        : theme === 0
+                        ? preset.category === 'topo'
+                          ? 'bg-[#c86d51]/20 text-[#fdba74] border-[#c86d51]/40'
+                          : preset.category === 'satellite'
+                          ? 'bg-[#10b981]/20 text-[#6ee7b7] border-[#10b981]/40'
+                          : preset.category === 'vectors'
+                          ? 'bg-[#f59e0b]/20 text-[#fcd34d] border-[#f59e0b]/40'
+                          : 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40'
+                        : preset.category === 'topo'
                         ? 'bg-[#2e6b47]/15 text-[#1b432b] border-[#2e6b47]/30'
                         : preset.category === 'satellite'
                         ? 'bg-[#2b6b88]/15 text-[#1a4457] border-[#2b6b88]/30'
@@ -190,7 +222,11 @@ export const CatalogSheet: React.FC<CatalogSheetProps> = ({
                     }}
                     className={`px-3 py-1.5 rounded-[2px] text-nano font-bold border transition-all flex items-center gap-1.5 ${
                       preset.unsupported
-                        ? 'opacity-40 cursor-not-allowed bg-zinc-800 text-zinc-400 border-zinc-700'
+                        ? theme === 1
+                          ? 'opacity-50 cursor-not-allowed bg-[#e2dcce] text-[#787062] border-[#c4bcac]'
+                          : theme === 2
+                          ? 'opacity-40 cursor-not-allowed bg-[#142334] text-[#6b8aa8] border-[#20364d]'
+                          : 'opacity-40 cursor-not-allowed bg-zinc-800 text-zinc-400 border-zinc-700'
                         : isAlreadyAdded
                         ? theme === 1
                           ? 'bg-[#2e6b47]/15 text-[#1b432b] border-[#2e6b47]/30 cursor-default font-semibold'

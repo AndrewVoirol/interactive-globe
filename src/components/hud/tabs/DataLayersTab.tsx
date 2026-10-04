@@ -82,15 +82,22 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
 
         <button
           onClick={() => setIsCatalogOpen(!isCatalogOpen)}
+          title={isCatalogOpen ? 'Close Catalog Sheet' : 'Open Data Layer Catalog'}
           className={`text-nano font-semibold px-2.5 py-1 rounded-[2px] border transition-all flex items-center gap-1.5 cursor-pointer ${
             isCatalogOpen
               ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-md font-semibold'
               : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
           }`}
         >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-          </svg>
+          {isCatalogOpen ? (
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          )}
           <span>{isCatalogOpen ? 'Close Catalog' : '+ Catalog'}</span>
         </button>
       </div>
@@ -146,51 +153,64 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                         </svg>
                       </button>
 
-                      <div className="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
-                        <span
-                          className="text-nano font-mono font-bold px-1 py-px rounded-[1px] border shrink-0 uppercase tracking-wider select-none"
-                          style={{
-                            borderColor: stratum.border,
-                            backgroundColor: stratum.bg,
-                            color: stratum.text,
-                          }}
-                          title={`Stratum Category: ${preset?.category || layer.category || 'data'}`}
-                        >
-                          {stratum.label}
-                        </span>
-
-                        <span
-                          className="leading-tight break-words text-nano font-bold cursor-pointer hover:text-[var(--theme-text-accent)]"
-                          title={layer.name}
-                          onClick={() => setExpandedLayerId(isExpanded ? null : layer.id)}
-                        >
-                          {layer.name}
-                        </span>
-
-                        {legend?.colorStops && legend.colorStops.length > 0 && (
-                          <div
-                            className="h-1.5 w-6 rounded-[1px] border border-black/20 shadow-2xs shrink-0 self-center opacity-90 hover:opacity-100 transition-opacity"
+                      <div className="flex flex-col min-w-0 flex-1 gap-0.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span
+                            className="text-nano font-mono font-bold px-1 py-px rounded-[1px] border shrink-0 uppercase tracking-wider select-none"
                             style={{
-                              background: `linear-gradient(to right, ${legend.colorStops.join(', ')})`,
+                              borderColor: stratum.border,
+                              backgroundColor: stratum.bg,
+                              color: stratum.text,
                             }}
-                            title={`Pigment Preview: ${legend.minLabel || ''} → ${legend.maxLabel || ''} (${legend.unit || ''})`}
-                          />
-                        )}
+                            title={`Stratum Category: ${preset?.category || layer.category || 'data'}`}
+                          >
+                            {stratum.label}
+                          </span>
 
-                        {isPrimaryRaster && (
-                          <span className="text-nano font-mono px-1 py-px rounded border bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 font-semibold" title="Active Base Raster rendered on planetary crust">
-                            (Active Raster)
+                          <span
+                            className="leading-tight truncate text-nano font-bold cursor-pointer hover:text-[var(--theme-text-accent)] min-w-0 flex-1"
+                            title={layer.name}
+                            onClick={() => setExpandedLayerId(isExpanded ? null : layer.id)}
+                          >
+                            {layer.name}
                           </span>
-                        )}
-                        {isShadowedRaster && (
-                          <span className="text-nano font-mono px-1 py-px rounded border bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40" title="This raster dataset is occluded by a higher active raster layer in the Z-order stack">
-                            (Shadowed by higher raster layer)
-                          </span>
-                        )}
-                        {preset?.unsupported && (
-                          <span className="text-nano font-mono px-1 py-px rounded border bg-rose-500/20 text-rose-300 border-rose-500/40">
-                            [UNSUPPORTED]
-                          </span>
+
+                          {legend?.colorStops && legend.colorStops.length > 0 && (
+                            <div
+                              className="h-1.5 w-6 rounded-[1px] border border-black/20 shadow-2xs shrink-0 opacity-90 hover:opacity-100 transition-opacity ml-auto"
+                              style={{
+                                background: `linear-gradient(to right, ${legend.colorStops.join(', ')})`,
+                              }}
+                              title={`Pigment Preview: ${legend.minLabel || ''} → ${legend.maxLabel || ''} (${legend.unit || ''})`}
+                            />
+                          )}
+                        </div>
+
+                        {(isPrimaryRaster || isShadowedRaster || preset?.unsupported) && (
+                          <div className="flex items-center gap-1.5 pl-0.5">
+                            {isPrimaryRaster && (
+                              <span className="text-nano font-mono px-1 py-px rounded border bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 font-semibold" title="Active Base Raster rendered on planetary crust">
+                                (Active Raster)
+                              </span>
+                            )}
+                            {isShadowedRaster && (
+                              <span
+                                className={`text-nano font-mono px-1 py-px rounded border ${
+                                  theme === 2
+                                    ? 'bg-[#38bdf8]/15 text-[#bae6fd] border-[#38bdf8]/35'
+                                    : 'bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40'
+                                }`}
+                                title="This raster dataset is occluded by a higher active raster layer in the Z-order stack"
+                              >
+                                (Shadowed by higher raster layer)
+                              </span>
+                            )}
+                            {preset?.unsupported && (
+                              <span className="text-nano font-mono px-1 py-px rounded border bg-rose-500/20 text-rose-300 border-rose-500/40">
+                                [UNSUPPORTED]
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -205,12 +225,12 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                               ? 'border-[#2b6b88]/60 bg-[#2b6b88]/15 text-[#1a4457] shadow-sm hover:border-[var(--theme-card-border-hover)]'
                               : theme === 2
                               ? 'border-[#4a729e]/80 bg-[#254263]/40 text-[#e8edf2] shadow-sm hover:border-[var(--theme-card-border-hover)]'
-                              : 'border-sky-400/80 bg-sky-500/20 text-sky-400 shadow-sm ring-1 ring-sky-400/40 hover:border-[var(--theme-card-border-hover)]'
+                              : 'border-[var(--theme-control-active-border)] bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] shadow-sm hover:border-[var(--theme-card-border-hover)]'
                             : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-secondary)] hover:border-[var(--theme-card-border-hover)]'
                         }`}
                       >
                         {layer.visible ? (
-                          <svg className={`w-3.5 h-3.5 ${theme === 1 ? 'text-[#1a4457]' : theme === 2 ? 'text-[#d8e6f3]' : 'text-sky-500 dark:text-sky-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className={`w-3.5 h-3.5 ${theme === 1 ? 'text-[#1a4457]' : theme === 2 ? 'text-[#d8e6f3]' : 'text-[var(--theme-control-active-text)]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
@@ -229,7 +249,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                             ? 'border-[#9c2f2f]/40 text-[#9c2f2f] hover:bg-[#9c2f2f]/15'
                             : theme === 2
                             ? 'border-[#d05c5c]/40 text-[#f08080] hover:bg-[#d05c5c]/20'
-                            : 'border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
+                            : 'border-[#c05646]/40 text-[#d97768] hover:bg-[#c05646]/20'
                         }`}
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -248,7 +268,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                     style={{ transitionTimingFunction: 'var(--theme-spring-switch, cubic-bezier(0.34, 1.35, 0.64, 1))' }}
                   >
                     <div className="flex items-center gap-1.5 text-nano pt-1.5">
-                      <span className="text-[var(--theme-text-secondary)] font-bold text-nano uppercase tracking-wider">Opacity:</span>
+                      <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">Opacity:</span>
                       <input
                         id={`sidebar-opacity-${layer.id}`}
                         name={`opacity-${layer.id}`}
@@ -273,7 +293,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                     </div>
 
                     {(layer.renderStyle === 'architectural' || layer.id === 'architectural-topo-relief') && (
-                      <div className="pt-1.5 border-t border-white/10 space-y-1 text-micro">
+                      <div className="pt-1.5 border-t border-[var(--theme-panel-header-border)] space-y-1 text-micro">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">
                             AO:
@@ -297,7 +317,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                             className="w-full slider-archival cursor-pointer h-1 rounded-[1px]"
                           />
                           <span
-                            className="w-8 text-right font-bold text-[var(--theme-text-primary)] tabular-nums cursor-pointer select-none"
+                            className="w-8 text-right font-semibold text-[var(--theme-text-primary)] tabular-nums cursor-pointer select-none"
                             title="Double-click to reset: 65%"
                             onDoubleClick={() =>
                               onAmbientOcclusionChangeDataLayer?.(layer.id, 0.65)
@@ -310,14 +330,14 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                     )}
 
                     {legend && (
-                      <div className="space-y-1 pt-1 border-t border-white/10">
+                      <div className="space-y-1 pt-1 border-t border-[var(--theme-panel-header-border)]">
                         <div className="flex items-center justify-between text-nano text-[var(--theme-text-muted)] font-bold">
                           <span>{legend.minLabel}</span>
                           <span className={`uppercase tracking-wider ${theme === 1 ? 'text-[#1a4457] font-semibold' : 'text-[var(--theme-accent-primary)]'}`}>{legend.unit}</span>
                           <span>{legend.maxLabel}</span>
                         </div>
                         <div
-                          className="h-1.5 rounded-full w-full border border-white/10 shadow-inner"
+                          className="h-1.5 rounded-full w-full border border-[var(--theme-card-border)] shadow-inner"
                           style={{
                             background: `linear-gradient(to right, ${legend.colorStops.join(', ')})`,
                           }}

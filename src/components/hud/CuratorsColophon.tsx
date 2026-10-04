@@ -51,7 +51,7 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
     <div
       className={`rounded-[3px] border p-3 font-mono text-nano transition-all shadow-sm select-none ${
         theme === 1
-          ? 'bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[#4A3B32]'
+          ? 'bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[#4A3B32]'
           : theme === 2
           ? 'bg-[#0E1E2E]/90 border-[#2A4B6E] text-[#B0D2F0]'
           : 'bg-[#0F171F]/90 border-[#22384A] text-[var(--theme-text-accent)]'
@@ -67,27 +67,27 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
       {/* Primary Specimen & Manifold */}
       <div className="space-y-1.5 text-nano leading-tight">
         <div>
-          <span className="opacity-60 block text-micro uppercase tracking-wider">Medium:</span>
-          <span className="font-semibold text-current">{mediumName}</span>
+          <span className="opacity-60 block text-nano uppercase tracking-wider font-medium">Medium:</span>
+          <span className="text-micro font-semibold text-current">{mediumName}</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2 pt-0.5">
           <div>
-            <span className="opacity-60 block text-micro uppercase tracking-wider">State:</span>
-            <span className="font-semibold text-current">{unfurlState}</span>
+            <span className="opacity-60 block text-nano uppercase tracking-wider font-medium">State:</span>
+            <span className="text-micro font-semibold text-current">{unfurlState}</span>
           </div>
           <div>
-            <span className="opacity-60 block text-micro uppercase tracking-wider">Projection:</span>
-            <span className="font-semibold text-current">{modeName}</span>
+            <span className="opacity-60 block text-nano uppercase tracking-wider font-medium">Projection:</span>
+            <span className="text-micro font-semibold text-current">{modeName}</span>
           </div>
         </div>
 
         {/* Data Provenance Ledger */}
         <div className="pt-2 border-t border-current/15 space-y-1">
-          <span className="opacity-60 block text-micro uppercase tracking-wider font-bold">
+          <span className="opacity-70 block text-nano uppercase tracking-wider font-bold">
             Provenance
           </span>
-          <ul className="space-y-1 opacity-85 text-body pl-1">
+          <ul className="space-y-1 opacity-85 text-nano pl-0.5 leading-snug">
             <li className="flex items-start gap-1">
               <span className="opacity-50 select-none">•</span>
               <span>
