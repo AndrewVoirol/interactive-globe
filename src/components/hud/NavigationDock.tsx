@@ -211,7 +211,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
       style={{ fontFamily: 'var(--theme-font-telemetry)' }}
     >
       <div
-        className={`flex items-center gap-3 px-5 py-2 rounded-[3px] shadow-2xl pointer-events-auto border transition-colors relative scroll-curl-lip max-w-[calc(100vw-2.5rem)] overflow-x-auto scrollbar-none bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] ${
+        className={`flex items-center gap-3 px-5 pt-2.5 pb-7 rounded-[3px] shadow-2xl pointer-events-auto border transition-colors relative scroll-curl-lip max-w-[calc(100vw-2.5rem)] overflow-x-auto scrollbar-none bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] ${
           theme === 1 ? 'paper-cream-panel' : theme === 2 ? 'paper-cyanotype' : 'paper-tharp'
         }`}
       >

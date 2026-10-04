@@ -104,8 +104,8 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         thumbFill: '#e8edf2',
         thumbStroke: '#4f79a3',
         activeTick: '#a5d5ff',
-        inactiveTick: 'rgba(232, 237, 242, 0.25)',
-        rayStroke: 'rgba(232, 237, 242, 0.08)',
+        inactiveTick: 'rgba(232, 237, 242, 0.45)',
+        rayStroke: 'rgba(232, 237, 242, 0.15)',
       }
     : theme === 1
     ? {
@@ -113,16 +113,16 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         thumbFill: '#fdfcf9',
         thumbStroke: '#8c4820',
         activeTick: '#8c4820',
-        inactiveTick: 'rgba(43, 36, 26, 0.25)',
-        rayStroke: 'rgba(43, 36, 26, 0.12)',
+        inactiveTick: 'rgba(43, 36, 26, 0.45)',
+        rayStroke: 'rgba(43, 36, 26, 0.18)',
       }
     : {
         arcStroke: '#3b788a',
         thumbFill: '#f0ede6',
         thumbStroke: 'var(--theme-text-accent)',
         activeTick: 'var(--theme-text-accent)',
-        inactiveTick: 'rgba(240, 237, 230, 0.25)',
-        rayStroke: 'rgba(240, 237, 230, 0.08)',
+        inactiveTick: 'rgba(240, 237, 230, 0.45)',
+        rayStroke: 'rgba(240, 237, 230, 0.15)',
       };
 
   const [dragAlpha, setDragAlpha] = useState<number | null>(null);
@@ -297,7 +297,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   return (
     <div
       data-instrument="curvature-unfurl-sextant"
-      className="flex flex-col items-center w-72 sm:w-80 md:w-[350px] select-none"
+      className="relative flex flex-col items-center w-72 sm:w-80 md:w-[350px] select-none"
     >
       {/* Interactive Sextant Arc Scrubber */}
       <div
@@ -386,18 +386,12 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         style={{ touchAction: 'none' }}
       >
         <svg className="w-full h-full pointer-events-none" viewBox="0 0 240 36" preserveAspectRatio="xMidYMid meet">
-          {/* Radial reference rays */}
-          <line x1="120" y1="34" x2="15" y2="10" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="68" y2="6" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="120" y2="4" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="172" y2="6" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="225" y2="10" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
-
-          {/* Magnetic tick markers - dynamically sit flush on Bezier track */}
-          <circle cx="15" cy="26" r="2" fill={activeAlpha < 0.15 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
-          <circle cx="78" cy={tick2Y} r="2" fill={activeAlpha >= 0.15 && activeAlpha < 0.5 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
-          <circle cx="162" cy={tick3Y} r="2" fill={activeAlpha >= 0.5 && activeAlpha < 0.98 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
-          <circle cx="225" cy="26" r="2" fill={activeAlpha >= 0.98 ? sextantTokens.activeTick : sextantTokens.inactiveTick} />
+          {/* Radial reference rays - dynamically calibrated to fiducial milestone detents */}
+          <line x1="120" y1="34" x2="15" y2="26" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="78" y2={tick2Y} stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="120" y2={peakY} stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="162" y2={tick3Y} stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="225" y2="26" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
 
           {/* Curvature Unfurling Arc */}
           <path
@@ -407,6 +401,12 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
             strokeWidth="2.5"
             strokeLinecap="round"
           />
+
+          {/* Magnetic tick markers - rendered on top of arc track for optical legibility */}
+          <circle cx="15" cy="26" r="2.5" fill={activeAlpha < 0.15 ? sextantTokens.activeTick : sextantTokens.inactiveTick} stroke={sextantTokens.arcStroke} strokeWidth="0.75" />
+          <circle cx="78" cy={tick2Y} r="2.5" fill={activeAlpha >= 0.15 && activeAlpha < 0.5 ? sextantTokens.activeTick : sextantTokens.inactiveTick} stroke={sextantTokens.arcStroke} strokeWidth="0.75" />
+          <circle cx="162" cy={tick3Y} r="2.5" fill={activeAlpha >= 0.5 && activeAlpha < 0.98 ? sextantTokens.activeTick : sextantTokens.inactiveTick} stroke={sextantTokens.arcStroke} strokeWidth="0.75" />
+          <circle cx="225" cy="26" r="2.5" fill={activeAlpha >= 0.98 ? sextantTokens.activeTick : sextantTokens.inactiveTick} stroke={sextantTokens.arcStroke} strokeWidth="0.75" />
 
           {/* Reticle Thumb */}
           <circle
@@ -430,9 +430,9 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
       </div>
 
       {/* Stage Telemetry Tag */}
-      <div className="text-micro font-mono tracking-wider uppercase mt-0.5 w-full h-3.5 leading-tight text-center truncate">
+      <div className="absolute top-full mt-1.5 w-full h-3.5 leading-tight text-center truncate text-micro font-mono tracking-wider uppercase pointer-events-none">
         <span className="font-bold text-[var(--theme-text-accent)]">{currentMilestone.label}</span>
-        <span className="opacity-70 text-[var(--theme-text-secondary)]"> • {currentMilestone.desc}</span>
+        <span className="opacity-70 text-[var(--theme-text-secondary)]"> · {currentMilestone.desc}</span>
       </div>
     </div>
   );
