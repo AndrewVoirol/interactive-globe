@@ -162,7 +162,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
       >
         {/* Continental Shelf Silhouette in background */}
         <div className="absolute inset-0 flex items-end opacity-15 pointer-events-none">
-          <svg className="w-full h-full" viewBox="0 0 300 100" preserveAspectRatio="xMidYMid meet">
+          <svg className="w-full h-full" viewBox="0 0 300 100" preserveAspectRatio="none">
             <polygon points="0,100 0,35 60,40 120,60 180,90 300,95 300,100" fill="currentColor" />
           </svg>
         </div>
