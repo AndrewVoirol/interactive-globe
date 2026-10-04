@@ -505,14 +505,15 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <polygon points="144,80 150,84 146,87" fill="#8c4820" />
 
               {/* Bottom Chronometric Horizon Axis */}
-              <line x1="24" y1="98" x2="256" y2="98" stroke="#8c4820" strokeWidth="0.75" />
-              {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h, i) => {
+              <line x1="24" y1="96" x2="256" y2="96" stroke="#8c4820" strokeWidth="0.75" />
+              {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
                 const tx = 24 + (h / 240) * 232;
+                const isMilestone = h === 0 || h === 120 || h === 240;
                 return (
                   <g key={h}>
-                    <line x1={tx} y1="95" x2={tx} y2="98" stroke="#8c4820" strokeWidth="0.6" />
-                    {i % 2 === 0 && (
-                      <text x={tx} y="105" textAnchor="middle" fill="#8c4820" fontSize="5.5" fontFamily="monospace">
+                    <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" stroke="#8c4820" strokeWidth={isMilestone ? "0.8" : "0.5"} />
+                    {isMilestone && (
+                      <text x={tx} y="104" textAnchor="middle" fill="#8c4820" fontSize="5.5" fontFamily="monospace">
                         +{h}h
                       </text>
                     )}
@@ -531,56 +532,59 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <line x1="180" y1="12" x2="180" y2="96" stroke="#4fa3e3" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
               <line x1="16" y1="54" x2="264" y2="54" stroke="#4fa3e3" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
 
-              <text x="20" y="22" fill="#4fa3e3" fontSize="6" fontFamily="monospace" opacity="0.8">
+              <text x="20" y="20" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8">
                 CHUNK [0, 0] • 256×256
               </text>
-              <text x="100" y="22" fill="#4fa3e3" fontSize="6" fontFamily="monospace" opacity="0.8">
+              <text x="105" y="20" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8">
                 CHUNK [0, 1] • 256×256
               </text>
-              <text x="190" y="22" fill="#4fa3e3" fontSize="6" fontFamily="monospace" opacity="0.8">
+              <text x="195" y="20" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8">
                 CHUNK [0, 2] • 256×256
               </text>
 
               {/* Icosahedral-Hexagonal Voronoi Nodes & Connections */}
               <g stroke="#4fa3e3" strokeWidth="0.5" fill="none" opacity="0.7">
-                <polygon points="45,40 55,34 65,40 65,52 55,58 45,52" />
-                <polygon points="65,40 75,34 85,40 85,52 75,58 65,52" />
-                <polygon points="55,58 65,52 75,58 75,70 65,76 55,70" />
+                <polygon points="45,38 55,32 65,38 65,50 55,56 45,50" />
+                <polygon points="65,38 75,32 85,38 85,50 75,56 65,50" />
+                <polygon points="55,56 65,50 75,56 75,68 65,74 55,68" />
 
-                <polygon points="135,40 145,34 155,40 155,52 145,58 135,52" />
-                <polygon points="155,40 165,34 175,40 175,52 165,58 155,52" />
-                <polygon points="145,58 155,52 165,58 165,70 155,76 145,70" />
+                <polygon points="135,38 145,32 155,38 155,50 145,56 135,50" />
+                <polygon points="155,38 165,32 175,38 175,50 165,56 155,50" />
+                <polygon points="145,56 155,50 165,56 165,68 155,74 145,68" />
 
-                <polygon points="215,40 225,34 235,40 235,52 225,58 215,52" />
+                <polygon points="215,38 225,32 235,38 235,50 225,56 215,50" />
               </g>
 
               {/* Node Vertex Dots */}
               {[
-                [45, 40], [55, 34], [65, 40], [75, 34], [85, 40],
-                [135, 40], [145, 34], [155, 40], [165, 34], [175, 40],
-                [215, 40], [225, 34], [235, 40]
+                [45, 38], [55, 32], [65, 38], [75, 32], [85, 38],
+                [135, 38], [145, 32], [155, 38], [165, 32], [175, 38],
+                [215, 38], [225, 32], [235, 38]
               ].map(([cx, cy], i) => (
                 <circle key={i} cx={cx} cy={cy} r="1.5" fill="#a5d5ff" />
               ))}
 
               {/* Tensor Metadata Inscriptions */}
-              <text x="20" y="88" fill="#a5d5ff" fontSize="6.5" fontFamily="monospace" fontWeight="bold">
+              <text x="20" y="74" fill="#a5d5ff" fontSize="5.5" fontFamily="monospace" fontWeight="bold">
                 TENSOR: [B=1, T=24, C=6] FP16
               </text>
-              <text x="20" y="96" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8">
+              <text x="20" y="83" fill="#4fa3e3" fontSize="5" fontFamily="monospace" opacity="0.8">
                 Tco1279 / N640 • 7424B ROW PITCH
               </text>
 
               {/* Bottom Lead Time Scale */}
-              <line x1="24" y1="100" x2="256" y2="100" stroke="#4fa3e3" strokeWidth="0.75" />
-              {[0, 48, 96, 144, 192, 240].map((h) => {
+              <line x1="24" y1="96" x2="256" y2="96" stroke="#4fa3e3" strokeWidth="0.75" />
+              {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
                 const tx = 24 + (h / 240) * 232;
+                const isMilestone = h === 0 || h === 120 || h === 240;
                 return (
                   <g key={h}>
-                    <line x1={tx} y1="97" x2={tx} y2="100" stroke="#a5d5ff" strokeWidth="0.75" />
-                    <text x={tx} y="107" textAnchor="middle" fill="#a5d5ff" fontSize="5.5" fontFamily="monospace">
-                      +{h}h
-                    </text>
+                    <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" stroke="#a5d5ff" strokeWidth={isMilestone ? "0.8" : "0.5"} />
+                    {isMilestone && (
+                      <text x={tx} y="104" textAnchor="middle" fill="#a5d5ff" fontSize="5.5" fontFamily="monospace">
+                        +{h}h
+                      </text>
+                    )}
                   </g>
                 );
               })}
@@ -644,14 +648,15 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <circle cx="255" cy="25" r="2" fill="#34d399" />
 
               {/* Bottom Horizon Track */}
-              <line x1="24" y1="98" x2="256" y2="98" stroke="#00e5ff" strokeWidth="0.75" />
-              {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h, i) => {
+              <line x1="24" y1="96" x2="256" y2="96" stroke="#00e5ff" strokeWidth="0.75" />
+              {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
                 const tx = 24 + (h / 240) * 232;
+                const isMilestone = h === 0 || h === 120 || h === 240;
                 return (
                   <g key={h}>
-                    <line x1={tx} y1="95" x2={tx} y2="98" stroke="#00e5ff" strokeWidth="0.6" />
-                    {i % 2 === 0 && (
-                      <text x={tx} y="106" textAnchor="middle" fill="#00e5ff" fontSize="5.5" fontFamily="monospace">
+                    <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" stroke="#00e5ff" strokeWidth={isMilestone ? "0.8" : "0.5"} />
+                    {isMilestone && (
+                      <text x={tx} y="104" textAnchor="middle" fill="#00e5ff" fontSize="5.5" fontFamily="monospace">
                         +{h}h
                       </text>
                     )}
@@ -668,7 +673,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               x1={caliperX}
               y1="10"
               x2={caliperX}
-              y2="98"
+              y2="96"
               stroke={tokens.cursorColor}
               strokeWidth="1.2"
               strokeDasharray="3 1.5"
@@ -682,28 +687,28 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
 
             {/* Bottom Caliper Diamond */}
             <polygon
-              points={`${caliperX},94 ${caliperX + 4},98 ${caliperX},102 ${caliperX - 4},98`}
+              points={`${caliperX},90 ${caliperX + 3.5},94 ${caliperX},98 ${caliperX - 3.5},94`}
               fill={tokens.cursorColor}
             />
 
             {/* Floating Readout Badge */}
             <rect
-              x={Math.max(16, Math.min(214, caliperX - 32))}
-              y="44"
-              width="64"
-              height="16"
+              x={Math.max(16, Math.min(220, caliperX - 22))}
+              y="38"
+              width="44"
+              height="13"
               rx="2"
               fill={tokens.badgeBg}
               stroke={tokens.cursorColor}
-              strokeWidth="0.75"
-              fillOpacity="0.92"
+              strokeWidth="0.8"
+              fillOpacity="0.95"
             />
             <text
-              x={Math.max(16, Math.min(214, caliperX - 32)) + 32}
-              y="55"
+              x={Math.max(16, Math.min(220, caliperX - 22)) + 22}
+              y="47.5"
               textAnchor="middle"
               fill={tokens.textColor}
-              fontSize="7.5"
+              fontSize="6.5"
               fontFamily="monospace"
               fontWeight="bold"
             >
@@ -727,7 +732,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           size="sm"
           value={normalizedModel}
           onChange={handleModelSelect}
-          className="grid grid-cols-2 sm:grid-cols-4 gap-1 font-mono text-body tracking-wider w-full"
+          className="grid grid-cols-2 gap-1 font-mono text-body tracking-wider w-full"
           options={[
             {
               id: 'weathernext3',

@@ -95,7 +95,7 @@ export function SegmentedControl<T extends string | number | boolean>({
             {opt.icon && <span className="mb-0.5 shrink-0 select-none">{opt.icon}</span>}
             <span className="truncate">{opt.label}</span>
             {opt.sublabel && (
-              <span className="text-nano opacity-65 uppercase font-mono tracking-tighter">
+              <span className="text-nano opacity-65 uppercase font-mono tracking-tighter truncate max-w-full">
                 {opt.sublabel}
               </span>
             )}
