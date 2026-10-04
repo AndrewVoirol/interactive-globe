@@ -454,7 +454,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <rect x="12" y="10" width="256" height="90" fill="none" stroke="#8c4820" strokeWidth="0.25" strokeOpacity="0.2" />
 
               {/* Title Cartouche Inscription */}
-              <text x="18" y="21" fill="#8c4820" fontSize="6" fontFamily="serif" fontStyle="italic" fontWeight="bold" opacity="0.85">
+              <text x="18" y="27" fill="#8c4820" fontSize="6" fontFamily="serif" fontStyle="italic" fontWeight="bold" opacity="0.85">
                 Charta Synoptica Barometrica
               </text>
 
@@ -508,7 +508,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <line x1="24" y1="96" x2="256" y2="96" stroke="#8c4820" strokeWidth="0.75" />
               {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
                 const tx = 24 + (h / 240) * 232;
-                const isMilestone = h === 0 || h === 120 || h === 240;
+                const isMilestone = h % 48 === 0;
                 return (
                   <g key={h}>
                     <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" stroke="#8c4820" strokeWidth={isMilestone ? "0.8" : "0.5"} />
@@ -532,13 +532,13 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <line x1="180" y1="12" x2="180" y2="96" stroke="#4fa3e3" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
               <line x1="16" y1="54" x2="264" y2="54" stroke="#4fa3e3" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
 
-              <text x="20" y="20" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8">
+              <text x="20" y="27" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8">
                 CHUNK [0, 0] • 256×256
               </text>
-              <text x="105" y="20" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8">
+              <text x="105" y="27" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8">
                 CHUNK [0, 1] • 256×256
               </text>
-              <text x="195" y="20" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8">
+              <text x="195" y="27" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8">
                 CHUNK [0, 2] • 256×256
               </text>
 
@@ -576,7 +576,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <line x1="24" y1="96" x2="256" y2="96" stroke="#4fa3e3" strokeWidth="0.75" />
               {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
                 const tx = 24 + (h / 240) * 232;
-                const isMilestone = h === 0 || h === 120 || h === 240;
+                const isMilestone = h % 48 === 0;
                 return (
                   <g key={h}>
                     <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" stroke="#a5d5ff" strokeWidth={isMilestone ? "0.8" : "0.5"} />
@@ -634,10 +634,10 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <polyline points="175,76 180,74 176,70" fill="none" stroke="#34d399" strokeWidth="1" />
 
               {/* Oceanographic Sounding Telemetry Inscriptions */}
-              <text x="18" y="20" fill="#00e5ff" fontSize="6.5" fontFamily="monospace" fontWeight="bold">
+              <text x="18" y="27" fill="#00e5ff" fontSize="6.5" fontFamily="monospace" fontWeight="bold">
                 BAROCLINIC • Rossby λ = 4200 km
               </text>
-              <text x="18" y="28" fill="#34d399" fontSize="6" fontFamily="monospace" opacity="0.9">
+              <text x="18" y="35" fill="#34d399" fontSize="6" fontFamily="monospace" opacity="0.9">
                 OCEANIC FLUX: Q = +142 W/m²
               </text>
 
@@ -651,7 +651,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <line x1="24" y1="96" x2="256" y2="96" stroke="#00e5ff" strokeWidth="0.75" />
               {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
                 const tx = 24 + (h / 240) * 232;
-                const isMilestone = h === 0 || h === 120 || h === 240;
+                const isMilestone = h % 48 === 0;
                 return (
                   <g key={h}>
                     <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" stroke="#00e5ff" strokeWidth={isMilestone ? "0.8" : "0.5"} />
@@ -668,44 +668,22 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
 
           {/* Interactive Lead-Time Caliper Indicator Cursor */}
           <g>
-            {/* Vertical Caliper Guideline */}
-            <line
-              x1={caliperX}
-              y1="10"
-              x2={caliperX}
-              y2="96"
-              stroke={tokens.cursorColor}
-              strokeWidth="1.2"
-              strokeDasharray="3 1.5"
-            />
-
-            {/* Top Indicator Pip */}
-            <polygon
-              points={`${caliperX - 3},10 ${caliperX + 3},10 ${caliperX},15`}
-              fill={tokens.cursorColor}
-            />
-
-            {/* Bottom Caliper Diamond */}
-            <polygon
-              points={`${caliperX},90 ${caliperX + 3.5},94 ${caliperX},98 ${caliperX - 3.5},94`}
-              fill={tokens.cursorColor}
-            />
-
-            {/* Floating Readout Badge */}
+            {/* Top Indicator Flag with Readout */}
             <rect
-              x={Math.max(16, Math.min(220, caliperX - 22))}
-              y="38"
-              width="44"
-              height="13"
+              x={Math.max(16, Math.min(226, caliperX - 19))}
+              y="6"
+              width="38"
+              height="12"
               rx="2"
               fill={tokens.badgeBg}
               stroke={tokens.cursorColor}
               strokeWidth="0.8"
               fillOpacity="0.95"
+              className="drop-shadow"
             />
             <text
-              x={Math.max(16, Math.min(220, caliperX - 22)) + 22}
-              y="47.5"
+              x={Math.max(16, Math.min(226, caliperX - 19)) + 19}
+              y="14.5"
               textAnchor="middle"
               fill={tokens.textColor}
               fontSize="6.5"
@@ -714,6 +692,23 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
             >
               T+{leadTimeHours}h
             </text>
+
+            {/* Vertical Caliper Guideline */}
+            <line
+              x1={caliperX}
+              y1="18"
+              x2={caliperX}
+              y2="96"
+              stroke={tokens.cursorColor}
+              strokeWidth="1.2"
+              strokeDasharray="3 1.5"
+            />
+
+            {/* Bottom Caliper Diamond */}
+            <polygon
+              points={`${caliperX},90 ${caliperX + 3.5},94 ${caliperX},98 ${caliperX - 3.5},94`}
+              fill={tokens.cursorColor}
+            />
           </g>
         </svg>
       </div>
@@ -779,12 +774,12 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
             </span>
             <span className="text-[var(--theme-text-muted)] text-nano">
               {normalizedVariable === 'wind_10m_vector'
-                ? 'IVT (10m Wind)'
+                ? '10m Wind Vector (IVT)'
                 : normalizedVariable === 'temperature_2m_mean'
-                ? 'CAPE (2m Temp)'
+                ? '2m Surface Temperature'
                 : normalizedVariable === 'geopotential_500hpa'
-                ? 'Z500 (500 hPa)'
-                : 'TCWV (Rain)'}
+                ? '500 hPa Geopotential Height'
+                : 'Precipitation (Total Column)'}
             </span>
           </div>
           <SegmentedControl<string>
@@ -796,31 +791,31 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               {
                 id: 'total_precipitation_1hr_mean',
                 domId: 'sidebar-variable-rain',
-                label: 'TCWV',
-                sublabel: 'Rain',
+                label: 'Rain',
+                sublabel: 'Precipitation',
                 title: 'Total Column Water Vapor & 1hr Precipitation (TCWV / mm/hr)',
                 className: 'w-full',
               },
               {
                 id: 'temperature_2m_mean',
                 domId: 'sidebar-variable-temp',
-                label: 'CAPE',
-                sublabel: 'Temp',
+                label: 'Temperature',
+                sublabel: '2m Surface',
                 title: 'Convective Available Potential Energy & 2m Ambient Temperature (°C / J/kg)',
                 className: 'w-full',
               },
               {
                 id: 'wind_10m_vector',
                 domId: 'sidebar-variable-wind',
-                label: 'IVT',
-                sublabel: '10m Wind',
+                label: 'Wind',
+                sublabel: '10m Vector',
                 title: 'Integrated Vapor Transport & 10m Wind Velocity Vector Field (rg16float)',
                 className: 'w-full',
               },
               {
                 id: 'geopotential_500hpa',
                 domId: 'sidebar-variable-z500',
-                label: 'Z500',
+                label: 'Height',
                 sublabel: '500 hPa',
                 title: 'Geopotential Height Z500 (Mid-Tropospheric Steering Flow)',
                 className: 'w-full',
