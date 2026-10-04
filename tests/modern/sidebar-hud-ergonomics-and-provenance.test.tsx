@@ -474,6 +474,34 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       expect(onSnapMock).toHaveBeenCalledWith('horizon');
     });
 
+    it('verifies Kinematics tab eliminates redundant horizon button and upholds Rule 6 single-border HUD', async () => {
+      const defaultProps = createSidebarProps();
+
+      await act(async () => {
+        root.render(<UnifiedRightSidebar {...defaultProps} />);
+      });
+
+      // Exactly 1 button in kinematics panel refers to horizon (no redundant secondary button)
+      const horizonButtons = Array.from(container.querySelectorAll('#sidebar-panel-kinematics button')).filter((b) =>
+        b.textContent?.toLowerCase().includes('horizon')
+      );
+      expect(horizonButtons.length).toBe(1);
+      expect(horizonButtons[0].textContent?.trim()).toBe('Horizon');
+
+      // Static source checks on KinematicsTab
+      const kinSource = fs.readFileSync(path.join(projectRoot, 'src/components/hud/tabs/KinematicsTab.tsx'), 'utf-8');
+      // No duplicate Horizon Cross-Section button
+      expect(kinSource).not.toContain('Horizon Cross-Section (78.0°)');
+      // Single border HUD enclosure: VernierSliders use !border-0 and !bg-transparent to prevent nested cards
+      expect(kinSource).toContain('className="!border-0 !bg-transparent !p-0 !shadow-none"');
+      // Theme 2 Cyanotype cold tokens without rose/amber contamination
+      expect(kinSource).toContain('bg-[#203A57] text-[#A5D5FF] border-[#4F79A3]');
+      expect(kinSource).toContain('bg-[#162D45] text-[#E8EDF2] border-[#3B597A]');
+      expect(kinSource).toContain('bg-[#294D75] text-[#E8EDF2] border-[#4FA3E3]');
+      // Active state ring consistency
+      expect(kinSource).toContain('ring-1 ring-[var(--theme-control-active-ring)]');
+    });
+
     it('verifies useCameraKinematics handles horizon camera view', () => {
       let resultHook: ReturnType<typeof useCameraKinematics> | null = null;
       function TestComp() {

@@ -118,10 +118,10 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
       {/* 1. Spatial Vantage & Flight Deck */}
       <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
         <div className="flex items-center justify-between">
-          <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+          <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-primary)]">
             Spatial Vantage & Flight Deck
           </div>
-          <span className="text-nano font-mono opacity-60 text-[var(--theme-text-muted)]">
+          <span className="text-nano font-mono text-[var(--theme-text-muted)]">
             Attitude
           </span>
         </div>
@@ -153,25 +153,13 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
                 className={`py-1.5 px-0.5 rounded-[2px] border transition-all cursor-pointer text-center truncate select-none flex flex-col items-center justify-center before:content-[attr(data-glyph)] before:block before:text-micro before:leading-none before:opacity-75 before:mb-0.5 ${
                   isSnapActive
                     ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold ring-1 ring-[var(--theme-control-active-ring)]'
-                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] hover:bg-[var(--theme-card-bg)]'
+                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] hover:bg-[var(--theme-control-hover-bg)]'
                 }`}
               >
                 <span>{snap.label}</span>
               </button>
             );
           })}
-        </div>
-
-        <div className="pt-1">
-          <button
-            type="button"
-            onClick={() => onSnapCamera?.('horizon')}
-            title="Set camera pitch to 78.0° tangent grazing angle for volumetric atmospheric profile view"
-            className="w-full py-1.5 px-2 rounded-[2px] border text-nano font-mono uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-control-active-border)]"
-          >
-            <span>☵</span>
-            <span>Horizon Cross-Section (78.0°)</span>
-          </button>
         </div>
 
         <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-1.5">
@@ -195,7 +183,6 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
             id="sidebar-demo-sequence"
             value={demoSequence || 'hawaii'}
             ariaLabel="Demo Sequence Preset"
-            disabled={!isDemoMode}
             onChange={(val) => onSelectDemoSequence?.(val as any)}
             options={DEMO_PRESETS}
           />
@@ -205,7 +192,7 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
       {/* 2. Projection Manifold Station */}
       <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
         <div className="flex items-center justify-between">
-          <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+          <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-primary)]">
             Projection Manifold
           </span>
           <span className="text-nano font-mono text-[var(--theme-text-muted)]">
@@ -231,7 +218,7 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
         </div>
 
         {mode === 2 && (
-          <div className="pt-1 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="pt-2 border-t border-[var(--theme-card-border)] animate-in fade-in slide-in-from-top-1 duration-150">
             <VernierSlider
               id="sidebar-fracture-intensity"
               label="Fracture"
@@ -243,12 +230,13 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
               defaultValue={1.0}
               readout={`${(fractureIntensity ?? 1.0).toFixed(2)}×`}
               onChange={(v) => onFractureIntensityChange?.(v)}
+              className="!border-0 !bg-transparent !p-0 !shadow-none"
             />
           </div>
         )}
 
         {mode === 3 && (
-          <div className="pt-1 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="pt-2 border-t border-[var(--theme-card-border)] animate-in fade-in slide-in-from-top-1 duration-150">
             <VernierSlider
               id="sidebar-vortex-strength"
               label="Vortex"
@@ -260,6 +248,7 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
               defaultValue={1.0}
               readout={`${(fluidVortexStrength ?? 1.0).toFixed(2)}×`}
               onChange={(v) => onFluidVortexStrengthChange?.(v)}
+              className="!border-0 !bg-transparent !p-0 !shadow-none"
             />
           </div>
         )}
@@ -283,7 +272,7 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
           </div>
 
           {showTissot && (
-            <div className="p-2 rounded-[2px] border text-micro space-y-1.5 tabular-nums bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
+            <div className="p-2 rounded-[2px] border text-micro space-y-1.5 tabular-nums bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-text-primary)]">
               <div className="flex justify-between items-center text-nano uppercase tracking-wider font-semibold">
                 <span>Distortion Metric</span>
                 <span className="text-[var(--theme-status-sage)] font-bold">Morphing</span>
@@ -308,12 +297,12 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
       </div>
 
       {/* 3. Global Geodesic Feeds Card */}
-      <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2.5 transition-all shadow-sm">
+      <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
         <div className="flex items-center justify-between">
-          <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
+          <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-primary)]">
             Global Geodesic Feeds
           </div>
-          <span className="text-nano font-mono text-[var(--theme-text-muted)] opacity-80">
+          <span className="text-nano font-mono text-[var(--theme-text-muted)]">
             {activeOverlay === 'off' ? 'Off' : activeOverlay}
           </span>
         </div>
@@ -324,8 +313,8 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
             onClick={() => handleSelectGeodesicFeed('off')}
             className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
               activeOverlay === 'off'
-                ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold'
-                : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] bg-[var(--theme-control-bg)]'
+                ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm font-semibold ring-1 ring-[var(--theme-control-active-ring)]'
+                : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
             }`}
           >
             Off
@@ -338,10 +327,14 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
               activeOverlay === 'antipodes'
                 ? theme === 1
                   ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414] shadow-sm font-semibold ring-1 ring-[#8C4820]/40'
+                  : theme === 2
+                  ? 'bg-[#203A57] text-[#A5D5FF] border-[#4F79A3] shadow-sm font-semibold ring-1 ring-[#A5D5FF]/40'
                   : 'bg-rose-500/35 text-rose-200 border-rose-400/80 shadow-[0_0_10px_rgba(244,63,94,0.4)] ring-1 ring-rose-400/60 font-semibold'
                 : theme === 1
-                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#8C4820] hover:border-[#8C4820]/40 bg-[var(--theme-control-bg)]'
-                : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-accent)] hover:border-[var(--theme-control-border-hover)] bg-[var(--theme-control-bg)]'
+                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[#8C4820] hover:border-[#8C4820]/40 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
+                : theme === 2
+                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[#A5D5FF] hover:border-[#4F79A3]/50 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
+                : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-accent)] hover:border-[var(--theme-control-border-hover)] hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
             }`}
           >
             Antipodes
@@ -354,10 +347,14 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
               activeOverlay === 'conveyor'
                 ? theme === 1
                   ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A] shadow-sm font-semibold ring-1 ring-[#1A4457]/40'
+                  : theme === 2
+                  ? 'bg-[#162D45] text-[#E8EDF2] border-[#3B597A] shadow-sm font-semibold ring-1 ring-[#4FA3E3]/40'
                   : 'bg-sky-500/35 text-sky-200 border-sky-400/80 shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/60 font-semibold'
                 : theme === 1
-                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#1A4457] hover:border-[#1A4457]/40 bg-[var(--theme-control-bg)]'
-                : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-sky-500 hover:border-sky-400/50 bg-[var(--theme-control-bg)]'
+                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[#1A4457] hover:border-[#1A4457]/40 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
+                : theme === 2
+                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[#E8EDF2] hover:border-[#3B597A]/50 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
+                : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-sky-500 hover:border-sky-400/50 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
             }`}
           >
             Conveyor
@@ -370,10 +367,14 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
               activeOverlay === 'migration'
                 ? theme === 1
                   ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] shadow-sm font-semibold ring-1 ring-[#7D4700]/40'
+                  : theme === 2
+                  ? 'bg-[#294D75] text-[#E8EDF2] border-[#4FA3E3] shadow-sm font-semibold ring-1 ring-[#4FA3E3]/50'
                   : 'bg-[var(--theme-status-amber)]/35 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/80 shadow-[0_0_10px_var(--theme-status-amber)] ring-1 ring-[var(--theme-status-amber)]/60 font-semibold'
                 : theme === 1
-                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[#7D4700] hover:border-[#7D4700]/40 bg-[var(--theme-control-bg)]'
-                : 'border-[var(--theme-control-border)] text-[var(--theme-text-muted)] hover:text-[var(--theme-status-amber)] hover:border-[var(--theme-status-amber)]/50 bg-[var(--theme-control-bg)]'
+                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[#7D4700] hover:border-[#7D4700]/40 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
+                : theme === 2
+                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[#E8EDF2] hover:border-[#4FA3E3]/50 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
+                : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-status-amber)] hover:border-[var(--theme-status-amber)]/50 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
             }`}
           >
             Migration
