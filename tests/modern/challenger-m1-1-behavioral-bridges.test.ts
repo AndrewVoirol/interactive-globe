@@ -262,7 +262,7 @@ describe('Challenger 1: AtmosphereDrawer Behavioral & Window Bridge Verification
 
       const buttons = container.querySelectorAll<HTMLButtonElement>('[role="radio"]');
       const dopplerBtn = Array.from(buttons).find((b) => b.textContent?.includes('Doppler Radar'));
-      const inkWashBtn = Array.from(buttons).find((b) => b.textContent?.includes('Archival Ink Wash'));
+      const inkWashBtn = Array.from(buttons).find((b) => b.textContent?.includes('Cartographic') || b.textContent?.includes('Archival Ink Wash'));
       expect(dopplerBtn).toBeDefined();
       expect(inkWashBtn).toBeDefined();
 

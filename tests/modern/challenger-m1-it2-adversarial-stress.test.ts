@@ -535,7 +535,7 @@ describe('Milestone 1 Iteration 2: Challenger 1 Adversarial Stress-Testing', () 
 
       const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="radio"]'));
       const dopplerBtn = buttons.find((b) => b.textContent?.includes('Doppler Radar'));
-      const inkWashBtn = buttons.find((b) => b.textContent?.includes('Archival Ink Wash'));
+      const inkWashBtn = buttons.find((b) => b.textContent?.includes('Cartographic') || b.textContent?.includes('Archival Ink Wash'));
 
       expect(dopplerBtn).toBeDefined();
       expect(inkWashBtn).toBeDefined();

@@ -393,7 +393,7 @@ describe('Adversarial Challenger: Stage 3 Shader Invariants, Uniform Security, a
       });
 
       const buttons = Array.from(container.querySelectorAll('button'));
-      const inkWashBtn = buttons.find(b => b.textContent?.includes('Archival Ink Wash'));
+      const inkWashBtn = buttons.find(b => b.textContent?.includes('Cartographic') || b.textContent?.includes('Archival Ink Wash'));
       const dopplerBtn = buttons.find(b => b.textContent?.includes('Doppler Radar'));
 
       expect(inkWashBtn).toBeDefined();

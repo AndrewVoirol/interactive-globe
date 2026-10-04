@@ -198,7 +198,7 @@ describe('Stage 3: Weather Optical Modes & Archival Ink Weather Overlays', () =>
       container.remove();
     });
 
-    it('renders 2-button segmented toggle with labels [Archival Ink Wash] and [Doppler Radar]', async () => {
+    it('renders 2-button segmented toggle with labels [Cartographic] and [Doppler Radar]', async () => {
       await act(async () => {
         root.render(
           React.createElement(AtmosphereDrawer, {
@@ -210,7 +210,7 @@ describe('Stage 3: Weather Optical Modes & Archival Ink Weather Overlays', () =>
       });
 
       const buttons = Array.from(container.querySelectorAll('button'));
-      const inkWashBtn = buttons.find(b => b.textContent?.includes('Archival Ink Wash'));
+      const inkWashBtn = buttons.find(b => b.textContent?.includes('Cartographic'));
       const dopplerBtn = buttons.find(b => b.textContent?.includes('Doppler Radar'));
 
       expect(inkWashBtn).toBeDefined();
@@ -229,7 +229,7 @@ describe('Stage 3: Weather Optical Modes & Archival Ink Weather Overlays', () =>
       });
 
       const buttons = Array.from(container.querySelectorAll('button'));
-      const inkWashBtn = buttons.find(b => b.textContent?.includes('Archival Ink Wash'));
+      const inkWashBtn = buttons.find(b => b.textContent?.includes('Cartographic'));
       const toggleGrid = inkWashBtn?.parentElement;
 
       expect(toggleGrid).toBeDefined();
@@ -239,7 +239,7 @@ describe('Stage 3: Weather Optical Modes & Archival Ink Weather Overlays', () =>
       expect(toggleGrid?.className).toContain('tracking-wider');
     });
 
-    it('indicates active state on Archival Ink Wash when weatherOpticalMode is 0', async () => {
+    it('indicates active state on Cartographic when weatherOpticalMode is 0', async () => {
       await act(async () => {
         root.render(
           React.createElement(AtmosphereDrawer, {
@@ -251,13 +251,13 @@ describe('Stage 3: Weather Optical Modes & Archival Ink Weather Overlays', () =>
       });
 
       const buttons = Array.from(container.querySelectorAll('button'));
-      const inkWashBtn = buttons.find(b => b.textContent?.includes('Archival Ink Wash'));
+      const inkWashBtn = buttons.find(b => b.textContent?.includes('Cartographic'));
       const dopplerBtn = buttons.find(b => b.textContent?.includes('Doppler Radar'));
 
       expect(inkWashBtn?.className).toContain('bg-[var(--theme-control-active-bg)]');
       expect(inkWashBtn?.className).toContain('border-[var(--theme-control-active-border)]');
       expect(dopplerBtn?.className).toContain('bg-[var(--theme-control-bg)]');
-      expect(container.textContent).toContain('Ink Wash');
+      expect(container.textContent).toContain('Cartographic');
     });
 
     it('indicates active state on Doppler Radar when weatherOpticalMode is 1', async () => {
@@ -272,7 +272,7 @@ describe('Stage 3: Weather Optical Modes & Archival Ink Weather Overlays', () =>
       });
 
       const buttons = Array.from(container.querySelectorAll('button'));
-      const inkWashBtn = buttons.find(b => b.textContent?.includes('Archival Ink Wash'));
+      const inkWashBtn = buttons.find(b => b.textContent?.includes('Cartographic'));
       const dopplerBtn = buttons.find(b => b.textContent?.includes('Doppler Radar'));
 
       expect(dopplerBtn?.className).toContain('bg-[var(--theme-control-active-bg)]');
@@ -295,7 +295,7 @@ describe('Stage 3: Weather Optical Modes & Archival Ink Weather Overlays', () =>
 
       const buttons = Array.from(container.querySelectorAll('button'));
       const dopplerBtn = buttons.find(b => b.textContent?.includes('Doppler Radar'));
-      const inkWashBtn = buttons.find(b => b.textContent?.includes('Archival Ink Wash'));
+      const inkWashBtn = buttons.find(b => b.textContent?.includes('Cartographic'));
 
       await act(async () => {
         dopplerBtn?.click();

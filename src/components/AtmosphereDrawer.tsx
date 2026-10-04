@@ -729,14 +729,17 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             onThermodynamicGatingChange={handleThermodynamicGatingChange}
           />
 
-          {/* Weather Optical Mode Segmented Toggle (Stage 3) */}
-          <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border)]/50">
+          {/* Precipitation Style Segmented Toggle (Stage 3) */}
+          <div
+            className="p-2 rounded-[3px] border shadow-sm bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] space-y-1"
+            data-instrument="precipitation-style"
+          >
             <div className="flex items-center justify-between text-nano">
               <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
-                Weather Optical Mode
+                Precipitation Style
               </span>
               <span className="text-[var(--theme-text-muted)] font-mono text-nano">
-                {curWeatherOpticalMode === 1 ? 'Doppler' : 'Ink Wash'}
+                {curWeatherOpticalMode === 1 ? 'Doppler' : 'Cartographic'}
               </span>
             </div>
             <SegmentedControl<number>
@@ -747,8 +750,8 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
               options={[
                 {
                   id: 0,
-                  label: 'Archival Ink Wash',
-                  title: 'Archival Ink Wash (Historical Cartographic Pigmentation)',
+                  label: 'Cartographic',
+                  title: 'Cartographic (Historical Cartographic Pigmentation)',
                   className: 'w-full py-1',
                   icon: (
                     <div
