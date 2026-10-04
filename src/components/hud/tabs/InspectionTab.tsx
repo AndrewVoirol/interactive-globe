@@ -72,45 +72,17 @@ export const InspectionTab: React.FC<InspectionTabProps> = ({
         type="button"
         onClick={() => setIsDiagnosticsOpen(!isDiagnosticsOpen)}
         className="w-full p-2.5 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border)]/15 transition-colors"
-        title="Toggle Inspection & WebGPU CDLOD Diagnostics tools"
+        title="Toggle Mesh & Diagnostics tools"
       >
-        <div className="flex items-center gap-2">
-          <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border border-[var(--theme-control-active-border)] shadow-sm">
-            DIAGNOSTICS
-          </span>
-          <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
-            Inspection & Mesh
-          </span>
-        </div>
+        <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-primary)]">
+          Mesh & Diagnostics
+        </span>
         <span className="text-nano font-mono text-[var(--theme-text-muted)]">
           {isDiagnosticsOpen ? '▲ Collapse' : '▼ Expand'}
         </span>
       </button>
       {isDiagnosticsOpen && (
         <div className="p-2.5 pt-0 space-y-3 border-t border-[var(--theme-card-border)]/50 mt-1">
-          {/* Raw DEM Purity Switch */}
-          <div className="pt-2 flex items-center justify-between">
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
-                  Purity · DEM Only
-                </span>
-                <span className="text-nano font-mono px-1 py-px rounded-[2px] bg-[var(--theme-control-bg)] border border-[var(--theme-control-border)] text-[var(--theme-text-accent)] font-bold">
-                  RAW
-                </span>
-              </div>
-              <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
-                Archival substrate + pure DEM mesh (zero atmosphere/water)
-              </span>
-            </div>
-            <TactileSwitch
-              checked={Boolean(purityMode)}
-              onChange={onPurityModeToggle || (() => {})}
-              title="Toggle Raw DEM Purity Mode (Strips water, atmosphere, clouds, and wind)"
-              label={purityMode ? 'Active' : 'Off'}
-              indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#10B981'}
-            />
-          </div>
 
           {/* CDLOD Tessellation Switch */}
           <div className="pt-2 border-t border-[var(--theme-card-border)]/50">

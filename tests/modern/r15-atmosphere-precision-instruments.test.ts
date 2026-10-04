@@ -844,35 +844,21 @@ describe('Milestone 6: AtmosphereDrawer Precision Instruments Suite', () => {
       }
     });
 
-    it('R15-BRIDGE-03: 1-Click Horizon Cross-Section (78.0°) camera preset button sets scale and triggers camera hook', async () => {
-      const onHorizonPresetClick = vi.fn();
-      const mockCamera = { snapHorizonCrossSection: vi.fn() };
-      (window as any).__INDICATRIX_CAMERA__ = mockCamera;
-
+    it('R15-BRIDGE-03: Horizon Cross-Section button has been moved from AtmosphereDrawer to KinematicsTab', async () => {
       await act(async () => {
         root.render(
           React.createElement(AtmosphereDrawer, {
             showClouds: true,
             atmosphericScale: 1.0,
-            onHorizonPresetClick,
           })
         );
       });
 
+      // Horizon Cross-Section button was in the Observation Presets card, now in KinematicsTab
       const horizonBtn = container.querySelector<HTMLButtonElement>(
         'button[title*="Horizon Cross-Section"]'
       );
-      expect(horizonBtn).not.toBeNull();
-
-      await act(async () => {
-        horizonBtn?.click();
-      });
-
-      expect(onHorizonPresetClick).toHaveBeenCalled();
-      expect(mockSetAtmosphericScale).toHaveBeenCalledWith(6.0);
-      expect(mockCamera.snapHorizonCrossSection).toHaveBeenCalledWith(1.6);
-
-      delete (window as any).__INDICATRIX_CAMERA__;
+      expect(horizonBtn).toBeNull();
     });
   });
 
@@ -1044,7 +1030,7 @@ describe('Milestone 6: AtmosphereDrawer Precision Instruments Suite', () => {
       expect(masterCard?.querySelector('#sidebar-atmospheric-scale')).toBeNull();
     });
 
-    it('R15-AUDIT-02: verifies Tropospheric Altitude Presets & 1-Click Horizon Cross-Section are enclosed in a dedicated card with Observation Presets header', async () => {
+    it('R15-AUDIT-02: verifies Tropospheric Altitude Presets have been moved from AtmosphereDrawer to KinematicsTab', async () => {
       await act(async () => {
         root.render(
           React.createElement(AtmosphereDrawer, {
@@ -1053,13 +1039,11 @@ describe('Milestone 6: AtmosphereDrawer Precision Instruments Suite', () => {
         );
       });
 
+      // Observation Presets were moved to KinematicsTab — they should NOT be in AtmosphereDrawer
       const presetCard = container.querySelector('[data-instrument="tropospheric-presets"]');
-      expect(presetCard).not.toBeNull();
-      expect(presetCard?.className).toContain('border');
-      expect(presetCard?.className).toContain('bg-[var(--theme-card-bg)]');
-      expect(presetCard?.textContent).toContain('Observation Presets');
-      expect(presetCard?.textContent).toContain('Horizon Cross-Section (78°)');
-      expect(presetCard?.textContent).toContain('Tropospheric Altitude Presets');
+      expect(presetCard).toBeNull();
+      // Verify the drawer no longer contains these labels
+      expect(container.textContent).not.toContain('Tropospheric Altitude Presets');
     });
 
     it('R15-AUDIT-03: verifies Raymarch and Scatter stations use theme-appropriate indicatorColor in Cream Rag (no cold blue contamination)', () => {

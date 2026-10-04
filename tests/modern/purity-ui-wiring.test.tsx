@@ -145,10 +145,14 @@ describe('Milestone 6: UI Integrity & Purity Wiring Test Suite', () => {
       expect(sidebarSource).toContain('onPurityModeToggle?: () => void;');
     });
 
-    it('M6-05: UnifiedRightSidebar.tsx contains Card 4b "Purity · DEM Only" markup with RAW badge', () => {
-      expect(inspectionTabSource).toContain('Purity · DEM Only');
-      expect(inspectionTabSource).toContain('RAW');
-      expect(inspectionTabSource).toContain('Archival substrate + pure DEM mesh (zero atmosphere/water)');
+    it('M6-05: UnifiedRightSidebar.tsx contains Purity as 4th medium in substrate grid', () => {
+      // Purity Mode is now in the medium substrate grid, not InspectionTab
+      expect(sidebarSource).toContain('Purity');
+      expect(sidebarSource).toContain('Raw DEM');
+      expect(sidebarSource).toContain('grid-cols-4');
+      // InspectionTab should NOT have the old Purity toggle anymore
+      expect(inspectionTabSource).not.toContain('Purity · DEM Only');
+      expect(inspectionTabSource).not.toContain('RAW');
     });
 
     it('M6-06: UnifiedRightSidebar.tsx catalog sheet uses xl:right-[26.5rem]', () => {
@@ -176,42 +180,42 @@ describe('Milestone 6: UI Integrity & Purity Wiring Test Suite', () => {
   });
 
   describe('2. DOM Mounting & Interaction Tests', () => {
-    it('M6-10: UnifiedRightSidebar renders Purity · DEM Only card in SCENE tab', () => {
+    it('M6-10: UnifiedRightSidebar renders Purity as a 4th medium button', () => {
       const onToggle = vi.fn();
       act(() => {
         root.render(<UnifiedRightSidebar {...createSidebarProps({ purityMode: false, onPurityModeToggle: onToggle })} />);
       });
 
-      const card = container.querySelector('.text-micro.font-bold.uppercase.tracking-wider');
-      expect(container.textContent).toContain('Purity · DEM Only');
-      expect(container.textContent).toContain('RAW');
-      expect(container.textContent).toContain('Archival substrate + pure DEM mesh (zero atmosphere/water)');
+      // Purity should appear in the medium substrate grid
+      expect(container.textContent).toContain('Purity');
+      expect(container.textContent).toContain('Raw DEM');
     });
 
-    it('M6-11: Clicking Purity switch triggers onPurityModeToggle callback', () => {
+    it('M6-11: Clicking Purity medium button triggers onPurityModeToggle callback', () => {
       const onToggle = vi.fn();
       act(() => {
         root.render(<UnifiedRightSidebar {...createSidebarProps({ purityMode: false, onPurityModeToggle: onToggle })} />);
       });
 
-      const puritySwitch = container.querySelector<HTMLElement>('[role="switch"][title*="Purity"]');
-      expect(puritySwitch).toBeTruthy();
+      // Find the Purity button by its title attribute (it's a grid button, not a switch)
+      const purityButton = container.querySelector<HTMLElement>('button[title*="Raw DEM"]');
+      expect(purityButton).toBeTruthy();
 
       act(() => {
-        puritySwitch!.click();
+        purityButton!.click();
       });
 
       expect(onToggle).toHaveBeenCalledTimes(1);
     });
 
-    it('M6-12: Switch reflects active state when purityMode is true', () => {
+    it('M6-12: Purity button reflects active state via aria-pressed when purityMode is true', () => {
       act(() => {
         root.render(<UnifiedRightSidebar {...createSidebarProps({ purityMode: true })} />);
       });
 
-      const puritySwitch = container.querySelector<HTMLElement>('[role="switch"][title*="Purity"]');
-      expect(puritySwitch).toBeTruthy();
-      expect(puritySwitch!.textContent).toContain('Active');
+      const purityButton = container.querySelector<HTMLElement>('button[title*="Raw DEM"]');
+      expect(purityButton).toBeTruthy();
+      expect(purityButton!.getAttribute('aria-pressed')).toBe('true');
     });
 
     it('M6-13: Compacted GPU Profiler renders Sim, Crust, Lines, and Cont columns', () => {

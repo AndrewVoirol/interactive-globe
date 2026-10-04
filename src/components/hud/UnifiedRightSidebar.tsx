@@ -434,13 +434,6 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
                   pluvialDischargeCoupling={propPluvialDischargeCoupling} onPluvialDischargeCouplingChange={onPluvialDischargeCouplingChange}
                   bedrockIncision={propBedrockIncision} onBedrockIncisionChange={onBedrockIncisionChange}
                 />
-                <InspectionTab
-                  theme={theme} purityMode={purityMode} onPurityModeToggle={onPurityModeToggle}
-                  cdlodEnabled={cdlodEnabled} onCdlodToggle={onCdlodToggle}
-                  cursorPhysicsEnabled={cursorPhysicsEnabled} onCursorPhysicsToggle={onCursorPhysicsToggle}
-                  cdlodDiagnosticMode={cdlodDiagnosticModeProp} onCdlodDiagnosticModeChange={onCdlodDiagnosticModeChange}
-                  setCdlodDiagnosticMode={setCdlodDiagnosticMode}
-                />
               </div>
 
               {/* TAB 2: ATMOSPHERE */}
@@ -507,6 +500,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
                   onOpacityChangeDataLayer={onOpacityChangeDataLayer}
                   onAmbientOcclusionChangeDataLayer={onAmbientOcclusionChangeDataLayer}
                   propShowClouds={propShowClouds} isNoaaActive={isNoaaActive} isRadarActive={isRadarActive}
+                />
+                <InspectionTab
+                  theme={theme} purityMode={purityMode} onPurityModeToggle={onPurityModeToggle}
+                  cdlodEnabled={cdlodEnabled} onCdlodToggle={onCdlodToggle}
+                  cursorPhysicsEnabled={cursorPhysicsEnabled} onCursorPhysicsToggle={onCursorPhysicsToggle}
+                  cdlodDiagnosticMode={cdlodDiagnosticModeProp} onCdlodDiagnosticModeChange={onCdlodDiagnosticModeChange}
+                  setCdlodDiagnosticMode={setCdlodDiagnosticMode}
                 />
               </div>
             </div>

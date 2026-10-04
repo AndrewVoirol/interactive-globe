@@ -195,28 +195,25 @@ describe('Milestone 6 Challenger 1: Purity Diagnostic Mode & Pass Gating Adversa
       const mockCanvas = container.querySelector('[data-testid="mock-webgpu-canvas"]');
       expect(mockCanvas?.getAttribute('data-purity-mode')).toBe('false');
 
-      const puritySwitch = container.querySelector<HTMLElement>('[role="switch"][title*="Purity"]');
-      expect(puritySwitch).toBeTruthy();
-      expect(puritySwitch?.getAttribute('aria-checked')).toBe('false');
-      expect(puritySwitch?.textContent).toContain('Off');
+      const purityButton = container.querySelector<HTMLElement>('button[title*="Raw DEM"]');
+      expect(purityButton).toBeTruthy();
+      expect(purityButton?.getAttribute('aria-pressed')).toBe('false');
 
-      // Click switch: Turn ON
+      // Click button: Turn ON
       act(() => {
-        puritySwitch!.click();
+        purityButton!.click();
       });
 
       expect(mockCanvas?.getAttribute('data-purity-mode')).toBe('true');
-      expect(puritySwitch?.getAttribute('aria-checked')).toBe('true');
-      expect(puritySwitch?.textContent).toContain('Active');
+      expect(purityButton?.getAttribute('aria-pressed')).toBe('true');
 
-      // Click switch again: Turn OFF
+      // Click button again: Turn OFF
       act(() => {
-        puritySwitch!.click();
+        purityButton!.click();
       });
 
       expect(mockCanvas?.getAttribute('data-purity-mode')).toBe('false');
-      expect(puritySwitch?.getAttribute('aria-checked')).toBe('false');
-      expect(puritySwitch?.textContent).toContain('Off');
+      expect(purityButton?.getAttribute('aria-pressed')).toBe('false');
 
       // Trace recorded transitions: [initial: false, after click 1: true, after click 2: false]
       expect(receivedPurityModes).toEqual([false, true, false]);
@@ -283,13 +280,12 @@ describe('Milestone 6 Challenger 1: Purity Diagnostic Mode & Pass Gating Adversa
         );
       });
 
-      const puritySwitch = container.querySelector<HTMLElement>('[role="switch"][title*="Purity"]');
-      expect(puritySwitch).toBeTruthy();
-      expect(puritySwitch?.getAttribute('aria-checked')).toBe('true');
-      expect(puritySwitch?.textContent).toContain('Active');
+      const purityButton = container.querySelector<HTMLElement>('button[title*="Raw DEM"]');
+      expect(purityButton).toBeTruthy();
+      expect(purityButton?.getAttribute('aria-pressed')).toBe('true');
 
       act(() => {
-        puritySwitch!.click();
+        purityButton!.click();
       });
       expect(onToggleSpy).toHaveBeenCalledTimes(1);
     });

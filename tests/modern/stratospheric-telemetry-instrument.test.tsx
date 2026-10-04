@@ -87,29 +87,22 @@ describe('StratosphericTelemetryInstrument', () => {
     expect(container.textContent).toContain('Archival Ink Wash');
   });
 
-  it('renders quick pitch presets (0° Nadir, 45° Oblique, 78° Horizon, 85° Grazing) and fires onPitchChange', async () => {
+  it('no longer renders quick pitch presets (moved to KinematicsTab)', async () => {
     const pitchMock = vi.fn();
     await act(async () => {
       root.render(<StratosphericTelemetryInstrument theme={2} onPitchChange={pitchMock} />);
     });
 
+    // Pitch presets were moved to KinematicsTab — verify they're NOT here
     const buttons = Array.from(container.querySelectorAll('button'));
     const p78 = buttons.find((b) => b.textContent?.includes('78° Horizon'));
-    expect(p78).toBeDefined();
+    expect(p78).toBeUndefined();
 
     const p85 = buttons.find((b) => b.textContent?.includes('85° Grazing'));
-    expect(p85).toBeDefined();
-    // Regression Guard: Defensive lateral clearance on 11-char button label
-    expect(p85?.className).toContain('tracking-tight');
-
-    await act(async () => {
-      p78!.click();
-    });
-
-    expect(pitchMock).toHaveBeenCalledWith(78.0);
+    expect(p85).toBeUndefined();
   });
 
-  it('conforms strictly to Rule 6 Single-Border HUD Enclosure and eliminates label collision', async () => {
+  it('conforms strictly to Rule 6 Single-Border HUD Enclosure (camera pitch moved to Kinematics)', async () => {
     await act(async () => {
       root.render(<StratosphericTelemetryInstrument theme={0} />);
     });
@@ -120,14 +113,9 @@ describe('StratosphericTelemetryInstrument', () => {
     expect(card?.className).toContain('border-[var(--theme-card-border)]');
     expect(card?.querySelectorAll('.border-current\\/15, .inset-\\[2px\\]').length).toBe(0);
 
-    // Regression Guard: VernierSlider must not introduce a nested border box within the HUD card
-    const sliderContainer = card?.querySelector('#camera-horizon-pitch')?.closest('.p-2.rounded-\\[2px\\]');
-    expect(sliderContainer?.className).toContain('!border-0');
-    expect(sliderContainer?.className).toContain('!bg-transparent');
-
-    // Regression Guard: Section subheader must not duplicate slider label
-    expect(card?.textContent).not.toContain('HORIZON PITCH ANGLE');
-    expect(card?.textContent).toContain('Camera Horizon Pitch');
+    // Camera Horizon Pitch has moved to KinematicsTab — verify it's NOT here
+    expect(card?.textContent).not.toContain('Camera Horizon Pitch');
+    expect(card?.querySelector('#camera-horizon-pitch')).toBeNull();
   });
 
   it('updates cursor target coordinates continuously when activeCoords change', async () => {
