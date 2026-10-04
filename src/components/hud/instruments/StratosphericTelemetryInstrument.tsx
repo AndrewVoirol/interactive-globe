@@ -8,7 +8,6 @@
 // ============================================================================
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { VernierSlider } from '../../ui/VernierSlider';
 import type { ResolutionTier } from '../../../types';
 
 export interface StratosphericTelemetryInstrumentProps {
@@ -264,51 +263,6 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
         <div className="flex justify-between items-center">
           <span className="text-[var(--theme-text-muted)] text-body shrink-0">Wind Vector Field:</span>
           <span className="font-semibold text-[var(--theme-status-sage)] text-body">rg16float (Active)</span>
-        </div>
-      </div>
-
-      {/* Interactive Camera Horizon Pitch Vernier Slider */}
-      <div className="space-y-1.5 pt-1.5 border-t border-[var(--theme-control-border)]/50">
-        <VernierSlider
-          id="camera-horizon-pitch"
-          value={pitch}
-          defaultValue={0}
-          min={0}
-          max={85}
-          step={1}
-          onChange={handlePitchSliderChange}
-          label="Camera Horizon Pitch"
-          unit="°"
-          readout={`${pitch.toFixed(1)}°`}
-          tooltip="Camera Horizon Pitch Angle (0° Nadir to 85° Grazing)"
-          className="!border-0 !bg-transparent !p-0 !shadow-none"
-        />
-
-        {/* Quick Pitch Presets */}
-        <div className="grid grid-cols-4 gap-1 pt-0.5">
-          {[
-            { label: '0° Nadir', val: 0.0 },
-            { label: '45° Oblique', val: 45.0 },
-            { label: '78° Horizon', val: 78.0 },
-            { label: '85° Grazing', val: 85.0 },
-          ].map((preset) => {
-            const isActive = Math.abs(pitch - preset.val) < 2.0;
-            return (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() => handlePitchSliderChange(preset.val)}
-                className={`py-1 px-0.5 rounded-[2px] border text-center transition-all cursor-pointer font-mono text-micro tracking-tight truncate ${
-                  isActive
-                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-bold shadow-2xs'
-                    : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
-                }`}
-                title={`Set camera tilt to ${preset.val}°`}
-              >
-                {preset.label}
-              </button>
-            );
-          })}
         </div>
       </div>
     </div>

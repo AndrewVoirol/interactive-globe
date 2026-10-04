@@ -189,6 +189,91 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
         </div>
       </div>
 
+      {/* Observation Presets & Camera Horizon Pitch (moved from Atmosphere tab) */}
+      <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
+        <div className="flex items-center justify-between text-nano">
+          <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider text-micro">
+            Observation Presets
+          </span>
+          <span className="text-[var(--theme-text-muted)] font-mono text-nano">
+            Altitude & Pitch
+          </span>
+        </div>
+
+        {/* Camera Horizon Pitch Slider */}
+        <VernierSlider
+          id="camera-horizon-pitch-kinematics"
+          value={(() => {
+            if (typeof window !== 'undefined') {
+              const cam = (window as any).__INDICATRIX_CAMERA__;
+              if (cam?.getPitch) return cam.getPitch();
+              if (cam?.pitch !== undefined) return cam.pitch;
+            }
+            return 0;
+          })()}
+          defaultValue={0}
+          min={0}
+          max={85}
+          step={1}
+          onChange={(val: number) => {
+            if (typeof window !== 'undefined') {
+              const cam = (window as any).__INDICATRIX_CAMERA__;
+              if (cam?.setPitch) cam.setPitch(val);
+            }
+          }}
+          label="Camera Horizon Pitch"
+          unit="°"
+          readout={(() => {
+            if (typeof window !== 'undefined') {
+              const cam = (window as any).__INDICATRIX_CAMERA__;
+              const p = cam?.getPitch?.() ?? cam?.pitch ?? 0;
+              return `${Number(p).toFixed(1)}°`;
+            }
+            return '0.0°';
+          })()}
+          tooltip="Camera Horizon Pitch Angle (0° Nadir to 85° Grazing)"
+          className="!border-0 !bg-transparent !p-0 !shadow-none"
+        />
+
+        {/* Tropospheric Altitude Presets */}
+        <div className="space-y-1 pt-1 border-t border-[var(--theme-card-border)]/50">
+          <span className="font-mono uppercase tracking-wider text-nano text-[var(--theme-text-muted)]">
+            Tropospheric Altitude Presets
+          </span>
+          <div className="grid grid-cols-3 gap-1">
+            {[
+              { label: 'Orbital', alt: 16.0, pitch: 0.0, hdg: 0.0, title: 'Orbital (14,000 km)' },
+              { label: 'Stratosphere', alt: 5.012, pitch: 52.0, hdg: 20.0, title: 'Stratosphere (15 km)' },
+              { label: 'Cirrus', alt: 5.007, pitch: 68.0, hdg: 45.0, title: 'Cirrus Deck (9 km)' },
+              { label: 'Altocumulus', alt: 5.0035, pitch: 78.0, hdg: 90.0, title: 'Altocumulus Deck (4 km)' },
+              { label: 'Sub-Cloud', alt: 5.0009, pitch: 84.0, hdg: 135.0, title: 'Sub-Cloud Ceiling (1.2 km)' },
+              { label: 'Peak (300m)', alt: 5.0003, pitch: 98.0, hdg: 180.0, title: 'Ground / Peak (300 m)' },
+            ].map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && (window as any).__INDICATRIX_CAMERA__?.setObliqueView) {
+                    const coords = (window as any).__INDICATRIX_CAMERA__?.activeCoords || { lon: -121.76, lat: 46.85 };
+                    (window as any).__INDICATRIX_CAMERA__.setObliqueView(
+                      coords.lon ?? -121.76,
+                      coords.lat ?? 46.85,
+                      preset.alt,
+                      preset.pitch,
+                      preset.hdg
+                    );
+                  }
+                }}
+                className="py-1 px-1 rounded-[2px] border text-center font-mono text-micro uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-border)] transition-colors cursor-pointer truncate"
+                title={preset.title}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* 2. Projection Manifold Station */}
       <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
         <div className="flex items-center justify-between">
