@@ -195,19 +195,19 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
       className={`p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${className}`}
     >
       {/* 1. Status Header */}
-      <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse shrink-0" />
-          <div className="flex flex-col min-w-0">
-            <span className="font-bold tracking-wider text-[var(--theme-text-accent)] uppercase">
+      <div className="flex items-start justify-between text-micro mb-1.5 font-mono">
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse shrink-0" />
+            <span className="font-bold tracking-wider text-[var(--theme-text-accent)] uppercase truncate">
               ATMOSPHERIC PROFILE
             </span>
-            <span className="text-nano text-[var(--theme-text-muted)]">
-              Tropospheric Strata Column
-            </span>
           </div>
+          <span className="text-nano text-[var(--theme-text-muted)] truncate pl-3">
+            Tropospheric Strata Column
+          </span>
         </div>
-        <div className="flex items-center gap-1 font-mono text-nano shrink-0 ml-1">
+        <div className="flex items-center gap-1 font-mono text-nano shrink-0 ml-1 pt-0.5">
           <span className="text-[var(--theme-text-secondary)]">Scale:</span>
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
             {atmosphericScale.toFixed(1)}×
@@ -330,11 +330,11 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               <line x1="34" y1="70" x2="40" y2="70" stroke="currentColor" strokeWidth="0.75" />
               <line x1="34" y1="104" x2="40" y2="104" stroke="currentColor" strokeWidth="0.75" />
               <line x1="34" y1="122" x2="40" y2="122" stroke="currentColor" strokeWidth="0.75" />
-              <text x="31" y="17" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">15k</text>
-              <text x="31" y="37" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">11k</text>
-              <text x="31" y="73" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">5k</text>
-              <text x="31" y="107" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">1.5k</text>
-              <text x="31" y="124" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">0m</text>
+              <text x="31" y="17" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">15 km</text>
+              <text x="31" y="37" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">11 km</text>
+              <text x="31" y="73" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">5 km</text>
+              <text x="31" y="107" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">1.5 km</text>
+              <text x="31" y="124" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">0 m</text>
 
               {/* Luke Howard 1803 Latin Taxonomy Labels */}
               <text x="48" y="37" fill="#8c4820" fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">
@@ -359,7 +359,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               {!showCloudLow && <line x1="42" y1="104" x2="272" y2="104" stroke="#8c4820" strokeWidth="1" strokeDasharray="3 3" opacity="0.35" />}
 
               {/* Earth crust baseline and intaglio geological hachures */}
-              <line x1="30" y1="122" x2="272" y2="122" stroke="#8c4820" strokeWidth="1" />
+              <line x1="40" y1="122" x2="272" y2="122" stroke="#8c4820" strokeWidth="1" />
               {Array.from({ length: 24 }).map((_, i) => (
                 <line key={i} x1={40 + i * 10} y1="122" x2={35 + i * 10} y2="128" stroke="#8c4820" strokeWidth="0.5" opacity="0.5" />
               ))}
@@ -447,27 +447,27 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
 
           {/* Draggable Troposphere Standoff Altitude Caliper */}
           <g>
-            {/* Caliper Horizontal Indicator Line */}
+            {/* Caliper Horizontal Indicator Line (Connects axis pointer to reticle badge) */}
             <line
-              x1="36"
+              x1="45"
               y1={caliperY}
-              x2="272"
+              x2="196"
               y2={caliperY}
               stroke={tokens.caliperLine}
               strokeWidth="1.5"
               strokeDasharray="4 2"
               className="drop-shadow-sm"
             />
-            {/* Left Axis Target Triangle */}
+            {/* Left Axis Target Triangle (Tip meets vertical axis cleanly at x=40) */}
             <polygon
-              points={`36,${caliperY} 41,${caliperY - 3} 41,${caliperY + 3}`}
+              points={`40,${caliperY} 45,${caliperY - 3} 45,${caliperY + 3}`}
               fill={tokens.caliperLine}
             />
-            {/* Right Caliper Standoff Reticle Badge */}
+            {/* Right Caliper Standoff Reticle Badge (Flush with column boundary at x=272) */}
             <rect
               x="196"
               y={caliperY - 7}
-              width="74"
+              width="76"
               height="14"
               rx="2"
               fill={tokens.caliperBadgeBg}
@@ -476,7 +476,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               className="drop-shadow"
             />
             <text
-              x="233"
+              x="234"
               y={caliperY + 3.5}
               textAnchor="middle"
               fill={tokens.caliperBadgeText}
@@ -491,11 +491,11 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
       </div>
 
       {/* 3. Strata Quick Layer Toggles */}
-      <div className="grid grid-cols-3 gap-1 my-1">
+      <div className="grid grid-cols-3 gap-1 my-1.5 font-mono">
         <button
           type="button"
           onClick={() => onToggleStrata('low', !showCloudLow)}
-          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${
             showCloudLow
               ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
               : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'
@@ -515,7 +515,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         <button
           type="button"
           onClick={() => onToggleStrata('mid', !showCloudMid)}
-          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${
             showCloudMid
               ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
               : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'
@@ -535,7 +535,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         <button
           type="button"
           onClick={() => onToggleStrata('high', !showCloudHigh)}
-          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${
             showCloudHigh
               ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
               : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'
@@ -559,7 +559,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         type="button"
         id="sidebar-strata-diagnostic-toggle"
         onClick={() => onToggleFalseColor?.(!cloudFalseColor)}
-        className={`w-full py-1 px-2 mb-1 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 text-nano font-mono ${
+        className={`w-full py-1 px-2 mb-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 text-nano font-mono ${
           cloudFalseColor
             ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-bold shadow-sm'
             : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
@@ -577,7 +577,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
       </button>
 
       {/* 4. Secondary Calibration Sliders & Steppers (100% Backward-Compatibility with Tests) */}
-      <div className="space-y-1.5 pt-1 border-t border-[var(--theme-card-border)]/50">
+      <div className="space-y-1.5 pt-1.5 border-t border-[var(--theme-card-border)]/50">
         {/* Atmospheric Scale Precision Control */}
         <div className="space-y-0.5">
           <div className="flex items-center justify-between text-nano">
@@ -605,7 +605,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
                     Math.max(1.0, parseFloat((atmosphericScale - 0.1).toFixed(1)))
                   )
                 }
-                className="w-4 h-4 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] flex items-center justify-center text-nano font-mono cursor-pointer"
+                className="w-4 h-4 rounded-[2px] border border-[var(--theme-stepper-btn-border)] bg-[var(--theme-stepper-btn-bg)] text-[var(--theme-stepper-btn-text)] hover:bg-[var(--theme-stepper-btn-hover-bg)] flex items-center justify-center text-nano font-mono cursor-pointer transition-colors"
               >
                 -
               </button>
@@ -617,7 +617,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
                     Math.min(12.0, parseFloat((atmosphericScale + 0.1).toFixed(1)))
                   )
                 }
-                className="w-4 h-4 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] flex items-center justify-center text-nano font-mono cursor-pointer"
+                className="w-4 h-4 rounded-[2px] border border-[var(--theme-stepper-btn-border)] bg-[var(--theme-stepper-btn-bg)] text-[var(--theme-stepper-btn-text)] hover:bg-[var(--theme-stepper-btn-hover-bg)] flex items-center justify-center text-nano font-mono cursor-pointer transition-colors"
               >
                 +
               </button>
@@ -633,7 +633,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             aria-label="Atmospheric Scale"
             onDoubleClick={handleReset}
             onChange={(e) => onAtmosphericScaleChange(parseFloat(e.target.value))}
-            className="w-full h-1 bg-[var(--theme-control-border)] rounded appearance-none cursor-pointer accent-[var(--theme-text-accent)]"
+            className="w-full slider-archival cursor-pointer h-1 rounded-[1px] block"
           />
         </div>
 
@@ -664,7 +664,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
                     Math.max(0.10, parseFloat((cloudOpacity - 0.05).toFixed(2)))
                   )
                 }
-                className="w-4 h-4 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] flex items-center justify-center text-nano font-mono cursor-pointer"
+                className="w-4 h-4 rounded-[2px] border border-[var(--theme-stepper-btn-border)] bg-[var(--theme-stepper-btn-bg)] text-[var(--theme-stepper-btn-text)] hover:bg-[var(--theme-stepper-btn-hover-bg)] flex items-center justify-center text-nano font-mono cursor-pointer transition-colors"
               >
                 -
               </button>
@@ -676,7 +676,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
                     Math.min(1.0, parseFloat((cloudOpacity + 0.05).toFixed(2)))
                   )
                 }
-                className="w-4 h-4 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] flex items-center justify-center text-nano font-mono cursor-pointer"
+                className="w-4 h-4 rounded-[2px] border border-[var(--theme-stepper-btn-border)] bg-[var(--theme-stepper-btn-bg)] text-[var(--theme-stepper-btn-text)] hover:bg-[var(--theme-stepper-btn-hover-bg)] flex items-center justify-center text-nano font-mono cursor-pointer transition-colors"
               >
                 +
               </button>
@@ -692,7 +692,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             aria-label="Cloud Opacity"
             onDoubleClick={handleReset}
             onChange={(e) => onCloudOpacityChange?.(parseFloat(e.target.value))}
-            className="w-full h-1 bg-[var(--theme-control-border)] rounded appearance-none cursor-pointer accent-[var(--theme-text-accent)]"
+            className="w-full slider-archival cursor-pointer h-1 rounded-[1px] block"
           />
         </div>
       </div>
