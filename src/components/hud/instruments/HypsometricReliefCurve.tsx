@@ -96,7 +96,10 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
       };
 
   return (
-    <div className="p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]">
+    <div
+      data-instrument="hypsometric-relief"
+      className="p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]"
+    >
       <div className="flex items-center justify-between text-micro mb-1.5 font-mono-draft">
         <span className="font-bold flex items-center gap-1.5 text-[var(--theme-text-accent)]">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)]"></span>
@@ -151,7 +154,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
         title="Drag peak summit vertically (amplitude) and horizontally (peak sharpness) — Double-click to reset (0.08 / 1.4x), Arrow keys to nudge"
         className={`relative w-full h-20 rounded-[2px] border overflow-hidden cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${tokens.mountainBg} ${tokens.mountainBorder}`}
       >
-        <svg className="w-full h-full pointer-events-none" viewBox="0 0 300 100" preserveAspectRatio="none">
+        <svg className="w-full h-full pointer-events-none" viewBox="0 0 300 100" preserveAspectRatio="xMidYMid meet">
           <defs>
             <linearGradient id={`reliefGrad-${theme}`} x1="0" y1="1" x2="0" y2="0">
               <stop offset="0%" stopColor={tokens.gradStops[0]} stopOpacity="0.3" />
