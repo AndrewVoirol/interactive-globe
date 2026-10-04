@@ -295,7 +295,10 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   else if (activeAlpha >= 0.15) currentMilestone = milestones[1];
 
   return (
-    <div className="flex flex-col items-center w-72 sm:w-80 md:w-[350px] select-none">
+    <div
+      data-instrument="curvature-unfurl-sextant"
+      className="flex flex-col items-center w-72 sm:w-80 md:w-[350px] select-none"
+    >
       {/* Interactive Sextant Arc Scrubber */}
       <div
         ref={boxRef}
@@ -382,7 +385,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         }`}
         style={{ touchAction: 'none' }}
       >
-        <svg className="w-full h-full pointer-events-none" viewBox="0 0 240 36" preserveAspectRatio="none">
+        <svg className="w-full h-full pointer-events-none" viewBox="0 0 240 36" preserveAspectRatio="xMidYMid meet">
           {/* Radial reference rays */}
           <line x1="120" y1="34" x2="15" y2="10" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
           <line x1="120" y1="34" x2="68" y2="6" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />

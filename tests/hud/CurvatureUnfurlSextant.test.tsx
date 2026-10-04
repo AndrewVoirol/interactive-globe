@@ -29,7 +29,7 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
 
   it('verifies arc-geometry to pointer-domain alignment calibrates pointer clientX relative to active arc bounds (R1)', () => {
     // Check source code implementation
-    expect(sourceCode).toContain('preserveAspectRatio="none"');
+    expect(sourceCode).toContain('preserveAspectRatio="xMidYMid meet"');
     expect(sourceCode).toContain('const leftMargin = rect.width * (15 / 240);');
     expect(sourceCode).toContain('const arcWidth = rect.width * (210 / 240);');
     expect(sourceCode).toContain('(clientX - (rect.left + leftMargin)) / arcWidth');
@@ -64,6 +64,8 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
 
     const slider = container.querySelector('[role="slider"]') as HTMLDivElement;
     expect(slider).not.toBeNull();
+    const card = container.querySelector('[data-instrument="curvature-unfurl-sextant"]');
+    expect(card).not.toBeNull();
     expect(slider.getAttribute('role')).toBe('slider');
     expect(slider.getAttribute('aria-valuemin')).toBe('0');
     expect(slider.getAttribute('aria-valuemax')).toBe('1');
