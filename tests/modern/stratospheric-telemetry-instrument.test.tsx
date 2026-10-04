@@ -55,6 +55,24 @@ describe('StratosphericTelemetryInstrument', () => {
     expect(card?.textContent).toContain('Strata Color Mode:');
     expect(card?.textContent).toContain('Grid Resolution:');
     expect(card?.textContent).toContain('Wind Vector Field:');
+
+    // Regression Guard: Header must feature canonical pulsating status dot and live pitch readout
+    const pulseDot = card?.querySelector('.bg-\\[var\\(--theme-pulse-indicator\\)\\]');
+    expect(pulseDot).not.toBeNull();
+    expect(card?.textContent).not.toContain('◬');
+    expect(card?.textContent).toContain('Pitch:');
+  });
+
+  it('enforces tabular numerals on dynamic telemetry metrics for pixel-stable alignment', async () => {
+    await act(async () => {
+      root.render(<StratosphericTelemetryInstrument theme={0} />);
+    });
+
+    const card = container.querySelector('[data-testid="stratospheric-telemetry-instrument"]');
+    expect(card).not.toBeNull();
+    const tabularElements = card?.querySelectorAll('.tabular-nums');
+    // Ensure all numeric readouts (elevation, pitch, interval, steps, resolution, cursor, header pitch) use tabular-nums
+    expect(tabularElements && tabularElements.length).toBeGreaterThanOrEqual(6);
   });
 
   it('reflects Doppler Spectral vs Archival Ink Wash in Strata Color Mode row', async () => {
@@ -79,6 +97,11 @@ describe('StratosphericTelemetryInstrument', () => {
     const p78 = buttons.find((b) => b.textContent?.includes('78° Horizon'));
     expect(p78).toBeDefined();
 
+    const p85 = buttons.find((b) => b.textContent?.includes('85° Grazing'));
+    expect(p85).toBeDefined();
+    // Regression Guard: Defensive lateral clearance on 11-char button label
+    expect(p85?.className).toContain('tracking-tight');
+
     await act(async () => {
       p78!.click();
     });
@@ -86,7 +109,7 @@ describe('StratosphericTelemetryInstrument', () => {
     expect(pitchMock).toHaveBeenCalledWith(78.0);
   });
 
-  it('conforms strictly to Rule 6 Single-Border HUD Enclosure', async () => {
+  it('conforms strictly to Rule 6 Single-Border HUD Enclosure and eliminates label collision', async () => {
     await act(async () => {
       root.render(<StratosphericTelemetryInstrument theme={0} />);
     });
@@ -96,6 +119,15 @@ describe('StratosphericTelemetryInstrument', () => {
     expect(card?.className).toContain('bg-[var(--theme-card-bg)]');
     expect(card?.className).toContain('border-[var(--theme-card-border)]');
     expect(card?.querySelectorAll('.border-current\\/15, .inset-\\[2px\\]').length).toBe(0);
+
+    // Regression Guard: VernierSlider must not introduce a nested border box within the HUD card
+    const sliderContainer = card?.querySelector('#camera-horizon-pitch')?.closest('.p-2.rounded-\\[2px\\]');
+    expect(sliderContainer?.className).toContain('!border-0');
+    expect(sliderContainer?.className).toContain('!bg-transparent');
+
+    // Regression Guard: Section subheader must not duplicate slider label
+    expect(card?.textContent).not.toContain('HORIZON PITCH ANGLE');
+    expect(card?.textContent).toContain('Camera Horizon Pitch');
   });
 
   it('updates cursor target coordinates continuously when activeCoords change', async () => {
