@@ -456,9 +456,9 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
 
           {/* Valley Floor Hydrology: River Channel widening via Leopold-Maddock Law */}
           <line
-            x1="145"
+            x1="150"
             y1="118"
-            x2="215"
+            x2="210"
             y2="118"
             stroke={tokens.riverStroke}
             strokeWidth={riverStrokeWidth}

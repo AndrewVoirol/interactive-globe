@@ -807,8 +807,8 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               {
                 id: 'wind_10m_vector',
                 domId: 'sidebar-variable-wind',
-                label: 'Wind',
-                sublabel: '10m Vector',
+                label: '10m Wind',
+                sublabel: 'Vector Field',
                 title: 'Integrated Vapor Transport & 10m Wind Velocity Vector Field (rg16float)',
                 className: 'w-full',
               },
