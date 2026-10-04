@@ -493,15 +493,22 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
             {/* 10-minute tick marks in Radar Zone */}
             {[0, 1, 2, 3, 4, 5].map((i) => {
               const tickPct = (i / 6) * 100;
+              const isMajor = i === 0 || i === 3;
               return (
                 <div
                   key={`radar-tick-${i}`}
-                  className="absolute top-0 bottom-0 border-l border-[var(--theme-status-sage,#34d399)]/20 pointer-events-none"
+                  className={`absolute top-0 bottom-0 border-l pointer-events-none ${
+                    isMajor
+                      ? 'border-[var(--theme-status-sage,#34d399)]/40'
+                      : 'border-[var(--theme-status-sage,#34d399)]/20'
+                  }`}
                   style={{ left: `${tickPct}%` }}
                 >
-                  <span className="absolute bottom-0.5 left-0.5 text-nano font-mono text-[var(--theme-status-sage,#34d399)]/60 hidden sm:inline">
-                    -{60 - i * 10}
-                  </span>
+                  {isMajor && (
+                    <span className="absolute bottom-0.5 left-0.5 text-nano font-mono text-[var(--theme-status-sage,#34d399)]/75 hidden sm:inline">
+                      -{60 - i * 10}
+                    </span>
+                  )}
                 </div>
               );
             })}

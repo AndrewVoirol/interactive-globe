@@ -398,8 +398,8 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               PROGNOSTIC MODEL
             </span>
           </div>
-          <span className="text-nano text-[var(--theme-text-muted)] truncate pl-3">
-            Numerical Weather Prediction & Tensor Telemetry
+          <span className="text-nano text-[var(--theme-text-muted)] truncate pl-3" title="Numerical Weather Prediction & Tensor Telemetry">
+            NWP & Tensor Telemetry
           </span>
         </div>
         <div className="flex items-center gap-1 font-mono text-nano shrink-0 ml-1.5 pt-0.5">

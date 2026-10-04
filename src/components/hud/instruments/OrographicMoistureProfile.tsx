@@ -242,17 +242,17 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
       className={`p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${className}`}
     >
       {/* 1. Status Header */}
-      <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse shrink-0" />
-          <div className="flex flex-col min-w-0">
+      <div className="flex items-start justify-between text-micro mb-1.5 font-mono">
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse shrink-0" />
             <span className="font-bold tracking-wider text-[var(--theme-text-accent)] uppercase truncate">
               OROGRAPHIC MOISTURE
             </span>
-            <span className="text-nano text-[var(--theme-text-muted)] truncate">
-              Adiabatic Condensation Profile
-            </span>
           </div>
+          <span className="text-nano text-[var(--theme-text-muted)] truncate pl-3">
+            Adiabatic Condensation Profile
+          </span>
         </div>
         <div className="flex items-center gap-1 font-mono text-nano shrink-0 ml-1">
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">

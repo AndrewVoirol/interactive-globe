@@ -616,32 +616,32 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   }, [curShowClouds, curAtmosphericScale, onHorizonPresetClick, onSnapCamera, onTogglePlanetaryLayer]);
 
   return (
-    <div
-      className={`p-2 rounded-[3px] border space-y-2 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] ${className}`}
-    >
-      {/* Header with TactileSwitch Master Toggle */}
-      <TactileSwitch
-        checked={curShowClouds}
-        onChange={(checked) => handleToggleClouds(checked)}
-        title="Master Atmosphere Deck (All Cloud Layers)"
-        label="Atmospheric Cloud Strata"
-        sublabel="Master Deck Control"
-      />
-      {/* Test compatibility companion button for R13 suite */}
-      <button
-        type="button"
-        role="switch"
-        aria-checked={curShowClouds}
-        title="Master Atmosphere Deck (All Cloud Layers)"
-        onClick={() => handleToggleClouds(!curShowClouds)}
-        className="sr-only"
-        tabIndex={-1}
-        aria-hidden="true"
-      />
+    <div className={`space-y-2.5 ${className}`}>
+      {/* Header with TactileSwitch Master Toggle (Standalone Single-Border Card) */}
+      <div className="p-2 rounded-[3px] border shadow-sm bg-[var(--theme-card-bg)] border-[var(--theme-card-border)]">
+        <TactileSwitch
+          checked={curShowClouds}
+          onChange={(checked) => handleToggleClouds(checked)}
+          title="Master Atmosphere Deck (All Cloud Layers)"
+          label="Atmospheric Cloud Strata"
+          sublabel="Master Deck Control"
+        />
+        {/* Test compatibility companion button for R13 suite */}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={curShowClouds}
+          title="Master Atmosphere Deck (All Cloud Layers)"
+          onClick={() => handleToggleClouds(!curShowClouds)}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      </div>
 
       {/* Collapsible Strata Instrumentation (Invariant §21) */}
       {curShowClouds && (
-        <div className="space-y-2 pt-1 border-t border-[var(--theme-card-border)]">
+        <div className="space-y-2.5">
           {/* Atmospheric Profile & Strata Column Instrument (R2) */}
           <AtmosphericColumnInstrument
             showCloudLow={curShowCloudLow}
@@ -779,70 +779,84 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             </div>
           )}
 
-          {/* 1-Click Horizon Cross-Section (78°) Camera Preset Button */}
-          <button
-            type="button"
-            onClick={handleHorizonCrossSectionPreset}
-            className={`w-full py-1.5 px-2 rounded-[2px] border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
-              theme === 1
-                ? 'bg-[#96641e]/20 hover:bg-[#96641e]/35 text-[#52350c] border-[#96641e]/40'
-                : theme === 2
-                ? 'bg-[#3a5578]/30 hover:bg-[#3a5578]/50 text-[#dbe5f0] border-[#5a6e8c]/50'
-                : 'bg-[var(--theme-status-amber)]/20 hover:bg-[var(--theme-status-amber)]/30 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40 shadow-[0_0_8px_var(--theme-status-amber)]'
-            }`}
-            title="1-Click Horizon Cross-Section (Pitch 78°, Oblique Limb View)"
+          {/* Tropospheric Altitude Presets & Oblique Horizon Cross-Section */}
+          <div
+            className="p-2 rounded-[3px] border shadow-sm bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] space-y-2"
+            data-instrument="tropospheric-presets"
           >
-            <div className="flex flex-col min-w-0">
-              <span className="font-bold text-nano truncate flex items-center gap-1">
-                <span>◬</span>
-                <span>Horizon Cross-Section (78°)</span>
-              </span>
-              <span className="text-nano text-[var(--theme-text-muted)] truncate opacity-80">
-                Pitch 78.0° • Atmospheric Strata
-              </span>
-            </div>
-            <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] border shrink-0 bg-[var(--theme-control-active-bg)] border-[var(--theme-control-active-border)] text-[var(--theme-control-active-text)]">
-              78.0° Oblique
-            </span>
-          </button>
-
-          {/* Tropospheric Altitude Presets (Matching Testbed Presets) */}
-          <div className="space-y-1 pt-1 border-t border-[var(--theme-card-border)]">
             <div className="flex items-center justify-between text-nano">
-              <span className="font-mono uppercase tracking-wider text-[var(--theme-text-muted)]">
-                Tropospheric Altitude Presets
+              <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
+                Observation Presets
+              </span>
+              <span className="text-[var(--theme-text-muted)] font-mono text-nano">
+                Limb & Strata
               </span>
             </div>
-            <div className="grid grid-cols-3 gap-1">
-              {[
-                { label: 'Orbital', alt: 16.0, pitch: 0.0, hdg: 0.0, title: 'Orbital (14,000 km)' },
-                { label: 'Stratosphere', alt: 5.012, pitch: 52.0, hdg: 20.0, title: 'Stratosphere (15 km)' },
-                { label: 'Cirrus', alt: 5.007, pitch: 68.0, hdg: 45.0, title: 'Cirrus Deck (9 km)' },
-                { label: 'Altocumulus', alt: 5.0035, pitch: 78.0, hdg: 90.0, title: 'Altocumulus Deck (4 km)' },
-                { label: 'Sub-Cloud', alt: 5.0009, pitch: 84.0, hdg: 135.0, title: 'Sub-Cloud Ceiling (1.2 km)' },
-                { label: 'Peak (300m)', alt: 5.0003, pitch: 98.0, hdg: 180.0, title: 'Ground / Peak (300 m)' },
-              ].map((preset) => (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => {
-                    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_CAMERA__?.setObliqueView) {
-                      const coords = (window as any).__INDICATRIX_CAMERA__?.activeCoords || { lon: -121.76, lat: 46.85 };
-                      (window as any).__INDICATRIX_CAMERA__.setObliqueView(
-                        coords.lon ?? -121.76,
-                        coords.lat ?? 46.85,
-                        preset.alt,
-                        preset.pitch,
-                        preset.hdg
-                      );
-                    }
-                  }}
-                  className="py-1 px-1 rounded-[2px] border text-center font-mono text-micro uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-border)] transition-colors cursor-pointer truncate"
-                  title={preset.title}
-                >
-                  {preset.label}
-                </button>
-              ))}
+            {/* 1-Click Horizon Cross-Section (78°) Camera Preset Button */}
+            <button
+              type="button"
+              onClick={handleHorizonCrossSectionPreset}
+              className={`w-full py-1.5 px-2 rounded-[2px] border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
+                theme === 1
+                  ? 'bg-[#96641e]/20 hover:bg-[#96641e]/35 text-[#52350c] border-[#96641e]/40'
+                  : theme === 2
+                  ? 'bg-[#3a5578]/30 hover:bg-[#3a5578]/50 text-[#dbe5f0] border-[#5a6e8c]/50'
+                  : 'bg-[var(--theme-status-amber)]/20 hover:bg-[var(--theme-status-amber)]/30 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40 shadow-[0_0_8px_var(--theme-status-amber)]'
+              }`}
+              title="1-Click Horizon Cross-Section (Pitch 78°, Oblique Limb View)"
+            >
+              <div className="flex flex-col min-w-0">
+                <span className="font-bold text-nano truncate flex items-center gap-1">
+                  <span>◬</span>
+                  <span>Horizon Cross-Section (78°)</span>
+                </span>
+                <span className="text-nano text-[var(--theme-text-muted)] truncate opacity-80">
+                  Pitch 78.0° • Atmospheric Strata
+                </span>
+              </div>
+              <span className="text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] border shrink-0 bg-[var(--theme-control-active-bg)] border-[var(--theme-control-active-border)] text-[var(--theme-control-active-text)]">
+                78.0° Oblique
+              </span>
+            </button>
+
+            {/* Tropospheric Altitude Presets (Matching Testbed Presets) */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-nano">
+                <span className="font-mono uppercase tracking-wider text-[var(--theme-text-muted)]">
+                  Tropospheric Altitude Presets
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  { label: 'Orbital', alt: 16.0, pitch: 0.0, hdg: 0.0, title: 'Orbital (14,000 km)' },
+                  { label: 'Stratosphere', alt: 5.012, pitch: 52.0, hdg: 20.0, title: 'Stratosphere (15 km)' },
+                  { label: 'Cirrus', alt: 5.007, pitch: 68.0, hdg: 45.0, title: 'Cirrus Deck (9 km)' },
+                  { label: 'Altocumulus', alt: 5.0035, pitch: 78.0, hdg: 90.0, title: 'Altocumulus Deck (4 km)' },
+                  { label: 'Sub-Cloud', alt: 5.0009, pitch: 84.0, hdg: 135.0, title: 'Sub-Cloud Ceiling (1.2 km)' },
+                  { label: 'Peak (300m)', alt: 5.0003, pitch: 98.0, hdg: 180.0, title: 'Ground / Peak (300 m)' },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== 'undefined' && (window as any).__INDICATRIX_CAMERA__?.setObliqueView) {
+                        const coords = (window as any).__INDICATRIX_CAMERA__?.activeCoords || { lon: -121.76, lat: 46.85 };
+                        (window as any).__INDICATRIX_CAMERA__.setObliqueView(
+                          coords.lon ?? -121.76,
+                          coords.lat ?? 46.85,
+                          preset.alt,
+                          preset.pitch,
+                          preset.hdg
+                        );
+                      }
+                    }}
+                    className="py-1 px-1 rounded-[2px] border text-center font-mono text-micro uppercase tracking-wider bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-border)] transition-colors cursor-pointer truncate"
+                    title={preset.title}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -855,7 +869,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
           />
 
           {/* 3D Volumetric Raymarch Station (Graduated from Beta) */}
-          <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] flex items-center justify-between transition-all shadow-sm mt-2">
+          <div className="p-2 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] flex items-center justify-between transition-all shadow-sm">
             <div className="flex flex-col">
               <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
                 3D Volumetric Raymarch
@@ -870,12 +884,12 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
               checked={curVolumetricClouds}
               onChange={handleVolumetricCloudsToggle}
               title="Toggle 3D volumetric raymarched clouds"
-              indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#38BDF8'}
+              indicatorColor={theme === 1 ? 'var(--theme-text-accent)' : '#38BDF8'}
             />
           </div>
 
           {/* Atmospheric Scatter / Rayleigh & Mie Limb Scattering Station */}
-          <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] flex items-center justify-between transition-all shadow-sm mt-2">
+          <div className="p-2 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] flex items-center justify-between transition-all shadow-sm">
             <div className="flex flex-col">
               <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
                 Atmospheric Scatter
@@ -890,16 +904,16 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
               checked={curShowAtmosphere}
               onChange={handleAtmosphereScatterToggle}
               title="Toggle Rayleigh & Mie atmospheric limb scattering"
-              indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#38BDF8'}
+              indicatorColor={theme === 1 ? 'var(--theme-text-accent)' : '#38BDF8'}
             />
           </div>
 
           {/* Tropospheric Physics & Optics Accordion */}
-          <div className="rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] transition-all shadow-sm overflow-hidden mt-2">
+          <div className="rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] transition-all shadow-sm overflow-hidden">
             <button
               type="button"
               onClick={() => setIsCloudPhysicsOpen(!isCloudPhysicsOpen)}
-              className="w-full p-2.5 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border)]/15 transition-colors"
+              className="w-full p-2 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border)]/15 transition-colors"
               title="Toggle volumetric cloud dynamics and 3D raymarch calipers"
             >
               <div className="flex items-center gap-2">
@@ -916,7 +930,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             </button>
 
             {isCloudPhysicsOpen && (
-              <div className="p-2.5 pt-0 space-y-3 border-t border-[var(--theme-card-border)]/50 mt-1">
+              <div className="p-2 pt-0 space-y-3 border-t border-[var(--theme-card-border)]/50 mt-1">
 
                 {/* 1. Vertical Structure Pair */}
                 <div className="space-y-2 pt-2">
@@ -927,7 +941,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                     <VernierSlider
                       id="beta-cloud-thickness"
                       label="Vertical Thickness"
-                      sublabel="Expands tropospheric bounding shell for 3D vertical relief"
+                      sublabel="Tropospheric bounding shell"
                       tooltip="Troposphere vertical shell thickness (0.04 - 0.35, calibrated: 0.19)"
                       value={curCloudThickness}
                       defaultValue={0.19}
@@ -940,7 +954,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                     <VernierSlider
                       id="beta-cloud-low-top"
                       label="Cumulus Ceiling"
-                      sublabel="Vertical fraction of troposphere occupied by low cumulus"
+                      sublabel="Low cumulus deck ceiling"
                       tooltip="Cumulus layer vertical ceiling (0.15 - 0.60, calibrated: 0.45)"
                       value={curCloudLowTop}
                       defaultValue={0.45}
@@ -962,7 +976,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                     <VernierSlider
                       id="beta-cloud-erosion"
                       label="Billow Erosion"
-                      sublabel="Worley noise carving strength on cauliflower cloud domes"
+                      sublabel="Worley noise carving strength"
                       tooltip="High-frequency 3D Worley displacement and erosion strength (calibrated: 0.85)"
                       value={curCloudErosion}
                       defaultValue={0.85}
@@ -975,7 +989,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                     <VernierSlider
                       id="beta-cloud-extinction"
                       label="Optical Extinction"
-                      sublabel="Raymarch absorption and scattering coefficient"
+                      sublabel="Raymarch extinction coefficient"
                       tooltip="Volumetric extinction coefficient (calibrated: 28.0)"
                       value={curCloudExtinction}
                       defaultValue={28.0}
@@ -997,7 +1011,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                     <VernierSlider
                       id="beta-cloud-freq-horiz"
                       label="Horizontal Clustering"
-                      sublabel="Cellular billow density across planetary surface"
+                      sublabel="Planetary cellular density"
                       tooltip="Planetary horizontal noise frequency (calibrated: 32.0)"
                       value={curCloudFreqHoriz}
                       defaultValue={32.0}
@@ -1010,7 +1024,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                     <VernierSlider
                       id="beta-cloud-freq-vert"
                       label="Vertical Stratification"
-                      sublabel="Vertical octave density across troposphere shell"
+                      sublabel="Tropospheric octave density"
                       tooltip="Vertical noise frequency across shell (calibrated: 12.0)"
                       value={curCloudFreqVert}
                       defaultValue={12.0}
@@ -1034,7 +1048,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                       { label: '0° Nadir', pitch: 0 },
                       { label: '45° Oblique', pitch: 45 },
                       { label: '55° Limb', pitch: 55 },
-                      { label: '75° Horizon', pitch: 75 },
+                      { label: '78° Horizon', pitch: 78 },
                     ].map((btn) => (
                       <button
                         key={btn.label}

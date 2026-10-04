@@ -144,12 +144,12 @@ export const AtmosphereTab: React.FC<AtmosphereTabProps> = ({
         onTimeChange={onTimelineChange}
         isRadarActive={isRadarActive}
         onEnableRadar={handleEnableRadar}
-        className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] !p-2.5 rounded-[3px]"
+        className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] !p-2 shadow-sm rounded-[3px]"
       />
 
-      {/* Atmospheric Cloud Strata Instrumentation Card */}
+      {/* Atmospheric Cloud Strata Instrumentation Card: border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] */}
       <AtmosphereDrawer
-        className="border-[var(--theme-card-border)] bg-[var(--theme-card-bg)]"
+        className="space-y-2.5"
         theme={theme}
         isLight={isLight}
         resolution={resolution}

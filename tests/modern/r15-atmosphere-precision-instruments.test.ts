@@ -1020,4 +1020,75 @@ describe('Milestone 6: AtmosphereDrawer Precision Instruments Suite', () => {
       }).not.toThrow();
     });
   });
+
+  // ==========================================================================
+  // 8. Cartographic Composition, Spatial Rhythm & Medium Integrity Audit
+  // ==========================================================================
+  describe('8. Cartographic Composition, Spatial Rhythm & Medium Integrity Audit', () => {
+    it('R15-AUDIT-01: master toggle is enclosed in an independent single-border card, eliminating outer card-in-card nesting', async () => {
+      await act(async () => {
+        root.render(
+          React.createElement(AtmosphereDrawer, {
+            showClouds: true,
+          })
+        );
+      });
+
+      const masterSpan = Array.from(container.querySelectorAll('span')).find(
+        (s) => s.textContent === 'Atmospheric Cloud Strata'
+      );
+      expect(masterSpan).toBeDefined();
+      const masterCard = masterSpan?.closest('.p-2.rounded-\\[3px\\].border');
+      expect(masterCard).not.toBeNull();
+      // Master card must only contain the master switch, not child instruments
+      expect(masterCard?.querySelector('#sidebar-atmospheric-scale')).toBeNull();
+    });
+
+    it('R15-AUDIT-02: verifies Tropospheric Altitude Presets & 1-Click Horizon Cross-Section are enclosed in a dedicated card with Observation Presets header', async () => {
+      await act(async () => {
+        root.render(
+          React.createElement(AtmosphereDrawer, {
+            showClouds: true,
+          })
+        );
+      });
+
+      const presetCard = container.querySelector('[data-instrument="tropospheric-presets"]');
+      expect(presetCard).not.toBeNull();
+      expect(presetCard?.className).toContain('border');
+      expect(presetCard?.className).toContain('bg-[var(--theme-card-bg)]');
+      expect(presetCard?.textContent).toContain('Observation Presets');
+      expect(presetCard?.textContent).toContain('Horizon Cross-Section (78°)');
+      expect(presetCard?.textContent).toContain('Tropospheric Altitude Presets');
+    });
+
+    it('R15-AUDIT-03: verifies Raymarch and Scatter stations use theme-appropriate indicatorColor in Cream Rag (no cold blue contamination)', () => {
+      const drawerPath = path.resolve(__dirname, '../../src/components/AtmosphereDrawer.tsx');
+      const drawerSrc = fs.readFileSync(drawerPath, 'utf-8');
+
+      // Rule 3: Zero cold blue contamination in Theme 1 Cream Rag
+      expect(drawerSrc).not.toContain("theme === 1 ? '#1A4457'");
+      expect(drawerSrc).toContain("theme === 1 ? 'var(--theme-text-accent)' : '#38BDF8'");
+    });
+
+    it('R15-AUDIT-04: verifies VernierSlider sublabels are concise to eliminate UI ellipsis truncations', () => {
+      const drawerPath = path.resolve(__dirname, '../../src/components/AtmosphereDrawer.tsx');
+      const drawerSrc = fs.readFileSync(drawerPath, 'utf-8');
+
+      expect(drawerSrc).toContain('sublabel="Tropospheric bounding shell"');
+      expect(drawerSrc).toContain('sublabel="Low cumulus deck ceiling"');
+      expect(drawerSrc).toContain('sublabel="Worley noise carving strength"');
+      expect(drawerSrc).toContain('sublabel="Raymarch extinction coefficient"');
+      expect(drawerSrc).not.toContain('Expands tropospheric bounding shell');
+    });
+
+    it('R15-AUDIT-05: verifies TimelineScrubber radar zone ticks do not collide (-60 and -30 labeled only)', () => {
+      const scrubberPath = path.resolve(__dirname, '../../src/components/hud/TimelineScrubber.tsx');
+      const scrubberSrc = fs.readFileSync(scrubberPath, 'utf-8');
+
+      // Check radar zone tick labeling logic
+      expect(scrubberSrc).toContain('i === 0 || i === 3');
+      expect(scrubberSrc).not.toContain('i % 2 === 0');
+    });
+  });
 });

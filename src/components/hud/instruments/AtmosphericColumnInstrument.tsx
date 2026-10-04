@@ -605,7 +605,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
                     Math.max(1.0, parseFloat((atmosphericScale - 0.1).toFixed(1)))
                   )
                 }
-                className="w-4 h-4 rounded-[2px] border border-[var(--theme-stepper-btn-border)] bg-[var(--theme-stepper-btn-bg)] text-[var(--theme-stepper-btn-text)] hover:bg-[var(--theme-stepper-btn-hover-bg)] flex items-center justify-center text-nano font-mono cursor-pointer transition-colors"
+                className="tactile-press w-5 h-5 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-accent)] disabled:opacity-35 flex items-center justify-center font-bold text-body leading-none select-none transition-colors cursor-pointer"
               >
                 -
               </button>
@@ -617,7 +617,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
                     Math.min(12.0, parseFloat((atmosphericScale + 0.1).toFixed(1)))
                   )
                 }
-                className="w-4 h-4 rounded-[2px] border border-[var(--theme-stepper-btn-border)] bg-[var(--theme-stepper-btn-bg)] text-[var(--theme-stepper-btn-text)] hover:bg-[var(--theme-stepper-btn-hover-bg)] flex items-center justify-center text-nano font-mono cursor-pointer transition-colors"
+                className="tactile-press w-5 h-5 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-accent)] disabled:opacity-35 flex items-center justify-center font-bold text-body leading-none select-none transition-colors cursor-pointer"
               >
                 +
               </button>
@@ -664,7 +664,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
                     Math.max(0.10, parseFloat((cloudOpacity - 0.05).toFixed(2)))
                   )
                 }
-                className="w-4 h-4 rounded-[2px] border border-[var(--theme-stepper-btn-border)] bg-[var(--theme-stepper-btn-bg)] text-[var(--theme-stepper-btn-text)] hover:bg-[var(--theme-stepper-btn-hover-bg)] flex items-center justify-center text-nano font-mono cursor-pointer transition-colors"
+                className="tactile-press w-5 h-5 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-accent)] disabled:opacity-35 flex items-center justify-center font-bold text-body leading-none select-none transition-colors cursor-pointer"
               >
                 -
               </button>
@@ -676,7 +676,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
                     Math.min(1.0, parseFloat((cloudOpacity + 0.05).toFixed(2)))
                   )
                 }
-                className="w-4 h-4 rounded-[2px] border border-[var(--theme-stepper-btn-border)] bg-[var(--theme-stepper-btn-bg)] text-[var(--theme-stepper-btn-text)] hover:bg-[var(--theme-stepper-btn-hover-bg)] flex items-center justify-center text-nano font-mono cursor-pointer transition-colors"
+                className="tactile-press w-5 h-5 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-accent)] disabled:opacity-35 flex items-center justify-center font-bold text-body leading-none select-none transition-colors cursor-pointer"
               >
                 +
               </button>
