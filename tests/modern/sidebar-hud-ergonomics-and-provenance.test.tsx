@@ -281,8 +281,8 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       // Rule 6 & design-language.md: Inner VernierSliders must declare border-free and background-free styling
       expect(crustTabSource).toContain('id="sidebar-crevice-ao"');
       expect(crustTabSource).toMatch(/id="sidebar-crevice-ao"[\s\S]*?className="!border-0 !bg-transparent !p-0 !shadow-none"/);
-      expect(crustTabSource).toContain('id="sidebar-paper-tooth"');
-      expect(crustTabSource).toMatch(/id="sidebar-paper-tooth"[\s\S]*?className="!border-0 !bg-transparent !p-0 !shadow-none"/);
+      expect(sidebarSource).toContain('id="sidebar-paper-tooth"');
+      expect(sidebarSource).toMatch(/id="sidebar-paper-tooth"[\s\S]*?className="!border-0 !bg-transparent !p-0 !shadow-none"/);
 
       // Residual defects: Truncation prevention for sidebar sublabels
       expect(crustTabSource).not.toContain('Lithographic illustration board tooth & stipple');
