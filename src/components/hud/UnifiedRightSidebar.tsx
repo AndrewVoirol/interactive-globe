@@ -20,6 +20,7 @@ import { DataLayersTab } from './tabs/DataLayersTab';
 import { InspectionTab } from './tabs/InspectionTab';
 import { CatalogSheet } from './tabs/CatalogSheet';
 import { SidebarTelemetry } from './tabs/SidebarTelemetry';
+import { VernierSlider } from '../ui/VernierSlider';
 
 export * from './legacy/SystemStatusPill';
 export * from './legacy/TopologyControlDock';
@@ -324,6 +325,33 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
                 </button>
               ))}
             </div>
+            {/* Paper Substrate — medium grain control (always visible with medium switcher) */}
+            <VernierSlider
+              id="sidebar-paper-tooth"
+              label="Paper Grain"
+              sublabel={
+                theme === 1
+                  ? '310 GSM cotton rag cellulose roughness'
+                  : theme === 2
+                  ? 'Drafting linen warp & weft weave'
+                  : '1977 physiographic board tooth'
+              }
+              tooltip={
+                theme === 1
+                  ? 'Simulates physical micro-texture and cellulose fiber roughness of 310 GSM archival cotton rag paper'
+                  : theme === 2
+                  ? 'Simulates structured blueprint drafting linen weave with orthogonal warp and weft fibers'
+                  : 'Simulates 1977 Marie Tharp physiographic illustration board tooth and stipple relief'
+              }
+              value={primaryLayer?.paperTooth ?? 0.40}
+              min={0.0}
+              max={1.0}
+              step={0.05}
+              defaultValue={0.40}
+              readout={`${Math.round((primaryLayer?.paperTooth ?? 0.40) * 100)}%`}
+              onChange={(v) => onPaperToothChangeDataLayer?.(primaryLayerId, v)}
+              className="!border-0 !bg-transparent !p-0 !shadow-none"
+            />
           </div>
 
           {/* Expandable Scroll Drawer */}
