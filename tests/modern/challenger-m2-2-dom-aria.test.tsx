@@ -110,12 +110,19 @@ describe('Challenger 2: DOM, ARIA & Build Verification Suite (M2 - R2)', () => {
       expect(creamText).toContain('Alto-cumulus (4–6 km)');
       expect(creamText).toContain('Stratus (1–2 km)');
 
-      // Check altitude graduation ticks
-      expect(creamText).toContain('15k');
-      expect(creamText).toContain('11k');
-      expect(creamText).toContain('5k');
-      expect(creamText).toContain('1.5k');
-      expect(creamText).toContain('0m');
+      // Check altitude graduation ticks (unabbreviated metric units)
+      expect(creamText).toContain('15 km');
+      expect(creamText).toContain('11 km');
+      expect(creamText).toContain('5 km');
+      expect(creamText).toContain('1.5 km');
+      expect(creamText).toContain('0 m');
+
+      // Regression guard: Verify geological crust baseline begins at x1=40 (no collision with 0 m label at x=31)
+      const crustBaseline = Array.from(creamGroup?.querySelectorAll('line') || []).find(
+        (l) => l.getAttribute('y1') === '122' && l.getAttribute('y2') === '122' && l.getAttribute('x2') === '272'
+      );
+      expect(crustBaseline).not.toBeNull();
+      expect(crustBaseline?.getAttribute('x1')).toBe('40');
 
       // Check intaglio copperplate ruling-pen lines and hachures
       const hachureLines = creamGroup?.querySelectorAll('line');
@@ -923,5 +930,68 @@ describe('Challenger 2: DOM, ARIA & Build Verification Suite (M2 - R2)', () => {
       const tabularElements = container.querySelectorAll('.tabular-nums');
       expect(tabularElements.length).toBeGreaterThanOrEqual(2);
     });
+
+    it('CHALLENGE-ENV-03: Caliper geometry cleanly touches vertical axis and aligns with column bounds', async () => {
+      await act(async () => {
+        root.render(
+          <AtmosphericColumnInstrument
+            atmosphericScale={3.5}
+            cloudOpacity={0.8}
+            showCloudLow={true}
+            showCloudMid={true}
+            showCloudHigh={true}
+            onToggleStrata={vi.fn()}
+            onAtmosphericScaleChange={vi.fn()}
+          />
+        );
+      });
+
+      const polygon = container.querySelector('polygon');
+      expect(polygon).not.toBeNull();
+      const points = polygon?.getAttribute('points') || '';
+      // Tip must touch axis at x=40 without penetrating past it
+      expect(points.startsWith('40,')).toBe(true);
+
+      const caliperLine = Array.from(container.querySelectorAll('line')).find(
+        (l) => l.getAttribute('stroke-width') === '1.5'
+      );
+      expect(caliperLine).not.toBeNull();
+      // Line connects pointer to left edge of badge (x2=196) with zero right-side overflow
+      expect(caliperLine?.getAttribute('x2')).toBe('196');
+
+      const badge = Array.from(container.querySelectorAll('rect')).find(
+        (r) => r.getAttribute('height') === '14'
+      );
+      expect(badge).not.toBeNull();
+      // Badge extends from x=196 to x=272 (width=76), matching column right edge
+      expect(badge?.getAttribute('x')).toBe('196');
+      expect(badge?.getAttribute('width')).toBe('76');
+    });
+
+    it('CHALLENGE-ENV-04: Range sliders apply slider-archival and strata toggles enforce font-mono', async () => {
+      await act(async () => {
+        root.render(
+          <AtmosphericColumnInstrument
+            atmosphericScale={3.5}
+            cloudOpacity={0.8}
+            showCloudLow={true}
+            showCloudMid={true}
+            showCloudHigh={true}
+            onToggleStrata={vi.fn()}
+            onAtmosphericScaleChange={vi.fn()}
+          />
+        );
+      });
+
+      const rangeInputs = container.querySelectorAll<HTMLInputElement>('input[type="range"]');
+      expect(rangeInputs.length).toBe(2);
+      for (const input of Array.from(rangeInputs)) {
+        expect(input.className).toContain('slider-archival');
+      }
+
+      const lowBtn = container.querySelector('button[title*="Low Stratus"]');
+      expect(lowBtn?.className).toContain('font-mono');
+    });
   });
 });
+
