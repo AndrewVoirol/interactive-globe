@@ -47,7 +47,11 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
 
   const handlePointerDown = (e: React.PointerEvent) => {
     isDraggingRef.current = true;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore if synthetic or unsupported
+    }
     updateFromPointer(e.clientY);
   };
 
@@ -219,21 +223,26 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           ></div>
         </div>
 
-        {/* Sea Level Caliper Reticle Line with Vertically Offset Badge */}
+        {/* Permanent 0m Mean Sea Level Datum Line */}
+        <div
+          className="absolute left-0 right-0 top-[40%] h-px border-b border-dashed border-[var(--theme-text-secondary)]/35 pointer-events-none"
+        />
+
+        {/* Sea Level Caliper Reticle Line with Vertically Offset Non-Colliding Badge */}
         <div
           className={`absolute left-0 right-0 h-0.5 pointer-events-none ${tokens.caliperLine} shadow-[0_1px_4px_rgba(0,0,0,0.4)]`}
           style={{ bottom: `${waterPct}%` }}
         >
-          <div className={`absolute right-1.5 ${seaLevelOffset > 75 ? 'top-1' : '-top-4.5'} px-1 py-px rounded-[2px] border font-mono font-bold text-nano shadow-sm ${tokens.caliperBadge}`}>
-            ◄ CALIPER ►
+          <div className={`absolute right-1.5 ${seaLevelOffset >= 80 ? 'top-1' : '-top-5'} px-1.5 py-px rounded-[2px] border font-mono font-bold text-nano shadow-sm ${tokens.caliperBadge}`}>
+            ◄ {seaLevelOffset > 0 ? `+${seaLevelOffset}m` : `${seaLevelOffset}m`} ►
           </div>
         </div>
 
-        {/* Reference Geological Markers with Dynamic Proximity Fade/Shift */}
+        {/* Reference Geological Markers with Clean Vertical Moat */}
         <div className={`absolute left-1.5 top-1 text-nano font-mono pointer-events-none transition-opacity duration-150 ${seaLevelOffset >= 80 ? 'opacity-40' : 'opacity-80'} text-[var(--theme-text-secondary)]`}>
           +100 m (Highstand)
         </div>
-        <div className={`absolute left-1.5 ${Math.abs(seaLevelOffset) <= 15 ? 'top-[44%] opacity-70' : 'top-[39%] opacity-95'} px-1 rounded-[2px] bg-[var(--theme-card-bg)]/80 backdrop-blur-[1px] text-nano font-mono font-bold pointer-events-none text-[var(--theme-text-accent)] transition-all duration-150`}>
+        <div className={`absolute left-1.5 top-[calc(40%+4px)] px-1 rounded-[2px] bg-[var(--theme-card-bg)]/85 backdrop-blur-[1px] text-nano font-mono font-bold pointer-events-none text-[var(--theme-text-accent)] shadow-xs`}>
           0 m (Mean Sea Level)
         </div>
         <div className={`absolute left-1.5 bottom-1 text-nano font-mono pointer-events-none transition-opacity duration-150 ${seaLevelOffset <= -135 ? 'opacity-40' : 'opacity-80'} text-[var(--theme-text-secondary)]`}>
