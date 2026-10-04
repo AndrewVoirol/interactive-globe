@@ -304,7 +304,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
                 {theme === 0 ? 'Tharp ⇄' : theme === 1 ? 'Cream ⇄' : 'Prussian ⇄'}
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-1">
+            <div className="grid grid-cols-4 gap-1">
               {[
                 { id: 0, title: 'Tharp', sub: 'Physiographic' },
                 { id: 1, title: 'Cream Rag', sub: 'Swiss Relief' },
@@ -312,10 +312,13 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
               ].map((m) => (
                 <button
                   key={m.id}
-                  onClick={() => handleSelectMedium(m.id as 0 | 1 | 2)}
-                  aria-pressed={theme === m.id}
+                  onClick={() => {
+                    handleSelectMedium(m.id as 0 | 1 | 2);
+                    if (purityMode && onPurityModeToggle) onPurityModeToggle();
+                  }}
+                  aria-pressed={theme === m.id && !purityMode}
                   className={`tactile-btn group cursor-pointer py-1.5 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-0.5 border transition-all ${
-                    theme === m.id
+                    theme === m.id && !purityMode
                       ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] ring-1 ring-[var(--theme-control-active-ring)] font-semibold shadow-md'
                       : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-card-border-hover)]'
                   }`}
@@ -324,6 +327,20 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
                   <span className="text-nano uppercase font-medium tracking-tight opacity-75">{m.sub}</span>
                 </button>
               ))}
+              {/* 4th Medium: Purity / Raw DEM — shows the mathematical machinery */}
+              <button
+                onClick={() => onPurityModeToggle?.()}
+                aria-pressed={Boolean(purityMode)}
+                className={`tactile-btn group cursor-pointer py-1.5 px-1 rounded-[2px] text-center flex flex-col items-center justify-center gap-0.5 border transition-all ${
+                  purityMode
+                    ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] ring-1 ring-[var(--theme-control-active-ring)] font-semibold shadow-md'
+                    : 'bg-[var(--theme-control-bg)] border-[var(--theme-control-border)] text-[var(--theme-control-text)] hover:bg-[var(--theme-control-hover-bg)] hover:text-[var(--theme-control-hover-text)] hover:border-[var(--theme-card-border-hover)]'
+                }`}
+                title="Raw DEM — pure mathematical substrate, zero atmosphere/water"
+              >
+                <span className="text-body font-medium tracking-tight">Purity</span>
+                <span className="text-nano uppercase font-medium tracking-tight opacity-75">Raw DEM</span>
+              </button>
             </div>
             {/* Paper Substrate — medium grain control (always visible with medium switcher) */}
             <VernierSlider
