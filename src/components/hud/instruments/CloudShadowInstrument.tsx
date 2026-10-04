@@ -181,6 +181,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
 
   return (
     <div
+      data-instrument="cloud-shadow"
       className={`p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${className}`}
     >
       {/* 1. Status Header */}

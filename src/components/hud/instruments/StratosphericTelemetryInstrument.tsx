@@ -177,6 +177,7 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
 
   return (
     <div
+      data-instrument="stratospheric-telemetry"
       className={`p-2 rounded-[3px] border shadow-sm transition-all space-y-2 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${className}`}
       data-testid="stratospheric-telemetry-instrument"
     >
