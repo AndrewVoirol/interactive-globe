@@ -181,7 +181,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
             <span className="font-bold tracking-wider text-[var(--theme-text-accent)] uppercase truncate">
               CLOUD DRIFT
             </span>
-            <span className="text-nano text-[var(--theme-text-muted)] truncate">
+            <span className="text-nano text-[var(--theme-text-muted)] truncate" title="Kinematic Temporal Motion">
               Cloud Advection Velocity
             </span>
           </div>

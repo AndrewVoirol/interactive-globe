@@ -329,11 +329,11 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             strokeWidth="1.2"
           />
 
-          {/* LCL (Lifting Condensation Level) Horizon Line */}
+          {/* LCL (Lifting Condensation Level) Horizon Line (Windward condensation base) */}
           <line
             x1="20"
             y1={lclY}
-            x2="265"
+            x2="136"
             y2={lclY}
             stroke={tokens.lclLine}
             strokeWidth={thermodynamicGating ? '1' : '0.6'}
@@ -343,10 +343,11 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
           <text
             x="22"
             y="65"
-            fontSize="5"
+            fontSize="5.5"
             fontFamily="monospace"
             fill={tokens.lclLine}
-            opacity="0.75"
+            opacity="0.8"
+            fontWeight="bold"
           >
             LCL
           </text>
@@ -358,25 +359,25 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             stroke={tokens.cloudStroke}
             strokeWidth="0.8"
             strokeDasharray="3 2"
-            opacity="0.65"
+            opacity="0.7"
           />
-          <path d="M 36 102 L 39 99 L 42 102" fill="none" stroke={tokens.cloudStroke} strokeWidth="0.75" opacity="0.6" />
-          <path d="M 68 84 L 71 81 L 74 84" fill="none" stroke={tokens.cloudStroke} strokeWidth="0.75" opacity="0.7" />
+          <path d="M 36 102 L 39 99 L 42 102" fill="none" stroke={tokens.cloudStroke} strokeWidth="0.75" opacity="0.65" />
+          <path d="M 68 84 L 71 81 L 74 84" fill="none" stroke={tokens.cloudStroke} strokeWidth="0.75" opacity="0.75" />
           <text
             x="32"
-            y="90"
-            fontSize="6"
+            y="89"
+            fontSize="6.5"
             fontFamily="monospace"
             fill={tokens.cloudStroke}
-            opacity="0.85"
+            opacity="0.9"
             fontWeight="bold"
           >
             Moist
           </text>
           {/* Condensation Vapor Droplet Pips */}
-          <circle cx="48" cy="98" r="1.1" fill={tokens.cloudStroke} opacity="0.5" />
-          <circle cx="74" cy="78" r="1.3" fill={tokens.cloudStroke} opacity="0.6" />
-          <circle cx="98" cy="62" r="1.5" fill={tokens.cloudStroke} opacity="0.7" />
+          <circle cx="48" cy="98" r="1.2" fill={tokens.cloudStroke} opacity="0.5" />
+          <circle cx="74" cy="78" r="1.4" fill={tokens.cloudStroke} opacity="0.6" />
+          <circle cx="98" cy="62" r="1.6" fill={tokens.cloudStroke} opacity="0.7" />
 
           {/* Dynamic Windward Condensation Cloud Deck */}
           {/* Cloud mass expands upward and along the windward face based on rainShadowFeedback */}
@@ -387,9 +388,9 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
               110 + rainShadowFeedback * 15
             } ${38 - rainShadowFeedback * 16}, 138 38 L 138 68 Z`}
             fill="url(#windward-cloud-grad)"
-            fillOpacity={0.12 + rainShadowFeedback * 0.72}
+            fillOpacity={0.15 + rainShadowFeedback * 0.72}
             stroke={tokens.cloudStroke}
-            strokeWidth="0.8"
+            strokeWidth="0.9"
             strokeDasharray="3 1"
           />
 
@@ -398,8 +399,8 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             d="M 132 38 Q 138 30 144 38"
             fill="none"
             stroke={tokens.cloudStroke}
-            strokeWidth="0.8"
-            opacity="0.75"
+            strokeWidth="0.9"
+            opacity="0.8"
           />
 
           {/* Additional Billow Arcs along Windward Ascent */}
@@ -415,12 +416,25 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             />
           )}
 
+          {/* Vertical Rain Shaft Bracket & Precipitation Column connecting Crest to Valley Floor */}
+          {/* Continuous vertical guide line from summit crest to river channel */}
+          <line
+            x1="162"
+            y1="40"
+            x2="162"
+            y2="118"
+            stroke={tokens.rainStroke}
+            strokeWidth="0.8"
+            strokeDasharray="2 3"
+            opacity={0.4 + pluvialGamma * 0.3}
+          />
+
           {/* Precipitation Shaft / Column descending from crest */}
           {pluvialGamma > 0.05 && (
-            <g opacity={Math.min(1.0, 0.25 + pluvialGamma * 0.5)}>
-              {/* Rain Streaks */}
+            <g opacity={Math.min(1.0, 0.3 + pluvialGamma * 0.5)}>
+              {/* Rain Streaks descending into valley floor */}
               {Array.from({ length: Math.min(18, Math.round(5 + pluvialGamma * 7)) }).map((_, i) => {
-                const startX = 138 + i * 2.8;
+                const startX = 142 + i * 2.8;
                 const startY = 46 + (i % 3) * 4;
                 const endX = startX - 5;
                 const endY = 118;
@@ -442,29 +456,40 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
 
           {/* Valley Floor Hydrology: River Channel widening via Leopold-Maddock Law */}
           <line
-            x1="150"
+            x1="145"
             y1="118"
-            x2="210"
+            x2="215"
             y2="118"
             stroke={tokens.riverStroke}
             strokeWidth={riverStrokeWidth}
             strokeLinecap="round"
             className="drop-shadow-sm"
           />
+          {/* River Inflow & Drainage Channel Taper */}
+          <line
+            x1="215"
+            y1="118"
+            x2="245"
+            y2="118"
+            stroke={tokens.riverStroke}
+            strokeWidth={Math.max(0.8, riverStrokeWidth * 0.6)}
+            strokeDasharray="4 2"
+            opacity="0.7"
+          />
           {/* Hydrological River Ripples */}
           <path
-            d="M 160 122 Q 165 120 170 122 T 180 122"
+            d="M 158 122 Q 164 120 170 122 T 182 122"
             fill="none"
             stroke={tokens.riverStroke}
-            strokeWidth="0.6"
-            opacity={0.3 + pluvialGamma * 0.35}
+            strokeWidth="0.65"
+            opacity={0.35 + pluvialGamma * 0.35}
           />
           <path
-            d="M 185 122 Q 190 120 195 122 T 205 122"
+            d="M 186 122 Q 192 120 198 122 T 210 122"
             fill="none"
             stroke={tokens.riverStroke}
-            strokeWidth="0.6"
-            opacity={0.3 + pluvialGamma * 0.35}
+            strokeWidth="0.65"
+            opacity={0.35 + pluvialGamma * 0.35}
           />
 
           {/* Leeward Foehn / Rain Shadow Subsidence Airflow & Sparse 'Arid' Label */}
@@ -472,14 +497,14 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             d="M 148 42 Q 175 75 205 98 T 255 112"
             fill="none"
             stroke={tokens.mountainStroke}
-            strokeWidth="0.75"
+            strokeWidth="0.8"
             strokeDasharray="3 2"
-            opacity="0.55"
+            opacity="0.6"
           />
           <polygon
             points="255,112 249,109 251,114"
             fill={tokens.mountainStroke}
-            opacity="0.65"
+            opacity="0.7"
           />
           <path
             d="M 154 50 Q 180 80 208 102 T 248 116"
@@ -487,24 +512,22 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             stroke={tokens.mountainStroke}
             strokeWidth="0.6"
             strokeDasharray="2 3"
-            opacity="0.4"
+            opacity="0.45"
           />
           <text
-            x="228"
-            y="90"
-            fontSize="6"
+            x="226"
+            y="89"
+            fontSize="6.5"
             fontFamily="monospace"
             fill={tokens.mountainStroke}
-            opacity="0.8"
+            opacity="0.85"
             fontWeight="bold"
           >
             Arid
           </text>
           {/* Rain Shadow Arid Surface Desiccation Cues */}
-          <line x1="220" y1="114" x2="228" y2="114" stroke={tokens.mountainStroke} strokeWidth="0.6" strokeDasharray="1.5 2" opacity="0.4" />
-          <line x1="235" y1="115" x2="245" y2="115" stroke={tokens.mountainStroke} strokeWidth="0.6" strokeDasharray="1.5 2" opacity="0.4" />
-
-
+          <line x1="220" y1="114" x2="228" y2="114" stroke={tokens.mountainStroke} strokeWidth="0.6" strokeDasharray="1.5 2" opacity="0.45" />
+          <line x1="235" y1="115" x2="245" y2="115" stroke={tokens.mountainStroke} strokeWidth="0.6" strokeDasharray="1.5 2" opacity="0.45" />
 
           {/* 3-Medium Adaptive Graphic Groups */}
           {theme === 1 ? (
@@ -544,9 +567,6 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
                   />
                 );
               })}
-
-
-
             </g>
           ) : theme === 2 ? (
             // Theme 2 (Prussian Cyanotype): CAD drafting tephigram & adiabatic lapse vectors
@@ -602,8 +622,6 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
                   opacity="0.5"
                 />
               ))}
-
-
             </g>
           )}
 
@@ -644,8 +662,19 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             </text>
           </g>
 
-          {/* Interactive Pluvial Shaft Caliper Handle */}
+          {/* Interactive Pluvial Shaft Caliper Handle (Coupled directly to precipitation shaft & valley river) */}
           <g className="cursor-ns-resize">
+            {/* Caliper bracket connecting handle to valley river */}
+            <line
+              x1={pluvialThumbX}
+              y1={pluvialThumbY + 6.5}
+              x2={pluvialThumbX}
+              y2="118"
+              stroke={tokens.rainStroke}
+              strokeWidth="1.2"
+              strokeDasharray="1.5 2"
+              opacity="0.8"
+            />
             <circle
               cx={pluvialThumbX}
               cy={pluvialThumbY}
