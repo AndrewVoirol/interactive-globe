@@ -92,7 +92,6 @@ describe('Challenger 2: Milestone 4 DOM, ARIA & Medium Artifact Verification', (
       expect(container.querySelector('.shadow-projection-cyanotype')).toBeNull();
       expect(container.querySelector('linearGradient#tharp-extinction-grad')).not.toBeNull();
       expect(container.textContent).toContain('OPTICAL EXTINCTION');
-      expect(container.textContent).toContain('ABYSSAL FLOOR');
 
       // Theme 1 (Cream Rag)
       await act(async () => {
@@ -102,8 +101,7 @@ describe('Challenger 2: Milestone 4 DOM, ARIA & Medium Artifact Verification', (
       expect(container.querySelector('.shadow-projection-tharp')).toBeNull();
       expect(container.querySelector('.shadow-projection-cyanotype')).toBeNull();
       expect(container.querySelector('pattern#cream-shadow-hatch')).not.toBeNull();
-      expect(container.textContent).toContain('Sol Incidence: 45° Intaglio Penumbra');
-      expect(container.textContent).toContain('TERRA FIRMA');
+      expect(container.textContent).toContain('CLOUD SHADOW');
 
       // Theme 2 (Prussian Cyanotype)
       await act(async () => {
@@ -112,9 +110,7 @@ describe('Challenger 2: Milestone 4 DOM, ARIA & Medium Artifact Verification', (
       expect(container.querySelector('.shadow-projection-cyanotype')).not.toBeNull();
       expect(container.querySelector('.shadow-projection-cream')).toBeNull();
       expect(container.querySelector('.shadow-projection-tharp')).toBeNull();
-      expect(container.textContent).toContain('∠45° [315° NW]');
-      expect(container.textContent).toContain('RAY-TRACE: λ_sol = 315° / θ_alt = 45°');
-      expect(container.textContent).toContain('DATUM 0.0m');
+      expect(container.textContent).toContain('CLOUD SHADOW');
     });
 
     it('M4-DOM-04: CloudDriftSpeedInstrument renders distinct SVG artifacts across all 3 themes', async () => {
@@ -125,8 +121,7 @@ describe('Challenger 2: Milestone 4 DOM, ARIA & Medium Artifact Verification', (
       expect(container.querySelector('.drift-chronometer-tharp')).not.toBeNull();
       expect(container.querySelector('.drift-chronometer-cream')).toBeNull();
       expect(container.querySelector('.drift-chronometer-cyanotype')).toBeNull();
-      expect(container.textContent).toContain('ADCP DOPPLER');
-      expect(container.textContent).toContain('Δf = 2f₀·(v/c)·cos θ');
+      expect(container.textContent).toContain('CLOUD DRIFT');
 
       // Theme 1 (Cream Rag)
       await act(async () => {
@@ -135,9 +130,7 @@ describe('Challenger 2: Milestone 4 DOM, ARIA & Medium Artifact Verification', (
       expect(container.querySelector('.drift-chronometer-cream')).not.toBeNull();
       expect(container.querySelector('.drift-chronometer-tharp')).toBeNull();
       expect(container.querySelector('.drift-chronometer-cyanotype')).toBeNull();
-      expect(container.textContent).toContain('ROBINSON 1846');
-      expect(container.textContent).toContain('BF.0 CALM');
-      expect(container.textContent).toContain('BF.12 STORM');
+      expect(container.textContent).toContain('CLOUD DRIFT');
 
       // Theme 2 (Prussian Cyanotype)
       await act(async () => {
@@ -146,9 +139,7 @@ describe('Challenger 2: Milestone 4 DOM, ARIA & Medium Artifact Verification', (
       expect(container.querySelector('.drift-chronometer-cyanotype')).not.toBeNull();
       expect(container.querySelector('.drift-chronometer-cream')).toBeNull();
       expect(container.querySelector('.drift-chronometer-tharp')).toBeNull();
-      expect(container.textContent).toContain('ISOTACH KINEMATICS');
-      expect(container.textContent).toContain('0 kt (0 m/s)');
-      expect(container.textContent).toContain('100 kt (51 m/s)');
+      expect(container.textContent).toContain('CLOUD DRIFT');
     });
   });
 

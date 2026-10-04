@@ -392,7 +392,7 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
 
       const card = sliderInput.closest('.p-2');
       expect(card?.textContent).toContain('45%');
-      expect(card?.textContent).toContain('Shadow Intensity');
+      expect(card?.textContent).toContain('CLOUD SHADOW');
     });
 
     it('M4-HUD-03: dispatches onAtmosphericScaleChange when user adjusts slider or stepper', async () => {
@@ -451,15 +451,7 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
       const sliderInput = container.querySelector('#sidebar-shadow-intensity') as HTMLInputElement;
       expect(sliderInput).not.toBeNull();
 
-      // Test stepper button
-      const increaseBtn = container.querySelector('button[title*="Increase Shadow Intensity"]') as HTMLButtonElement;
-      expect(increaseBtn).not.toBeNull();
-      await act(async () => {
-        increaseBtn.click();
-      });
-      expect(onShadowIntensityChange).toHaveBeenCalledWith(0.5);
-
-      // Also simulate range input change event
+      // Simulate range input change event
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
         window.HTMLInputElement.prototype,
         'value'

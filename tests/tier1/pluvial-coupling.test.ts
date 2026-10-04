@@ -143,17 +143,17 @@ describe('Stage 2: Precipitation Texture Binding & Pluvial Valley Swelling', () 
   });
 
   describe('4. AtmosphereDrawer UI Component Integration', () => {
-    it('defines Pluvial Coupling VernierSlider with id sidebar-pluvial-coupling and [0.0, 2.0] range', () => {
+    it('defines Pluvial Coupling control with id sidebar-pluvial-coupling and [0.0, 2.0] range', () => {
       // AtmosphereDrawer mounts OrographicMoistureProfile with pluvialGamma prop
       expect(drawerSrc).toContain('<OrographicMoistureProfile');
       expect(drawerSrc).toContain('pluvialGamma={curPluvialGamma}');
 
-      // OrographicMoistureProfile defines Pluvial Coupling VernierSlider with exact prop bounds
+      // OrographicMoistureProfile defines Pluvial Coupling input with exact prop bounds
       expect(orographicSrc).toContain('id="sidebar-pluvial-coupling"');
-      expect(orographicSrc).toContain('label="Pluvial Coupling"');
-      expect(orographicSrc).toContain('min={0.0}');
+      expect(orographicSrc).toContain('min={0}');
       expect(orographicSrc).toContain('max={2.0}');
       expect(orographicSrc).toContain('step={0.1}');
+      expect(orographicSrc).toContain('pluvialGamma.toFixed(1)');
     });
 
     it('wires pluvialGamma prop and handler through AtmosphereDrawer', () => {

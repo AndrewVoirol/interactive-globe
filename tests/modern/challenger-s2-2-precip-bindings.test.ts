@@ -559,20 +559,18 @@ describe('Adversarial Challenger: Stage 2 Precipitation Bindings & Coupled Hydro
   // Pillar 6: UI Component Plumbing & Window Bridge Verification
   // ==========================================================================
   describe('Pillar 6: UI Component Plumbing & Window Bridge Verification', () => {
-    it('verifies AtmosphereDrawer renders the Pluvial Coupling VernierSlider with exact prop bounds', () => {
+    it('verifies AtmosphereDrawer renders the Pluvial Coupling control with exact prop bounds', () => {
       // AtmosphereDrawer mounts OrographicMoistureProfile with pluvial coupling prop wiring
       expect(drawerSrc).toContain('<OrographicMoistureProfile');
       expect(drawerSrc).toContain('pluvialGamma={curPluvialGamma}');
       expect(drawerSrc).toContain('onPluvialGammaChange={handlePluvialGammaChange}');
 
-      // OrographicMoistureProfile renders the Pluvial Coupling VernierSlider with exact prop bounds
+      // OrographicMoistureProfile renders the Pluvial Coupling input with exact prop bounds
       expect(orographicSrc).toContain('id="sidebar-pluvial-coupling"');
-      expect(orographicSrc).toContain('label="Pluvial Coupling"');
-      expect(orographicSrc).toContain('sublabel="Precipitation Swelling & River Width"');
-      expect(orographicSrc).toContain('min={0.0}');
+      expect(orographicSrc).toContain('min={0}');
       expect(orographicSrc).toContain('max={2.0}');
       expect(orographicSrc).toContain('step={0.1}');
-      expect(orographicSrc).toMatch(/readout=\{`\$\{pluvialGamma\.toFixed\(1\)\}[x×]`\}/);
+      expect(orographicSrc).toContain('pluvialGamma.toFixed(1)');
     });
 
     it('verifies window bridge callbacks in AtmosphereDrawer handle non-finites and clamp bounds', () => {

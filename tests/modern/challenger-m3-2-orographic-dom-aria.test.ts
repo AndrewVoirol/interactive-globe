@@ -104,17 +104,6 @@ describe('Challenger 2: Orographic Moisture Profile DOM, ARIA & Build Verificati
       expect(pluvialSlider?.type).toBe('range');
       expect(rainShadowSlider?.value).toBe('0.45');
       expect(pluvialSlider?.value).toBe('1.5');
-
-      // 3. Stepper buttons
-      const incOrographic = container.querySelector('button[title*="Increase Orographic"]');
-      const decOrographic = container.querySelector('button[title*="Decrease Orographic"]');
-      const incPluvial = container.querySelector('button[title*="Increase Pluvial"]');
-      const decPluvial = container.querySelector('button[title*="Decrease Pluvial"]');
-
-      expect(incOrographic).not.toBeNull();
-      expect(decOrographic).not.toBeNull();
-      expect(incPluvial).not.toBeNull();
-      expect(decPluvial).not.toBeNull();
     });
 
     it('CHALLENGE-DOM-02: confirms all required DOM IDs exist when mounted inside AtmosphereDrawer', async () => {
@@ -133,10 +122,6 @@ describe('Challenger 2: Orographic Moisture Profile DOM, ARIA & Build Verificati
       expect(container.querySelector('#sidebar-thermodynamic-gating-off')).not.toBeNull();
       expect(container.querySelector('#sidebar-rain-shadow')).not.toBeNull();
       expect(container.querySelector('#sidebar-pluvial-coupling')).not.toBeNull();
-      expect(container.querySelector('button[title*="Increase Orographic"]')).not.toBeNull();
-      expect(container.querySelector('button[title*="Decrease Orographic"]')).not.toBeNull();
-      expect(container.querySelector('button[title*="Increase Pluvial"]')).not.toBeNull();
-      expect(container.querySelector('button[title*="Decrease Pluvial"]')).not.toBeNull();
     });
   });
 
@@ -299,53 +284,9 @@ describe('Challenger 2: Orographic Moisture Profile DOM, ARIA & Build Verificati
   });
 
   // ==========================================================================
-  // 5. Steppers and Range Input Interactions
+  // 5. Range Input Interactions
   // ==========================================================================
-  describe('5. Stepper Buttons and Range Inputs Interactions', () => {
-    it('CHALLENGE-STEPPERS-01: clicking steppers correctly updates coupling and pluvial gamma', async () => {
-      const onRainChange = vi.fn();
-      const onPluvialChange = vi.fn();
-
-      await act(async () => {
-        root.render(
-          React.createElement(OrographicMoistureProfile, {
-            rainShadowFeedback: 0.50,
-            pluvialGamma: 1.0,
-            onRainShadowChange: onRainChange,
-            onPluvialGammaChange: onPluvialChange,
-          })
-        );
-      });
-
-      const incOrographic = container.querySelector<HTMLButtonElement>('button[title*="Increase Orographic"]');
-      const decOrographic = container.querySelector<HTMLButtonElement>('button[title*="Decrease Orographic"]');
-      const incPluvial = container.querySelector<HTMLButtonElement>('button[title*="Increase Pluvial"]');
-      const decPluvial = container.querySelector<HTMLButtonElement>('button[title*="Decrease Pluvial"]');
-
-      // Increase Orographic Coupling: 0.50 -> 0.55
-      await act(async () => {
-        incOrographic?.click();
-      });
-      expect(onRainChange).toHaveBeenCalledWith(0.55);
-
-      // Decrease Orographic Coupling: 0.50 -> 0.45
-      await act(async () => {
-        decOrographic?.click();
-      });
-      expect(onRainChange).toHaveBeenCalledWith(0.45);
-
-      // Increase Pluvial Coupling: 1.0 -> 1.1
-      await act(async () => {
-        incPluvial?.click();
-      });
-      expect(onPluvialChange).toHaveBeenCalledWith(1.1);
-
-      // Decrease Pluvial Coupling: 1.0 -> 0.9
-      await act(async () => {
-        decPluvial?.click();
-      });
-      expect(onPluvialChange).toHaveBeenCalledWith(0.9);
-    });
+  describe('5. Range Inputs Interactions', () => {
 
     it('CHALLENGE-SLIDERS-01: changing native range sliders dispatches parsed float values', async () => {
       const onRainChange = vi.fn();

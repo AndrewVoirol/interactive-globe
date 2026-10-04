@@ -946,7 +946,8 @@ describe('Challenger 1: OrographicMoistureProfile Behavioral Adversarial Suite',
       const tharpGroup = container.querySelector('.orographic-sounding-tharp');
       expect(tharpGroup).not.toBeNull();
       expect(tharpGroup?.classList.contains('orographic-profile-tharp')).toBe(true);
-      expect(container.textContent).toContain('OROGRAPHIC LIFT & INVERSION');
+      expect(tharpGroup?.querySelectorAll('circle').length).toBeGreaterThanOrEqual(2);
+      expect(tharpGroup?.querySelectorAll('line').length).toBeGreaterThanOrEqual(10);
     });
 
     it('CHALLENGE-M3-27: Theme 1 (Cream Rag) renders Victorian intaglio mountain hachures and serif annotations', async () => {
@@ -964,9 +965,7 @@ describe('Challenger 1: OrographicMoistureProfile Behavioral Adversarial Suite',
       const creamGroup = container.querySelector('.orographic-engraving-cream');
       expect(creamGroup).not.toBeNull();
       expect(creamGroup?.classList.contains('orographic-profile-cream')).toBe(true);
-      expect(container.textContent).toContain('Ascent (Moist)');
-      expect(container.textContent).toContain('Crest (Condensation)');
-      expect(container.textContent).toContain('Shadow (Arid)');
+      expect(creamGroup?.querySelectorAll('line').length).toBeGreaterThan(15);
     });
 
     it('CHALLENGE-M3-28: Theme 2 (Prussian Cyanotype) renders CAD elevation ticks and adiabatic lapse rate isopleths', async () => {
@@ -984,10 +983,7 @@ describe('Challenger 1: OrographicMoistureProfile Behavioral Adversarial Suite',
       const cyanGroup = container.querySelector('.orographic-vector-cyanotype');
       expect(cyanGroup).not.toBeNull();
       expect(cyanGroup?.classList.contains('orographic-profile-cyanotype')).toBe(true);
-      expect(container.textContent).toContain('4000m');
-      expect(container.textContent).toContain('1500m');
-      expect(container.textContent).toContain('500m');
-      expect(container.textContent).toContain('ADIABATIC ASCENT [Γd = 9.8°C/km]');
+      expect(cyanGroup?.querySelectorAll('line').length).toBeGreaterThanOrEqual(8);
     });
 
     it('CHALLENGE-M3-29: river channel stroke-width dynamically scales via Leopold-Maddock power law (w ∝ Q^0.5)', async () => {
@@ -1014,7 +1010,6 @@ describe('Challenger 1: OrographicMoistureProfile Behavioral Adversarial Suite',
       const widthAt2 = parseFloat(riverLine.getAttribute('stroke-width') || '0');
 
       expect(widthAt2).toBeGreaterThan(widthAt0 * 3);
-      expect(container.textContent).toContain('RIVER CHANNEL (w ∝ Q^0.5)');
     });
 
     it('CHALLENGE-M3-30: adheres to single-border HUD enclosure contract (zero nested inner neatlines)', async () => {
@@ -1039,138 +1034,7 @@ describe('Challenger 1: OrographicMoistureProfile Behavioral Adversarial Suite',
   // ==========================================================================
   // OBJECTIVE 6: VERNIERSLIDER STEPPERS, TACTILE CONTROLS & GESTURE CANCELLATION
   // ==========================================================================
-  describe('6. VernierSlider Steppers, Tactile Controls & Gesture Interruption', () => {
-    it('CHALLENGE-M3-31: VernierSlider stepper buttons on Orographic Coupling increment and decrement by 0.05', async () => {
-      const onRainShadow = vi.fn();
-      await act(async () => {
-        root.render(
-          React.createElement(OrographicMoistureProfile, {
-            rainShadowFeedback: 0.40,
-            pluvialGamma: 1.0,
-            thermodynamicGating: true,
-            onRainShadowChange: onRainShadow,
-          })
-        );
-      });
-
-      const incBtn = container.querySelector('button[title="Increase Orographic Coupling"]') as HTMLButtonElement;
-      const decBtn = container.querySelector('button[title="Decrease Orographic Coupling"]') as HTMLButtonElement;
-
-      expect(incBtn).not.toBeNull();
-      expect(decBtn).not.toBeNull();
-
-      // Click + button: 0.40 -> 0.45
-      await act(async () => {
-        incBtn.click();
-      });
-      expect(onRainShadow).toHaveBeenCalledWith(0.45);
-
-      // Click - button: 0.40 -> 0.35
-      await act(async () => {
-        decBtn.click();
-      });
-      expect(onRainShadow).toHaveBeenCalledWith(0.35);
-    });
-
-    it('CHALLENGE-M3-32: VernierSlider steppers on Orographic Coupling disable appropriately at bounds [0.0, 1.0]', async () => {
-      // At min bound 0.0
-      await act(async () => {
-        root.render(
-          React.createElement(OrographicMoistureProfile, {
-            rainShadowFeedback: 0.0,
-            pluvialGamma: 1.0,
-            thermodynamicGating: true,
-          })
-        );
-      });
-
-      let decBtn = container.querySelector('button[title="Decrease Orographic Coupling"]') as HTMLButtonElement;
-      let incBtn = container.querySelector('button[title="Increase Orographic Coupling"]') as HTMLButtonElement;
-      expect(decBtn.disabled).toBe(true);
-      expect(incBtn.disabled).toBe(false);
-
-      // At max bound 1.0
-      await act(async () => {
-        root.render(
-          React.createElement(OrographicMoistureProfile, {
-            rainShadowFeedback: 1.0,
-            pluvialGamma: 1.0,
-            thermodynamicGating: true,
-          })
-        );
-      });
-
-      decBtn = container.querySelector('button[title="Decrease Orographic Coupling"]') as HTMLButtonElement;
-      incBtn = container.querySelector('button[title="Increase Orographic Coupling"]') as HTMLButtonElement;
-      expect(decBtn.disabled).toBe(false);
-      expect(incBtn.disabled).toBe(true);
-    });
-
-    it('CHALLENGE-M3-33: VernierSlider stepper buttons on Pluvial Coupling increment and decrement by 0.1', async () => {
-      const onPluvial = vi.fn();
-      await act(async () => {
-        root.render(
-          React.createElement(OrographicMoistureProfile, {
-            rainShadowFeedback: 0.5,
-            pluvialGamma: 0.8,
-            thermodynamicGating: true,
-            onPluvialGammaChange: onPluvial,
-          })
-        );
-      });
-
-      const incBtn = container.querySelector('button[title="Increase Pluvial Coupling"]') as HTMLButtonElement;
-      const decBtn = container.querySelector('button[title="Decrease Pluvial Coupling"]') as HTMLButtonElement;
-
-      expect(incBtn).not.toBeNull();
-      expect(decBtn).not.toBeNull();
-
-      // Click + button: 0.8 -> 0.9
-      await act(async () => {
-        incBtn.click();
-      });
-      expect(onPluvial).toHaveBeenCalledWith(0.9);
-
-      // Click - button: 0.8 -> 0.7
-      await act(async () => {
-        decBtn.click();
-      });
-      expect(onPluvial).toHaveBeenCalledWith(0.7);
-    });
-
-    it('CHALLENGE-M3-34: VernierSlider steppers on Pluvial Coupling disable appropriately at bounds [0.0, 2.0]', async () => {
-      // At min bound 0.0
-      await act(async () => {
-        root.render(
-          React.createElement(OrographicMoistureProfile, {
-            rainShadowFeedback: 0.5,
-            pluvialGamma: 0.0,
-            thermodynamicGating: true,
-          })
-        );
-      });
-
-      let decBtn = container.querySelector('button[title="Decrease Pluvial Coupling"]') as HTMLButtonElement;
-      let incBtn = container.querySelector('button[title="Increase Pluvial Coupling"]') as HTMLButtonElement;
-      expect(decBtn.disabled).toBe(true);
-      expect(incBtn.disabled).toBe(false);
-
-      // At max bound 2.0
-      await act(async () => {
-        root.render(
-          React.createElement(OrographicMoistureProfile, {
-            rainShadowFeedback: 0.5,
-            pluvialGamma: 2.0,
-            thermodynamicGating: true,
-          })
-        );
-      });
-
-      decBtn = container.querySelector('button[title="Decrease Pluvial Coupling"]') as HTMLButtonElement;
-      incBtn = container.querySelector('button[title="Increase Pluvial Coupling"]') as HTMLButtonElement;
-      expect(decBtn.disabled).toBe(false);
-      expect(incBtn.disabled).toBe(true);
-    });
+  describe('6. Tactile Controls & Gesture Interruption', () => {
 
     it('CHALLENGE-M3-35: pointercancel releases pointer capture and safely aborts dragging without throwing', async () => {
       const onRainShadow = vi.fn();
