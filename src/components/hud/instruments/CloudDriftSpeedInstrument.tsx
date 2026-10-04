@@ -218,39 +218,99 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
           viewBox="0 0 240 60"
           preserveAspectRatio="xMidYMid meet"
         >
-          {/* Base Velocity Streamline Track */}
+          <defs>
+            <linearGradient id="drift-active-line-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={tokens.activeTrackColor} stopOpacity="0.4" />
+              <stop offset="100%" stopColor={tokens.activeTrackColor} stopOpacity="1" />
+            </linearGradient>
+          </defs>
+
+          {/* Calm Stillness Anchor at 0x (Left) */}
+          <g opacity="0.45">
+            <path
+              d="M 14 26 a 3 3 0 0 1 5 -1.5 a 4 4 0 0 1 6 0.5 a 3 3 0 0 1 3 2.5 l -14 0 z"
+              fill={tokens.accentColor}
+              fillOpacity="0.2"
+              stroke={tokens.accentColor}
+              strokeWidth="0.7"
+            />
+          </g>
+
+          {/* Base Velocity Streamline Track with Chronometric Ticks */}
           <line x1="20" y1="28" x2="220" y2="28" stroke={tokens.trackColor} strokeWidth="2" />
+          {[40, 60, 80, 100, 120, 140, 160, 180, 200].map((tx) => (
+            <line
+              key={tx}
+              x1={tx}
+              y1="26.5"
+              x2={tx}
+              y2="29.5"
+              stroke={tokens.trackColor}
+              strokeWidth="0.75"
+              opacity="0.6"
+            />
+          ))}
           <line
             x1="20"
             y1="28"
             x2={thumbX}
             y2="28"
-            stroke={tokens.activeTrackColor}
+            stroke="url(#drift-active-line-grad)"
             strokeWidth="2.5"
           />
 
-          {/* Aerodynamic Streamline Ribbons */}
+          {/* Aerodynamic Streamline Ribbons (Accelerating from left to right) */}
           <path
-            d="M 16 20 Q 65 16 115 20 T 224 19"
+            d="M 28 19 Q 70 14 115 19 T 226 16"
             fill="none"
             stroke={tokens.trackColor}
             strokeWidth="0.75"
-            strokeDasharray="3 2"
-            opacity="0.6"
+            strokeDasharray="4 2"
+            opacity="0.65"
           />
           <path
-            d="M 16 36 Q 65 40 115 36 T 224 37"
+            d="M 125 13 L 226 12"
+            fill="none"
+            stroke={tokens.trackColor}
+            strokeWidth="0.65"
+            strokeDasharray="6 3"
+            opacity="0.45"
+          />
+          <path
+            d="M 28 37 Q 70 42 115 37 T 226 40"
             fill="none"
             stroke={tokens.trackColor}
             strokeWidth="0.75"
-            strokeDasharray="3 2"
-            opacity="0.6"
+            strokeDasharray="4 2"
+            opacity="0.65"
+          />
+          <path
+            d="M 125 43 L 226 44"
+            fill="none"
+            stroke={tokens.trackColor}
+            strokeWidth="0.65"
+            strokeDasharray="6 3"
+            opacity="0.45"
           />
 
-          {/* Advection Direction Chevrons */}
-          <path d="M 45 26 L 48 28 L 45 30" fill="none" stroke={tokens.trackColor} strokeWidth="1" />
-          <path d="M 95 26 L 98 28 L 95 30" fill="none" stroke={tokens.trackColor} strokeWidth="1" />
-          <path d="M 170 26 L 173 28 L 170 30" fill="none" stroke={tokens.trackColor} strokeWidth="1" />
+          {/* High-Velocity Sheared Cloud Silhouette at Storm End (2000x) */}
+          <g opacity="0.6">
+            <path
+              d="M 210 24 c 2 -2 5 -2.5 8 -1 c 3 1.5 5 1.5 8 1.5 l -16 0 z"
+              fill={tokens.accentColor}
+              fillOpacity="0.25"
+              stroke={tokens.accentColor}
+              strokeWidth="0.7"
+            />
+            <line x1="198" y1="23.5" x2="207" y2="23.5" stroke={tokens.accentColor} strokeWidth="0.6" strokeDasharray="2 1" />
+            <line x1="202" y1="25" x2="208" y2="25" stroke={tokens.accentColor} strokeWidth="0.6" strokeDasharray="2 1" />
+          </g>
+
+          {/* Graduated Velocity Advection Chevrons (calm -> moderate -> gale) */}
+          <path d="M 46 26.5 L 49 28 L 46 29.5" fill="none" stroke={tokens.trackColor} strokeWidth="0.8" opacity="0.6" />
+          <path d="M 88 26 L 91 28 L 88 30 M 93 26 L 96 28 L 93 30" fill="none" stroke={tokens.trackColor} strokeWidth="0.9" opacity="0.7" />
+          <path d="M 134 25.5 L 138 28 L 134 30.5 M 140 25.5 L 144 28 L 140 30.5" fill="none" stroke={tokens.trackColor} strokeWidth="1.1" opacity="0.85" />
+          <path d="M 174 25 L 178 28 L 174 31 M 179 25 L 183 28 L 179 31 M 184 25 L 188 28 L 184 31" fill="none" stroke={tokens.trackColor} strokeWidth="1.2" opacity="0.9" />
 
           {/* 3. Medium-Adaptive SVG Artifacts */}
           {activeTheme === 1 ? (
@@ -296,6 +356,8 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
                 strokeDasharray="1.5 1.5"
                 opacity="0.6"
               />
+              {/* Rotational Anemometer Archival Intaglio Arc */}
+              <path d="M 180 8 Q 195 5 210 8" fill="none" stroke="#8c4820" strokeWidth="0.6" strokeDasharray="1.5 2" opacity="0.6" />
             </g>
           ) : activeTheme === 2 ? (
             // Theme 2: Prussian Cyanotype (Streamline Isotachs)
@@ -317,6 +379,10 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
                 strokeDasharray="3 2"
                 opacity="0.75"
               />
+              {/* Blueprint Isotach Graduation Cross-Ticks */}
+              <line x1="80" y1="13" x2="80" y2="17" stroke="#4fa3e3" strokeWidth="0.6" opacity="0.7" />
+              <line x1="140" y1="15" x2="140" y2="19" stroke="#4fa3e3" strokeWidth="0.6" opacity="0.7" />
+              <line x1="190" y1="12" x2="190" y2="16" stroke="#4fa3e3" strokeWidth="0.6" opacity="0.7" />
             </g>
           ) : (
             // Theme 0: Marie Tharp (ADCP Acoustic Doppler Velocity Vectors)
@@ -329,6 +395,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
               {/* Doppler Frequency Shift Pulse Wavelets */}
               <path d="M 188 18 A 8 8 0 0 0 202 18" fill="none" stroke="#34d399" strokeWidth="0.6" opacity="0.75" />
               <path d="M 185 22 A 12 12 0 0 0 205 22" fill="none" stroke="#34d399" strokeWidth="0.6" opacity="0.5" />
+              <path d="M 182 26 A 16 16 0 0 0 208 26" fill="none" stroke="#34d399" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.4" />
             </g>
           )}
 
