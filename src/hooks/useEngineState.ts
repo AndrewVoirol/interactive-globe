@@ -33,7 +33,7 @@ export function useEngineState() {
   const [showVectors, setShowVectors] = useState<boolean>(true);
 
   // Archival Cartographic Detail Toggles
-  const [showSoundings, setShowSoundings] = useState<boolean>(true);
+  const [showSoundings, setShowSoundings] = useState<boolean>(false);
   const [showTriangulation, setShowTriangulation] = useState<boolean>(false);
   const [showCartouche, setShowCartouche] = useState<boolean>(true);
 

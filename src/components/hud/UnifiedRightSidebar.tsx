@@ -95,7 +95,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
   const {
     isZenMode, onZenToggle, theme, onThemeToggle, onSelectThemeMode,
     isolatedStratum: externalIsolatedStratum, onIsolatedStratumChange,
-    showSoundings = true, onSoundingsToggle, showTriangulation = false, onTriangulationToggle,
+    showSoundings = false, onSoundingsToggle, showTriangulation = false, onTriangulationToggle,
     backend, resolution, onResolutionChange, layerMode, onLayerModeChange,
     mode, cursorPhysicsEnabled = false, onCursorPhysicsToggle, prognosticModel, onPrognosticModelChange,
     prognosticVariable, onPrognosticVariableChange, activeOverlay, onOverlayChange,
