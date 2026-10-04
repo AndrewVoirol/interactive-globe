@@ -182,7 +182,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
               CLOUD DRIFT
             </span>
             <span className="text-nano text-[var(--theme-text-muted)] truncate">
-              Kinematic Temporal Motion
+              Cloud Advection Velocity
             </span>
           </div>
         </div>
@@ -220,36 +220,99 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
         >
           <defs>
             <linearGradient id="drift-active-line-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={tokens.activeTrackColor} stopOpacity="0.4" />
+              <stop offset="0%" stopColor={tokens.activeTrackColor} stopOpacity="0.3" />
               <stop offset="100%" stopColor={tokens.activeTrackColor} stopOpacity="1" />
+            </linearGradient>
+            <linearGradient id="streamline-glow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={tokens.accentColor} stopOpacity="0.05" />
+              <stop offset="50%" stopColor={tokens.accentColor} stopOpacity="0.35" />
+              <stop offset="100%" stopColor={tokens.accentColor} stopOpacity="0.85" />
             </linearGradient>
           </defs>
 
-          {/* Calm Stillness Anchor at 0x (Left) */}
-          <g opacity="0.45">
+          {/* 1. Calm / Stillness Anchor at 0x (Left) */}
+          <g opacity="0.6">
+            {/* Soft, resting cumulus cloud glyph */}
             <path
-              d="M 14 26 a 3 3 0 0 1 5 -1.5 a 4 4 0 0 1 6 0.5 a 3 3 0 0 1 3 2.5 l -14 0 z"
+              d="M 10 28 Q 10 24 14 24 Q 16 20 20 20 Q 24 20 26 23 Q 29 23 29 28 Z"
               fill={tokens.accentColor}
-              fillOpacity="0.2"
+              fillOpacity="0.18"
               stroke={tokens.accentColor}
-              strokeWidth="0.7"
+              strokeWidth="0.8"
             />
+            {/* Faint calm water/air reflection lines */}
+            <line x1="8" y1="31" x2="31" y2="31" stroke={tokens.trackColor} strokeWidth="0.6" opacity="0.4" />
+            <line x1="12" y1="33" x2="27" y2="33" stroke={tokens.trackColor} strokeWidth="0.5" opacity="0.25" />
           </g>
 
-          {/* Base Velocity Streamline Track with Chronometric Ticks */}
-          <line x1="20" y1="28" x2="220" y2="28" stroke={tokens.trackColor} strokeWidth="2" />
+          {/* 2. Dynamic Aerodynamic Streamline Field (Accelerating from left to right) */}
+          {/* Upper Streamline Ribbon */}
+          <path
+            d="M 32 18 Q 70 14 110 18 T 175 16 T 226 15"
+            fill="none"
+            stroke={tokens.trackColor}
+            strokeWidth="0.75"
+            strokeDasharray="2 3"
+            opacity="0.5"
+          />
+          <path
+            d="M 115 14 C 145 13, 185 13, 226 12"
+            fill="none"
+            stroke="url(#streamline-glow-grad)"
+            strokeWidth="0.85"
+            strokeDasharray="8 3"
+            opacity="0.7"
+          />
+
+          {/* Lower Streamline Ribbon */}
+          <path
+            d="M 32 38 Q 70 42 110 38 T 175 40 T 226 41"
+            fill="none"
+            stroke={tokens.trackColor}
+            strokeWidth="0.75"
+            strokeDasharray="2 3"
+            opacity="0.5"
+          />
+          <path
+            d="M 115 42 C 145 43, 185 43, 226 44"
+            fill="none"
+            stroke="url(#streamline-glow-grad)"
+            strokeWidth="0.85"
+            strokeDasharray="8 3"
+            opacity="0.7"
+          />
+
+          {/* High-Velocity Speed Streaks in Gale/Storm Zone (120 to 226) */}
+          <line x1="130" y1="21" x2="224" y2="21" stroke={tokens.trackColor} strokeWidth="0.6" strokeDasharray="12 4" opacity="0.55" />
+          <line x1="140" y1="35" x2="224" y2="35" stroke={tokens.trackColor} strokeWidth="0.6" strokeDasharray="10 3" opacity="0.55" />
+
+          {/* Graduated Kinetic Wind Chevrons (> to >> to >>> indicating acceleration) */}
+          <g opacity="0.75">
+            {/* Gentle 250x chevron */}
+            <path d="M 44 26 L 47 28 L 44 30" fill="none" stroke={tokens.trackColor} strokeWidth="0.8" opacity="0.5" />
+            {/* Moderate 750x double chevrons */}
+            <path d="M 94 25.5 L 97 28 L 94 30.5 M 99 25.5 L 102 28 L 99 30.5" fill="none" stroke={tokens.accentColor} strokeWidth="0.9" opacity="0.65" />
+            {/* Brisk 1250x chevrons */}
+            <path d="M 142 25 L 146 28 L 142 31 M 147 25 L 151 28 L 147 31" fill="none" stroke={tokens.accentColor} strokeWidth="1.1" opacity="0.8" />
+            {/* Gale/Storm 1750x triple chevrons */}
+            <path d="M 188 24.5 L 192 28 L 188 31.5 M 193 24.5 L 197 28 L 193 31.5 M 198 24.5 L 202 28 L 198 31.5" fill="none" stroke={tokens.accentColor} strokeWidth="1.2" opacity="0.9" />
+          </g>
+
+          {/* 3. Base Advection Track with Graduation Ticks */}
+          <line x1="20" y1="28" x2="220" y2="28" stroke={tokens.trackColor} strokeWidth="1.8" />
           {[40, 60, 80, 100, 120, 140, 160, 180, 200].map((tx) => (
             <line
               key={tx}
               x1={tx}
-              y1="26.5"
+              y1="26"
               x2={tx}
-              y2="29.5"
+              y2="30"
               stroke={tokens.trackColor}
               strokeWidth="0.75"
               opacity="0.6"
             />
           ))}
+          {/* Active Colored Progress Track up to Caliper Thumb */}
           <line
             x1="20"
             y1="28"
@@ -259,179 +322,121 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
             strokeWidth="2.5"
           />
 
-          {/* Aerodynamic Streamline Ribbons (Accelerating from left to right) */}
-          <path
-            d="M 28 19 Q 70 14 115 19 T 226 16"
-            fill="none"
-            stroke={tokens.trackColor}
-            strokeWidth="0.75"
-            strokeDasharray="4 2"
-            opacity="0.65"
-          />
-          <path
-            d="M 125 13 L 226 12"
-            fill="none"
-            stroke={tokens.trackColor}
-            strokeWidth="0.65"
-            strokeDasharray="6 3"
-            opacity="0.45"
-          />
-          <path
-            d="M 28 37 Q 70 42 115 37 T 226 40"
-            fill="none"
-            stroke={tokens.trackColor}
-            strokeWidth="0.75"
-            strokeDasharray="4 2"
-            opacity="0.65"
-          />
-          <path
-            d="M 125 43 L 226 44"
-            fill="none"
-            stroke={tokens.trackColor}
-            strokeWidth="0.65"
-            strokeDasharray="6 3"
-            opacity="0.45"
-          />
-
-          {/* High-Velocity Sheared Cloud Silhouette at Storm End (2000x) */}
-          <g opacity="0.6">
+          {/* 4. High-Velocity Sheared Storm Cloud at 2000x End */}
+          <g opacity="0.75">
+            {/* Aerodynamically swept cirrus / storm cloud head */}
             <path
-              d="M 210 24 c 2 -2 5 -2.5 8 -1 c 3 1.5 5 1.5 8 1.5 l -16 0 z"
+              d="M 212 28 C 214 23 220 22 225 24 C 228 21 232 23 234 28 Z"
               fill={tokens.accentColor}
               fillOpacity="0.25"
               stroke={tokens.accentColor}
-              strokeWidth="0.7"
+              strokeWidth="0.8"
             />
-            <line x1="198" y1="23.5" x2="207" y2="23.5" stroke={tokens.accentColor} strokeWidth="0.6" strokeDasharray="2 1" />
-            <line x1="202" y1="25" x2="208" y2="25" stroke={tokens.accentColor} strokeWidth="0.6" strokeDasharray="2 1" />
+            {/* Horizontal wind shear tail filaments */}
+            <line x1="202" y1="26" x2="211" y2="26" stroke={tokens.accentColor} strokeWidth="0.75" strokeDasharray="3 1" />
+            <line x1="205" y1="28" x2="211" y2="28" stroke={tokens.accentColor} strokeWidth="0.85" />
+            <line x1="204" y1="30" x2="211" y2="30" stroke={tokens.accentColor} strokeWidth="0.75" strokeDasharray="2 1" />
           </g>
 
-          {/* Graduated Velocity Advection Chevrons (calm -> moderate -> gale) */}
-          <path d="M 46 26.5 L 49 28 L 46 29.5" fill="none" stroke={tokens.trackColor} strokeWidth="0.8" opacity="0.6" />
-          <path d="M 88 26 L 91 28 L 88 30 M 93 26 L 96 28 L 93 30" fill="none" stroke={tokens.trackColor} strokeWidth="0.9" opacity="0.7" />
-          <path d="M 134 25.5 L 138 28 L 134 30.5 M 140 25.5 L 144 28 L 140 30.5" fill="none" stroke={tokens.trackColor} strokeWidth="1.1" opacity="0.85" />
-          <path d="M 174 25 L 178 28 L 174 31 M 179 25 L 183 28 L 179 31 M 184 25 L 188 28 L 184 31" fill="none" stroke={tokens.trackColor} strokeWidth="1.2" opacity="0.9" />
-
-          {/* 3. Medium-Adaptive SVG Artifacts */}
+          {/* 5. Medium-Adaptive SVG Graphic Vignettes */}
           {activeTheme === 1 ? (
             // Theme 1: Archival Cream Rag (Robinson Cup Anemometer Engraving)
             <g className="drift-chronometer-cream text-[#8c4820]">
-              {/* Robinson 3-Cup Anemometer Engraving */}
-              <line x1="195" y1="10" x2="195" y2="34" stroke="#8c4820" strokeWidth="1" />
-              <path d="M 193 34 L 197 34 L 195 37 Z" fill="#8c4820" />
-              <line x1="184" y1="16" x2="206" y2="16" stroke="#8c4820" strokeWidth="0.8" />
-              {/* Anemometer Cups */}
+              {/* Central Anemometer Spindle */}
+              <line x1="206" y1="7" x2="206" y2="23" stroke="#8c4820" strokeWidth="0.9" />
+              <polygon points="204,23 208,23 206,25" fill="#8c4820" />
+              {/* Horizontal Crossarms */}
+              <line x1="198" y1="12" x2="214" y2="12" stroke="#8c4820" strokeWidth="0.7" />
+              {/* Hemispherical Anemometer Cups */}
               <path
-                d="M 184 13 A 3.5 3.5 0 0 0 184 19 Z"
+                d="M 198 9.5 A 2.5 2.5 0 0 0 198 14.5 Z"
                 fill="#8c4820"
-                fillOpacity="0.45"
+                fillOpacity="0.5"
                 stroke="#8c4820"
-                strokeWidth="0.75"
-              />
-              <ellipse
-                cx="195"
-                cy="15"
-                rx="3"
-                ry="1.8"
-                fill="#8c4820"
-                fillOpacity="0.25"
-                stroke="#8c4820"
-                strokeWidth="0.6"
+                strokeWidth="0.65"
               />
               <path
-                d="M 206 13 A 3.5 3.5 0 0 1 206 19 Z"
+                d="M 214 9.5 A 2.5 2.5 0 0 1 214 14.5 Z"
                 fill="#8c4820"
-                fillOpacity="0.6"
+                fillOpacity="0.7"
                 stroke="#8c4820"
-                strokeWidth="0.75"
+                strokeWidth="0.65"
               />
-              <ellipse
-                cx="195"
-                cy="16"
-                rx="11"
-                ry="3"
-                fill="none"
-                stroke="#8c4820"
-                strokeWidth="0.5"
-                strokeDasharray="1.5 1.5"
-                opacity="0.6"
-              />
-              {/* Rotational Anemometer Archival Intaglio Arc */}
-              <path d="M 180 8 Q 195 5 210 8" fill="none" stroke="#8c4820" strokeWidth="0.6" strokeDasharray="1.5 2" opacity="0.6" />
+              {/* Rotational Intaglio Arc */}
+              <path d="M 199 7 Q 206 5 213 7" fill="none" stroke="#8c4820" strokeWidth="0.5" strokeDasharray="1.5 1.5" opacity="0.65" />
             </g>
           ) : activeTheme === 2 ? (
-            // Theme 2: Prussian Cyanotype (Streamline Isotachs)
+            // Theme 2: Prussian Cyanotype (CAD Velocity Isotachs)
             <g className="drift-chronometer-cyanotype text-[#4fa3e3]">
-              {/* Streamline Isotachs */}
+              {/* Technical Isotach Curvature Lines */}
               <path
                 d="M 20 16 C 70 12, 130 18, 220 13"
                 fill="none"
                 stroke="#4fa3e3"
                 strokeWidth="0.8"
-                strokeDasharray="3 2"
-                opacity="0.75"
+                strokeDasharray="4 2"
+                opacity="0.8"
               />
               <path
-                d="M 20 40 C 70 43, 130 37, 220 42"
+                d="M 20 40 C 70 44, 130 36, 220 43"
                 fill="none"
                 stroke="#4fa3e3"
                 strokeWidth="0.8"
-                strokeDasharray="3 2"
-                opacity="0.75"
+                strokeDasharray="4 2"
+                opacity="0.8"
               />
-              {/* Blueprint Isotach Graduation Cross-Ticks */}
-              <line x1="80" y1="13" x2="80" y2="17" stroke="#4fa3e3" strokeWidth="0.6" opacity="0.7" />
-              <line x1="140" y1="15" x2="140" y2="19" stroke="#4fa3e3" strokeWidth="0.6" opacity="0.7" />
-              <line x1="190" y1="12" x2="190" y2="16" stroke="#4fa3e3" strokeWidth="0.6" opacity="0.7" />
+              {/* CAD Division Graduation Crosshairs */}
+              <line x1="70" y1="13" x2="70" y2="17" stroke="#4fa3e3" strokeWidth="0.6" opacity="0.75" />
+              <line x1="140" y1="14" x2="140" y2="18" stroke="#4fa3e3" strokeWidth="0.6" opacity="0.75" />
+              <line x1="190" y1="12" x2="190" y2="16" stroke="#4fa3e3" strokeWidth="0.6" opacity="0.75" />
             </g>
           ) : (
-            // Theme 0: Marie Tharp (ADCP Acoustic Doppler Velocity Vectors)
+            // Theme 0: Marie Tharp (Acoustic Doppler Velocity Wavelets)
             <g className="drift-chronometer-tharp text-[#00e5ff]">
-              {/* ADCP 4-Beam Janus Acoustic Transducer Head */}
-              <line x1="195" y1="10" x2="183" y2="25" stroke="#00e5ff" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.8" />
-              <line x1="195" y1="10" x2="207" y2="25" stroke="#00e5ff" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.8" />
-              <circle cx="195" cy="10" r="2" fill="#00e5ff" />
-
-              {/* Doppler Frequency Shift Pulse Wavelets */}
-              <path d="M 188 18 A 8 8 0 0 0 202 18" fill="none" stroke="#34d399" strokeWidth="0.6" opacity="0.75" />
-              <path d="M 185 22 A 12 12 0 0 0 205 22" fill="none" stroke="#34d399" strokeWidth="0.6" opacity="0.5" />
-              <path d="M 182 26 A 16 16 0 0 0 208 26" fill="none" stroke="#34d399" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.4" />
+              {/* Transducer Origin Emitter */}
+              <circle cx="206" cy="12" r="1.8" fill="#00e5ff" />
+              <line x1="206" y1="12" x2="198" y2="23" stroke="#00e5ff" strokeWidth="0.7" strokeDasharray="2 2" opacity="0.8" />
+              <line x1="206" y1="12" x2="214" y2="23" stroke="#00e5ff" strokeWidth="0.7" strokeDasharray="2 2" opacity="0.8" />
+              {/* Concentric Doppler Acoustic Wavelets */}
+              <path d="M 200 17 A 6 6 0 0 0 212 17" fill="none" stroke="#34d399" strokeWidth="0.65" opacity="0.8" />
+              <path d="M 197 20 A 9 9 0 0 0 215 20" fill="none" stroke="#34d399" strokeWidth="0.55" opacity="0.6" />
+              <path d="M 194 23 A 12 12 0 0 0 218 23" fill="none" stroke="#34d399" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.45" />
             </g>
           )}
 
-          {/* Speed Gradation Milestone Ticks & Labels */}
-          {/* 0x */}
+          {/* 6. Milestone Ticks & Labels (Strictly 3 Ticks: 0x, 500x, 2000x) */}
+          {/* 0x (Calm) */}
           <line x1="20" y1="36" x2="20" y2="42" stroke={tokens.trackColor} strokeWidth="1" />
-          <text x="20" y="52" textAnchor="start" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.6">
+          <text x="20" y="52" textAnchor="start" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.75">
             0×
           </text>
 
           {/* 500x Default Sweetspot */}
           <line x1="70" y1="36" x2="70" y2="42" stroke={tokens.accentColor} strokeWidth="1.2" />
           <polygon points="70,41 72,43 70,45 68,43" fill={tokens.accentColor} />
-          <text x="70" y="52" textAnchor="middle" fill={tokens.accentColor} fontSize="5" fontFamily="monospace" fontWeight="bold">
+          <text x="70" y="52" textAnchor="middle" fill={tokens.accentColor} fontSize="5.5" fontFamily="monospace" fontWeight="bold">
             500×
           </text>
 
-          {/* 2000x Max */}
+          {/* 2000x Storm Max */}
           <line x1="220" y1="36" x2="220" y2="42" stroke={tokens.trackColor} strokeWidth="1" />
-          <text x="220" y="52" textAnchor="end" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.6">
+          <text x="220" y="52" textAnchor="end" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.75">
             2000×
           </text>
 
-          {/* Draggable Chronometric Reticle Caliper */}
+          {/* 7. Draggable Chronometric Reticle Caliper */}
           <g>
-            {/* Vertical Crosshair Line */}
+            {/* Vertical Hairline Crosshair */}
             <line
               x1={thumbX}
-              y1="8"
+              y1="7"
               x2={thumbX}
-              y2="48"
+              y2="49"
               stroke={tokens.reticleStroke}
               strokeWidth="1.2"
             />
 
-            {/* Reticle Central Diamond Lens */}
+            {/* Central Diamond Lens Reticle */}
             <polygon
               points={`${thumbX},22 ${thumbX + 5},28 ${thumbX},34 ${thumbX - 5},28`}
               fill={tokens.reticleFill}
@@ -440,7 +445,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
             />
             <circle cx={thumbX} cy="28" r="1.5" fill={tokens.reticleStroke} />
 
-            {/* Floating Readout Flag / Caliper Badge */}
+            {/* Floating Readout Flag Badge */}
             <rect
               x={badgeX - 15}
               y="3"
@@ -480,9 +485,9 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
         aria-hidden="true"
       />
 
-      {/* 4. Footer & Reset Action */}
+      {/* 4. Footer & Reset Action (Unabbreviated) */}
       <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border)]/50 opacity-80">
-        <span className="truncate">CHRONOMETRIC DRIFT (0–2000×)</span>
+        <span className="truncate">CLOUD DRIFT VELOCITY (0× to 2000×)</span>
         <button
           type="button"
           onClick={handleReset}
