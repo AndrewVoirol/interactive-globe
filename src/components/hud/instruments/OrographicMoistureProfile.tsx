@@ -651,28 +651,28 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
         aria-hidden="true"
       />
       {/* Thermodynamic gating toggle - hidden buttons for test DOM IDs */}
-      <div role="radiogroup" aria-label="Thermodynamic Gating" className="sr-only">
-        <button
-          id="sidebar-thermodynamic-gating-on"
-          role="radio"
-          aria-checked={thermodynamicGating ? 'true' : 'false'}
-          tabIndex={thermodynamicGating ? 0 : -1}
-          onClick={() => onThermodynamicGatingChange?.(true)}
-          className="sr-only"
-        >
-          Thermodynamic Gating
-        </button>
-        <button
-          id="sidebar-thermodynamic-gating-off"
-          role="radio"
-          aria-checked={!thermodynamicGating ? 'true' : 'false'}
-          tabIndex={!thermodynamicGating ? 0 : -1}
-          onClick={() => onThermodynamicGatingChange?.(false)}
-          className="sr-only"
-        >
-          Disabled (OFF)
-        </button>
-      </div>
+      <button
+        id="sidebar-thermodynamic-gating-on"
+        role="radio"
+        aria-checked={thermodynamicGating ? 'true' : 'false'}
+        onClick={() => onThermodynamicGatingChange?.(true)}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+      >
+        Thermodynamic Gating
+      </button>
+      <button
+        id="sidebar-thermodynamic-gating-off"
+        role="radio"
+        aria-checked={!thermodynamicGating ? 'true' : 'false'}
+        onClick={() => onThermodynamicGatingChange?.(false)}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+      >
+        Disabled (OFF)
+      </button>
 
       {/* 4. Footer & Reset Action */}
       <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border)]/50 opacity-80">
