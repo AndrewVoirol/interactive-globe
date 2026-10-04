@@ -189,16 +189,27 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                         {(isPrimaryRaster || isShadowedRaster || preset?.unsupported) && (
                           <div className="flex items-center gap-1.5 pl-0.5">
                             {isPrimaryRaster && (
-                              <span className="text-nano font-mono px-1 py-px rounded border bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 font-semibold" title="Active Base Raster rendered on planetary crust">
+                              <span
+                                className={`text-nano font-mono px-1.5 py-0.5 rounded-[2px] font-semibold ${
+                                  theme === 1
+                                    ? 'bg-[#1b432b]/10 text-[#1b432b]'
+                                    : theme === 2
+                                    ? 'bg-[#38bdf8]/15 text-[#7dd3fc]'
+                                    : 'bg-[#34d399]/15 text-[#34d399]'
+                                }`}
+                                title="Active Base Raster rendered on planetary crust"
+                              >
                                 (Active Raster)
                               </span>
                             )}
                             {isShadowedRaster && (
                               <span
-                                className={`text-nano font-mono px-1 py-px rounded border ${
-                                  theme === 2
-                                    ? 'bg-[#38bdf8]/15 text-[#bae6fd] border-[#38bdf8]/35'
-                                    : 'bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40'
+                                className={`text-nano font-mono px-1.5 py-0.5 rounded-[2px] font-medium ${
+                                  theme === 1
+                                    ? 'bg-[#7d4700]/10 text-[#7d4700]'
+                                    : theme === 2
+                                    ? 'bg-[#38bdf8]/10 text-[#7dd3fc]'
+                                    : 'bg-[#f59e0b]/15 text-[#fcd34d]'
                                 }`}
                                 title="This raster dataset is occluded by a higher active raster layer in the Z-order stack"
                               >
@@ -206,7 +217,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                               </span>
                             )}
                             {preset?.unsupported && (
-                              <span className="text-nano font-mono px-1 py-px rounded border bg-rose-500/20 text-rose-300 border-rose-500/40">
+                              <span className="text-nano font-mono px-1.5 py-0.5 rounded-[2px] bg-rose-500/15 text-rose-300 font-semibold">
                                 [UNSUPPORTED]
                               </span>
                             )}

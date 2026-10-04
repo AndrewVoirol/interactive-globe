@@ -75,6 +75,16 @@ describe('DATA Tab & Catalog Composition Invariants', () => {
       expect(colophonContent).toContain('space-y-1 opacity-85 text-nano pl-0.5 leading-snug');
       expect(colophonContent).not.toContain('text-body pl-1');
     });
+
+    it('uses borderless theme-adaptive wash for active provenance badges without stark white borders', () => {
+      expect(colophonContent).not.toContain('border border-[var(--theme-status-sage)]');
+      expect(colophonContent).toContain('activeBadgeStyle');
+      expect(colophonContent).toContain("theme === 1\n      ? 'bg-[#1b432b]/10 text-[#1b432b]'");
+      expect(colophonContent).toContain("theme === 2\n      ? 'bg-[#38bdf8]/15 text-[#7dd3fc]'");
+      expect(colophonContent).toContain(": 'bg-[#34d399]/15 text-[#34d399]'");
+      // Check data tab active raster badge also eliminates border-[var(--theme-status-sage)]
+      expect(dataTabContent).not.toContain('border-[var(--theme-status-sage)]');
+    });
   });
 
   // --------------------------------------------------------------------------

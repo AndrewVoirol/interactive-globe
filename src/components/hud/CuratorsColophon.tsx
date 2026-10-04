@@ -47,6 +47,13 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
       ? 'Planar'
       : `Morph (α = ${alpha.toFixed(3)})`;
 
+  const activeBadgeStyle =
+    theme === 1
+      ? 'bg-[#1b432b]/10 text-[#1b432b]'
+      : theme === 2
+      ? 'bg-[#38bdf8]/15 text-[#7dd3fc]'
+      : 'bg-[#34d399]/15 text-[#34d399]';
+
   return (
     <div
       className={`rounded-[3px] border p-3 font-mono text-nano transition-all shadow-sm select-none ${
@@ -101,7 +108,7 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
                 {isWeatherActive && (
                   <span
                     data-testid="colophon-badge-weathernext"
-                    className="ml-1.5 px-1 py-px rounded text-nano font-mono font-bold tracking-wider uppercase border border-[var(--theme-status-sage)]/40 bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)] align-middle inline-block"
+                    className={`ml-1.5 px-1.5 py-0.5 rounded-[2px] text-nano font-mono font-bold tracking-wider uppercase align-middle inline-block ${activeBadgeStyle}`}
                   >
                     [WEATHERNEXT: ACTIVE]
                   </span>
@@ -115,7 +122,7 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
                 {isRadarActive && (
                   <span
                     data-testid="colophon-badge-radar"
-                    className="ml-1.5 px-1 py-px rounded text-nano font-mono font-bold tracking-wider uppercase border border-[var(--theme-status-sage)]/40 bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)] align-middle inline-block"
+                    className={`ml-1.5 px-1.5 py-0.5 rounded-[2px] text-nano font-mono font-bold tracking-wider uppercase align-middle inline-block ${activeBadgeStyle}`}
                   >
                     [RADAR: ACTIVE]
                   </span>

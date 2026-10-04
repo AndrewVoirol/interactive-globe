@@ -169,14 +169,14 @@ export const CatalogSheet: React.FC<CatalogSheetProps> = ({
                           ? 'bg-[#10b981]/20 text-[#6ee7b7] border-[#10b981]/40'
                           : preset.category === 'vectors'
                           ? 'bg-[#f59e0b]/20 text-[#fcd34d] border-[#f59e0b]/40'
-                          : 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40'
+                          : 'bg-[#34d399]/20 text-[#34d399] border-[#34d399]/40'
                         : preset.category === 'topo'
                         ? 'bg-[#2e6b47]/15 text-[#1b432b] border-[#2e6b47]/30'
                         : preset.category === 'satellite'
                         ? 'bg-[#2b6b88]/15 text-[#1a4457] border-[#2b6b88]/30'
                         : preset.category === 'vectors'
                         ? 'bg-[#96641e]/15 text-[#52350c] border-[#96641e]/30'
-                        : 'bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/30'
+                        : 'bg-[#1b432b]/15 text-[#1b432b] border-[#1b432b]/30'
                     }`}
                   >
                     {preset.category}
@@ -231,8 +231,8 @@ export const CatalogSheet: React.FC<CatalogSheetProps> = ({
                         ? theme === 1
                           ? 'bg-[#2e6b47]/15 text-[#1b432b] border-[#2e6b47]/30 cursor-default font-semibold'
                           : theme === 2
-                          ? 'bg-[#2a5540]/30 text-[#8ee0b1] border-[#387256]/40 cursor-default font-semibold'
-                          : 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 cursor-default ring-1 ring-[var(--theme-status-sage)]/30 font-semibold'
+                          ? 'bg-[#38bdf8]/20 text-[#7dd3fc] border-[#38bdf8]/40 cursor-default font-semibold'
+                          : 'bg-[#34d399]/20 text-[#34d399] border-[#34d399]/40 cursor-default ring-1 ring-[#34d399]/30 font-semibold'
                         : 'cursor-pointer bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] hover:border-[var(--theme-card-border-hover)] shadow-sm font-semibold'
                     }`}
                   >
