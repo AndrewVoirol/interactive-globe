@@ -268,11 +268,8 @@ describe('Sidebar & Data Tab Engineering Remediations Suite', () => {
   // --------------------------------------------------------------------------
   // 6. Horizon Cross-Section Preset Scaling
   // --------------------------------------------------------------------------
-  describe('6. Horizon Cross-Section Preset Scaling', () => {
-    it('HORIZON-01: AtmosphereDrawer unconditionally sets atmospheric scale to 6.0x on preset click', async () => {
-      const scaleChangeMock = vi.fn();
-      const toggleCloudsMock = vi.fn();
-
+  describe('6. Horizon Cross-Section Preset Relocation', () => {
+    it('HORIZON-01: AtmosphereDrawer no longer mounts camera horizon presets (relocated to KinematicsTab)', async () => {
       await act(async () => {
         root.render(
           <AtmosphereDrawer
@@ -280,8 +277,6 @@ describe('Sidebar & Data Tab Engineering Remediations Suite', () => {
             showClouds={true}
             cloudDriftSpeed={1.0}
             atmosphericScale={1.0}
-            onAtmosphericScaleChange={scaleChangeMock}
-            onShowCloudsChange={toggleCloudsMock}
           />
         );
       });
@@ -289,14 +284,7 @@ describe('Sidebar & Data Tab Engineering Remediations Suite', () => {
       const presetBtn = Array.from(container.querySelectorAll('button')).find((b) =>
         b.textContent?.includes('Horizon Cross-Section')
       );
-      expect(presetBtn).toBeDefined();
-
-      await act(async () => {
-        presetBtn!.click();
-      });
-
-      // Must be called with 6.0 unconditionally
-      expect(scaleChangeMock).toHaveBeenCalledWith(6.0);
+      expect(presetBtn).toBeUndefined();
     });
   });
 

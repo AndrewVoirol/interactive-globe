@@ -15,6 +15,7 @@ import { createRoot, Root } from 'react-dom/client';
 import fs from 'fs';
 import path from 'path';
 import { CuratorsColophon } from '../../src/components/hud/CuratorsColophon';
+import { SidebarTelemetry } from '../../src/components/hud/tabs/SidebarTelemetry';
 import { UnifiedRightSidebar, UnifiedRightSidebarProps } from '../../src/components/hud/UnifiedRightSidebar';
 import { TelemetryHUD, TelemetryHUDProps } from '../../src/components/hud/TelemetryHUD';
 import { DataLayerItem, SimulationMode, GeodesicOverlayMode, LoadedDataInfo } from '../../src/types';
@@ -210,23 +211,30 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       expect(container.textContent).toContain('Natural Earth');
     });
 
-    it('renders medium and projection state', async () => {
+    it('renders medium and projection state in persistent SidebarTelemetry footer', async () => {
       await act(async () => {
         root.render(
-          <CuratorsColophon
+          <SidebarTelemetry
             theme={1}
             mode={0}
             alpha={0.5}
-            isWeatherActive={true}
-            isRadarActive={true}
+            resolution="1M"
+            onResolutionChange={() => {}}
+            latStr="42.36°N"
+            lonStr="71.06°W"
+            mapScaleStr="1:10,000,000"
+            fps={60}
+            backend="webgpu"
           />
         );
       });
 
-      expect(container.textContent).toContain("Curator's Colophon");
       expect(container.textContent).toContain('Cotton Rag');
       expect(container.textContent).toContain('Linear');
-      expect(container.textContent).toContain('Morph');
+      expect(container.textContent).toContain('Morph (α=0.50)');
+      expect(container.textContent).toContain('Medium');
+      expect(container.textContent).toContain('Projection');
+      expect(container.textContent).toContain('Manifold');
     });
   });
 

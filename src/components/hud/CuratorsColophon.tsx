@@ -18,35 +18,10 @@ export interface CuratorsColophonProps {
 
 export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
   theme,
-  mode = 0,
-  alpha = 0,
   isWeatherActive = false,
   isRadarActive = false,
   className = '',
 }) => {
-  const mediumName =
-    theme === 1
-      ? 'Cotton Rag (Swiss Relief)'
-      : theme === 2
-      ? 'Prussian Cyanotype (Blueprint)'
-      : 'Marie Tharp (Physiographic)';
-
-  const modeName =
-    mode === 0
-      ? 'Linear'
-      : mode === 1
-      ? 'Scroll'
-      : mode === 2
-      ? 'Fracture'
-      : 'Fluid';
-
-  const unfurlState =
-    alpha < 0.02
-      ? 'Spherical'
-      : alpha > 0.98
-      ? 'Planar'
-      : `Morph (α = ${alpha.toFixed(3)})`;
-
   const activeBadgeStyle =
     theme === 1
       ? 'bg-[#1b432b]/10 text-[#1b432b]'
@@ -56,7 +31,8 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
 
   return (
     <div
-      className={`rounded-[3px] border p-3 font-mono text-nano transition-all shadow-sm select-none ${
+      data-testid="curators-colophon"
+      className={`rounded-[3px] border p-2.5 font-mono text-nano transition-all shadow-sm select-none ${
         theme === 1
           ? 'bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[#4A3B32]'
           : theme === 2
@@ -71,72 +47,53 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
         </span>
       </div>
 
-      {/* Primary Specimen & Manifold */}
+      {/* Data Provenance Ledger */}
       <div className="space-y-1.5 text-nano leading-tight">
-        <div>
-          <span className="opacity-60 block text-nano uppercase tracking-wider font-medium">Medium:</span>
-          <span className="text-micro font-semibold text-current">{mediumName}</span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 pt-0.5">
-          <div>
-            <span className="opacity-60 block text-nano uppercase tracking-wider font-medium">State:</span>
-            <span className="text-micro font-semibold text-current">{unfurlState}</span>
-          </div>
-          <div>
-            <span className="opacity-60 block text-nano uppercase tracking-wider font-medium">Projection:</span>
-            <span className="text-micro font-semibold text-current">{modeName}</span>
-          </div>
-        </div>
-
-        {/* Data Provenance Ledger */}
-        <div className="pt-2 border-t border-current/15 space-y-1">
-          <span className="opacity-70 block text-nano uppercase tracking-wider font-bold">
-            Provenance
-          </span>
-          <ul className="space-y-1 opacity-85 text-nano pl-0.5 leading-snug">
-            <li className="flex items-start gap-1">
-              <span className="opacity-50 select-none">•</span>
-              <span>
-                <strong className="text-current font-semibold">Crust & Bathymetry:</strong> NOAA ETOPO 2022 (15″ DEM)
-              </span>
-            </li>
-            <li className="flex items-start gap-1">
-              <span className="opacity-50 select-none">•</span>
-              <span className="flex-1">
-                <strong className="text-current font-semibold">Atmospheric Modeling:</strong> WeatherNext 3 (0.1°) & NOAA GFS (10 m winds)
-                {isWeatherActive && (
-                  <span
-                    data-testid="colophon-badge-weathernext"
-                    className={`ml-1.5 px-1.5 py-0.5 rounded-[2px] text-nano font-mono font-bold tracking-wider uppercase align-middle inline-block ${activeBadgeStyle}`}
-                  >
-                    [WEATHERNEXT: ACTIVE]
-                  </span>
-                )}
-              </span>
-            </li>
-            <li className="flex items-start gap-1">
-              <span className="opacity-50 select-none">•</span>
-              <span className="flex-1">
-                <strong className="text-current font-semibold">Precipitation Radar:</strong> RainViewer Radar
-                {isRadarActive && (
-                  <span
-                    data-testid="colophon-badge-radar"
-                    className={`ml-1.5 px-1.5 py-0.5 rounded-[2px] text-nano font-mono font-bold tracking-wider uppercase align-middle inline-block ${activeBadgeStyle}`}
-                  >
-                    [RADAR: ACTIVE]
-                  </span>
-                )}
-              </span>
-            </li>
-            <li className="flex items-start gap-1">
-              <span className="opacity-50 select-none">•</span>
-              <span>
-                <strong className="text-current font-semibold">Linework:</strong> Natural Earth (1:10M)
-              </span>
-            </li>
-          </ul>
-        </div>
+        <span className="opacity-70 block text-nano uppercase tracking-wider font-medium">
+          Provenance
+        </span>
+        <ul className="space-y-1 opacity-85 text-nano pl-0.5 leading-snug">
+          <li className="flex items-start gap-1">
+            <span className="opacity-50 select-none">•</span>
+            <span>
+              <strong className="text-current font-semibold">Crust & Bathymetry:</strong> NOAA ETOPO 2022 (15″ DEM)
+            </span>
+          </li>
+          <li className="flex items-start gap-1">
+            <span className="opacity-50 select-none">•</span>
+            <span className="flex-1">
+              <strong className="text-current font-semibold">Atmospheric Modeling:</strong> WeatherNext 3 (0.1°) & NOAA GFS (10 m winds)
+              {isWeatherActive && (
+                <span
+                  data-testid="colophon-badge-weathernext"
+                  className={`ml-1.5 px-1.5 py-0.5 rounded-[2px] text-nano font-mono font-bold tracking-wider uppercase align-middle inline-block ${activeBadgeStyle}`}
+                >
+                  [WEATHERNEXT: ACTIVE]
+                </span>
+              )}
+            </span>
+          </li>
+          <li className="flex items-start gap-1">
+            <span className="opacity-50 select-none">•</span>
+            <span className="flex-1">
+              <strong className="text-current font-semibold">Precipitation Radar:</strong> RainViewer Radar
+              {isRadarActive && (
+                <span
+                  data-testid="colophon-badge-radar"
+                  className={`ml-1.5 px-1.5 py-0.5 rounded-[2px] text-nano font-mono font-bold tracking-wider uppercase align-middle inline-block ${activeBadgeStyle}`}
+                >
+                  [RADAR: ACTIVE]
+                </span>
+              )}
+            </span>
+          </li>
+          <li className="flex items-start gap-1">
+            <span className="opacity-50 select-none">•</span>
+            <span>
+              <strong className="text-current font-semibold">Linework:</strong> Natural Earth (1:10M)
+            </span>
+          </li>
+        </ul>
       </div>
     </div>
   );
