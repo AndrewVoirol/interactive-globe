@@ -103,7 +103,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
       <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
         <span className="font-bold flex items-center gap-1.5 text-[var(--theme-text-accent)]">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)]"></span>
-          Sea Level
+          Bathymetric Tide
         </span>
         <div className="flex items-center gap-1 font-mono text-nano">
           <span className="text-[var(--theme-text-secondary)]">Sea Level:</span>
@@ -168,7 +168,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         </div>
 
         {/* Medium-Adaptive Hydrostatic Markings */}
-        <div className="absolute top-0 bottom-0 right-14 w-8 pointer-events-none z-10 opacity-70">
+        <div className="absolute top-1 bottom-1 right-14 w-8 pointer-events-none z-10 opacity-70">
           <svg className="w-full h-full" viewBox="0 0 40 100" preserveAspectRatio="xMidYMid meet">
             {theme === 1 ? (
               // Cream Rag Paper: Archival hydrographic tide benchmark staff with decimeter blocks
@@ -214,7 +214,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
 
         {/* Dynamic Water Volume */}
         <div
-          className={`absolute bottom-0 left-0 right-0 border-t-2 pointer-events-none transition-none ${tokens.waterBorder}`}
+          className={`absolute bottom-0 left-0 right-0 border-t pointer-events-none transition-none ${tokens.waterBorder}`}
           style={{ height: `${waterPct}%` }}
         >
           <div
@@ -228,24 +228,42 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           className="absolute left-0 right-0 top-[40%] h-px border-b border-dashed border-[var(--theme-text-secondary)]/35 pointer-events-none"
         />
 
-        {/* Sea Level Caliper Reticle Line with Vertically Offset Non-Colliding Badge */}
+        {/* Sea Level Caliper Reticle Line with Centered Precision Badge */}
         <div
           className={`absolute left-0 right-0 h-0.5 pointer-events-none ${tokens.caliperLine} shadow-[0_1px_4px_rgba(0,0,0,0.4)]`}
           style={{ bottom: `${waterPct}%` }}
         >
-          <div className={`absolute right-1.5 ${seaLevelOffset >= 80 ? 'top-1' : '-top-5'} px-1.5 py-px rounded-[2px] border font-mono font-bold text-nano shadow-sm ${tokens.caliperBadge}`}>
+          <div
+            className={`absolute right-1.5 ${
+              seaLevelOffset >= 85
+                ? 'top-1'
+                : seaLevelOffset <= -135
+                ? '-top-4'
+                : 'top-1/2 -translate-y-1/2'
+            } px-1.5 py-px rounded-[2px] border font-mono font-bold text-nano shadow-sm pointer-events-auto transition-transform ${tokens.caliperBadge}`}
+          >
             ◄ {seaLevelOffset > 0 ? `+${seaLevelOffset}m` : `${seaLevelOffset}m`} ►
           </div>
         </div>
 
-        {/* Reference Geological Markers with Clean Vertical Moat */}
-        <div className={`absolute left-1.5 top-1 text-nano font-mono pointer-events-none transition-opacity duration-150 ${seaLevelOffset >= 80 ? 'opacity-40' : 'opacity-80'} text-[var(--theme-text-secondary)]`}>
+        {/* Reference Geological Markers with Protected Vellum Contrast Chips */}
+        <div
+          className={`absolute left-1.5 top-1 px-1 rounded-[2px] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]/50 backdrop-blur-[1px] text-nano font-mono pointer-events-none transition-opacity duration-150 shadow-xs ${
+            seaLevelOffset >= 80 ? 'opacity-40' : 'opacity-90'
+          } text-[var(--theme-text-secondary)]`}
+        >
           +100 m (Highstand)
         </div>
-        <div className={`absolute left-1.5 top-[calc(40%+4px)] px-1 rounded-[2px] bg-[var(--theme-card-bg)]/85 backdrop-blur-[1px] text-nano font-mono font-bold pointer-events-none text-[var(--theme-text-accent)] shadow-xs`}>
+        <div
+          className="absolute left-1.5 top-[calc(40%+4px)] px-1 rounded-[2px] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]/50 backdrop-blur-[1px] text-nano font-mono font-bold pointer-events-none text-[var(--theme-text-accent)] shadow-xs"
+        >
           0 m (Mean Sea Level)
         </div>
-        <div className={`absolute left-1.5 bottom-1 text-nano font-mono pointer-events-none transition-opacity duration-150 ${seaLevelOffset <= -135 ? 'opacity-40' : 'opacity-80'} text-[var(--theme-text-secondary)]`}>
+        <div
+          className={`absolute left-1.5 bottom-1 px-1 rounded-[2px] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]/50 backdrop-blur-[1px] text-nano font-mono pointer-events-none transition-opacity duration-150 shadow-xs ${
+            seaLevelOffset <= -135 ? 'opacity-40' : 'opacity-90'
+          } text-[var(--theme-text-secondary)]`}
+        >
           -150 m (Glacial Maximum)
         </div>
       </div>
@@ -263,6 +281,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           readout={`${Math.round(waterClarity * 100)}%`}
           onChange={onWaterClarityChange}
           showSteppers={true}
+          className="!border-0 !bg-transparent !p-0.5 !shadow-none"
         />
       </div>
     </div>

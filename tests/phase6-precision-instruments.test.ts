@@ -173,6 +173,27 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
       expect(tideCode).toContain('onSeaLevelChange');
       expect(tideCode).toContain('onWaterClarityChange');
     });
+
+    it('INST-08b: BathymetricTideGauge enforces single-border enclosure, centered caliper reticle badge, and protected contrast datum chips', () => {
+      // Non-redundant instrument cartographic title
+      expect(tideCode).toContain('Bathymetric Tide');
+
+      // Rule 6 Single-border HUD enclosure: VernierSlider must not render nested card borders/padding
+      expect(tideCode).toContain('!border-0 !bg-transparent !p-0.5 !shadow-none');
+
+      // Caliper reticle badge must be centered on waterline (no 20px -top-5 upward detachment defect)
+      expect(tideCode).toContain('top-1/2 -translate-y-1/2');
+      expect(tideCode).not.toContain("-top-5");
+
+      // High-contrast datum markers must have protected vellum card backing without invalid CSS var opacity syntax
+      expect(tideCode).toContain('+100 m (Highstand)');
+      expect(tideCode).toContain('0 m (Mean Sea Level)');
+      expect(tideCode).toContain('-150 m (Glacial Maximum)');
+      expect(tideCode).not.toContain('bg-[var(--theme-card-bg)]/85');
+
+      // Waterline border must not create thick dual-line railroad track clash against caliper reticle
+      expect(tideCode).not.toContain('border-t-2 ${tokens.waterBorder}');
+    });
   });
 
   // --------------------------------------------------------------------------
