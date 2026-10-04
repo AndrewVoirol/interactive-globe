@@ -9,6 +9,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createRoot, Root } from 'react-dom/client';
 import { act } from 'react';
 import { StratosphericTelemetryInstrument } from '../../src/components/hud/instruments/StratosphericTelemetryInstrument';
+import { SidebarTelemetry } from '../../src/components/hud/tabs/SidebarTelemetry';
 import { Vector3 } from '../../src/core/math/cameraMath';
 import { computeManifoldHit } from '../../src/utils/raycast';
 import { invertMacroChart } from '../../src/core/math/volumetricMath';
@@ -53,14 +54,38 @@ describe('StratosphericTelemetryInstrument', () => {
     expect(card?.textContent).toContain('Raymarch Step Budget:');
     expect(card?.textContent).not.toContain('Forecast Cycle:');
     expect(card?.textContent).toContain('Strata Color Mode:');
-    expect(card?.textContent).toContain('Grid Resolution:');
-    expect(card?.textContent).toContain('Wind Vector Field:');
+    // Grid Resolution and Wind Field have been consolidated into the persistent SidebarTelemetry footer
+    expect(card?.textContent).not.toContain('Grid Resolution:');
+    expect(card?.textContent).not.toContain('Wind Vector Field:');
 
     // Regression Guard: Header must feature canonical pulsating status dot and live pitch readout
     const pulseDot = card?.querySelector('.bg-\\[var\\(--theme-pulse-indicator\\)\\]');
     expect(pulseDot).not.toBeNull();
     expect(card?.textContent).not.toContain('◬');
     expect(card?.textContent).toContain('Pitch:');
+  });
+
+  it('verifies Grid Resolution and Wind Vector Field are consolidated in SidebarTelemetry', async () => {
+    await act(async () => {
+      root.render(
+        <SidebarTelemetry
+          theme={0}
+          resolution="1M"
+          onResolutionChange={() => {}}
+          latStr="0.00°"
+          lonStr="0.00°"
+          mapScaleStr="1:10M"
+          fps={60}
+          backend="webgpu"
+          isWindActive={true}
+        />
+      );
+    });
+
+    const footer = container.querySelector('[data-testid="sidebar-telemetry-footer"]');
+    expect(footer).not.toBeNull();
+    expect(footer?.textContent).toContain('3600 × 1801 (0.1°)');
+    expect(footer?.textContent).toContain('rg16f (On)');
   });
 
   it('enforces tabular numerals on dynamic telemetry metrics for pixel-stable alignment', async () => {

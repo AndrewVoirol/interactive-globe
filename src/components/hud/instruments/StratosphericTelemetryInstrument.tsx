@@ -19,16 +19,16 @@ export interface StratosphericTelemetryInstrumentProps {
   className?: string;
 }
 
-const EARTH_RADIUS_KM = 6371.0;
-const GLOBE_RADIUS_UNITS = 5.0;
-const KM_PER_UNIT = EARTH_RADIUS_KM / GLOBE_RADIUS_UNITS; // ~1274.2 km/unit
+export const EARTH_RADIUS_KM = 6371.0;
+export const GLOBE_RADIUS_UNITS = 5.0;
+export const KM_PER_UNIT = EARTH_RADIUS_KM / GLOBE_RADIUS_UNITS; // ~1274.2 km/unit
 
-function unitDistToKm(d: number): number {
+export function unitDistToKm(d: number): number {
   const elevUnits = Math.max(0.00001, d - GLOBE_RADIUS_UNITS);
   return elevUnits * KM_PER_UNIT;
 }
 
-function getStratumName(km: number): string {
+export function getStratumName(km: number): string {
   if (km > 100.0) return 'ORBITAL SPACE';
   if (km > 20.0) return 'STRATOSPHERE';
   if (km > 12.0) return 'UPPER TROPOSPHERE (ABOVE CIRRUS)';
@@ -251,18 +251,6 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
           <span className="font-semibold text-[var(--theme-text-accent)] text-body">
             {cloudFalseColor ? 'Doppler Spectral' : 'Archival Ink Wash'}
           </span>
-        </div>
-
-        <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body shrink-0">Grid Resolution:</span>
-          <span className="font-semibold text-[var(--theme-text-secondary)] text-body tabular-nums">
-            3600 × 1801 (0.1°)
-          </span>
-        </div>
-
-        <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body shrink-0">Wind Vector Field:</span>
-          <span className="font-semibold text-[var(--theme-status-sage)] text-body">rg16float (Active)</span>
         </div>
       </div>
     </div>
