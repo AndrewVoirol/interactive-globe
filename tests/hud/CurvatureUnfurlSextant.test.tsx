@@ -1017,5 +1017,38 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
       expect(stopSpy).toHaveBeenCalled();
     }
   });
+
+  it('verifies radial reference rays calibrate precisely to fiducial detents without label collision', () => {
+    // Assert rays target detent coordinates (x=15, 78, 120, 162, 225) instead of misaligned (68, 172)
+    expect(sourceCode).toContain('x2="15" y2="26"');
+    expect(sourceCode).toContain('x2="78" y2={tick2Y}');
+    expect(sourceCode).toContain('x2="120" y2={peakY}');
+    expect(sourceCode).toContain('x2="162" y2={tick3Y}');
+    expect(sourceCode).toContain('x2="225" y2="26"');
+    // Ensure legacy collision with K > 0 and K = 0 labels (y2="10") is eliminated
+    expect(sourceCode).not.toContain('x2="15" y2="10"');
+    expect(sourceCode).not.toContain('x2="225" y2="10"');
+    expect(sourceCode).not.toContain('x2="68"');
+    expect(sourceCode).not.toContain('x2="172"');
+  });
+
+  it('verifies detent tick markers render on top of the arc path (correct SVG z-order)', () => {
+    const pathIndex = sourceCode.indexOf('<path');
+    const firstCircleAfterPathIndex = sourceCode.indexOf('<circle cx="15" cy="26"', pathIndex);
+    // Tick markers MUST appear after <path> in source so they are painted on top of the opaque track line
+    expect(pathIndex).toBeGreaterThan(0);
+    expect(firstCircleAfterPathIndex).toBeGreaterThan(pathIndex);
+    // Ticks must have visible stroke and radius >= 2.5
+    expect(sourceCode).toContain('r="2.5"');
+    expect(sourceCode).toContain('stroke={sextantTokens.arcStroke}');
+  });
+
+  it('verifies stage telemetry tag uses middle dot separator and absolute alignment to preserve dock horizontal axis', () => {
+    // Assert middle dot formatting
+    expect(sourceCode).toContain(' · {currentMilestone.desc}');
+    // Assert absolute top-full positioning ensures scrubber box height is 36px in flex flow
+    expect(sourceCode).toContain('absolute top-full mt-1.5');
+    expect(sourceCode).toContain('relative flex flex-col items-center');
+  });
 });
 
