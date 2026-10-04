@@ -320,4 +320,62 @@ describe('Challenger 2: Orographic Moisture Profile DOM, ARIA & Build Verificati
       expect(onPluvialChange).toHaveBeenCalledWith(1.8);
     });
   });
+
+  // ==========================================================================
+  // 6. Layout, Typography & Visual Collision Regression Guards
+  // ==========================================================================
+  describe('6. Layout, Typography & Visual Collision Regression Guards', () => {
+    it('CHALLENGE-REGRESS-01: confirms caliper value callout badges maintain positive clearance moats (zero collision)', async () => {
+      const orographicFilePath = path.resolve(__dirname, '../../src/components/hud/instruments/OrographicMoistureProfile.tsx');
+      const orographicCode = fs.readFileSync(orographicFilePath, 'utf-8');
+
+      // 1. Windward badge must have at least 2.5px clearance above circle thumb (y <= cloudThumbY - 20)
+      expect(orographicCode).toMatch(/y=\{cloudThumbY\s*-\s*2[1-9]\}/);
+      expect(orographicCode).not.toContain('y={cloudThumbY - 18}');
+
+      // 2. Pluvial badge must have at least 3.5px clearance to right of circle thumb (x >= pluvialThumbX + 10)
+      expect(orographicCode).toMatch(/x=\{pluvialThumbX\s*\+\s*1[0-9]\}/);
+      expect(orographicCode).not.toContain('x={pluvialThumbX + 8}');
+
+      // 3. Vertical guide line stops before caliper circle (y2 <= pluvialThumbY - 6.5) to prevent moire overlap
+      expect(orographicCode).toContain('y2={pluvialThumbY - 6.5}');
+
+      // 4. Redundant baseline line cutting through mountain bedrock is eliminated
+      expect(orographicCode).not.toContain('<line\n            x1="16"\n            y1="118"\n            x2="270"\n            y2="118"');
+    });
+
+    it('CHALLENGE-REGRESS-02: confirms spelled-out labels, tokenized font stack, and balanced header layout', async () => {
+      await act(async () => {
+        root.render(
+          React.createElement(OrographicMoistureProfile, {
+            rainShadowFeedback: 0.5,
+            pluvialGamma: 0.0,
+            thermodynamicGating: true,
+            theme: 1,
+          })
+        );
+      });
+
+      // 1. Spelled-out footer title (no raw developer parameter bounds)
+      const footerText = container.querySelector('.border-t')?.textContent;
+      expect(footerText).toContain('OROGRAPHIC COUPLING & PLUVIAL RUNOFF');
+      expect(footerText).not.toContain('(0.0–1.0 / 0.0–2.0×)');
+
+      // 2. Header has balanced flex justify-between layout without orphaned pipe separator
+      const header = container.querySelector('.text-micro');
+      expect(header?.className).toContain('justify-between');
+      expect(header?.textContent).toContain('OROGRAPHIC MOISTURE');
+      expect(header?.textContent).toContain('Adiabatic Condensation Profile');
+      expect(header?.textContent).toContain('50%');
+      expect(header?.textContent).toContain('0.0×');
+      expect(header?.textContent).toContain('LCL');
+      expect(header?.querySelector('.ml-auto')?.textContent).not.toBe('|');
+
+      // 3. SVG text elements use tokenized monospace font stack
+      const svgTexts = Array.from(container.querySelectorAll('svg text'));
+      for (const t of svgTexts) {
+        expect(t.getAttribute('font-family')).toBe('var(--font-mono, monospace)');
+      }
+    });
+  });
 });
