@@ -225,10 +225,10 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
           Peak Relief (0.25×)
         </div>
         <div className="absolute bottom-1 left-1.5 text-nano font-mono-draft pointer-events-none opacity-80 text-[var(--theme-text-secondary)]">
-          Baseline (0 m)
+          Baseline
         </div>
         <div className="absolute bottom-1 right-1.5 text-nano font-mono-draft pointer-events-none font-bold text-[var(--theme-text-accent)]">
-          Peak Sharpness ◄►
+          Sharpness ◄►
         </div>
       </div>
 
