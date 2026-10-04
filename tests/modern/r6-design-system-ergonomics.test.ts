@@ -164,9 +164,9 @@ describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety',
       expect(tailwindConfig).toContain("'theme-status-amber': 'var(--theme-status-amber)'");
     });
 
-    it('uses var(--theme-status-sage) in Row 1 engine status and audio controls', () => {
+    it('uses var(--theme-status-sage) in engine status and telemetry', () => {
       expect(sidebarCode).toContain('bg-[var(--theme-status-sage)]');
-      expect(sidebarCode).toContain('border-[var(--theme-status-sage)]');
+      expect(sidebarCode).toContain('text-[var(--theme-status-sage)]');
     });
 
     it('has zero remaining fluorescent emerald classes in UnifiedRightSidebar', () => {
