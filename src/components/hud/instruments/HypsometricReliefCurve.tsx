@@ -46,7 +46,11 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
 
   const handlePointerDown = (e: React.PointerEvent) => {
     isDraggingRef.current = true;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore if synthetic or unsupported
+    }
     updateFromPointer(e.clientX, e.clientY);
   };
 
@@ -111,7 +115,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
             {displacementScale.toFixed(2)}×
           </span>
           <span className="opacity-40">•</span>
-          <span className="text-[var(--theme-text-secondary)]">Peak Sharp:</span>
+          <span className="text-[var(--theme-text-secondary)]">Peak Sharpness:</span>
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
             {peakExponent.toFixed(1)}×
           </span>
@@ -220,15 +224,17 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
           />
         </svg>
 
-        {/* Labels */}
-        <div className="absolute top-1 left-1.5 text-nano font-mono-draft pointer-events-none opacity-80 text-[var(--theme-text-secondary)]">
+        {/* Viewport Labels */}
+        <div className="absolute top-1 left-1.5 text-nano font-mono-draft pointer-events-none opacity-80 text-[var(--theme-text-secondary)] select-none">
           Peak Relief (0.25×)
         </div>
-        <div className="absolute bottom-1 left-1.5 text-nano font-mono-draft pointer-events-none opacity-80 text-[var(--theme-text-secondary)]">
-          Baseline
-        </div>
-        <div className="absolute bottom-1 right-1.5 text-nano font-mono-draft pointer-events-none font-bold text-[var(--theme-text-accent)]">
-          Sharpness ◄►
+        <div className="absolute inset-x-2 bottom-1 flex items-center justify-between pointer-events-none text-nano font-mono-draft select-none">
+          <span className="opacity-80 text-[var(--theme-text-secondary)] tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+            Baseline
+          </span>
+          <span className="font-bold text-[var(--theme-text-accent)] tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+            Sharpness ◄►
+          </span>
         </div>
       </div>
 

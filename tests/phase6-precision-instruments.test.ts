@@ -102,8 +102,8 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
       expect(calcExponent(0.36)).toBe(1.4); // Default Imhof = 1.4x
     });
 
-    it('INST-06: HypsometricReliefCurve embeds contract token Peak Sharp: and 3D Relief:', () => {
-      expect(reliefCode).toContain('Peak Sharp:');
+    it('INST-06: HypsometricReliefCurve embeds contract token Peak Sharpness: and 3D Relief:', () => {
+      expect(reliefCode).toContain('Peak Sharpness:');
       expect(reliefCode).toContain('3D Relief:');
       expect(reliefCode).toContain('onPeakExponentChange');
       expect(reliefCode).toContain('onDisplacementChange');
