@@ -257,21 +257,116 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
 
             {/* General Oblique Solar Ray Cast Gradient */}
             <linearGradient id="solar-ray-grad" x1="0" y1="0" x2="0.6" y2="1">
-              <stop offset="0%" stopColor={tokens.rayStroke} stopOpacity="0.45" />
-              <stop offset="100%" stopColor={tokens.rayStroke} stopOpacity="0.08" />
+              <stop offset="0%" stopColor={tokens.rayStroke} stopOpacity="0.40" />
+              <stop offset="100%" stopColor={tokens.shadowFill} stopOpacity="0.22" />
+            </linearGradient>
+
+            {/* Ground Shadow Umbra Surface Gradient */}
+            <linearGradient id="ground-umbra-grad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={tokens.shadowFill} stopOpacity="0.15" />
+              <stop offset="18%" stopColor={tokens.shadowFill} stopOpacity="0.9" />
+              <stop offset="82%" stopColor={tokens.shadowFill} stopOpacity="0.9" />
+              <stop offset="100%" stopColor={tokens.shadowFill} stopOpacity="0.15" />
             </linearGradient>
           </defs>
 
-          {/* Terrestrial Crust Baseline Profile */}
+          {/* 1. Solar Emitter & Incoming Solar Rays (45° angle / 315° NW) */}
+          <g opacity="0.75">
+            {/* Stylized Sun Origin Glyph at Top-Left */}
+            <circle cx="14" cy="8" r="3.5" fill="none" stroke={tokens.rayStroke} strokeWidth="0.9" />
+            <circle cx="14" cy="8" r="1.5" fill={tokens.rayStroke} />
+            <line x1="14" y1="2" x2="14" y2="4" stroke={tokens.rayStroke} strokeWidth="0.75" />
+            <line x1="8" y1="8" x2="10" y2="8" stroke={tokens.rayStroke} strokeWidth="0.75" />
+            <line x1="18.5" y1="12.5" x2="21.5" y2="15.5" stroke={tokens.rayStroke} strokeWidth="0.9" />
+
+            {/* Direct Incoming Solar Light Rays streaming down at 45° */}
+            <line x1="6" y1="14" x2="42" y2="50" stroke={tokens.rayStroke} strokeWidth="0.6" strokeDasharray="4 3" opacity="0.35" />
+            <line x1="20" y1="14" x2="28" y2="22" stroke={tokens.rayStroke} strokeWidth="0.75" opacity="0.55" />
+            <line x1="86" y1="10" x2="98" y2="22" stroke={tokens.rayStroke} strokeWidth="0.75" opacity="0.55" />
+            <line x1="130" y1="12" x2="168" y2="50" stroke={tokens.rayStroke} strokeWidth="0.6" strokeDasharray="4 3" opacity="0.35" />
+            <line x1="165" y1="12" x2="203" y2="50" stroke={tokens.rayStroke} strokeWidth="0.6" strokeDasharray="4 3" opacity="0.25" />
+          </g>
+
+          {/* 2. Terrestrial Crust Baseline Profile & Bedrock Strata */}
           <path
             d="M 10 50 L 45 50 Q 75 48, 105 47 T 165 50 L 230 50 L 230 58 L 10 58 Z"
             fill={tokens.groundFill}
             stroke={tokens.groundStroke}
             strokeWidth="1.0"
-            opacity="0.9"
+            opacity="0.95"
+          />
+          {[25, 45, 145, 175, 205].map((gx) => (
+            <line
+              key={gx}
+              x1={gx}
+              y1="51"
+              x2={gx}
+              y2="56"
+              stroke={tokens.groundStroke}
+              strokeWidth="0.6"
+              opacity="0.45"
+            />
+          ))}
+
+          {/* 3. Shadow Projection Volume Cone & Ground Shadow Footprint */}
+          {/* Volumetric Projection Cone from Cloud Base to Ground */}
+          {shadowIntensity > 0.001 && (
+            <polygon
+              points="28,22 98,22 128,50 58,50"
+              fill="url(#solar-ray-grad)"
+              opacity={0.25 + normIntensity * 0.7}
+            />
+          )}
+
+          {/* Bounding Solar Ray Projection Lines (45° angle) */}
+          {/* Windward Ray: (28, 22) -> (58, 50) */}
+          <line
+            x1="28"
+            y1="22"
+            x2="58"
+            y2="50"
+            stroke={tokens.rayStroke}
+            strokeWidth="0.9"
+            strokeDasharray="3 2"
+            opacity="0.75"
+          />
+          {/* Leeward Ray: (98, 22) -> (128, 50) */}
+          <line
+            x1="98"
+            y1="22"
+            x2="128"
+            y2="50"
+            stroke={tokens.rayStroke}
+            strokeWidth="0.9"
+            strokeDasharray="3 2"
+            opacity="0.75"
           />
 
-          {/* Elevated Cloud Slab Deck (y = 12..22, x = 24..98) */}
+          {/* Ground Umbra Core & Penumbra on Terrestrial Surface (58 to 128) */}
+          {shadowIntensity > 0.001 && (
+            <g opacity={0.3 + normIntensity * 0.7}>
+              {/* Surface cast shadow strip conforming to terrain profile */}
+              <path
+                d="M 54 50 Q 75 48, 105 47 L 132 50 L 132 54 L 54 54 Z"
+                fill="url(#ground-umbra-grad)"
+              />
+              {/* Dense Umbra baseline stroke */}
+              <line
+                x1="58"
+                y1="50"
+                x2="128"
+                y2="50"
+                stroke={tokens.shadowFill}
+                strokeWidth="2.5"
+                opacity={0.4 + normIntensity * 0.6}
+              />
+            </g>
+          )}
+
+          {/* Caliper Track Guide on Ground Baseline */}
+          <line x1="30" y1="50" x2="210" y2="50" stroke={tokens.caliperLine} strokeWidth="0.8" strokeDasharray="1 3" opacity="0.45" />
+
+          {/* 4. Elevated Cloud Slab Deck (y = 12..22, x = 28..98) */}
           <path
             d="M 28 22 L 28 17 Q 28 12 36 12 Q 44 10 52 13 Q 62 9 72 13 Q 84 9 92 14 Q 98 14 98 22 Z"
             fill={tokens.cloudFill}
@@ -279,61 +374,25 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             strokeWidth="1.0"
             opacity="0.95"
           />
-
-          {/* Oblique Solar Ray Cones (315° NW / 45° Solar Angle) */}
-          {/* Left Solar Ray: (28, 22) -> (58, 50) */}
-          <line
-            x1="28"
-            y1="22"
-            x2="58"
-            y2="50"
-            stroke={tokens.rayStroke}
-            strokeWidth="0.8"
-            strokeDasharray="3 2"
-            opacity="0.6"
+          {/* Cloud Top Solar Rim Highlight */}
+          <path
+            d="M 28 17 Q 28 12 36 12 Q 44 10 52 13 Q 62 9 72 13 Q 84 9 92 14 Q 98 14 98 22"
+            fill="none"
+            stroke={tokens.caliperLine}
+            strokeWidth="1.1"
+            opacity="0.8"
           />
-          {/* Right Solar Ray: (98, 22) -> (128, 50) */}
-          <line
-            x1="98"
-            y1="22"
-            x2="128"
-            y2="50"
-            stroke={tokens.rayStroke}
-            strokeWidth="0.8"
-            strokeDasharray="3 2"
-            opacity="0.6"
-          />
+          {/* Cloud Deck Flat Base */}
+          <line x1="28" y1="22" x2="98" y2="22" stroke={tokens.cloudStroke} strokeWidth="1.2" opacity="0.85" />
 
-          {/* Dynamic Ground Shadow Projection Zone */}
-          {shadowIntensity > 0.001 && (
-            <polygon
-              points={`28,22 98,22 ${Math.max(128, caliperX)},50 58,50`}
-              fill="url(#solar-ray-grad)"
-              opacity={normIntensity}
-            />
-          )}
-
-          {/* Ground Umbra Core on Terrestrial Crust */}
-          {shadowIntensity > 0.001 && (
-            <rect
-              x="58"
-              y="48"
-              width={Math.max(10, caliperX - 58)}
-              height="4"
-              rx="1"
-              fill={tokens.shadowFill}
-              fillOpacity={0.25 + normIntensity * 0.65}
-            />
-          )}
-
-          {/* 3-Medium Adaptive SVG Graphics Groups */}
+          {/* 5. 3-Medium Adaptive SVG Graphics Groups */}
           {theme === 1 ? (
             // Theme 1 (Cream Rag): Archival copperplate intaglio hatching
             <g className="shadow-projection-cream">
               {/* Copperplate Penumbral Hatching over Shadow Projection */}
               {shadowIntensity > 0.001 && (
                 <polygon
-                  points={`28,22 98,22 ${Math.max(128, caliperX)},50 58,50`}
+                  points="28,22 98,22 128,50 58,50"
                   fill="url(#cream-shadow-hatch)"
                   opacity={0.35 + normIntensity * 0.65}
                 />
@@ -379,7 +438,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               {/* Volumetric Extinction Gradient Mesh */}
               {shadowIntensity > 0.001 && (
                 <polygon
-                  points={`28,22 98,22 ${Math.max(128, caliperX)},50 58,50`}
+                  points="28,22 98,22 128,50 58,50"
                   fill="url(#tharp-extinction-grad)"
                 />
               )}
