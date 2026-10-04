@@ -168,18 +168,21 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         </div>
 
         {/* Medium-Adaptive Hydrostatic Markings */}
-        <div className="absolute top-1 bottom-1 right-14 w-8 pointer-events-none z-10 opacity-70">
+        <div className="absolute top-1 bottom-1 right-14 w-8 pointer-events-none z-10 opacity-55">
           <svg className="w-full h-full" viewBox="0 0 40 100" preserveAspectRatio="xMidYMid meet">
             {theme === 1 ? (
-              // Cream Rag Paper: Archival hydrographic tide benchmark staff with decimeter blocks
+              // Cream Rag Paper: Archival hydrographic tide benchmark staff with 5 calibrated 50m strata
               <g className="tide-staff-cream text-[#8c4820]">
-                <rect x="15" y="0" width="8" height="100" fill="none" stroke="currentColor" strokeWidth="0.75" />
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <g key={i}>
-                    {i % 2 === 0 && <rect x="15" y={i * 10} width="8" height="10" fill="currentColor" opacity="0.6" />}
-                    <line x1="12" y1={i * 10} x2="26" y2={i * 10} stroke="currentColor" strokeWidth="0.5" />
-                  </g>
-                ))}
+                <rect x="16" y="2" width="8" height="96" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
+                {/* 5 calibrated 50m intervals: +100m (y=2), +50m (y=21.2), 0m MSL (y=40.4), -50m (y=59.6), -100m (y=78.8), -150m LGM (y=98) */}
+                <rect x="16" y="2" width="8" height="19.2" fill="currentColor" opacity="0.22" />
+                <line x1="13" y1="21.2" x2="27" y2="21.2" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
+                <line x1="12" y1="40.4" x2="28" y2="40.4" stroke="currentColor" strokeWidth="0.75" opacity="0.8" />
+                <rect x="16" y="40.4" width="8" height="19.2" fill="currentColor" opacity="0.22" />
+                <line x1="13" y1="59.6" x2="27" y2="59.6" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
+                <line x1="13" y1="78.8" x2="27" y2="78.8" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
+                <rect x="16" y="78.8" width="8" height="19.2" fill="currentColor" opacity="0.22" />
+                <line x1="13" y1="98" x2="27" y2="98" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
               </g>
             ) : theme === 2 ? (
               // Prussian Cyanotype: Hydrostatic manometer glass tube with millimeter calibration ticks
@@ -246,23 +249,23 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           </div>
         </div>
 
-        {/* Reference Geological Markers with Protected Vellum Contrast Chips */}
+        {/* Reference Geological Markers with Clean Unboxed Cartographic Typography */}
         <div
-          className={`absolute left-1.5 top-1 px-1 rounded-[2px] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]/50 backdrop-blur-[1px] text-nano font-mono pointer-events-none transition-opacity duration-150 shadow-xs ${
-            seaLevelOffset >= 80 ? 'opacity-40' : 'opacity-90'
+          className={`absolute left-2 top-1.5 text-nano font-mono pointer-events-none transition-opacity duration-150 ${
+            seaLevelOffset >= 80 ? 'opacity-40' : 'opacity-85'
           } text-[var(--theme-text-secondary)]`}
         >
           +100 m (Highstand)
         </div>
         <div
-          className="absolute left-1.5 top-[calc(40%+4px)] px-1 rounded-[2px] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]/50 backdrop-blur-[1px] text-nano font-mono font-bold pointer-events-none text-[var(--theme-text-accent)] shadow-xs"
+          className="absolute left-2 top-[calc(40%+4px)] text-nano font-mono font-bold pointer-events-none text-[var(--theme-text-accent)]"
         >
           0 m (Mean Sea Level)
         </div>
         <div
-          className={`absolute left-1.5 bottom-1 px-1 rounded-[2px] bg-[var(--theme-card-bg)] border border-[var(--theme-card-border)]/50 backdrop-blur-[1px] text-nano font-mono pointer-events-none transition-opacity duration-150 shadow-xs ${
+          className={`absolute left-2 bottom-1.5 text-nano font-mono pointer-events-none transition-opacity duration-150 ${
             seaLevelOffset <= -135 ? 'opacity-40' : 'opacity-90'
-          } text-[var(--theme-text-secondary)]`}
+          } ${theme === 1 ? 'font-medium text-[#fdfcf9]/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]' : 'text-[var(--theme-text-secondary)]'}`}
         >
           -150 m (Glacial Maximum)
         </div>
