@@ -4,7 +4,7 @@
 // Direct interactive control of 3D Relief Amplitude and Peak Sharpness
 // ============================================================================
 
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useMemo } from 'react';
 
 export interface HypsometricReliefCurveProps {
   displacementScale?: number; // 0.00 to 0.25 (3D Relief extrusion height)
@@ -25,6 +25,14 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
 }) => {
   const boxRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
+
+  const defaultDisplacement = theme === 1 ? 0.14 : theme === 2 ? 0.11 : 0.12;
+  const defaultPeakExponent = theme === 1 ? 1.6 : theme === 2 ? 1.4 : 1.3;
+
+  const handleReset = useCallback(() => {
+    onDisplacementChange(defaultDisplacement);
+    onPeakExponentChange(defaultPeakExponent);
+  }, [defaultDisplacement, defaultPeakExponent, onDisplacementChange, onPeakExponentChange]);
 
   const updateFromPointer = useCallback(
     (clientX: number, clientY: number) => {
@@ -68,15 +76,65 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
     }
   };
 
-  // SVG dimensions: 300 x 100
-  const normY = Math.max(0.05, Math.min(0.95, 1 - displacementScale / 0.25));
-  const normX = Math.max(0.05, Math.min(0.95, (peakExponent - 0.5) / 2.5));
+  // SVG coordinate geometry: 300 x 100 coordinate space
+  // Baseline datum at y=74 leaves a dedicated 26px sub-baseline stratum for collision-free axis markers
+  const { strokePath, fillPath, hachures, peakX, peakY, yBase } = useMemo(() => {
+    const baselineY = 74;
+    const ceilingY = 14;
 
-  const peakY = normY * 100;
-  const peakX = normX * 300;
+    const normY = Math.max(0.0, Math.min(1.0, 1 - displacementScale / 0.25));
+    const normX = Math.max(0.0, Math.min(1.0, (peakExponent - 0.5) / 2.5));
 
-  const strokePath = `M 0 96 Q ${peakX} ${peakY} 300 96`;
-  const fillPath = `M 0 100 L 0 96 Q ${peakX} ${peakY} 300 96 L 300 100 Z`;
+    const py = ceilingY + normY * (baselineY - ceilingY);
+    const px = 20 + normX * 260;
+
+    const numSteps = 24;
+    const pts: [number, number][] = [];
+    for (let i = 0; i <= numSteps; i++) {
+      const x = (i / numSteps) * px;
+      const u = (px - x) / Math.max(1, px);
+      const t = Math.cos(u * Math.PI * 0.5);
+      const y = baselineY - (baselineY - py) * Math.pow(t, peakExponent);
+      pts.push([x, y]);
+    }
+    for (let i = 1; i <= numSteps; i++) {
+      const x = px + (i / numSteps) * (300 - px);
+      const u = (x - px) / Math.max(1, 300 - px);
+      const t = Math.cos(u * Math.PI * 0.5);
+      const y = baselineY - (baselineY - py) * Math.pow(t, peakExponent);
+      pts.push([x, y]);
+    }
+
+    const stroke = 'M ' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L ');
+    const fill =
+      `M 0 100 L 0 ${baselineY.toFixed(1)} ` +
+      pts.map(([x, y]) => `L ${x.toFixed(1)} ${y.toFixed(1)}`).join(' ') +
+      ` L 300 ${baselineY.toFixed(1)} L 300 100 Z`;
+
+    // Theme 1 intaglio alpine hachures: anchored strictly to the mountain surface
+    const hachureLines: { x1: number; y1: number; x2: number; y2: number }[] = [];
+    for (let i = 0; i < 18; i++) {
+      const hx = 20 + i * 15;
+      const u = hx <= px ? (px - hx) / Math.max(1, px) : (hx - px) / Math.max(1, 300 - px);
+      const clampedU = Math.max(0, Math.min(1, u));
+      const t = Math.cos(clampedU * Math.PI * 0.5);
+      const hy = baselineY - (baselineY - py) * Math.pow(t, peakExponent);
+      if (hy < baselineY - 1) {
+        const distToPeak = Math.abs(hx - px);
+        const hLen = Math.min(baselineY - hy, 4 + (1 - distToPeak / 150) * 8);
+        hachureLines.push({ x1: hx, y1: hy, x2: hx, y2: hy + hLen });
+      }
+    }
+
+    return {
+      strokePath: stroke,
+      fillPath: fill,
+      hachures: hachureLines,
+      peakX: px,
+      peakY: py,
+      yBase: baselineY,
+    };
+  }, [displacementScale, peakExponent]);
 
   const tokens = theme === 2
     ? {
@@ -84,6 +142,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
         mountainBorder: 'border-[#3b597a]/60',
         gradStops: ['#0e1824', '#4f79a3', '#e8edf2'],
         strokeColor: '#e8edf2',
+        datumColor: '#4fa3e3',
       }
     : theme === 1
     ? {
@@ -91,12 +150,14 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
         mountainBorder: 'border-[#b8ad98]/60',
         gradStops: ['#9e6d50', '#cfb588', '#fdfcf9'],
         strokeColor: '#8c4820',
+        datumColor: '#8c4820',
       }
     : {
         mountainBg: 'bg-[#0c1219]',
         mountainBorder: 'border-[#3a4d61]/60',
         gradStops: ['#0f171f', '#23778a', '#cbb692'],
         strokeColor: '#38bdf8',
+        datumColor: '#38bdf8',
       };
 
   return (
@@ -104,7 +165,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
       data-instrument="hypsometric-relief"
       className="p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]"
     >
-      <div className="flex items-center justify-between text-micro mb-1.5 font-mono-draft">
+      <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
         <span className="font-bold flex items-center gap-1.5 text-[var(--theme-text-accent)]">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)]"></span>
           Hypsometric Relief
@@ -131,6 +192,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
         aria-valuemin={0}
         aria-valuemax={0.25}
         aria-valuenow={displacementScale}
+        aria-valuetext={`3D Relief ${displacementScale.toFixed(2)}×, Peak Sharpness ${peakExponent.toFixed(1)}×`}
         onKeyDown={(e) => {
           const dispStep = e.shiftKey ? 0.02 : 0.005;
           const sharpStep = e.shiftKey ? 0.2 : 0.05;
@@ -146,19 +208,25 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
           } else if (e.key === 'ArrowLeft') {
             e.preventDefault();
             onPeakExponentChange(Math.max(0.5, peakExponent - sharpStep));
+          } else if (e.key === 'Home') {
+            e.preventDefault();
+            onDisplacementChange(0.0);
+          } else if (e.key === 'End') {
+            e.preventDefault();
+            onDisplacementChange(0.25);
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            handleReset();
           }
         }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onDoubleClick={() => {
-          onDisplacementChange(0.08);
-          onPeakExponentChange(1.4);
-        }}
-        title="Drag peak summit vertically (amplitude) and horizontally (peak sharpness) — Double-click to reset (0.08 / 1.4x), Arrow keys to nudge"
+        onDoubleClick={handleReset}
+        title="Drag peak summit vertically (3D Relief) and horizontally (Peak Sharpness) — Double-click or Enter to reset, Arrow keys to nudge"
         className={`relative w-full h-20 rounded-[2px] border overflow-hidden cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${tokens.mountainBg} ${tokens.mountainBorder}`}
       >
-        <svg className="w-full h-full pointer-events-none" viewBox="0 0 300 100" preserveAspectRatio="xMidYMid meet">
+        <svg className="w-full h-full pointer-events-none" viewBox="0 0 300 100" preserveAspectRatio="none">
           <defs>
             <linearGradient id={`reliefGrad-${theme}`} x1="0" y1="1" x2="0" y2="0">
               <stop offset="0%" stopColor={tokens.gradStops[0]} stopOpacity="0.3" />
@@ -166,32 +234,44 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
               <stop offset="100%" stopColor={tokens.gradStops[2]} stopOpacity="0.85" />
             </linearGradient>
           </defs>
+
+          {/* Cartographic Zero-Elevation Datum Baseline */}
+          <line
+            x1="0"
+            y1={yBase}
+            x2="300"
+            y2={yBase}
+            stroke={tokens.datumColor}
+            strokeWidth="0.75"
+            strokeDasharray="2 3"
+            opacity="0.4"
+          />
+
+          {/* Sub-baseline Lithospheric Bedrock Stratum */}
+          <rect
+            x="0"
+            y={yBase}
+            width="300"
+            height={100 - yBase}
+            fill={tokens.datumColor}
+            fillOpacity="0.05"
+          />
+
           {/* Medium-Adaptive Scientific Profile Graphics */}
           {theme === 1 ? (
             // Cream Rag Paper: Swiss alpine ridge hachure engraving lines
             <g className="hachures-cream opacity-40 stroke-[#8c4820]" strokeWidth="0.75" strokeLinecap="round">
-              {Array.from({ length: 18 }).map((_, i) => {
-                const hx = 20 + i * 15;
-                const distToPeak = Math.abs(hx - peakX);
-                const hy = peakY + (distToPeak / 150) * (96 - peakY);
-                if (hy >= 94) return null;
-                return (
-                  <line
-                    key={i}
-                    x1={hx}
-                    y1={hy}
-                    x2={hx}
-                    y2={Math.min(96, hy + 6 + (1 - distToPeak / 150) * 10)}
-                  />
-                );
-              })}
+              {hachures.map((h, i) => (
+                <line key={i} x1={h.x1} y1={h.y1} x2={h.x2} y2={h.y2} />
+              ))}
             </g>
           ) : theme === 2 ? (
             // Prussian Cyanotype: CAD parabolic coordinate grid & millimeter ticks
             <g className="cad-grid-cyanotype opacity-30 stroke-[#4fa3e3]" strokeWidth="0.5">
-              <line x1="0" y1="25" x2="300" y2="25" strokeDasharray="2 4" />
-              <line x1="0" y1="50" x2="300" y2="50" strokeDasharray="2 4" />
-              <line x1="0" y1="75" x2="300" y2="75" strokeDasharray="2 4" />
+              <line x1="0" y1="20" x2="300" y2="20" strokeDasharray="2 4" />
+              <line x1="0" y1="40" x2="300" y2="40" strokeDasharray="2 4" />
+              <line x1="0" y1="60" x2="300" y2="60" strokeDasharray="2 4" />
+              <line x1="0" y1={yBase} x2="300" y2={yBase} strokeDasharray="2 4" />
               {Array.from({ length: 11 }).map((_, i) => (
                 <line key={i} x1={i * 30} y1="0" x2={i * 30} y2="100" strokeDasharray="2 4" />
               ))}
@@ -224,28 +304,29 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
           />
         </svg>
 
-        {/* Viewport Labels */}
-        <div className="absolute top-1 left-1.5 text-nano font-mono-draft pointer-events-none opacity-80 text-[var(--theme-text-secondary)] select-none">
-          Peak Relief (0.25×)
+        {/* Viewport Scale & Datum Markers */}
+        <div
+          className={`absolute top-1.5 left-2 text-nano font-mono text-[var(--theme-text-secondary)] pointer-events-none select-none transition-opacity duration-150 ${
+            displacementScale >= 0.22 && peakExponent <= 0.8 ? 'opacity-40' : 'opacity-80'
+          }`}
+        >
+          Max 3D Relief (0.25×)
         </div>
-        <div className="absolute inset-x-2 bottom-1 flex items-center justify-between pointer-events-none text-nano font-mono-draft select-none">
-          <span className="opacity-80 text-[var(--theme-text-secondary)] tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
-            Baseline
+        <div className="absolute inset-x-2 bottom-1.5 flex items-center justify-between pointer-events-none text-nano font-mono select-none">
+          <span className="opacity-80 text-[var(--theme-text-secondary)] tracking-tight">
+            Baseline (0.00×)
           </span>
-          <span className="font-bold text-[var(--theme-text-accent)] tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
-            Sharpness ◄►
+          <span className="font-bold text-[var(--theme-text-accent)] tracking-tight opacity-85">
+            Peak Sharpness
           </span>
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-nano font-mono-draft mt-1 px-1 opacity-75">
+      <div className="flex items-center justify-between text-nano font-mono mt-1 px-1 opacity-75">
         <span>Drag summit vertically / horizontally</span>
         <button
           type="button"
-          onClick={() => {
-            onDisplacementChange(theme === 1 ? 0.14 : (theme === 2 ? 0.11 : 0.12));
-            onPeakExponentChange(theme === 1 ? 1.6 : (theme === 2 ? 1.4 : 1.3));
-          }}
+          onClick={handleReset}
           className="inline-flex items-center justify-center min-h-[22px] px-1.5 py-0.5 -my-0.5 -mr-1 rounded-[1px] font-bold hover:underline text-[var(--theme-text-accent)] cursor-pointer"
         >
           Reset

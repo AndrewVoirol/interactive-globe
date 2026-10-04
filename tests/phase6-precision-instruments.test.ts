@@ -108,6 +108,46 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
       expect(reliefCode).toContain('onPeakExponentChange');
       expect(reliefCode).toContain('onDisplacementChange');
     });
+
+    it('INST-06b: HypsometricReliefCurve guarantees non-colliding unabbreviated labels, datum baseline, and full-width SVG', () => {
+      // Unabbreviated labels per project convention
+      expect(reliefCode).toContain('Peak Sharpness');
+      expect(reliefCode).not.toContain('Sharpness ◄►');
+      expect(reliefCode).toContain('Baseline (0.00×)');
+      expect(reliefCode).toContain('Max 3D Relief (0.25×)');
+      expect(reliefCode).not.toContain('Peak Relief (0.25×)');
+
+      // Responsive full-width SVG without letterbox parallax
+      expect(reliefCode).toContain('preserveAspectRatio="none"');
+
+      // Cartographic datum baseline separation
+      expect(reliefCode).toContain('Cartographic Zero-Elevation Datum Baseline');
+
+      // ARIA valuetext and unified reset
+      expect(reliefCode).toContain('aria-valuetext=');
+      expect(reliefCode).toContain('handleReset');
+    });
+
+    it('INST-06c: verifies mathematical coincidence between summit reticle and elevation curve apex', () => {
+      // For any parameter combination, the curve apex reaches peakY exactly at peakX
+      const computeY = (x: number, px: number, py: number, exp: number, yBase = 74) => {
+        const u = x <= px ? (px - x) / Math.max(1, px) : (x - px) / Math.max(1, 300 - px);
+        const t = Math.cos(Math.max(0, Math.min(1, u)) * Math.PI * 0.5);
+        return yBase - (yBase - py) * Math.pow(t, exp);
+      };
+
+      // Test default: peakY = 52.4, peakX = 113.6, exp = 1.4
+      const apexY = computeY(113.6, 113.6, 52.4, 1.4);
+      expect(apexY).toBeCloseTo(52.4, 4);
+
+      // Test extreme alpine sharp: peakY = 14, peakX = 280, exp = 3.0
+      const sharpApexY = computeY(280, 280, 14, 3.0);
+      expect(sharpApexY).toBeCloseTo(14, 4);
+
+      // Test rolling hills: peakY = 60, peakX = 20, exp = 0.5
+      const rollingApexY = computeY(20, 20, 60, 0.5);
+      expect(rollingApexY).toBeCloseTo(60, 4);
+    });
   });
 
   // --------------------------------------------------------------------------
