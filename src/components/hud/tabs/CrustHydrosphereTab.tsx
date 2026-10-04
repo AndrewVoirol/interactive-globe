@@ -258,35 +258,34 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
 
   return (
     <>
-      <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
-        <PolarSunCompass
-          theme={theme}
-          azimuth={primaryLayer?.sunAzimuth ?? 315}
-          altitude={primaryLayer?.sunAltitude ?? 45}
-          onChange={(azimuth, altitude) => {
-            onHillshadeChangeDataLayer?.(
-              primaryLayerId,
-              azimuth,
-              primaryLayer?.hillshadeIntensity ?? 0.65,
-              altitude
-            );
-            if (typeof window !== 'undefined') {
-              const live = (window as any).__INDICATRIX_LIVE_UNIFORMS__ || {};
-              live.sunAzimuth = azimuth;
-              live.sunAltitude = altitude;
-              (window as any).__INDICATRIX_LIVE_UNIFORMS__ = live;
-              const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__;
-              if (engine && typeof engine.updateTerrainShadowUniforms === 'function') {
-                engine.updateTerrainShadowUniforms({
-                  sunAzimuth: azimuth,
-                  sunAltitude: altitude,
-                });
-              }
+      {/* 1. Solar Illumination & Hillshade Station */}
+      <PolarSunCompass
+        theme={theme}
+        azimuth={primaryLayer?.sunAzimuth ?? 315}
+        altitude={primaryLayer?.sunAltitude ?? 45}
+        onChange={(azimuth, altitude) => {
+          onHillshadeChangeDataLayer?.(
+            primaryLayerId,
+            azimuth,
+            primaryLayer?.hillshadeIntensity ?? 0.65,
+            altitude
+          );
+          if (typeof window !== 'undefined') {
+            const live = (window as any).__INDICATRIX_LIVE_UNIFORMS__ || {};
+            live.sunAzimuth = azimuth;
+            live.sunAltitude = altitude;
+            (window as any).__INDICATRIX_LIVE_UNIFORMS__ = live;
+            const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__;
+            if (engine && typeof engine.updateTerrainShadowUniforms === 'function') {
+              engine.updateTerrainShadowUniforms({
+                sunAzimuth: azimuth,
+                sunAltitude: altitude,
+              });
             }
-          }}
-          isLight={isLight}
-        />
-
+          }
+        }}
+        isLight={isLight}
+      >
         {/* Dynamic Terrain Horizon Self-Shadows & Canyon Lighting */}
         <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-2">
           <div className="flex items-center justify-between">
@@ -343,7 +342,124 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
             </div>
           </div>
         </div>
+      </PolarSunCompass>
 
+      {/* 2. Hypsometric Relief & Lithosphere Station */}
+      <HypsometricReliefCurve
+        theme={theme}
+        displacementScale={primaryLayer?.displacementScale ?? 0.08}
+        peakExponent={primaryLayer?.peakExponent ?? 1.4}
+        onDisplacementChange={(scale) => onDisplacementScaleChangeDataLayer?.(primaryLayerId, scale)}
+        onPeakExponentChange={(exponent) => onPeakExponentChangeDataLayer?.(primaryLayerId, exponent)}
+        isLight={isLight}
+      >
+        <div className="pt-2 border-t border-[var(--theme-card-border)]">
+          <VernierSlider
+            id="sidebar-crevice-ao"
+            label="Crevice Depth"
+            sublabel="DEM surface curvature ambient occlusion"
+            tooltip="Darkens concave ravines and canyon floors via DEM surface curvature"
+            value={primaryLayer?.ambientOcclusion ?? 0.65}
+            min={0.0}
+            max={1.0}
+            step={0.05}
+            defaultValue={0.65}
+            readout={`${Math.round((primaryLayer?.ambientOcclusion ?? 0.65) * 100)}%`}
+            onChange={(v) => onAmbientOcclusionChangeDataLayer?.(primaryLayerId, v)}
+            className="!border-0 !bg-transparent !p-0 !shadow-none"
+          />
+        </div>
+
+        {/* Elevation Stratum Filter */}
+        <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-1">
+          <div className="flex items-center justify-between text-nano font-medium text-[var(--theme-text-secondary)]">
+            <span className="uppercase tracking-wider">Hypsometric Strata</span>
+            {isolatedStratum !== null && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsolatedStratum(null);
+                  onIsolatedStratumChange?.(null, null);
+                  ThemeManager.getInstance().setIsolatedStratum(null, null);
+                  if (primaryLayerId) {
+                    applyMediumCalibration(theme);
+                  }
+                }}
+                className="cursor-pointer text-nano text-[var(--theme-text-accent)] hover:underline"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-5 gap-1" role="group" aria-label="Hypsometric stratum pigment pans">
+            {PIGMENT_SWATCHES[theme].map((swatch, idx) => {
+              const isIsolated = isolatedStratum === idx;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    const nextStratum = isolatedStratum === idx ? null : idx;
+                    const nextSwatch = nextStratum !== null ? swatch : null;
+                    setIsolatedStratum(nextStratum);
+                    onIsolatedStratumChange?.(nextStratum, nextSwatch);
+                    ThemeManager.getInstance().setIsolatedStratum(nextStratum, nextSwatch);
+
+                    if (primaryLayerId) {
+                      if (nextStratum === null) {
+                        applyMediumCalibration(theme);
+                      } else if (idx === 0) {
+                        onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, -25);
+                        onWaterClarityChangeDataLayer?.(primaryLayerId, 0.92);
+                      } else if (idx === 1) {
+                        onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, -8);
+                        onWaterClarityChangeDataLayer?.(primaryLayerId, 0.82);
+                        onAmbientOcclusionChangeDataLayer?.(primaryLayerId, 0.72);
+                      } else if (idx === 2) {
+                        onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, 0);
+                        onWaterClarityChangeDataLayer?.(primaryLayerId, 0.75);
+                      } else if (idx === 3) {
+                        onPeakExponentChangeDataLayer?.(primaryLayerId, 1.3);
+                        onDisplacementScaleChangeDataLayer?.(primaryLayerId, 0.12);
+                      } else if (idx === 4) {
+                        onPeakExponentChangeDataLayer?.(primaryLayerId, 2.0);
+                        onDisplacementScaleChangeDataLayer?.(primaryLayerId, 0.16);
+                        onAmbientOcclusionChangeDataLayer?.(primaryLayerId, 0.75);
+                      }
+                    }
+                  }}
+                  className={`pigment-pan p-1 rounded-[2px] border text-center flex flex-col items-center gap-1 transition-all shadow-sm cursor-pointer select-none ${
+                    isIsolated
+                      ? 'ring-2 ring-[var(--theme-text-accent)] border-[var(--theme-control-active-border)] bg-[var(--theme-control-active-bg)]'
+                      : 'border-[var(--theme-card-border)] bg-[var(--theme-control-bg)] hover:border-[var(--theme-card-border-hover)]'
+                  }`}
+                  title={`${swatch.depth} (${swatch.hex})`}
+                  aria-label={`Isolate ${swatch.depth} stratum (${swatch.hex})`}
+                  aria-pressed={isIsolated}
+                >
+                  <div
+                    className="w-full h-3.5 rounded-[1px] border border-black/20 shadow-inner shrink-0"
+                    style={{ backgroundColor: swatch.hex }}
+                  />
+                  <div className="text-nano font-mono opacity-80 uppercase tracking-tighter text-[var(--theme-text-secondary)] shrink-0 truncate w-full text-center">
+                    {swatch.depth}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </HypsometricReliefCurve>
+
+      {/* 3. Bathymetric Hydrosphere & Drainage Station */}
+      <BathymetricTideGauge
+        theme={theme}
+        seaLevelOffset={primaryLayer?.seaLevelOffset ?? 0}
+        waterClarity={primaryLayer?.waterClarity ?? 0.75}
+        onSeaLevelChange={(offset) => onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, offset)}
+        onWaterClarityChange={(clarity) => onWaterClarityChangeDataLayer?.(primaryLayerId, clarity)}
+        isLight={isLight}
+      >
         {/* Dynamic Geomorphic Drainage Basin Synthesis & Leopold-Maddock Hydrology */}
         <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-2">
           <div className="flex items-center justify-between">
@@ -429,121 +545,7 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
             </div>
           </div>
         </div>
-
-        <HypsometricReliefCurve
-          theme={theme}
-          displacementScale={primaryLayer?.displacementScale ?? 0.08}
-          peakExponent={primaryLayer?.peakExponent ?? 1.4}
-          onDisplacementChange={(scale) => onDisplacementScaleChangeDataLayer?.(primaryLayerId, scale)}
-          onPeakExponentChange={(exponent) => onPeakExponentChangeDataLayer?.(primaryLayerId, exponent)}
-          isLight={isLight}
-        />
-
-        <BathymetricTideGauge
-          theme={theme}
-          seaLevelOffset={primaryLayer?.seaLevelOffset ?? 0}
-          waterClarity={primaryLayer?.waterClarity ?? 0.75}
-          onSeaLevelChange={(offset) => onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, offset)}
-          onWaterClarityChange={(clarity) => onWaterClarityChangeDataLayer?.(primaryLayerId, clarity)}
-          isLight={isLight}
-        />
-
-        {/* Elevation Stratum Filter */}
-        <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-1">
-          <div className="flex items-center justify-between text-nano font-medium text-[var(--theme-text-secondary)]">
-            <span className="uppercase tracking-wider">Hypsometric Strata</span>
-            {isolatedStratum !== null && (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsolatedStratum(null);
-                  onIsolatedStratumChange?.(null, null);
-                  ThemeManager.getInstance().setIsolatedStratum(null, null);
-                  if (primaryLayerId) {
-                    applyMediumCalibration(theme);
-                  }
-                }}
-                className="cursor-pointer text-nano text-[var(--theme-text-accent)] hover:underline"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-5 gap-1" role="group" aria-label="Hypsometric stratum pigment pans">
-            {PIGMENT_SWATCHES[theme].map((swatch, idx) => {
-              const isIsolated = isolatedStratum === idx;
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => {
-                    const nextStratum = isolatedStratum === idx ? null : idx;
-                    const nextSwatch = nextStratum !== null ? swatch : null;
-                    setIsolatedStratum(nextStratum);
-                    onIsolatedStratumChange?.(nextStratum, nextSwatch);
-                    ThemeManager.getInstance().setIsolatedStratum(nextStratum, nextSwatch);
-
-                    if (primaryLayerId) {
-                      if (nextStratum === null) {
-                        applyMediumCalibration(theme);
-                      } else if (idx === 0) {
-                        onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, -25);
-                        onWaterClarityChangeDataLayer?.(primaryLayerId, 0.92);
-                      } else if (idx === 1) {
-                        onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, -8);
-                        onWaterClarityChangeDataLayer?.(primaryLayerId, 0.82);
-                        onAmbientOcclusionChangeDataLayer?.(primaryLayerId, 0.72);
-                      } else if (idx === 2) {
-                        onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, 0);
-                        onWaterClarityChangeDataLayer?.(primaryLayerId, 0.75);
-                      } else if (idx === 3) {
-                        onPeakExponentChangeDataLayer?.(primaryLayerId, 1.3);
-                        onDisplacementScaleChangeDataLayer?.(primaryLayerId, 0.12);
-                      } else if (idx === 4) {
-                        onPeakExponentChangeDataLayer?.(primaryLayerId, 2.0);
-                        onDisplacementScaleChangeDataLayer?.(primaryLayerId, 0.16);
-                        onAmbientOcclusionChangeDataLayer?.(primaryLayerId, 0.75);
-                      }
-                    }
-                  }}
-                  className={`pigment-pan p-1 rounded-[2px] border text-center flex flex-col items-center gap-1 transition-all shadow-sm cursor-pointer select-none ${
-                    isIsolated
-                      ? 'ring-2 ring-[var(--theme-text-accent)] border-[var(--theme-control-active-border)] bg-[var(--theme-control-active-bg)]'
-                      : 'border-[var(--theme-card-border)] bg-[var(--theme-control-bg)] hover:border-[var(--theme-card-border-hover)]'
-                  }`}
-                  title={`${swatch.depth} (${swatch.hex})`}
-                  aria-label={`Isolate ${swatch.depth} stratum (${swatch.hex})`}
-                  aria-pressed={isIsolated}
-                >
-                  <div
-                    className="w-full h-3.5 rounded-[1px] border border-black/20 shadow-inner shrink-0"
-                    style={{ backgroundColor: swatch.hex }}
-                  />
-                  <div className="text-nano font-mono opacity-80 uppercase tracking-tighter text-[var(--theme-text-secondary)] shrink-0 truncate w-full text-center">
-                    {swatch.depth}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="pt-1">
-          <VernierSlider
-            id="sidebar-crevice-ao"
-            label="Crevice Depth"
-            sublabel="Darkens concave ravines and canyon floors via DEM surface curvature"
-            tooltip="Darkens concave ravines and canyon floors via DEM surface curvature"
-            value={primaryLayer?.ambientOcclusion ?? 0.65}
-            min={0.0}
-            max={1.0}
-            step={0.05}
-            defaultValue={0.65}
-            readout={`${Math.round((primaryLayer?.ambientOcclusion ?? 0.65) * 100)}%`}
-            onChange={(v) => onAmbientOcclusionChangeDataLayer?.(primaryLayerId, v)}
-          />
-        </div>
-      </div>
+      </BathymetricTideGauge>
 
       {/* 1. Manifold Strata Station */}
       <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
@@ -623,7 +625,7 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
               title="Toggle Triangulation"
               label="Triangulation"
               sublabel="Geodetic Delaunay survey baseline"
-              indicatorColor={theme === 1 ? '#9C2F2F' : '#F43F5E'}
+              indicatorColor={theme === 1 ? '#9C2F2F' : theme === 2 ? '#60A5FA' : '#F43F5E'}
             />
             <TactileSwitch
               checked={showLandmarks}
@@ -675,10 +677,10 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
             label="Paper Grain"
             sublabel={
               theme === 1
-                ? 'Cellulose fiber roughness of 310 GSM cotton rag'
+                ? '310 GSM cotton rag cellulose roughness'
                 : theme === 2
-                ? 'Structured warp & weft weave of drafting linen'
-                : 'Lithographic illustration board tooth & stipple'
+                ? 'Drafting linen warp & weft weave'
+                : '1977 physiographic board tooth'
             }
             tooltip={
               theme === 1
@@ -694,6 +696,7 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
             defaultValue={0.40}
             readout={`${Math.round((primaryLayer?.paperTooth ?? 0.40) * 100)}%`}
             onChange={(v) => onPaperToothChangeDataLayer?.(primaryLayerId, v)}
+            className="!border-0 !bg-transparent !p-0 !shadow-none"
           />
         </div>
       </div>

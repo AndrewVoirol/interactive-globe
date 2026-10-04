@@ -12,6 +12,7 @@ export interface PolarSunCompassProps {
   onChange: (azimuth: number, altitude: number) => void;
   isLight?: boolean;
   theme?: 0 | 1 | 2;
+  children?: React.ReactNode;
 }
 
 export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
@@ -20,6 +21,7 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
   onChange,
   isLight = false,
   theme = isLight ? 1 : 0,
+  children,
 }) => {
   const dialRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
@@ -110,10 +112,10 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
   return (
     <div
       data-instrument="polar-sun-compass"
-      className="p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]"
+      className="p-2.5 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] space-y-2"
     >
       <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
-        <span className="font-bold flex items-center gap-1.5 text-[var(--theme-text-accent)]">
+        <span className="font-bold uppercase tracking-wider text-micro flex items-center gap-1.5 text-[var(--theme-text-accent)]">
           <span
             className={`w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] ${
               isSweetspot ? 'shadow-sm animate-pulse' : ''
@@ -258,6 +260,8 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
           Reset
         </button>
       </div>
+
+      {children}
     </div>
   );
 };

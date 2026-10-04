@@ -14,6 +14,7 @@ export interface BathymetricTideGaugeProps {
   onWaterClarityChange?: (clarity: number) => void;
   isLight?: boolean;
   theme?: 0 | 1 | 2;
+  children?: React.ReactNode;
 }
 
 export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
@@ -23,6 +24,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
   onWaterClarityChange = () => {},
   isLight = false,
   theme = isLight ? 1 : 0,
+  children,
 }) => {
   const boxRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
@@ -98,10 +100,10 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
   return (
     <div
       data-instrument="bathymetric-tide-gauge"
-      className="p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)]"
+      className="p-2.5 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] space-y-2"
     >
       <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
-        <span className="font-bold flex items-center gap-1.5 text-[var(--theme-text-accent)]">
+        <span className="font-bold uppercase tracking-wider text-micro flex items-center gap-1.5 text-[var(--theme-text-accent)]">
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)]"></span>
           Bathymetric Tide
         </span>
@@ -287,6 +289,8 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           className="!border-0 !bg-transparent !p-0.5 !shadow-none"
         />
       </div>
+
+      {children}
     </div>
   );
 };

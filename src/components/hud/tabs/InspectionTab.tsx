@@ -120,7 +120,7 @@ export const InspectionTab: React.FC<InspectionTabProps> = ({
               onChange={(checked) => onCdlodToggle?.(checked)}
               title="Toggle CDLOD Tessellation"
               label="CDLOD Tessellation"
-              sublabel="Continuous distance-dependent quadtree tessellation"
+              sublabel="Distance-dependent quadtree mesh LOD"
               indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#10B981'}
             />
           </div>

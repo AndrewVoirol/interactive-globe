@@ -273,6 +273,27 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       expect(inspectionTabSource).toContain('label="Cursor Physics"');
       expect(inspectionTabSource).toContain('onCursorPhysicsToggle?.(checked)');
     });
+
+    it('enforces Cartography Tab single-border enclosure, unboxed sliders, and zero sublabel truncation', () => {
+      // Rule 6: No outer mega-card wrapping PolarSunCompass, HypsometricReliefCurve, and BathymetricTideGauge together
+      expect(crustTabSource).not.toMatch(/<div[^>]*className="[^"]*border[^"]*">\s*<PolarSunCompass[\s\S]*?<HypsometricReliefCurve[\s\S]*?<BathymetricTideGauge/);
+
+      // Rule 6 & design-language.md: Inner VernierSliders must declare border-free and background-free styling
+      expect(crustTabSource).toContain('id="sidebar-crevice-ao"');
+      expect(crustTabSource).toMatch(/id="sidebar-crevice-ao"[\s\S]*?className="!border-0 !bg-transparent !p-0 !shadow-none"/);
+      expect(crustTabSource).toContain('id="sidebar-paper-tooth"');
+      expect(crustTabSource).toMatch(/id="sidebar-paper-tooth"[\s\S]*?className="!border-0 !bg-transparent !p-0 !shadow-none"/);
+
+      // Residual defects: Truncation prevention for sidebar sublabels
+      expect(crustTabSource).not.toContain('Lithographic illustration board tooth & stipple');
+      expect(crustTabSource).not.toContain('sublabel="Darkens concave ravines and canyon floors via DEM surface curvature"');
+      expect(crustTabSource).toContain('sublabel="DEM surface curvature ambient occlusion"');
+      expect(inspectionTabSource).not.toContain('Continuous distance-dependent quadtree tessellation');
+      expect(inspectionTabSource).toContain('Distance-dependent quadtree mesh LOD');
+
+      // Rule 3: Prussian Cyanotype (theme 2) Triangulation indicator must avoid warm rose/pink bleed
+      expect(crustTabSource).toContain("theme === 1 ? '#9C2F2F' : theme === 2 ? '#60A5FA' : '#F43F5E'");
+    });
   });
 
   // --------------------------------------------------------------------------
