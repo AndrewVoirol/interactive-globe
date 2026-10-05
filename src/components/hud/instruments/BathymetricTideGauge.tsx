@@ -316,21 +316,17 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           style={{ clipPath: `inset(0 0 ${waterPct}% 0)` }}
         >
           <div
-            className={`absolute left-2 top-1.5 text-nano font-mono transition-opacity duration-150 ${
-              localSeaLevel >= 80 ? 'opacity-40' : 'opacity-85'
-            } text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]`}
+            className={`absolute left-2 top-1.5 text-nano font-mono opacity-85 text-[var(--theme-text-secondary)] ${theme === 1 ? 'drop-shadow-none' : 'drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]'}`}
           >
             +100 m (Highstand)
           </div>
           <div
-            className="absolute left-2 top-[calc(40%+4px)] text-nano font-mono font-bold text-[var(--theme-text-accent)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
+            className={`absolute left-2 top-[calc(40%+4px)] text-nano font-mono font-bold text-[var(--theme-text-accent)] ${theme === 1 ? 'drop-shadow-none' : 'drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]'}`}
           >
             0 m (Mean Sea Level)
           </div>
           <div
-            className={`absolute left-2 bottom-1.5 text-nano font-mono transition-opacity duration-150 ${
-              localSeaLevel <= -135 ? 'opacity-40' : 'opacity-90'
-            } text-[var(--theme-text-secondary)] font-medium drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]`}
+            className={`absolute left-2 bottom-1.5 text-nano font-mono opacity-90 text-[var(--theme-text-secondary)] font-medium ${theme === 1 ? 'drop-shadow-none' : 'drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]'}`}
           >
             -150 m (Glacial Maximum)
           </div>
@@ -342,23 +338,23 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           style={{ clipPath: `inset(${100 - waterPct}% 0 0 0)` }}
         >
           <div
-            className={`absolute left-2 top-1.5 text-nano font-mono transition-opacity duration-150 ${
-              localSeaLevel >= 80 ? 'opacity-40' : 'opacity-95'
-            } ${theme === 1 ? 'text-[#FCF9F2] drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]' : 'text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]'}`}
+            className={`absolute left-2 top-1.5 text-nano font-mono opacity-95 ${
+              theme === 1 ? 'text-[#FCF9F2] drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]' : 'text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]'
+            }`}
           >
             +100 m (Highstand)
           </div>
           <div
             className={`absolute left-2 top-[calc(40%+4px)] text-nano font-mono font-bold ${
-              theme === 1 ? 'text-[#FCF9F2] drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]' : 'text-[var(--theme-text-accent)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]'
+              theme === 1 ? 'text-[#FCF9F2] drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]' : 'text-[var(--theme-text-accent)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]'
             }`}
           >
             0 m (Mean Sea Level)
           </div>
           <div
-            className={`absolute left-2 bottom-1.5 text-nano font-mono transition-opacity duration-150 ${
-              localSeaLevel <= -135 ? 'opacity-40' : 'opacity-90'
-            } text-[var(--theme-text-secondary)] font-medium drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]`}
+            className={`absolute left-2 bottom-1.5 text-nano font-mono opacity-90 text-[var(--theme-text-secondary)] font-medium ${
+              theme === 1 ? 'drop-shadow-none' : 'drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]'
+            }`}
           >
             -150 m (Glacial Maximum)
           </div>
