@@ -123,7 +123,7 @@ export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
                     mode === 0
                       ? isLight
                         ? 'bg-[var(--theme-status-amber)] text-white shadow-sm'
-                        : 'bg-[var(--theme-status-amber)]/30 text-[var(--theme-status-amber)] border border-[var(--theme-status-amber)]/50'
+                        : 'bg-[var(--theme-status-amber-30)] text-[var(--theme-status-amber)] border border-[var(--theme-status-amber-50)]'
                       : isLight
                       ? 'text-zinc-600 hover:text-[var(--theme-status-amber)]'
                       : 'text-zinc-400 hover:text-[var(--theme-status-amber)]'
@@ -258,7 +258,7 @@ export const TopologyControlDock: React.FC<TopologyControlDockProps> = ({
                 <button
                   onClick={() => onOverlayChange('migration')}
                   className={`py-1 px-1 rounded-lg text-nano font-bold transition-all text-center ${
-                    activeOverlay === 'migration' ? (isLight ? 'bg-[#7D4700] text-[#FDFCF9]' : 'bg-[var(--theme-status-amber)]/25 text-[var(--theme-status-amber)]') : 'text-zinc-400'
+                    activeOverlay === 'migration' ? (isLight ? 'bg-[#7D4700] text-[#FDFCF9]' : 'bg-[var(--theme-status-amber-25)] text-[var(--theme-status-amber)]') : 'text-zinc-400'
                   }`}
                 >
                   Migration

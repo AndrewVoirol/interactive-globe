@@ -195,12 +195,12 @@ describe('DATA Tab Informative Color Enhancements', () => {
 
       // Left radar zone should have amber glow styling
       const leftZone = track?.firstElementChild as HTMLDivElement;
-      expect(leftZone.className).toContain('bg-[var(--theme-status-amber)]/20');
+      expect(leftZone.className).toContain('bg-[var(--theme-status-amber-20)]');
 
       // Badge in header should reflect radar amber accent
       const radarBadge = container.querySelector('span.text-nano.font-bold.uppercase');
       expect(radarBadge?.textContent).toBe('PAST RADAR');
-      expect(radarBadge?.className).toContain('border-[var(--theme-status-amber)]');
+      expect(radarBadge?.className).toContain('border-[var(--theme-status-amber-50)]');
     });
 
     it('COLOR-04: illuminates cyan forecast zone when scrubbing into future forecast (+12h)', async () => {
@@ -219,12 +219,12 @@ describe('DATA Tab Informative Color Enhancements', () => {
 
       // Right forecast zone should have sky blue styling
       const forecastZone = track?.children[1] as HTMLDivElement;
-      expect(forecastZone.className).toContain('bg-[var(--theme-status-sage)]/15');
+      expect(forecastZone.className).toContain('bg-[var(--theme-status-sage-15)]');
 
       // Badge in header should reflect WeatherNext sky accent
       const forecastBadge = container.querySelector('span.text-nano.font-bold.uppercase');
       expect(forecastBadge?.textContent).toBe('WEATHERNEXT 3');
-      expect(forecastBadge?.className).toContain('border-[var(--theme-status-sage)]');
+      expect(forecastBadge?.className).toContain('border-[var(--theme-status-sage-50)]');
     });
   });
 

@@ -727,7 +727,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
       </button>
 
       {/* 4. Footer & Reset Action */}
-      <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border)]/50 opacity-80">
+      <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border-50)] opacity-80">
         <span className="truncate font-bold tracking-wide">OROGRAPHIC COUPLING & PLUVIAL RUNOFF</span>
         <button
           type="button"

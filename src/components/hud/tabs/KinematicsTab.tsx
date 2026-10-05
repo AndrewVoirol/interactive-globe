@@ -236,7 +236,7 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
         />
 
         {/* Tropospheric Altitude Presets */}
-        <div className="space-y-1 pt-1 border-t border-[var(--theme-card-border)]/50">
+        <div className="space-y-1 pt-1 border-t border-[var(--theme-card-border-50)]">
           <span className="font-mono uppercase tracking-wider text-nano text-[var(--theme-text-muted)]">
             Tropospheric Altitude Presets
           </span>
@@ -411,7 +411,7 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
             className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
               activeOverlay === 'antipodes'
                 ? 'bg-[var(--theme-direction-a-bg)] text-[var(--theme-direction-a-text)] border-[var(--theme-direction-a-border)] shadow-sm font-semibold ring-1 ring-[var(--theme-direction-a-ring)]'
-                : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-accent)] hover:border-[var(--theme-text-accent)]/40 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
+                : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-accent)] hover:border-[var(--theme-text-accent-40)] hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
             }`}
           >
             Antipodes
@@ -423,7 +423,7 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
             className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
               activeOverlay === 'conveyor'
                 ? 'bg-[var(--theme-direction-b-bg)] text-[var(--theme-direction-b-text)] border-[var(--theme-direction-b-border)] shadow-sm font-semibold ring-1 ring-[var(--theme-direction-b-ring)]'
-                : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-status-sage)] hover:border-[var(--theme-status-sage)]/50 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
+                : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-status-sage)] hover:border-[var(--theme-status-sage-50)] hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
             }`}
           >
             Conveyor
@@ -435,7 +435,7 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
             className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
               activeOverlay === 'migration'
                 ? 'bg-[var(--theme-direction-c-bg)] text-[var(--theme-direction-c-text)] border-[var(--theme-direction-c-border)] shadow-sm font-semibold ring-1 ring-[var(--theme-direction-c-ring)]'
-                : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-status-amber)] hover:border-[var(--theme-status-amber)]/50 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
+                : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-status-amber)] hover:border-[var(--theme-status-amber-50)] hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
             }`}
           >
             Migration

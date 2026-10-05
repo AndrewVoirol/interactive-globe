@@ -205,7 +205,7 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
       expect(tideCode).toContain('+100 m (Highstand)');
       expect(tideCode).toContain('0 m (Mean Sea Level)');
       expect(tideCode).toContain('-150 m (Glacial Maximum)');
-      expect(tideCode).not.toContain('bg-[var(--theme-card-bg)]/85');
+      expect(tideCode).not.toContain('bg-[var(--theme-card-bg-85)]');
 
       // Waterline border must not create thick dual-line railroad track clash against caliper reticle
       expect(tideCode).not.toContain('border-t-2 ${tokens.waterBorder}');

@@ -562,7 +562,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
       />
 
       {/* 4. Footer & Reset Action */}
-      <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border)]/50 opacity-80">
+      <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border-50)] opacity-80">
         <span className="truncate">OPTICAL EXTINCTION (0.00–0.60)</span>
         <button
           type="button"

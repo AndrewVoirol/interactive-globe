@@ -134,9 +134,9 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
     });
 
     it('verifies catalog preset category pills use CSS theme variables for contrast', () => {
-      expect(sidebarContent).toContain("preset.category === 'topo'\n                        ? 'bg-[var(--theme-text-accent)]/20 text-[var(--theme-text-accent)] border-[var(--theme-text-accent)]/40'");
-      expect(sidebarContent).toContain("preset.category === 'satellite'\n                        ? 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40'");
-      expect(sidebarContent).toContain("preset.category === 'vectors'\n                        ? 'bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40'");
+      expect(sidebarContent).toContain("preset.category === 'topo'\n                        ? 'bg-[var(--theme-text-accent-20)] text-[var(--theme-text-accent)] border-[var(--theme-text-accent-40)]'");
+      expect(sidebarContent).toContain("preset.category === 'satellite'\n                        ? 'bg-[var(--theme-status-sage-20)] text-[var(--theme-status-sage)] border-[var(--theme-status-sage-40)]'");
+      expect(sidebarContent).toContain("preset.category === 'vectors'\n                        ? 'bg-[var(--theme-status-amber-20)] text-[var(--theme-status-amber)] border-[var(--theme-status-amber-40)]'");
     });
 
     it('verifies Zen Mode restore pill uses contrast styling for theme 1', () => {

@@ -19,7 +19,7 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
   isRadarActive = false,
   className = '',
 }) => {
-  const activeBadgeStyle = 'bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)]';
+  const activeBadgeStyle = 'bg-[var(--theme-status-sage-15)] text-[var(--theme-status-sage)]';
 
   return (
     <div

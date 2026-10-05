@@ -207,7 +207,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
 
         {/* Permanent 0m Mean Sea Level Datum Line */}
         <div
-          className="absolute left-0 right-0 top-[40%] h-px border-b border-dashed border-[var(--theme-text-secondary)]/35 pointer-events-none"
+          className="absolute left-0 right-0 top-[40%] h-px border-b border-dashed border-[var(--theme-text-secondary-35)] pointer-events-none"
         />
 
         {/* Sea Level Caliper Reticle Line with Centered Precision Badge */}
@@ -251,7 +251,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
       </div>
 
       {/* Optical Water Clarity Absorption Slider upgraded to VernierSlider */}
-      <div className="mt-1.5 pt-1 border-t border-[var(--theme-card-border)]/50">
+      <div className="mt-1.5 pt-1 border-t border-[var(--theme-card-border-50)]">
         <VernierSlider
           id="tide-gauge-water-clarity"
           label="Beer-Lambert Clarity:"

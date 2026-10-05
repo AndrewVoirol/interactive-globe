@@ -80,9 +80,9 @@ describe('DATA Tab & Catalog Composition Invariants', () => {
       expect(colophonContent).not.toContain('border border-[var(--theme-status-sage)]');
       expect(colophonContent).toContain('activeBadgeStyle');
       // Now uses unified CSS variable instead of per-theme hex
-      expect(colophonContent).toContain("bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)]");
+      expect(colophonContent).toContain("bg-[var(--theme-status-sage-15)] text-[var(--theme-status-sage)]");
       // Check data tab active raster badge also uses CSS variable
-      expect(dataTabContent).toContain("bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)]");
+      expect(dataTabContent).toContain("bg-[var(--theme-status-sage-15)] text-[var(--theme-status-sage)]");
     });
   });
 
@@ -96,8 +96,8 @@ describe('DATA Tab & Catalog Composition Invariants', () => {
     });
 
     it('theme-adapts category badges via CSS variables (zero hardcoded hex)', () => {
-      expect(catalogContent).toContain("bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40");
-      expect(catalogContent).toContain("bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40");
+      expect(catalogContent).toContain("bg-[var(--theme-status-sage-20)] text-[var(--theme-status-sage)] border-[var(--theme-status-sage-40)]");
+      expect(catalogContent).toContain("bg-[var(--theme-status-amber-20)] text-[var(--theme-status-amber)] border-[var(--theme-status-amber-40)]");
     });
 
     it('theme-adapts unsupported preset button to prevent black box on cream paper', () => {

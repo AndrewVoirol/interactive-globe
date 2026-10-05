@@ -71,7 +71,7 @@ export const InspectionTab: React.FC<InspectionTabProps> = ({
       <button
         type="button"
         onClick={() => setIsDiagnosticsOpen(!isDiagnosticsOpen)}
-        className="w-full p-2.5 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border)]/15 transition-colors"
+        className="w-full p-2.5 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border-15)] transition-colors"
         title="Toggle Mesh & Diagnostics tools"
       >
         <span className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-primary)]">
@@ -82,10 +82,10 @@ export const InspectionTab: React.FC<InspectionTabProps> = ({
         </span>
       </button>
       {isDiagnosticsOpen && (
-        <div className="p-2.5 pt-0 space-y-3 border-t border-[var(--theme-card-border)]/50 mt-1">
+        <div className="p-2.5 pt-0 space-y-3 border-t border-[var(--theme-card-border-50)] mt-1">
 
           {/* CDLOD Tessellation Switch */}
-          <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
+          <div className="pt-2 border-t border-[var(--theme-card-border-50)]">
             <TactileSwitch
               id="sidebar-cdlod-toggle"
               checked={Boolean(cdlodEnabled)}
@@ -98,7 +98,7 @@ export const InspectionTab: React.FC<InspectionTabProps> = ({
           </div>
 
           {/* Cursor Physics Switch */}
-          <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
+          <div className="pt-2 border-t border-[var(--theme-card-border-50)]">
             <TactileSwitch
               id="sidebar-cursor-physics-toggle"
               checked={Boolean(cursorPhysicsEnabled)}
@@ -111,7 +111,7 @@ export const InspectionTab: React.FC<InspectionTabProps> = ({
           </div>
 
           {/* CDLOD Mesh Diagnostics */}
-          <div className="pt-2 border-t border-[var(--theme-card-border)]/50">
+          <div className="pt-2 border-t border-[var(--theme-card-border-50)]">
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">

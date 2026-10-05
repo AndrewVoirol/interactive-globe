@@ -448,7 +448,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
       />
 
       {/* 4. Footer & Reset Action (Unabbreviated) */}
-      <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border)]/50 opacity-80">
+      <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border-50)] opacity-80">
         <span className="truncate">CLOUD DRIFT VELOCITY (0× to 2000×)</span>
         <button
           type="button"

@@ -139,12 +139,12 @@ export const CatalogSheet: React.FC<CatalogSheetProps> = ({
                   <span
                     className={`text-nano px-1.5 py-0.5 rounded-[2px] border font-bold uppercase shrink-0 ${
                       preset.category === 'topo'
-                        ? 'bg-[var(--theme-text-accent)]/20 text-[var(--theme-text-accent)] border-[var(--theme-text-accent)]/40'
+                        ? 'bg-[var(--theme-text-accent-20)] text-[var(--theme-text-accent)] border-[var(--theme-text-accent-40)]'
                         : preset.category === 'satellite'
-                        ? 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40'
+                        ? 'bg-[var(--theme-status-sage-20)] text-[var(--theme-status-sage)] border-[var(--theme-status-sage-40)]'
                         : preset.category === 'vectors'
-                        ? 'bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40'
-                        : 'bg-[var(--theme-status-slate)]/20 text-[var(--theme-status-slate)] border-[var(--theme-status-slate)]/40'
+                        ? 'bg-[var(--theme-status-amber-20)] text-[var(--theme-status-amber)] border-[var(--theme-status-amber-40)]'
+                        : 'bg-[var(--theme-status-slate-20)] text-[var(--theme-status-slate)] border-[var(--theme-status-slate-40)]'
                     }`}
                   >
                     {preset.category}

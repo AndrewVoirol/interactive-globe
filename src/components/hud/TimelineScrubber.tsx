@@ -329,20 +329,20 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
       const frameIdx = Math.max(1, Math.min(6, Math.floor((60 + rounded) / 10) + 1));
       return {
         badge: 'PAST RADAR',
-        badgeColor: 'border-[var(--theme-status-amber)]/50 text-[var(--theme-status-amber)] bg-[var(--theme-status-amber)]/15',
+        badgeColor: 'border-[var(--theme-status-amber-50)] text-[var(--theme-status-amber)] bg-[var(--theme-status-amber-15)]',
         primary: `-${absMin}m`,
         secondary: `Frame ${frameIdx}/6 • Past Mosaic`,
         zoneText: 'Radar Mosaic (-60m)',
-        accentClass: 'text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40 bg-[var(--theme-status-amber)]/10',
+        accentClass: 'text-[var(--theme-status-amber)] border-[var(--theme-status-amber-40)] bg-[var(--theme-status-amber-10)]',
       };
     } else if (rounded === 0) {
       return {
         badge: 'DATUM',
-        badgeColor: 'border-[var(--theme-text-accent)] text-[var(--theme-text-accent)] bg-[var(--theme-text-accent)]/10',
+        badgeColor: 'border-[var(--theme-text-accent)] text-[var(--theme-text-accent)] bg-[var(--theme-text-accent-10)]',
         primary: 'NOW',
         secondary: 'Observation Datum (T+00:00)',
         zoneText: 'Observation Datum',
-        accentClass: 'text-[var(--theme-text-accent)] border-[var(--theme-text-accent)]/40 bg-[var(--theme-text-accent)]/10',
+        accentClass: 'text-[var(--theme-text-accent)] border-[var(--theme-text-accent-40)] bg-[var(--theme-text-accent-10)]',
       };
     } else {
       const totalHours = rounded / 60;
@@ -352,11 +352,11 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
       const hoursStr = m === 0 ? `+${Math.floor(totalHours)}h` : `+${Math.floor(totalHours)}h ${m}m`;
       return {
         badge: 'WEATHERNEXT 3',
-        badgeColor: 'border-[var(--theme-status-sage)]/50 text-[var(--theme-status-sage)] bg-[var(--theme-status-sage)]/15',
+        badgeColor: 'border-[var(--theme-status-sage-50)] text-[var(--theme-status-sage)] bg-[var(--theme-status-sage-15)]',
         primary: hoursStr,
         secondary: `Bracket H${bracketHour}..${bracketHour + 1} • τ=${tau}`,
         zoneText: 'WeatherNext Forecast (+48h)',
-        accentClass: 'text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 bg-[var(--theme-status-sage)]/10',
+        accentClass: 'text-[var(--theme-status-sage)] border-[var(--theme-status-sage-40)] bg-[var(--theme-status-sage-10)]',
       };
     }
   }, [currentMinutes]);
@@ -421,7 +421,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
       {currentMinutes < 0 && !isRadarActive && (
         <div
           data-testid="radar-nowcast-prompt"
-          className="flex items-center justify-between gap-2 p-2 rounded-[2px] border border-[var(--theme-status-amber)]/40 bg-[var(--theme-status-amber)]/10 text-[var(--theme-status-amber)] text-nano font-mono transition-all shadow-xs"
+          className="flex items-center justify-between gap-2 p-2 rounded-[2px] border border-[var(--theme-status-amber-40)] bg-[var(--theme-status-amber-10)] text-[var(--theme-status-amber)] text-nano font-mono transition-all shadow-xs"
         >
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--theme-status-amber)] shrink-0 animate-pulse" />
@@ -483,9 +483,9 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
         >
           {/* Left Zone: Past Radar (-60m to NOW, 20% width) */}
           <div
-            className={`h-full relative overflow-hidden border-r border-dashed border-[var(--theme-text-accent)]/50 transition-colors duration-150 ${
+            className={`h-full relative overflow-hidden border-r border-dashed border-[var(--theme-text-accent-50)] transition-colors duration-150 ${
               currentMinutes < 0
-                ? 'bg-[var(--theme-status-amber)]/20 shadow-[inset_0_0_10px_var(--theme-status-amber)]'
+                ? 'bg-[var(--theme-status-amber-20)] shadow-[inset_0_0_10px_var(--theme-status-amber)]'
                 : 'bg-[var(--theme-status-sage,#34d399)]/10'
             }`}
             style={{ width: `${RADAR_FRACTION * 100}%` }}
@@ -518,8 +518,8 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
           <div
             className={`h-full relative overflow-hidden flex-1 transition-colors duration-150 ${
               currentMinutes > 0
-                ? 'bg-[var(--theme-status-sage)]/15 shadow-[inset_0_0_10px_var(--theme-control-active-ring)]'
-                : 'bg-[var(--theme-status-slate)]/5'
+                ? 'bg-[var(--theme-status-sage-15)] shadow-[inset_0_0_10px_var(--theme-control-active-ring)]'
+                : 'bg-[var(--theme-status-slate-5)]'
             }`}
           >
             {/* Hourly & Major ticks in Forecast Zone */}
@@ -614,7 +614,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
       {/* -------------------------------------------------------------------- */}
       {/* 4. Controls Dock: Play/Pause, Loop Status & Playback Speed Selector   */}
       {/* -------------------------------------------------------------------- */}
-      <div className="flex items-center justify-between gap-2 pt-1 border-t border-[var(--theme-panel-border)]/50">
+      <div className="flex items-center justify-between gap-2 pt-1 border-t border-[var(--theme-panel-border-50)]">
         {/* Play/Pause & Reset to Datum */}
         <div className="flex items-center gap-1.5">
           <button
@@ -702,7 +702,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
               className={`tactile-btn text-nano font-mono font-bold px-1.5 py-0.5 rounded-[1px] border transition-all flex-1 text-center truncate ${
                 isActive
                   ? 'bg-[var(--theme-control-active-bg)] border-[var(--theme-control-active-border)] text-[var(--theme-text-accent)] shadow-xs font-semibold'
-                  : 'bg-[var(--theme-control-bg)]/60 border-[var(--theme-control-border)]/60 text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-control-hover-bg)]'
+                  : 'bg-[var(--theme-control-bg-60)] border-[var(--theme-control-border-60)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-control-hover-bg)]'
               }`}
             >
               {preset.label}

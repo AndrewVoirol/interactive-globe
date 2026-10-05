@@ -91,9 +91,9 @@ describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety',
   describe('Defect 7: Theme-Aware Category Badge Contrast in Catalog', () => {
     it('provides theme-aware high contrast styles for catalog category badges via CSS variables', () => {
       // After refactor, catalog uses CSS custom property tokens instead of hardcoded hex per theme
-      expect(sidebarCode).toContain("bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40");
-      expect(sidebarCode).toContain("bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40");
-      expect(sidebarCode).toContain("bg-[var(--theme-status-slate)]/20 text-[var(--theme-status-slate)] border-[var(--theme-status-slate)]/40");
+      expect(sidebarCode).toContain("bg-[var(--theme-status-sage-20)] text-[var(--theme-status-sage)] border-[var(--theme-status-sage-40)]");
+      expect(sidebarCode).toContain("bg-[var(--theme-status-amber-20)] text-[var(--theme-status-amber)] border-[var(--theme-status-amber-40)]");
+      expect(sidebarCode).toContain("bg-[var(--theme-status-slate-20)] text-[var(--theme-status-slate)] border-[var(--theme-status-slate-40)]");
     });
 
     it('uses semantic control tokens for layer mode SegmentedControl buttons', () => {

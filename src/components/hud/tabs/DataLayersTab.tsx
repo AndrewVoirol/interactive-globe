@@ -106,7 +106,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                   className={`rounded-[2px] border flex flex-col text-micro transition-all folio-strip ${
                     layer.visible
                       ? 'bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] shadow-sm'
-                      : 'bg-[var(--theme-card-bg)]/50 border-[var(--theme-card-border)]/60 text-[var(--theme-text-muted)] opacity-60'
+                      : 'bg-[var(--theme-card-bg-50)] border-[var(--theme-card-border-60)] text-[var(--theme-text-muted)] opacity-60'
                   }`}
                   style={
                     layer.visible
@@ -170,7 +170,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                           <div className="flex items-center gap-1.5 pl-0.5">
                             {isPrimaryRaster && (
                               <span
-                                className="text-nano font-mono px-1.5 py-0.5 rounded-[2px] font-semibold bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)]"
+                                className="text-nano font-mono px-1.5 py-0.5 rounded-[2px] font-semibold bg-[var(--theme-status-sage-15)] text-[var(--theme-status-sage)]"
                                 title="Active Base Raster rendered on planetary crust"
                               >
                                 (Active Raster)
@@ -178,14 +178,14 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                             )}
                             {isShadowedRaster && (
                               <span
-                                className="text-nano font-mono px-1.5 py-0.5 rounded-[2px] font-medium bg-[var(--theme-status-amber)]/15 text-[var(--theme-status-amber)]"
+                                className="text-nano font-mono px-1.5 py-0.5 rounded-[2px] font-medium bg-[var(--theme-status-amber-15)] text-[var(--theme-status-amber)]"
                                 title="This raster dataset is occluded by a higher active raster layer in the Z-order stack"
                               >
                                 (Shadowed by higher raster layer)
                               </span>
                             )}
                             {preset?.unsupported && (
-                              <span className="text-nano font-mono px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-status-amber)]/15 text-[var(--theme-status-amber)] font-semibold">
+                              <span className="text-nano font-mono px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-status-amber-15)] text-[var(--theme-status-amber)] font-semibold">
                                 [UNSUPPORTED]
                               </span>
                             )}
@@ -219,7 +219,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                       <button
                         onClick={() => onRemoveDataLayer?.(layer.id)}
                         title="Remove layer"
-                        className="p-1 rounded-[2px] border transition-all cursor-pointer hover:border-[var(--theme-card-border-hover)] border-[var(--theme-status-amber)]/40 text-[var(--theme-status-amber)] hover:bg-[var(--theme-status-amber)]/15"
+                        className="p-1 rounded-[2px] border transition-all cursor-pointer hover:border-[var(--theme-card-border-hover)] border-[var(--theme-status-amber-40)] text-[var(--theme-status-amber)] hover:bg-[var(--theme-status-amber-15)]"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -319,7 +319,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
             });
           })()
         ) : (
-          <div className="p-4 rounded-[2px] border text-micro text-center italic border-[var(--theme-card-border)] text-[var(--theme-text-muted)] bg-[var(--theme-card-bg)]/40">
+          <div className="p-4 rounded-[2px] border text-micro text-center italic border-[var(--theme-card-border)] text-[var(--theme-text-muted)] bg-[var(--theme-card-bg-40)]">
             No active layers. Use + Catalog to add datasets.
           </div>
         )}

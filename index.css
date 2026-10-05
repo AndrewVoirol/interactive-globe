@@ -38,6 +38,39 @@
   --theme-status-slate: #4FD1C5;
   --theme-status-amber: #F59E0B;
 
+  /* OKLCH color-mix opacity blends — Tailwind v3 /N modifiers fail on hex CSS vars */
+  --theme-status-sage-10: color-mix(in oklch, var(--theme-status-sage) 10%, transparent);
+  --theme-status-sage-15: color-mix(in oklch, var(--theme-status-sage) 15%, transparent);
+  --theme-status-sage-20: color-mix(in oklch, var(--theme-status-sage) 20%, transparent);
+  --theme-status-sage-40: color-mix(in oklch, var(--theme-status-sage) 40%, transparent);
+  --theme-status-sage-50: color-mix(in oklch, var(--theme-status-sage) 50%, transparent);
+  --theme-status-amber-10: color-mix(in oklch, var(--theme-status-amber) 10%, transparent);
+  --theme-status-amber-15: color-mix(in oklch, var(--theme-status-amber) 15%, transparent);
+  --theme-status-amber-20: color-mix(in oklch, var(--theme-status-amber) 20%, transparent);
+  --theme-status-amber-25: color-mix(in oklch, var(--theme-status-amber) 25%, transparent);
+  --theme-status-amber-30: color-mix(in oklch, var(--theme-status-amber) 30%, transparent);
+  --theme-status-amber-40: color-mix(in oklch, var(--theme-status-amber) 40%, transparent);
+  --theme-status-amber-50: color-mix(in oklch, var(--theme-status-amber) 50%, transparent);
+  --theme-status-slate-5: color-mix(in oklch, var(--theme-status-slate) 5%, transparent);
+  --theme-status-slate-20: color-mix(in oklch, var(--theme-status-slate) 20%, transparent);
+  --theme-status-slate-40: color-mix(in oklch, var(--theme-status-slate) 40%, transparent);
+  --theme-text-accent-10: color-mix(in oklch, var(--theme-text-accent) 10%, transparent);
+  --theme-text-accent-20: color-mix(in oklch, var(--theme-text-accent) 20%, transparent);
+  --theme-text-accent-40: color-mix(in oklch, var(--theme-text-accent) 40%, transparent);
+  --theme-text-accent-50: color-mix(in oklch, var(--theme-text-accent) 50%, transparent);
+  --theme-card-border-15: color-mix(in oklch, var(--theme-card-border) 15%, transparent);
+  --theme-card-border-50: color-mix(in oklch, var(--theme-card-border) 50%, transparent);
+  --theme-card-border-60: color-mix(in oklch, var(--theme-card-border) 60%, transparent);
+  --theme-card-bg-40: color-mix(in oklch, var(--theme-card-bg) 40%, transparent);
+  --theme-card-bg-50: color-mix(in oklch, var(--theme-card-bg) 50%, transparent);
+  --theme-control-bg-40: color-mix(in oklch, var(--theme-control-bg) 40%, transparent);
+  --theme-control-bg-60: color-mix(in oklch, var(--theme-control-bg) 60%, transparent);
+  --theme-control-border-30: color-mix(in oklch, var(--theme-control-border) 30%, transparent);
+  --theme-control-border-50: color-mix(in oklch, var(--theme-control-border) 50%, transparent);
+  --theme-control-border-60: color-mix(in oklch, var(--theme-control-border) 60%, transparent);
+  --theme-panel-border-50: color-mix(in oklch, var(--theme-panel-border) 50%, transparent);
+  --theme-text-secondary-35: color-mix(in oklch, var(--theme-text-secondary) 35%, transparent);
+
   --theme-spring-switch: 350ms cubic-bezier(0.25, 1, 0.5, 1);
   --theme-switch-thumb-shadow: 0 0 8px rgba(79, 209, 197, 0.5);
   --theme-shadow-ambient: 0 12px 32px -4px rgba(0, 0, 0, 0.75);

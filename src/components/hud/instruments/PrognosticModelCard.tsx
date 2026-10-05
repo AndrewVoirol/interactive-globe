@@ -699,7 +699,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
       </div>
 
       {/* 3. SegmentedControl for Model Selection (4 Discrete NWP/AI Backends) */}
-      <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border)]/50">
+      <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border-50)]">
         <div className="flex items-center justify-between text-nano font-mono">
           <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
             Prognostic Model
@@ -752,7 +752,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
 
       {/* 4. SegmentedControl for Variable Selection (Conditional on Model Activity) */}
       {isWeatherNext && (
-        <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border)]/50">
+        <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border-50)]">
           <div className="flex items-center justify-between text-nano font-mono">
             <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
               Prognostic Variable
@@ -812,7 +812,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
 
       {/* Plate IV.C: Lagrangian Advection Dynamics (Decoupled Vernier Sliders) */}
       {showWindDynamics && (
-        <div className="space-y-1.5 pt-1.5 border-t border-[var(--theme-card-border)]/60">
+        <div className="space-y-1.5 pt-1.5 border-t border-[var(--theme-card-border-60)]">
           <div className="flex items-center justify-between text-nano font-mono">
             <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider text-body">
               Lagrangian Advection Dynamics
@@ -852,7 +852,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
 
       {/* 5. Integrated Data Provenance & WeatherNext Zarr v3 Telemetry */}
       {isWeatherNext && (
-        <div className="p-1.5 rounded-[2px] border border-[var(--theme-control-border)]/60 bg-[var(--theme-control-bg)]/40 space-y-1 font-mono text-nano text-[var(--theme-text-muted)]">
+        <div className="p-1.5 rounded-[2px] border border-[var(--theme-control-border-60)] bg-[var(--theme-control-bg-40)] space-y-1 font-mono text-nano text-[var(--theme-text-muted)]">
           {/* Top Status Banner */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
@@ -866,7 +866,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           </div>
 
           {/* Detailed Provenance Metadata Grid */}
-          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pt-1 border-t border-[var(--theme-control-border)]/30 text-micro opacity-85">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pt-1 border-t border-[var(--theme-control-border-30)] text-micro opacity-85">
             <div className="flex items-center justify-between">
               <span className="text-[var(--theme-text-secondary)]">Resolution:</span>
               <span className="font-bold text-[var(--theme-text-primary)]">
@@ -908,7 +908,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
       )}
 
       {/* 6. Footer & Reset Action */}
-      <div className="flex items-center justify-between text-nano font-mono pt-1 border-t border-[var(--theme-card-border)]/50 opacity-80">
+      <div className="flex items-center justify-between text-nano font-mono pt-1 border-t border-[var(--theme-card-border-50)] opacity-80">
         <span className="truncate">
           {modelMetadata.name.toUpperCase()} (T+0h .. T+240h)
         </span>

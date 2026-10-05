@@ -249,7 +249,7 @@ export const DataLayersDrawer: React.FC<DataLayersDrawerProps> = ({
                               </span>
                             )}
                             {isShadowedRaster && (
-                              <span className="text-nano font-mono px-1.5 py-px rounded border bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40" title="This raster dataset is occluded by a higher active raster layer in the Z-order stack">
+                              <span className="text-nano font-mono px-1.5 py-px rounded border bg-[var(--theme-status-amber-20)] text-[var(--theme-status-amber)] border-[var(--theme-status-amber-40)]" title="This raster dataset is occluded by a higher active raster layer in the Z-order stack">
                                 (Shadowed by higher raster layer)
                               </span>
                             )}

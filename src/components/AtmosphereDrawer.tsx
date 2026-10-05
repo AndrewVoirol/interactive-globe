@@ -809,7 +809,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             <button
               type="button"
               onClick={() => setIsCloudPhysicsOpen(!isCloudPhysicsOpen)}
-              className="w-full p-2 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border)]/15 transition-colors"
+              className="w-full p-2 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--theme-card-border-15)] transition-colors"
               title="Toggle volumetric cloud dynamics and 3D raymarch calipers"
             >
               <div className="flex items-center gap-2">
@@ -826,7 +826,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             </button>
 
             {isCloudPhysicsOpen && (
-              <div className="p-2 pt-0 space-y-3 border-t border-[var(--theme-card-border)]/50 mt-1">
+              <div className="p-2 pt-0 space-y-3 border-t border-[var(--theme-card-border-50)] mt-1">
 
                 {/* 1. Vertical Structure Pair */}
                 <div className="space-y-2 pt-2">
@@ -864,7 +864,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                 </div>
 
                 {/* 2. Billow Detail Pair */}
-                <div className="space-y-2 pt-2 border-t border-[var(--theme-card-border)]/50">
+                <div className="space-y-2 pt-2 border-t border-[var(--theme-card-border-50)]">
                   <div className="text-nano font-mono uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
                     Billow Detail
                   </div>
@@ -899,7 +899,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                 </div>
 
                 {/* 3. Planetary Scale Pair */}
-                <div className="space-y-2 pt-2 border-t border-[var(--theme-card-border)]/50">
+                <div className="space-y-2 pt-2 border-t border-[var(--theme-card-border-50)]">
                   <div className="text-nano font-mono uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
                     Planetary Scale
                   </div>
@@ -935,7 +935,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
 
 
                 {/* 5. Quick Camera Pitch Buttons */}
-                <div className="pt-2 border-t border-[var(--theme-card-border)]/50 space-y-1">
+                <div className="pt-2 border-t border-[var(--theme-card-border-50)] space-y-1">
                   <span className="text-nano font-mono uppercase tracking-wider text-[var(--theme-text-muted)]">
                     Camera Pitch Angle
                   </span>
@@ -963,7 +963,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                 </div>
 
                 {/* 6. Diagnostic Test Locations & Reset */}
-                <div className="pt-2 border-t border-[var(--theme-card-border)]/50 flex items-center justify-between gap-1">
+                <div className="pt-2 border-t border-[var(--theme-card-border-50)] flex items-center justify-between gap-1">
                   <div className="flex gap-1 flex-wrap">
                     {[
                       { label: 'Iceland', loc: 'iceland' },
@@ -988,7 +988,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
                   <button
                     type="button"
                     onClick={handleResetCloudDefaults}
-                    className="py-0.5 px-2 rounded-[2px] border text-center font-mono text-micro uppercase font-bold tracking-wider bg-[var(--theme-status-amber)]/20 hover:bg-[var(--theme-status-amber)]/30 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40 transition-colors cursor-pointer shrink-0"
+                    className="py-0.5 px-2 rounded-[2px] border text-center font-mono text-micro uppercase font-bold tracking-wider bg-[var(--theme-status-amber-20)] hover:bg-[var(--theme-status-amber-30)] text-[var(--theme-status-amber)] border-[var(--theme-status-amber-40)] transition-colors cursor-pointer shrink-0"
                     title="Reset all volumetric cloud levers to calibrated defaults"
                   >
                     Reset Calibrated Physics

@@ -547,7 +547,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
       </button>
 
       {/* 4. Secondary Calibration Sliders & Steppers (100% Backward-Compatibility with Tests) */}
-      <div className="space-y-1.5 pt-1.5 border-t border-[var(--theme-card-border)]/50">
+      <div className="space-y-1.5 pt-1.5 border-t border-[var(--theme-card-border-50)]">
         {/* Atmospheric Scale Precision Control */}
         <div className="space-y-0.5">
           <div className="flex items-center justify-between text-nano">
@@ -668,7 +668,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
       </div>
 
       {/* 5. Footer & Reset Action */}
-      <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border)]/50 opacity-80">
+      <div className="flex items-center justify-between text-nano font-mono mt-1 pt-1 border-t border-[var(--theme-card-border-50)] opacity-80">
         <span className="truncate">TROPOSPHERIC PROFILE (1.0–12.0×)</span>
         <button
           type="button"
