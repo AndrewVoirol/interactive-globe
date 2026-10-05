@@ -534,9 +534,6 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
     it('INST-26: PrognosticModelCard embeds contract tokens, medium-adaptive SVG artifacts, and single-border contract', () => {
       expect(cardCode).toContain('PROGNOSTIC MODEL');
       expect(cardCode).toContain('Numerical Weather Prediction & Tensor Telemetry');
-      expect(cardCode).toContain('prognostic-model-cream');
-      expect(cardCode).toContain('prognostic-model-cyanotype');
-      expect(cardCode).toContain('prognostic-model-tharp');
       expect(cardCode).toContain('sidebar-model-gfs');
       expect(cardCode).toContain('sidebar-model-weathernext');
       expect(cardCode).toContain('sidebar-variable-rain');

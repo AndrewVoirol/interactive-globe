@@ -32,7 +32,7 @@ describe('WeatherNextDataSource Unit Test Suite', () => {
     forecastInitTimestamp: '2026-09-11T18:00:00Z',
     forecastRunCycle: '20260911_18hr_01_preds',
     ingestedAtUTC: '2026-09-12T00:00:00Z',
-    billingProject: 'antigravity-agent-1765655548',
+    billingProject: 'antigravity-agent-17656555240',
     gridDimensions: {
       width: 3600,
       height: 1801,
@@ -46,11 +46,11 @@ describe('WeatherNextDataSource Unit Test Suite', () => {
     },
     timeHorizon: {
       startHour: 0,
-      endHour: 47,
+      endHour: 239,
       stepHours: 1,
-      totalHours: 48,
+      totalHours: 240,
     },
-    validPredictionHours: Array.from({ length: 48 }, (_, i) => i),
+    validPredictionHours: Array.from({ length: 240 }, (_, i) => i),
     variables: [
       'u_component_of_wind_10m_mean',
       'v_component_of_wind_10m_mean',
@@ -128,8 +128,8 @@ describe('WeatherNextDataSource Unit Test Suite', () => {
       expect(meta.gridDimensions.width).toBe(3600);
       expect(meta.gridDimensions.height).toBe(1801);
       expect(meta.gridDimensions.resolutionDeg).toBe(0.1);
-      expect(meta.timeHorizon.totalHours).toBe(48);
-      expect(meta.validPredictionHours.length).toBe(48);
+      expect(meta.timeHorizon.totalHours).toBe(240);
+      expect(meta.validPredictionHours.length).toBe(240);
       expect(meta.textureEncoding.paddedRowBytes).toBe(7424);
       expect(meta.textureEncoding.rawRowBytes).toBe(7200);
       expect(meta.variables).toHaveLength(6);
@@ -348,22 +348,22 @@ describe('WeatherNextDataSource Unit Test Suite', () => {
       mockDevice.queue.writeTextureCalls = [];
     });
 
-    it('seekHour at forecast horizon boundary (hour 46 and 47) clamps staging without out-of-bounds fetch', async () => {
+    it('seekHour at forecast horizon boundary (hour 238 and 239) clamps staging without out-of-bounds fetch', async () => {
       const ring = new TemporalTextureRingBuffer(mockDevice as any, 3600, 1801, 'r16float');
       const ds = new WeatherNextDataSource({ ringBuffer: ring });
 
-      const sliceH46 = createSyntheticSlice(true, 0x46);
-      const sliceH47 = createSyntheticSlice(true, 0x47);
+      const sliceH238 = createSyntheticSlice(true, 0x238);
+      const sliceH239 = createSyntheticSlice(true, 0x239);
 
       globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
-        if (url.includes('-46.bin')) return { ok: true, arrayBuffer: async () => sliceH46 };
-        if (url.includes('-47.bin')) return { ok: true, arrayBuffer: async () => sliceH47 };
+        if (url.includes('-238.bin')) return { ok: true, arrayBuffer: async () => sliceH238 };
+        if (url.includes('-239.bin')) return { ok: true, arrayBuffer: async () => sliceH239 };
         throw new Error(`Out of bounds fetch attempted: ${url}`);
       });
 
-      // Hour 46: Slot 0 = 46, Slot 1 = 47, Slot 2 = clamped to 47
-      await expect(ds.seekHour(46, 'temperature_2m_mean')).resolves.not.toThrow();
-      expect(ds.currentHour).toBe(46);
+      // Hour 238: Slot 0 = 238, Slot 1 = 239, Slot 2 = clamped to 239
+      await expect(ds.seekHour(238, 'temperature_2m_mean')).resolves.not.toThrow();
+      expect(ds.currentHour).toBe(238);
 
       mockDevice.queue.writeTextureCalls = [];
     });
@@ -601,7 +601,7 @@ describe('WeatherNextDataSource Unit Test Suite', () => {
     it('getSlice() throws RangeError for out-of-bounds or non-integer hours', async () => {
       const ds = new WeatherNextDataSource();
       await expect(ds.getSlice('temperature_2m_mean', -1)).rejects.toThrow(RangeError);
-      await expect(ds.getSlice('temperature_2m_mean', 48)).rejects.toThrow(RangeError);
+      await expect(ds.getSlice('temperature_2m_mean', 240)).rejects.toThrow(RangeError);
       await expect(ds.getSlice('temperature_2m_mean', 1.5)).rejects.toThrow(RangeError);
       await expect(ds.getSlice('temperature_2m_mean', NaN)).rejects.toThrow(RangeError);
     });

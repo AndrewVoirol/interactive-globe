@@ -6,11 +6,11 @@
  * 1. Concurrent / interleaved seekHour calls (rapid scrubbing race conditions).
  * 2. Cache eviction under high load (FIFO capacity, churn, memory stability).
  * 3. Thundering herd protection (massive concurrency on identical slices & cleanout on failure).
- * 4. Network failure recovery and boundary hour conditions (hours 0, 46, 47, -1, 48, NaN, corrupt slices).
+ * 4. Network failure recovery and boundary hour conditions (hours 0, 238, 239, -1, 240, NaN, corrupt slices).
  *
  * Compliance:
- * - Invariant §46: Imports directly from src/core/data/WeatherNextDataSource & src/webgpu/TemporalTextureRingBuffer
- * - Rule 46: Real execution of production entry points, zero shadow duplicate functions.
+ * - Invariant §238: Imports directly from src/core/data/WeatherNextDataSource & src/webgpu/TemporalTextureRingBuffer
+ * - Rule 238: Real execution of production entry points, zero shadow duplicate functions.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -37,7 +37,7 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
     forecastInitTimestamp: '2026-09-11T18:00:00Z',
     forecastRunCycle: '20260911_18hr_01_preds',
     ingestedAtUTC: '2026-09-12T00:00:00Z',
-    billingProject: 'antigravity-agent-1765655548',
+    billingProject: 'antigravity-agent-17656555240',
     gridDimensions: {
       width: 3600,
       height: 1801,
@@ -51,11 +51,11 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
     },
     timeHorizon: {
       startHour: 0,
-      endHour: 47,
+      endHour: 239,
       stepHours: 1,
-      totalHours: 48,
+      totalHours: 240,
     },
-    validPredictionHours: Array.from({ length: 48 }, (_, i) => i),
+    validPredictionHours: Array.from({ length: 240 }, (_, i) => i),
     variables: [...WEATHERNEXT_CORE_VARIABLES],
     variableMetadata: {
       temperature_2m_mean: { units: 'K', longName: '2m Ambient Surface Temperature' },
@@ -620,7 +620,7 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
   // Suite 3: Thundering Herd Protection
   // ==========================================================================
   describe('Suite 3: Thundering Herd Protection', () => {
-    it('ADV-HERD-01: 100 concurrent requests for identical slice invoke fetch exactly ONCE', async () => {
+    it('ADV-HERD-01: 250 concurrent requests for identical slice invoke fetch exactly ONCE', async () => {
       let networkCalls = 0;
       const syntheticBuffer = createTaggedSlice('temperature_2m_mean', 12, true);
 
@@ -635,8 +635,8 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
 
       const ds = new WeatherNextDataSource();
 
-      // Fire 100 callers concurrently
-      const callers = Array.from({ length: 100 }, () =>
+      // Fire 250 callers concurrently
+      const callers = Array.from({ length: 250 }, () =>
         ds.getSlice('temperature_2m_mean', 12)
       );
 
@@ -646,7 +646,7 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
       expect(networkCalls).toBe(1);
       expect(globalThis.fetch).toHaveBeenCalledTimes(1);
 
-      // All 100 callers must receive the exact identical ArrayBuffer instance
+      // All 250 callers must receive the exact identical ArrayBuffer instance
       for (const res of results) {
         expect(res).toBe(syntheticBuffer);
       }
@@ -775,7 +775,7 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
       expect(readSliceHour(c2!.data as Uint8Array)).toBe(2);
     });
 
-    it('ADV-BOUND-02: Boundary Hour 46 clamps prefetch to 47 and does not request 48', async () => {
+    it('ADV-BOUND-02: Boundary Hour 238 clamps prefetch to 239 and does not request 240', async () => {
       const ring = new TemporalTextureRingBuffer(mockDevice as any, 3600, 1801, 'r16float');
       const ds = new WeatherNextDataSource({ ringBuffer: ring });
 
@@ -784,7 +784,7 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
         requestedUrls.push(url);
         const match = url.match(/([a-z0-9_]+)-(\d+)\.bin/);
         const hour = match ? parseInt(match[2], 10) : 0;
-        if (hour > 47) {
+        if (hour > 239) {
           throw new Error(`Out of bounds network request: ${url}`);
         }
         return {
@@ -793,10 +793,10 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
         };
       });
 
-      await ds.seekHour(46, 'temperature_2m_mean');
+      await ds.seekHour(238, 'temperature_2m_mean');
 
-      expect(ds.getCurrentHour()).toBe(46);
-      expect(requestedUrls.some((u) => u.includes('-48.bin'))).toBe(false);
+      expect(ds.getCurrentHour()).toBe(238);
+      expect(requestedUrls.some((u) => u.includes('-240.bin'))).toBe(false);
 
       const tex0 = ring.getTexture(0);
       const tex1 = ring.getTexture(1);
@@ -807,12 +807,12 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
       const c1 = calls.find((c) => c.destination.texture === tex1);
       const c2 = calls.find((c) => c.destination.texture === tex2);
 
-      expect(readSliceHour(c0!.data as Uint8Array)).toBe(46);
-      expect(readSliceHour(c1!.data as Uint8Array)).toBe(47);
-      expect(readSliceHour(c2!.data as Uint8Array)).toBe(47); // Clamped
+      expect(readSliceHour(c0!.data as Uint8Array)).toBe(238);
+      expect(readSliceHour(c1!.data as Uint8Array)).toBe(239);
+      expect(readSliceHour(c2!.data as Uint8Array)).toBe(239); // Clamped
     });
 
-    it('ADV-BOUND-03: Boundary Hour 47 terminal staging clamps all 3 slots to hour 47', async () => {
+    it('ADV-BOUND-03: Boundary Hour 239 terminal staging clamps all 3 slots to hour 239', async () => {
       const ring = new TemporalTextureRingBuffer(mockDevice as any, 3600, 1801, 'r16float');
       const ds = new WeatherNextDataSource({ ringBuffer: ring });
 
@@ -827,10 +827,10 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
         };
       });
 
-      await ds.seekHour(47, 'temperature_2m_mean');
+      await ds.seekHour(239, 'temperature_2m_mean');
 
-      expect(ds.getCurrentHour()).toBe(47);
-      // Hour 47 fetched only ONCE because all 3 slots ask for hour 47 and deduplicate
+      expect(ds.getCurrentHour()).toBe(239);
+      // Hour 239 fetched only ONCE because all 3 slots ask for hour 239 and deduplicate
       expect(fetchCount).toBe(1);
 
       const tex0 = ring.getTexture(0);
@@ -842,9 +842,9 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
       const c1 = calls.find((c) => c.destination.texture === tex1);
       const c2 = calls.find((c) => c.destination.texture === tex2);
 
-      expect(readSliceHour(c0!.data as Uint8Array)).toBe(47);
-      expect(readSliceHour(c1!.data as Uint8Array)).toBe(47);
-      expect(readSliceHour(c2!.data as Uint8Array)).toBe(47);
+      expect(readSliceHour(c0!.data as Uint8Array)).toBe(239);
+      expect(readSliceHour(c1!.data as Uint8Array)).toBe(239);
+      expect(readSliceHour(c2!.data as Uint8Array)).toBe(239);
     });
 
     it('ADV-BOUND-04: Out-of-bounds hours in seekHour clamp safely without throwing', async () => {
@@ -864,15 +864,15 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
       await ds.seekHour(-1);
       expect(ds.getCurrentHour()).toBe(0);
 
-      await ds.seekHour(-100);
+      await ds.seekHour(-250);
       expect(ds.getCurrentHour()).toBe(0);
 
-      // Oversized hours clamp to 47
-      await ds.seekHour(48);
-      expect(ds.getCurrentHour()).toBe(47);
+      // Oversized hours clamp to 239
+      await ds.seekHour(240);
+      expect(ds.getCurrentHour()).toBe(239);
 
-      await ds.seekHour(1000);
-      expect(ds.getCurrentHour()).toBe(47);
+      await ds.seekHour(2500);
+      expect(ds.getCurrentHour()).toBe(239);
 
       // Fractional hour floors
       await ds.seekHour(12.9);
@@ -884,8 +884,8 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
 
       await expect(ds.getSlice('temperature_2m_mean', -1)).rejects.toThrow(RangeError);
       await expect(ds.getSlice('temperature_2m_mean', -99)).rejects.toThrow(RangeError);
-      await expect(ds.getSlice('temperature_2m_mean', 48)).rejects.toThrow(RangeError);
-      await expect(ds.getSlice('temperature_2m_mean', 100)).rejects.toThrow(RangeError);
+      await expect(ds.getSlice('temperature_2m_mean', 240)).rejects.toThrow(RangeError);
+      await expect(ds.getSlice('temperature_2m_mean', 250)).rejects.toThrow(RangeError);
       await expect(ds.getSlice('temperature_2m_mean', 1.5)).rejects.toThrow(RangeError);
       await expect(ds.getSlice('temperature_2m_mean', NaN)).rejects.toThrow(RangeError);
       await expect(ds.getSlice('temperature_2m_mean', Infinity)).rejects.toThrow(RangeError);
@@ -908,12 +908,12 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
       await ds.setTime(-5, 0.5);
       expect(ds.getCurrentHour()).toBe(0);
 
-      await ds.setTime(55, 0.5);
-      expect(ds.getCurrentHour()).toBe(47);
+      await ds.setTime(250, 0.5);
+      expect(ds.getCurrentHour()).toBe(239);
 
-      // Intra-hour at boundary hour 47
+      // Intra-hour at boundary hour 239
       mockDevice.queue.writeTextureCalls = [];
-      await ds.setTime(47, 0.9);
+      await ds.setTime(239, 0.9);
       expect(mockDevice.queue.writeTextureCalls).toHaveLength(0);
     });
 
@@ -996,9 +996,9 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
           // Set texel (0,0) with u=3.0, v=4.0 -> magnitude must be 5.0
           u16[0] = encodeFloat16(3.0);
           u16[1] = encodeFloat16(4.0);
-          // Set texel (100, 50) with u=6.0, v=8.0 -> magnitude must be 10.0
+          // Set texel (250, 50) with u=6.0, v=8.0 -> magnitude must be 10.0
           const strideU16 = 7296; // 14592 / 2
-          const idx = 50 * strideU16 + 100 * 2;
+          const idx = 50 * strideU16 + 250 * 2;
           u16[idx] = encodeFloat16(6.0);
           u16[idx + 1] = encodeFloat16(8.0);
           return {
@@ -1041,10 +1041,10 @@ describe('Adversarial Challenge: WeatherNextDataSource', () => {
         const speed00 = decodeFloat16(outU16[0]);
         expect(speed00).toBeCloseTo(5.0, 2);
 
-        // Verify Euclidean speed calculation at (100, 50): sqrt(6^2 + 8^2) = 10.0
+        // Verify Euclidean speed calculation at (250, 50): sqrt(6^2 + 8^2) = 10.0
         const dstStrideU16 = 3712; // 7424 / 2
-        const speed50_100 = decodeFloat16(outU16[50 * dstStrideU16 + 100]);
-        expect(speed50_100).toBeCloseTo(10.0, 2);
+        const speed50_250 = decodeFloat16(outU16[50 * dstStrideU16 + 250]);
+        expect(speed50_250).toBeCloseTo(10.0, 2);
       }
 
       // VRAM footprint must strictly equal 40,111,872 bytes (40.11 MB)
