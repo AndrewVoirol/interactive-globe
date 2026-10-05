@@ -76,7 +76,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
   return (
     <div
       data-instrument="bathymetric-tide-gauge"
-      className="p-2.5 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] space-y-2"
+      className="p-2.5 rounded-[3px] border shadow-[var(--theme-shadow-ambient)] transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] space-y-2"
     >
       <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
         <span className="font-bold uppercase tracking-wider text-micro flex items-center gap-1.5 text-[var(--theme-text-accent)]">

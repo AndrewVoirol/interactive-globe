@@ -288,24 +288,15 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
       >
         {/* Dynamic Terrain Horizon Self-Shadows & Canyon Lighting */}
         <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
-                Terrain Self-Shadows
-              </span>
-              <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
-                Horizon occlusion & canyon shadow rays
-              </span>
-            </div>
-            <TactileSwitch
-              id="sidebar-terrain-shadows-toggle"
-              checked={activeTerrainShadows}
-              onChange={handleToggleTerrainShadows}
-              title="Toggle Dynamic Terrain Horizon Self-Shadows"
-              label={activeTerrainShadows ? 'Active' : 'Off'}
-              indicatorColor="var(--theme-status-amber)"
-            />
-          </div>
+          <TactileSwitch
+            id="sidebar-terrain-shadows-toggle"
+            checked={activeTerrainShadows}
+            onChange={handleToggleTerrainShadows}
+            title="Toggle Dynamic Terrain Horizon Self-Shadows"
+            label="Terrain Self-Shadows"
+            sublabel="Horizon occlusion & canyon shadow rays"
+            indicatorColor="var(--theme-status-amber)"
+          />
 
           {/* Collapsible Slider: Penumbra Softness */}
           <div
@@ -466,24 +457,15 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
       >
         {/* Dynamic Geomorphic Drainage Basin Synthesis & Leopold-Maddock Hydrology */}
         <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
-                Geomorphic Hydrology
-              </span>
-              <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
-                D-∞ catchment routing & Leopold-Maddock
-              </span>
-            </div>
-            <TactileSwitch
-              id="sidebar-geomorphic-hydrology-toggle"
-              checked={activeGeomorphicHydrology}
-              onChange={handleToggleGeomorphicHydrology}
-              title="Toggle Dynamic Geomorphic Hydrology & Basin Accumulation"
-              label={activeGeomorphicHydrology ? 'Active' : 'Off'}
-              indicatorColor="var(--theme-status-amber)"
-            />
-          </div>
+          <TactileSwitch
+            id="sidebar-geomorphic-hydrology-toggle"
+            checked={activeGeomorphicHydrology}
+            onChange={handleToggleGeomorphicHydrology}
+            title="Toggle Dynamic Geomorphic Hydrology & Basin Accumulation"
+            label="Geomorphic Hydrology"
+            sublabel="D-∞ catchment routing & Leopold-Maddock"
+            indicatorColor="var(--theme-status-amber)"
+          />
 
           {/* Collapsible Sliders: Pluvial Discharge Coupling & Bedrock Incision */}
           <div
@@ -592,22 +574,13 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
 
       {/* 3. Vector Ink & Geodetic Survey Feeds Station */}
       <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
-              Vectors (V)
-            </span>
-            <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
-              Coastlines & graticule linework
-            </span>
-          </div>
-          <TactileSwitch
-            checked={showVectors}
-            onChange={onVectorsToggle}
-            title="Toggle Coastline & Boundary Vectors (Press V)"
-            label={showVectors ? 'Active' : 'Off'}
-          />
-        </div>
+        <TactileSwitch
+          checked={showVectors}
+          onChange={onVectorsToggle}
+          title="Toggle Coastline & Boundary Vectors (Press V)"
+          label="Vectors (V)"
+          sublabel="Coastlines & graticule linework"
+        />
 
         {/* Geodetic Survey Feeds: Soundings, Triangulation, Landmarks */}
         <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-1.5">
@@ -645,24 +618,15 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
 
       {/* Atmospheric Clouds & DeepMind WeatherNext 3 Master Switch */}
       <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
-              Atmospheric Clouds
-            </span>
-            <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
-              DeepMind WeatherNext 3 (0.1° AI) & 3D Raymarch
-            </span>
-          </div>
-          <TactileSwitch
-            id="sidebar-cartography-clouds-toggle"
-            checked={Boolean(propShowClouds)}
-            onChange={handleToggleClouds}
-            title="Master toggle for atmospheric cloud cover and 3D volumetric raymarching"
-            label={propShowClouds ? 'Active' : 'Off'}
-            indicatorColor="var(--theme-status-slate)"
-          />
-        </div>
+        <TactileSwitch
+          id="sidebar-cartography-clouds-toggle"
+          checked={Boolean(propShowClouds)}
+          onChange={handleToggleClouds}
+          title="Master toggle for atmospheric cloud cover and 3D volumetric raymarching"
+          label="Atmospheric Clouds"
+          sublabel="DeepMind WeatherNext 3 (0.1° AI) & 3D Raymarch"
+          indicatorColor="var(--theme-status-slate)"
+        />
       </div>
     </>
   );

@@ -443,6 +443,7 @@ input[type=range].slider-archival::-webkit-slider-thumb {
   cursor: pointer;
   border: 1px solid var(--theme-slider-thumb-border, #7c6230);
   box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+  margin-top: -5.5px;
 }
 input[type=range].slider-archival::-moz-range-thumb {
   height: 14px;
