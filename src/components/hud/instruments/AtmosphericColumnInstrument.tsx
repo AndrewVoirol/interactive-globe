@@ -201,52 +201,24 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
           preserveAspectRatio="xMidYMid meet"
         >
           {/* Base Strata Column Bands (Period Compliant - No Muddy Fills) */}
-          {/* High Strata Band (Cirrus, 10–12 km) */}
           <rect
-            x="42"
-            y="24"
-            width="230"
-            height="20"
-            rx="2"
-            style={{
-              fill: 'transparent',
-              stroke: showCloudHigh ? (cloudFalseColor ? 'var(--theme-instrument-strata-high)' : 'var(--theme-instrument-ink)') : 'currentColor',
-            }}
-            strokeWidth={showCloudHigh ? 0.75 : 0.3}
-            strokeOpacity={showCloudHigh ? 0.8 : 0.25}
+            x="42" y="24" width="230" height="20" rx="2"
+            style={{ fill: 'transparent', stroke: showCloudHigh ? (cloudFalseColor ? 'var(--theme-instrument-strata-high)' : 'var(--theme-instrument-ink)') : 'currentColor' }}
+            strokeWidth={showCloudHigh ? 0.75 : 0.5} strokeDasharray={showCloudHigh ? 'none' : '4 4'} strokeOpacity={showCloudHigh ? 0.8 : 0.3}
           />
-          {/* Mid Strata Band (Altocumulus, 4–6 km) */}
           <rect
-            x="42"
-            y="60"
-            width="230"
-            height="20"
-            rx="2"
-            style={{
-              fill: 'transparent',
-              stroke: showCloudMid ? (cloudFalseColor ? 'var(--theme-instrument-strata-mid)' : 'var(--theme-instrument-ink)') : 'currentColor',
-            }}
-            strokeWidth={showCloudMid ? 0.75 : 0.3}
-            strokeOpacity={showCloudMid ? 0.8 : 0.25}
+            x="42" y="60" width="230" height="20" rx="2"
+            style={{ fill: 'transparent', stroke: showCloudMid ? (cloudFalseColor ? 'var(--theme-instrument-strata-mid)' : 'var(--theme-instrument-ink)') : 'currentColor' }}
+            strokeWidth={showCloudMid ? 0.75 : 0.5} strokeDasharray={showCloudMid ? 'none' : '4 4'} strokeOpacity={showCloudMid ? 0.8 : 0.3}
           />
-          {/* Low Strata Band (Stratus, 1–2 km) */}
           <rect
-            x="42"
-            y="94"
-            width="230"
-            height="20"
-            rx="2"
-            style={{
-              fill: 'transparent',
-              stroke: showCloudLow ? (cloudFalseColor ? 'var(--theme-instrument-strata-low)' : 'var(--theme-instrument-ink)') : 'currentColor',
-            }}
-            strokeWidth={showCloudLow ? 0.75 : 0.3}
-            strokeOpacity={showCloudLow ? 0.8 : 0.25}
+            x="42" y="94" width="230" height="20" rx="2"
+            style={{ fill: 'transparent', stroke: showCloudLow ? (cloudFalseColor ? 'var(--theme-instrument-strata-low)' : 'var(--theme-instrument-ink)') : 'currentColor' }}
+            strokeWidth={showCloudLow ? 0.75 : 0.5} strokeDasharray={showCloudLow ? 'none' : '4 4'} strokeOpacity={showCloudLow ? 0.8 : 0.3}
           />
 
-          {/* 3-Medium Adaptive SVG Groups */}
+          {/* Theme-specific Background/Inner Graphics (Drawn under Caliper) */}
           {theme === 1 ? (
-            // Theme 1 (Cream Rag Paper): 19th-century Victorian meteorological engravings
             <g className="atmospheric-column-cream strata-engraving-cream text-[var(--theme-instrument-ink)]">
               {/* Left Altitude Scale Axis */}
               <line x1="40" y1="14" x2="40" y2="122" stroke="currentColor" strokeWidth="0.75" />
@@ -255,47 +227,37 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               <line x1="34" y1="70" x2="40" y2="70" stroke="currentColor" strokeWidth="0.75" />
               <line x1="34" y1="104" x2="40" y2="104" stroke="currentColor" strokeWidth="0.75" />
               <line x1="34" y1="122" x2="40" y2="122" stroke="currentColor" strokeWidth="0.75" />
-              <text x="31" y="17" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">15 km</text>
-              <text x="31" y="37" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">11 km</text>
-              <text x="31" y="73" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">5 km</text>
-              <text x="31" y="107" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">1.5 km</text>
-              <text x="31" y="124" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">0 m</text>
+              <g style={{ paintOrder: 'stroke', stroke: 'var(--theme-instrument-viewport-bg)', strokeWidth: '4px', strokeLinejoin: 'round' }}>
+                <text x="31" y="17" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">15 km</text>
+                <text x="31" y="37" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">11 km</text>
+                <text x="31" y="73" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">5 km</text>
+                <text x="31" y="107" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">1.5 km</text>
+                <text x="31" y="124" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">0 m</text>
+              </g>
 
-              {/* Luke Howard 1803 Latin Taxonomy Labels */}
-              <text x="48" y="37" fill="currentColor" fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">
-                Cirrus (10–12 km)
-              </text>
-              <text x="48" y="73" fill="currentColor" fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">
-                Alto-cumulus (4–6 km)
-              </text>
-              <text x="48" y="107" fill="currentColor" fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">
-                Stratus (1–2 km)
-              </text>
-
-              {/* Intaglio copperplate ruling-pen lines and hachures */}
-              {/* Cirrus: wispy trailing filaments — period-appropriate delicate strokes */}
-              <path d="M 130 31 Q 160 27 195 33 T 255 31" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="2 1" opacity="0.7" />
-              <path d="M 155 35 Q 185 30 220 36 T 260 33" fill="none" stroke="currentColor" strokeWidth="0.4" strokeDasharray="3 2" opacity="0.45" />
-              {/* Altocumulus: undulatus wave train — ruling-pen oscillation */}
-              <path d="M 135 68 Q 150 64 165 68 Q 180 72 195 68 Q 210 64 225 68" fill="none" stroke="currentColor" strokeWidth="0.6" opacity="0.7" />
-              <path d="M 140 72 Q 155 68 170 72 Q 185 76 200 72 Q 215 68 230 72" fill="none" stroke="currentColor" strokeWidth="0.4" opacity="0.45" />
-              {/* Stratus: horizontal ruled lines spanning full band width */}
-              <path d="M 48 102 L 260 102" fill="none" stroke="currentColor" strokeWidth="0.6" opacity="0.6" />
-              <path d="M 48 106 L 255 106" fill="none" stroke="currentColor" strokeWidth="0.6" opacity="0.6" />
-
-              {/* Inactive stratum diagonal strikethroughs */}
-              {!showCloudHigh && <line x1="42" y1="34" x2="272" y2="34" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.35" />}
-              {!showCloudMid && <line x1="42" y1="70" x2="272" y2="70" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.35" />}
-              {!showCloudLow && <line x1="42" y1="104" x2="272" y2="104" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.35" />}
-
-              {/* Earth crust baseline and intaglio geological hachures */}
+              {/* Earth crust baseline and hachures */}
               <line x1="40" y1="122" x2="272" y2="122" stroke="currentColor" strokeWidth="1" />
               {Array.from({ length: 24 }).map((_, i) => (
                 <line key={i} x1={40 + i * 10} y1="122" x2={35 + i * 10} y2="128" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
               ))}
+
+              {/* High Layer Hachures */}
+              <g style={{ opacity: showCloudHigh ? 1.0 : 0.0, transition: 'opacity 0.2s' }}>
+                <path d="M 130 31 Q 160 27 195 33 T 255 31" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "currentColor" }} strokeWidth="0.6" strokeDasharray="2 1" opacity="0.7" />
+                <path d="M 155 35 Q 185 30 220 36 T 260 33" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "currentColor" }} strokeWidth="0.4" strokeDasharray="3 2" opacity="0.45" />
+              </g>
+              {/* Mid Layer Hachures */}
+              <g style={{ opacity: showCloudMid ? 1.0 : 0.0, transition: 'opacity 0.2s' }}>
+                <path d="M 135 68 Q 150 64 165 68 Q 180 72 195 68 Q 210 64 225 68" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "currentColor" }} strokeWidth="0.6" opacity="0.7" />
+                <path d="M 140 72 Q 155 68 170 72 Q 185 76 200 72 Q 215 68 230 72" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "currentColor" }} strokeWidth="0.4" opacity="0.45" />
+              </g>
+              {/* Low Layer Hachures */}
+              <g style={{ opacity: showCloudLow ? 1.0 : 0.0, transition: 'opacity 0.2s' }}>
+                <path d="M 48 102 L 260 102" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "currentColor" }} strokeWidth="0.6" opacity="0.6" />
+                <path d="M 48 106 L 255 106" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "currentColor" }} strokeWidth="0.6" opacity="0.6" />
+              </g>
             </g>
           ) : theme === 2 ? (
-            // Theme 2 (Prussian Cyanotype): 1976 Standard Atmosphere isobaric graph paper
             <g className="atmospheric-column-cyanotype isobar-grid-cyanotype text-[var(--theme-instrument-ink)]">
               {/* Isobaric level lines */}
               <line x1="40" y1="14" x2="272" y2="14" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
@@ -303,122 +265,89 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               <line x1="40" y1="70" x2="272" y2="70" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
               <line x1="40" y1="104" x2="272" y2="104" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
               <line x1="40" y1="122" x2="272" y2="122" stroke="currentColor" strokeWidth="0.75" />
-
               {/* CAD millimeter division ticks */}
               {Array.from({ length: 12 }).map((_, i) => (
                 <line key={i} x1={50 + i * 18} y1="14" x2={50 + i * 18} y2="122" stroke="currentColor" strokeWidth="0.3" strokeDasharray="1 3" opacity="0.2" />
               ))}
-
-              {/* Pressure annotations */}
-              <text x="38" y="17" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">150hPa</text>
-              <text x="38" y="37" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">250hPa</text>
-              <text x="38" y="73" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">500hPa</text>
-              <text x="38" y="107" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">850hPa</text>
-              <text x="38" y="124" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">1013</text>
-
-              {/* Radiosonde altitude tags */}
-              <text x="48" y="37" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">
-                JET / CIRRUS [250 hPa]
-              </text>
-              <text x="48" y="73" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">
-                ALTOSTRATUS [500 hPa]
-              </text>
-              <text x="48" y="107" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">
-                STRATUS [850 hPa]
-              </text>
-
-              {/* Radiosonde Sounding Ascent Trajectory */}
+              <g style={{ paintOrder: 'stroke', stroke: 'var(--theme-instrument-viewport-bg)', strokeWidth: '4px', strokeLinejoin: 'round' }}>
+                <text x="38" y="17" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">150hPa</text>
+                <text x="38" y="37" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">250hPa</text>
+                <text x="38" y="73" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">500hPa</text>
+                <text x="38" y="107" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">850hPa</text>
+                <text x="38" y="124" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">1013</text>
+              </g>
+              <g style={{ opacity: showCloudHigh ? 1.0 : 0.0, transition: 'opacity 0.2s' }}>
+                <circle cx="195" cy="34" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
+              </g>
+              <g style={{ opacity: showCloudMid ? 1.0 : 0.0, transition: 'opacity 0.2s' }}>
+                <circle cx="150" cy="70" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
+              </g>
+              <g style={{ opacity: showCloudLow ? 1.0 : 0.0, transition: 'opacity 0.2s' }}>
+                <circle cx="105" cy="104" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
+              </g>
               <polyline points="70,122 105,104 150,70 195,34 220,14" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1" strokeDasharray="3 2" opacity="0.85" />
-              <circle cx="105" cy="104" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
-              <circle cx="150" cy="70" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
-              <circle cx="195" cy="34" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
             </g>
           ) : (
-            // Theme 0 (Marie Tharp): Oceanographic / acoustic atmospheric sounding traces
             <g className="atmospheric-column-tharp acoustic-trace-tharp text-[var(--theme-instrument-ink)]">
-              {/* Radiosonde Temperature Lapse Rate Sounding Curve */}
-              <path
-                d="M 120 122 Q 100 104 125 88 Q 160 70 140 50 Q 130 34 165 14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                opacity="0.85"
-              />
-
+              {/* Radiosonde Temperature Curve */}
+              <path d="M 120 122 Q 100 104 125 88 Q 160 70 140 50 Q 130 34 165 14" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.85" />
               {/* Temperature Inversion Boundary Line (LCL) */}
               <line x1="42" y1="88" x2="272" y2="88" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.8" strokeDasharray="4 2" opacity="0.8" />
-              <text x="48" y="86" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} fontSize="6.5" fontFamily="monospace" opacity="0.9">
-                ▲ LCL CEILING
-              </text>
-
+              <text x="48" y="86" style={{ fill: 'var(--theme-instrument-ink-secondary)', paintOrder: 'stroke', stroke: 'var(--theme-instrument-viewport-bg)', strokeWidth: '4px', strokeLinejoin: 'round' }} fontSize="6.5" fontFamily="monospace" opacity="0.9">▲ LCL CEILING</text>
               {/* Sonar Acoustic Pulse Echo Circles */}
               <circle cx="125" cy="88" r="5" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.5" strokeDasharray="1 2" fill="none" opacity="0.6" />
               <circle cx="125" cy="88" r="10" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.5" strokeDasharray="2 2" fill="none" opacity="0.4" />
-
-              {/* Strata Designations */}
-              <text x="48" y="37" fill="currentColor" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
-                CIRRUS (10–12 km)
-              </text>
-              <text x="48" y="73" fill="currentColor" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
-                ALTOCUMULUS (4–6 km)
-              </text>
-              <text x="48" y="107" fill="currentColor" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
-                MARINE LAYER (1–2 km)
-              </text>
-
-              {/* Altitude Labels */}
-              <text x="38" y="17" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">15km</text>
-              <text x="38" y="37" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">12km</text>
-              <text x="38" y="73" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">5km</text>
-              <text x="38" y="107" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">1.5km</text>
-              <text x="38" y="124" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">0m</text>
             </g>
           )}
 
-          {/* Draggable Troposphere Standoff Altitude Caliper */}
+          {/* Draggable Troposphere Standoff Altitude Caliper (Drawn Before Text Labels) */}
           <g>
-            {/* Caliper Horizontal Indicator Line (Connects axis pointer to reticle badge) */}
+            {/* Caliper Horizontal Indicator Line */}
             <line
-              x1="45"
-              y1={caliperY}
-              x2="196"
-              y2={caliperY}
+              x1="45" y1={caliperY} x2="196" y2={caliperY}
               style={{ stroke: 'var(--theme-instrument-caliper)' }}
-              strokeWidth="1.5"
-              strokeDasharray="4 2"
-              className="drop-shadow-sm"
+              strokeWidth="1.5" strokeDasharray="4 2" className="drop-shadow-sm"
             />
-            {/* Left Axis Target Triangle (Tip meets vertical axis cleanly at x=40) */}
+            {/* Left Axis Target Triangle */}
             <polygon
               points={`40,${caliperY} 45,${caliperY - 3} 45,${caliperY + 3}`}
               style={{ fill: 'var(--theme-instrument-caliper)' }}
             />
-            {/* Right Caliper Standoff Reticle Badge (Flush with column boundary at x=272) */}
+            {/* Right Caliper Standoff Reticle Badge */}
             <rect
-              x="196"
-              y={caliperY - 7}
-              width="76"
-              height="14"
-              rx="2"
-              style={{
-                fill: 'var(--theme-instrument-caliper-badge-bg)',
-                stroke: 'var(--theme-instrument-caliper)'
-              }}
-              strokeWidth="1"
-              className="drop-shadow"
+              x="196" y={caliperY - 7} width="76" height="14" rx="2"
+              style={{ fill: 'var(--theme-instrument-caliper-badge-bg)', stroke: 'var(--theme-instrument-caliper)' }}
+              strokeWidth="1" className="drop-shadow"
             />
             <text
-              x="234"
-              y={caliperY + 3.5}
-              textAnchor="middle"
+              x="234" y={caliperY + 3.5} textAnchor="middle"
               style={{ fill: 'var(--theme-instrument-caliper-badge-text)' }}
-              fontSize="7.5"
-              fontFamily="monospace"
-              fontWeight="bold"
+              fontSize="7.5" fontFamily="monospace" fontWeight="bold"
             >
               {theme === 1 ? '△' : '▲'} {atmosphericScale.toFixed(1)}× {theme === 1 ? '▽' : '▼'}
             </text>
           </g>
+
+          {/* Theme-Specific Text Labels (Drawn ON TOP of Caliper to create cutout) */}
+          {theme === 1 ? (
+            <g style={{ paintOrder: 'stroke', stroke: 'var(--theme-instrument-viewport-bg)', strokeWidth: '4px', strokeLinejoin: 'round' }}>
+              <text x="48" y="37" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "currentColor" }} fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">Cirrus (10–12 km)</text>
+              <text x="48" y="73" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "currentColor" }} fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">Alto-cumulus (4–6 km)</text>
+              <text x="48" y="107" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "currentColor" }} fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">Stratus (1–2 km)</text>
+            </g>
+          ) : theme === 2 ? (
+            <g style={{ paintOrder: 'stroke', stroke: 'var(--theme-instrument-viewport-bg)', strokeWidth: '4px', strokeLinejoin: 'round' }}>
+              <text x="48" y="37" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "var(--theme-instrument-ink-secondary)" }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">JET / CIRRUS [250 hPa]</text>
+              <text x="48" y="73" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "var(--theme-instrument-ink-secondary)" }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">ALTOSTRATUS [500 hPa]</text>
+              <text x="48" y="107" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "var(--theme-instrument-ink-secondary)" }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">STRATUS [850 hPa]</text>
+            </g>
+          ) : (
+            <g style={{ paintOrder: 'stroke', stroke: 'var(--theme-instrument-viewport-bg)', strokeWidth: '4px', strokeLinejoin: 'round' }}>
+              <text x="48" y="37" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "currentColor" }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">CIRRUS (10–12 km)</text>
+              <text x="48" y="73" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "currentColor" }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">ALTOCUMULUS (4–6 km)</text>
+              <text x="48" y="107" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "currentColor" }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">MARINE LAYER (1–2 km)</text>
+            </g>
+          )}
         </svg>
       </div>
 
@@ -427,7 +356,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         <button
           type="button"
           onClick={() => onToggleStrata('low', !showCloudLow)}
-          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${showCloudLow ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'}`}
+          className={`tactile-press py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${showCloudLow ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'}`}
           title="Low Stratus / Fog (1–2 km altitude)"
         >
           <div className="flex items-center gap-1">
@@ -443,7 +372,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         <button
           type="button"
           onClick={() => onToggleStrata('mid', !showCloudMid)}
-          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${showCloudMid ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'}`}
+          className={`tactile-press py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${showCloudMid ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'}`}
           title="Mid Altocumulus (4–6 km altitude)"
         >
           <div className="flex items-center gap-1">
@@ -459,7 +388,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         <button
           type="button"
           onClick={() => onToggleStrata('high', !showCloudHigh)}
-          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${showCloudHigh ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'}`}
+          className={`tactile-press py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${showCloudHigh ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'}`}
           title="High Cirrus (10–12 km altitude)"
         >
           <div className="flex items-center gap-1">
@@ -479,7 +408,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         type="button"
         id="sidebar-strata-diagnostic-toggle"
         onClick={() => onToggleFalseColor?.(!cloudFalseColor)}
-        className={`w-full py-1 px-2 mb-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 text-nano font-mono ${
+        className={`tactile-press w-full py-1 px-2 mb-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 text-nano font-mono ${
           cloudFalseColor ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-bold shadow-sm' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
         }`}
         title="Toggle multi-spectral false-color emission for tropospheric cloud strata (Amber/Cyan/Magenta)"
