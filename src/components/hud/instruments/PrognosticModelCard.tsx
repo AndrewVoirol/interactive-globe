@@ -361,10 +361,10 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
   return (
     <div
       data-instrument="prognostic-model"
-      className={`p-2 rounded-[3px] border shadow-sm transition-all space-y-2 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${className}`}
+      className={`p-2 rounded-[3px] border shadow-sm transition-all space-y-3 bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${className}`}
     >
-      {/* 1. Status Header */}
-      <div className="flex items-start justify-between text-micro font-mono">
+      {/* 1. Status Header & Lead Time */}
+      <div className="flex items-start justify-between text-micro font-mono border-b border-[var(--theme-card-border-50)] pb-2 mb-2">
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] animate-pulse shrink-0" />
@@ -376,38 +376,164 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
             NWP & Tensor Telemetry
           </span>
         </div>
-        <div className="flex items-center gap-1 font-mono text-nano shrink-0 ml-1.5 pt-0.5">
-          <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
+        <div className="flex items-center gap-1.5 font-mono text-nano shrink-0">
+          <span className="px-1 py-0.5 bg-[var(--theme-control-active-bg)] text-[var(--theme-text-primary)] font-bold rounded-[2px] border border-[var(--theme-control-active-border)] shadow-sm leading-none">
             {modelMetadata.badge}
           </span>
           <span className="opacity-40">•</span>
           <span className="text-[var(--theme-text-secondary)]">Lead:</span>
-          <span className="font-bold tabular-nums text-[var(--theme-text-accent)]">
+          <span className="font-bold tabular-nums text-[var(--theme-text-accent)] text-micro bg-[var(--theme-instrument-caliper-badge-bg)] text-[var(--theme-instrument-caliper-badge-text)] px-1 rounded-[1px]">
             T+{leadTimeHours}h
           </span>
         </div>
       </div>
 
-      {/* 2. Interactive SVG Viewport: Synoptic Isolines, CAD Mesh & Baroclinic Wave */}
-      <div
-        ref={viewportRef}
-        tabIndex={0}
-        role="slider"
-        aria-label="Prognostic Forecast Lead Time and NWP Tensor Grid"
-        aria-valuemin={0}
-        aria-valuemax={240}
-        aria-valuenow={leadTimeHours}
-        aria-valuetext={`+${leadTimeHours}h Forecast Lead Time`}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        onDoubleClick={handleReset}
-        onKeyDown={handleKeyDown}
-        title="Drag lead time cursor horizontally (T+0h to T+240h) • Arrow keys step • Double-click to reset"
-        className={`relative w-full h-28 rounded-[2px] overflow-hidden cursor-ew-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)]`}
-      >
-        <svg
+      {/* 2. Controls: Model & Variable */}
+      <div className="space-y-2.5">
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-nano font-mono px-0.5">
+            <span className="font-bold text-[var(--theme-text-secondary)] uppercase tracking-wider">
+              Simulation Engine
+            </span>
+            <span className="text-[var(--theme-text-muted)] text-nano">
+              {modelMetadata.name} ({modelMetadata.res})
+            </span>
+          </div>
+          <SegmentedControl<PrognosticModelBackend>
+            size="sm"
+            value={normalizedModel}
+            onChange={handleModelSelect}
+            className="grid grid-cols-2 gap-1 w-full"
+            options={[
+              {
+                id: 'weathernext3',
+                domId: 'sidebar-model-weathernext',
+                label: 'WeatherNext 3',
+                sublabel: 'Graph Neural Net',
+                title: 'Google DeepMind WeatherNext 3',
+                className: 'w-full',
+              },
+              {
+                id: 'gfs',
+                domId: 'sidebar-model-gfs',
+                label: 'NOAA GFS',
+                sublabel: 'Finite-Volume',
+                title: 'NOAA GFS FV3',
+                className: 'w-full',
+              },
+              {
+                id: 'ecmwf',
+                domId: 'sidebar-model-ecmwf',
+                label: 'ECMWF IFS',
+                sublabel: 'Spectral HRES',
+                title: 'ECMWF IFS',
+                className: 'w-full',
+              },
+              {
+                id: 'off',
+                domId: 'sidebar-model-off',
+                label: 'Climatology',
+                sublabel: 'Empirical Mean',
+                title: 'Climatology Baseline',
+                className: 'w-full',
+              },
+            ]}
+          />
+        </div>
+
+        {isWeatherNext && (
+          <div className="space-y-1 pt-1 border-t border-[var(--theme-card-border-30)]">
+            <div className="flex items-center justify-between text-nano font-mono px-0.5 pt-0.5">
+              <span className="font-bold text-[var(--theme-text-secondary)] uppercase tracking-wider">
+                Prognostic Variable
+              </span>
+              <span className="text-[var(--theme-text-muted)] text-nano">
+                {normalizedVariable === 'wind_10m_vector'
+                  ? '10m Velocity Vector'
+                  : normalizedVariable === 'temperature_2m_mean'
+                  ? '2m Ambient Surface'
+                  : normalizedVariable === 'geopotential_500hpa'
+                  ? '500hPa Geopotential'
+                  : 'Total Column Water'}
+              </span>
+            </div>
+            <SegmentedControl<string>
+              size="sm"
+              value={normalizedVariable}
+              onChange={handleVariableSelect}
+              className="grid grid-cols-4 gap-1 w-full"
+              options={[
+                {
+                  id: 'total_precipitation_1hr_mean',
+                  domId: 'sidebar-variable-rain',
+                  label: 'Rain',
+                  sublabel: 'Column',
+                  title: 'Total Column Precipitation',
+                  className: 'w-full',
+                },
+                {
+                  id: 'temperature_2m_mean',
+                  domId: 'sidebar-variable-temp',
+                  label: 'Temp',
+                  sublabel: '2m Sfc',
+                  title: '2m Surface Temperature',
+                  className: 'w-full',
+                },
+                {
+                  id: 'wind_10m_vector',
+                  domId: 'sidebar-variable-wind',
+                  label: 'Wind',
+                  sublabel: '10m Vec',
+                  title: '10m Wind Velocity Vector',
+                  className: 'w-full',
+                },
+                {
+                  id: 'geopotential_500hpa',
+                  domId: 'sidebar-variable-z500',
+                  label: 'Height',
+                  sublabel: '500hPa',
+                  title: '500 hPa Geopotential Height',
+                  className: 'w-full',
+                },
+              ]}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* 3. Interactive SVG Viewport */}
+      <div className="space-y-1 pt-1 border-t border-[var(--theme-card-border-30)] mt-2.5">
+        <div className="flex items-center justify-between text-nano font-mono px-0.5">
+          <span className="font-bold text-[var(--theme-text-secondary)] uppercase tracking-wider">
+            Lead Time Scrubber
+          </span>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="text-[var(--theme-text-accent)] hover:underline cursor-pointer"
+          >
+            [RESET]
+          </button>
+        </div>
+        <div
+          ref={viewportRef}
+          tabIndex={0}
+          role="slider"
+          aria-label="Prognostic Forecast Lead Time and NWP Tensor Grid"
+          aria-valuemin={0}
+          aria-valuemax={240}
+          aria-valuenow={leadTimeHours}
+          aria-valuetext={`+${leadTimeHours}h Forecast Lead Time`}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onDoubleClick={handleReset}
+          onKeyDown={handleKeyDown}
+          title="Drag lead time cursor horizontally (T+0h to T+240h) • Arrow keys step • Double-click to reset"
+          className={`relative w-full h-28 rounded-[2px] overflow-hidden cursor-ew-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)]`}
+        >
+          <svg
           className="w-full h-full pointer-events-none"
           viewBox="0 0 280 110"
           preserveAspectRatio="xMidYMid meet"
@@ -696,128 +822,17 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
             />
           </g>
         </svg>
+        </div>
       </div>
 
-      {/* 3. SegmentedControl for Model Selection (4 Discrete NWP/AI Backends) */}
-      <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border-50)]">
-        <div className="flex items-center justify-between text-nano font-mono">
-          <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
-            Prognostic Model
-          </span>
-          <span className="text-[var(--theme-text-muted)] text-nano">
-            {modelMetadata.name} ({modelMetadata.res})
-          </span>
-        </div>
-        <SegmentedControl<PrognosticModelBackend>
-          size="sm"
-          value={normalizedModel}
-          onChange={handleModelSelect}
-          className="grid grid-cols-2 gap-1 font-mono text-body tracking-wider w-full"
-          options={[
-            {
-              id: 'weathernext3',
-              domId: 'sidebar-model-weathernext',
-              label: 'WeatherNext 3',
-              sublabel: 'DeepMind WeatherNext 3',
-              title: 'Google DeepMind WeatherNext 3 (0.1° / 10km Graph Neural Tensor / Zarr v3)',
-              className: 'w-full',
-            },
-            {
-              id: 'gfs',
-              domId: 'sidebar-model-gfs',
-              label: 'NOAA GFS',
-              sublabel: '13km FV3 (Comparison)',
-              title: 'NOAA GFS FV3 (Finite-Volume Cubed-Sphere 13km / 0.25° NWP)',
-              className: 'w-full',
-            },
-            {
-              id: 'ecmwf',
-              domId: 'sidebar-model-ecmwf',
-              label: 'ECMWF IFS',
-              sublabel: '9km Spectral',
-              title: 'ECMWF IFS HRES (Global Spectral 9km Numerical Weather Prediction)',
-              className: 'w-full',
-            },
-            {
-              id: 'off',
-              domId: 'sidebar-model-off',
-              label: 'Climatology',
-              sublabel: 'Baseline Off',
-              title: 'Off / Climatology Baseline (Empirical Atmospheric Mean State)',
-              className: 'w-full',
-            },
-          ]}
-        />
-      </div>
-
-      {/* 4. SegmentedControl for Variable Selection (Conditional on Model Activity) */}
-      {isWeatherNext && (
-        <div className="space-y-1 pt-1 border-t border-[var(--theme-control-border-50)]">
-          <div className="flex items-center justify-between text-nano font-mono">
-            <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
-              Prognostic Variable
-            </span>
-            <span className="text-[var(--theme-text-muted)] text-nano">
-              {normalizedVariable === 'wind_10m_vector'
-                ? '10m Wind Vector (IVT)'
-                : normalizedVariable === 'temperature_2m_mean'
-                ? '2m Surface Temperature'
-                : normalizedVariable === 'geopotential_500hpa'
-                ? '500 hPa Geopotential Height'
-                : 'Precipitation (Total Column)'}
-            </span>
-          </div>
-          <SegmentedControl<string>
-            size="sm"
-            value={normalizedVariable}
-            onChange={handleVariableSelect}
-            className="grid grid-cols-2 sm:grid-cols-4 gap-1 font-mono text-body tracking-wider w-full"
-            options={[
-              {
-                id: 'total_precipitation_1hr_mean',
-                domId: 'sidebar-variable-rain',
-                label: 'Rain',
-                sublabel: 'Precipitation',
-                title: 'Total Column Water Vapor & 1hr Precipitation (TCWV / mm/hr)',
-                className: 'w-full',
-              },
-              {
-                id: 'temperature_2m_mean',
-                domId: 'sidebar-variable-temp',
-                label: 'Temperature',
-                sublabel: '2m Surface',
-                title: 'Convective Available Potential Energy & 2m Ambient Temperature (°C / J/kg)',
-                className: 'w-full',
-              },
-              {
-                id: 'wind_10m_vector',
-                domId: 'sidebar-variable-wind',
-                label: '10m Wind',
-                sublabel: 'Vector Field',
-                title: 'Integrated Vapor Transport & 10m Wind Velocity Vector Field (rg16float)',
-                className: 'w-full',
-              },
-              {
-                id: 'geopotential_500hpa',
-                domId: 'sidebar-variable-z500',
-                label: 'Height',
-                sublabel: '500 hPa',
-                title: 'Geopotential Height Z500 (Mid-Tropospheric Steering Flow)',
-                className: 'w-full',
-              },
-            ]}
-          />
-        </div>
-      )}
-
-      {/* Plate IV.C: Lagrangian Advection Dynamics (Decoupled Vernier Sliders) */}
+      {/* 4. Lagrangian Advection Dynamics */}
       {showWindDynamics && (
-        <div className="space-y-1.5 pt-1.5 border-t border-[var(--theme-card-border-60)]">
-          <div className="flex items-center justify-between text-nano font-mono">
-            <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider text-body">
-              Lagrangian Advection Dynamics
+        <div className="space-y-1.5 pt-1.5 border-t border-[var(--theme-card-border-30)]">
+          <div className="flex items-center justify-between text-nano font-mono px-0.5">
+            <span className="font-bold text-[var(--theme-text-secondary)] uppercase tracking-wider">
+              Lagrangian Advection
             </span>
-            <span className="text-[var(--theme-text-muted)] text-micro uppercase tracking-widest font-mono">
+            <span className="text-[var(--theme-text-muted)] text-nano uppercase tracking-widest font-mono">
               Geodesic RK2
             </span>
           </div>
@@ -850,11 +865,11 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
         </div>
       )}
 
-      {/* 5. Integrated Data Provenance & WeatherNext Zarr v3 Telemetry */}
+      {/* 5. Integrated Data Provenance */}
       {isWeatherNext && (
-        <div className="p-1.5 rounded-[2px] border border-[var(--theme-control-border-60)] bg-[var(--theme-control-bg-40)] space-y-1 font-mono text-nano text-[var(--theme-text-muted)]">
+        <div className="p-2 rounded-[2px] border border-[var(--theme-control-border-60)] bg-[var(--theme-control-bg-40)] space-y-1.5 font-mono text-nano text-[var(--theme-text-muted)] mt-1.5">
           {/* Top Status Banner */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between border-b border-[var(--theme-control-border-30)] pb-1.5 mb-1.5">
             <div className="flex items-center gap-1.5">
               <span className="text-[var(--theme-status-sage)] font-bold">● GCS Zarr v3</span>
               <span>•</span>
@@ -866,7 +881,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           </div>
 
           {/* Detailed Provenance Metadata Grid */}
-          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pt-1 border-t border-[var(--theme-control-border-30)] text-micro opacity-85">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-micro opacity-85">
             <div className="flex items-center justify-between">
               <span className="text-[var(--theme-text-secondary)]">Resolution:</span>
               <span className="font-bold text-[var(--theme-text-primary)]">
@@ -906,20 +921,6 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           </div>
         </div>
       )}
-
-      {/* 6. Footer & Reset Action */}
-      <div className="flex items-center justify-between text-nano font-mono pt-1 border-t border-[var(--theme-card-border-50)] opacity-80">
-        <span className="truncate">
-          {modelMetadata.name.toUpperCase()} (T+0h .. T+240h)
-        </span>
-        <button
-          type="button"
-          onClick={handleReset}
-          className="inline-flex items-center justify-center min-h-[22px] px-1.5 py-0.5 -my-0.5 -mr-1 rounded-[1px] font-bold hover:underline text-[var(--theme-text-accent)] cursor-pointer shrink-0 ml-1"
-        >
-          [RESET]
-        </button>
-      </div>
     </div>
   );
 };
