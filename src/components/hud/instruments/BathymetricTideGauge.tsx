@@ -338,22 +338,22 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           style={{ clipPath: `inset(${100 - waterPct}% 0 0 0)` }}
         >
           <div
-            className={`absolute left-2 top-1.5 text-nano font-mono opacity-95 ${
-              theme === 1 ? 'text-[var(--theme-text-primary)] drop-shadow-[0_1px_2px_rgba(252,249,242,0.8)]' : 'text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]'
+            className={`absolute left-2 top-1.5 text-nano font-mono ${
+              theme === 1 ? 'bg-[var(--theme-instrument-viewport-bg-center)]/80 text-[var(--theme-text-primary)] px-1 py-px rounded-[1px] shadow-xs backdrop-blur-[1px]' : 'opacity-95 text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]'
             }`}
           >
             +100 m (Highstand)
           </div>
           <div
             className={`absolute left-2 top-[calc(40%+4px)] text-nano font-mono font-bold ${
-              theme === 1 ? 'text-[var(--theme-text-primary)] drop-shadow-[0_1px_2px_rgba(252,249,242,0.8)]' : 'text-[var(--theme-text-accent)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]'
+              theme === 1 ? 'bg-[var(--theme-instrument-viewport-bg-center)]/80 text-[var(--theme-text-primary)] px-1 py-px rounded-[1px] shadow-xs backdrop-blur-[1px]' : 'text-[var(--theme-text-accent)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]'
             }`}
           >
             0 m (Mean Sea Level)
           </div>
           <div
-            className={`absolute left-2 bottom-1.5 text-nano font-mono opacity-90 font-medium ${
-              theme === 1 ? 'text-[var(--theme-text-primary)] drop-shadow-[0_1px_2px_rgba(252,249,242,0.8)]' : 'text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]'
+            className={`absolute left-2 bottom-1.5 text-nano font-mono font-medium ${
+              theme === 1 ? 'bg-[var(--theme-instrument-viewport-bg-center)]/80 text-[var(--theme-text-primary)] px-1 py-px rounded-[1px] shadow-xs backdrop-blur-[1px]' : 'opacity-90 text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]'
             }`}
           >
             -150 m (Glacial Maximum)
