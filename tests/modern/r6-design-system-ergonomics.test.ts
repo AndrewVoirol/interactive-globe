@@ -81,10 +81,14 @@ describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety',
   });
 
   describe('Defect 5: Hypsometric Pigment Pans Text Wrapping', () => {
-    it('renders pigment pan labels with text-nano mono styling and truncate', () => {
-      // After refactor, pigment pan labels use simplified text-nano font-mono styling
-      expect(sidebarCode).toContain('text-nano font-mono opacity-80 uppercase tracking-tighter');
+    it('renders pigment pan labels with text-nano mono styling, truncate, and active contrast', () => {
+      // After refactor, pigment pan labels use conditional text-nano font-mono styling
+      // with contrast-safe text color on active state
+      expect(sidebarCode).toContain('text-nano font-mono');
+      expect(sidebarCode).toContain('uppercase tracking-tighter');
       expect(sidebarCode).toContain('pigment-pan');
+      // Active state uses --theme-control-active-text for contrast
+      expect(sidebarCode).toContain('text-[var(--theme-control-active-text)]');
     });
   });
 

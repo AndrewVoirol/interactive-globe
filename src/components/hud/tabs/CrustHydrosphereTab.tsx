@@ -441,7 +441,11 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
                     className="w-full h-3.5 rounded-[1px] border border-black/20 shadow-inner shrink-0"
                     style={{ backgroundColor: swatch.hex }}
                   />
-                  <div className="text-nano font-mono opacity-80 uppercase tracking-tighter text-[var(--theme-text-secondary)] shrink-0 truncate w-full text-center">
+                  <div className={`text-nano font-mono ${isIsolated ? 'opacity-100' : 'opacity-80'} uppercase tracking-tighter ${
+                    isIsolated
+                      ? 'text-[var(--theme-control-active-text)]'
+                      : 'text-[var(--theme-text-secondary)]'
+                  } shrink-0 truncate w-full text-center`}>
                     {swatch.depth}
                   </div>
                 </button>
