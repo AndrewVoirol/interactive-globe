@@ -335,7 +335,7 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
       );
     }
 
-    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 47;
+    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 239;
     if (
       typeof hour !== 'number' ||
       !Number.isInteger(hour) ||
@@ -533,7 +533,7 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
       throw new Error(`Unsupported variable '${targetVar}'`);
     }
 
-    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 47;
+    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 239;
     const clampedHour = Math.max(0, Math.min(maxHour, Math.floor(hour)));
 
     const h0 = clampedHour;
@@ -635,7 +635,7 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
       return Promise.reject(new Error(`Unsupported variable '${targetVar}'`));
     }
 
-    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 47;
+    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 239;
     const dispatchSeekId = this.seekSequenceId;
 
     this.currentHour = Math.min(maxHour, this.currentHour + 1);
@@ -695,7 +695,7 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
    */
   public async setTime(bracketHour: number, tau: number = 0.0): Promise<void> {
     if (this.isDisposed) return;
-    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 47;
+    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 239;
     const clampedHour = Math.max(0, Math.min(maxHour, Math.floor(bracketHour)));
 
     // Reset debounced idle keyframe prefetcher (1.5s idle threshold)
@@ -793,7 +793,7 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
     variable: string = this.activeVariable
   ): void {
     if (this.isDisposed || !this.enablePrewarm) return;
-    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 47;
+    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 239;
 
     let count = 0;
     if (direction < 0) {
@@ -861,7 +861,7 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
    */
   public prefetchIdleKeyframes(variable: string = this.activeVariable): void {
     if (this.isDisposed || !this.enableIdlePrefetch) return;
-    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 47;
+    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 239;
     for (let i = 0; i < this.anchorOffsets.length; i++) {
       const anchorHour = this.currentHour + this.anchorOffsets[i];
       if (anchorHour <= maxHour) {
@@ -910,7 +910,7 @@ export class WeatherNextDataSource implements IDataSource<WeatherNextMeta> {
     centerHour: number = this.currentHour,
     direction: 1 | -1 | 0 = this.scrubDirection
   ): number[] {
-    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 47;
+    const maxHour = this.metadata ? this.metadata.timeHorizon.totalHours - 1 : 239;
     const targets: number[] = [];
     if (direction < 0) {
       for (let r = 1; r <= this.prewarmRadius; r++) {

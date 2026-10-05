@@ -98,12 +98,12 @@ describe('Challenger R3: Adversarial Empirical Challenge Suite', () => {
 
         // Clamped bounds
         expect(state.absoluteMinutes).toBeGreaterThanOrEqual(-60);
-        expect(state.absoluteMinutes).toBeLessThanOrEqual(2880);
+        expect(state.absoluteMinutes).toBeLessThanOrEqual(14400);
         expect(Number.isFinite(state.absoluteMinutes)).toBe(true);
 
         // Bracket hour bounds
         expect(state.bracketHour).toBeGreaterThanOrEqual(0);
-        expect(state.bracketHour).toBeLessThanOrEqual(47);
+        expect(state.bracketHour).toBeLessThanOrEqual(239);
         expect(Number.isInteger(state.bracketHour)).toBe(true);
 
         // Tau bounds
@@ -154,7 +154,7 @@ describe('Challenger R3: Adversarial Empirical Challenge Suite', () => {
         expect(Number.isFinite(state.tau)).toBe(true);
         expect(Number.isInteger(state.bracketHour)).toBe(true);
         expect(state.bracketHour).toBeGreaterThanOrEqual(0);
-        expect(state.bracketHour).toBeLessThanOrEqual(47);
+        expect(state.bracketHour).toBeLessThanOrEqual(239);
       }
     });
 
@@ -438,10 +438,10 @@ describe('Challenger R3: Adversarial Empirical Challenge Suite', () => {
 
       // 2. Minute 2880 -> 48h -> bracketHour 47, tau 1.0
       await act(async () => {
-        nativeInput.value = '2880';
+        nativeInput.value = '14400';
         nativeInput.dispatchEvent(new Event('input', { bubbles: true }));
       });
-      expect(setTimeSpy).toHaveBeenLastCalledWith(47, 1.0);
+      expect(setTimeSpy).toHaveBeenLastCalledWith(239, 1.0);
 
       // 3. Minute -30 (Radar zone) -> bracketHour 0, tau 0.5
       await act(async () => {
@@ -500,7 +500,7 @@ describe('Challenger R3: Adversarial Empirical Challenge Suite', () => {
 
       await expect(Promise.all(promises)).resolves.not.toThrow();
       expect(ds.getCurrentHour()).toBeGreaterThanOrEqual(0);
-      expect(ds.getCurrentHour()).toBeLessThanOrEqual(47);
+      expect(ds.getCurrentHour()).toBeLessThanOrEqual(239);
     });
   });
 });

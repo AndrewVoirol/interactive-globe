@@ -9,7 +9,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Play, Pause, RotateCcw } from 'lucide-react';
 
 export interface TimelineScrubberState {
-  absoluteMinutes: number;    // -60 to +2880
+  absoluteMinutes: number;    // -60 to +14400
   isRadarZone: boolean;       // true if < 0 (past radar data)
   isForecastZone: boolean;    // true if > 0 (WeatherNext forecast)
   tau: number;                // 0.0-1.0 interpolation within current hour bracket
@@ -33,22 +33,22 @@ export interface TimelineScrubberProps {
 export const RADAR_FRACTION = 0.20;
 
 /**
- * Computes the normalized track position u in [0, 1] for a given absolute minute (-60 to +2880)
+ * Computes the normalized track position u in [0, 1] for a given absolute minute (-60 to +14400)
  */
 export function minutesToTrackPosition(minutes: number): number {
   if (isNaN(minutes)) return RADAR_FRACTION;
-  const m = Math.max(-60, Math.min(2880, minutes));
+  const m = Math.max(-60, Math.min(14400, minutes));
   if (m <= 0) {
     // [-60, 0] -> [0, RADAR_FRACTION]
     return ((m + 60) / 60) * RADAR_FRACTION;
   } else {
-    // [0, 2880] -> [RADAR_FRACTION, 1.0]
-    return RADAR_FRACTION + (m / 2880) * (1.0 - RADAR_FRACTION);
+    // [0, 14400] -> [RADAR_FRACTION, 1.0]
+    return RADAR_FRACTION + (m / 14400) * (1.0 - RADAR_FRACTION);
   }
 }
 
 /**
- * Computes absolute minutes (-60 to +2880) from normalized track position u in [0, 1]
+ * Computes absolute minutes (-60 to +14400) from normalized track position u in [0, 1]
  */
 export function trackPositionToMinutes(u: number): number {
   if (isNaN(u)) return 0;
@@ -57,7 +57,7 @@ export function trackPositionToMinutes(u: number): number {
   if (clampedU <= RADAR_FRACTION) {
     m = -60 + (clampedU / RADAR_FRACTION) * 60;
   } else {
-    m = ((clampedU - RADAR_FRACTION) / (1.0 - RADAR_FRACTION)) * 2880;
+    m = ((clampedU - RADAR_FRACTION) / (1.0 - RADAR_FRACTION)) * 14400;
   }
   // Clean IEEE-754 precision artifacts (e.g. 0.6 - 0.2 = 0.39999999999999997)
   return Math.round(m * 10000) / 10000;
@@ -69,7 +69,7 @@ export function trackPositionToMinutes(u: number): number {
 export function computeTimelineState(minutes: number, isPlaying: boolean): TimelineScrubberState {
   const safeMinutes = isNaN(minutes) ? 0 : minutes;
   const rounded = Math.round(safeMinutes * 10000) / 10000;
-  const clamped = Math.max(-60, Math.min(2880, rounded));
+  const clamped = Math.max(-60, Math.min(14400, rounded));
   const isRadarZone = clamped < 0;
   const isForecastZone = clamped > 0;
 
@@ -78,11 +78,11 @@ export function computeTimelineState(minutes: number, isPlaying: boolean): Timel
 
   if (clamped >= 0) {
     const totalHours = clamped / 60;
-    if (totalHours >= 48) {
-      bracketHour = 47;
+    if (totalHours >= 240) {
+      bracketHour = 239;
       tau = 1.0;
     } else {
-      bracketHour = Math.min(47, Math.floor(totalHours));
+      bracketHour = Math.min(239, Math.floor(totalHours));
       tau = Math.max(0.0, Math.min(1.0, totalHours - bracketHour));
     }
   } else {
@@ -112,9 +112,9 @@ const QUICK_JUMP_PRESETS = [
   { label: '-60m', minutes: -60, title: 'Oldest Doppler Radar Frame (-60 min)' },
   { label: '-30m', minutes: -30, title: 'Doppler Radar (-30 min)' },
   { label: 'NOW', minutes: 0, title: 'Observation Datum (NOW)', isDatum: true },
-  { label: '+12h', minutes: 720, title: 'WeatherNext Forecast (+12 Hours)' },
   { label: '+24h', minutes: 1440, title: 'WeatherNext Forecast (+24 Hours)' },
   { label: '+48h', minutes: 2880, title: 'WeatherNext Forecast Horizon (+48 Hours)' },
+  { label: '+240h', minutes: 14400, title: 'WeatherNext Forecast Horizon (+240 Hours)' },
 ];
 
 export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
@@ -156,7 +156,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
   const updateMinutes = useCallback(
     (newMinutes: number) => {
       const safeMinutes = Number.isFinite(newMinutes) ? newMinutes : 0;
-      const clamped = Math.max(-60, Math.min(2880, safeMinutes));
+      const clamped = Math.max(-60, Math.min(14400, safeMinutes));
       if (value === undefined) {
         setInternalMinutes(clamped);
       }
@@ -182,9 +182,9 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
         const deltaMinutes = BASE_MINUTES_PER_SECOND * speedRef.current * dtSec;
         let next = minutesRef.current + deltaMinutes;
 
-        // Loop seamlessly within [-60, 2880]
-        if (next > 2880) {
-          next = -60 + ((next - 2880) % 2940);
+        // Loop seamlessly within [-60, 14400]
+        if (next > 14400) {
+          next = -60 + ((next - 14400) % 14460);
         }
 
         minutesRef.current = next;
@@ -297,7 +297,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
       updateMinutes(-60);
     } else if (e.key === 'End') {
       e.preventDefault();
-      updateMinutes(2880);
+      updateMinutes(14400);
     } else if (e.key === '0' || e.key === 'n' || e.key === 'N') {
       e.preventDefault();
       updateMinutes(0);
@@ -346,7 +346,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
       };
     } else {
       const totalHours = rounded / 60;
-      const bracketHour = Math.min(47, Math.floor(totalHours));
+      const bracketHour = Math.min(239, Math.floor(totalHours));
       const m = rounded % 60;
       const tau = (m / 60).toFixed(2);
       const hoursStr = m === 0 ? `+${Math.floor(totalHours)}h` : `+${Math.floor(totalHours)}h ${m}m`;
@@ -406,7 +406,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
           <button
             type="button"
             onClick={() => handleStepperNudge(1)}
-            disabled={disabled || currentMinutes >= 2880}
+            disabled={disabled || currentMinutes >= 14400}
             title="Step forward (+10m radar or +1h forecast)"
             className="tactile-press w-5 h-5 rounded-[1px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] hover:bg-[var(--theme-control-hover-bg)] text-[var(--theme-text-accent)] disabled:opacity-35 flex items-center justify-center font-bold text-body leading-none select-none transition-colors"
           >
@@ -466,7 +466,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
           tabIndex={disabled ? -1 : 0}
           aria-label="Atmospheric Timeline Scrubber"
           aria-valuemin={-60}
-          aria-valuemax={2880}
+          aria-valuemax={14400}
           aria-valuenow={Math.round(currentMinutes)}
           aria-valuetext={`${readout.badge} ${readout.primary}`}
           data-testid="timeline-scrubber-track"
@@ -523,9 +523,9 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
             }`}
           >
             {/* Hourly & Major ticks in Forecast Zone */}
-            {[6, 12, 18, 24, 30, 36, 42, 48].map((h) => {
-              const tickPct = (h / 48) * 100;
-              const isEnd = h === 48;
+            {[24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
+              const tickPct = (h / 240) * 100;
+              const isEnd = h === 240;
               return (
                 <div
                   key={`forecast-major-tick-${h}`}
@@ -544,9 +544,9 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
             })}
 
             {/* Fine hourly ticks using theme-adaptive tick token */}
-            {Array.from({ length: 48 }).map((_, idx) => {
-              if (idx % 6 === 0) return null;
-              const tickPct = (idx / 48) * 100;
+            {Array.from({ length: 240 }).map((_, idx) => {
+              if (idx % 24 === 0) return null;
+              const tickPct = (idx / 240) * 100;
               return (
                 <div
                   key={`forecast-minor-tick-${idx}`}
@@ -592,7 +592,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
         <input
           type="range"
           min={-60}
-          max={2880}
+          max={14400}
           step={1}
           value={Math.round(currentMinutes)}
           disabled={disabled}
