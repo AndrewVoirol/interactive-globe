@@ -300,21 +300,24 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
 
         {/* Reference Geological Markers — z-30 ensures they render ABOVE the water volume and don't get blurred */}
         <div
-          className={`absolute left-2 top-1.5 text-nano font-mono pointer-events-none z-30 transition-opacity duration-150 ${
-            localSeaLevel >= 80 ? 'opacity-40' : 'opacity-85'
-          } text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]`}
+          className={`absolute left-2 top-1.5 px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-card-bg)]/60 backdrop-blur-[2px] border border-[var(--theme-card-border)] text-nano font-mono pointer-events-none z-30 transition-opacity duration-150 ${
+            localSeaLevel >= 80 ? 'opacity-40' : 'opacity-90'
+          } text-[var(--theme-text-secondary)] shadow-sm`}
+          style={{ textShadow: theme === 1 ? '0 1px 2px rgba(255,255,255,0.7)' : '0 1px 2px rgba(0,0,0,0.8)' }}
         >
           +100 m (Highstand)
         </div>
         <div
-          className="absolute left-2 top-[calc(40%+4px)] text-nano font-mono font-bold pointer-events-none z-30 text-[var(--theme-text-accent)] drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
+          className="absolute left-2 top-[calc(40%+4px)] px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-card-bg)]/70 backdrop-blur-[2px] border border-[var(--theme-card-border)] text-nano font-mono font-bold pointer-events-none z-30 text-[var(--theme-text-accent)] shadow-sm"
+          style={{ textShadow: theme === 1 ? '0 1px 2px rgba(255,255,255,0.8)' : '0 1px 3px rgba(0,0,0,0.9)' }}
         >
           0 m (Mean Sea Level)
         </div>
         <div
-          className={`absolute left-2 bottom-1.5 text-nano font-mono pointer-events-none z-30 transition-opacity duration-150 ${
+          className={`absolute left-2 bottom-1.5 px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-card-bg)]/60 backdrop-blur-[2px] border border-[var(--theme-card-border)] text-nano font-mono pointer-events-none z-30 transition-opacity duration-150 ${
             localSeaLevel <= -135 ? 'opacity-40' : 'opacity-90'
-          } text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] font-medium`}
+          } text-[var(--theme-text-secondary)] font-medium shadow-sm`}
+          style={{ textShadow: theme === 1 ? '0 1px 2px rgba(255,255,255,0.7)' : '0 1px 2px rgba(0,0,0,0.8)' }}
         >
           -150 m (Glacial Maximum)
         </div>
