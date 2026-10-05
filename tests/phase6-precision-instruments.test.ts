@@ -436,23 +436,24 @@ describe('Phase 6: Tactile Precision Instruments Suite', () => {
       expect(driftCode).toContain('Kinematic Temporal Motion');
       expect(driftCode).toContain('truncate pl-3');
 
-      // 2. Caliper vertical hairline stem terminates at bottom diamond apex (y=34), preventing collision with milestone ticks
+      // 2. Caliper vertical hairline stem splits for hollow optical diamond (y2=22, y1=34), preventing collision with milestone ticks
       expect(driftCode).toContain('y1="13"');
-      expect(driftCode).toContain('y2="34"');
+      expect(driftCode).toContain('y2="22"');
+      expect(driftCode).toContain('y1="34"');
       expect(driftCode).not.toContain('y2="49"');
 
       // 3. Milestone tick morphology at 500x matches clean tick lines, eliminating collision under reticle
       expect(driftCode).not.toContain('polygon points="70,41');
 
-      // 4. Gale chevrons (1750x) buffered with 8px clearance before storm cloud filaments
-      expect(driftCode).toContain('M 180 24.5 L 184 28');
+      // 4. Gale chevrons (1750x) buffered with clearance before storm cloud filaments
+      expect(driftCode).toContain('M 186 23 L 190 28');
       expect(driftCode).not.toContain('M 198 24.5 L 202 28');
 
-      // 5. Theme 1 Robinson anemometer has bearing collar base and clearance above streamline
-      expect(driftCode).toContain('Central Anemometer Spindle & Bearing Collar');
+      // 5. Theme 1 Robinson anemometer has top mount and bearing collar base above streamline
+      expect(driftCode).toContain('Theme 1: Archival Cream Rag (Robinson Cup Anemometer Engraving)');
       expect(driftCode).not.toContain('polygon points="204,23');
-      expect(driftCode).toContain('line x1="206" y1="5" x2="206" y2="17"');
-      expect(driftCode).toContain('d="M 115 14 C 145 15, 175 16, 226 16"');
+      expect(driftCode).toContain('line x1="206" y1="0" x2="206" y2="17"');
+      expect(driftCode).toContain('d="M 32 18 C 80 12, 160 22, 226 22"');
     });
   });
 
