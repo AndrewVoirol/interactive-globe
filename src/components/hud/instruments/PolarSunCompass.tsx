@@ -556,12 +556,9 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
             onPointerUp={handlePointerUp}
             onDoubleClick={() => onChange(315, 45)}
             title="Drag reticle to position sun vector (Double-click to reset to Imhof 315° / 45°, Arrow keys to nudge)"
-            className={`absolute inset-[14px] rounded-full cursor-crosshair select-none touch-none transition-transform duration-150 focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none`}
+            className={`absolute inset-[14px] rounded-full cursor-crosshair select-none touch-none focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none`}
             style={{
-              transform: isGrabbed ? 'scale(1.03)' : 'scale(1)',
-              boxShadow: isGrabbed
-                ? '0 0 16px var(--theme-focus-ring), inset 0 2px 8px rgba(0,0,0,0.3)'
-                : 'inset 0 2px 6px rgba(0,0,0,0.2)',
+              boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.2)',
             }}
           >
             {/* Full SVG dial face */}

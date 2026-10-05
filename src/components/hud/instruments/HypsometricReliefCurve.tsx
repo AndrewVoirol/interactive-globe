@@ -13,7 +13,7 @@
 //   - Tactile grab/release feedback matching PolarSunCompass standard
 // ============================================================================
 
-import React, { useRef, useCallback, useMemo, useState } from 'react';
+import React, { useRef, useCallback, useMemo } from 'react';
 
 export interface HypsometricReliefCurveProps {
   displacementScale?: number; // 0.00 to 0.25 (3D Relief extrusion height)
@@ -27,28 +27,28 @@ export interface HypsometricReliefCurveProps {
 
 // ── SVG Coordinate Space ─────────────────────────────────────────────────────
 // ViewBox: 340 × 180 — extra margins for rulers, frame brackets, and labels
-const VB_W = 340;
-const VB_H = 180;
+const VB_W = 300;
+const VB_H = 150;
 
 // Plot area within the frame (where the mountain profile lives)
-const PLOT_LEFT = 46;     // Left margin for Y-axis ruler
-const PLOT_RIGHT = 326;   // Right edge of plot
-const PLOT_TOP = 14;      // Top margin
-const PLOT_BOTTOM = 130;  // Bottom edge of plot (baseline datum)
-const PLOT_W = PLOT_RIGHT - PLOT_LEFT;   // 280
-const PLOT_H = PLOT_BOTTOM - PLOT_TOP;   // 116
+const PLOT_LEFT = 36;     // Left margin for Y-axis ruler
+const PLOT_RIGHT = 290;   // Right edge of plot
+const PLOT_TOP = 10;      // Top margin
+const PLOT_BOTTOM = 118;  // Bottom edge of plot (baseline datum)
+const PLOT_W = PLOT_RIGHT - PLOT_LEFT;   // 254
+const PLOT_H = PLOT_BOTTOM - PLOT_TOP;   // 108
 
 // Ruler dimensions
-const RULER_TICK_OUTER = 5;    // How far major ticks extend outside frame
-const RULER_TICK_MINOR = 3;
-const RULER_TICK_HAIR = 1.5;
+const RULER_TICK_OUTER = 4;    // How far major ticks extend outside frame
+const RULER_TICK_MINOR = 2.5;
+const RULER_TICK_HAIR = 1.2;
 
 // Frame bracket dimensions
-const BRACKET_LEN = 16;   // Length of L-bracket arms
-const BRACKET_W = 2.5;    // Width of bracket stroke
+const BRACKET_LEN = 12;   // Length of L-bracket arms
+const BRACKET_W = 2;      // Width of bracket stroke
 
 // X-axis ruler area (below plot)
-const XRULER_Y = PLOT_BOTTOM + 4;
+const XRULER_Y = PLOT_BOTTOM + 3;
 
 // Parameter ranges
 const DISP_MIN = 0.00;
@@ -195,8 +195,8 @@ const YAxisRuler = () => {
       />
     );
 
-    // Labels for major ticks
-    if (isMajor) {
+    // Labels only for 0.00, 0.10, 0.20 — keep it minimal
+    if (isMajor && (val === 0.0 || val === 0.10 || val === 0.20)) {
       ticks.push(
         <text
           key={`ylabel-${val}`}
@@ -250,8 +250,8 @@ const XAxisRuler = () => {
       />
     );
 
-    // Labels for major ticks
-    if (isMajor) {
+    // Labels for major ticks (1.0, 2.0, 3.0)
+    if (isMajor && val >= 1.0) {
       ticks.push(
         <text
           key={`xlabel-${val}`}
@@ -571,45 +571,45 @@ const DetentMarkers = ({ theme }: { theme: 0 | 1 | 2 }) => {
 // ── Axis Labels ──────────────────────────────────────────────────────────────
 const AxisLabels = () => (
   <g>
-    {/* Y-axis label */}
+    {/* Y-axis label — communicates terrain elevation */}
     <text
-      x={6}
+      x={8}
       y={PLOT_TOP + PLOT_H / 2}
       textAnchor="middle"
       dominantBaseline="central"
       fill="var(--theme-instrument-ink)"
-      fontSize="5.5"
+      fontSize="5"
       fontFamily="var(--theme-font-telemetry, 'IBM Plex Mono', monospace)"
       fontWeight="600"
-      opacity="0.45"
-      transform={`rotate(-90, 6, ${PLOT_TOP + PLOT_H / 2})`}
+      opacity="0.5"
+      transform={`rotate(-90, 8, ${PLOT_TOP + PLOT_H / 2})`}
     >
       Max 3D Relief (0.25×)
     </text>
     {/* X-axis label */}
     <text
       x={PLOT_LEFT + PLOT_W / 2}
-      y={VB_H - 4}
+      y={VB_H - 3}
       textAnchor="middle"
       dominantBaseline="central"
       fill="var(--theme-instrument-ink)"
-      fontSize="5.5"
+      fontSize="5"
       fontFamily="var(--theme-font-telemetry, 'IBM Plex Mono', monospace)"
       fontWeight="600"
-      opacity="0.45"
+      opacity="0.5"
     >
       Peak Sharpness
     </text>
-    {/* Baseline datum label */}
+    {/* Baseline datum label — communicates sea level */}
     <text
-      x={PLOT_RIGHT + 3}
+      x={PLOT_RIGHT + 2}
       y={PLOT_BOTTOM}
       textAnchor="start"
       dominantBaseline="central"
       fill="var(--theme-instrument-ink)"
       fontSize="4.5"
       fontFamily="var(--theme-font-telemetry, 'IBM Plex Mono', monospace)"
-      opacity="0.4"
+      opacity="0.45"
     >
       Baseline (0.00×)
     </text>
@@ -632,8 +632,8 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
 }) => {
   const boxRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
-  const [isGrabbed, setIsGrabbed] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+  const isGrabbedRef = useRef(false);
+  const isHoveredRef = useRef(false);
 
   const defaultDisplacement = THEME_DEFAULTS[theme].disp;
   const defaultPeakExponent = THEME_DEFAULTS[theme].exp;
@@ -697,9 +697,17 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
     [onDisplacementChange, onPeakExponentChange, theme]
   );
 
+  const applyGrabStyle = useCallback((grabbed: boolean) => {
+    if (!boxRef.current) return;
+    boxRef.current.style.boxShadow = grabbed
+      ? '0 0 16px var(--theme-focus-ring), 0 4px 12px rgba(0,0,0,0.25)'
+      : '0 2px 6px rgba(0,0,0,0.12)';
+  }, []);
+
   const handlePointerDown = (e: React.PointerEvent) => {
     isDraggingRef.current = true;
-    setIsGrabbed(true);
+    isGrabbedRef.current = true;
+    applyGrabStyle(true);
     try {
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     } catch {
@@ -715,7 +723,8 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
 
   const handlePointerUp = (e: React.PointerEvent) => {
     isDraggingRef.current = false;
-    setIsGrabbed(false);
+    isGrabbedRef.current = false;
+    applyGrabStyle(false);
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {
@@ -785,8 +794,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
     };
   }, [displacementScale, peakExponent]);
 
-  // Show filaments and badges during hover or drag
-  const showFilaments = isHovered || isGrabbed;
+  // Filaments always visible — they're part of the instrument's precision character
 
   return (
     <div
@@ -817,8 +825,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
       </div>
 
       {/* Interactive Mountain Cross-Section Viewport */}
-      <div className="flex items-center justify-center">
-        <div
+      <div
           ref={boxRef}
           tabIndex={0}
           role="slider"
@@ -856,20 +863,12 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          onPointerEnter={() => setIsHovered(true)}
-          onPointerLeave={() => setIsHovered(false)}
           onDoubleClick={handleReset}
           title="Drag peak summit vertically (3D Relief) and horizontally (Peak Sharpness) — Double-click or Enter to reset, Arrow keys to nudge"
-          className="relative cursor-crosshair select-none touch-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none"
+          className="relative w-full cursor-crosshair select-none touch-none focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none"
           style={{
-            width: 240,
-            height: 140,
-            transform: isGrabbed ? 'scale(1.02)' : 'scale(1)',
-            boxShadow: isGrabbed
-              ? '0 0 16px var(--theme-focus-ring), 0 4px 12px rgba(0,0,0,0.25)'
-              : isHovered
-                ? '0 0 12px var(--theme-focus-ring)'
-                : '0 2px 6px rgba(0,0,0,0.12)',
+            height: 130,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
           }}
         >
           <svg
@@ -878,12 +877,32 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
             preserveAspectRatio="none"
           >
             <defs>
-              {/* Hypsometric relief gradient */}
-              <linearGradient id={`reliefGrad-${theme}`} x1="0" y1="1" x2="0" y2="0">
-                <stop offset="0%" style={{ stopColor: 'var(--theme-instrument-strata-low)' }} stopOpacity="0.25" />
-                <stop offset="50%" style={{ stopColor: 'var(--theme-instrument-strata-mid)' }} stopOpacity="0.4" />
-                <stop offset="100%" style={{ stopColor: 'var(--theme-instrument-strata-high)' }} stopOpacity="0.7" />
-              </linearGradient>
+              {/* Hypsometric earth-tone relief gradient — per-theme hardcoded */}
+              {theme === 1 ? (
+                // Cream: warm sienna to ivory — traditional Swiss hypsometric tinting
+                <linearGradient id={`reliefGrad-${theme}`} x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0%" stopColor="#b8ad98" stopOpacity="0.3" />
+                  <stop offset="40%" stopColor="#9e8c6e" stopOpacity="0.45" />
+                  <stop offset="75%" stopColor="#8c6848" stopOpacity="0.55" />
+                  <stop offset="100%" stopColor="#6b4a30" stopOpacity="0.35" />
+                </linearGradient>
+              ) : theme === 2 ? (
+                // Cyanotype: deep indigo to pale blueprint wash
+                <linearGradient id={`reliefGrad-${theme}`} x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0%" stopColor="#263C54" stopOpacity="0.3" />
+                  <stop offset="40%" stopColor="#3B597A" stopOpacity="0.4" />
+                  <stop offset="75%" stopColor="#4F79A3" stopOpacity="0.5" />
+                  <stop offset="100%" stopColor="#6B94BD" stopOpacity="0.35" />
+                </linearGradient>
+              ) : (
+                // Tharp: oceanic teal to warm earth — Marie Tharp physiographic palette
+                <linearGradient id={`reliefGrad-${theme}`} x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0%" stopColor="#1a3a4a" stopOpacity="0.3" />
+                  <stop offset="40%" stopColor="#2d6b5a" stopOpacity="0.4" />
+                  <stop offset="75%" stopColor="#8a7050" stopOpacity="0.5" />
+                  <stop offset="100%" stopColor="#c4a060" stopOpacity="0.35" />
+                </linearGradient>
+              )}
             </defs>
 
             {/* Plot background */}
@@ -942,7 +961,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
             <ProjectionFilaments
               cx={peakSvgX}
               cy={peakSvgY}
-              opacity={showFilaments ? 0.65 : 0}
+              opacity={0.45}
             />
 
             {/* Caliper readout badges at ruler endpoints */}
@@ -951,7 +970,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
               cy={peakSvgY}
               dispValue={displacementScale.toFixed(2)}
               expValue={peakExponent.toFixed(1)}
-              visible={showFilaments}
+              visible={true}
             />
 
             {/* Engineering frame with L-brackets */}
@@ -971,12 +990,11 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
             <SummitMarker
               cx={peakSvgX}
               cy={peakSvgY}
-              isDragging={isGrabbed}
+              isDragging={false}
               isAtDetent={isAtDetent}
             />
           </svg>
         </div>
-      </div>
 
       {/* Footer: Instructions + Reset */}
       <div className="flex items-center justify-between text-nano font-mono mt-1 px-1 opacity-75">
