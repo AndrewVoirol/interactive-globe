@@ -13,7 +13,7 @@
 //   - Tactile grab/release feedback matching PolarSunCompass standard
 // ============================================================================
 
-import React, { useRef, useCallback, useMemo } from 'react';
+import React, { useRef, useCallback, useMemo, useState } from 'react';
 
 export interface HypsometricReliefCurveProps {
   displacementScale?: number; // 0.00 to 0.25 (3D Relief extrusion height)
@@ -610,10 +610,23 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
   const isDraggingRef = useRef(false);
   const isGrabbedRef = useRef(false);
 
+  // ── Local drag state for instant SVG feedback ──────────────────────────
+  // The parent's state update is debounced 200ms (queueUpdate → flushUpdates
+  // in useGlobeLayerManager). During drag, we maintain local values that
+  // update synchronously so the mountain profile tracks the pointer.
+  const [localDisp, setLocalDisp] = useState<number | null>(null);
+  const [localExp, setLocalExp] = useState<number | null>(null);
+
+  // Active values: local during drag, props otherwise
+  const activeDisp = localDisp !== null ? localDisp : displacementScale;
+  const activeExp = localExp !== null ? localExp : peakExponent;
+
   const defaultDisplacement = THEME_DEFAULTS[theme].disp;
   const defaultPeakExponent = THEME_DEFAULTS[theme].exp;
 
   const handleReset = useCallback(() => {
+    setLocalDisp(null);
+    setLocalExp(null);
     onDisplacementChange(defaultDisplacement);
     onPeakExponentChange(defaultPeakExponent);
   }, [defaultDisplacement, defaultPeakExponent, onDisplacementChange, onPeakExponentChange]);
@@ -643,6 +656,11 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
       newDisp = parseFloat(newDisp.toFixed(2));
       newExp = parseFloat(newExp.toFixed(1));
 
+      // Update local state immediately (SVG feedback)
+      setLocalDisp(newDisp);
+      setLocalExp(newExp);
+
+      // Push to parent/WebGPU engine (debounced by parent)
       onDisplacementChange(newDisp);
       onPeakExponentChange(newExp);
     },
@@ -677,6 +695,10 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
     isDraggingRef.current = false;
     isGrabbedRef.current = false;
     applyGrabStyle(false);
+    // Clear local state — fall back to parent props (which will
+    // catch up after the 200ms debounce flushes)
+    setLocalDisp(null);
+    setLocalExp(null);
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {
@@ -686,8 +708,8 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
 
   // ── Mountain profile curve geometry ────────────────────────────────────
   const { strokePath, fillPath, hachures, peakSvgX, peakSvgY } = useMemo(() => {
-    const normY = Math.max(0.0, Math.min(1.0, displacementScale / DISP_MAX));
-    const normX = Math.max(0.0, Math.min(1.0, (peakExponent - EXP_MIN) / (EXP_MAX - EXP_MIN)));
+    const normY = Math.max(0.0, Math.min(1.0, activeDisp / DISP_MAX));
+    const normX = Math.max(0.0, Math.min(1.0, (activeExp - EXP_MIN) / (EXP_MAX - EXP_MIN)));
 
     const py = PLOT_BOTTOM - normY * PLOT_H;
     const px = PLOT_LEFT + normX * PLOT_W;
@@ -744,7 +766,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
       peakSvgX: px,
       peakSvgY: py,
     };
-  }, [displacementScale, peakExponent]);
+  }, [activeDisp, activeExp]);
 
   // Filaments always visible — they're part of the instrument's precision character
 
@@ -764,12 +786,12 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
         <div className="flex items-center gap-1 font-mono text-nano">
           <span className="text-[var(--theme-text-secondary)]">3D Relief:</span>
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
-            {displacementScale.toFixed(2)}×
+            {activeDisp.toFixed(2)}×
           </span>
           <span className="opacity-40">•</span>
           <span className="text-[var(--theme-text-secondary)]">Peak Sharpness:</span>
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
-            {peakExponent.toFixed(1)}×
+            {activeExp.toFixed(1)}×
           </span>
         </div>
       </div>
@@ -782,8 +804,8 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
           aria-label="Hypsometric 3D Relief and Sharpness Curve"
           aria-valuemin={0}
           aria-valuemax={0.25}
-          aria-valuenow={displacementScale}
-          aria-valuetext={`3D Relief ${displacementScale.toFixed(2)}×, Peak Sharpness ${peakExponent.toFixed(1)}×`}
+          aria-valuenow={activeDisp}
+          aria-valuetext={`3D Relief ${activeDisp.toFixed(2)}×, Peak Sharpness ${activeExp.toFixed(1)}×`}
           onKeyDown={(e) => {
             const dispStep = e.shiftKey ? 0.02 : 0.005;
             const sharpStep = e.shiftKey ? 0.2 : 0.05;
@@ -918,8 +940,8 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
             <CaliperBadges
               cx={peakSvgX}
               cy={peakSvgY}
-              dispValue={displacementScale.toFixed(2)}
-              expValue={peakExponent.toFixed(1)}
+              dispValue={activeDisp.toFixed(2)}
+              expValue={activeExp.toFixed(1)}
               visible={true}
             />
 
