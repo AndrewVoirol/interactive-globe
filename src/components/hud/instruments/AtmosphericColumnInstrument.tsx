@@ -203,17 +203,20 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
           {/* Base Strata Column Bands (Period Compliant - No Muddy Fills) */}
           <rect
             x="42" y="24" width="230" height="20" rx="2"
-            style={{ fill: 'transparent', stroke: showCloudHigh ? (cloudFalseColor ? 'var(--theme-instrument-strata-high)' : 'var(--theme-instrument-ink)') : 'currentColor' }}
+            style={{ fill: showCloudHigh ? (cloudFalseColor ? 'var(--theme-instrument-strata-high)' : 'currentColor') : 'transparent', stroke: showCloudHigh ? (cloudFalseColor ? 'var(--theme-instrument-strata-high)' : 'var(--theme-instrument-ink)') : 'currentColor' }}
+            fillOpacity={showCloudHigh ? (0.04 + cloudOpacity * 0.16) : 0}
             strokeWidth={showCloudHigh ? 0.75 : 0.5} strokeDasharray={showCloudHigh ? 'none' : '4 4'} strokeOpacity={showCloudHigh ? 0.8 : 0.3}
           />
           <rect
             x="42" y="60" width="230" height="20" rx="2"
-            style={{ fill: 'transparent', stroke: showCloudMid ? (cloudFalseColor ? 'var(--theme-instrument-strata-mid)' : 'var(--theme-instrument-ink)') : 'currentColor' }}
+            style={{ fill: showCloudMid ? (cloudFalseColor ? 'var(--theme-instrument-strata-mid)' : 'currentColor') : 'transparent', stroke: showCloudMid ? (cloudFalseColor ? 'var(--theme-instrument-strata-mid)' : 'var(--theme-instrument-ink)') : 'currentColor' }}
+            fillOpacity={showCloudMid ? (0.04 + cloudOpacity * 0.16) : 0}
             strokeWidth={showCloudMid ? 0.75 : 0.5} strokeDasharray={showCloudMid ? 'none' : '4 4'} strokeOpacity={showCloudMid ? 0.8 : 0.3}
           />
           <rect
             x="42" y="94" width="230" height="20" rx="2"
-            style={{ fill: 'transparent', stroke: showCloudLow ? (cloudFalseColor ? 'var(--theme-instrument-strata-low)' : 'var(--theme-instrument-ink)') : 'currentColor' }}
+            style={{ fill: showCloudLow ? (cloudFalseColor ? 'var(--theme-instrument-strata-low)' : 'currentColor') : 'transparent', stroke: showCloudLow ? (cloudFalseColor ? 'var(--theme-instrument-strata-low)' : 'var(--theme-instrument-ink)') : 'currentColor' }}
+            fillOpacity={showCloudLow ? (0.04 + cloudOpacity * 0.16) : 0}
             strokeWidth={showCloudLow ? 0.75 : 0.5} strokeDasharray={showCloudLow ? 'none' : '4 4'} strokeOpacity={showCloudLow ? 0.8 : 0.3}
           />
 
