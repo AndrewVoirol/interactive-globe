@@ -200,7 +200,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
           viewBox="0 0 280 130"
           preserveAspectRatio="xMidYMid meet"
         >
-          {/* Base Strata Column Bands */}
+          {/* Base Strata Column Bands (Period Compliant - No Muddy Fills) */}
           {/* High Strata Band (Cirrus, 10–12 km) */}
           <rect
             x="42"
@@ -209,25 +209,13 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             height="20"
             rx="2"
             style={{
-              fill: 'var(--theme-instrument-viewport-bg-center)',
-              stroke: showCloudHigh ? 'var(--theme-instrument-ink)' : 'currentColor',
+              fill: showCloudHigh ? 'var(--theme-instrument-viewport-bg-center)' : 'transparent',
+              stroke: showCloudHigh ? (cloudFalseColor ? 'var(--theme-instrument-strata-high)' : 'var(--theme-instrument-ink)') : 'currentColor',
             }}
-            fillOpacity={showCloudHigh ? 0.35 : 0.08}
+            fillOpacity={showCloudHigh ? 0.9 : 0.0}
             strokeWidth={showCloudHigh ? 0.75 : 0.3}
             strokeOpacity={showCloudHigh ? 0.8 : 0.25}
           />
-          {showCloudHigh && (
-            <rect
-              x="42"
-              y="24"
-              width="230"
-              height="20"
-              rx="2"
-              style={{ fill: 'var(--theme-instrument-ink)' }}
-              fillOpacity={0.12 + cloudOpacity * 0.45}
-            />
-          )}
-
           {/* Mid Strata Band (Altocumulus, 4–6 km) */}
           <rect
             x="42"
@@ -236,25 +224,13 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             height="20"
             rx="2"
             style={{
-              fill: 'var(--theme-instrument-viewport-bg-center)',
-              stroke: showCloudMid ? 'var(--theme-instrument-ink)' : 'currentColor',
+              fill: showCloudMid ? 'var(--theme-instrument-viewport-bg-center)' : 'transparent',
+              stroke: showCloudMid ? (cloudFalseColor ? 'var(--theme-instrument-strata-mid)' : 'var(--theme-instrument-ink)') : 'currentColor',
             }}
-            fillOpacity={showCloudMid ? 0.35 : 0.08}
+            fillOpacity={showCloudMid ? 0.9 : 0.0}
             strokeWidth={showCloudMid ? 0.75 : 0.3}
             strokeOpacity={showCloudMid ? 0.8 : 0.25}
           />
-          {showCloudMid && (
-            <rect
-              x="42"
-              y="60"
-              width="230"
-              height="20"
-              rx="2"
-              style={{ fill: 'var(--theme-instrument-ink)' }}
-              fillOpacity={0.12 + cloudOpacity * 0.45}
-            />
-          )}
-
           {/* Low Strata Band (Stratus, 1–2 km) */}
           <rect
             x="42"
@@ -263,24 +239,13 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             height="20"
             rx="2"
             style={{
-              fill: 'var(--theme-instrument-viewport-bg-center)',
-              stroke: showCloudLow ? 'var(--theme-instrument-ink)' : 'currentColor',
+              fill: showCloudLow ? 'var(--theme-instrument-viewport-bg-center)' : 'transparent',
+              stroke: showCloudLow ? (cloudFalseColor ? 'var(--theme-instrument-strata-low)' : 'var(--theme-instrument-ink)') : 'currentColor',
             }}
-            fillOpacity={showCloudLow ? 0.35 : 0.08}
+            fillOpacity={showCloudLow ? 0.9 : 0.0}
             strokeWidth={showCloudLow ? 0.75 : 0.3}
             strokeOpacity={showCloudLow ? 0.8 : 0.25}
           />
-          {showCloudLow && (
-            <rect
-              x="42"
-              y="94"
-              width="230"
-              height="20"
-              rx="2"
-              style={{ fill: 'var(--theme-instrument-ink)' }}
-              fillOpacity={0.12 + cloudOpacity * 0.45}
-            />
-          )}
 
           {/* 3-Medium Adaptive SVG Groups */}
           {theme === 1 ? (
@@ -465,11 +430,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         <button
           type="button"
           onClick={() => onToggleStrata('low', !showCloudLow)}
-          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${
-            showCloudLow
-              ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
-              : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'
-          }`}
+          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${showCloudLow ? 'bg-[var(--theme-card-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-active-border)] shadow-[inset_0_1px_3px_var(--theme-control-active-ring)]' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'}`}
           title="Low Stratus / Fog (1–2 km altitude)"
         >
           <div className="flex items-center gap-1">
@@ -485,11 +446,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         <button
           type="button"
           onClick={() => onToggleStrata('mid', !showCloudMid)}
-          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${
-            showCloudMid
-              ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
-              : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'
-          }`}
+          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${showCloudMid ? 'bg-[var(--theme-card-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-active-border)] shadow-[inset_0_1px_3px_var(--theme-control-active-ring)]' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'}`}
           title="Mid Altocumulus (4–6 km altitude)"
         >
           <div className="flex items-center gap-1">
@@ -505,11 +462,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         <button
           type="button"
           onClick={() => onToggleStrata('high', !showCloudHigh)}
-          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${
-            showCloudHigh
-              ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm'
-              : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'
-          }`}
+          className={`py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${showCloudHigh ? 'bg-[var(--theme-card-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-active-border)] shadow-[inset_0_1px_3px_var(--theme-control-active-ring)]' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'}`}
           title="High Cirrus (10–12 km altitude)"
         >
           <div className="flex items-center gap-1">
@@ -530,9 +483,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         id="sidebar-strata-diagnostic-toggle"
         onClick={() => onToggleFalseColor?.(!cloudFalseColor)}
         className={`w-full py-1 px-2 mb-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 text-nano font-mono ${
-          cloudFalseColor
-            ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-bold shadow-sm'
-            : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
+          cloudFalseColor ? 'bg-[var(--theme-card-bg)] text-[var(--theme-text-primary)] border-[var(--theme-control-active-border)] shadow-[inset_0_1px_3px_var(--theme-control-active-ring)] font-bold' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
         }`}
         title="Toggle multi-spectral false-color emission for tropospheric cloud strata (Amber/Cyan/Magenta)"
       >
