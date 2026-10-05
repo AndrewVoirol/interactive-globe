@@ -137,12 +137,31 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         onPointerUp={handlePointerUp}
         onDoubleClick={() => onSeaLevelChange(0)}
         title="Drag waterline caliper vertically to raise/lower sea level (Double-click or Enter to reset to 0m, Arrow keys to nudge)"
-        className={`relative w-full h-20 rounded-[2px] overflow-hidden cursor-ns-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)]`}
+        className={`relative w-full h-28 rounded-[2px] overflow-hidden cursor-ns-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)]`}
       >
-        {/* Continental Shelf Silhouette in background */}
-        <div className="absolute inset-0 flex items-end opacity-15 pointer-events-none">
+        {/* Continental Shelf Profile — land colored, geologically shaped */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <svg className="w-full h-full" viewBox="0 0 300 100" preserveAspectRatio="none">
-            <polygon points="0,100 0,35 60,40 120,60 180,90 300,95 300,100" fill="currentColor" />
+            <defs>
+              {/* Land mass: warm earth tones */}
+              <linearGradient id="land-fill-tide" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={theme === 2 ? '#2a4a66' : theme === 0 ? '#3a4a3a' : '#b89a6a'} stopOpacity="0.5" />
+                <stop offset="100%" stopColor={theme === 2 ? '#1a3040' : theme === 0 ? '#2a3828' : '#8a7050'} stopOpacity="0.35" />
+              </linearGradient>
+            </defs>
+            {/* Continental shelf cross-section with realistic geomorphology */}
+            <polygon
+              points="0,100 0,20 15,22 40,28 65,35 90,42 120,55 145,68 160,80 175,88 200,93 240,96 300,98 300,100"
+              fill="url(#land-fill-tide)"
+            />
+            {/* Subtle shelf break line for geological definition */}
+            <polyline
+              points="0,20 15,22 40,28 65,35 90,42 120,55 145,68 160,80 175,88 200,93 240,96 300,98"
+              fill="none"
+              stroke={theme === 2 ? '#4a7a9a' : theme === 0 ? '#5a8a6a' : '#8a7050'}
+              strokeWidth="0.8"
+              opacity="0.3"
+            />
           </svg>
         </div>
 
@@ -194,15 +213,34 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           </svg>
         </div>
 
-        {/* Dynamic Water Volume */}
+        {/* Dynamic Water Volume — colored like actual ocean water */}
         <div
-          className={`absolute bottom-0 left-0 right-0 border-t pointer-events-none transition-none border-[var(--theme-instrument-viewport-border)]`}
+          className="absolute bottom-0 left-0 right-0 pointer-events-none transition-none"
           style={{ height: `${waterPct}%` }}
         >
           <div
-            className={`w-full h-full bg-gradient-to-b from-[var(--theme-instrument-ink-secondary)] to-[var(--theme-instrument-viewport-bg)]`}
-            style={{ opacity: 0.3 + waterClarity * 0.7 }}
-          ></div>
+            className="w-full h-full"
+            style={{
+              background: theme === 2
+                ? 'linear-gradient(to bottom, #3a8abf 0%, #1a3a5a 60%, #0d1724 100%)'
+                : theme === 0
+                ? 'linear-gradient(to bottom, #1a8a7a 0%, #0a4a4a 60%, #0c1219 100%)'
+                : 'linear-gradient(to bottom, #4a8aaa 0%, #2a5a6a 60%, #f4ede0 100%)',
+              opacity: 0.25 + waterClarity * 0.55,
+            }}
+          />
+          {/* Surface line — the waterline itself */}
+          <div
+            className="absolute top-0 left-0 right-0 h-px"
+            style={{
+              background: theme === 2
+                ? '#70b7ff'
+                : theme === 0
+                ? '#00e5ff'
+                : '#4a7a8a',
+              opacity: 0.5 + waterClarity * 0.3,
+            }}
+          />
         </div>
 
         {/* Permanent 0m Mean Sea Level Datum Line */}
