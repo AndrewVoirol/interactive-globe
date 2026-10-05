@@ -17,8 +17,6 @@ export interface SidebarTelemetryProps {
   purityMode?: boolean;
   isWindActive?: boolean;
   cameraPosition?: [number, number, number];
-  stratum?: string;
-  gridResolution?: string;
 }
 
 export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
@@ -36,8 +34,6 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
   purityMode = false,
   isWindActive = false,
   cameraPosition,
-  stratum: propStratum,
-  gridResolution,
 }) => {
   const [liveVram, setLiveVram] = useState<{
     totalMb: number;
@@ -162,12 +158,11 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
       : `Morph (α=${alpha.toFixed(2)})`;
 
   const currentStratum = useMemo(() => {
-    if (propStratum) return propStratum;
     const km = unitDistToKm(liveCamDist);
     return getStratumName(km);
-  }, [propStratum, liveCamDist]);
+  }, [liveCamDist]);
 
-  const activeGrid = gridResolution || '3600 × 1801 (0.1°)';
+  const activeGrid = '3600 × 1801 (0.1°)';
   const windStatusText = isWindActive ? 'rg16float (Active)' : 'Inactive';
 
   return (
