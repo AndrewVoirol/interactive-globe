@@ -257,11 +257,20 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
               seaLevelOffset >= 85
                 ? 'top-1'
                 : seaLevelOffset <= -135
-                ? '-top-4'
+                ? '-top-5'
                 : 'top-1/2 -translate-y-1/2'
-            } px-1.5 py-px rounded-[2px] border font-mono font-bold text-nano shadow-sm pointer-events-auto transition-transform bg-[var(--theme-instrument-caliper-badge-bg)] border-[var(--theme-instrument-caliper)] text-[var(--theme-instrument-caliper-badge-text)]`}
+            } flex items-center pointer-events-auto transition-transform cursor-ns-resize drop-shadow-md hover:scale-105 hover:drop-shadow-lg`}
           >
-            ◄ {seaLevelOffset > 0 ? `+${seaLevelOffset}m` : `${seaLevelOffset}m`} ►
+            {/* Machined Caliper Jaw (Grippy Handle) */}
+            <div className="w-2.5 h-6 rounded-l-[2px] border-y border-l bg-[var(--theme-instrument-caliper-badge-bg)] border-[var(--theme-instrument-caliper)] flex flex-col justify-evenly py-1 px-0.5 z-10 shadow-inner">
+              <div className="w-full h-px bg-[var(--theme-instrument-caliper)] opacity-50"></div>
+              <div className="w-full h-px bg-[var(--theme-instrument-caliper)] opacity-50"></div>
+              <div className="w-full h-px bg-[var(--theme-instrument-caliper)] opacity-50"></div>
+            </div>
+            {/* Digital/Analog Readout Block */}
+            <div className="h-5 px-1.5 flex items-center bg-[var(--theme-instrument-caliper-badge-bg)] border border-[var(--theme-instrument-caliper)] rounded-r-[2px] -ml-px font-mono font-bold text-nano text-[var(--theme-instrument-caliper-badge-text)] shadow-inner">
+              {seaLevelOffset > 0 ? `+${seaLevelOffset}m` : `${seaLevelOffset}m`}
+            </div>
           </div>
         </div>
 
