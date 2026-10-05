@@ -4,7 +4,7 @@
 // Direct interactive control of Sea Level Offset and Beer-Lambert Water Clarity
 // ============================================================================
 
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { VernierSlider } from '../../ui/VernierSlider';
 
 export interface BathymetricTideGaugeProps {
@@ -29,6 +29,20 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
   const boxRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
 
+  // Local state for buttery smooth UI decoupling
+  const [localSeaLevel, setLocalSeaLevel] = useState(seaLevelOffset);
+  const [localClarity, setLocalClarity] = useState(waterClarity);
+
+  useEffect(() => {
+    if (!isDraggingRef.current) {
+      setLocalSeaLevel(seaLevelOffset);
+    }
+  }, [seaLevelOffset]);
+
+  useEffect(() => {
+    setLocalClarity(waterClarity);
+  }, [waterClarity]);
+
   const updateFromPointer = useCallback(
     (clientY: number) => {
       if (!boxRef.current) return;
@@ -41,6 +55,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
       const rawMeters = -150 + (bottomPct / 100) * 250;
       const clampedMeters = Math.max(-150, Math.min(100, Math.round(rawMeters)));
 
+      setLocalSeaLevel(clampedMeters);
       onSeaLevelChange(clampedMeters);
     },
     [onSeaLevelChange]
@@ -70,7 +85,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
     }
   };
 
-  const waterPct = Math.max(0, Math.min(100, ((seaLevelOffset + 150) / 250) * 100));
+  const waterPct = Math.max(0, Math.min(100, ((localSeaLevel + 150) / 250) * 100));
 
 
   return (
@@ -86,12 +101,12 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         <div className="flex items-center gap-1 font-mono text-nano">
           <span className="text-[var(--theme-text-secondary)]">Sea Level:</span>
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
-            {seaLevelOffset > 0 ? `+${seaLevelOffset}m` : `${seaLevelOffset}m`}
+            {localSeaLevel > 0 ? `+${localSeaLevel}m` : `${localSeaLevel}m`}
           </span>
           <span className="opacity-40">•</span>
           <span className="text-[var(--theme-text-secondary)]">Clarity:</span>
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
-            {Math.round(waterClarity * 100)}%
+            {Math.round(localClarity * 100)}%
           </span>
         </div>
       </div>
@@ -104,31 +119,36 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         aria-label="Bathymetric Sea Level Gauge"
         aria-valuemin={-150}
         aria-valuemax={100}
-        aria-valuenow={seaLevelOffset}
-        aria-valuetext={`${seaLevelOffset > 0 ? '+' : ''}${seaLevelOffset}m`}
+        aria-valuenow={localSeaLevel}
+        aria-valuetext={`${localSeaLevel > 0 ? '+' : ''}${localSeaLevel}m`}
         onKeyDown={(e) => {
           const step = e.shiftKey ? 25 : 5;
+          let next = localSeaLevel;
           if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
             e.preventDefault();
-            onSeaLevelChange(Math.min(100, seaLevelOffset + step));
+            next = Math.min(100, localSeaLevel + step);
           } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
             e.preventDefault();
-            onSeaLevelChange(Math.max(-150, seaLevelOffset - step));
+            next = Math.max(-150, localSeaLevel - step);
           } else if (e.key === 'PageUp') {
             e.preventDefault();
-            onSeaLevelChange(Math.min(100, seaLevelOffset + 20));
+            next = Math.min(100, localSeaLevel + 20);
           } else if (e.key === 'PageDown') {
             e.preventDefault();
-            onSeaLevelChange(Math.max(-150, seaLevelOffset - 20));
+            next = Math.max(-150, localSeaLevel - 20);
           } else if (e.key === 'Home') {
             e.preventDefault();
-            onSeaLevelChange(-150);
+            next = -150;
           } else if (e.key === 'End') {
             e.preventDefault();
-            onSeaLevelChange(100);
+            next = 100;
           } else if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            onSeaLevelChange(0);
+            next = 0;
+          }
+          if (next !== localSeaLevel) {
+            setLocalSeaLevel(next);
+            onSeaLevelChange(next);
           }
         }}
         onPointerDown={handlePointerDown}
@@ -212,10 +232,14 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           </svg>
         </div>
 
-        {/* Dynamic Water Volume — colored like actual ocean water */}
+        {/* Dynamic Water Volume — colored like actual ocean water with backdrop blur for refraction */}
         <div
           className="absolute bottom-0 left-0 right-0 pointer-events-none transition-none"
-          style={{ height: `${waterPct}%` }}
+          style={{ 
+            height: `${waterPct}%`,
+            backdropFilter: `blur(${1 + (1 - localClarity) * 6}px)`,
+            WebkitBackdropFilter: `blur(${1 + (1 - localClarity) * 6}px)`
+          }}
         >
           <div
             className="w-full h-full"
@@ -225,7 +249,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
                 : theme === 0
                 ? 'linear-gradient(to bottom, #1a8a7a 0%, #0a4a4a 60%, #0c1219 100%)'
                 : 'linear-gradient(to bottom, #4a8aaa 0%, #2a5a6a 60%, #f4ede0 100%)',
-              opacity: 0.25 + waterClarity * 0.55,
+              opacity: 0.25 + localClarity * 0.55,
             }}
           />
           {/* Surface line — the waterline itself */}
@@ -237,7 +261,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
                 : theme === 0
                 ? '#00e5ff'
                 : '#4a7a8a',
-              opacity: 0.5 + waterClarity * 0.3,
+              opacity: 0.5 + localClarity * 0.3,
             }}
           />
         </div>
@@ -254,9 +278,9 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         >
           <div
             className={`absolute right-1.5 ${
-              seaLevelOffset >= 85
+              localSeaLevel >= 85
                 ? 'top-1'
-                : seaLevelOffset <= -135
+                : localSeaLevel <= -135
                 ? '-top-5'
                 : 'top-1/2 -translate-y-1/2'
             } flex items-center pointer-events-auto transition-transform cursor-ns-resize drop-shadow-md hover:scale-105 hover:drop-shadow-lg`}
@@ -269,27 +293,27 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
             </div>
             {/* Digital/Analog Readout Block */}
             <div className="h-5 px-1.5 flex items-center bg-[var(--theme-instrument-caliper-badge-bg)] border border-[var(--theme-instrument-caliper)] rounded-r-[2px] -ml-px font-mono font-bold text-nano text-[var(--theme-instrument-caliper-badge-text)] shadow-inner">
-              {seaLevelOffset > 0 ? `+${seaLevelOffset}m` : `${seaLevelOffset}m`}
+              {localSeaLevel > 0 ? `+${localSeaLevel}m` : `${localSeaLevel}m`}
             </div>
           </div>
         </div>
 
-        {/* Reference Geological Markers — z-20 ensures they render ABOVE the water volume */}
+        {/* Reference Geological Markers — z-30 ensures they render ABOVE the water volume and don't get blurred */}
         <div
-          className={`absolute left-2 top-1.5 text-nano font-mono pointer-events-none z-20 transition-opacity duration-150 ${
-            seaLevelOffset >= 80 ? 'opacity-40' : 'opacity-85'
+          className={`absolute left-2 top-1.5 text-nano font-mono pointer-events-none z-30 transition-opacity duration-150 ${
+            localSeaLevel >= 80 ? 'opacity-40' : 'opacity-85'
           } text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]`}
         >
           +100 m (Highstand)
         </div>
         <div
-          className="absolute left-2 top-[calc(40%+4px)] text-nano font-mono font-bold pointer-events-none z-20 text-[var(--theme-text-accent)] drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
+          className="absolute left-2 top-[calc(40%+4px)] text-nano font-mono font-bold pointer-events-none z-30 text-[var(--theme-text-accent)] drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
         >
           0 m (Mean Sea Level)
         </div>
         <div
-          className={`absolute left-2 bottom-1.5 text-nano font-mono pointer-events-none z-20 transition-opacity duration-150 ${
-            seaLevelOffset <= -135 ? 'opacity-40' : 'opacity-90'
+          className={`absolute left-2 bottom-1.5 text-nano font-mono pointer-events-none z-30 transition-opacity duration-150 ${
+            localSeaLevel <= -135 ? 'opacity-40' : 'opacity-90'
           } text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] font-medium`}
         >
           -150 m (Glacial Maximum)
@@ -301,13 +325,16 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         <VernierSlider
           id="tide-gauge-water-clarity"
           label="Beer-Lambert Clarity:"
-          value={waterClarity}
+          value={localClarity}
           defaultValue={0.65}
           min={0.10}
           max={1.00}
           step={0.05}
-          readout={`${Math.round(waterClarity * 100)}%`}
-          onChange={onWaterClarityChange}
+          readout={`${Math.round(localClarity * 100)}%`}
+          onChange={(val) => {
+            setLocalClarity(val);
+            onWaterClarityChange(val);
+          }}
           showSteppers={true}
           className="!border-0 !bg-transparent !p-0.5 !shadow-none"
         />
