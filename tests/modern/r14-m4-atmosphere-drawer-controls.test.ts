@@ -468,7 +468,6 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
     it('M4-HUD-05: standalone AtmosphereDrawer component renders identically with full prop wiring', async () => {
       const onScaleChange = vi.fn();
       const onShadowChange = vi.fn();
-      const onHorizonClick = vi.fn();
 
       await act(async () => {
         root.render(
@@ -478,7 +477,6 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
             shadowIntensity: 0.50,
             onAtmosphericScaleChange: onScaleChange,
             onShadowIntensityChange: onShadowChange,
-            onHorizonPresetClick: onHorizonClick,
           })
         );
       });
@@ -491,14 +489,10 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
       expect(container.textContent).toMatch(/8\.5[x×]/);
       expect(container.textContent).toContain('50%');
 
-      const presetBtn = container.querySelector('button[title*="Horizon Cross-Section"]') as HTMLButtonElement;
-      expect(presetBtn).not.toBeNull();
-
-      await act(async () => {
-        presetBtn.click();
-      });
-
-      expect(onHorizonClick).toHaveBeenCalledTimes(1);
+      // Horizon Cross-Section button was intentionally eliminated in composition audit (f2c78b5).
+      // The camera "horizon" snap is now available only via the 5-button camera snap row in KinematicsTab.
+      const presetBtn = container.querySelector('button[title*="Horizon Cross-Section"]');
+      expect(presetBtn).toBeNull();
     });
 
     it('M4-HUD-06: strictly complies with Invariant §4 Single-Border HUD Enclosure Contract', async () => {
@@ -604,24 +598,22 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
   });
 
   // ==========================================================================
-  // Suite 3: Horizon Cross-Section Preset Button & Camera Kinematics
+  // Suite 3: Horizon Cross-Section Preset — Intentionally Eliminated (f2c78b5)
+  // The standalone "Horizon Cross-Section (78°)" button was removed as redundant.
+  // Camera horizon snap is accessible via the 5-button camera snap row in KinematicsTab.
   // ==========================================================================
   describe('3. Horizon Cross-Section Preset Button & Camera Kinematics', () => {
-    it('M4-CAM-01: renders 1-click Horizon Cross-Section preset button with accessible label and badge', async () => {
+    it('M4-CAM-01: Horizon Cross-Section preset button has been intentionally eliminated (composition audit f2c78b5)', async () => {
       await act(async () => {
         root.render(React.createElement(UnifiedRightSidebar, createSidebarProps()));
       });
 
-      const presetBtn = container.querySelector('button[title*="Horizon Cross-Section"]') as HTMLButtonElement;
-      expect(presetBtn).not.toBeNull();
-      expect(presetBtn.textContent).toContain('Horizon Cross-Section (78°)');
-      expect(presetBtn.textContent).toContain('78.0° Oblique');
+      const presetBtn = container.querySelector('button[title*="Horizon Cross-Section"]');
+      expect(presetBtn).toBeNull();
     });
 
-    it('M4-CAM-02: clicking preset button dispatches onSnapCamera("horizon") and scales up atmosphere', async () => {
+    it('M4-CAM-02: horizon preset no longer dispatches onSnapCamera from AtmosphereDrawer (moved to KinematicsTab snap row)', async () => {
       const onSnapCamera = vi.fn();
-      const onAtmosphericScaleChange = vi.fn();
-      const onShowCloudsChange = vi.fn();
 
       await act(async () => {
         root.render(
@@ -631,22 +623,14 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
               showClouds: true,
               atmosphericScale: 1.0,
               onSnapCamera,
-              onAtmosphericScaleChange,
-              onShowCloudsChange,
             })
           )
         );
       });
 
-      const presetBtn = container.querySelector('button[title*="Horizon Cross-Section"]') as HTMLButtonElement;
-      expect(presetBtn).not.toBeNull();
-
-      await act(async () => {
-        presetBtn.click();
-      });
-
-      expect(onSnapCamera).toHaveBeenCalledWith('horizon');
-      expect(onAtmosphericScaleChange).toHaveBeenCalledWith(6.0);
+      const presetBtn = container.querySelector('button[title*="Horizon Cross-Section"]');
+      expect(presetBtn).toBeNull();
+      // Camera "horizon" snap is now only in KinematicsTab's camera snap row
     });
 
     it('M4-CAM-03: verifies Pitch 78.0° limb horizon optical geometry (r_cam = 5.22, pitch = 78.0°)', () => {
@@ -903,7 +887,7 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
       }
     });
 
-    it('M4-STRESS-02: 50 rapid sequential clicks on Horizon preset button execute without dropped state or error', async () => {
+    it('M4-STRESS-02: Horizon Cross-Section preset button intentionally eliminated — no longer stressable (f2c78b5)', async () => {
       const onSnapCamera = vi.fn();
       await act(async () => {
         root.render(
@@ -916,17 +900,12 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
         );
       });
 
-      const presetBtn = container.querySelector('button[title*="Horizon Cross-Section"]') as HTMLButtonElement;
-      expect(presetBtn).not.toBeNull();
+      // Button was intentionally removed in composition audit f2c78b5
+      const presetBtn = container.querySelector('button[title*="Horizon Cross-Section"]');
+      expect(presetBtn).toBeNull();
 
-      await act(async () => {
-        for (let i = 0; i < 50; i++) {
-          presetBtn.click();
-        }
-      });
-
-      expect(onSnapCamera).toHaveBeenCalledTimes(50);
-      expect(onSnapCamera).toHaveBeenLastCalledWith('horizon');
+      // Camera "horizon" snap is now only accessible via KinematicsTab's 5-button camera snap row
+      expect(onSnapCamera).not.toHaveBeenCalled();
     });
   });
 });

@@ -533,7 +533,7 @@ describe('Challenger M4.2.2: Prop Pipeline & UI Synchronization Stress (Pillar A
     expect(latestShadow).toBeLessThanOrEqual(0.60);
   });
 
-  it('CHALLENGE-SYNC-05: dynamic transition interrupted by pointer/wheel events and UI preset re-trigger maintains camera and uniform safety', async () => {
+  it('CHALLENGE-SYNC-05: dynamic transition interrupted by pointer/wheel events maintains camera and uniform safety (horizon preset eliminated f2c78b5)', async () => {
     let latestScale = 1.0;
     let latestShadow = 0.45;
     let latestClouds = true;
@@ -552,16 +552,17 @@ describe('Challenger M4.2.2: Prop Pipeline & UI Synchronization Stress (Pillar A
 
     const scaleInput = container.querySelector('#sidebar-atmospheric-scale') as HTMLInputElement;
     const shadowInput = container.querySelector('#sidebar-shadow-intensity') as HTMLInputElement;
-    const presetBtn = container.querySelector('button[title*="Horizon Cross-Section"]') as HTMLButtonElement;
-    expect(presetBtn).not.toBeNull();
 
-    // 1. Trigger via UI preset button click
+    // Horizon Cross-Section preset button intentionally eliminated (f2c78b5)
+    const presetBtn = container.querySelector('button[title*="Horizon Cross-Section"]');
+    expect(presetBtn).toBeNull();
+
+    // 1. Set scale to 6.0 via slider (mimics what the old preset button did)
     await act(async () => {
-      presetBtn.click();
+      triggerInputChange(scaleInput, '6.0');
     });
 
     expect(latestScale).toBe(6.0);
-    expect(latestClouds).toBe(true);
 
     // 2. Simulate camera kinematics mid-flight step at t = 0.3s
     const startPose = new Vector3(0, 0, 15);
@@ -599,23 +600,15 @@ describe('Challenger M4.2.2: Prop Pipeline & UI Synchronization Stress (Pillar A
     expect(mirror[27]).toBeCloseTo(0.55, 4);
     expect((engine as any).crustFloats[68]).toBeCloseTo(0.55, 4);
 
-    // 5. Re-trigger preset button while scale is already 9.2 (should keep scale at >= 6.0, preserving 9.2)
-    await act(async () => {
-      presetBtn.click();
-    });
-
-    // Per line 700: s <= 1.05 ? 6.0 : Math.max(s, 6.0) -> scale remains 9.2!
-    expect(latestScale).toBe(9.2);
-
-    // 6. User scrubs scale back to 1.0
+    // 5. User scrubs scale back to 1.0
     await act(async () => {
       triggerInputChange(scaleInput, '1.0');
     });
     expect(latestScale).toBe(1.0);
 
-    // 7. Clicking preset button from 1.0x scales up to 6.0x
+    // 6. Bump scale back up to 6.0 via slider
     await act(async () => {
-      presetBtn.click();
+      triggerInputChange(scaleInput, '6.0');
     });
     expect(latestScale).toBe(6.0);
     expect(scaleInput.value).toBe('6');

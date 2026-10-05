@@ -1042,7 +1042,7 @@ describe('Challenger 1: Milestone 5 PrognosticModelCard Behavioral Adversarial S
       });
 
       expect(container.textContent).toContain('PROGNOSTIC MODEL');
-      expect(container.textContent).toContain('Numerical Weather Prediction & Tensor Telemetry');
+      expect(container.textContent).toContain('NWP & Tensor Telemetry');
       expect(container.querySelector('#sidebar-model-gfs')).not.toBeNull();
       expect(container.querySelector('#sidebar-model-weathernext')).not.toBeNull();
     });
