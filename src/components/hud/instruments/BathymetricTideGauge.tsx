@@ -37,10 +37,9 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
       const bottomPct = (1 - normY) * 100;
 
       // Range: -150m to +100m (250m span)
-      // Step: 5m
+      // Continuous 1m resolution for buttery-smooth drag
       const rawMeters = -150 + (bottomPct / 100) * 250;
-      const steppedMeters = Math.round(rawMeters / 5) * 5;
-      const clampedMeters = Math.max(-150, Math.min(100, steppedMeters));
+      const clampedMeters = Math.max(-150, Math.min(100, Math.round(rawMeters)));
 
       onSeaLevelChange(clampedMeters);
     },
@@ -245,12 +244,12 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
 
         {/* Permanent 0m Mean Sea Level Datum Line */}
         <div
-          className="absolute left-0 right-0 top-[40%] h-px border-b border-dashed border-[var(--theme-text-secondary-35)] pointer-events-none"
+          className="absolute left-0 right-0 top-[40%] h-px border-b border-dashed border-[var(--theme-text-secondary-35)] pointer-events-none z-10"
         />
 
         {/* Sea Level Caliper Reticle Line with Centered Precision Badge */}
         <div
-          className={`absolute left-0 right-0 h-0.5 pointer-events-none bg-[var(--theme-instrument-caliper)] shadow-[0_1px_4px_rgba(0,0,0,0.4)]`}
+          className={`absolute left-0 right-0 h-0.5 pointer-events-none z-30 bg-[var(--theme-instrument-caliper)] shadow-[0_1px_4px_rgba(0,0,0,0.4)]`}
           style={{ bottom: `${waterPct}%` }}
         >
           <div
@@ -266,21 +265,21 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           </div>
         </div>
 
-        {/* Reference Geological Markers with Clean Unboxed Cartographic Typography */}
+        {/* Reference Geological Markers — z-20 ensures they render ABOVE the water volume */}
         <div
-          className={`absolute left-2 top-1.5 text-nano font-mono pointer-events-none transition-opacity duration-150 ${
+          className={`absolute left-2 top-1.5 text-nano font-mono pointer-events-none z-20 transition-opacity duration-150 ${
             seaLevelOffset >= 80 ? 'opacity-40' : 'opacity-85'
-          } text-[var(--theme-text-secondary)]`}
+          } text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]`}
         >
           +100 m (Highstand)
         </div>
         <div
-          className="absolute left-2 top-[calc(40%+4px)] text-nano font-mono font-bold pointer-events-none text-[var(--theme-text-accent)]"
+          className="absolute left-2 top-[calc(40%+4px)] text-nano font-mono font-bold pointer-events-none z-20 text-[var(--theme-text-accent)] drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
         >
           0 m (Mean Sea Level)
         </div>
         <div
-          className={`absolute left-2 bottom-1.5 text-nano font-mono pointer-events-none transition-opacity duration-150 ${
+          className={`absolute left-2 bottom-1.5 text-nano font-mono pointer-events-none z-20 transition-opacity duration-150 ${
             seaLevelOffset <= -135 ? 'opacity-40' : 'opacity-90'
           } text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] font-medium`}
         >
