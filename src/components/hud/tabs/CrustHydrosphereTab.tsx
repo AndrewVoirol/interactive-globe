@@ -455,7 +455,7 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
         </div>
       </HypsometricReliefCurve>
 
-      {/* 3. Bathymetric Hydrosphere Station */}
+      {/* 3. Bathymetric Hydrosphere & Drainage Station */}
       <BathymetricTideGauge
         theme={theme}
         seaLevelOffset={primaryLayer?.seaLevelOffset ?? 0}
@@ -463,93 +463,93 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
         onSeaLevelChange={(offset) => onSeaLevelOffsetChangeDataLayer?.(primaryLayerId, offset)}
         onWaterClarityChange={(clarity) => onWaterClarityChangeDataLayer?.(primaryLayerId, clarity)}
         isLight={isLight}
-      />
-
-      {/* 4. Geomorphic Hydrology & Drainage Basin Station */}
-      <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
-              Geomorphic Hydrology
-            </span>
-            <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
-              D-∞ catchment routing & Leopold-Maddock
-            </span>
+      >
+        {/* Dynamic Geomorphic Drainage Basin Synthesis & Leopold-Maddock Hydrology */}
+        <div className="pt-2 border-t border-[var(--theme-card-border)] space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                Geomorphic Hydrology
+              </span>
+              <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+                D-∞ catchment routing & Leopold-Maddock
+              </span>
+            </div>
+            <TactileSwitch
+              id="sidebar-geomorphic-hydrology-toggle"
+              checked={activeGeomorphicHydrology}
+              onChange={handleToggleGeomorphicHydrology}
+              title="Toggle Dynamic Geomorphic Hydrology & Basin Accumulation"
+              label={activeGeomorphicHydrology ? 'Active' : 'Off'}
+              indicatorColor="var(--theme-status-amber)"
+            />
           </div>
-          <TactileSwitch
-            id="sidebar-geomorphic-hydrology-toggle"
-            checked={activeGeomorphicHydrology}
-            onChange={handleToggleGeomorphicHydrology}
-            title="Toggle Dynamic Geomorphic Hydrology & Basin Accumulation"
-            label={activeGeomorphicHydrology ? 'Active' : 'Off'}
-            indicatorColor="var(--theme-status-amber)"
-          />
+
+          {/* Collapsible Sliders: Pluvial Discharge Coupling & Bedrock Incision */}
+          <div
+            className={`transition-all duration-150 ease-out overflow-hidden ${
+              activeGeomorphicHydrology
+                ? 'max-h-[160px] opacity-100 space-y-2 pointer-events-auto'
+                : 'max-h-0 opacity-0 p-0 m-0 pointer-events-none'
+            }`}
+            style={{ transitionTimingFunction: 'var(--theme-spring-switch, cubic-bezier(0.34, 1.35, 0.64, 1))' }}
+          >
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-nano pt-1">
+                <span className="text-[var(--theme-text-secondary)] font-bold uppercase tracking-wider">
+                  Pluvial Coupling:
+                </span>
+                <span className="font-semibold tabular-nums text-[var(--theme-text-primary)] font-mono">
+                  {activePluvialDischargeCoupling.toFixed(2)}×
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="sidebar-pluvial-discharge-coupling"
+                  name="pluvialDischargeCoupling"
+                  type="range"
+                  min="0.0"
+                  max="2.0"
+                  step="0.05"
+                  value={activePluvialDischargeCoupling}
+                  aria-label="Pluvial Discharge Coupling"
+                  title="Pluvial Discharge Coupling (Double-click to reset: 1.0×)"
+                  onDoubleClick={() => handlePluvialDischargeCouplingChange(1.0)}
+                  onChange={(e) => handlePluvialDischargeCouplingChange(parseFloat(e.target.value))}
+                  className="flex-1 slider-archival cursor-pointer h-1 rounded-[1px]"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-nano">
+                <span className="text-[var(--theme-text-secondary)] font-bold uppercase tracking-wider">
+                  Bedrock Incision:
+                </span>
+                <span className="font-semibold tabular-nums text-[var(--theme-text-primary)] font-mono">
+                  {activeBedrockIncision.toFixed(2)}×
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="sidebar-bedrock-incision"
+                  name="bedrockIncision"
+                  type="range"
+                  min="0.0"
+                  max="2.0"
+                  step="0.05"
+                  value={activeBedrockIncision}
+                  aria-label="Bedrock Incision"
+                  title="Bedrock Incision (Double-click to reset: 1.0×)"
+                  onDoubleClick={() => handleBedrockIncisionChange(1.0)}
+                  onChange={(e) => handleBedrockIncisionChange(parseFloat(e.target.value))}
+                  className="flex-1 slider-archival cursor-pointer h-1 rounded-[1px]"
+                />
+              </div>
+            </div>
+          </div>
         </div>
-
-        {/* Collapsible Sliders: Pluvial Discharge Coupling & Bedrock Incision */}
-        <div
-          className={`transition-all duration-150 ease-out overflow-hidden ${
-            activeGeomorphicHydrology
-              ? 'max-h-[160px] opacity-100 space-y-2 pointer-events-auto'
-              : 'max-h-0 opacity-0 p-0 m-0 pointer-events-none'
-          }`}
-          style={{ transitionTimingFunction: 'var(--theme-spring-switch, cubic-bezier(0.34, 1.35, 0.64, 1))' }}
-        >
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-nano pt-1">
-              <span className="text-[var(--theme-text-secondary)] font-bold uppercase tracking-wider">
-                Pluvial Coupling:
-              </span>
-              <span className="font-semibold tabular-nums text-[var(--theme-text-primary)] font-mono">
-                {activePluvialDischargeCoupling.toFixed(2)}×
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                id="sidebar-pluvial-discharge-coupling"
-                name="pluvialDischargeCoupling"
-                type="range"
-                min="0.0"
-                max="2.0"
-                step="0.05"
-                value={activePluvialDischargeCoupling}
-                aria-label="Pluvial Discharge Coupling"
-                title="Pluvial Discharge Coupling (Double-click to reset: 1.0×)"
-                onDoubleClick={() => handlePluvialDischargeCouplingChange(1.0)}
-                onChange={(e) => handlePluvialDischargeCouplingChange(parseFloat(e.target.value))}
-                className="flex-1 slider-archival cursor-pointer h-1 rounded-[1px]"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-nano">
-              <span className="text-[var(--theme-text-secondary)] font-bold uppercase tracking-wider">
-                Bedrock Incision:
-              </span>
-              <span className="font-semibold tabular-nums text-[var(--theme-text-primary)] font-mono">
-                {activeBedrockIncision.toFixed(2)}×
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                id="sidebar-bedrock-incision"
-                name="bedrockIncision"
-                type="range"
-                min="0.0"
-                max="2.0"
-                step="0.05"
-                value={activeBedrockIncision}
-                aria-label="Bedrock Incision"
-                title="Bedrock Incision (Double-click to reset: 1.0×)"
-                onDoubleClick={() => handleBedrockIncisionChange(1.0)}
-                onChange={(e) => handleBedrockIncisionChange(parseFloat(e.target.value))}
-                className="flex-1 slider-archival cursor-pointer h-1 rounded-[1px]"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      </BathymetricTideGauge>
 
       {/* 1. Manifold Strata Station */}
       <div className="p-2.5 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm">
