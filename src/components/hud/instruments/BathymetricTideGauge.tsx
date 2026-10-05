@@ -234,7 +234,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
 
         {/* Dynamic Water Volume — colored like actual ocean water with backdrop blur for refraction */}
         <div
-          className="absolute bottom-0 left-0 right-0 pointer-events-none transition-none"
+          className="absolute bottom-0 left-0 right-0 pointer-events-none transition-none z-20"
           style={{ 
             height: `${waterPct}%`,
             backdropFilter: `blur(${1 + (1 - localClarity) * 6}px)`,
