@@ -293,7 +293,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
               localSeaLevel >= 85
                 ? 'top-1'
                 : localSeaLevel <= -135
-                ? '-top-5'
+                ? 'bottom-0'
                 : 'top-1/2 -translate-y-1/2'
             } flex items-center pointer-events-auto transition-transform cursor-ns-resize drop-shadow-md hover:scale-105 hover:drop-shadow-lg`}
           >

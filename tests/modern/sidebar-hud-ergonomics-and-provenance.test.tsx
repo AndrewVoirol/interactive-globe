@@ -551,49 +551,49 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       expect(slider.getAttribute('aria-valuemax')).toBe('100');
       expect(slider.getAttribute('aria-valuenow')).toBe('0');
 
-      // ArrowUp nudges +5m
+      // ArrowUp nudges +5m (0 -> 5)
       await act(async () => {
         slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
       });
       expect(onSeaLevelMock).toHaveBeenCalledWith(5);
 
-      // ArrowRight nudges +5m
+      // ArrowRight nudges +5m (5 -> 10)
       await act(async () => {
         slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
       });
-      expect(onSeaLevelMock).toHaveBeenCalledWith(5);
+      expect(onSeaLevelMock).toHaveBeenCalledWith(10);
 
-      // ArrowDown nudges -5m
+      // ArrowDown nudges -5m (10 -> 5)
       await act(async () => {
         slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
       });
-      expect(onSeaLevelMock).toHaveBeenCalledWith(-5);
+      expect(onSeaLevelMock).toHaveBeenCalledWith(5);
 
-      // ArrowLeft nudges -5m
+      // ArrowLeft nudges -5m (5 -> 0)
       await act(async () => {
         slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
       });
-      expect(onSeaLevelMock).toHaveBeenCalledWith(-5);
+      expect(onSeaLevelMock).toHaveBeenCalledWith(0);
 
-      // PageUp nudges +20m
+      // PageUp nudges +20m (0 -> 20)
       await act(async () => {
         slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageUp', bubbles: true }));
       });
       expect(onSeaLevelMock).toHaveBeenCalledWith(20);
 
-      // PageDown nudges -20m
+      // PageDown nudges -20m (20 -> 0)
       await act(async () => {
         slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true }));
       });
-      expect(onSeaLevelMock).toHaveBeenCalledWith(-20);
+      expect(onSeaLevelMock).toHaveBeenCalledWith(0);
 
-      // Home sets -150m
+      // Home sets -150m (0 -> -150)
       await act(async () => {
         slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
       });
       expect(onSeaLevelMock).toHaveBeenCalledWith(-150);
 
-      // End sets +100m
+      // End sets +100m (-150 -> 100)
       await act(async () => {
         slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
       });
@@ -605,7 +605,7 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       });
       expect(onSeaLevelMock).toHaveBeenCalledWith(0);
 
-      // Space resets to 0m
+      // Space resets to 0m (0 -> 0)
       await act(async () => {
         slider.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
       });
