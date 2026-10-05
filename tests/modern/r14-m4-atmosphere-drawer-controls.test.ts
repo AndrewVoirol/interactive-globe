@@ -348,7 +348,7 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
   // Suite 2: UI Rendering & Prop Wiring in UnifiedRightSidebar and AtmosphereDrawer
   // ==========================================================================
   describe('2. UI Rendering & Prop Wiring in UnifiedRightSidebar & AtmosphereDrawer', () => {
-    it('M4-HUD-01: renders Atmospheric Scale slider with range [1.0 .. 12.0], step 0.1, and correct readout', async () => {
+    it('M4-HUD-01: renders Horizon Standoff slider with range [1.0 .. 12.0], step 0.1, and correct readout', async () => {
       await act(async () => {
         root.render(
           React.createElement(
@@ -369,7 +369,7 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
       // Check readout text contains 6.0x or 6.0×
       const card = sliderInput.closest('.p-2');
       expect(card?.textContent).toMatch(/6\.0[x×]/);
-      expect(card?.textContent).toContain('Atmospheric Scale');
+      expect(card?.textContent).toContain('Horizon Standoff');
     });
 
     it('M4-HUD-02: renders Shadow Intensity slider with range [0.0 .. 0.60], step 0.05, and correct readout', async () => {
@@ -413,7 +413,7 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
       expect(sliderInput).not.toBeNull();
 
       // Test stepper button
-      const increaseBtn = container.querySelector('button[title*="Increase Atmospheric Scale"]') as HTMLButtonElement;
+      const increaseBtn = container.querySelector('button[title*="Increase Horizon Standoff"]') as HTMLButtonElement;
       expect(increaseBtn).not.toBeNull();
       await act(async () => {
         increaseBtn.click();

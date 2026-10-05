@@ -889,7 +889,7 @@ describe('Challenger 1: Final Behavioral Adversarial Stress Suite (Milestone 6)'
       expect(masterSwitch.getAttribute('aria-checked')).toBe('true');
 
       // Adjust several instrument parameters
-      // 1. Adjust Atmospheric Scale to 8.0x
+      // 1. Adjust Horizon Standoff to 8.0x
       const scaleInput = container.querySelector('#sidebar-atmospheric-scale') as HTMLInputElement;
       if (scaleInput) {
         await act(async () => {

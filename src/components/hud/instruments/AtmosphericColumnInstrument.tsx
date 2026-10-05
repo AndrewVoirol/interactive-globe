@@ -165,7 +165,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
           </span>
         </div>
         <div className="flex items-center gap-1 font-mono text-nano shrink-0 ml-1 pt-0.5">
-          <span className="text-[var(--theme-text-secondary)]">Scale:</span>
+          <span className="text-[var(--theme-text-secondary)]">Standoff:</span>
           <span className="font-bold tabular-nums text-[var(--theme-text-primary)]">
             {atmosphericScale.toFixed(1)}×
           </span>
@@ -376,7 +376,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
 
       {/* 4. Secondary Calibration Sliders & Steppers (100% Backward-Compatibility with Tests) */}
       <div className="space-y-1.5 pt-1.5 border-t border-[var(--theme-card-border-50)]">
-        {/* Atmospheric Scale Precision Control */}
+        {/* Horizon Standoff Precision Control */}
         <div className="space-y-0.5">
           <div className="flex items-center justify-between text-nano">
             <label
@@ -397,7 +397,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               </span>
               <button
                 type="button"
-                title="Decrease Atmospheric Scale"
+                title="Decrease Horizon Standoff"
                 onClick={() =>
                   onAtmosphericScaleChange(
                     Math.max(1.0, parseFloat((atmosphericScale - 0.1).toFixed(1)))
@@ -409,7 +409,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               </button>
               <button
                 type="button"
-                title="Increase Atmospheric Scale"
+                title="Increase Horizon Standoff"
                 onClick={() =>
                   onAtmosphericScaleChange(
                     Math.min(12.0, parseFloat((atmosphericScale + 0.1).toFixed(1)))
@@ -428,7 +428,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             max="12"
             step="0.1"
             value={atmosphericScale}
-            aria-label="Atmospheric Scale"
+            aria-label="Horizon Standoff"
             onDoubleClick={handleReset}
             onChange={(e) => onAtmosphericScaleChange(parseFloat(e.target.value))}
             className="w-full slider-archival cursor-pointer h-1 rounded-[1px] block"

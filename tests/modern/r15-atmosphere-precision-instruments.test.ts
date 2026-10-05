@@ -602,7 +602,7 @@ describe('Milestone 6: AtmosphereDrawer Precision Instruments Suite', () => {
         );
       });
 
-      // Atmospheric Scale
+      // Horizon Standoff
       const scaleInput = container.querySelector<HTMLInputElement>('#sidebar-atmospheric-scale');
       expect(scaleInput).not.toBeNull();
       expect(scaleInput?.type).toBe('range');

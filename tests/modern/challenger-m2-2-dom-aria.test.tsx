@@ -286,7 +286,7 @@ describe('Challenger 2: DOM, ARIA & Build Verification Suite (M2 - R2)', () => {
       expect(onOpacityChange).toHaveBeenCalledWith(0.9);
     });
 
-    it('CHALLENGE-ID-03: Atmospheric Scale steppers increase/decrease by 0.1 and clamp properly', async () => {
+    it('CHALLENGE-ID-03: Horizon Standoff steppers increase/decrease by 0.1 and clamp properly', async () => {
       const onScaleChange = vi.fn();
       await act(async () => {
         root.render(
@@ -302,8 +302,8 @@ describe('Challenger 2: DOM, ARIA & Build Verification Suite (M2 - R2)', () => {
         );
       });
 
-      const incBtn = container.querySelector<HTMLButtonElement>('button[title*="Increase Atmospheric Scale"]');
-      const decBtn = container.querySelector<HTMLButtonElement>('button[title*="Decrease Atmospheric Scale"]');
+      const incBtn = container.querySelector<HTMLButtonElement>('button[title*="Increase Horizon Standoff"]');
+      const decBtn = container.querySelector<HTMLButtonElement>('button[title*="Decrease Horizon Standoff"]');
 
       expect(incBtn).not.toBeNull();
       expect(decBtn).not.toBeNull();
@@ -319,7 +319,7 @@ describe('Challenger 2: DOM, ARIA & Build Verification Suite (M2 - R2)', () => {
       expect(onScaleChange).toHaveBeenCalledWith(3.4);
     });
 
-    it('CHALLENGE-ID-04: Atmospheric Scale steppers enforce boundaries [1.0, 12.0]', async () => {
+    it('CHALLENGE-ID-04: Horizon Standoff steppers enforce boundaries [1.0, 12.0]', async () => {
       const onScaleChange = vi.fn();
 
       // At lower boundary
@@ -337,7 +337,7 @@ describe('Challenger 2: DOM, ARIA & Build Verification Suite (M2 - R2)', () => {
         );
       });
 
-      const decBtn = container.querySelector<HTMLButtonElement>('button[title*="Decrease Atmospheric Scale"]');
+      const decBtn = container.querySelector<HTMLButtonElement>('button[title*="Decrease Horizon Standoff"]');
       await act(async () => {
         decBtn?.click();
       });
@@ -358,7 +358,7 @@ describe('Challenger 2: DOM, ARIA & Build Verification Suite (M2 - R2)', () => {
         );
       });
 
-      const incBtn = container.querySelector<HTMLButtonElement>('button[title*="Increase Atmospheric Scale"]');
+      const incBtn = container.querySelector<HTMLButtonElement>('button[title*="Increase Horizon Standoff"]');
       await act(async () => {
         incBtn?.click();
       });
@@ -762,7 +762,7 @@ describe('Challenger 2: DOM, ARIA & Build Verification Suite (M2 - R2)', () => {
       // Legacy test element IDs are present inside AtmosphereDrawer
       expect(container.querySelector('#sidebar-atmospheric-scale')).not.toBeNull();
       expect(container.querySelector('#sidebar-cloud-opacity')).not.toBeNull();
-      expect(container.querySelector('button[title*="Increase Atmospheric Scale"]')).not.toBeNull();
+      expect(container.querySelector('button[title*="Increase Horizon Standoff"]')).not.toBeNull();
       expect(container.querySelector('button[title*="Increase Cloud Opacity"]')).not.toBeNull();
       
     });
@@ -799,7 +799,7 @@ describe('Challenger 2: DOM, ARIA & Build Verification Suite (M2 - R2)', () => {
       });
 
       // Increase scale via stepper
-      const incScaleBtn = container.querySelector<HTMLButtonElement>('button[title*="Increase Atmospheric Scale"]');
+      const incScaleBtn = container.querySelector<HTMLButtonElement>('button[title*="Increase Horizon Standoff"]');
       await act(async () => {
         incScaleBtn?.click();
       });
