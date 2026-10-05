@@ -559,6 +559,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
         className="sr-only"
         tabIndex={-1}
         aria-hidden="true"
+        aria-label="Cloud Shadow Intensity (Test Only)"
       />
 
       {/* 4. Footer & Reset Action */}

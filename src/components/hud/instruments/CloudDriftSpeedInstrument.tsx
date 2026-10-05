@@ -445,6 +445,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
         className="sr-only"
         tabIndex={-1}
         aria-hidden="true"
+        aria-label="Cloud Drift Speed (Test Only)"
       />
 
       {/* 4. Footer & Reset Action (Unabbreviated) */}

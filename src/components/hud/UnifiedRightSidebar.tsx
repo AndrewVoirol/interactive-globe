@@ -297,7 +297,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
               <span className="text-[var(--theme-text-primary)]">Medium Substrate</span>
               <button
                 onClick={handleHeaderThemeToggle}
-                aria-label={theme === 0 ? 'Switch to Cream Rag' : theme === 1 ? 'Switch to Prussian Cyanotype' : 'Switch to Marie Tharp'}
+                aria-label={theme === 0 ? 'Tharp ⇄ (Switch to Cream Rag)' : theme === 1 ? 'Cream ⇄ (Switch to Prussian Cyanotype)' : 'Prussian ⇄ (Switch to Marie Tharp)'}
                 title={theme === 0 ? 'Switch to Cream Rag (Press T)' : theme === 1 ? 'Switch to Prussian Cyanotype (Press T)' : 'Switch to Marie Tharp (Press T)'}
                 className="cursor-pointer text-nano font-mono font-bold px-1.5 py-0.5 rounded-[2px] border border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-accent)] hover:border-[var(--theme-control-active-border)] transition-all"
               >

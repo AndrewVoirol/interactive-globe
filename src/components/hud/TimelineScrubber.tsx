@@ -598,6 +598,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
           disabled={disabled}
           tabIndex={-1}
           aria-hidden="true"
+          aria-label="Timeline Scrubber (Test Only)"
           onChange={(e) => {
             const val = parseFloat(e.target.value);
             if (Number.isFinite(val)) updateMinutes(val);
@@ -701,7 +702,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
               onClick={() => updateMinutes(preset.minutes)}
               className={`tactile-btn text-nano font-mono font-bold px-1.5 py-0.5 rounded-[1px] border transition-all flex-1 text-center truncate ${
                 isActive
-                  ? 'bg-[var(--theme-control-active-bg)] border-[var(--theme-control-active-border)] text-[var(--theme-text-accent)] shadow-xs font-semibold'
+                  ? 'bg-[var(--theme-control-active-bg)] border-[var(--theme-control-active-border)] text-[var(--theme-control-active-text)] shadow-xs font-semibold'
                   : 'bg-[var(--theme-control-bg-60)] border-[var(--theme-control-border-60)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:bg-[var(--theme-control-hover-bg)]'
               }`}
             >

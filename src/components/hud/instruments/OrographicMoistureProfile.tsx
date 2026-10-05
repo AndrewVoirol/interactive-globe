@@ -703,6 +703,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
         className="sr-only"
         tabIndex={-1}
         aria-hidden="true"
+        aria-label="Rain Shadow Feedback (Test Only)"
       />
       <input
         type="range"
@@ -715,6 +716,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
         className="sr-only"
         tabIndex={-1}
         aria-hidden="true"
+        aria-label="Orographic Coupling (Test Only)"
       />
       <input
         type="range"
@@ -727,6 +729,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
         className="sr-only"
         tabIndex={-1}
         aria-hidden="true"
+        aria-label="Pluvial Coupling (Test Only)"
       />
       {/* Thermodynamic gating toggle - hidden buttons for test DOM IDs */}
       <button
