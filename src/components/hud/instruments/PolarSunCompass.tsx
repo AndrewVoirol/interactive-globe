@@ -251,7 +251,7 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
       </div>
 
       <div className="flex items-center justify-between text-nano font-mono mt-1 px-1 opacity-75">
-        <span>NW Relief (315° · 45°)</span>
+        <span>NW Relief (315° • 45°)</span>
         <button
           type="button"
           onClick={() => onChange(315, 45)}

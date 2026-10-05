@@ -215,12 +215,7 @@ export const StratosphericTelemetryInstrument: React.FC<StratosphericTelemetryIn
           <span className="font-semibold text-[var(--theme-text-primary)] text-body tabular-nums">{kmStr}</span>
         </div>
 
-        <div className="flex justify-between items-center">
-          <span className="text-[var(--theme-text-muted)] text-body shrink-0">Camera Pitch:</span>
-          <span className="font-semibold text-[var(--theme-text-primary)] text-body tabular-nums">
-            {pitch.toFixed(1)}°
-          </span>
-        </div>
+
 
         <div className="flex justify-between items-center">
           <span className="text-[var(--theme-text-muted)] text-body shrink-0">Tropospheric Regime:</span>

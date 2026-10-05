@@ -45,7 +45,7 @@ describe('StratosphericTelemetryInstrument', () => {
     expect(card?.textContent).toContain('Stratospheric Telemetry');
     expect(card?.textContent).toContain('Cursor Target:');
     expect(card?.textContent).toContain('Camera Elevation:');
-    expect(card?.textContent).toContain('Camera Pitch:');
+    // Camera Pitch readout is in the header as 'Pitch:' — no duplicate body row
     expect(card?.textContent).not.toContain('Hdg');
     expect(card?.textContent).not.toContain('60 FPS');
     expect(card?.textContent).toContain('Tropospheric Regime:');
@@ -96,8 +96,8 @@ describe('StratosphericTelemetryInstrument', () => {
     const card = container.querySelector('[data-testid="stratospheric-telemetry-instrument"]');
     expect(card).not.toBeNull();
     const tabularElements = card?.querySelectorAll('.tabular-nums');
-    // Ensure all numeric readouts (elevation, pitch, interval, steps, resolution, cursor, header pitch) use tabular-nums
-    expect(tabularElements && tabularElements.length).toBeGreaterThanOrEqual(6);
+    // Ensure all numeric readouts (elevation, interval, steps, cursor, header pitch) use tabular-nums
+    expect(tabularElements && tabularElements.length).toBeGreaterThanOrEqual(5);
   });
 
   it('reflects Doppler Spectral vs Archival Ink Wash in Strata Color Mode row', async () => {
