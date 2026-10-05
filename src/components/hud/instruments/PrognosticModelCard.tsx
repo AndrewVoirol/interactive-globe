@@ -341,7 +341,8 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
   };
 
   // Caliper horizontal position in viewBox [0 0 280 110]
-  const caliperX = Math.round(24 + (leadTimeHours / 240) * 232);
+  const t = leadTimeHours / 240;
+  const caliperX = Math.round(24 + t * 232);
 
   // Model resolution and specification badges
   const modelMetadata = useMemo(() => {
@@ -377,7 +378,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           </span>
         </div>
         <div className="flex items-center gap-1.5 font-mono text-nano shrink-0">
-          <span className="px-1 py-0.5 bg-[var(--theme-control-active-bg)] text-[var(--theme-text-primary)] font-bold rounded-[2px] border border-[var(--theme-control-active-border)] shadow-sm leading-none">
+          <span className="font-bold tabular-nums text-[var(--theme-text-primary)] pt-0.5">
             {modelMetadata.badge}
           </span>
           <span className="opacity-40">•</span>
@@ -539,7 +540,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           preserveAspectRatio="xMidYMid meet"
         >
           <defs>
-            <pattern id="prog-cyanotype-grid" width="16" height="16" patternUnits="userSpaceOnUse">
+            <pattern id="prog-cyanotype-grid" width="16" height="16" patternUnits="userSpaceOnUse" x={-t * 32}>
               <line x1="0" y1="0" x2="16" y2="0" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.3" strokeOpacity="0.25" />
               <line x1="0" y1="0" x2="0" y2="16" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.3" strokeOpacity="0.25" />
             </pattern>
@@ -578,29 +579,33 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
                 Charta Synoptica Barometrica
               </text>
 
-              {/* Low Pressure Depressions with Cyclonic Isobars */}
-              <circle cx="75" cy="55" r="14" fill="none" stroke="currentColor" strokeWidth="0.75" />
-              <circle cx="75" cy="55" r="26" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 1.5" />
-              <circle cx="75" cy="55" r="38" fill="none" stroke="currentColor" strokeWidth="0.5" strokeDasharray="4 2" />
-              <text x="75" y="58" textAnchor="middle" fill="currentColor" fontSize="10" fontFamily="serif" fontWeight="bold">
-                B
-              </text>
-              <text x="75" y="66" textAnchor="middle" fill="currentColor" fontSize="5" fontFamily="serif" fontStyle="italic">
-                996 hPa
-              </text>
-              <text x="96" y="52" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1000</text>
-              <text x="106" y="44" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1004</text>
+                            {/* Low Pressure Depressions with Cyclonic Isobars */}
+              <g transform={`translate(${t * 60}, 0)`}>
+                <circle cx="75" cy="55" r="14" fill="none" stroke="currentColor" strokeWidth="0.75" />
+                <circle cx="75" cy="55" r="26" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 1.5" />
+                <circle cx="75" cy="55" r="38" fill="none" stroke="currentColor" strokeWidth="0.5" strokeDasharray="4 2" />
+                <text x="75" y="58" textAnchor="middle" fill="currentColor" fontSize="10" fontFamily="serif" fontWeight="bold">
+                  B
+                </text>
+                <text x="75" y="66" textAnchor="middle" fill="currentColor" fontSize="5" fontFamily="serif" fontStyle="italic">
+                  996 hPa
+                </text>
+                <text x="96" y="52" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1000</text>
+                <text x="106" y="44" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1004</text>
+              </g>
 
-              {/* High Pressure Anticyclone with Divergent Isobars */}
-              <circle cx="210" cy="50" r="16" fill="none" stroke="currentColor" strokeWidth="0.75" />
-              <circle cx="210" cy="50" r="30" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 1.5" />
-              <text x="210" y="53" textAnchor="middle" fill="currentColor" fontSize="10" fontFamily="serif" fontWeight="bold">
-                H
-              </text>
-              <text x="210" y="61" textAnchor="middle" fill="currentColor" fontSize="5" fontFamily="serif" fontStyle="italic">
-                1024 hPa
-              </text>
-              <text x="232" y="46" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1020</text>
+                            {/* High Pressure Anticyclone with Divergent Isobars */}
+              <g transform={`translate(${-t * 40}, ${t * 15})`}>
+                <circle cx="210" cy="50" r="16" fill="none" stroke="currentColor" strokeWidth="0.75" />
+                <circle cx="210" cy="50" r="30" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 1.5" />
+                <text x="210" y="53" textAnchor="middle" fill="currentColor" fontSize="10" fontFamily="serif" fontWeight="bold">
+                  H
+                </text>
+                <text x="210" y="61" textAnchor="middle" fill="currentColor" fontSize="5" fontFamily="serif" fontStyle="italic">
+                  1024 hPa
+                </text>
+                <text x="232" y="46" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1020</text>
+              </g>
 
               {/* Beaufort Wind Barbs */}
               <g stroke="currentColor" strokeWidth="0.6" fill="none">
@@ -618,11 +623,13 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
                 <line x1="230" y1="65" x2="228" y2="61" />
               </g>
 
-              {/* Frontal Boundary Incline Line with Intaglio Teeth */}
-              <path d="M 125 18 Q 135 52 152 92" fill="none" stroke="currentColor" strokeWidth="1" />
-              <polygon points="128,30 134,34 130,37" fill="currentColor" />
-              <polygon points="135,55 141,59 137,62" fill="currentColor" />
-              <polygon points="144,80 150,84 146,87" fill="currentColor" />
+                            {/* Frontal Boundary Incline Line with Intaglio Teeth */}
+              <g transform={`translate(${t * 80}, 0)`}>
+                <path d="M 125 18 Q 135 52 152 92" fill="none" stroke="currentColor" strokeWidth="1" />
+                <polygon points="128,30 134,34 130,37" fill="currentColor" />
+                <polygon points="135,55 141,59 137,62" fill="currentColor" />
+                <polygon points="144,80 150,84 146,87" fill="currentColor" />
+              </g>
 
               {/* Bottom Chronometric Horizon Axis */}
               <line x1="24" y1="96" x2="256" y2="96" stroke="currentColor" strokeWidth="0.75" />
@@ -652,13 +659,13 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <line x1="180" y1="12" x2="180" y2="96" stroke="currentColor" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
               <line x1="16" y1="54" x2="264" y2="54" stroke="currentColor" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
 
-              <text x="20" y="27" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <text x="20" y="27" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity={leadTimeHours < 80 ? 1 : 0.35} paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 CHUNK [0, 0] • 256×256
               </text>
-              <text x="105" y="27" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <text x="105" y="27" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity={leadTimeHours >= 80 && leadTimeHours < 160 ? 1 : 0.35} paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 CHUNK [0, 1] • 256×256
               </text>
-              <text x="195" y="27" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <text x="195" y="27" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity={leadTimeHours >= 160 ? 1 : 0.35} paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 CHUNK [0, 2] • 256×256
               </text>
 
@@ -712,28 +719,30 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           ) : (
             // Theme 0 (Marie Tharp): Baroclinic Fluid Contours & Heat Flux Streamlines
             <g className="prognostic-model-tharp text-[var(--theme-instrument-ink)]">
-              {/* Baroclinic Undulating Rossby Wave Flow Streamlines */}
-              <path
-                d="M 12 40 Q 55 15 95 45 T 180 40 T 268 35"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                opacity="0.85"
-              />
-              <path
-                d="M 12 55 Q 55 30 95 60 T 180 55 T 268 50"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="0.8"
-                opacity="0.6"
-              />
-              <path
-                d="M 12 70 Q 55 45 95 75 T 180 70 T 268 65"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="0.6"
-                opacity="0.4"
-              />
+                            {/* Baroclinic Undulating Rossby Wave Flow Streamlines */}
+              <g transform={`translate(${-t * 100}, 0)`}>
+                <path
+                  d="M -50 40 Q 55 15 95 45 T 180 40 T 350 35"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  opacity="0.85"
+                />
+                <path
+                  d="M -50 55 Q 55 30 95 60 T 180 55 T 350 50"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="0.8"
+                  opacity="0.6"
+                />
+                <path
+                  d="M -50 70 Q 55 45 95 75 T 180 70 T 350 65"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="0.6"
+                  opacity="0.4"
+                />
+              </g>
 
               {/* Oceanic Heat Flux Divergence Streamlines with Emerald Chevrons */}
               <path
