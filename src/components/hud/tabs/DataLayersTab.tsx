@@ -1,13 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { SimulationMode } from '../../../types';
 import { getPresetById } from '../../../core/data/DataLayerCatalog';
 import { CuratorsColophon } from '../CuratorsColophon';
 import type { DataLayerItem } from '../UnifiedRightSidebar';
 
 export interface DataLayersTabProps {
   theme: 0 | 1 | 2;
-  mode: SimulationMode;
-  alpha: number;
   dataLayers: DataLayerItem[];
   isCatalogOpen: boolean;
   setIsCatalogOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
@@ -22,8 +19,6 @@ export interface DataLayersTabProps {
 
 export const DataLayersTab: React.FC<DataLayersTabProps> = ({
   theme,
-  mode,
-  alpha,
   dataLayers = [],
   isCatalogOpen,
   setIsCatalogOpen,
@@ -370,8 +365,6 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
       {/* Archival Footer Colophon */}
       <CuratorsColophon
         theme={theme}
-        mode={mode}
-        alpha={alpha}
         isWeatherActive={Boolean(propShowClouds || isNoaaActive)}
         isRadarActive={isRadarActive}
       />

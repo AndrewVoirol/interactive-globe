@@ -5,12 +5,9 @@
 // ============================================================================
 
 import React from 'react';
-import { SimulationMode } from '../../types';
 
 export interface CuratorsColophonProps {
   theme: 0 | 1 | 2;
-  mode?: SimulationMode;
-  alpha?: number;
   isWeatherActive?: boolean;
   isRadarActive?: boolean;
   className?: string;

@@ -494,7 +494,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
                 className={activePlate === 'data' ? 'space-y-2.5' : 'hidden'}
               >
                 <DataLayersTab
-                  theme={theme} mode={mode} alpha={alpha} dataLayers={dataLayers}
+                  theme={theme} dataLayers={dataLayers}
                   isCatalogOpen={isCatalogOpen} setIsCatalogOpen={setIsCatalogOpen}
                   onToggleDataLayer={onToggleDataLayer} onRemoveDataLayer={onRemoveDataLayer}
                   onOpacityChangeDataLayer={onOpacityChangeDataLayer}
