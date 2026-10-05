@@ -348,10 +348,15 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               </text>
 
               {/* Intaglio copperplate ruling-pen lines and hachures */}
+              {/* Cirrus: wispy trailing filaments — period-appropriate delicate strokes */}
               <path d="M 130 31 Q 160 27 195 33 T 255 31" fill="none" stroke="#8c4820" strokeWidth="0.6" strokeDasharray="2 1" opacity="0.7" />
+              <path d="M 155 35 Q 185 30 220 36 T 260 33" fill="none" stroke="#8c4820" strokeWidth="0.4" strokeDasharray="3 2" opacity="0.45" />
+              {/* Altocumulus: undulatus wave train — ruling-pen oscillation */}
               <path d="M 135 68 Q 150 64 165 68 Q 180 72 195 68 Q 210 64 225 68" fill="none" stroke="#8c4820" strokeWidth="0.6" opacity="0.7" />
-              <path d="M 130 102 L 250 102" fill="none" stroke="#8c4820" strokeWidth="0.6" opacity="0.6" />
-              <path d="M 135 106 L 245 106" fill="none" stroke="#8c4820" strokeWidth="0.6" opacity="0.6" />
+              <path d="M 140 72 Q 155 68 170 72 Q 185 76 200 72 Q 215 68 230 72" fill="none" stroke="#8c4820" strokeWidth="0.4" opacity="0.45" />
+              {/* Stratus: horizontal ruled lines spanning full band width */}
+              <path d="M 48 102 L 260 102" fill="none" stroke="#8c4820" strokeWidth="0.6" opacity="0.6" />
+              <path d="M 48 106 L 255 106" fill="none" stroke="#8c4820" strokeWidth="0.6" opacity="0.6" />
 
               {/* Inactive stratum diagonal strikethroughs */}
               {!showCloudHigh && <line x1="42" y1="34" x2="272" y2="34" stroke="#8c4820" strokeWidth="1" strokeDasharray="3 3" opacity="0.35" />}
@@ -484,7 +489,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               fontFamily="monospace"
               fontWeight="bold"
             >
-              ▲ {atmosphericScale.toFixed(1)}× ▼
+              {theme === 1 ? '△' : '▲'} {atmosphericScale.toFixed(1)}× {theme === 1 ? '▽' : '▼'}
             </text>
           </g>
         </svg>
