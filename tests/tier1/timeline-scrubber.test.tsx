@@ -77,11 +77,11 @@ describe('Atmospheric TimelineScrubber Component', () => {
       expect(state90m.bracketHour).toBe(1);
       expect(state90m.tau).toBeCloseTo(0.5);
 
-      // 2880 min (48h): Hour 47, tau = 1.0
-      const state48h = computeTimelineState(2880, false);
-      expect(state48h.absoluteMinutes).toBe(2880);
-      expect(state48h.bracketHour).toBe(47);
-      expect(state48h.tau).toBe(1.0);
+      // 14400 min (240h): Hour 239, tau = 1.0
+      const state240h = computeTimelineState(14400, false);
+      expect(state240h.absoluteMinutes).toBe(14400);
+      expect(state240h.bracketHour).toBe(239);
+      expect(state240h.tau).toBe(1.0);
     });
 
     it('clamps boundary out-of-range values gracefully', () => {
@@ -89,8 +89,8 @@ describe('Atmospheric TimelineScrubber Component', () => {
       expect(below.absoluteMinutes).toBe(-60);
 
       const above = computeTimelineState(5000, false);
-      expect(above.absoluteMinutes).toBe(2880);
-      expect(above.bracketHour).toBe(47);
+      expect(above.absoluteMinutes).toBe(14400);
+      expect(above.bracketHour).toBe(239);
       expect(above.tau).toBe(1.0);
     });
 
@@ -106,8 +106,8 @@ describe('Atmospheric TimelineScrubber Component', () => {
       expect(trackPositionToMinutes(NaN)).toBe(0);
 
       const posInf = computeTimelineState(Infinity, false);
-      expect(posInf.absoluteMinutes).toBe(2880);
-      expect(posInf.bracketHour).toBe(47);
+      expect(posInf.absoluteMinutes).toBe(14400);
+      expect(posInf.bracketHour).toBe(239);
       expect(posInf.tau).toBe(1.0);
 
       const negInf = computeTimelineState(-Infinity, false);
@@ -139,7 +139,7 @@ describe('Atmospheric TimelineScrubber Component', () => {
     });
 
     it('preserves exact roundtrip fidelity between track position and minutes', () => {
-      const testCases = [-60, -45, -30, -10, 0, 60, 180, 720, 1440, 2880];
+      const testCases = [-60, -45, -30, -10, 0, 60, 180, 720, 1440, 14400];
       for (const min of testCases) {
         const u = minutesToTrackPosition(min);
         expect(u).toBeGreaterThanOrEqual(0.0);
@@ -164,7 +164,7 @@ describe('Atmospheric TimelineScrubber Component', () => {
       const track = container.querySelector('[role="slider"]');
       expect(track).not.toBeNull();
       expect(track?.getAttribute('aria-valuemin')).toBe('-60');
-      expect(track?.getAttribute('aria-valuemax')).toBe('2880');
+      expect(track?.getAttribute('aria-valuemax')).toBe('14400');
       expect(track?.getAttribute('aria-valuenow')).toBe('0');
       expect(track?.getAttribute('aria-label')).toBe('Atmospheric Timeline Scrubber');
 
@@ -175,7 +175,7 @@ describe('Atmospheric TimelineScrubber Component', () => {
       expect(panel.className).toContain('bg-[var(--theme-panel-bg)]');
     });
 
-    it('renders dual-zone markers (-60m radar and +48h forecast)', async () => {
+    it('renders dual-zone markers (-60m radar and +240h forecast)', async () => {
       await act(async () => {
         root.render(React.createElement(TimelineScrubber, { initialMinutes: 0 }));
       });
@@ -183,7 +183,7 @@ describe('Atmospheric TimelineScrubber Component', () => {
       expect(container.textContent).toContain('Chronometric Scrubber');
       expect(container.textContent).toContain('-60m');
       expect(container.textContent).toContain('NOW');
-      expect(container.textContent).toContain('+48h');
+      expect(container.textContent).toContain('+240h');
     });
 
     it('synchronizes the accessible native range input for test automation', async () => {
@@ -194,7 +194,7 @@ describe('Atmospheric TimelineScrubber Component', () => {
       const input = container.querySelector('input[type="range"]') as HTMLInputElement;
       expect(input).not.toBeNull();
       expect(input.min).toBe('-60');
-      expect(input.max).toBe('2880');
+      expect(input.max).toBe('14400');
       expect(input.value).toBe('120');
       // Hidden native input must not duplicate the slider in the accessibility tree or keyboard tab order
       expect(input.tabIndex).toBe(-1);
@@ -212,11 +212,11 @@ describe('Atmospheric TimelineScrubber Component', () => {
       );
       expect(nowBadge).toBeDefined();
 
-      // Major tick +48h label must be anchored with right-0.5 to avoid overflow-hidden clipping
-      const tick48h = Array.from(container.querySelectorAll('span')).find(
-        (el) => el.textContent?.trim() === '+48h' && el.className.includes('right-0.5')
+      // Major tick +240h label must be anchored with right-0.5 to avoid overflow-hidden clipping
+      const tick240h = Array.from(container.querySelectorAll('span')).find(
+        (el) => el.textContent?.trim() === '+240h' && el.className.includes('right-0.5')
       );
-      expect(tick48h).toBeDefined();
+      expect(tick240h).toBeDefined();
     });
   });
 
@@ -370,15 +370,15 @@ describe('Atmospheric TimelineScrubber Component', () => {
         })
       );
 
-      // End key jumps to 2880m
+      // End key jumps to 14400m
       await act(async () => {
         track.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
       });
 
       expect(onTimeChange).toHaveBeenCalledWith(
         expect.objectContaining({
-          absoluteMinutes: 2880,
-          bracketHour: 47,
+          absoluteMinutes: 14400,
+          bracketHour: 239,
           tau: 1.0,
         })
       );
