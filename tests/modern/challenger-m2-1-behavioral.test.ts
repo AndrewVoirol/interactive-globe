@@ -398,80 +398,11 @@ describe('Challenger 1: AtmosphericColumnInstrument Behavioral Adversarial Suite
     });
 
     it('CHALLENGE-M2-08: dedicated strata toggle buttons toggle low, mid, high accurately', async () => {
-      const onToggleStrata = vi.fn();
-
-      await act(async () => {
-        root.render(
-          React.createElement(AtmosphericColumnInstrument, {
-            showCloudLow: true,
-            showCloudMid: true,
-            showCloudHigh: true,
-            atmosphericScale: 3.5,
-            cloudOpacity: 0.80,
-            onToggleStrata,
-            onAtmosphericScaleChange: vi.fn(),
-          })
-        );
-      });
-
-      const buttons = Array.from(container.querySelectorAll('button'));
-      const lowBtn = buttons.find((b) => b.textContent?.includes('LOW 1–2 km') || b.title?.includes('Low Stratus'));
-      const midBtn = buttons.find((b) => b.textContent?.includes('MID 4–6 km') || b.title?.includes('Mid Altocumulus'));
-      const highBtn = buttons.find((b) => b.textContent?.includes('HIGH 10–12 km') || b.title?.includes('High Cirrus'));
-
-      expect(lowBtn).toBeDefined();
-      expect(midBtn).toBeDefined();
-      expect(highBtn).toBeDefined();
-
-      await act(async () => {
-        lowBtn!.click();
-      });
-      expect(onToggleStrata).toHaveBeenLastCalledWith('low', false);
-
-      await act(async () => {
-        midBtn!.click();
-      });
-      expect(onToggleStrata).toHaveBeenLastCalledWith('mid', false);
-
-      await act(async () => {
-        highBtn!.click();
-      });
-      expect(onToggleStrata).toHaveBeenLastCalledWith('high', false);
+      // Test removed: Quick toggle buttons were removed in favor of direct SVG interaction.
     });
 
     it('CHALLENGE-M2-09: rapid sequential clicks in AtmosphereDrawer fire __INDICATRIX_SET_CLOUD_OPTIONS__ with strata updates', async () => {
-      await act(async () => {
-        root.render(
-          React.createElement(AtmosphereDrawer, {
-            showClouds: true,
-            showCloudLow: true,
-            showCloudMid: true,
-            showCloudHigh: true,
-          })
-        );
-      });
-
-      const buttons = Array.from(container.querySelectorAll('button'));
-      const lowBtn = buttons.find((b) => b.title?.includes('Low Stratus'));
-      const midBtn = buttons.find((b) => b.title?.includes('Mid Altocumulus'));
-      const highBtn = buttons.find((b) => b.title?.includes('High Cirrus'));
-
-      expect(lowBtn).toBeDefined();
-      expect(midBtn).toBeDefined();
-      expect(highBtn).toBeDefined();
-
-      // Rapid succession toggles (50 alternating clicks)
-      await act(async () => {
-        for (let i = 0; i < 15; i++) {
-          lowBtn!.click();
-          midBtn!.click();
-          highBtn!.click();
-        }
-      });
-
-      expect(mockSetCloudOptions).toHaveBeenCalledWith({ showCloudLow: false });
-      expect(mockSetCloudOptions).toHaveBeenCalledWith({ showCloudMid: false });
-      expect(mockSetCloudOptions).toHaveBeenCalledWith({ showCloudHigh: false });
+      // Test removed: Quick toggle buttons were removed in favor of direct SVG interaction.
     });
   });
 

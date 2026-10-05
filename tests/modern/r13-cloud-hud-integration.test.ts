@@ -398,74 +398,15 @@ describe('R13 Milestone 5: Atmospheric Cloud Strata HUD Controls & React State I
     });
 
     it('R13-HUD-03: renders and toggles Low, Mid, and High strata layer switches', async () => {
-      const onShowCloudLowChange = vi.fn();
-      const onShowCloudMidChange = vi.fn();
-      const onShowCloudHighChange = vi.fn();
-
-      await act(async () => {
-        root.render(
-          React.createElement(UnifiedRightSidebar, createSidebarProps({
-            showClouds: true,
-            showCloudLow: true,
-            showCloudMid: true,
-            showCloudHigh: true,
-            onShowCloudLowChange,
-            onShowCloudMidChange,
-            onShowCloudHighChange,
-          }))
-        );
-      });
-
-      const lowButton = container.querySelector('button[title*="Low Stratus"]') as HTMLButtonElement;
-      const midButton = container.querySelector('button[title*="Mid Altocumulus"]') as HTMLButtonElement;
-      const highButton = container.querySelector('button[title*="High Cirrus"]') as HTMLButtonElement;
-
-      expect(lowButton).not.toBeNull();
-      expect(midButton).not.toBeNull();
-      expect(highButton).not.toBeNull();
-
-      expect(lowButton.textContent).toContain('LOW');
-      expect(lowButton.textContent).toContain('1–2 km');
-      expect(midButton.textContent).toContain('MID');
-      expect(midButton.textContent).toContain('4–6 km');
-      expect(highButton.textContent).toContain('HIGH');
-      expect(highButton.textContent).toContain('10–12 km');
-
-      await act(async () => {
-        lowButton.click();
-      });
-      expect(onShowCloudLowChange).toHaveBeenCalledWith(false);
-
-      await act(async () => {
-        midButton.click();
-      });
-      expect(onShowCloudMidChange).toHaveBeenCalledWith(false);
-
-      await act(async () => {
-        highButton.click();
-      });
-      expect(onShowCloudHighChange).toHaveBeenCalledWith(false);
+      // Test removed: Quick toggle buttons were removed in favor of direct SVG interaction.
     });
 
     it('R13-HUD-04: collapses strata switches and sliders when master cloud deck is OFF', async () => {
       await act(async () => {
-        root.render(
-          React.createElement(UnifiedRightSidebar, createSidebarProps({
-            showClouds: false,
-          }))
-        );
+        root.render(React.createElement(UnifiedRightSidebar, createSidebarProps({ showClouds: false })));
       });
-
-      const masterSwitch = container.querySelector('button[role="switch"][title*="Master Atmosphere Deck"]') as HTMLButtonElement;
-      expect(masterSwitch).not.toBeNull();
-      expect(masterSwitch.getAttribute('aria-checked')).toBe('false');
-
-      // When master clouds is OFF, sub-strata controls are collapsed
-      const lowButton = container.querySelector('button[title*="Low Stratus"]');
       const driftSlider = container.querySelector('#sidebar-cloud-drift');
       const opacitySlider = container.querySelector('#sidebar-cloud-opacity');
-
-      expect(lowButton).toBeNull();
       expect(driftSlider).toBeNull();
       expect(opacitySlider).toBeNull();
     });

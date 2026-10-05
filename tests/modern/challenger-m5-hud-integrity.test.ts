@@ -248,9 +248,9 @@ describe('Challenger M5: Adversarial HUD Integration & State Integrity Suite', (
       });
 
       // Sub-strata buttons and Vernier sliders must NOT be present when showClouds is false
-      expect(container.querySelector('button[title*="Low Stratus"]')).toBeNull();
-      expect(container.querySelector('button[title*="Mid Altocumulus"]')).toBeNull();
-      expect(container.querySelector('button[title*="High Cirrus"]')).toBeNull();
+      // The AtmosphericColumnInstrument is unmounted entirely, so its SVG container is gone
+      const textElements = Array.from(container.querySelectorAll('text'));
+      expect(textElements.find(el => el.textContent?.includes('Stratus'))).toBeUndefined();
       expect(container.querySelector('#sidebar-cloud-drift')).toBeNull();
       expect(container.querySelector('#sidebar-cloud-opacity')).toBeNull();
     });
@@ -259,23 +259,14 @@ describe('Challenger M5: Adversarial HUD Integration & State Integrity Suite', (
       await act(async () => {
         root.render(React.createElement(UnifiedRightSidebar, createSidebarProps({ showClouds: true })));
       });
-
-      const lowBtn = container.querySelector('button[title*="Low Stratus"]');
-      const midBtn = container.querySelector('button[title*="Mid Altocumulus"]');
-      const highBtn = container.querySelector('button[title*="High Cirrus"]');
       const driftSlider = container.querySelector('#sidebar-cloud-drift');
       const opacitySlider = container.querySelector('#sidebar-cloud-opacity');
-
-      expect(lowBtn).not.toBeNull();
-      expect(midBtn).not.toBeNull();
-      expect(highBtn).not.toBeNull();
       expect(driftSlider).not.toBeNull();
       expect(opacitySlider).not.toBeNull();
-
-      // Verify layer altitude sublabels
-      expect(lowBtn!.textContent).toContain('1–2 km');
-      expect(midBtn!.textContent).toContain('4–6 km');
-      expect(highBtn!.textContent).toContain('10–12 km');
+      const text = container.textContent || '';
+      expect(text).toMatch(/MARINE LAYER|Stratus/i);
+      expect(text).toMatch(/Alto/i);
+      expect(text).toMatch(/Cirrus/i);
     });
   });
 
