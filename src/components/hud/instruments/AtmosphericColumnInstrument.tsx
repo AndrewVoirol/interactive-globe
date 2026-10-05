@@ -193,7 +193,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         onDoubleClick={handleReset}
         onKeyDown={handleKeyDown}
         title="Drag altitude caliper vertically to adjust scale (1.0–12.0x) • Click stratum to toggle layer • Double-click to reset"
-        className={`relative w-full h-28 rounded-[2px] overflow-hidden cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)]`}
+        className={`relative w-full h-36 sm:h-40 rounded-[2px] overflow-hidden cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)]`}
       >
         <svg
           className="w-full h-full pointer-events-none"
@@ -202,19 +202,19 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         >
           {/* Base Strata Column Bands (Period Compliant - No Muddy Fills) */}
           <rect
-            x="42" y="24" width="230" height="20" rx="2"
+            x="42" y="18" width="230" height="26" rx="2"
             style={{ fill: showCloudHigh ? (cloudFalseColor ? 'var(--theme-instrument-strata-high)' : 'currentColor') : 'transparent', stroke: showCloudHigh ? (cloudFalseColor ? 'var(--theme-instrument-strata-high)' : 'var(--theme-instrument-ink)') : 'currentColor' }}
             fillOpacity={showCloudHigh ? (0.04 + cloudOpacity * 0.16) : 0}
             strokeWidth={showCloudHigh ? 0.75 : 0.5} strokeDasharray={showCloudHigh ? 'none' : '4 4'} strokeOpacity={showCloudHigh ? 0.8 : 0.3}
           />
           <rect
-            x="42" y="60" width="230" height="20" rx="2"
+            x="42" y="54" width="230" height="26" rx="2"
             style={{ fill: showCloudMid ? (cloudFalseColor ? 'var(--theme-instrument-strata-mid)' : 'currentColor') : 'transparent', stroke: showCloudMid ? (cloudFalseColor ? 'var(--theme-instrument-strata-mid)' : 'var(--theme-instrument-ink)') : 'currentColor' }}
             fillOpacity={showCloudMid ? (0.04 + cloudOpacity * 0.16) : 0}
             strokeWidth={showCloudMid ? 0.75 : 0.5} strokeDasharray={showCloudMid ? 'none' : '4 4'} strokeOpacity={showCloudMid ? 0.8 : 0.3}
           />
           <rect
-            x="42" y="94" width="230" height="20" rx="2"
+            x="42" y="90" width="230" height="26" rx="2"
             style={{ fill: showCloudLow ? (cloudFalseColor ? 'var(--theme-instrument-strata-low)' : 'currentColor') : 'transparent', stroke: showCloudLow ? (cloudFalseColor ? 'var(--theme-instrument-strata-low)' : 'var(--theme-instrument-ink)') : 'currentColor' }}
             fillOpacity={showCloudLow ? (0.04 + cloudOpacity * 0.16) : 0}
             strokeWidth={showCloudLow ? 0.75 : 0.5} strokeDasharray={showCloudLow ? 'none' : '4 4'} strokeOpacity={showCloudLow ? 0.8 : 0.3}
@@ -232,9 +232,9 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               <line x1="34" y1="122" x2="40" y2="122" stroke="currentColor" strokeWidth="0.75" />
               <g style={{ paintOrder: 'stroke', stroke: 'var(--theme-instrument-viewport-bg)', strokeWidth: '4px', strokeLinejoin: 'round' }}>
                 <text x="31" y="17" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">15 km</text>
-                <text x="31" y="37" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">11 km</text>
-                <text x="31" y="73" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">5 km</text>
-                <text x="31" y="107" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">1.5 km</text>
+                <text x="31" y="34" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">11 km</text>
+                <text x="31" y="70" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">5 km</text>
+                <text x="31" y="106" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">1.5 km</text>
                 <text x="31" y="124" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">0 m</text>
               </g>
 
@@ -246,18 +246,18 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
 
               {/* High Layer Hachures */}
               <g style={{ opacity: showCloudHigh ? 1.0 : 0.0, transition: 'opacity 0.2s' }}>
-                <path d="M 130 31 Q 160 27 195 33 T 255 31" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "currentColor" }} strokeWidth="0.6" strokeDasharray="2 1" opacity="0.7" />
-                <path d="M 155 35 Q 185 30 220 36 T 260 33" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "currentColor" }} strokeWidth="0.4" strokeDasharray="3 2" opacity="0.45" />
+                <path d="M 130 28 Q 160 24 195 30 T 255 28" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "currentColor" }} strokeWidth="0.6" strokeDasharray="2 1" opacity="0.7" />
+                <path d="M 155 32 Q 185 27 220 33 T 260 30" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "currentColor" }} strokeWidth="0.4" strokeDasharray="3 2" opacity="0.45" />
               </g>
               {/* Mid Layer Hachures */}
               <g style={{ opacity: showCloudMid ? 1.0 : 0.0, transition: 'opacity 0.2s' }}>
-                <path d="M 135 68 Q 150 64 165 68 Q 180 72 195 68 Q 210 64 225 68" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "currentColor" }} strokeWidth="0.6" opacity="0.7" />
-                <path d="M 140 72 Q 155 68 170 72 Q 185 76 200 72 Q 215 68 230 72" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "currentColor" }} strokeWidth="0.4" opacity="0.45" />
+                <path d="M 135 65 Q 150 61 165 65 Q 180 69 195 65 Q 210 61 225 65" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "currentColor" }} strokeWidth="0.6" opacity="0.7" />
+                <path d="M 140 69 Q 155 65 170 69 Q 185 73 200 69 Q 215 65 230 69" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "currentColor" }} strokeWidth="0.4" opacity="0.45" />
               </g>
               {/* Low Layer Hachures */}
               <g style={{ opacity: showCloudLow ? 1.0 : 0.0, transition: 'opacity 0.2s' }}>
-                <path d="M 48 102 L 260 102" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "currentColor" }} strokeWidth="0.6" opacity="0.6" />
-                <path d="M 48 106 L 255 106" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "currentColor" }} strokeWidth="0.6" opacity="0.6" />
+                <path d="M 48 100 L 260 100" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "currentColor" }} strokeWidth="0.6" opacity="0.6" />
+                <path d="M 48 104 L 255 104" fill="none" style={{ stroke: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "currentColor" }} strokeWidth="0.6" opacity="0.6" />
               </g>
             </g>
           ) : theme === 2 ? (
@@ -274,21 +274,21 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               ))}
               <g style={{ paintOrder: 'stroke', stroke: 'var(--theme-instrument-viewport-bg)', strokeWidth: '4px', strokeLinejoin: 'round' }}>
                 <text x="38" y="17" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">150hPa</text>
-                <text x="38" y="37" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">250hPa</text>
-                <text x="38" y="73" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">500hPa</text>
-                <text x="38" y="107" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">850hPa</text>
+                <text x="38" y="34" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">250hPa</text>
+                <text x="38" y="70" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">500hPa</text>
+                <text x="38" y="106" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">850hPa</text>
                 <text x="38" y="124" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">1013</text>
               </g>
               <g style={{ opacity: showCloudHigh ? 1.0 : 0.0, transition: 'opacity 0.2s' }}>
-                <circle cx="195" cy="34" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
+                <circle cx="195" cy="31" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
               </g>
               <g style={{ opacity: showCloudMid ? 1.0 : 0.0, transition: 'opacity 0.2s' }}>
-                <circle cx="150" cy="70" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
+                <circle cx="150" cy="67" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
               </g>
               <g style={{ opacity: showCloudLow ? 1.0 : 0.0, transition: 'opacity 0.2s' }}>
-                <circle cx="105" cy="104" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
+                <circle cx="105" cy="103" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
               </g>
-              <polyline points="70,122 105,104 150,70 195,34 220,14" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1" strokeDasharray="3 2" opacity="0.85" />
+              <polyline points="70,122 105,103 150,67 195,31 220,14" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1" strokeDasharray="3 2" opacity="0.85" />
             </g>
           ) : (
             <g className="atmospheric-column-tharp acoustic-trace-tharp text-[var(--theme-instrument-ink)]">
@@ -325,7 +325,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             <text
               x="234" y={caliperY + 3.5} textAnchor="middle"
               style={{ fill: 'var(--theme-instrument-caliper-badge-text)' }}
-              fontSize="7.5" fontFamily="monospace" fontWeight="bold"
+              fontSize="9" fontFamily="monospace" fontWeight="bold"
             >
               {theme === 1 ? '△' : '▲'} {atmosphericScale.toFixed(1)}× {theme === 1 ? '▽' : '▼'}
             </text>
@@ -334,76 +334,24 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
           {/* Theme-Specific Text Labels (Drawn ON TOP of Caliper to create cutout) */}
           {theme === 1 ? (
             <g style={{ paintOrder: 'stroke', stroke: 'var(--theme-instrument-viewport-bg)', strokeWidth: '4px', strokeLinejoin: 'round' }}>
-              <text x="48" y="37" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "currentColor" }} fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">Cirrus (10–12 km)</text>
-              <text x="48" y="73" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "currentColor" }} fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">Alto-cumulus (4–6 km)</text>
-              <text x="48" y="107" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "currentColor" }} fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">Stratus (1–2 km)</text>
+              <text x="48" y="34" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "currentColor" }} fontSize="10" fontFamily="serif" fontStyle="italic" fontWeight="bold">Cirrus (10–12 km)</text>
+              <text x="48" y="70" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "currentColor" }} fontSize="10" fontFamily="serif" fontStyle="italic" fontWeight="bold">Alto-cumulus (4–6 km)</text>
+              <text x="48" y="106" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "currentColor" }} fontSize="10" fontFamily="serif" fontStyle="italic" fontWeight="bold">Stratus (1–2 km)</text>
             </g>
           ) : theme === 2 ? (
             <g style={{ paintOrder: 'stroke', stroke: 'var(--theme-instrument-viewport-bg)', strokeWidth: '4px', strokeLinejoin: 'round' }}>
-              <text x="48" y="37" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "var(--theme-instrument-ink-secondary)" }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">JET / CIRRUS [250 hPa]</text>
-              <text x="48" y="73" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "var(--theme-instrument-ink-secondary)" }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">ALTOSTRATUS [500 hPa]</text>
-              <text x="48" y="107" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "var(--theme-instrument-ink-secondary)" }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">STRATUS [850 hPa]</text>
+              <text x="48" y="34" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "var(--theme-instrument-ink-secondary)" }} fontSize="9" fontFamily="monospace" fontWeight="bold">JET / CIRRUS [250 hPa]</text>
+              <text x="48" y="70" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "var(--theme-instrument-ink-secondary)" }} fontSize="9" fontFamily="monospace" fontWeight="bold">ALTOSTRATUS [500 hPa]</text>
+              <text x="48" y="106" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "var(--theme-instrument-ink-secondary)" }} fontSize="9" fontFamily="monospace" fontWeight="bold">STRATUS [850 hPa]</text>
             </g>
           ) : (
             <g style={{ paintOrder: 'stroke', stroke: 'var(--theme-instrument-viewport-bg)', strokeWidth: '4px', strokeLinejoin: 'round' }}>
-              <text x="48" y="37" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "currentColor" }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">CIRRUS (10–12 km)</text>
-              <text x="48" y="73" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "currentColor" }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">ALTOCUMULUS (4–6 km)</text>
-              <text x="48" y="107" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "currentColor" }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">MARINE LAYER (1–2 km)</text>
+              <text x="48" y="34" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-high)" : "currentColor" }} fontSize="9" fontFamily="monospace" fontWeight="bold">CIRRUS (10–12 km)</text>
+              <text x="48" y="70" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-mid)" : "currentColor" }} fontSize="9" fontFamily="monospace" fontWeight="bold">ALTOCUMULUS (4–6 km)</text>
+              <text x="48" y="106" style={{ fill: cloudFalseColor ? "var(--theme-instrument-strata-low)" : "currentColor" }} fontSize="9" fontFamily="monospace" fontWeight="bold">MARINE LAYER (1–2 km)</text>
             </g>
           )}
         </svg>
-      </div>
-
-      {/* 3. Strata Quick Layer Toggles */}
-      <div className="grid grid-cols-3 gap-1 my-1.5 font-mono">
-        <button
-          type="button"
-          onClick={() => onToggleStrata('low', !showCloudLow)}
-          className={`tactile-press py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${showCloudLow ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'}`}
-          title="Low Stratus / Fog (1–2 km altitude)"
-        >
-          <div className="flex items-center gap-1">
-            <span
-              className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-              style={{ backgroundColor: 'var(--theme-instrument-strata-low)' }}
-              aria-hidden="true"
-            />
-            <span className="font-bold text-nano">LOW</span>
-          </div>
-          <span className="text-nano opacity-75">1–2 km</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onToggleStrata('mid', !showCloudMid)}
-          className={`tactile-press py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${showCloudMid ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'}`}
-          title="Mid Altocumulus (4–6 km altitude)"
-        >
-          <div className="flex items-center gap-1">
-            <span
-              className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-              style={{ backgroundColor: 'var(--theme-instrument-strata-mid)' }}
-              aria-hidden="true"
-            />
-            <span className="font-bold text-nano">MID</span>
-          </div>
-          <span className="text-nano opacity-75">4–6 km</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onToggleStrata('high', !showCloudHigh)}
-          className={`tactile-press py-1 px-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center font-mono ${showCloudHigh ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] shadow-sm' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)] opacity-60'}`}
-          title="High Cirrus (10–12 km altitude)"
-        >
-          <div className="flex items-center gap-1">
-            <span
-              className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-              style={{ backgroundColor: 'var(--theme-instrument-strata-high)' }}
-              aria-hidden="true"
-            />
-            <span className="font-bold text-nano">HIGH</span>
-          </div>
-          <span className="text-nano opacity-75">10–12 km</span>
-        </button>
       </div>
 
       {/* Strata Diagnostic False-Color Toggle */}
@@ -411,7 +359,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         type="button"
         id="sidebar-strata-diagnostic-toggle"
         onClick={() => onToggleFalseColor?.(!cloudFalseColor)}
-        className={`tactile-press w-full py-1 px-2 mb-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 text-nano font-mono ${
+        className={`tactile-press w-full py-1 px-2 my-1.5 rounded-[2px] border text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 text-nano font-mono ${
           cloudFalseColor ? 'bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] font-bold shadow-sm' : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-primary)] hover:border-[var(--theme-card-border-hover)]'
         }`}
         title="Toggle multi-spectral false-color emission for tropospheric cloud strata (Amber/Cyan/Magenta)"
