@@ -315,7 +315,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             opacity="0.9"
             fontWeight="bold"
           >
-            Moist
+            Windward
           </text>
           {/* Condensation Vapor Droplet Pips */}
           <circle cx="48" cy="98" r="1.2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} opacity="0.5" />
@@ -458,7 +458,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             opacity="0.45"
           />
           <text
-            x="226"
+            x="215"
             y="89"
             fontSize="6.5"
             fontFamily="var(--font-mono, monospace)"
@@ -466,7 +466,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             opacity="0.85"
             fontWeight="bold"
           >
-            Arid
+            Rain Shadow
           </text>
           {/* Rain Shadow Arid Surface Desiccation Cues */}
           <line x1="220" y1="114" x2="228" y2="114" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.6" strokeDasharray="1.5 2" opacity="0.45" />
@@ -575,7 +575,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             <circle
               cx={cloudThumbX}
               cy={cloudThumbY}
-              r="6.5"
+              r="7.5"
               style={{
                 fill: 'var(--theme-instrument-caliper-badge-bg)',
                 stroke: 'var(--theme-instrument-caliper)'
@@ -586,11 +586,11 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             <circle cx={cloudThumbX} cy={cloudThumbY} r="2.5" style={{ fill: 'var(--theme-instrument-caliper)' }} />
             {/* Value Callout Badge */}
             <rect
-              x={cloudThumbX - 22}
-              y={cloudThumbY - 21}
-              width="44"
-              height="12"
-              rx="2"
+              x={cloudThumbX - 38}
+              y={cloudThumbY - 32}
+              width="76"
+              height="24"
+              rx="2.5"
               style={{
                 fill: 'var(--theme-instrument-caliper-badge-bg)',
                 stroke: 'var(--theme-instrument-caliper)'
@@ -600,10 +600,23 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             />
             <text
               x={cloudThumbX}
-              y={cloudThumbY - 12.5}
+              y={cloudThumbY - 22}
               textAnchor="middle"
               style={{ fill: 'var(--theme-instrument-caliper-badge-text)' }}
-              fontSize="7"
+              fontSize="6"
+              fontFamily="var(--font-mono, monospace)"
+              opacity="0.7"
+              fontWeight="bold"
+              letterSpacing="0.05em"
+            >
+              CLOUD COVER
+            </text>
+            <text
+              x={cloudThumbX}
+              y={cloudThumbY - 12}
+              textAnchor="middle"
+              style={{ fill: 'var(--theme-instrument-caliper-badge-text)' }}
+              fontSize="9.5"
               fontFamily="var(--font-mono, monospace)"
               fontWeight="bold"
             >
@@ -616,7 +629,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             {/* Caliper bracket connecting handle to valley river */}
             <line
               x1={pluvialThumbX}
-              y1={pluvialThumbY + 6.5}
+              y1={pluvialThumbY + 7.5}
               x2={pluvialThumbX}
               y2="118"
               style={{ stroke: 'var(--theme-instrument-ink-secondary)' }}
@@ -627,7 +640,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             <circle
               cx={pluvialThumbX}
               cy={pluvialThumbY}
-              r="6.5"
+              r="7.5"
               style={{
                 fill: 'var(--theme-instrument-caliper-badge-bg)',
                 stroke: 'var(--theme-instrument-ink-secondary)'
@@ -639,10 +652,10 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             {/* Value Callout Badge */}
             <rect
               x={pluvialThumbX + 11}
-              y={pluvialThumbY - 6}
-              width="34"
-              height="12"
-              rx="2"
+              y={pluvialThumbY - 12}
+              width="74"
+              height="24"
+              rx="2.5"
               style={{
                 fill: 'var(--theme-instrument-caliper-badge-bg)',
                 stroke: 'var(--theme-instrument-caliper)'
@@ -651,11 +664,24 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
               className="drop-shadow"
             />
             <text
-              x={pluvialThumbX + 28}
-              y={pluvialThumbY + 2.5}
+              x={pluvialThumbX + 48}
+              y={pluvialThumbY - 2}
               textAnchor="middle"
               style={{ fill: 'var(--theme-instrument-caliper-badge-text)' }}
-              fontSize="7"
+              fontSize="6"
+              fontFamily="var(--font-mono, monospace)"
+              opacity="0.7"
+              fontWeight="bold"
+              letterSpacing="0.05em"
+            >
+              RIVER SWELL
+            </text>
+            <text
+              x={pluvialThumbX + 48}
+              y={pluvialThumbY + 8}
+              textAnchor="middle"
+              style={{ fill: 'var(--theme-instrument-caliper-badge-text)' }}
+              fontSize="9.5"
               fontFamily="var(--font-mono, monospace)"
               fontWeight="bold"
             >
