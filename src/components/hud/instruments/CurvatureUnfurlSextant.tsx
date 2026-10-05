@@ -97,33 +97,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
     };
   }, []);
 
-  // Theme-aware mineral pigment tokens
-  const sextantTokens = theme === 2
-    ? {
-        arcStroke: '#4f79a3',
-        thumbFill: '#e8edf2',
-        thumbStroke: '#4f79a3',
-        activeTick: '#a5d5ff',
-        inactiveTick: 'rgba(232, 237, 242, 0.45)',
-        rayStroke: 'rgba(232, 237, 242, 0.15)',
-      }
-    : theme === 1
-    ? {
-        arcStroke: '#8c4820',
-        thumbFill: '#fdfcf9',
-        thumbStroke: '#8c4820',
-        activeTick: '#8c4820',
-        inactiveTick: 'rgba(43, 36, 26, 0.45)',
-        rayStroke: 'rgba(43, 36, 26, 0.18)',
-      }
-    : {
-        arcStroke: '#3b788a',
-        thumbFill: '#f0ede6',
-        thumbStroke: 'var(--theme-text-accent)',
-        activeTick: 'var(--theme-text-accent)',
-        inactiveTick: 'rgba(240, 237, 230, 0.45)',
-        rayStroke: 'rgba(240, 237, 230, 0.15)',
-      };
+
 
   const [dragAlpha, setDragAlpha] = useState<number | null>(null);
 
@@ -381,41 +355,41 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
           onGlideToAlpha?.(refAlpha < 0.5 ? 1.0 : 0.0);
         }}
         title="Drag vernier reticle along curvature arc (Double-click to toggle Globe/Map, Arrow keys to nudge)"
-        className={`relative w-full h-9 rounded-[2px] border flex items-center justify-center cursor-pointer select-none touch-none shadow-inner bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${
-          isHovered ? 'shadow-[0_0_12px_var(--theme-focus-ring)] border-[var(--theme-card-border-hover)]' : ''
+        className={`relative w-full h-9 rounded-[2px] flex items-center justify-center cursor-pointer select-none touch-none shadow-inner bg-[var(--theme-instrument-viewport-bg)] transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${
+          isHovered ? 'shadow-[0_0_12px_var(--theme-focus-ring)]' : ''
         }`}
         style={{ touchAction: 'none' }}
       >
         <svg className="w-full h-full pointer-events-none" viewBox="0 0 240 36" preserveAspectRatio="xMidYMid meet">
           {/* Radial reference rays - dynamically calibrated to fiducial milestone detents */}
-          <line x1="120" y1="34" x2="15" y2="26" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="78" y2={tick2Y} stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="120" y2={tickCenterY} stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="162" y2={tick3Y} stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
-          <line x1="120" y1="34" x2="225" y2="26" stroke={sextantTokens.rayStroke} strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="15" y2="26" stroke="var(--theme-instrument-viewport-border)" strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="78" y2={tick2Y} stroke="var(--theme-instrument-viewport-border)" strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="120" y2={tickCenterY} stroke="var(--theme-instrument-viewport-border)" strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="162" y2={tick3Y} stroke="var(--theme-instrument-viewport-border)" strokeDasharray="2 2" />
+          <line x1="120" y1="34" x2="225" y2="26" stroke="var(--theme-instrument-viewport-border)" strokeDasharray="2 2" />
 
           {/* Curvature Unfurling Arc */}
           <path
             d={pathD}
             fill="none"
-            stroke={sextantTokens.arcStroke}
+            stroke="var(--theme-instrument-ink)"
             strokeWidth="2.5"
             strokeLinecap="round"
           />
 
           {/* Magnetic tick markers - rendered on top of arc track for optical legibility */}
-          <circle cx="15" cy="26" r="2.5" fill={activeAlpha < 0.15 ? sextantTokens.activeTick : sextantTokens.inactiveTick} stroke={sextantTokens.arcStroke} strokeWidth="0.75" />
-          <circle cx="78" cy={tick2Y} r="2.5" fill={activeAlpha >= 0.15 && activeAlpha < 0.5 ? sextantTokens.activeTick : sextantTokens.inactiveTick} stroke={sextantTokens.arcStroke} strokeWidth="0.75" />
-          <circle cx="162" cy={tick3Y} r="2.5" fill={activeAlpha >= 0.5 && activeAlpha < 0.98 ? sextantTokens.activeTick : sextantTokens.inactiveTick} stroke={sextantTokens.arcStroke} strokeWidth="0.75" />
-          <circle cx="225" cy="26" r="2.5" fill={activeAlpha >= 0.98 ? sextantTokens.activeTick : sextantTokens.inactiveTick} stroke={sextantTokens.arcStroke} strokeWidth="0.75" />
+          <circle cx="15" cy="26" r="2.5" fill={activeAlpha < 0.15 ? 'var(--theme-instrument-ink-secondary)' : 'var(--theme-instrument-viewport-border)'} stroke="var(--theme-instrument-ink)" strokeWidth="0.75" />
+          <circle cx="78" cy={tick2Y} r="2.5" fill={activeAlpha >= 0.15 && activeAlpha < 0.5 ? 'var(--theme-instrument-ink-secondary)' : 'var(--theme-instrument-viewport-border)'} stroke="var(--theme-instrument-ink)" strokeWidth="0.75" />
+          <circle cx="162" cy={tick3Y} r="2.5" fill={activeAlpha >= 0.5 && activeAlpha < 0.98 ? 'var(--theme-instrument-ink-secondary)' : 'var(--theme-instrument-viewport-border)'} stroke="var(--theme-instrument-ink)" strokeWidth="0.75" />
+          <circle cx="225" cy="26" r="2.5" fill={activeAlpha >= 0.98 ? 'var(--theme-instrument-ink-secondary)' : 'var(--theme-instrument-viewport-border)'} stroke="var(--theme-instrument-ink)" strokeWidth="0.75" />
 
           {/* Reticle Thumb */}
           <circle
             cx={thumbX}
             cy={thumbY}
             r={isHovered || dragAlpha !== null ? 5.5 : 4.5}
-            fill={sextantTokens.thumbFill}
-            stroke={sextantTokens.thumbStroke}
+            fill="var(--theme-slider-thumb-bg)"
+            stroke="var(--theme-slider-thumb-border)"
             strokeWidth="2"
             className="shadow-sm"
           />

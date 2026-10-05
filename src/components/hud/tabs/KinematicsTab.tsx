@@ -410,16 +410,8 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
             title="Antipodal Geodesic Connectors"
             className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
               activeOverlay === 'antipodes'
-                ? theme === 1
-                  ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414] shadow-sm font-semibold ring-1 ring-[#8C4820]/40'
-                  : theme === 2
-                  ? 'bg-[#203A57] text-[#A5D5FF] border-[#4F79A3] shadow-sm font-semibold ring-1 ring-[#A5D5FF]/40'
-                  : 'bg-rose-500/35 text-rose-200 border-rose-400/80 shadow-[0_0_10px_rgba(244,63,94,0.4)] ring-1 ring-rose-400/60 font-semibold'
-                : theme === 1
-                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[#8C4820] hover:border-[#8C4820]/40 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
-                : theme === 2
-                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[#A5D5FF] hover:border-[#4F79A3]/50 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
-                : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-accent)] hover:border-[var(--theme-control-border-hover)] hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
+                ? 'bg-[var(--theme-direction-a-bg)] text-[var(--theme-direction-a-text)] border-[var(--theme-direction-a-border)] shadow-sm font-semibold ring-1 ring-[var(--theme-direction-a-ring)]'
+                : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-text-accent)] hover:border-[var(--theme-text-accent)]/40 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
             }`}
           >
             Antipodes
@@ -430,16 +422,8 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
             title="Global Oceanic Conveyor Belt"
             className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
               activeOverlay === 'conveyor'
-                ? theme === 1
-                  ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A] shadow-sm font-semibold ring-1 ring-[#1A4457]/40'
-                  : theme === 2
-                  ? 'bg-[#162D45] text-[#E8EDF2] border-[#3B597A] shadow-sm font-semibold ring-1 ring-[#4FA3E3]/40'
-                  : 'bg-sky-500/35 text-sky-200 border-sky-400/80 shadow-[0_0_10px_rgba(56,189,248,0.4)] ring-1 ring-sky-400/60 font-semibold'
-                : theme === 1
-                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[#1A4457] hover:border-[#1A4457]/40 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
-                : theme === 2
-                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[#E8EDF2] hover:border-[#3B597A]/50 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
-                : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-sky-500 hover:border-sky-400/50 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
+                ? 'bg-[var(--theme-direction-b-bg)] text-[var(--theme-direction-b-text)] border-[var(--theme-direction-b-border)] shadow-sm font-semibold ring-1 ring-[var(--theme-direction-b-ring)]'
+                : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-status-sage)] hover:border-[var(--theme-status-sage)]/50 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
             }`}
           >
             Conveyor
@@ -450,15 +434,7 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
             title="Great Circle Migration"
             className={`py-1.5 px-1 rounded-[2px] text-nano font-bold transition-all text-center border cursor-pointer ${
               activeOverlay === 'migration'
-                ? theme === 1
-                  ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300] shadow-sm font-semibold ring-1 ring-[#7D4700]/40'
-                  : theme === 2
-                  ? 'bg-[#294D75] text-[#E8EDF2] border-[#4FA3E3] shadow-sm font-semibold ring-1 ring-[#4FA3E3]/50'
-                  : 'bg-[var(--theme-status-amber)]/35 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/80 shadow-[0_0_10px_var(--theme-status-amber)] ring-1 ring-[var(--theme-status-amber)]/60 font-semibold'
-                : theme === 1
-                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[#7D4700] hover:border-[#7D4700]/40 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
-                : theme === 2
-                ? 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[#E8EDF2] hover:border-[#4FA3E3]/50 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
+                ? 'bg-[var(--theme-direction-c-bg)] text-[var(--theme-direction-c-text)] border-[var(--theme-direction-c-border)] shadow-sm font-semibold ring-1 ring-[var(--theme-direction-c-ring)]'
                 : 'border-[var(--theme-control-border)] text-[var(--theme-text-secondary)] hover:text-[var(--theme-status-amber)] hover:border-[var(--theme-status-amber)]/50 hover:bg-[var(--theme-control-hover-bg)] bg-[var(--theme-control-bg)]'
             }`}
           >

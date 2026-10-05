@@ -340,32 +340,6 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
     }
   };
 
-  // 6. Theme Tokens for SVG Viewport
-  const tokens =
-    activeTheme === 2
-      ? {
-          viewportBg: 'bg-[#0d1724]',
-          viewportBorder: 'border-[#3b597a]/60',
-          cursorColor: '#70b7ff',
-          badgeBg: '#0e1824',
-          textColor: '#a5d5ff',
-        }
-      : activeTheme === 1
-      ? {
-          viewportBg: 'bg-[#fdfcf9]',
-          viewportBorder: 'border-[#b8ad98]/60',
-          cursorColor: '#8c4820',
-          badgeBg: '#fdfcf9',
-          textColor: '#8c4820',
-        }
-      : {
-          viewportBg: 'bg-[#0c1219]',
-          viewportBorder: 'border-[#3a4d61]/60',
-          cursorColor: '#00e5ff',
-          badgeBg: '#0a111a',
-          textColor: '#00e5ff',
-        };
-
   // Caliper horizontal position in viewBox [0 0 280 110]
   const caliperX = Math.round(24 + (leadTimeHours / 240) * 232);
 
@@ -431,7 +405,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
         onDoubleClick={handleReset}
         onKeyDown={handleKeyDown}
         title="Drag lead time cursor horizontally (T+0h to T+240h) • Arrow keys step • Double-click to reset"
-        className={`relative w-full h-28 rounded-[2px] border overflow-hidden cursor-ew-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${tokens.viewportBg} ${tokens.viewportBorder}`}
+        className={`relative w-full h-28 rounded-[2px] overflow-hidden cursor-ew-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)]`}
       >
         <svg
           className="w-full h-full pointer-events-none"
@@ -440,8 +414,8 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
         >
           <defs>
             <pattern id="prog-cyanotype-grid" width="16" height="16" patternUnits="userSpaceOnUse">
-              <line x1="0" y1="0" x2="16" y2="0" stroke="#4fa3e3" strokeWidth="0.3" strokeOpacity="0.25" />
-              <line x1="0" y1="0" x2="0" y2="16" stroke="#4fa3e3" strokeWidth="0.3" strokeOpacity="0.25" />
+              <line x1="0" y1="0" x2="16" y2="0" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.3" strokeOpacity="0.25" />
+              <line x1="0" y1="0" x2="0" y2="16" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.3" strokeOpacity="0.25" />
             </pattern>
           </defs>
 
@@ -451,7 +425,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
             y1="18"
             x2={caliperX}
             y2="96"
-            stroke={tokens.cursorColor}
+            style={{ stroke: 'var(--theme-instrument-caliper)' }}
             strokeWidth="1.2"
             strokeDasharray="3 1.5"
           />
@@ -459,18 +433,18 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           {/* 3-Medium Adaptive Visual Artifacts */}
           {activeTheme === 1 ? (
             // Theme 1 (Cream Rag Paper): 19th-Century Synoptic Chart Isobar Engraving
-            <g className="prognostic-model-cream text-[#8c4820]">
+            <g className="prognostic-model-cream text-[var(--theme-instrument-ink)]">
               {/* Title Cartouche Inscription */}
               <text
                 x="18"
                 y="27"
-                fill="#8c4820"
+                fill="currentColor"
                 fontSize="6"
                 fontFamily="serif"
                 fontStyle="italic"
                 fontWeight="bold"
                 paintOrder="stroke"
-                stroke={tokens.badgeBg}
+                style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }}
                 strokeWidth="3"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -479,31 +453,31 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               </text>
 
               {/* Low Pressure Depressions with Cyclonic Isobars */}
-              <circle cx="75" cy="55" r="14" fill="none" stroke="#8c4820" strokeWidth="0.75" />
-              <circle cx="75" cy="55" r="26" fill="none" stroke="#8c4820" strokeWidth="0.6" strokeDasharray="3 1.5" />
-              <circle cx="75" cy="55" r="38" fill="none" stroke="#8c4820" strokeWidth="0.5" strokeDasharray="4 2" />
-              <text x="75" y="58" textAnchor="middle" fill="#8c4820" fontSize="10" fontFamily="serif" fontWeight="bold">
+              <circle cx="75" cy="55" r="14" fill="none" stroke="currentColor" strokeWidth="0.75" />
+              <circle cx="75" cy="55" r="26" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 1.5" />
+              <circle cx="75" cy="55" r="38" fill="none" stroke="currentColor" strokeWidth="0.5" strokeDasharray="4 2" />
+              <text x="75" y="58" textAnchor="middle" fill="currentColor" fontSize="10" fontFamily="serif" fontWeight="bold">
                 B
               </text>
-              <text x="75" y="66" textAnchor="middle" fill="#8c4820" fontSize="5" fontFamily="serif" fontStyle="italic">
+              <text x="75" y="66" textAnchor="middle" fill="currentColor" fontSize="5" fontFamily="serif" fontStyle="italic">
                 996 hPa
               </text>
-              <text x="96" y="52" fill="#8c4820" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1000</text>
-              <text x="106" y="44" fill="#8c4820" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1004</text>
+              <text x="96" y="52" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1000</text>
+              <text x="106" y="44" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1004</text>
 
               {/* High Pressure Anticyclone with Divergent Isobars */}
-              <circle cx="210" cy="50" r="16" fill="none" stroke="#8c4820" strokeWidth="0.75" />
-              <circle cx="210" cy="50" r="30" fill="none" stroke="#8c4820" strokeWidth="0.6" strokeDasharray="3 1.5" />
-              <text x="210" y="53" textAnchor="middle" fill="#8c4820" fontSize="10" fontFamily="serif" fontWeight="bold">
+              <circle cx="210" cy="50" r="16" fill="none" stroke="currentColor" strokeWidth="0.75" />
+              <circle cx="210" cy="50" r="30" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 1.5" />
+              <text x="210" y="53" textAnchor="middle" fill="currentColor" fontSize="10" fontFamily="serif" fontWeight="bold">
                 H
               </text>
-              <text x="210" y="61" textAnchor="middle" fill="#8c4820" fontSize="5" fontFamily="serif" fontStyle="italic">
+              <text x="210" y="61" textAnchor="middle" fill="currentColor" fontSize="5" fontFamily="serif" fontStyle="italic">
                 1024 hPa
               </text>
-              <text x="232" y="46" fill="#8c4820" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1020</text>
+              <text x="232" y="46" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1020</text>
 
               {/* Beaufort Wind Barbs */}
-              <g stroke="#8c4820" strokeWidth="0.6" fill="none">
+              <g stroke="currentColor" strokeWidth="0.6" fill="none">
                 <line x1="50" y1="36" x2="62" y2="44" />
                 <line x1="50" y1="36" x2="48" y2="40" />
                 <line x1="53" y1="38" x2="51" y2="42" />
@@ -519,21 +493,21 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               </g>
 
               {/* Frontal Boundary Incline Line with Intaglio Teeth */}
-              <path d="M 125 18 Q 135 52 152 92" fill="none" stroke="#8c4820" strokeWidth="1" />
-              <polygon points="128,30 134,34 130,37" fill="#8c4820" />
-              <polygon points="135,55 141,59 137,62" fill="#8c4820" />
-              <polygon points="144,80 150,84 146,87" fill="#8c4820" />
+              <path d="M 125 18 Q 135 52 152 92" fill="none" stroke="currentColor" strokeWidth="1" />
+              <polygon points="128,30 134,34 130,37" fill="currentColor" />
+              <polygon points="135,55 141,59 137,62" fill="currentColor" />
+              <polygon points="144,80 150,84 146,87" fill="currentColor" />
 
               {/* Bottom Chronometric Horizon Axis */}
-              <line x1="24" y1="96" x2="256" y2="96" stroke="#8c4820" strokeWidth="0.75" />
+              <line x1="24" y1="96" x2="256" y2="96" stroke="currentColor" strokeWidth="0.75" />
               {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
                 const tx = 24 + (h / 240) * 232;
                 const isMilestone = h % 48 === 0;
                 return (
                   <g key={h}>
-                    <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" stroke="#8c4820" strokeWidth={isMilestone ? "0.8" : "0.5"} />
+                    <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" stroke="currentColor" strokeWidth={isMilestone ? "0.8" : "0.5"} />
                     {isMilestone && (
-                      <text x={tx} y="104" textAnchor="middle" fill="#8c4820" fontSize="5.5" fontFamily="monospace">
+                      <text x={tx} y="104" textAnchor="middle" fill="currentColor" fontSize="5.5" fontFamily="monospace">
                         +{h}h
                       </text>
                     )}
@@ -543,27 +517,27 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
             </g>
           ) : activeTheme === 2 ? (
             // Theme 2 (Prussian Cyanotype): CAD Computational Mesh & Tensor Lattice
-            <g className="prognostic-model-cyanotype text-[#4fa3e3]">
+            <g className="prognostic-model-cyanotype text-[var(--theme-instrument-ink)]">
               {/* CAD Background Grid */}
               <rect x="0" y="0" width="280" height="110" fill="url(#prog-cyanotype-grid)" />
 
               {/* Zarr v3 Chunk Boundary Partitions */}
-              <line x1="90" y1="12" x2="90" y2="96" stroke="#4fa3e3" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
-              <line x1="180" y1="12" x2="180" y2="96" stroke="#4fa3e3" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
-              <line x1="16" y1="54" x2="264" y2="54" stroke="#4fa3e3" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
+              <line x1="90" y1="12" x2="90" y2="96" stroke="currentColor" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
+              <line x1="180" y1="12" x2="180" y2="96" stroke="currentColor" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
+              <line x1="16" y1="54" x2="264" y2="54" stroke="currentColor" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
 
-              <text x="20" y="27" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <text x="20" y="27" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 CHUNK [0, 0] • 256×256
               </text>
-              <text x="105" y="27" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <text x="105" y="27" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 CHUNK [0, 1] • 256×256
               </text>
-              <text x="195" y="27" fill="#4fa3e3" fontSize="5.5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <text x="195" y="27" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 CHUNK [0, 2] • 256×256
               </text>
 
               {/* Icosahedral-Hexagonal Voronoi Nodes & Connections */}
-              <g stroke="#4fa3e3" strokeWidth="0.5" fill="none" opacity="0.7">
+              <g stroke="currentColor" strokeWidth="0.5" fill="none" opacity="0.7">
                 <polygon points="45,38 55,32 65,38 65,50 55,56 45,50" />
                 <polygon points="65,38 75,32 85,38 85,50 75,56 65,50" />
                 <polygon points="55,56 65,50 75,56 75,68 65,74 55,68" />
@@ -581,27 +555,27 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
                 [135, 38], [145, 32], [155, 38], [165, 32], [175, 38],
                 [215, 38], [225, 32], [235, 38]
               ].map(([cx, cy], i) => (
-                <circle key={i} cx={cx} cy={cy} r="1.5" fill="#a5d5ff" />
+                <circle key={i} cx={cx} cy={cy} r="1.5" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
               ))}
 
               {/* Tensor Metadata Inscriptions */}
-              <text x="20" y="74" fill="#a5d5ff" fontSize="5.5" fontFamily="monospace" fontWeight="bold" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <text x="20" y="74" style={{ fill: 'var(--theme-instrument-ink-secondary)', stroke: 'var(--theme-instrument-caliper-badge-bg)' }} fontSize="5.5" fontFamily="monospace" fontWeight="bold" paintOrder="stroke" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 TENSOR: [B=1, T=24, C=6] FP16
               </text>
-              <text x="20" y="83" fill="#4fa3e3" fontSize="5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <text x="20" y="83" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 Tco1279 / N640 • 7424B ROW PITCH
               </text>
 
               {/* Bottom Lead Time Scale */}
-              <line x1="24" y1="96" x2="256" y2="96" stroke="#4fa3e3" strokeWidth="0.75" />
+              <line x1="24" y1="96" x2="256" y2="96" stroke="currentColor" strokeWidth="0.75" />
               {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
                 const tx = 24 + (h / 240) * 232;
                 const isMilestone = h % 48 === 0;
                 return (
                   <g key={h}>
-                    <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" stroke="#a5d5ff" strokeWidth={isMilestone ? "0.8" : "0.5"} />
+                    <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth={isMilestone ? "0.8" : "0.5"} />
                     {isMilestone && (
-                      <text x={tx} y="104" textAnchor="middle" fill="#a5d5ff" fontSize="5.5" fontFamily="monospace">
+                      <text x={tx} y="104" textAnchor="middle" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} fontSize="5.5" fontFamily="monospace">
                         +{h}h
                       </text>
                     )}
@@ -611,26 +585,26 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
             </g>
           ) : (
             // Theme 0 (Marie Tharp): Baroclinic Fluid Contours & Heat Flux Streamlines
-            <g className="prognostic-model-tharp text-[#00e5ff]">
+            <g className="prognostic-model-tharp text-[var(--theme-instrument-ink)]">
               {/* Baroclinic Undulating Rossby Wave Flow Streamlines */}
               <path
                 d="M 12 40 Q 55 15 95 45 T 180 40 T 268 35"
                 fill="none"
-                stroke="#00e5ff"
+                stroke="currentColor"
                 strokeWidth="1.2"
                 opacity="0.85"
               />
               <path
                 d="M 12 55 Q 55 30 95 60 T 180 55 T 268 50"
                 fill="none"
-                stroke="#00e5ff"
+                stroke="currentColor"
                 strokeWidth="0.8"
                 opacity="0.6"
               />
               <path
                 d="M 12 70 Q 55 45 95 75 T 180 70 T 268 65"
                 fill="none"
-                stroke="#00e5ff"
+                stroke="currentColor"
                 strokeWidth="0.6"
                 opacity="0.4"
               />
@@ -639,44 +613,44 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               <path
                 d="M 40 85 Q 85 70 120 45"
                 fill="none"
-                stroke="#34d399"
+                style={{ stroke: 'var(--theme-instrument-ink-secondary)' }}
                 strokeWidth="1"
                 strokeDasharray="4 2"
               />
               <path
                 d="M 140 85 Q 185 70 220 45"
                 fill="none"
-                stroke="#34d399"
+                style={{ stroke: 'var(--theme-instrument-ink-secondary)' }}
                 strokeWidth="1"
                 strokeDasharray="4 2"
               />
-              <polyline points="75,76 80,74 76,70" fill="none" stroke="#34d399" strokeWidth="1" />
-              <polyline points="175,76 180,74 176,70" fill="none" stroke="#34d399" strokeWidth="1" />
+              <polyline points="75,76 80,74 76,70" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1" />
+              <polyline points="175,76 180,74 176,70" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1" />
 
               {/* Oceanographic Sounding Telemetry Inscriptions */}
-              <text x="18" y="27" fill="#00e5ff" fontSize="6.5" fontFamily="monospace" fontWeight="bold" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <text x="18" y="27" fill="currentColor" fontSize="6.5" fontFamily="monospace" fontWeight="bold" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 BAROCLINIC • Rossby λ = 4200 km
               </text>
-              <text x="18" y="35" fill="#34d399" fontSize="6" fontFamily="monospace" opacity="0.9" paintOrder="stroke" stroke={tokens.badgeBg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <text x="18" y="35" style={{ fill: 'var(--theme-instrument-ink-secondary)', stroke: 'var(--theme-instrument-caliper-badge-bg)' }} fontSize="6" fontFamily="monospace" opacity="0.9" paintOrder="stroke" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 OCEANIC FLUX: Q = +142 W/m²
               </text>
 
               {/* Radiosonde Sounding Ascent Trace */}
-              <polyline points="230,88 240,65 248,45 255,25" fill="none" stroke="#34d399" strokeWidth="0.75" strokeDasharray="2 2" />
-              <circle cx="240" cy="65" r="2" fill="#34d399" />
-              <circle cx="248" cy="45" r="2" fill="#34d399" />
-              <circle cx="255" cy="25" r="2" fill="#34d399" />
+              <polyline points="230,88 240,65 248,45 255,25" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.75" strokeDasharray="2 2" />
+              <circle cx="240" cy="65" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
+              <circle cx="248" cy="45" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
+              <circle cx="255" cy="25" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
 
               {/* Bottom Horizon Track */}
-              <line x1="24" y1="96" x2="256" y2="96" stroke="#00e5ff" strokeWidth="0.75" />
+              <line x1="24" y1="96" x2="256" y2="96" stroke="currentColor" strokeWidth="0.75" />
               {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
                 const tx = 24 + (h / 240) * 232;
                 const isMilestone = h % 48 === 0;
                 return (
                   <g key={h}>
-                    <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" stroke="#00e5ff" strokeWidth={isMilestone ? "0.8" : "0.5"} />
+                    <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" stroke="currentColor" strokeWidth={isMilestone ? "0.8" : "0.5"} />
                     {isMilestone && (
-                      <text x={tx} y="104" textAnchor="middle" fill="#00e5ff" fontSize="5.5" fontFamily="monospace">
+                      <text x={tx} y="104" textAnchor="middle" fill="currentColor" fontSize="5.5" fontFamily="monospace">
                         +{h}h
                       </text>
                     )}
@@ -695,8 +669,10 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               width="38"
               height="12"
               rx="2"
-              fill={tokens.badgeBg}
-              stroke={tokens.cursorColor}
+              style={{
+                fill: 'var(--theme-instrument-caliper-badge-bg)',
+                stroke: 'var(--theme-instrument-caliper)'
+              }}
               strokeWidth="0.8"
               fillOpacity="0.95"
               className="drop-shadow"
@@ -705,7 +681,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               x={Math.max(4, Math.min(238, caliperX - 19)) + 19}
               y="14.5"
               textAnchor="middle"
-              fill={tokens.textColor}
+              style={{ fill: 'var(--theme-instrument-caliper-badge-text)' }}
               fontSize="6.5"
               fontFamily="monospace"
               fontWeight="bold"
@@ -716,7 +692,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
             {/* Bottom Caliper Diamond */}
             <polygon
               points={`${caliperX},90 ${caliperX + 3.5},94 ${caliperX},98 ${caliperX - 3.5},94`}
-              fill={tokens.cursorColor}
+              style={{ fill: 'var(--theme-instrument-caliper)' }}
             />
           </g>
         </svg>

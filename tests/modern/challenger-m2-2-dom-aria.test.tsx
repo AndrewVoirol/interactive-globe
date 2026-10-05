@@ -75,7 +75,7 @@ describe('Challenger 2: DOM, ARIA & Build Verification Suite (M2 - R2)', () => {
       // Check sounding curve and inversion line
       const lapsePath = tharpGroup?.querySelector('path');
       expect(lapsePath).not.toBeNull();
-      expect(lapsePath?.getAttribute('stroke')).toBe('#00e5ff');
+      expect(lapsePath?.getAttribute('stroke')).toBe('currentColor');
 
       const circles = tharpGroup?.querySelectorAll('circle');
       expect(circles?.length).toBe(2); // Acoustic pulse echo circles

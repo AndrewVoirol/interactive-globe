@@ -303,7 +303,7 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
               onChange={handleToggleTerrainShadows}
               title="Toggle Dynamic Terrain Horizon Self-Shadows"
               label={activeTerrainShadows ? 'Active' : 'Off'}
-              indicatorColor={theme === 1 ? '#7D4700' : theme === 2 ? '#38BDF8' : '#F59E0B'}
+              indicatorColor="var(--theme-status-amber)"
             />
           </div>
 
@@ -477,7 +477,7 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
               onChange={handleToggleGeomorphicHydrology}
               title="Toggle Dynamic Geomorphic Hydrology & Basin Accumulation"
               label={activeGeomorphicHydrology ? 'Active' : 'Off'}
-              indicatorColor={theme === 1 ? '#7D4700' : theme === 2 ? '#38BDF8' : '#F59E0B'}
+              indicatorColor="var(--theme-status-amber)"
             />
           </div>
 
@@ -617,7 +617,7 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
               title="Toggle Soundings"
               label="Soundings"
               sublabel="Marine bathymetric depth matrix"
-              indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#10B981'}
+              indicatorColor="var(--theme-status-slate)"
             />
             <TactileSwitch
               checked={showTriangulation}
@@ -625,7 +625,7 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
               title="Toggle Triangulation"
               label="Triangulation"
               sublabel="Geodetic Delaunay survey baseline"
-              indicatorColor={theme === 1 ? '#9C2F2F' : theme === 2 ? '#60A5FA' : '#F43F5E'}
+              indicatorColor="var(--theme-text-accent)"
             />
             <TactileSwitch
               checked={showLandmarks}
@@ -633,7 +633,7 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
               title="Toggle Landmarks"
               label="Landmarks"
               sublabel="Astronomical observatories & promontories"
-              indicatorColor={theme === 1 ? '#7D4700' : theme === 2 ? '#60A5FA' : '#F59E0B'}
+              indicatorColor="var(--theme-status-amber)"
             />
           </div>
         </div>
@@ -656,7 +656,7 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
             onChange={handleToggleClouds}
             title="Master toggle for atmospheric cloud cover and 3D volumetric raymarching"
             label={propShowClouds ? 'Active' : 'Off'}
-            indicatorColor={theme === 1 ? '#1A4457' : theme === 2 ? '#38BDF8' : '#10B981'}
+            indicatorColor="var(--theme-status-slate)"
           />
         </div>
       </div>

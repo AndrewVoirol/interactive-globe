@@ -41,28 +41,13 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
       const isVect = cat.includes('vector') || cat.includes('boundary') || cat.includes('graticule');
       const isOrbit = cat.includes('orbit') || cat.includes('satellite') || cat.includes('trajectory');
 
-      if (theme === 1) {
-        if (isTopo) return { border: '#8C4820', bg: 'rgba(140, 72, 32, 0.12)', text: '#8C4820', label: 'TOPO' };
-        if (isOcean) return { border: '#1A4457', bg: 'rgba(26, 68, 87, 0.12)', text: '#1A4457', label: 'HYDRO' };
-        if (isAtmo) return { border: '#2B6B88', bg: 'rgba(43, 107, 136, 0.12)', text: '#1E536B', label: 'ATMO' };
-        if (isVect) return { border: '#7D4700', bg: 'rgba(125, 71, 0, 0.12)', text: '#7D4700', label: 'VECT' };
-        if (isOrbit) return { border: '#5A3E28', bg: 'rgba(90, 62, 40, 0.12)', text: '#5A3E28', label: 'ORBIT' };
-        return { border: '#605A52', bg: 'rgba(96, 90, 82, 0.12)', text: '#605A52', label: 'DATA' };
-      } else if (theme === 2) {
-        if (isTopo) return { border: '#5C82A6', bg: 'rgba(92, 130, 166, 0.20)', text: '#B8D0E8', label: 'TOPO' };
-        if (isOcean) return { border: '#3B6B99', bg: 'rgba(59, 107, 153, 0.25)', text: '#9FC2E4', label: 'HYDRO' };
-        if (isAtmo) return { border: '#38BDF8', bg: 'rgba(56, 189, 248, 0.20)', text: '#BAE6FD', label: 'ATMO' };
-        if (isVect) return { border: '#7DD3FC', bg: 'rgba(125, 211, 252, 0.20)', text: '#E0F2FE', label: 'VECT' };
-        if (isOrbit) return { border: '#60A5FA', bg: 'rgba(96, 165, 250, 0.20)', text: '#DBEAFE', label: 'ORBIT' };
-        return { border: '#4A729E', bg: 'rgba(74, 114, 158, 0.20)', text: '#CADDF0', label: 'DATA' };
-      } else {
-        if (isTopo) return { border: '#C86D51', bg: 'rgba(200, 109, 81, 0.20)', text: '#FDBA74', label: 'TOPO' };
-        if (isOcean) return { border: '#10B981', bg: 'rgba(16, 185, 129, 0.20)', text: '#6EE7B7', label: 'HYDRO' };
-        if (isAtmo) return { border: '#38BDF8', bg: 'rgba(56, 189, 248, 0.20)', text: '#7DD3FC', label: 'ATMO' };
-        if (isVect) return { border: '#F59E0B', bg: 'rgba(245, 158, 11, 0.20)', text: '#FCD34D', label: 'VECT' };
-        if (isOrbit) return { border: '#A855F7', bg: 'rgba(168, 85, 247, 0.20)', text: '#D8B4FE', label: 'ORBIT' };
-        return { border: '#94A3B8', bg: 'rgba(148, 163, 184, 0.20)', text: '#CBD5E1', label: 'DATA' };
-      }
+      // Stratum categories use existing theme direction/status tokens which adapt per-medium
+      if (isTopo) return { border: 'var(--theme-text-accent)', bg: 'var(--theme-control-active-ring)', text: 'var(--theme-text-accent)', label: 'TOPO' };
+      if (isOcean) return { border: 'var(--theme-direction-b-border)', bg: 'var(--theme-direction-b-ring)', text: 'var(--theme-direction-b-text)', label: 'HYDRO' };
+      if (isAtmo) return { border: 'var(--theme-status-sage)', bg: 'var(--theme-control-active-ring)', text: 'var(--theme-status-sage)', label: 'ATMO' };
+      if (isVect) return { border: 'var(--theme-status-amber)', bg: 'var(--theme-control-active-ring)', text: 'var(--theme-status-amber)', label: 'VECT' };
+      if (isOrbit) return { border: 'var(--theme-direction-c-border)', bg: 'var(--theme-direction-c-ring)', text: 'var(--theme-direction-c-text)', label: 'ORBIT' };
+      return { border: 'var(--theme-text-muted)', bg: 'var(--theme-control-bg)', text: 'var(--theme-text-secondary)', label: 'DATA' };
     },
     [theme]
   );
@@ -185,13 +170,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                           <div className="flex items-center gap-1.5 pl-0.5">
                             {isPrimaryRaster && (
                               <span
-                                className={`text-nano font-mono px-1.5 py-0.5 rounded-[2px] font-semibold ${
-                                  theme === 1
-                                    ? 'bg-[#1b432b]/10 text-[#1b432b]'
-                                    : theme === 2
-                                    ? 'bg-[#38bdf8]/15 text-[#7dd3fc]'
-                                    : 'bg-[#34d399]/15 text-[#34d399]'
-                                }`}
+                                className="text-nano font-mono px-1.5 py-0.5 rounded-[2px] font-semibold bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)]"
                                 title="Active Base Raster rendered on planetary crust"
                               >
                                 (Active Raster)
@@ -199,20 +178,14 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                             )}
                             {isShadowedRaster && (
                               <span
-                                className={`text-nano font-mono px-1.5 py-0.5 rounded-[2px] font-medium ${
-                                  theme === 1
-                                    ? 'bg-[#7d4700]/10 text-[#7d4700]'
-                                    : theme === 2
-                                    ? 'bg-[#38bdf8]/10 text-[#7dd3fc]'
-                                    : 'bg-[#f59e0b]/15 text-[#fcd34d]'
-                                }`}
+                                className="text-nano font-mono px-1.5 py-0.5 rounded-[2px] font-medium bg-[var(--theme-status-amber)]/15 text-[var(--theme-status-amber)]"
                                 title="This raster dataset is occluded by a higher active raster layer in the Z-order stack"
                               >
                                 (Shadowed by higher raster layer)
                               </span>
                             )}
                             {preset?.unsupported && (
-                              <span className="text-nano font-mono px-1.5 py-0.5 rounded-[2px] bg-rose-500/15 text-rose-300 font-semibold">
+                              <span className="text-nano font-mono px-1.5 py-0.5 rounded-[2px] bg-[var(--theme-status-amber)]/15 text-[var(--theme-status-amber)] font-semibold">
                                 [UNSUPPORTED]
                               </span>
                             )}
@@ -227,16 +200,12 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                         title={layer.visible ? 'Hide layer' : 'Show layer'}
                         className={`p-1 rounded-[2px] border transition-all cursor-pointer ${
                           layer.visible
-                            ? theme === 1
-                              ? 'border-[#2b6b88]/60 bg-[#2b6b88]/15 text-[#1a4457] shadow-sm hover:border-[var(--theme-card-border-hover)]'
-                              : theme === 2
-                              ? 'border-[#4a729e]/80 bg-[#254263]/40 text-[#e8edf2] shadow-sm hover:border-[var(--theme-card-border-hover)]'
-                              : 'border-[var(--theme-control-active-border)] bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] shadow-sm hover:border-[var(--theme-card-border-hover)]'
+                            ? 'border-[var(--theme-control-active-border)] bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] shadow-sm hover:border-[var(--theme-card-border-hover)]'
                             : 'border-[var(--theme-control-border)] bg-[var(--theme-control-bg)] text-[var(--theme-text-muted)] hover:text-[var(--theme-text-secondary)] hover:border-[var(--theme-card-border-hover)]'
                         }`}
                       >
                         {layer.visible ? (
-                          <svg className={`w-3.5 h-3.5 ${theme === 1 ? 'text-[#1a4457]' : theme === 2 ? 'text-[#d8e6f3]' : 'text-[var(--theme-control-active-text)]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-3.5 h-3.5 text-[var(--theme-control-active-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
@@ -250,13 +219,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                       <button
                         onClick={() => onRemoveDataLayer?.(layer.id)}
                         title="Remove layer"
-                        className={`p-1 rounded-[2px] border transition-all cursor-pointer hover:border-[var(--theme-card-border-hover)] ${
-                          theme === 1
-                            ? 'border-[#9c2f2f]/40 text-[#9c2f2f] hover:bg-[#9c2f2f]/15'
-                            : theme === 2
-                            ? 'border-[#d05c5c]/40 text-[#f08080] hover:bg-[#d05c5c]/20'
-                            : 'border-[#c05646]/40 text-[#d97768] hover:bg-[#c05646]/20'
-                        }`}
+                        className="p-1 rounded-[2px] border transition-all cursor-pointer hover:border-[var(--theme-card-border-hover)] border-[var(--theme-status-amber)]/40 text-[var(--theme-status-amber)] hover:bg-[var(--theme-status-amber)]/15"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -339,7 +302,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                       <div className="space-y-1 pt-1 border-t border-[var(--theme-panel-header-border)]">
                         <div className="flex items-center justify-between text-nano text-[var(--theme-text-muted)] font-bold">
                           <span>{legend.minLabel}</span>
-                          <span className={`uppercase tracking-wider ${theme === 1 ? 'text-[#1a4457] font-semibold' : 'text-[var(--theme-accent-primary)]'}`}>{legend.unit}</span>
+                          <span className="uppercase tracking-wider text-[var(--theme-text-accent)] font-semibold">{legend.unit}</span>
                           <span>{legend.maxLabel}</span>
                         </div>
                         <div

@@ -219,12 +219,12 @@ describe('DATA Tab Informative Color Enhancements', () => {
 
       // Right forecast zone should have sky blue styling
       const forecastZone = track?.children[1] as HTMLDivElement;
-      expect(forecastZone.className).toContain('bg-sky-500/15');
+      expect(forecastZone.className).toContain('bg-[var(--theme-status-sage)]/15');
 
       // Badge in header should reflect WeatherNext sky accent
       const forecastBadge = container.querySelector('span.text-nano.font-bold.uppercase');
       expect(forecastBadge?.textContent).toBe('WEATHERNEXT 3');
-      expect(forecastBadge?.className).toContain('border-sky-500');
+      expect(forecastBadge?.className).toContain('border-[var(--theme-status-sage)]');
     });
   });
 

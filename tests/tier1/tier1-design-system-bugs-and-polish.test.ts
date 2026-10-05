@@ -100,8 +100,10 @@ describe('Tier 1: Design System Bug Fixes & Architecture Polish', () => {
     expect(reliefCurve).toContain('var(--theme-card-bg)');
     expect(reliefCurve).toContain('var(--theme-card-border)');
 
-    expect(sextant).toContain('var(--theme-card-bg)');
-    expect(sextant).toContain('var(--theme-card-border)');
+    // Sextant is an inline instrument embedded in its parent tab's card,
+    // so it uses instrument viewport variables instead of card variables
+    expect(sextant).toContain('var(--theme-instrument-viewport-bg)');
+    expect(sextant).toContain('var(--theme-instrument-ink)');
   });
 
   it('verifies that UnifiedRightSidebar supports 3-theme type signatures', () => {

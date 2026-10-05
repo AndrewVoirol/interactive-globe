@@ -138,31 +138,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
     };
   }, [displacementScale, peakExponent]);
 
-  const tokens = theme === 2
-    ? {
-        mountainBg: 'bg-[#0d1724]',
-        mountainBorder: 'border-[#3b597a]/60',
-        gradStops: ['#0e1824', '#4f79a3', '#e8edf2'],
-        strokeColor: '#e8edf2',
-        datumColor: '#4fa3e3',
-      }
-    : theme === 1
-    ? {
-        mountainBg: 'bg-[#f4ede0]',
-        mountainBorder: 'border-[#b8ad98]/60',
-        gradStops: ['#9e6d50', '#cfb588', '#fdfcf9'],
-        strokeColor: '#8c4820',
-        datumColor: '#8c4820',
-      }
-    : {
-        mountainBg: 'bg-[#0c1219]',
-        mountainBorder: 'border-[#3a4d61]/60',
-        gradStops: ['#0f171f', '#23778a', '#cbb692'],
-        strokeColor: '#38bdf8',
-        datumColor: '#38bdf8',
-      };
-
-  return (
+    return (
     <div
       data-instrument="hypsometric-relief"
       className="p-2.5 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] space-y-2"
@@ -226,14 +202,14 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
         onPointerUp={handlePointerUp}
         onDoubleClick={handleReset}
         title="Drag peak summit vertically (3D Relief) and horizontally (Peak Sharpness) — Double-click or Enter to reset, Arrow keys to nudge"
-        className={`relative w-full h-20 rounded-[2px] border overflow-hidden cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${tokens.mountainBg} ${tokens.mountainBorder}`}
+        className={`relative w-full h-20 rounded-[2px] overflow-hidden cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)]`}
       >
         <svg className="w-full h-full pointer-events-none" viewBox="0 0 300 100" preserveAspectRatio="none">
           <defs>
             <linearGradient id={`reliefGrad-${theme}`} x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor={tokens.gradStops[0]} stopOpacity="0.3" />
-              <stop offset="60%" stopColor={tokens.gradStops[1]} stopOpacity="0.5" />
-              <stop offset="100%" stopColor={tokens.gradStops[2]} stopOpacity="0.85" />
+              <stop offset="0%" style={{ stopColor: 'var(--theme-instrument-strata-low)' }} stopOpacity="0.3" />
+              <stop offset="60%" style={{ stopColor: 'var(--theme-instrument-strata-mid)' }} stopOpacity="0.5" />
+              <stop offset="100%" style={{ stopColor: 'var(--theme-instrument-strata-high)' }} stopOpacity="0.85" />
             </linearGradient>
           </defs>
 
@@ -243,7 +219,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
             y1={yBase}
             x2="300"
             y2={yBase}
-            stroke={tokens.datumColor}
+            style={{ stroke: 'var(--theme-instrument-ink)' }}
             strokeWidth="0.75"
             strokeDasharray="2 3"
             opacity="0.4"
@@ -255,21 +231,21 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
             y={yBase}
             width="300"
             height={100 - yBase}
-            fill={tokens.datumColor}
+            style={{ fill: 'var(--theme-instrument-ink)' }}
             fillOpacity="0.05"
           />
 
           {/* Medium-Adaptive Scientific Profile Graphics */}
           {theme === 1 ? (
             // Cream Rag Paper: Swiss alpine ridge hachure engraving lines
-            <g className="hachures-cream opacity-40 stroke-[#8c4820]" strokeWidth="0.75" strokeLinecap="round">
+            <g className="hachures-cream opacity-40 text-[var(--theme-instrument-ink)] stroke-current" strokeWidth="0.75" strokeLinecap="round">
               {hachures.map((h, i) => (
                 <line key={i} x1={h.x1} y1={h.y1} x2={h.x2} y2={h.y2} />
               ))}
             </g>
           ) : theme === 2 ? (
             // Prussian Cyanotype: CAD parabolic coordinate grid & millimeter ticks
-            <g className="cad-grid-cyanotype opacity-30 stroke-[#4fa3e3]" strokeWidth="0.5">
+            <g className="cad-grid-cyanotype opacity-30 text-[var(--theme-instrument-ink)] stroke-current" strokeWidth="0.5">
               <line x1="0" y1="20" x2="300" y2="20" strokeDasharray="2 4" />
               <line x1="0" y1="40" x2="300" y2="40" strokeDasharray="2 4" />
               <line x1="0" y1="60" x2="300" y2="60" strokeDasharray="2 4" />
@@ -285,22 +261,21 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
               <path
                 d={`M ${Math.max(0, peakX - 25)} ${peakY + 12} L ${peakX} ${peakY + 4} L ${Math.min(300, peakX + 25)} ${peakY + 12}`}
                 fill="none"
-                stroke="#34d399"
+                style={{ stroke: 'var(--theme-instrument-ink-secondary)' }}
                 strokeWidth="1"
                 strokeDasharray="2 2"
               />
-              <line x1={peakX} y1="0" x2={peakX} y2="100" stroke="#00e5ff" strokeWidth="0.5" strokeDasharray="1 4" opacity="0.6" />
+              <line x1={peakX} y1="0" x2={peakX} y2="100" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.5" strokeDasharray="1 4" opacity="0.6" />
             </g>
           )}
 
           <path d={fillPath} fill={`url(#reliefGrad-${theme})`} />
-          <path d={strokePath} fill="none" stroke={tokens.strokeColor} strokeWidth="2.0" strokeLinecap="round" />
+          <path d={strokePath} fill="none" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="2.0" strokeLinecap="round" />
           <circle
             cx={peakX}
             cy={peakY}
             r="4.5"
-            fill="#fdfcf9"
-            stroke={theme === 2 ? '#a5d5ff' : theme === 1 ? '#8c4820' : 'var(--theme-text-accent)'}
+            style={{ fill: 'var(--theme-instrument-caliper-badge-bg)', stroke: 'var(--theme-instrument-caliper)' }}
             strokeWidth="2"
             className="shadow-sm"
           />

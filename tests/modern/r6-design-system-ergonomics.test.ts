@@ -73,10 +73,10 @@ describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety',
   });
 
   describe('Defect 4: Optical Reticle Inactive State Contrast in Cream Rag Paper', () => {
-    it('renders intaglio copper ring styling in Cream mode for overlay reticles', () => {
-      // After refactor, inactive states use semantic tokens; active cream state uses #8C4820
-      expect(sidebarCode).toContain("bg-[#8C4820] text-[#FDFCF9] border-[#6D3414]");
-      expect(sidebarCode).toContain("hover:text-[#8C4820]");
+    it('renders theme-aware direction tokens for overlay reticles', () => {
+      // After refactor, active states use CSS variable direction tokens instead of hardcoded hex
+      expect(sidebarCode).toContain("bg-[var(--theme-direction-a-bg)] text-[var(--theme-direction-a-text)] border-[var(--theme-direction-a-border)]");
+      expect(sidebarCode).toContain("hover:text-[var(--theme-text-accent)]");
     });
   });
 
@@ -89,12 +89,11 @@ describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety',
   });
 
   describe('Defect 7: Theme-Aware Category Badge Contrast in Catalog', () => {
-    it('provides theme-aware high contrast styles for catalog category badges', () => {
-      // After refactor, planetary instrumentation badges moved to DataLayersDrawer
-      // Sidebar catalog uses theme-adaptive category badges with different color tokens
-      expect(sidebarCode).toContain("bg-[#2b6b88]/15 text-[#1a4457] border-[#2b6b88]/30");
-      expect(sidebarCode).toContain("bg-[#96641e]/15 text-[#52350c] border-[#96641e]/30");
-      expect(sidebarCode).toContain("bg-[#2e6b47]/15 text-[#1b432b] border-[#2e6b47]/30");
+    it('provides theme-aware high contrast styles for catalog category badges via CSS variables', () => {
+      // After refactor, catalog uses CSS custom property tokens instead of hardcoded hex per theme
+      expect(sidebarCode).toContain("bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40");
+      expect(sidebarCode).toContain("bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40");
+      expect(sidebarCode).toContain("bg-[var(--theme-status-slate)]/20 text-[var(--theme-status-slate)] border-[var(--theme-status-slate)]/40");
     });
 
     it('uses semantic control tokens for layer mode SegmentedControl buttons', () => {

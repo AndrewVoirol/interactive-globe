@@ -352,11 +352,11 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
       const hoursStr = m === 0 ? `+${Math.floor(totalHours)}h` : `+${Math.floor(totalHours)}h ${m}m`;
       return {
         badge: 'WEATHERNEXT 3',
-        badgeColor: 'border-sky-500/50 text-sky-700 dark:text-sky-300 bg-sky-500/15',
+        badgeColor: 'border-[var(--theme-status-sage)]/50 text-[var(--theme-status-sage)] bg-[var(--theme-status-sage)]/15',
         primary: hoursStr,
         secondary: `Bracket H${bracketHour}..${bracketHour + 1} • τ=${tau}`,
         zoneText: 'WeatherNext Forecast (+48h)',
-        accentClass: 'text-sky-700 dark:text-sky-300 border-sky-500/40 bg-sky-500/10',
+        accentClass: 'text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 bg-[var(--theme-status-sage)]/10',
       };
     }
   }, [currentMinutes]);
@@ -431,7 +431,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
             <button
               type="button"
               onClick={onEnableRadar}
-              className="px-2 py-0.5 rounded-[1px] bg-[var(--theme-status-amber)] hover:opacity-90 text-zinc-950 font-bold border border-[var(--theme-status-amber)] transition-colors shrink-0 uppercase tracking-wider text-nano cursor-pointer"
+              className="px-2 py-0.5 rounded-[1px] bg-[var(--theme-status-amber)] hover:opacity-90 text-[var(--theme-text-inverse)] font-bold border border-[var(--theme-status-amber)] transition-colors shrink-0 uppercase tracking-wider text-nano cursor-pointer"
             >
               Enable Radar
             </button>
@@ -518,8 +518,8 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
           <div
             className={`h-full relative overflow-hidden flex-1 transition-colors duration-150 ${
               currentMinutes > 0
-                ? 'bg-sky-500/15 shadow-[inset_0_0_10px_rgba(56,189,248,0.2)]'
-                : 'bg-[var(--theme-status-slate,#4fd1c5)]/5'
+                ? 'bg-[var(--theme-status-sage)]/15 shadow-[inset_0_0_10px_var(--theme-control-active-ring)]'
+                : 'bg-[var(--theme-status-slate)]/5'
             }`}
           >
             {/* Hourly & Major ticks in Forecast Zone */}
@@ -577,10 +577,10 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
             <div
               className={`w-2.5 h-7 rounded-[1px] shadow-[0_1px_4px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all ${
                 currentMinutes < 0
-                  ? 'bg-[var(--theme-status-amber)] border border-[var(--theme-status-amber)] shadow-[0_0_10px_var(--theme-status-amber)] text-zinc-950'
+                  ? 'bg-[var(--theme-status-amber)] border border-[var(--theme-status-amber)] shadow-[0_0_10px_var(--theme-status-amber)] text-[var(--theme-text-inverse)]'
                   : currentMinutes > 0
-                  ? 'bg-sky-500 border border-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.5)] text-zinc-950'
-                  : 'bg-[var(--theme-slider-thumb-bg,#c5a059)] border border-[var(--theme-slider-thumb-border,#7c6230)] shadow-[0_0_8px_var(--theme-text-accent)]'
+                  ? 'bg-[var(--theme-status-sage)] border border-[var(--theme-status-sage)] shadow-[0_0_10px_var(--theme-control-active-ring)] text-[var(--theme-text-inverse)]'
+                  : 'bg-[var(--theme-slider-thumb-bg)] border border-[var(--theme-slider-thumb-border)] shadow-[0_0_8px_var(--theme-text-accent)]'
               }`}
             >
               <div className="w-[1px] h-3.5 bg-black/40" />

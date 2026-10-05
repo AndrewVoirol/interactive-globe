@@ -184,58 +184,6 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
   // Dynamic river channel width (Leopold-Maddock law w ∝ Q^0.5)
   const riverStrokeWidth = Math.max(1.0, 1.2 + Math.sqrt(Math.max(0.0, pluvialGamma)) * 3.2);
 
-  // Medium color tokens
-  const tokens = theme === 2
-    ? {
-        viewportBg: 'bg-[#0d1724]',
-        viewportBorder: 'border-[#3b597a]/60',
-        mountainFill: '#101c2c',
-        mountainStroke: '#4fa3e3',
-        cloudFill: '#4fa3e3',
-        cloudStroke: '#a5d5ff',
-        rainStroke: '#70b7ff',
-        riverStroke: '#4fa3e3',
-        lclLine: '#4fa3e3',
-        caliperLine: '#a5d5ff',
-        caliperBadgeBg: '#0e1824',
-        caliperBadgeBorder: '#a5d5ff',
-        caliperBadgeText: '#a5d5ff',
-        hachureColor: '#4fa3e3',
-      }
-    : theme === 1
-    ? {
-        viewportBg: 'bg-[#fdfcf9]',
-        viewportBorder: 'border-[#b8ad98]/60',
-        mountainFill: '#f2eae0',
-        mountainStroke: '#8c4820',
-        cloudFill: '#d9c7b0',
-        cloudStroke: '#8c4820',
-        rainStroke: '#8c4820',
-        riverStroke: '#8c4820',
-        lclLine: '#8c4820',
-        caliperLine: '#8c4820',
-        caliperBadgeBg: '#fdfcf9',
-        caliperBadgeBorder: '#8c4820',
-        caliperBadgeText: '#8c4820',
-        hachureColor: '#8c4820',
-      }
-    : {
-        viewportBg: 'bg-[#0c1219]',
-        viewportBorder: 'border-[#3a4d61]/60',
-        mountainFill: '#111e29',
-        mountainStroke: '#00e5ff',
-        cloudFill: '#163140',
-        cloudStroke: '#00e5ff',
-        rainStroke: '#34d399',
-        riverStroke: '#00e5ff',
-        lclLine: '#34d399',
-        caliperLine: '#00e5ff',
-        caliperBadgeBg: '#0a111a',
-        caliperBadgeBorder: '#00e5ff',
-        caliperBadgeText: '#00e5ff',
-        hachureColor: '#00e5ff',
-      };
-
   return (
     <div
       data-instrument="orographic-moisture"
@@ -291,7 +239,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
         onDoubleClick={handleReset}
         onKeyDown={handleKeyDown}
         title="Drag windward slope to adjust coupling (0–100%) • Drag rain shaft to adjust pluvial swelling (0–2.0x) • Click LCL to toggle gating • Double-click to reset"
-        className={`relative w-full h-28 rounded-[2px] border overflow-hidden cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${tokens.viewportBg} ${tokens.viewportBorder}`}
+        className={`relative w-full h-28 rounded-[2px] overflow-hidden cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)]`}
       >
         <svg
           className="w-full h-full pointer-events-none"
@@ -301,15 +249,15 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
           <defs>
             {/* Windward Moisture Gradient */}
             <linearGradient id="windward-cloud-grad" x1="0" y1="1" x2="0.6" y2="0">
-              <stop offset="0%" stopColor={tokens.cloudFill} stopOpacity="0.15" />
-              <stop offset="60%" stopColor={tokens.cloudFill} stopOpacity="0.65" />
-              <stop offset="100%" stopColor={tokens.cloudStroke} stopOpacity="0.85" />
+              <stop offset="0%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity="0.15" />
+              <stop offset="60%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity="0.65" />
+              <stop offset="100%" style={{ stopColor: 'var(--theme-instrument-ink-secondary)' }} stopOpacity="0.85" />
             </linearGradient>
 
             {/* Precipitation Column Gradient */}
             <linearGradient id="precip-shaft-grad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={tokens.rainStroke} stopOpacity="0.8" />
-              <stop offset="100%" stopColor={tokens.rainStroke} stopOpacity="0.15" />
+              <stop offset="0%" style={{ stopColor: 'var(--theme-instrument-ink-secondary)' }} stopOpacity="0.8" />
+              <stop offset="100%" style={{ stopColor: 'var(--theme-instrument-ink-secondary)' }} stopOpacity="0.15" />
             </linearGradient>
           </defs>
 
@@ -317,8 +265,10 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
           {/* Terrestrial Mountain Elevation Cross-Section */}
           <path
             d="M 16 118 L 48 118 C 76 118, 102 74, 136 36 C 140 32, 146 34, 150 40 C 174 76, 194 106, 210 118 L 270 118 L 270 128 L 16 128 Z"
-            fill={tokens.mountainFill}
-            stroke={tokens.mountainStroke}
+            style={{
+              fill: 'var(--theme-instrument-viewport-bg-center)',
+              stroke: 'var(--theme-instrument-ink)'
+            }}
             strokeWidth="1.2"
           />
 
@@ -328,7 +278,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             y1={lclY}
             x2="136"
             y2={lclY}
-            stroke={tokens.lclLine}
+            style={{ stroke: 'var(--theme-instrument-ink)' }}
             strokeWidth={thermodynamicGating ? '1' : '0.6'}
             strokeDasharray={thermodynamicGating ? '4 2' : '2 3'}
             opacity={thermodynamicGating ? '0.85' : '0.35'}
@@ -338,7 +288,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             y="65"
             fontSize="5.5"
             fontFamily="var(--font-mono, monospace)"
-            fill={tokens.lclLine}
+            style={{ fill: 'var(--theme-instrument-ink)' }}
             opacity="0.8"
             fontWeight="bold"
           >
@@ -349,28 +299,28 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
           <path
             d="M 18 112 Q 38 108 55 96 T 100 62"
             fill="none"
-            stroke={tokens.cloudStroke}
+            style={{ stroke: 'var(--theme-instrument-ink-secondary)' }}
             strokeWidth="0.8"
             strokeDasharray="3 2"
             opacity="0.7"
           />
-          <path d="M 36 102 L 39 99 L 42 102" fill="none" stroke={tokens.cloudStroke} strokeWidth="0.75" opacity="0.65" />
-          <path d="M 68 84 L 71 81 L 74 84" fill="none" stroke={tokens.cloudStroke} strokeWidth="0.75" opacity="0.75" />
+          <path d="M 36 102 L 39 99 L 42 102" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.75" opacity="0.65" />
+          <path d="M 68 84 L 71 81 L 74 84" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.75" opacity="0.75" />
           <text
             x="32"
             y="89"
             fontSize="6.5"
             fontFamily="var(--font-mono, monospace)"
-            fill={tokens.cloudStroke}
+            style={{ fill: 'var(--theme-instrument-ink-secondary)' }}
             opacity="0.9"
             fontWeight="bold"
           >
             Moist
           </text>
           {/* Condensation Vapor Droplet Pips */}
-          <circle cx="48" cy="98" r="1.2" fill={tokens.cloudStroke} opacity="0.5" />
-          <circle cx="74" cy="78" r="1.4" fill={tokens.cloudStroke} opacity="0.6" />
-          <circle cx="98" cy="62" r="1.6" fill={tokens.cloudStroke} opacity="0.7" />
+          <circle cx="48" cy="98" r="1.2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} opacity="0.5" />
+          <circle cx="74" cy="78" r="1.4" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} opacity="0.6" />
+          <circle cx="98" cy="62" r="1.6" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} opacity="0.7" />
 
           {/* Dynamic Windward Condensation Cloud Deck */}
           {/* Cloud mass expands upward and along the windward face based on rainShadowFeedback */}
@@ -382,7 +332,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             } ${38 - rainShadowFeedback * 16}, 138 38 Q 144 44, 138 68 L 56 68 Z`}
             fill="url(#windward-cloud-grad)"
             fillOpacity={0.15 + rainShadowFeedback * 0.72}
-            stroke={tokens.cloudStroke}
+            style={{ stroke: 'var(--theme-instrument-ink-secondary)' }}
             strokeWidth="0.9"
             strokeDasharray="3 1"
           />
@@ -391,7 +341,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
           <path
             d="M 132 38 Q 138 30 144 38"
             fill="none"
-            stroke={tokens.cloudStroke}
+            style={{ stroke: 'var(--theme-instrument-ink-secondary)' }}
             strokeWidth="0.9"
             opacity="0.8"
           />
@@ -403,7 +353,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
                 45 - rainShadowFeedback * 18
               } 130 46`}
               fill="none"
-              stroke={tokens.cloudStroke}
+              style={{ stroke: 'var(--theme-instrument-ink-secondary)' }}
               strokeWidth="0.6"
               opacity="0.75"
             />
@@ -416,7 +366,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             y1="40"
             x2="162"
             y2={pluvialThumbY - 6.5}
-            stroke={tokens.rainStroke}
+            style={{ stroke: 'var(--theme-instrument-ink-secondary)' }}
             strokeWidth="0.8"
             strokeDasharray="2 3"
             opacity={0.4 + pluvialGamma * 0.3}
@@ -438,7 +388,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
                     y1={startY}
                     x2={endX}
                     y2={endY}
-                    stroke={tokens.rainStroke}
+                    style={{ stroke: 'var(--theme-instrument-ink-secondary)' }}
                     strokeWidth={0.5 + pluvialGamma * 0.35}
                     strokeDasharray="2 3"
                   />
@@ -453,7 +403,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             y1="118"
             x2="210"
             y2="118"
-            stroke={tokens.riverStroke}
+            style={{ stroke: 'var(--theme-instrument-ink)' }}
             strokeWidth={riverStrokeWidth}
             strokeLinecap="round"
             className="drop-shadow-sm"
@@ -464,7 +414,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             y1="118"
             x2="245"
             y2="118"
-            stroke={tokens.riverStroke}
+            style={{ stroke: 'var(--theme-instrument-ink)' }}
             strokeWidth={Math.max(0.8, riverStrokeWidth * 0.6)}
             strokeDasharray="4 2"
             opacity="0.7"
@@ -473,14 +423,14 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
           <path
             d="M 158 122 Q 164 120 170 122 T 182 122"
             fill="none"
-            stroke={tokens.riverStroke}
+            style={{ stroke: 'var(--theme-instrument-ink)' }}
             strokeWidth="0.65"
             opacity={0.35 + pluvialGamma * 0.35}
           />
           <path
             d="M 186 122 Q 192 120 198 122 T 210 122"
             fill="none"
-            stroke={tokens.riverStroke}
+            style={{ stroke: 'var(--theme-instrument-ink)' }}
             strokeWidth="0.65"
             opacity={0.35 + pluvialGamma * 0.35}
           />
@@ -489,20 +439,20 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
           <path
             d="M 148 42 Q 175 75 205 98 T 255 112"
             fill="none"
-            stroke={tokens.mountainStroke}
+            style={{ stroke: 'var(--theme-instrument-ink)' }}
             strokeWidth="0.8"
             strokeDasharray="3 2"
             opacity="0.6"
           />
           <polygon
             points="255,112 249,109 251,114"
-            fill={tokens.mountainStroke}
+            style={{ fill: 'var(--theme-instrument-ink)' }}
             opacity="0.7"
           />
           <path
             d="M 154 50 Q 180 80 208 102 T 248 116"
             fill="none"
-            stroke={tokens.mountainStroke}
+            style={{ stroke: 'var(--theme-instrument-ink)' }}
             strokeWidth="0.6"
             strokeDasharray="2 3"
             opacity="0.45"
@@ -512,20 +462,20 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             y="89"
             fontSize="6.5"
             fontFamily="var(--font-mono, monospace)"
-            fill={tokens.mountainStroke}
+            style={{ fill: 'var(--theme-instrument-ink)' }}
             opacity="0.85"
             fontWeight="bold"
           >
             Arid
           </text>
           {/* Rain Shadow Arid Surface Desiccation Cues */}
-          <line x1="220" y1="114" x2="228" y2="114" stroke={tokens.mountainStroke} strokeWidth="0.6" strokeDasharray="1.5 2" opacity="0.45" />
-          <line x1="235" y1="115" x2="245" y2="115" stroke={tokens.mountainStroke} strokeWidth="0.6" strokeDasharray="1.5 2" opacity="0.45" />
+          <line x1="220" y1="114" x2="228" y2="114" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.6" strokeDasharray="1.5 2" opacity="0.45" />
+          <line x1="235" y1="115" x2="245" y2="115" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.6" strokeDasharray="1.5 2" opacity="0.45" />
 
           {/* 3-Medium Adaptive Graphic Groups */}
           {theme === 1 ? (
             // Theme 1 (Cream Rag Paper): Victorian intaglio mountain hachures & engraving
-            <g className="orographic-engraving-cream orographic-profile-cream text-[#8c4820]">
+            <g className="orographic-engraving-cream orographic-profile-cream text-[var(--theme-instrument-ink)]">
               {/* Intaglio Geological Slope Hachures conforming to mountain relief */}
               {Array.from({ length: 14 }).map((_, i) => {
                 const x = 54 + i * 6;
@@ -539,7 +489,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
                     y1={yTop}
                     x2={x - 3}
                     y2={Math.min(118, yTop + 8)}
-                    stroke="#8c4820"
+                    stroke="currentColor"
                     strokeWidth="0.5"
                     opacity="0.45"
                   />
@@ -556,7 +506,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
                     y1={yTop}
                     x2={x + 3}
                     y2={Math.min(118, yTop + 7)}
-                    stroke="#8c4820"
+                    stroke="currentColor"
                     strokeWidth="0.5"
                     opacity="0.45"
                   />
@@ -565,29 +515,29 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
             </g>
           ) : theme === 2 ? (
             // Theme 2 (Prussian Cyanotype): CAD drafting tephigram & adiabatic lapse vectors
-            <g className="orographic-vector-cyanotype orographic-profile-cyanotype text-[#4fa3e3]">
+            <g className="orographic-vector-cyanotype orographic-profile-cyanotype text-[var(--theme-instrument-ink)]">
               {/* Elevation Coordinate Grid & Isohyets */}
-              <line x1="20" y1="36" x2="32" y2="36" stroke="#4fa3e3" strokeWidth="0.6" />
-              <line x1="20" y1="68" x2="32" y2="68" stroke="#4fa3e3" strokeWidth="0.6" />
-              <line x1="20" y1="96" x2="32" y2="96" stroke="#4fa3e3" strokeWidth="0.6" />
+              <line x1="20" y1="36" x2="32" y2="36" stroke="currentColor" strokeWidth="0.6" />
+              <line x1="20" y1="68" x2="32" y2="68" stroke="currentColor" strokeWidth="0.6" />
+              <line x1="20" y1="96" x2="32" y2="96" stroke="currentColor" strokeWidth="0.6" />
 
               {/* Radiosonde Vector Wind Barbs along Ascent */}
-              <line x1="38" y1="108" x2="52" y2="98" stroke="#a5d5ff" strokeWidth="0.75" />
-              <line x1="52" y1="98" x2="48" y2="93" stroke="#a5d5ff" strokeWidth="0.75" />
-              <line x1="72" y1="84" x2="86" y2="74" stroke="#a5d5ff" strokeWidth="0.75" />
-              <line x1="86" y1="74" x2="82" y2="69" stroke="#a5d5ff" strokeWidth="0.75" />
-              <line x1="106" y1="60" x2="120" y2="50" stroke="#a5d5ff" strokeWidth="0.75" />
-              <line x1="120" y1="50" x2="116" y2="45" stroke="#a5d5ff" strokeWidth="0.75" />
+              <line x1="38" y1="108" x2="52" y2="98" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.75" />
+              <line x1="52" y1="98" x2="48" y2="93" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.75" />
+              <line x1="72" y1="84" x2="86" y2="74" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.75" />
+              <line x1="86" y1="74" x2="82" y2="69" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.75" />
+              <line x1="106" y1="60" x2="120" y2="50" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.75" />
+              <line x1="120" y1="50" x2="116" y2="45" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.75" />
             </g>
           ) : (
             // Theme 0 (Marie Tharp): Acoustic sounding traces & physiographic ridge contours
-            <g className="orographic-sounding-tharp orographic-profile-tharp text-[#00e5ff]">
+            <g className="orographic-sounding-tharp orographic-profile-tharp text-[var(--theme-instrument-ink)]">
               {/* Sonar Pulse Echo Rings at Mountain Summit */}
               <circle
                 cx="140"
                 cy="36"
                 r="8"
-                stroke="#00e5ff"
+                stroke="currentColor"
                 strokeWidth="0.5"
                 strokeDasharray="2 2"
                 fill="none"
@@ -597,7 +547,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
                 cx="140"
                 cy="36"
                 r="16"
-                stroke="#00e5ff"
+                stroke="currentColor"
                 strokeWidth="0.5"
                 strokeDasharray="3 3"
                 fill="none"
@@ -612,7 +562,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
                   y1="118"
                   x2={35 + i * 18}
                   y2="124"
-                  stroke="#34d399"
+                  style={{ stroke: 'var(--theme-instrument-ink-secondary)' }}
                   strokeWidth="0.5"
                   opacity="0.5"
                 />
@@ -626,12 +576,14 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
               cx={cloudThumbX}
               cy={cloudThumbY}
               r="6.5"
-              fill={tokens.caliperBadgeBg}
-              stroke={tokens.caliperLine}
+              style={{
+                fill: 'var(--theme-instrument-caliper-badge-bg)',
+                stroke: 'var(--theme-instrument-caliper)'
+              }}
               strokeWidth="1.5"
               className="drop-shadow"
             />
-            <circle cx={cloudThumbX} cy={cloudThumbY} r="2.5" fill={tokens.caliperLine} />
+            <circle cx={cloudThumbX} cy={cloudThumbY} r="2.5" style={{ fill: 'var(--theme-instrument-caliper)' }} />
             {/* Value Callout Badge */}
             <rect
               x={cloudThumbX - 22}
@@ -639,8 +591,10 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
               width="44"
               height="12"
               rx="2"
-              fill={tokens.caliperBadgeBg}
-              stroke={tokens.caliperBadgeBorder}
+              style={{
+                fill: 'var(--theme-instrument-caliper-badge-bg)',
+                stroke: 'var(--theme-instrument-caliper)'
+              }}
               strokeWidth="0.75"
               className="drop-shadow"
             />
@@ -648,7 +602,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
               x={cloudThumbX}
               y={cloudThumbY - 12.5}
               textAnchor="middle"
-              fill={tokens.caliperBadgeText}
+              style={{ fill: 'var(--theme-instrument-caliper-badge-text)' }}
               fontSize="7"
               fontFamily="var(--font-mono, monospace)"
               fontWeight="bold"
@@ -665,7 +619,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
               y1={pluvialThumbY + 6.5}
               x2={pluvialThumbX}
               y2="118"
-              stroke={tokens.rainStroke}
+              style={{ stroke: 'var(--theme-instrument-ink-secondary)' }}
               strokeWidth="0.8"
               strokeDasharray="2 3"
               opacity={0.4 + pluvialGamma * 0.3}
@@ -674,12 +628,14 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
               cx={pluvialThumbX}
               cy={pluvialThumbY}
               r="6.5"
-              fill={tokens.caliperBadgeBg}
-              stroke={tokens.rainStroke}
+              style={{
+                fill: 'var(--theme-instrument-caliper-badge-bg)',
+                stroke: 'var(--theme-instrument-ink-secondary)'
+              }}
               strokeWidth="1.5"
               className="drop-shadow"
             />
-            <circle cx={pluvialThumbX} cy={pluvialThumbY} r="2.5" fill={tokens.rainStroke} />
+            <circle cx={pluvialThumbX} cy={pluvialThumbY} r="2.5" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
             {/* Value Callout Badge */}
             <rect
               x={pluvialThumbX + 11}
@@ -687,8 +643,10 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
               width="34"
               height="12"
               rx="2"
-              fill={tokens.caliperBadgeBg}
-              stroke={tokens.caliperBadgeBorder}
+              style={{
+                fill: 'var(--theme-instrument-caliper-badge-bg)',
+                stroke: 'var(--theme-instrument-caliper)'
+              }}
               strokeWidth="0.75"
               className="drop-shadow"
             />
@@ -696,7 +654,7 @@ export const OrographicMoistureProfile: React.FC<OrographicMoistureProfileProps>
               x={pluvialThumbX + 28}
               y={pluvialThumbY + 2.5}
               textAnchor="middle"
-              fill={tokens.caliperBadgeText}
+              style={{ fill: 'var(--theme-instrument-caliper-badge-text)' }}
               fontSize="7"
               fontFamily="var(--font-mono, monospace)"
               fontWeight="bold"

@@ -299,8 +299,8 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       expect(inspectionTabSource).not.toContain('Continuous distance-dependent quadtree tessellation');
       expect(inspectionTabSource).toContain('Distance-dependent quadtree mesh LOD');
 
-      // Rule 3: Prussian Cyanotype (theme 2) Triangulation indicator must avoid warm rose/pink bleed
-      expect(crustTabSource).toContain("theme === 1 ? '#9C2F2F' : theme === 2 ? '#60A5FA' : '#F43F5E'");
+      // Rule 3: Indicator colors now use unified CSS variables instead of per-theme hex
+      expect(crustTabSource).toContain('indicatorColor="var(--theme-status-slate)"');
     });
   });
 
@@ -502,10 +502,10 @@ describe('Sidebar HUD Ergonomics & Data Provenance Suite', () => {
       expect(kinSource).not.toContain('Horizon Cross-Section (78.0°)');
       // Single border HUD enclosure: VernierSliders use !border-0 and !bg-transparent to prevent nested cards
       expect(kinSource).toContain('className="!border-0 !bg-transparent !p-0 !shadow-none"');
-      // Theme 2 Cyanotype cold tokens without rose/amber contamination
-      expect(kinSource).toContain('bg-[#203A57] text-[#A5D5FF] border-[#4F79A3]');
-      expect(kinSource).toContain('bg-[#162D45] text-[#E8EDF2] border-[#3B597A]');
-      expect(kinSource).toContain('bg-[#294D75] text-[#E8EDF2] border-[#4FA3E3]');
+      // Theme-adaptive direction tokens via CSS variables (no hardcoded hex per theme)
+      expect(kinSource).toContain('bg-[var(--theme-direction-a-bg)] text-[var(--theme-direction-a-text)] border-[var(--theme-direction-a-border)]');
+      expect(kinSource).toContain('bg-[var(--theme-direction-b-bg)] text-[var(--theme-direction-b-text)] border-[var(--theme-direction-b-border)]');
+      expect(kinSource).toContain('bg-[var(--theme-direction-c-bg)] text-[var(--theme-direction-c-text)] border-[var(--theme-direction-c-border)]');
       // Active state ring consistency
       expect(kinSource).toContain('ring-1 ring-[var(--theme-control-active-ring)]');
     });

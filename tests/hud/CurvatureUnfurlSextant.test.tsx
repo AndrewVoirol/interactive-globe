@@ -1042,7 +1042,7 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
     expect(firstCircleAfterPathIndex).toBeGreaterThan(pathIndex);
     // Ticks must have visible stroke and radius >= 2.5
     expect(sourceCode).toContain('r="2.5"');
-    expect(sourceCode).toContain('stroke={sextantTokens.arcStroke}');
+    expect(sourceCode).toContain("stroke=\"var(--theme-instrument-ink)\"");
   });
 
   it('verifies stage telemetry tag uses middle dot separator and absolute alignment to preserve dock horizontal axis', () => {

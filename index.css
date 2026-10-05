@@ -84,6 +84,19 @@
   --theme-reticle-ring-active: #3B788A;
   --theme-pulse-indicator: #C5A059;
 
+  /* Instrument SVG Ink Tokens — Cartographic Vector Graphics Inside Instruments */
+  --theme-instrument-ink: #00e5ff;            /* Primary instrument SVG stroke/fill — oceanographic cyan */
+  --theme-instrument-ink-secondary: #34d399;  /* Secondary/accent SVG ink — bathymetric emerald */
+  --theme-instrument-viewport-bg: #0c1219;    /* SVG viewport background — ocean floor dark */
+  --theme-instrument-viewport-bg-center: #1a2633; /* SVG viewport radial center */
+  --theme-instrument-viewport-border: rgba(58, 77, 97, 0.60); /* SVG viewport subtle delineator */
+  --theme-instrument-caliper: #00e5ff;        /* Caliper/reticle cursor color */
+  --theme-instrument-caliper-badge-bg: #0a111a; /* Caliper readout badge background */
+  --theme-instrument-caliper-badge-text: #00e5ff; /* Caliper readout badge text */
+  --theme-instrument-strata-high: #ffa026;    /* Atmospheric strata indicator — high */
+  --theme-instrument-strata-mid: #1fd9f5;     /* Atmospheric strata indicator — mid */
+  --theme-instrument-strata-low: #f547e0;     /* Atmospheric strata indicator — low */
+
   --theme-font-cartouche: 'Cinzel', 'Times New Roman', serif;
   --theme-font-telemetry: 'IBM Plex Mono', 'Courier New', monospace;
   --theme-font-body: 'Inter', system-ui, sans-serif;
@@ -169,6 +182,19 @@
   --theme-reticle-ring-active: #8C4820;
   --theme-pulse-indicator: #8C4820;
 
+  /* Instrument SVG Ink Tokens — Sepia Copperplate Engraving */
+  --theme-instrument-ink: #8c4820;            /* Primary instrument SVG stroke/fill — sepia copperplate */
+  --theme-instrument-ink-secondary: #8c4820;  /* Secondary SVG ink — same sepia family */
+  --theme-instrument-viewport-bg: #f4ede0;    /* SVG viewport background — paper tooth substrate */
+  --theme-instrument-viewport-bg-center: #fdfcf9; /* SVG viewport radial center — ivory */
+  --theme-instrument-viewport-border: rgba(184, 173, 152, 0.60); /* SVG viewport delineator */
+  --theme-instrument-caliper: #8c4820;        /* Caliper/reticle cursor color — burnt sienna */
+  --theme-instrument-caliper-badge-bg: #fdfcf9; /* Caliper readout badge background */
+  --theme-instrument-caliper-badge-text: #8c4820; /* Caliper readout badge text */
+  --theme-instrument-strata-high: #9e6d50;    /* Atmospheric strata indicator — high (warm sienna) */
+  --theme-instrument-strata-mid: #77998b;     /* Atmospheric strata indicator — mid (sage) */
+  --theme-instrument-strata-low: #b8ad98;     /* Atmospheric strata indicator — low (parchment) */
+
   --theme-font-cartouche: 'Cinzel', 'Cormorant Garamond', 'Times New Roman', serif;
   --theme-font-telemetry: 'IBM Plex Mono', 'Courier New', monospace;
   --theme-font-body: 'Inter', system-ui, sans-serif;
@@ -253,6 +279,19 @@
   --theme-reticle-pip-active: #A5D5FF;
   --theme-reticle-ring-active: #4F79A3;
   --theme-pulse-indicator: #4F79A3;
+
+  /* Instrument SVG Ink Tokens — Prussian Cyanotype Blueprint */
+  --theme-instrument-ink: #4fa3e3;            /* Primary instrument SVG stroke/fill — cyanotype blue */
+  --theme-instrument-ink-secondary: #a5d5ff;  /* Secondary SVG ink — bright cerulean highlight */
+  --theme-instrument-viewport-bg: #0d1724;    /* SVG viewport background — deep indigo */
+  --theme-instrument-viewport-bg-center: #18293d; /* SVG viewport radial center */
+  --theme-instrument-viewport-border: rgba(59, 89, 122, 0.60); /* SVG viewport delineator */
+  --theme-instrument-caliper: #70b7ff;        /* Caliper/reticle cursor color — actinic blue */
+  --theme-instrument-caliper-badge-bg: #0e1824; /* Caliper readout badge background */
+  --theme-instrument-caliper-badge-text: #a5d5ff; /* Caliper readout badge text */
+  --theme-instrument-strata-high: #4f79a3;    /* Atmospheric strata indicator — high (slate blue) */
+  --theme-instrument-strata-mid: #6b94bd;     /* Atmospheric strata indicator — mid (pale cerulean) */
+  --theme-instrument-strata-low: #3b597a;     /* Atmospheric strata indicator — low (deep slate) */
 
   --theme-font-cartouche: 'Cinzel', 'IBM Plex Mono', monospace;
   --theme-font-telemetry: 'IBM Plex Mono', 'Courier New', monospace;

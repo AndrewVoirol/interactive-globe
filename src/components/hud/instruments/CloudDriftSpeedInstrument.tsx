@@ -137,38 +137,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
   const badgeX = Math.max(16, Math.min(224, thumbX));
 
   // Medium tokens for SVG and HUD elements
-  const tokens =
-    activeTheme === 2
-      ? {
-          viewportBg: 'bg-[#0d1724]',
-          viewportBorder: 'border-[#3b597a]/60',
-          reticleFill: '#0e1824',
-          reticleStroke: '#a5d5ff',
-          accentColor: '#4fa3e3',
-          trackColor: 'rgba(79, 163, 227, 0.25)',
-          activeTrackColor: '#4fa3e3',
-        }
-      : activeTheme === 1
-      ? {
-          viewportBg: 'bg-[#fdfcf9]',
-          viewportBorder: 'border-[#b8ad98]/60',
-          reticleFill: '#fdfcf9',
-          reticleStroke: '#8c4820',
-          accentColor: '#8c4820',
-          trackColor: 'rgba(140, 72, 32, 0.20)',
-          activeTrackColor: '#8c4820',
-        }
-      : {
-          viewportBg: 'bg-[#0c1219]',
-          viewportBorder: 'border-[#3a4d61]/60',
-          reticleFill: '#0a111a',
-          reticleStroke: '#00e5ff',
-          accentColor: '#00e5ff',
-          trackColor: 'rgba(0, 229, 255, 0.20)',
-          activeTrackColor: '#00e5ff',
-        };
-
-  return (
+    return (
     <div
       data-instrument="cloud-drift-speed"
       className={`p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${className}`}
@@ -211,7 +180,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
         onDoubleClick={handleReset}
         onKeyDown={handleKeyDown}
         title="Drag chronometric reticle horizontally to adjust drift speed (0–2000×) • Double-click to reset (500×) • Arrow keys / Shift to step"
-        className={`relative w-full h-20 rounded-[2px] border overflow-hidden cursor-ew-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${tokens.viewportBg} ${tokens.viewportBorder}`}
+        className={`relative w-full h-20 rounded-[2px] overflow-hidden cursor-ew-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)]`}
       >
         <svg
           className="w-full h-full pointer-events-none"
@@ -220,13 +189,13 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
         >
           <defs>
             <linearGradient id="drift-active-line-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={tokens.activeTrackColor} stopOpacity="0.3" />
-              <stop offset="100%" stopColor={tokens.activeTrackColor} stopOpacity="1" />
+              <stop offset="0%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity="0.3" />
+              <stop offset="100%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity="1" />
             </linearGradient>
             <linearGradient id="streamline-glow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={tokens.accentColor} stopOpacity="0.05" />
-              <stop offset="50%" stopColor={tokens.accentColor} stopOpacity="0.35" />
-              <stop offset="100%" stopColor={tokens.accentColor} stopOpacity="0.85" />
+              <stop offset="0%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity="0.05" />
+              <stop offset="50%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity="0.35" />
+              <stop offset="100%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity="0.85" />
             </linearGradient>
           </defs>
 
@@ -235,14 +204,13 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
             {/* Soft, resting cumulus cloud glyph */}
             <path
               d="M 10 28 Q 10 24 14 24 Q 16 20 20 20 Q 24 20 26 23 Q 29 23 29 28 Z"
-              fill={tokens.accentColor}
+              style={{ fill: 'var(--theme-instrument-ink)', stroke: 'var(--theme-instrument-ink)' }}
               fillOpacity="0.18"
-              stroke={tokens.accentColor}
               strokeWidth="0.8"
             />
             {/* Faint calm water/air reflection lines */}
-            <line x1="8" y1="31" x2="31" y2="31" stroke={tokens.trackColor} strokeWidth="0.6" opacity="0.4" />
-            <line x1="12" y1="33" x2="27" y2="33" stroke={tokens.trackColor} strokeWidth="0.5" opacity="0.25" />
+            <line x1="8" y1="31" x2="31" y2="31" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeOpacity="0.25" strokeWidth="0.6" opacity="0.4" />
+            <line x1="12" y1="33" x2="27" y2="33" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeOpacity="0.25" strokeWidth="0.5" opacity="0.25" />
           </g>
 
           {/* 2. Dynamic Aerodynamic Streamline Field (Accelerating from left to right) */}
@@ -250,7 +218,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
           <path
             d="M 32 18 Q 70 14 110 18 T 175 16 T 226 15"
             fill="none"
-            stroke={tokens.trackColor}
+            style={{ stroke: 'var(--theme-instrument-ink)' }} strokeOpacity="0.25"
             strokeWidth="0.75"
             strokeDasharray="2 3"
             opacity="0.5"
@@ -268,7 +236,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
           <path
             d="M 32 38 Q 70 42 110 38 T 175 40 T 226 41"
             fill="none"
-            stroke={tokens.trackColor}
+            style={{ stroke: 'var(--theme-instrument-ink)' }} strokeOpacity="0.25"
             strokeWidth="0.75"
             strokeDasharray="2 3"
             opacity="0.5"
@@ -283,23 +251,23 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
           />
 
           {/* High-Velocity Speed Streaks in Gale/Storm Zone (120 to 226) */}
-          <line x1="130" y1="21" x2="224" y2="21" stroke={tokens.trackColor} strokeWidth="0.6" strokeDasharray="12 4" opacity="0.55" />
-          <line x1="140" y1="35" x2="224" y2="35" stroke={tokens.trackColor} strokeWidth="0.6" strokeDasharray="10 3" opacity="0.55" />
+          <line x1="130" y1="21" x2="224" y2="21" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeOpacity="0.25" strokeWidth="0.6" strokeDasharray="12 4" opacity="0.55" />
+          <line x1="140" y1="35" x2="224" y2="35" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeOpacity="0.25" strokeWidth="0.6" strokeDasharray="10 3" opacity="0.55" />
 
           {/* Graduated Kinetic Wind Chevrons (> to >> to >>> indicating acceleration) */}
           <g opacity="0.75">
             {/* Gentle 250x chevron */}
-            <path d="M 44 26 L 47 28 L 44 30" fill="none" stroke={tokens.trackColor} strokeWidth="0.8" opacity="0.5" />
+            <path d="M 44 26 L 47 28 L 44 30" fill="none" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeOpacity="0.25" strokeWidth="0.8" opacity="0.5" />
             {/* Moderate 750x double chevrons */}
-            <path d="M 94 25.5 L 97 28 L 94 30.5 M 99 25.5 L 102 28 L 99 30.5" fill="none" stroke={tokens.accentColor} strokeWidth="0.9" opacity="0.65" />
+            <path d="M 94 25.5 L 97 28 L 94 30.5 M 99 25.5 L 102 28 L 99 30.5" fill="none" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.9" opacity="0.65" />
             {/* Brisk 1250x chevrons */}
-            <path d="M 142 25 L 146 28 L 142 31 M 147 25 L 151 28 L 147 31" fill="none" stroke={tokens.accentColor} strokeWidth="1.1" opacity="0.8" />
+            <path d="M 142 25 L 146 28 L 142 31 M 147 25 L 151 28 L 147 31" fill="none" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="1.1" opacity="0.8" />
             {/* Gale/Storm 1750x triple chevrons */}
-            <path d="M 180 24.5 L 184 28 L 180 31.5 M 185 24.5 L 189 28 L 185 31.5 M 190 24.5 L 194 28 L 190 31.5" fill="none" stroke={tokens.accentColor} strokeWidth="1.2" opacity="0.9" />
+            <path d="M 180 24.5 L 184 28 L 180 31.5 M 185 24.5 L 189 28 L 185 31.5 M 190 24.5 L 194 28 L 190 31.5" fill="none" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="1.2" opacity="0.9" />
           </g>
 
           {/* 3. Base Advection Track with Graduation Ticks */}
-          <line x1="20" y1="28" x2="220" y2="28" stroke={tokens.trackColor} strokeWidth="1.8" />
+          <line x1="20" y1="28" x2="220" y2="28" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeOpacity="0.25" strokeWidth="1.8" />
           {[40, 60, 80, 100, 120, 140, 160, 180, 200].map((tx) => (
             <line
               key={tx}
@@ -307,7 +275,7 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
               y1="26"
               x2={tx}
               y2="30"
-              stroke={tokens.trackColor}
+              style={{ stroke: 'var(--theme-instrument-ink)' }} strokeOpacity="0.25"
               strokeWidth="0.75"
               opacity="0.6"
             />
@@ -327,52 +295,49 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
             {/* Aerodynamically swept cirrus / storm cloud head */}
             <path
               d="M 212 28 C 214 23 220 22 225 24 C 228 21 232 23 234 28 Z"
-              fill={tokens.accentColor}
+              style={{ fill: 'var(--theme-instrument-ink)', stroke: 'var(--theme-instrument-ink)' }}
               fillOpacity="0.25"
-              stroke={tokens.accentColor}
               strokeWidth="0.8"
             />
             {/* Horizontal wind shear tail filaments */}
-            <line x1="202" y1="26" x2="211" y2="26" stroke={tokens.accentColor} strokeWidth="0.75" strokeDasharray="3 1" />
-            <line x1="205" y1="28" x2="211" y2="28" stroke={tokens.accentColor} strokeWidth="0.85" />
-            <line x1="204" y1="30" x2="211" y2="30" stroke={tokens.accentColor} strokeWidth="0.75" strokeDasharray="2 1" />
+            <line x1="202" y1="26" x2="211" y2="26" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.75" strokeDasharray="3 1" />
+            <line x1="205" y1="28" x2="211" y2="28" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.85" />
+            <line x1="204" y1="30" x2="211" y2="30" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.75" strokeDasharray="2 1" />
           </g>
 
           {/* 5. Medium-Adaptive SVG Graphic Vignettes */}
           {activeTheme === 1 ? (
             // Theme 1: Archival Cream Rag (Robinson Cup Anemometer Engraving)
-            <g className="drift-chronometer-cream text-[#8c4820]">
+            <g className="drift-chronometer-cream text-[var(--theme-instrument-ink)]">
               {/* Central Anemometer Spindle & Bearing Collar */}
-              <line x1="206" y1="5" x2="206" y2="17" stroke="#8c4820" strokeWidth="0.9" />
-              <line x1="203" y1="17" x2="209" y2="17" stroke="#8c4820" strokeWidth="0.8" />
+              <line x1="206" y1="5" x2="206" y2="17" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.9" />
+              <line x1="203" y1="17" x2="209" y2="17" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.8" />
               {/* Horizontal Crossarms */}
-              <line x1="198" y1="10" x2="214" y2="10" stroke="#8c4820" strokeWidth="0.7" />
+              <line x1="198" y1="10" x2="214" y2="10" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.7" />
               {/* Hemispherical Anemometer Cups */}
               <path
                 d="M 198 7.5 A 2.5 2.5 0 0 0 198 12.5 Z"
-                fill="#8c4820"
+                style={{ fill: 'var(--theme-instrument-ink)', stroke: 'var(--theme-instrument-ink)' }}
                 fillOpacity="0.5"
-                stroke="#8c4820"
                 strokeWidth="0.65"
               />
               <path
                 d="M 214 7.5 A 2.5 2.5 0 0 1 214 12.5 Z"
-                fill="#8c4820"
+                style={{ fill: 'var(--theme-instrument-ink)', stroke: 'var(--theme-instrument-ink)' }}
                 fillOpacity="0.7"
-                stroke="#8c4820"
                 strokeWidth="0.65"
               />
               {/* Rotational Intaglio Arc */}
-              <path d="M 199 5 Q 206 3 213 5" fill="none" stroke="#8c4820" strokeWidth="0.5" strokeDasharray="1.5 1.5" opacity="0.65" />
+              <path d="M 199 5 Q 206 3 213 5" fill="none" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.5" strokeDasharray="1.5 1.5" opacity="0.65" />
             </g>
           ) : activeTheme === 2 ? (
             // Theme 2: Prussian Cyanotype (CAD Velocity Isotachs)
-            <g className="drift-chronometer-cyanotype text-[#4fa3e3]">
+            <g className="drift-chronometer-cyanotype text-[var(--theme-instrument-ink)]">
               {/* Technical Isotach Curvature Lines */}
               <path
                 d="M 20 16 C 70 12, 130 18, 220 13"
                 fill="none"
-                stroke="#4fa3e3"
+                style={{ stroke: 'var(--theme-instrument-ink)' }}
                 strokeWidth="0.8"
                 strokeDasharray="4 2"
                 opacity="0.8"
@@ -380,45 +345,45 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
               <path
                 d="M 20 40 C 70 44, 130 36, 220 43"
                 fill="none"
-                stroke="#4fa3e3"
+                style={{ stroke: 'var(--theme-instrument-ink)' }}
                 strokeWidth="0.8"
                 strokeDasharray="4 2"
                 opacity="0.8"
               />
               {/* CAD Division Graduation Crosshairs */}
-              <line x1="70" y1="13" x2="70" y2="17" stroke="#4fa3e3" strokeWidth="0.6" opacity="0.75" />
-              <line x1="140" y1="14" x2="140" y2="18" stroke="#4fa3e3" strokeWidth="0.6" opacity="0.75" />
-              <line x1="190" y1="12" x2="190" y2="16" stroke="#4fa3e3" strokeWidth="0.6" opacity="0.75" />
+              <line x1="70" y1="13" x2="70" y2="17" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.6" opacity="0.75" />
+              <line x1="140" y1="14" x2="140" y2="18" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.6" opacity="0.75" />
+              <line x1="190" y1="12" x2="190" y2="16" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.6" opacity="0.75" />
             </g>
           ) : (
             // Theme 0: Marie Tharp (Acoustic Doppler Velocity Wavelets)
-            <g className="drift-chronometer-tharp text-[#00e5ff]">
+            <g className="drift-chronometer-tharp text-[var(--theme-instrument-ink)]">
               {/* Transducer Origin Emitter */}
-              <circle cx="206" cy="12" r="1.8" fill="#00e5ff" />
-              <line x1="206" y1="12" x2="198" y2="23" stroke="#00e5ff" strokeWidth="0.7" strokeDasharray="2 2" opacity="0.8" />
-              <line x1="206" y1="12" x2="214" y2="23" stroke="#00e5ff" strokeWidth="0.7" strokeDasharray="2 2" opacity="0.8" />
+              <circle cx="206" cy="12" r="1.8" style={{ fill: 'var(--theme-instrument-ink)' }} />
+              <line x1="206" y1="12" x2="198" y2="23" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.7" strokeDasharray="2 2" opacity="0.8" />
+              <line x1="206" y1="12" x2="214" y2="23" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.7" strokeDasharray="2 2" opacity="0.8" />
               {/* Concentric Doppler Acoustic Wavelets */}
-              <path d="M 200 17 A 6 6 0 0 0 212 17" fill="none" stroke="#34d399" strokeWidth="0.65" opacity="0.8" />
-              <path d="M 197 20 A 9 9 0 0 0 215 20" fill="none" stroke="#34d399" strokeWidth="0.55" opacity="0.6" />
-              <path d="M 194 23 A 12 12 0 0 0 218 23" fill="none" stroke="#34d399" strokeWidth="0.5" strokeDasharray="2 2" opacity="0.45" />
+              <path d="M 200 17 A 6 6 0 0 0 212 17" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.65" opacity="0.8" />
+              <path d="M 197 20 A 9 9 0 0 0 215 20" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.55" opacity="0.6" />
+              <path d="M 194 23 A 12 12 0 0 0 218 23" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.5" strokeDasharray="2 2" opacity="0.45" />
             </g>
           )}
 
           {/* 6. Milestone Ticks & Labels (Strictly 3 Ticks: 0x, 500x, 2000x) */}
           {/* 0x (Calm) */}
-          <line x1="20" y1="36" x2="20" y2="42" stroke={tokens.trackColor} strokeWidth="1" />
+          <line x1="20" y1="36" x2="20" y2="42" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeOpacity="0.25" strokeWidth="1" />
           <text x="20" y="52" textAnchor="start" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.75">
             0×
           </text>
 
           {/* 500x Default Sweetspot */}
-          <line x1="70" y1="36" x2="70" y2="42" stroke={tokens.accentColor} strokeWidth="1" />
-          <text x="70" y="52" textAnchor="middle" fill={tokens.accentColor} fontSize="5.5" fontFamily="monospace" fontWeight="bold">
+          <line x1="70" y1="36" x2="70" y2="42" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="1" />
+          <text x="70" y="52" textAnchor="middle" style={{ fill: 'var(--theme-instrument-ink)' }} fontSize="5.5" fontFamily="monospace" fontWeight="bold">
             500×
           </text>
 
           {/* 2000x Storm Max */}
-          <line x1="220" y1="36" x2="220" y2="42" stroke={tokens.trackColor} strokeWidth="1" />
+          <line x1="220" y1="36" x2="220" y2="42" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeOpacity="0.25" strokeWidth="1" />
           <text x="220" y="52" textAnchor="end" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.75">
             2000×
           </text>
@@ -431,18 +396,17 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
               y1="13"
               x2={thumbX}
               y2="34"
-              stroke={tokens.reticleStroke}
+              style={{ stroke: 'var(--theme-instrument-caliper)' }}
               strokeWidth="1.2"
             />
 
             {/* Central Diamond Lens Reticle */}
             <polygon
               points={`${thumbX},22 ${thumbX + 5},28 ${thumbX},34 ${thumbX - 5},28`}
-              fill={tokens.reticleFill}
-              stroke={tokens.reticleStroke}
+              style={{ fill: 'var(--theme-instrument-caliper-badge-bg)', stroke: 'var(--theme-instrument-caliper)' }}
               strokeWidth="1.5"
             />
-            <circle cx={thumbX} cy="28" r="1.5" fill={tokens.reticleStroke} />
+            <circle cx={thumbX} cy="28" r="1.5" style={{ fill: 'var(--theme-instrument-caliper)' }} />
 
             {/* Floating Readout Flag Badge */}
             <rect
@@ -451,15 +415,14 @@ export const CloudDriftSpeedInstrument: React.FC<CloudDriftSpeedInstrumentProps>
               width="30"
               height="10"
               rx="1.5"
-              fill={tokens.reticleFill}
-              stroke={tokens.reticleStroke}
+              style={{ fill: 'var(--theme-instrument-caliper-badge-bg)', stroke: 'var(--theme-instrument-caliper)' }}
               strokeWidth="0.8"
             />
             <text
               x={badgeX}
               y="10.5"
               textAnchor="middle"
-              fill={tokens.reticleStroke}
+              style={{ fill: 'var(--theme-instrument-caliper-badge-text)' }}
               fontSize="6"
               fontFamily="monospace"
               fontWeight="bold"

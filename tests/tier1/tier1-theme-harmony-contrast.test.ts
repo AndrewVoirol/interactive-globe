@@ -137,11 +137,11 @@ describe('Tier-1 Bite 5: Theme Harmony, Contrast & Design System Integrity', () 
       expect(curveCode).toContain('text-nano');
     });
 
-    it('verifies CurvatureUnfurlSextant uses intaglio copper #8c4820 in Theme 1', () => {
+    it('verifies CurvatureUnfurlSextant uses theme CSS variables for ink colors', () => {
       const sextantPath = path.resolve(__dirname, '../../src/components/hud/instruments/CurvatureUnfurlSextant.tsx');
       const sextantCode = fs.readFileSync(sextantPath, 'utf-8');
-      expect(sextantCode).toContain("activeTick: '#8c4820'");
-      expect(sextantCode).toContain("thumbStroke: '#8c4820'");
+      expect(sextantCode).toContain('var(--theme-instrument-ink)');
+      expect(sextantCode).toContain('var(--theme-slider-thumb-bg)');
     });
   });
 

@@ -82,32 +82,7 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
 
   const isSweetspot = Math.abs(azimuth - 315) <= 10 && Math.abs(altitude - 45) <= 8;
 
-  const tokens = theme === 2
-    ? {
-        dialBg: 'radial-gradient(circle, #18293d 0%, #0d1724 100%)',
-        dialBorder: 'border-[#3b597a]',
-        ringBorder: 'border-[#3b597a]/40',
-        axisColor: 'bg-[#3b597a]/50',
-        reticleBg: 'bg-[#7BB8D4]',
-        reticleBorder: 'border-[#4A7A94]',
-      }
-    : theme === 1
-    ? {
-        dialBg: 'radial-gradient(circle, #fdfcf9 0%, #ece4d2 100%)',
-        dialBorder: 'border-[#b8ad98]',
-        ringBorder: 'border-[#b8ad98]/50',
-        axisColor: 'bg-[#b8ad98]/60',
-        reticleBg: 'bg-[var(--theme-slider-thumb-bg)]',
-        reticleBorder: 'border-[var(--theme-slider-thumb-border)]',
-      }
-    : {
-        dialBg: 'radial-gradient(circle, #1a2633 0%, #0c1219 100%)',
-        dialBorder: 'border-[#3a4d61]',
-        ringBorder: 'border-[#3a4d61]/40',
-        axisColor: 'bg-[#3a4d61]/50',
-        reticleBg: 'bg-[var(--theme-slider-thumb-bg)]',
-        reticleBorder: 'border-[var(--theme-slider-thumb-border)]',
-      };
+
 
   return (
     <div
@@ -164,16 +139,16 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
           onPointerUp={handlePointerUp}
           onDoubleClick={() => onChange(315, 45)}
           title="Drag reticle to position sun vector (Double-click to reset to Imhof 315° / 45°, Arrow keys to nudge)"
-          className={`relative w-24 h-24 rounded-full border flex items-center justify-center cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${tokens.dialBorder}`}
+          className={`relative w-24 h-24 rounded-full flex items-center justify-center cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none`}
           style={{
-            background: tokens.dialBg,
+            background: 'radial-gradient(circle, var(--theme-instrument-viewport-bg-center) 0%, var(--theme-instrument-viewport-bg) 100%)',
           }}
         >
           {/* Medium-Adaptive Era-Specific Dial Artifacts */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100">
             {theme === 1 ? (
               // Cream Rag Paper: Intaglio copper compass rose & Roman cardinal markers
-              <g className="compass-rose-cream text-[#8c4820] opacity-60">
+              <g className="compass-rose-cream text-[var(--theme-instrument-ink)] opacity-60">
                 <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="0.75" strokeDasharray="1 2" fill="none" />
                 <circle cx="50" cy="50" r="32" stroke="currentColor" strokeWidth="0.5" fill="none" />
                 {/* 8-point compass star */}
@@ -190,7 +165,7 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
               </g>
             ) : theme === 2 ? (
               // Prussian Cyanotype: Architectural CAD protractor with 5° division ticks
-              <g className="protractor-cyanotype text-[#4fa3e3] opacity-60">
+              <g className="protractor-cyanotype text-[var(--theme-instrument-ink)] opacity-60">
                 <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="0.75" fill="none" />
                 <circle cx="50" cy="50" r="34" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 2" fill="none" />
                 {/* 5-degree and 15-degree division graduation ticks */}
@@ -207,31 +182,31 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
               </g>
             ) : (
               // Marie Tharp: Acoustic sonar beam sweep with concentric sounding depth rings
-              <g className="sonar-sweep-tharp text-[#34d399] opacity-50">
+              <g className="sonar-sweep-tharp text-[var(--theme-instrument-ink-secondary)] opacity-50">
                 <circle cx="50" cy="50" r="44" stroke="currentColor" strokeWidth="0.75" strokeDasharray="3 3" fill="none" />
                 <circle cx="50" cy="50" r="30" stroke="currentColor" strokeWidth="0.75" fill="none" />
                 <circle cx="50" cy="50" r="16" stroke="currentColor" strokeWidth="0.75" fill="none" />
                 {/* Radial sounding vectors */}
-                <line x1="50" y1="50" x2={50 + Math.cos(angleRad) * 44} y2={50 + Math.sin(angleRad) * 44} stroke="#00e5ff" strokeWidth="1.2" opacity="0.85" />
-                <path d={`M 50 50 L ${50 + Math.cos(angleRad - 0.25) * 44} ${50 + Math.sin(angleRad - 0.25) * 44} A 44 44 0 0 1 ${50 + Math.cos(angleRad + 0.25) * 44} ${50 + Math.sin(angleRad + 0.25) * 44} Z`} fill="#00e5ff" opacity="0.12" />
+                <line x1="50" y1="50" x2={50 + Math.cos(angleRad) * 44} y2={50 + Math.sin(angleRad) * 44} style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="1.2" opacity="0.85" />
+                <path d={`M 50 50 L ${50 + Math.cos(angleRad - 0.25) * 44} ${50 + Math.sin(angleRad - 0.25) * 44} A 44 44 0 0 1 ${50 + Math.cos(angleRad + 0.25) * 44} ${50 + Math.sin(angleRad + 0.25) * 44} Z`} style={{ fill: 'var(--theme-instrument-ink)' }} opacity="0.12" />
               </g>
             )}
           </svg>
 
           {/* Concentric Altitude Rings (45° and 70°) */}
           <div
-            className={`absolute w-16 h-16 rounded-full border pointer-events-none ${tokens.ringBorder}`}
+            className={`absolute w-16 h-16 rounded-full border pointer-events-none border-[var(--theme-instrument-viewport-border)]`}
           ></div>
           <div
-            className={`absolute w-8 h-8 rounded-full border pointer-events-none ${tokens.ringBorder}`}
+            className={`absolute w-8 h-8 rounded-full border pointer-events-none border-[var(--theme-instrument-viewport-border)]`}
           ></div>
 
           {/* Cardinal Axes */}
           <div
-            className={`absolute w-full h-[1px] pointer-events-none ${tokens.axisColor}`}
+            className={`absolute w-full h-[1px] pointer-events-none bg-[var(--theme-instrument-viewport-border)]`}
           ></div>
           <div
-            className={`absolute h-full w-[1px] pointer-events-none ${tokens.axisColor}`}
+            className={`absolute h-full w-[1px] pointer-events-none bg-[var(--theme-instrument-viewport-border)]`}
           ></div>
 
           {/* Cardinal Directions */}
@@ -242,7 +217,7 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
 
           {/* Draggable Brass Sun Reticle */}
           <div
-            className={`absolute w-3.5 h-3.5 -ml-[7px] -mt-[7px] rounded-full ${tokens.reticleBg} border ${tokens.reticleBorder} shadow-[0_1px_4px_rgba(0,0,0,0.5)] pointer-events-none transition-transform duration-75`}
+            className={`absolute w-3.5 h-3.5 -ml-[7px] -mt-[7px] rounded-full bg-[var(--theme-slider-thumb-bg)] border border-[var(--theme-slider-thumb-border)] shadow-[0_1px_4px_rgba(0,0,0,0.5)] pointer-events-none transition-transform duration-75`}
             style={{
               transform: `translate(${reticleX}px, ${reticleY}px)`,
             }}

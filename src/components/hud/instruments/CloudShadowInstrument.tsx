@@ -135,53 +135,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
   const badgeX = Math.max(18, Math.min(222, caliperX));
 
   // Medium tokens for SVG and HUD elements
-  const tokens =
-    theme === 2
-      ? {
-          viewportBg: 'bg-[#0d1724]',
-          viewportBorder: 'border-[#3b597a]/60',
-          cloudFill: '#1a2e47',
-          cloudStroke: '#4fa3e3',
-          groundFill: '#0e1824',
-          groundStroke: '#3b597a',
-          caliperLine: '#a5d5ff',
-          caliperBadgeBg: '#0e1824',
-          caliperBadgeBorder: '#a5d5ff',
-          caliperBadgeText: '#a5d5ff',
-          rayStroke: '#4fa3e3',
-          shadowFill: '#4fa3e3',
-        }
-      : theme === 1
-      ? {
-          viewportBg: 'bg-[#fdfcf9]',
-          viewportBorder: 'border-[#b8ad98]/60',
-          cloudFill: '#ede3d1',
-          cloudStroke: '#8c4820',
-          groundFill: '#f4ede0',
-          groundStroke: '#8c4820',
-          caliperLine: '#8c4820',
-          caliperBadgeBg: '#fdfcf9',
-          caliperBadgeBorder: '#8c4820',
-          caliperBadgeText: '#8c4820',
-          rayStroke: '#8c4820',
-          shadowFill: '#8c4820',
-        }
-      : {
-          viewportBg: 'bg-[#0c1219]',
-          viewportBorder: 'border-[#3a4d61]/60',
-          cloudFill: '#132230',
-          cloudStroke: '#00e5ff',
-          groundFill: '#0a111a',
-          groundStroke: '#34d399',
-          caliperLine: '#00e5ff',
-          caliperBadgeBg: '#0a111a',
-          caliperBadgeBorder: '#00e5ff',
-          caliperBadgeText: '#00e5ff',
-          rayStroke: '#00e5ff',
-          shadowFill: '#34d399',
-        };
-
-  return (
+    return (
     <div
       data-instrument="cloud-shadow"
       className={`p-2 rounded-[3px] border shadow-sm transition-all bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-primary)] ${className}`}
@@ -224,7 +178,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
         onDoubleClick={handleReset}
         onKeyDown={handleKeyDown}
         title="Drag ground umbra caliper horizontally to adjust shadow intensity (0–60%) • Double-click to reset (45%)"
-        className={`relative w-full h-20 rounded-[2px] border overflow-hidden cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${tokens.viewportBg} ${tokens.viewportBorder}`}
+        className={`relative w-full h-20 rounded-[2px] overflow-hidden cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)]`}
       >
         <svg
           className="w-full h-full pointer-events-none"
@@ -240,61 +194,61 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               patternTransform="rotate(45 0 0)"
               patternUnits="userSpaceOnUse"
             >
-              <line x1="0" y1="0" x2="0" y2="4" stroke="#8c4820" strokeWidth="0.8" />
+              <line x1="0" y1="0" x2="0" y2="4" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.8" />
             </pattern>
 
             {/* Theme 0: Marie Tharp Volumetric Extinction Gradient */}
             <linearGradient id="tharp-extinction-grad" x1="0" y1="0" x2="0" y2="1">
               <stop
                 offset="0%"
-                stopColor="#00e5ff"
+                style={{ stopColor: 'var(--theme-instrument-ink)' }}
                 stopOpacity={0.10 + shadowIntensity * 0.45}
               />
               <stop
                 offset="100%"
-                stopColor="#34d399"
+                style={{ stopColor: 'var(--theme-instrument-ink-secondary)' }}
                 stopOpacity={0.20 + shadowIntensity * 0.85}
               />
             </linearGradient>
 
             {/* General Oblique Luminous Solar Ray Cast Gradient */}
             <linearGradient id="solar-beam-illumination" x1="0" y1="0" x2="0.6" y2="1">
-              <stop offset="0%" stopColor={tokens.rayStroke} stopOpacity="0.45" />
-              <stop offset="60%" stopColor={tokens.rayStroke} stopOpacity="0.18" />
-              <stop offset="100%" stopColor={tokens.rayStroke} stopOpacity="0.02" />
+              <stop offset="0%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity="0.45" />
+              <stop offset="60%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity="0.18" />
+              <stop offset="100%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity="0.02" />
             </linearGradient>
 
             {/* Shadow Projection Volume Cone Gradient */}
             <linearGradient id="solar-ray-grad" x1="0" y1="0" x2="0.6" y2="1">
-              <stop offset="0%" stopColor={tokens.shadowFill} stopOpacity={0.12 + normIntensity * 0.4} />
-              <stop offset="100%" stopColor={tokens.shadowFill} stopOpacity={0.25 + normIntensity * 0.65} />
+              <stop offset="0%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity={0.12 + normIntensity * 0.4} />
+              <stop offset="100%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity={0.25 + normIntensity * 0.65} />
             </linearGradient>
 
             {/* Ground Shadow Umbra Surface Gradient */}
             <linearGradient id="ground-umbra-grad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={tokens.shadowFill} stopOpacity="0.15" />
-              <stop offset="18%" stopColor={tokens.shadowFill} stopOpacity={0.4 + normIntensity * 0.6} />
-              <stop offset="82%" stopColor={tokens.shadowFill} stopOpacity={0.4 + normIntensity * 0.6} />
-              <stop offset="100%" stopColor={tokens.shadowFill} stopOpacity="0.15" />
+              <stop offset="0%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity="0.15" />
+              <stop offset="18%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity={0.4 + normIntensity * 0.6} />
+              <stop offset="82%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity={0.4 + normIntensity * 0.6} />
+              <stop offset="100%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity="0.15" />
             </linearGradient>
 
             {/* Baseline Optical Extinction Density Ramp Gradient */}
             <linearGradient id="extinction-track-ramp" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={tokens.rayStroke} stopOpacity="0.1" />
-              <stop offset="100%" stopColor={tokens.shadowFill} stopOpacity="0.8" />
+              <stop offset="0%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity="0.1" />
+              <stop offset="100%" style={{ stopColor: 'var(--theme-instrument-ink)' }} stopOpacity="0.8" />
             </linearGradient>
           </defs>
 
           {/* 1. Luminous Solar Emitter & Incoming Solar Rays (45° angle / 315° NW) */}
           <g opacity="0.85">
             {/* Luminous Sun Origin Glyph at Top-Left */}
-            <circle cx="14" cy="8" r="4.5" fill="none" stroke={tokens.rayStroke} strokeWidth="0.5" strokeDasharray="1.5 1.5" />
-            <circle cx="14" cy="8" r="2.8" fill="none" stroke={tokens.rayStroke} strokeWidth="0.8" />
-            <circle cx="14" cy="8" r="1.3" fill={tokens.rayStroke} />
+            <circle cx="14" cy="8" r="4.5" fill="none" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.5" strokeDasharray="1.5 1.5" />
+            <circle cx="14" cy="8" r="2.8" fill="none" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.8" />
+            <circle cx="14" cy="8" r="1.3" style={{ fill: 'var(--theme-instrument-ink)' }} />
             {/* Primary Solar Rays radiating outward */}
-            <line x1="14" y1="1" x2="14" y2="3" stroke={tokens.rayStroke} strokeWidth="0.75" />
-            <line x1="7" y1="8" x2="9" y2="8" stroke={tokens.rayStroke} strokeWidth="0.75" />
-            <line x1="19" y1="13" x2="23" y2="17" stroke={tokens.rayStroke} strokeWidth="0.9" />
+            <line x1="14" y1="1" x2="14" y2="3" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.75" />
+            <line x1="7" y1="8" x2="9" y2="8" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.75" />
+            <line x1="19" y1="13" x2="23" y2="17" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.9" />
 
             {/* Soft Ambient Illumination Wash through the Troposphere (45° parallel beam) */}
             <polygon
@@ -304,11 +258,11 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             />
 
             {/* Directional 45° Solar Light Rays projecting across the scene */}
-            <line x1="5" y1="13" x2="42" y2="50" stroke={tokens.rayStroke} strokeWidth="0.6" strokeDasharray="3 3" opacity="0.35" />
-            <line x1="19" y1="13" x2="28" y2="22" stroke={tokens.rayStroke} strokeWidth="0.85" opacity="0.7" />
-            <line x1="88" y1="12" x2="98" y2="22" stroke={tokens.rayStroke} strokeWidth="0.85" opacity="0.7" />
-            <line x1="136" y1="14" x2="172" y2="50" stroke={tokens.rayStroke} strokeWidth="0.6" strokeDasharray="4 3" opacity="0.35" />
-            <line x1="172" y1="14" x2="208" y2="50" stroke={tokens.rayStroke} strokeWidth="0.6" strokeDasharray="4 3" opacity="0.25" />
+            <line x1="5" y1="13" x2="42" y2="50" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.6" strokeDasharray="3 3" opacity="0.35" />
+            <line x1="19" y1="13" x2="28" y2="22" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.85" opacity="0.7" />
+            <line x1="88" y1="12" x2="98" y2="22" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.85" opacity="0.7" />
+            <line x1="136" y1="14" x2="172" y2="50" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.6" strokeDasharray="4 3" opacity="0.35" />
+            <line x1="172" y1="14" x2="208" y2="50" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.6" strokeDasharray="4 3" opacity="0.25" />
           </g>
 
           {/* 2. Terrestrial Crust Baseline Profile & Bedrock Strata */}
@@ -318,8 +272,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             width="220"
             height="8"
             rx="0.5"
-            fill={tokens.groundFill}
-            stroke={tokens.groundStroke}
+            style={{ fill: 'var(--theme-instrument-viewport-bg)', stroke: 'var(--theme-instrument-viewport-border)' }}
             strokeWidth="1.0"
             opacity="0.95"
           />
@@ -329,7 +282,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             y1="54"
             x2="228"
             y2="54"
-            stroke={tokens.groundStroke}
+            style={{ stroke: 'var(--theme-instrument-viewport-border)' }}
             strokeWidth="0.5"
             strokeDasharray="6 4"
             opacity="0.35"
@@ -352,7 +305,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             y1="22"
             x2="58"
             y2="50"
-            stroke={tokens.rayStroke}
+            style={{ stroke: 'var(--theme-instrument-ink)' }}
             strokeWidth="0.9"
             strokeDasharray="3 2"
             opacity="0.8"
@@ -363,7 +316,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
             y1="22"
             x2="128"
             y2="50"
-            stroke={tokens.rayStroke}
+            style={{ stroke: 'var(--theme-instrument-ink)' }}
             strokeWidth="0.9"
             strokeDasharray="3 2"
             opacity="0.8"
@@ -386,7 +339,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
                 y1="50"
                 x2="128"
                 y2="50"
-                stroke={tokens.shadowFill}
+                style={{ stroke: 'var(--theme-instrument-ink)' }}
                 strokeWidth={1.2}
                 opacity={0.6 + normIntensity * 0.4}
               />
@@ -410,7 +363,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               y1="49"
               x2={mx}
               y2="51"
-              stroke={tokens.caliperLine}
+              style={{ stroke: 'var(--theme-instrument-caliper)' }}
               strokeWidth="0.5"
               opacity="0.4"
             />
@@ -423,7 +376,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               y1="47.5"
               x2={tx}
               y2="52.5"
-              stroke={tokens.caliperLine}
+              style={{ stroke: 'var(--theme-instrument-caliper)' }}
               strokeWidth="0.85"
               opacity="0.75"
             />
@@ -432,8 +385,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
           {/* 4. Elevated Cloud Slab Deck (y = 12..22, x = 28..98) */}
           <path
             d="M 28 22 L 28 17 Q 28 12 36 12 Q 44 10 52 13 Q 62 9 72 13 Q 84 9 92 14 Q 98 14 98 22 Z"
-            fill={tokens.cloudFill}
-            stroke={tokens.cloudStroke}
+            style={{ fill: 'var(--theme-instrument-viewport-bg)', stroke: 'var(--theme-instrument-ink)' }}
             strokeWidth="1.0"
             opacity="0.95"
           />
@@ -441,12 +393,12 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
           <path
             d="M 28 17 Q 28 12 36 12 Q 44 10 52 13 Q 62 9 72 13 Q 84 9 92 14 Q 98 14 98 22"
             fill="none"
-            stroke={tokens.rayStroke}
+            style={{ stroke: 'var(--theme-instrument-ink)' }}
             strokeWidth="1.2"
             opacity="0.9"
           />
           {/* Cloud Deck Flat Condensation Base */}
-          <line x1="28" y1="22" x2="98" y2="22" stroke={tokens.cloudStroke} strokeWidth="1.2" opacity="0.9" />
+          <line x1="28" y1="22" x2="98" y2="22" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="1.2" opacity="0.9" />
 
           {/* 5. 3-Medium Adaptive SVG Graphics Groups */}
           {theme === 1 ? (
@@ -469,7 +421,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
                   y1="52.5"
                   x2={ix}
                   y2="56"
-                  stroke="#8c4820"
+                  style={{ stroke: 'var(--theme-instrument-ink)' }}
                   strokeWidth="0.6"
                   opacity="0.65"
                 />
@@ -482,7 +434,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               <path
                 d="M 28 22 L 40 22 A 12 12 0 0 1 36.5 30.5 Z"
                 fill="none"
-                stroke="#4fa3e3"
+                style={{ stroke: 'var(--theme-instrument-ink)' }}
                 strokeWidth="0.75"
                 opacity="0.85"
               />
@@ -495,7 +447,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
                     y1="50"
                     x2={x}
                     y2="53"
-                    stroke="#4fa3e3"
+                    style={{ stroke: 'var(--theme-instrument-ink)' }}
                     strokeWidth="0.6"
                     opacity="0.7"
                   />
@@ -514,11 +466,11 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               )}
 
               {/* Acoustic Sounding Pips along Bathymetric Margin */}
-              <circle cx="70" cy="50" r="1.5" fill="#34d399" opacity="0.8" />
-              <circle cx="100" cy="50" r="1.5" fill="#34d399" opacity="0.8" />
-              <circle cx="130" cy="50" r="1.5" fill="#34d399" opacity="0.8" />
-              <circle cx="160" cy="50" r="1.5" fill="#34d399" opacity="0.8" />
-              <circle cx="190" cy="50" r="1.5" fill="#34d399" opacity="0.8" />
+              <circle cx="70" cy="50" r="1.5" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} opacity="0.8" />
+              <circle cx="100" cy="50" r="1.5" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} opacity="0.8" />
+              <circle cx="130" cy="50" r="1.5" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} opacity="0.8" />
+              <circle cx="160" cy="50" r="1.5" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} opacity="0.8" />
+              <circle cx="190" cy="50" r="1.5" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} opacity="0.8" />
             </g>
           )}
 
@@ -530,7 +482,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               y1="33"
               x2={caliperX}
               y2="45"
-              stroke={tokens.caliperLine}
+              style={{ stroke: 'var(--theme-instrument-caliper)' }}
               strokeWidth="1.2"
               strokeDasharray="2 2"
             />
@@ -542,8 +494,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               width="10"
               height="7"
               rx="1.5"
-              fill={tokens.caliperBadgeBg}
-              stroke={tokens.caliperLine}
+              style={{ fill: 'var(--theme-instrument-caliper-badge-bg)', stroke: 'var(--theme-instrument-caliper)' }}
               strokeWidth="1"
             />
             <line
@@ -551,7 +502,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               y1="47"
               x2={caliperX - 2}
               y2="50"
-              stroke={tokens.caliperLine}
+              style={{ stroke: 'var(--theme-instrument-caliper)' }}
               strokeWidth="0.6"
             />
             <line
@@ -559,7 +510,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               y1="47"
               x2={caliperX}
               y2="50"
-              stroke={tokens.caliperLine}
+              style={{ stroke: 'var(--theme-instrument-caliper)' }}
               strokeWidth="0.6"
             />
             <line
@@ -567,7 +518,7 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               y1="47"
               x2={caliperX + 2}
               y2="50"
-              stroke={tokens.caliperLine}
+              style={{ stroke: 'var(--theme-instrument-caliper)' }}
               strokeWidth="0.6"
             />
 
@@ -578,15 +529,14 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               width="28"
               height="11"
               rx="2"
-              fill={tokens.caliperBadgeBg}
-              stroke={tokens.caliperBadgeBorder}
+              style={{ fill: 'var(--theme-instrument-caliper-badge-bg)', stroke: 'var(--theme-instrument-caliper)' }}
               strokeWidth="0.75"
             />
             <text
               x={badgeX}
               y="30"
               textAnchor="middle"
-              fill={tokens.caliperBadgeText}
+              style={{ fill: 'var(--theme-instrument-caliper-badge-text)' }}
               fontSize="7"
               fontFamily="monospace"
               fontWeight="bold"

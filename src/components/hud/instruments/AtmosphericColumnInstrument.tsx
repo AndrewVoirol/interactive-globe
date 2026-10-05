@@ -146,49 +146,6 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
   const normScale = Math.max(0, Math.min(1, (atmosphericScale - 1.0) / 11.0));
   const caliperY = Math.round(114 - normScale * 100);
 
-  // Medium tokens for SVG and HUD elements
-  const tokens = theme === 2
-    ? {
-        viewportBg: 'bg-[#0d1724]',
-        viewportBorder: 'border-[#3b597a]/60',
-        caliperLine: '#a5d5ff',
-        caliperBadgeBg: '#0e1824',
-        caliperBadgeBorder: '#a5d5ff',
-        caliperBadgeText: '#a5d5ff',
-        strataLowFill: '#1a2e47',
-        strataMidFill: '#1a2e47',
-        strataHighFill: '#1a2e47',
-        activeStroke: '#4fa3e3',
-        cloudFill: '#4fa3e3',
-      }
-    : theme === 1
-    ? {
-        viewportBg: 'bg-[#fdfcf9]',
-        viewportBorder: 'border-[#b8ad98]/60',
-        caliperLine: '#8c4820',
-        caliperBadgeBg: '#fdfcf9',
-        caliperBadgeBorder: '#8c4820',
-        caliperBadgeText: '#8c4820',
-        strataLowFill: '#ede3d1',
-        strataMidFill: '#ede3d1',
-        strataHighFill: '#ede3d1',
-        activeStroke: '#8c4820',
-        cloudFill: '#8c4820',
-      }
-    : {
-        viewportBg: 'bg-[#0c1219]',
-        viewportBorder: 'border-[#3a4d61]/60',
-        caliperLine: '#00e5ff',
-        caliperBadgeBg: '#0a111a',
-        caliperBadgeBorder: '#00e5ff',
-        caliperBadgeText: '#00e5ff',
-        strataLowFill: '#132230',
-        strataMidFill: '#132230',
-        strataHighFill: '#132230',
-        activeStroke: '#00e5ff',
-        cloudFill: '#00e5ff',
-      };
-
   return (
     <div
       data-instrument="atmospheric-column"
@@ -236,7 +193,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         onDoubleClick={handleReset}
         onKeyDown={handleKeyDown}
         title="Drag altitude caliper vertically to adjust scale (1.0–12.0x) • Click stratum to toggle layer • Double-click to reset"
-        className={`relative w-full h-28 rounded-[2px] border overflow-hidden cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${tokens.viewportBg} ${tokens.viewportBorder}`}
+        className={`relative w-full h-28 rounded-[2px] overflow-hidden cursor-crosshair select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)]`}
       >
         <svg
           className="w-full h-full pointer-events-none"
@@ -251,9 +208,11 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             width="230"
             height="20"
             rx="2"
-            fill={tokens.strataHighFill}
+            style={{
+              fill: 'var(--theme-instrument-viewport-bg-center)',
+              stroke: showCloudHigh ? 'var(--theme-instrument-ink)' : 'currentColor',
+            }}
             fillOpacity={showCloudHigh ? 0.35 : 0.08}
-            stroke={showCloudHigh ? tokens.activeStroke : 'currentColor'}
             strokeWidth={showCloudHigh ? 0.75 : 0.3}
             strokeOpacity={showCloudHigh ? 0.8 : 0.25}
           />
@@ -264,7 +223,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               width="230"
               height="20"
               rx="2"
-              fill={tokens.cloudFill}
+              style={{ fill: 'var(--theme-instrument-ink)' }}
               fillOpacity={0.12 + cloudOpacity * 0.45}
             />
           )}
@@ -276,9 +235,11 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             width="230"
             height="20"
             rx="2"
-            fill={tokens.strataMidFill}
+            style={{
+              fill: 'var(--theme-instrument-viewport-bg-center)',
+              stroke: showCloudMid ? 'var(--theme-instrument-ink)' : 'currentColor',
+            }}
             fillOpacity={showCloudMid ? 0.35 : 0.08}
-            stroke={showCloudMid ? tokens.activeStroke : 'currentColor'}
             strokeWidth={showCloudMid ? 0.75 : 0.3}
             strokeOpacity={showCloudMid ? 0.8 : 0.25}
           />
@@ -289,7 +250,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               width="230"
               height="20"
               rx="2"
-              fill={tokens.cloudFill}
+              style={{ fill: 'var(--theme-instrument-ink)' }}
               fillOpacity={0.12 + cloudOpacity * 0.45}
             />
           )}
@@ -301,9 +262,11 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             width="230"
             height="20"
             rx="2"
-            fill={tokens.strataLowFill}
+            style={{
+              fill: 'var(--theme-instrument-viewport-bg-center)',
+              stroke: showCloudLow ? 'var(--theme-instrument-ink)' : 'currentColor',
+            }}
             fillOpacity={showCloudLow ? 0.35 : 0.08}
-            stroke={showCloudLow ? tokens.activeStroke : 'currentColor'}
             strokeWidth={showCloudLow ? 0.75 : 0.3}
             strokeOpacity={showCloudLow ? 0.8 : 0.25}
           />
@@ -314,7 +277,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               width="230"
               height="20"
               rx="2"
-              fill={tokens.cloudFill}
+              style={{ fill: 'var(--theme-instrument-ink)' }}
               fillOpacity={0.12 + cloudOpacity * 0.45}
             />
           )}
@@ -322,7 +285,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
           {/* 3-Medium Adaptive SVG Groups */}
           {theme === 1 ? (
             // Theme 1 (Cream Rag Paper): 19th-century Victorian meteorological engravings
-            <g className="atmospheric-column-cream strata-engraving-cream text-[#8c4820]">
+            <g className="atmospheric-column-cream strata-engraving-cream text-[var(--theme-instrument-ink)]">
               {/* Left Altitude Scale Axis */}
               <line x1="40" y1="14" x2="40" y2="122" stroke="currentColor" strokeWidth="0.75" />
               <line x1="34" y1="14" x2="40" y2="14" stroke="currentColor" strokeWidth="0.75" />
@@ -337,116 +300,116 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               <text x="31" y="124" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">0 m</text>
 
               {/* Luke Howard 1803 Latin Taxonomy Labels */}
-              <text x="48" y="37" fill="#8c4820" fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">
+              <text x="48" y="37" fill="currentColor" fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">
                 Cirrus (10–12 km)
               </text>
-              <text x="48" y="73" fill="#8c4820" fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">
+              <text x="48" y="73" fill="currentColor" fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">
                 Alto-cumulus (4–6 km)
               </text>
-              <text x="48" y="107" fill="#8c4820" fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">
+              <text x="48" y="107" fill="currentColor" fontSize="8" fontFamily="serif" fontStyle="italic" fontWeight="bold">
                 Stratus (1–2 km)
               </text>
 
               {/* Intaglio copperplate ruling-pen lines and hachures */}
               {/* Cirrus: wispy trailing filaments — period-appropriate delicate strokes */}
-              <path d="M 130 31 Q 160 27 195 33 T 255 31" fill="none" stroke="#8c4820" strokeWidth="0.6" strokeDasharray="2 1" opacity="0.7" />
-              <path d="M 155 35 Q 185 30 220 36 T 260 33" fill="none" stroke="#8c4820" strokeWidth="0.4" strokeDasharray="3 2" opacity="0.45" />
+              <path d="M 130 31 Q 160 27 195 33 T 255 31" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="2 1" opacity="0.7" />
+              <path d="M 155 35 Q 185 30 220 36 T 260 33" fill="none" stroke="currentColor" strokeWidth="0.4" strokeDasharray="3 2" opacity="0.45" />
               {/* Altocumulus: undulatus wave train — ruling-pen oscillation */}
-              <path d="M 135 68 Q 150 64 165 68 Q 180 72 195 68 Q 210 64 225 68" fill="none" stroke="#8c4820" strokeWidth="0.6" opacity="0.7" />
-              <path d="M 140 72 Q 155 68 170 72 Q 185 76 200 72 Q 215 68 230 72" fill="none" stroke="#8c4820" strokeWidth="0.4" opacity="0.45" />
+              <path d="M 135 68 Q 150 64 165 68 Q 180 72 195 68 Q 210 64 225 68" fill="none" stroke="currentColor" strokeWidth="0.6" opacity="0.7" />
+              <path d="M 140 72 Q 155 68 170 72 Q 185 76 200 72 Q 215 68 230 72" fill="none" stroke="currentColor" strokeWidth="0.4" opacity="0.45" />
               {/* Stratus: horizontal ruled lines spanning full band width */}
-              <path d="M 48 102 L 260 102" fill="none" stroke="#8c4820" strokeWidth="0.6" opacity="0.6" />
-              <path d="M 48 106 L 255 106" fill="none" stroke="#8c4820" strokeWidth="0.6" opacity="0.6" />
+              <path d="M 48 102 L 260 102" fill="none" stroke="currentColor" strokeWidth="0.6" opacity="0.6" />
+              <path d="M 48 106 L 255 106" fill="none" stroke="currentColor" strokeWidth="0.6" opacity="0.6" />
 
               {/* Inactive stratum diagonal strikethroughs */}
-              {!showCloudHigh && <line x1="42" y1="34" x2="272" y2="34" stroke="#8c4820" strokeWidth="1" strokeDasharray="3 3" opacity="0.35" />}
-              {!showCloudMid && <line x1="42" y1="70" x2="272" y2="70" stroke="#8c4820" strokeWidth="1" strokeDasharray="3 3" opacity="0.35" />}
-              {!showCloudLow && <line x1="42" y1="104" x2="272" y2="104" stroke="#8c4820" strokeWidth="1" strokeDasharray="3 3" opacity="0.35" />}
+              {!showCloudHigh && <line x1="42" y1="34" x2="272" y2="34" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.35" />}
+              {!showCloudMid && <line x1="42" y1="70" x2="272" y2="70" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.35" />}
+              {!showCloudLow && <line x1="42" y1="104" x2="272" y2="104" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" opacity="0.35" />}
 
               {/* Earth crust baseline and intaglio geological hachures */}
-              <line x1="40" y1="122" x2="272" y2="122" stroke="#8c4820" strokeWidth="1" />
+              <line x1="40" y1="122" x2="272" y2="122" stroke="currentColor" strokeWidth="1" />
               {Array.from({ length: 24 }).map((_, i) => (
-                <line key={i} x1={40 + i * 10} y1="122" x2={35 + i * 10} y2="128" stroke="#8c4820" strokeWidth="0.5" opacity="0.5" />
+                <line key={i} x1={40 + i * 10} y1="122" x2={35 + i * 10} y2="128" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
               ))}
             </g>
           ) : theme === 2 ? (
             // Theme 2 (Prussian Cyanotype): 1976 Standard Atmosphere isobaric graph paper
-            <g className="atmospheric-column-cyanotype isobar-grid-cyanotype text-[#4fa3e3]">
+            <g className="atmospheric-column-cyanotype isobar-grid-cyanotype text-[var(--theme-instrument-ink)]">
               {/* Isobaric level lines */}
-              <line x1="40" y1="14" x2="272" y2="14" stroke="#4fa3e3" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
-              <line x1="40" y1="34" x2="272" y2="34" stroke="#4fa3e3" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
-              <line x1="40" y1="70" x2="272" y2="70" stroke="#4fa3e3" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
-              <line x1="40" y1="104" x2="272" y2="104" stroke="#4fa3e3" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
-              <line x1="40" y1="122" x2="272" y2="122" stroke="#4fa3e3" strokeWidth="0.75" />
+              <line x1="40" y1="14" x2="272" y2="14" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
+              <line x1="40" y1="34" x2="272" y2="34" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
+              <line x1="40" y1="70" x2="272" y2="70" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
+              <line x1="40" y1="104" x2="272" y2="104" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
+              <line x1="40" y1="122" x2="272" y2="122" stroke="currentColor" strokeWidth="0.75" />
 
               {/* CAD millimeter division ticks */}
               {Array.from({ length: 12 }).map((_, i) => (
-                <line key={i} x1={50 + i * 18} y1="14" x2={50 + i * 18} y2="122" stroke="#4fa3e3" strokeWidth="0.3" strokeDasharray="1 3" opacity="0.2" />
+                <line key={i} x1={50 + i * 18} y1="14" x2={50 + i * 18} y2="122" stroke="currentColor" strokeWidth="0.3" strokeDasharray="1 3" opacity="0.2" />
               ))}
 
               {/* Pressure annotations */}
-              <text x="38" y="17" textAnchor="end" fill="#4fa3e3" fontSize="6.5" fontFamily="monospace" opacity="0.8">150hPa</text>
-              <text x="38" y="37" textAnchor="end" fill="#4fa3e3" fontSize="6.5" fontFamily="monospace" opacity="0.8">250hPa</text>
-              <text x="38" y="73" textAnchor="end" fill="#4fa3e3" fontSize="6.5" fontFamily="monospace" opacity="0.8">500hPa</text>
-              <text x="38" y="107" textAnchor="end" fill="#4fa3e3" fontSize="6.5" fontFamily="monospace" opacity="0.8">850hPa</text>
-              <text x="38" y="124" textAnchor="end" fill="#4fa3e3" fontSize="6.5" fontFamily="monospace" opacity="0.8">1013</text>
+              <text x="38" y="17" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">150hPa</text>
+              <text x="38" y="37" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">250hPa</text>
+              <text x="38" y="73" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">500hPa</text>
+              <text x="38" y="107" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">850hPa</text>
+              <text x="38" y="124" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">1013</text>
 
               {/* Radiosonde altitude tags */}
-              <text x="48" y="37" fill="#a5d5ff" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
+              <text x="48" y="37" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">
                 JET / CIRRUS [250 hPa]
               </text>
-              <text x="48" y="73" fill="#a5d5ff" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
+              <text x="48" y="73" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">
                 ALTOSTRATUS [500 hPa]
               </text>
-              <text x="48" y="107" fill="#a5d5ff" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
+              <text x="48" y="107" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} fontSize="7.5" fontFamily="monospace" fontWeight="bold">
                 STRATUS [850 hPa]
               </text>
 
               {/* Radiosonde Sounding Ascent Trajectory */}
-              <polyline points="70,122 105,104 150,70 195,34 220,14" fill="none" stroke="#a5d5ff" strokeWidth="1" strokeDasharray="3 2" opacity="0.85" />
-              <circle cx="105" cy="104" r="2" fill="#a5d5ff" />
-              <circle cx="150" cy="70" r="2" fill="#a5d5ff" />
-              <circle cx="195" cy="34" r="2" fill="#a5d5ff" />
+              <polyline points="70,122 105,104 150,70 195,34 220,14" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1" strokeDasharray="3 2" opacity="0.85" />
+              <circle cx="105" cy="104" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
+              <circle cx="150" cy="70" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
+              <circle cx="195" cy="34" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
             </g>
           ) : (
             // Theme 0 (Marie Tharp): Oceanographic / acoustic atmospheric sounding traces
-            <g className="atmospheric-column-tharp acoustic-trace-tharp text-[#00e5ff]">
+            <g className="atmospheric-column-tharp acoustic-trace-tharp text-[var(--theme-instrument-ink)]">
               {/* Radiosonde Temperature Lapse Rate Sounding Curve */}
               <path
                 d="M 120 122 Q 100 104 125 88 Q 160 70 140 50 Q 130 34 165 14"
                 fill="none"
-                stroke="#00e5ff"
+                stroke="currentColor"
                 strokeWidth="1.2"
                 opacity="0.85"
               />
 
               {/* Temperature Inversion Boundary Line (LCL) */}
-              <line x1="42" y1="88" x2="272" y2="88" stroke="#34d399" strokeWidth="0.8" strokeDasharray="4 2" opacity="0.8" />
-              <text x="48" y="86" fill="#34d399" fontSize="6.5" fontFamily="monospace" opacity="0.9">
+              <line x1="42" y1="88" x2="272" y2="88" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.8" strokeDasharray="4 2" opacity="0.8" />
+              <text x="48" y="86" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} fontSize="6.5" fontFamily="monospace" opacity="0.9">
                 ▲ LCL CEILING
               </text>
 
               {/* Sonar Acoustic Pulse Echo Circles */}
-              <circle cx="125" cy="88" r="5" stroke="#34d399" strokeWidth="0.5" strokeDasharray="1 2" fill="none" opacity="0.6" />
-              <circle cx="125" cy="88" r="10" stroke="#34d399" strokeWidth="0.5" strokeDasharray="2 2" fill="none" opacity="0.4" />
+              <circle cx="125" cy="88" r="5" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.5" strokeDasharray="1 2" fill="none" opacity="0.6" />
+              <circle cx="125" cy="88" r="10" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.5" strokeDasharray="2 2" fill="none" opacity="0.4" />
 
               {/* Strata Designations */}
-              <text x="48" y="37" fill="#00e5ff" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
+              <text x="48" y="37" fill="currentColor" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
                 CIRRUS (10–12 km)
               </text>
-              <text x="48" y="73" fill="#00e5ff" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
+              <text x="48" y="73" fill="currentColor" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
                 ALTOCUMULUS (4–6 km)
               </text>
-              <text x="48" y="107" fill="#00e5ff" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
+              <text x="48" y="107" fill="currentColor" fontSize="7.5" fontFamily="monospace" fontWeight="bold">
                 MARINE LAYER (1–2 km)
               </text>
 
               {/* Altitude Labels */}
-              <text x="38" y="17" textAnchor="end" fill="#00e5ff" fontSize="6.5" fontFamily="monospace" opacity="0.8">15km</text>
-              <text x="38" y="37" textAnchor="end" fill="#00e5ff" fontSize="6.5" fontFamily="monospace" opacity="0.8">12km</text>
-              <text x="38" y="73" textAnchor="end" fill="#00e5ff" fontSize="6.5" fontFamily="monospace" opacity="0.8">5km</text>
-              <text x="38" y="107" textAnchor="end" fill="#00e5ff" fontSize="6.5" fontFamily="monospace" opacity="0.8">1.5km</text>
-              <text x="38" y="124" textAnchor="end" fill="#00e5ff" fontSize="6.5" fontFamily="monospace" opacity="0.8">0m</text>
+              <text x="38" y="17" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">15km</text>
+              <text x="38" y="37" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">12km</text>
+              <text x="38" y="73" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">5km</text>
+              <text x="38" y="107" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">1.5km</text>
+              <text x="38" y="124" textAnchor="end" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity="0.8">0m</text>
             </g>
           )}
 
@@ -458,7 +421,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               y1={caliperY}
               x2="196"
               y2={caliperY}
-              stroke={tokens.caliperLine}
+              style={{ stroke: 'var(--theme-instrument-caliper)' }}
               strokeWidth="1.5"
               strokeDasharray="4 2"
               className="drop-shadow-sm"
@@ -466,7 +429,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             {/* Left Axis Target Triangle (Tip meets vertical axis cleanly at x=40) */}
             <polygon
               points={`40,${caliperY} 45,${caliperY - 3} 45,${caliperY + 3}`}
-              fill={tokens.caliperLine}
+              style={{ fill: 'var(--theme-instrument-caliper)' }}
             />
             {/* Right Caliper Standoff Reticle Badge (Flush with column boundary at x=272) */}
             <rect
@@ -475,8 +438,10 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               width="76"
               height="14"
               rx="2"
-              fill={tokens.caliperBadgeBg}
-              stroke={tokens.caliperBadgeBorder}
+              style={{
+                fill: 'var(--theme-instrument-caliper-badge-bg)',
+                stroke: 'var(--theme-instrument-caliper)'
+              }}
               strokeWidth="1"
               className="drop-shadow"
             />
@@ -484,7 +449,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
               x="234"
               y={caliperY + 3.5}
               textAnchor="middle"
-              fill={tokens.caliperBadgeText}
+              style={{ fill: 'var(--theme-instrument-caliper-badge-text)' }}
               fontSize="7.5"
               fontFamily="monospace"
               fontWeight="bold"
@@ -510,7 +475,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
           <div className="flex items-center gap-1">
             <span
               className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-              style={{ backgroundColor: '#ffa026' }}
+              style={{ backgroundColor: 'var(--theme-instrument-strata-low)' }}
               aria-hidden="true"
             />
             <span className="font-bold text-nano">LOW</span>
@@ -530,7 +495,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
           <div className="flex items-center gap-1">
             <span
               className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-              style={{ backgroundColor: '#1fd9f5' }}
+              style={{ backgroundColor: 'var(--theme-instrument-strata-mid)' }}
               aria-hidden="true"
             />
             <span className="font-bold text-nano">MID</span>
@@ -550,7 +515,7 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
           <div className="flex items-center gap-1">
             <span
               className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
-              style={{ backgroundColor: '#f547e0' }}
+              style={{ backgroundColor: 'var(--theme-instrument-strata-high)' }}
               aria-hidden="true"
             />
             <span className="font-bold text-nano">HIGH</span>
@@ -572,9 +537,9 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
         title="Toggle multi-spectral false-color emission for tropospheric cloud strata (Amber/Cyan/Magenta)"
       >
         <span className="flex items-center gap-1" aria-hidden="true">
-          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#ffa026' }} />
-          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#1fd9f5' }} />
-          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#f547e0' }} />
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--theme-instrument-strata-low)' }} />
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--theme-instrument-strata-mid)' }} />
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--theme-instrument-strata-high)' }} />
         </span>
         <span className="tracking-wider uppercase">
           {cloudFalseColor ? 'DIAGNOSTIC STRATA [ACTIVE]' : 'DIAGNOSTIC STRATA [RGB]'}

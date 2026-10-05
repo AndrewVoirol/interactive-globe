@@ -63,9 +63,9 @@ describe('DATA Tab & Catalog Composition Invariants', () => {
   // 3. Curator\'s Colophon: Ivory Vellum Card Tone & Typographic Scale
   // --------------------------------------------------------------------------
   describe('3. Curator\'s Colophon Cartouche Invariants', () => {
-    it('uses ivory vellum card background var(--theme-card-bg) in Theme 1', () => {
-      expect(colophonContent).toContain("theme === 1\n          ? 'bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[#4A3B32]'");
-      expect(colophonContent).not.toContain("theme === 1\n          ? 'bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)] text-[#4A3B32]'");
+    it('uses theme-aware card background via CSS variable', () => {
+      expect(colophonContent).toContain("bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-secondary)]");
+      expect(colophonContent).not.toContain("theme === 1\n          ? 'bg-[var(--theme-panel-bg)] border-[var(--theme-panel-border)]");
     });
 
     it('enforces disciplined typographic scale with text-nano metadata and provenance', () => {
@@ -76,14 +76,13 @@ describe('DATA Tab & Catalog Composition Invariants', () => {
       expect(colophonContent).not.toContain('text-body pl-1');
     });
 
-    it('uses borderless theme-adaptive wash for active provenance badges without stark white borders', () => {
+    it('uses CSS variable theme-adaptive wash for active provenance badges', () => {
       expect(colophonContent).not.toContain('border border-[var(--theme-status-sage)]');
       expect(colophonContent).toContain('activeBadgeStyle');
-      expect(colophonContent).toContain("theme === 1\n      ? 'bg-[#1b432b]/10 text-[#1b432b]'");
-      expect(colophonContent).toContain("theme === 2\n      ? 'bg-[#38bdf8]/15 text-[#7dd3fc]'");
-      expect(colophonContent).toContain(": 'bg-[#34d399]/15 text-[#34d399]'");
-      // Check data tab active raster badge also eliminates border-[var(--theme-status-sage)]
-      expect(dataTabContent).not.toContain('border-[var(--theme-status-sage)]');
+      // Now uses unified CSS variable instead of per-theme hex
+      expect(colophonContent).toContain("bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)]");
+      // Check data tab active raster badge also uses CSS variable
+      expect(dataTabContent).toContain("bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)]");
     });
   });
 
@@ -91,14 +90,14 @@ describe('DATA Tab & Catalog Composition Invariants', () => {
   // 4. Catalog Sheet: Theme Harmony & Boundaries
   // --------------------------------------------------------------------------
   describe('4. Catalog Sheet Theme Harmony & Boundaries', () => {
-    it('uses theme-adaptive dot indicators instead of hardcoded neon classes', () => {
+    it('uses CSS variable dot indicators instead of hardcoded neon classes', () => {
       expect(catalogContent).not.toContain("preset.category === 'topo'\n                            ? 'bg-amber-400'");
-      expect(catalogContent).toContain("theme === 1\n                            ? (preset.category === 'topo'\n                                ? 'bg-[#8c4820]'");
+      expect(catalogContent).toContain("preset.category === 'topo'\n                            ? 'bg-[var(--theme-text-accent)]'");
     });
 
-    it('theme-adapts category badges for Prussian Cyanotype (zero warm contamination)', () => {
-      expect(catalogContent).toContain("bg-[#3b6b99]/25 text-[#9fc2e4] border-[#5c82a6]/40");
-      expect(catalogContent).toContain("bg-[#38bdf8]/20 text-[#bae6fd] border-[#38bdf8]/40");
+    it('theme-adapts category badges via CSS variables (zero hardcoded hex)', () => {
+      expect(catalogContent).toContain("bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40");
+      expect(catalogContent).toContain("bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40");
     });
 
     it('theme-adapts unsupported preset button to prevent black box on cream paper', () => {

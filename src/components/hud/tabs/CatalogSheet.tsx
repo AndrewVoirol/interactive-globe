@@ -118,29 +118,13 @@ export const CatalogSheet: React.FC<CatalogSheetProps> = ({
                     <div className="flex items-center gap-1.5">
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
-                          theme === 1
-                            ? (preset.category === 'topo'
-                                ? 'bg-[#8c4820]'
-                                : preset.category === 'satellite'
-                                ? 'bg-[#2b6b88]'
-                                : preset.category === 'vectors'
-                                ? 'bg-[#7d4700]'
-                                : 'bg-[#2e6b47]')
-                            : theme === 2
-                            ? (preset.category === 'topo'
-                                ? 'bg-[#7dd3fc]'
-                                : preset.category === 'satellite'
-                                ? 'bg-[#38bdf8]'
-                                : preset.category === 'vectors'
-                                ? 'bg-[#b8d0e8]'
-                                : 'bg-[#9fc2e4]')
-                            : (preset.category === 'topo'
-                                ? 'bg-[#c86d51]'
-                                : preset.category === 'satellite'
-                                ? 'bg-[#38bdf8]'
-                                : preset.category === 'vectors'
-                                ? 'bg-[#f59e0b]'
-                                : 'bg-[var(--theme-status-sage)]')
+                          preset.category === 'topo'
+                            ? 'bg-[var(--theme-text-accent)]'
+                            : preset.category === 'satellite'
+                            ? 'bg-[var(--theme-status-sage)]'
+                            : preset.category === 'vectors'
+                            ? 'bg-[var(--theme-status-amber)]'
+                            : 'bg-[var(--theme-status-slate)]'
                         }`}
                       />
                       <span className="font-semibold text-nano tracking-tight text-[var(--theme-text-primary)] truncate block">
@@ -154,29 +138,13 @@ export const CatalogSheet: React.FC<CatalogSheetProps> = ({
 
                   <span
                     className={`text-nano px-1.5 py-0.5 rounded-[2px] border font-bold uppercase shrink-0 ${
-                      theme === 2
-                        ? preset.category === 'topo'
-                          ? 'bg-[#3b6b99]/25 text-[#9fc2e4] border-[#5c82a6]/40'
-                          : preset.category === 'satellite'
-                          ? 'bg-[#38bdf8]/20 text-[#bae6fd] border-[#38bdf8]/40'
-                          : preset.category === 'vectors'
-                          ? 'bg-[#7dd3fc]/20 text-[#e0f2fe] border-[#7dd3fc]/40'
-                          : 'bg-[#4a729e]/20 text-[#caddf0] border-[#4a729e]/40'
-                        : theme === 0
-                        ? preset.category === 'topo'
-                          ? 'bg-[#c86d51]/20 text-[#fdba74] border-[#c86d51]/40'
-                          : preset.category === 'satellite'
-                          ? 'bg-[#10b981]/20 text-[#6ee7b7] border-[#10b981]/40'
-                          : preset.category === 'vectors'
-                          ? 'bg-[#f59e0b]/20 text-[#fcd34d] border-[#f59e0b]/40'
-                          : 'bg-[#34d399]/20 text-[#34d399] border-[#34d399]/40'
-                        : preset.category === 'topo'
-                        ? 'bg-[#2e6b47]/15 text-[#1b432b] border-[#2e6b47]/30'
+                      preset.category === 'topo'
+                        ? 'bg-[var(--theme-text-accent)]/20 text-[var(--theme-text-accent)] border-[var(--theme-text-accent)]/40'
                         : preset.category === 'satellite'
-                        ? 'bg-[#2b6b88]/15 text-[#1a4457] border-[#2b6b88]/30'
+                        ? 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40'
                         : preset.category === 'vectors'
-                        ? 'bg-[#96641e]/15 text-[#52350c] border-[#96641e]/30'
-                        : 'bg-[#1b432b]/15 text-[#1b432b] border-[#1b432b]/30'
+                        ? 'bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40'
+                        : 'bg-[var(--theme-status-slate)]/20 text-[var(--theme-status-slate)] border-[var(--theme-status-slate)]/40'
                     }`}
                   >
                     {preset.category}

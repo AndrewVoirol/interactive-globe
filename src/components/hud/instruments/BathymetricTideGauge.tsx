@@ -73,29 +73,6 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
 
   const waterPct = Math.max(0, Math.min(100, ((seaLevelOffset + 150) / 250) * 100));
 
-  const tokens = theme === 2
-    ? {
-        boxBg: 'bg-[#0d1724] border-[#3b597a]/60',
-        waterBorder: 'border-[#4f79a3]',
-        waterGrad: 'from-[#4f79a3]/30 to-[#0e1824]/90',
-        caliperLine: 'bg-[#a5d5ff]',
-        caliperBadge: 'bg-[#0e1824] border-[#a5d5ff] text-[#a5d5ff]',
-      }
-    : theme === 1
-    ? {
-        boxBg: 'bg-[#f4ede0] border-[#b8ad98]/60',
-        waterBorder: 'border-[#77998b]',
-        waterGrad: 'from-[#77998b]/35 to-[#263b52]/80',
-        caliperLine: 'bg-[#8c4820]',
-        caliperBadge: 'bg-[#fdfcf9] border-[#8c4820] text-[#8c4820]',
-      }
-    : {
-        boxBg: 'bg-[#0c1219] border-[#3a4d61]/60',
-        waterBorder: 'border-[#00e5ff]',
-        waterGrad: 'from-[#00e5ff]/25 to-[#0b141f]/90',
-        caliperLine: 'bg-[#00e5ff]',
-        caliperBadge: 'bg-[#0a111a] border-[#00e5ff] text-[#00e5ff]',
-      };
 
   return (
     <div
@@ -160,7 +137,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         onPointerUp={handlePointerUp}
         onDoubleClick={() => onSeaLevelChange(0)}
         title="Drag waterline caliper vertically to raise/lower sea level (Double-click or Enter to reset to 0m, Arrow keys to nudge)"
-        className={`relative w-full h-20 rounded-[2px] border overflow-hidden cursor-ns-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none ${tokens.boxBg}`}
+        className={`relative w-full h-20 rounded-[2px] overflow-hidden cursor-ns-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)]`}
       >
         {/* Continental Shelf Silhouette in background */}
         <div className="absolute inset-0 flex items-end opacity-15 pointer-events-none">
@@ -174,7 +151,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           <svg className="w-full h-full" viewBox="0 0 40 100" preserveAspectRatio="xMidYMid meet">
             {theme === 1 ? (
               // Cream Rag Paper: Archival hydrographic tide benchmark staff with 5 calibrated 50m strata
-              <g className="tide-staff-cream text-[#8c4820]">
+              <g className="tide-staff-cream text-[var(--theme-instrument-ink)]">
                 <rect x="16" y="2" width="8" height="96" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.6" />
                 {/* 5 calibrated 50m intervals: +100m (y=2), +50m (y=21.2), 0m MSL (y=40.4), -50m (y=59.6), -100m (y=78.8), -150m LGM (y=98) */}
                 <rect x="16" y="2" width="8" height="19.2" fill="currentColor" opacity="0.22" />
@@ -188,7 +165,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
               </g>
             ) : theme === 2 ? (
               // Prussian Cyanotype: Hydrostatic manometer glass tube with millimeter calibration ticks
-              <g className="manometer-cyanotype text-[#4fa3e3]">
+              <g className="manometer-cyanotype text-[var(--theme-instrument-ink)]">
                 <rect x="16" y="2" width="6" height="96" rx="3" fill="none" stroke="currentColor" strokeWidth="0.75" opacity="0.8" />
                 {Array.from({ length: 20 }).map((_, i) => (
                   <line
@@ -204,7 +181,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
               </g>
             ) : (
               // Marie Tharp: CTD oceanographic bathymetric pressure column with dbar calibrations
-              <g className="ctd-column-tharp text-[#00e5ff]">
+              <g className="ctd-column-tharp text-[var(--theme-instrument-ink)]">
                 <line x1="20" y1="0" x2="20" y2="100" stroke="currentColor" strokeWidth="0.75" strokeDasharray="1 3" />
                 {[0, 25, 50, 75, 100].map((y, i) => (
                   <g key={i}>
@@ -219,11 +196,11 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
 
         {/* Dynamic Water Volume */}
         <div
-          className={`absolute bottom-0 left-0 right-0 border-t pointer-events-none transition-none ${tokens.waterBorder}`}
+          className={`absolute bottom-0 left-0 right-0 border-t pointer-events-none transition-none border-[var(--theme-instrument-viewport-border)]`}
           style={{ height: `${waterPct}%` }}
         >
           <div
-            className={`w-full h-full bg-gradient-to-b ${tokens.waterGrad}`}
+            className={`w-full h-full bg-gradient-to-b from-[var(--theme-instrument-ink-secondary)] to-[var(--theme-instrument-viewport-bg)]`}
             style={{ opacity: 0.3 + waterClarity * 0.7 }}
           ></div>
         </div>
@@ -235,7 +212,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
 
         {/* Sea Level Caliper Reticle Line with Centered Precision Badge */}
         <div
-          className={`absolute left-0 right-0 h-0.5 pointer-events-none ${tokens.caliperLine} shadow-[0_1px_4px_rgba(0,0,0,0.4)]`}
+          className={`absolute left-0 right-0 h-0.5 pointer-events-none bg-[var(--theme-instrument-caliper)] shadow-[0_1px_4px_rgba(0,0,0,0.4)]`}
           style={{ bottom: `${waterPct}%` }}
         >
           <div
@@ -245,7 +222,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
                 : seaLevelOffset <= -135
                 ? '-top-4'
                 : 'top-1/2 -translate-y-1/2'
-            } px-1.5 py-px rounded-[2px] border font-mono font-bold text-nano shadow-sm pointer-events-auto transition-transform ${tokens.caliperBadge}`}
+            } px-1.5 py-px rounded-[2px] border font-mono font-bold text-nano shadow-sm pointer-events-auto transition-transform bg-[var(--theme-instrument-caliper-badge-bg)] border-[var(--theme-instrument-caliper)] text-[var(--theme-instrument-caliper-badge-text)]`}
           >
             ◄ {seaLevelOffset > 0 ? `+${seaLevelOffset}m` : `${seaLevelOffset}m`} ►
           </div>
@@ -267,7 +244,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         <div
           className={`absolute left-2 bottom-1.5 text-nano font-mono pointer-events-none transition-opacity duration-150 ${
             seaLevelOffset <= -135 ? 'opacity-40' : 'opacity-90'
-          } ${theme === 1 ? 'font-medium text-[#fdfcf9]/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]' : 'text-[var(--theme-text-secondary)]'}`}
+          } text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] font-medium`}
         >
           -150 m (Glacial Maximum)
         </div>

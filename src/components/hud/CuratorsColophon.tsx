@@ -19,23 +19,12 @@ export const CuratorsColophon: React.FC<CuratorsColophonProps> = ({
   isRadarActive = false,
   className = '',
 }) => {
-  const activeBadgeStyle =
-    theme === 1
-      ? 'bg-[#1b432b]/10 text-[#1b432b]'
-      : theme === 2
-      ? 'bg-[#38bdf8]/15 text-[#7dd3fc]'
-      : 'bg-[#34d399]/15 text-[#34d399]';
+  const activeBadgeStyle = 'bg-[var(--theme-status-sage)]/15 text-[var(--theme-status-sage)]';
 
   return (
     <div
       data-testid="curators-colophon"
-      className={`rounded-[3px] border p-2.5 font-mono text-nano transition-all shadow-sm select-none ${
-        theme === 1
-          ? 'bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[#4A3B32]'
-          : theme === 2
-          ? 'bg-[#0E1E2E]/90 border-[#2A4B6E] text-[#B0D2F0]'
-          : 'bg-[#0F171F]/90 border-[#22384A] text-[var(--theme-text-accent)]'
-      } font-telemetry ${className}`}
+      className={`rounded-[3px] border p-2.5 font-mono text-nano transition-all shadow-sm select-none bg-[var(--theme-card-bg)] border-[var(--theme-card-border)] text-[var(--theme-text-secondary)] font-telemetry ${className}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b pb-1.5 mb-2 border-current/20">

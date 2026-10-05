@@ -107,18 +107,18 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
   // Issue 5: Palette Disharmony in Cream Rag
   // --------------------------------------------------------------------------
   describe('5. Palette Harmony in Cream Rag Mode', () => {
-    it('verifies Antipodes button in Cream Rag uses Terracotta / Burnt Sienna instead of raw rose-600', () => {
-      expect(sidebarContent).toContain("theme === 1\n                  ? 'bg-[#8C4820] text-[#FDFCF9] border-[#6D3414]");
+    it('verifies Antipodes button uses theme-aware direction tokens instead of raw rose-600', () => {
+      expect(sidebarContent).toContain("bg-[var(--theme-direction-a-bg)] text-[var(--theme-direction-a-text)] border-[var(--theme-direction-a-border)]");
       expect(sidebarContent).not.toContain("? isLight\n                              ? 'bg-rose-600 text-white");
     });
 
-    it('verifies Conveyor button in Cream Rag uses Prussian Slate instead of raw sky-600', () => {
-      expect(sidebarContent).toContain("theme === 1\n                  ? 'bg-[#1A4457] text-[#FDFCF9] border-[#102D3A]");
+    it('verifies Conveyor button uses theme-aware direction tokens instead of raw sky-600', () => {
+      expect(sidebarContent).toContain("bg-[var(--theme-direction-b-bg)] text-[var(--theme-direction-b-text)] border-[var(--theme-direction-b-border)]");
       expect(sidebarContent).not.toContain("? isLight\n                              ? 'bg-sky-600 text-white");
     });
 
-    it('verifies Migration button in Cream Rag uses Raw Ochre instead of raw amber-600', () => {
-      expect(sidebarContent).toContain("theme === 1\n                  ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300]");
+    it('verifies Migration button uses theme-aware direction tokens instead of raw amber-600', () => {
+      expect(sidebarContent).toContain("bg-[var(--theme-direction-c-bg)] text-[var(--theme-direction-c-text)] border-[var(--theme-direction-c-border)]");
       expect(sidebarContent).not.toContain("? isLight\n                              ? 'bg-amber-600 text-white");
     });
 
@@ -133,10 +133,10 @@ describe('Visual Polish & Cartographic Interaction Delight Tests', () => {
       expect(sidebarContent).toContain("tier === '16M'\n                    ? theme === 1\n                      ? 'bg-[#7D4700] text-[#FDFCF9] border-[#5A3300]");
     });
 
-    it('verifies catalog preset category pills in Cream Rag use readable dark mineral pigments on cream paper', () => {
-      expect(sidebarContent).toContain("preset.category === 'topo'\n                        ? 'bg-[#2e6b47]/15 text-[#1b432b] border-[#2e6b47]/30'");
-      expect(sidebarContent).toContain("preset.category === 'satellite'\n                        ? 'bg-[#2b6b88]/15 text-[#1a4457] border-[#2b6b88]/30'");
-      expect(sidebarContent).toContain("preset.category === 'vectors'\n                        ? 'bg-[#96641e]/15 text-[#52350c] border-[#96641e]/30'");
+    it('verifies catalog preset category pills use CSS theme variables for contrast', () => {
+      expect(sidebarContent).toContain("preset.category === 'topo'\n                        ? 'bg-[var(--theme-text-accent)]/20 text-[var(--theme-text-accent)] border-[var(--theme-text-accent)]/40'");
+      expect(sidebarContent).toContain("preset.category === 'satellite'\n                        ? 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40'");
+      expect(sidebarContent).toContain("preset.category === 'vectors'\n                        ? 'bg-[var(--theme-status-amber)]/20 text-[var(--theme-status-amber)] border-[var(--theme-status-amber)]/40'");
     });
 
     it('verifies Zen Mode restore pill uses contrast styling for theme 1', () => {
