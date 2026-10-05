@@ -187,122 +187,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
     [onWindParticleLifetimeChange]
   );
 
-  // 4. Interactive Viewport & Drag Caliper Logic
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const isDraggingRef = useRef(false);
-
-  const updateLeadTimeFromPointer = useCallback(
-    (clientX: number) => {
-      if (!viewportRef.current) return;
-      const rect = viewportRef.current.getBoundingClientRect();
-      if (rect.width <= 0) return;
-
-      const normX = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      // Caliper active track: x in [24, 256] within 280 viewBox
-      const trackMin = 24 / 280;
-      const trackSpan = (256 - 24) / 280;
-      const trackNorm = Math.max(0, Math.min(1, (normX - trackMin) / trackSpan));
-
-      const rawHours = trackNorm * 240;
-      const steppedHours = Math.round(rawHours / 6) * 6; // 6-hour forecast interval steps
-      const clampedHours = Math.max(0, Math.min(240, steppedHours));
-
-      setInternalLeadTime(clampedHours);
-      onLeadTimeChange?.(clampedHours);
-      onTimelineChange?.(clampedHours * 60);
-
-      // Window bridge and attached data source dispatch
-      if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_TIMELINE_MINUTES__) {
-        (window as any).__INDICATRIX_SET_TIMELINE_MINUTES__(clampedHours * 60);
-      }
-      if (isWeatherNext) {
-        const ds = weatherNextDataSource || (typeof window !== 'undefined' && (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__);
-        if (ds && typeof ds.setTime === 'function') {
-          ds.setTime(clampedHours, 0.0);
-        }
-      }
-    },
-    [isWeatherNext, weatherNextDataSource, onLeadTimeChange, onTimelineChange]
-  );
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    isDraggingRef.current = true;
-    try {
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {
-      // Graceful fallback
-    }
-    updateLeadTimeFromPointer(e.clientX);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDraggingRef.current) return;
-    updateLeadTimeFromPointer(e.clientX);
-  };
-
-  const handlePointerUp = (e: React.PointerEvent) => {
-    isDraggingRef.current = false;
-    try {
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // Graceful fallback
-    }
-  };
-
-  const handleReset = () => {
-    setInternalLeadTime(24);
-    onLeadTimeChange?.(24);
-    onTimelineChange?.(24 * 60);
-    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_TIMELINE_MINUTES__) {
-      (window as any).__INDICATRIX_SET_TIMELINE_MINUTES__(24 * 60);
-    }
-    if (isWeatherNext) {
-      const ds = weatherNextDataSource || (typeof window !== 'undefined' && (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__);
-      if (ds && typeof ds.setTime === 'function') {
-        ds.setTime(24, 0.0);
-      }
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    let delta = 0;
-    if (e.key === 'ArrowRight') {
-      delta = e.shiftKey ? 24 : 6;
-    } else if (e.key === 'ArrowLeft') {
-      delta = e.shiftKey ? -24 : -6;
-    } else if (e.key === 'ArrowUp') {
-      delta = 24;
-    } else if (e.key === 'ArrowDown') {
-      delta = -24;
-    } else if (e.key === 'Home') {
-      delta = -leadTimeHours;
-    } else if (e.key === 'End') {
-      delta = 240 - leadTimeHours;
-    } else if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      handleReset();
-      return;
-    }
-
-    if (delta !== 0) {
-      e.preventDefault();
-      const next = Math.max(0, Math.min(240, leadTimeHours + delta));
-      setInternalLeadTime(next);
-      onLeadTimeChange?.(next);
-      onTimelineChange?.(next * 60);
-      if (typeof window !== 'undefined' && (window as any).__INDICATRIX_SET_TIMELINE_MINUTES__) {
-        (window as any).__INDICATRIX_SET_TIMELINE_MINUTES__(next * 60);
-      }
-      if (isWeatherNext) {
-        const ds = weatherNextDataSource || (typeof window !== 'undefined' && (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__);
-        if (ds && typeof ds.setTime === 'function') {
-          ds.setTime(next, 0.0);
-        }
-      }
-    }
-  };
-
-  // 5. Model & Variable Change Dispatchers
+    // 5. Model & Variable Change Dispatchers
   const handleModelSelect = (nextModel: PrognosticModelBackend) => {
     setInternalModel(nextModel);
     onPrognosticModelChange?.(nextModel);
@@ -340,9 +225,6 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
     }
   };
 
-  // Caliper horizontal position in viewBox [0 0 280 110]
-  const t = leadTimeHours / 240;
-  const caliperX = Math.round(24 + t * 232);
 
   // Model resolution and specification badges
   const modelMetadata = useMemo(() => {
@@ -442,405 +324,201 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           />
         </div>
 
-        {isWeatherNext && (
-          <div className="space-y-1 pt-1 border-t border-[var(--theme-card-border-30)]">
-            <div className="flex items-center justify-between text-nano font-mono px-0.5 pt-0.5">
-              <span className="font-bold text-[var(--theme-text-secondary)] uppercase tracking-wider">
-                Prognostic Variable
-              </span>
-              <span className="text-[var(--theme-text-muted)] text-nano">
-                {normalizedVariable === 'wind_10m_vector'
-                  ? '10m Velocity Vector'
-                  : normalizedVariable === 'temperature_2m_mean'
-                  ? '2m Ambient Surface'
-                  : normalizedVariable === 'geopotential_500hpa'
-                  ? '500hPa Geopotential'
-                  : 'Total Column Water'}
-              </span>
-            </div>
-            <SegmentedControl<string>
-              size="sm"
-              value={normalizedVariable}
-              onChange={handleVariableSelect}
-              className="grid grid-cols-4 gap-1 w-full"
-              options={[
-                {
-                  id: 'total_precipitation_1hr_mean',
-                  domId: 'sidebar-variable-rain',
-                  label: 'Rain',
-                  sublabel: 'Column',
-                  title: 'Total Column Precipitation',
-                  className: 'w-full',
-                },
-                {
-                  id: 'temperature_2m_mean',
-                  domId: 'sidebar-variable-temp',
-                  label: 'Temp',
-                  sublabel: '2m Sfc',
-                  title: '2m Surface Temperature',
-                  className: 'w-full',
-                },
-                {
-                  id: 'wind_10m_vector',
-                  domId: 'sidebar-variable-wind',
-                  label: 'Wind',
-                  sublabel: '10m Vec',
-                  title: '10m Wind Velocity Vector',
-                  className: 'w-full',
-                },
-                {
-                  id: 'geopotential_500hpa',
-                  domId: 'sidebar-variable-z500',
-                  label: 'Height',
-                  sublabel: '500hPa',
-                  title: '500 hPa Geopotential Height',
-                  className: 'w-full',
-                },
-              ]}
-            />
-          </div>
-        )}
-      </div>
+              </div>
 
-      {/* 3. Interactive SVG Viewport */}
-      <div className="space-y-1 pt-1 border-t border-[var(--theme-card-border-30)] mt-2.5">
-        <div className="flex items-center justify-between text-nano font-mono px-0.5">
-          <span className="font-bold text-[var(--theme-text-secondary)] uppercase tracking-wider">
-            Lead Time Scrubber
-          </span>
-          <button
-            type="button"
-            onClick={handleReset}
-            className="text-[var(--theme-text-accent)] hover:underline cursor-pointer"
-          >
-            [RESET]
-          </button>
-        </div>
-        <div
-          ref={viewportRef}
-          tabIndex={0}
-          role="slider"
-          aria-label="Prognostic Forecast Lead Time and NWP Tensor Grid"
-          aria-valuemin={0}
-          aria-valuemax={240}
-          aria-valuenow={leadTimeHours}
-          aria-valuetext={`+${leadTimeHours}h Forecast Lead Time`}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          onDoubleClick={handleReset}
-          onKeyDown={handleKeyDown}
-          title="Drag lead time cursor horizontally (T+0h to T+240h) • Arrow keys step • Double-click to reset"
-          className={`relative w-full h-36 rounded-[2px] overflow-hidden cursor-ew-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)]`}
-        >
-          <svg
-          className="w-full h-full pointer-events-none"
-          viewBox="0 0 280 140"
-          preserveAspectRatio="xMidYMid meet"
-        >
-          <defs>
-            <pattern id="prog-cyanotype-grid" width="20" height="20" patternUnits="userSpaceOnUse" x={-t * 40}>
-              <line x1="0" y1="0" x2="20" y2="0" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.4" strokeOpacity="0.2" />
-              <line x1="0" y1="0" x2="0" y2="20" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.4" strokeOpacity="0.2" />
-            </pattern>
-            <linearGradient id="fade-edges" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="var(--theme-instrument-viewport-bg)" stopOpacity="1" />
-              <stop offset="10%" stopColor="var(--theme-instrument-viewport-bg)" stopOpacity="0" />
-              <stop offset="90%" stopColor="var(--theme-instrument-viewport-bg)" stopOpacity="0" />
-              <stop offset="100%" stopColor="var(--theme-instrument-viewport-bg)" stopOpacity="1" />
-            </linearGradient>
-          </defs>
-
-          {/* Background Strata */}
-          {activeTheme === 2 && (
-            <rect x="0" y="0" width="280" height="140" fill="url(#prog-cyanotype-grid)" />
-          )}
-
-          {/* Caliper Vertical Guideline */}
-          <line
-            x1={caliperX}
-            y1="22"
-            x2={caliperX}
-            y2="115"
-            style={{ stroke: 'var(--theme-instrument-caliper)' }}
-            strokeWidth="1.2"
-            strokeDasharray="4 2"
-            opacity="0.8"
-          />
-
-          {/* 3-Medium Adaptive Visual Artifacts */}
-          {activeTheme === 1 ? (
-            // Theme 1 (Cream Rag Paper): 19th-Century Synoptic Chart Isobar Engraving
-            <g className="prognostic-model-cream text-[var(--theme-instrument-ink)]">
-              
-              {/* Dynamic Components */}
-              <g transform={`translate(${t * 50}, 0)`}>
-                {/* Low Pressure Cyclonic Isobars */}
-                <circle cx="75" cy="70" r="16" fill="none" stroke="currentColor" strokeWidth="0.8" />
-                <circle cx="75" cy="70" r="32" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 2" />
-                <circle cx="75" cy="70" r="48" fill="none" stroke="currentColor" strokeWidth="0.4" strokeDasharray="5 3" />
-                <text x="75" y="74" textAnchor="middle" fill="currentColor" fontSize="12" fontFamily="serif" fontWeight="bold">B</text>
-                <text x="75" y="83" textAnchor="middle" fill="currentColor" fontSize="5.5" fontFamily="serif" fontStyle="italic">996 hPa</text>
-                <text x="100" y="66" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1000</text>
-                <text x="115" y="55" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1004</text>
-                
-                {/* Wind Barbs */}
-                <g stroke="currentColor" strokeWidth="0.6" fill="none">
-                  <line x1="45" y1="45" x2="60" y2="55" />
-                  <line x1="45" y1="45" x2="43" y2="50" />
-                  <line x1="49" y1="47" x2="47" y2="52" />
-                  <line x1="100" y1="90" x2="85" y2="80" />
-                  <line x1="100" y1="90" x2="102" y2="85" />
-                </g>
-              </g>
-
-              <g transform={`translate(${-t * 30}, ${t * 15})`}>
-                {/* High Pressure Anticyclonic Isobars */}
-                <circle cx="210" cy="65" r="20" fill="none" stroke="currentColor" strokeWidth="0.8" />
-                <circle cx="210" cy="65" r="40" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="4 2" />
-                <text x="210" y="69" textAnchor="middle" fill="currentColor" fontSize="12" fontFamily="serif" fontWeight="bold">H</text>
-                <text x="210" y="78" textAnchor="middle" fill="currentColor" fontSize="5.5" fontFamily="serif" fontStyle="italic">1024 hPa</text>
-                <text x="238" y="58" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1020</text>
-                
-                {/* Wind Barbs */}
-                <g stroke="currentColor" strokeWidth="0.6" fill="none">
-                  <line x1="180" y1="45" x2="195" y2="55" />
-                  <line x1="180" y1="45" x2="182" y2="50" />
-                  <line x1="235" y1="85" x2="220" y2="75" />
-                  <line x1="235" y1="85" x2="233" y2="80" />
-                </g>
-              </g>
-
-              <g transform={`translate(${t * 70}, 0)`}>
-                {/* Frontal Boundary */}
-                <path d="M 130 25 Q 140 65 155 115" fill="none" stroke="currentColor" strokeWidth="1.2" />
-                <polygon points="133,40 141,45 135,49" fill="currentColor" />
-                <polygon points="138,70 146,75 140,79" fill="currentColor" />
-                <polygon points="146,100 154,105 148,109" fill="currentColor" />
-              </g>
-
-              {/* Static Labels */}
-              <text
-                x="24"
-                y="108"
-                fill="currentColor"
-                fontSize="6.5"
-                fontFamily="serif"
-                fontStyle="italic"
-                fontWeight="bold"
-                opacity="0.6"
-                paintOrder="stroke"
-                style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }}
-                strokeWidth="3"
-              >
-                Charta Synoptica Barometrica
-              </text>
-            </g>
-          ) : activeTheme === 2 ? (
-            // Theme 2 (Prussian Cyanotype): CAD Computational Mesh & Tensor Lattice
-            <g className="prognostic-model-cyanotype text-[var(--theme-instrument-ink)]">
-              {/* Chunk Boundaries */}
-              <line x1="100" y1="25" x2="100" y2="115" stroke="currentColor" strokeWidth="0.8" strokeDasharray="4 4" opacity="0.5" />
-              <line x1="180" y1="25" x2="180" y2="115" stroke="currentColor" strokeWidth="0.8" strokeDasharray="4 4" opacity="0.5" />
-              <line x1="16" y1="70" x2="264" y2="70" stroke="currentColor" strokeWidth="0.8" strokeDasharray="4 4" opacity="0.5" />
-
-              {/* Dynamic Chunk Highlights */}
-              <g transform={`translate(${-t * 10}, 0)`}>
-                <text x="24" y="35" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity={leadTimeHours < 80 ? 1 : 0.4} paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  CHUNK [0, 0] • 256×256
-                </text>
-                <text x="106" y="35" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity={leadTimeHours >= 80 && leadTimeHours < 160 ? 1 : 0.4} paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  CHUNK [0, 1] • 256×256
-                </text>
-                <text x="186" y="35" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity={leadTimeHours >= 160 ? 1 : 0.4} paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  CHUNK [0, 2] • 256×256
-                </text>
-
-                {/* Voronoi Mesh */}
-                <g stroke="currentColor" strokeWidth="0.6" fill="none" opacity="0.75">
-                  {/* Left Cluster */}
-                  <polygon points="45,50 55,42 65,50 65,65 55,73 45,65" />
-                  <polygon points="65,50 75,42 85,50 85,65 75,73 65,65" />
-                  <polygon points="55,73 65,65 75,73 75,88 65,96 55,88" />
-                  
-                  {/* Middle Cluster */}
-                  <polygon points="125,50 135,42 145,50 145,65 135,73 125,65" />
-                  <polygon points="145,50 155,42 165,50 165,65 155,73 145,65" />
-                  <polygon points="135,73 145,65 155,73 155,88 145,96 135,88" />
-
-                  {/* Right Cluster */}
-                  <polygon points="205,50 215,42 225,50 225,65 215,73 205,65" />
-                  <polygon points="225,50 235,42 245,50 245,65 235,73 225,65" />
-                </g>
-
-                {/* Mesh Nodes */}
-                {[
-                  [45, 50], [55, 42], [65, 50], [75, 42], [85, 50],
-                  [125, 50], [135, 42], [145, 50], [155, 42], [165, 50],
-                  [205, 50], [215, 42], [225, 50], [235, 42], [245, 50]
-                ].map(([cx, cy], i) => (
-                  <circle key={i} cx={cx} cy={cy} r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
-                ))}
-              </g>
-
-              {/* Static Metadata */}
-              <text x="256" y="99" textAnchor="end" style={{ fill: 'var(--theme-instrument-ink-secondary)', stroke: 'var(--theme-instrument-caliper-badge-bg)' }} fontSize="6.5" fontFamily="monospace" fontWeight="bold" paintOrder="stroke" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                TENSOR: [B=1, T=24, C=6] FP16
-              </text>
-              <text x="256" y="108" textAnchor="end" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.7" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                Tco1279 / N640 • 7424B ROW PITCH
-              </text>
-            </g>
-          ) : (
-            // Theme 0 (Marie Tharp): Baroclinic Fluid Contours & Heat Flux Streamlines
-            <g className="prognostic-model-tharp text-[var(--theme-instrument-ink)]">
-              {/* Dynamic Flow */}
-              <g transform={`translate(${-t * 120}, 0)`}>
-                {/* Rossby Waves */}
-                <path
-                  d="M -50 55 Q 55 25 95 60 T 180 55 T 380 50"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  opacity="0.85"
-                />
-                <path
-                  d="M -50 75 Q 55 45 95 80 T 180 75 T 380 70"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.0"
-                  opacity="0.6"
-                />
-                <path
-                  d="M -50 95 Q 55 65 95 100 T 180 95 T 380 90"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="0.8"
-                  opacity="0.4"
-                />
-
-                {/* Heat Flux Vectors */}
-                <path d="M 40 100 Q 85 80 120 50" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1.2" strokeDasharray="5 3" />
-                <path d="M 160 100 Q 205 80 240 50" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1.2" strokeDasharray="5 3" />
-                <path d="M 280 100 Q 325 80 360 50" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1.2" strokeDasharray="5 3" />
-                
-                <polyline points="75,88 82,85 76,79" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1.2" />
-                <polyline points="195,88 202,85 196,79" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1.2" />
-                <polyline points="315,88 322,85 316,79" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1.2" />
-              </g>
-
-              {/* Sounding Trace */}
-              <polyline points="230,110 240,80 248,55 255,30" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1" strokeDasharray="3 2" opacity="0.8" />
-              <circle cx="240" cy="80" r="2.5" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
-              <circle cx="248" cy="55" r="2.5" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
-              <circle cx="255" cy="30" r="2.5" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
-
-              {/* Static Annotations (Moved out of caliper path) */}
-              <text x="24" y="100" fill="currentColor" fontSize="7" fontFamily="monospace" fontWeight="bold" opacity="0.9" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                BAROCLINIC • Rossby λ = 4200 km
-              </text>
-              <text x="24" y="108" style={{ fill: 'var(--theme-instrument-ink-secondary)', stroke: 'var(--theme-instrument-caliper-badge-bg)' }} fontSize="6.5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                OCEANIC FLUX: Q = +142 W/m²
-              </text>
-            </g>
-          )}
-
-          {/* Timeline Axis (Always at bottom) */}
-          <line x1="24" y1="115" x2="256" y2="115" stroke="currentColor" strokeWidth="1" opacity="0.8" />
-          {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
-            const tx = 24 + (h / 240) * 232;
-            const isMilestone = h % 48 === 0;
-            return (
-              <g key={h}>
-                <line x1={tx} y1={isMilestone ? "110" : "112"} x2={tx} y2="115" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth={isMilestone ? "1" : "0.5"} />
-                {isMilestone && (
-                  <text x={tx} y="125" textAnchor="middle" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} fontSize="6.5" fontFamily="monospace" fontWeight="bold">
-                    +{h}h
-                  </text>
-                )}
-              </g>
-            );
-          })}
-
-          {/* Interactive Lead-Time Caliper Flag (Always at top, separated from data) */}
-          <g>
-            <rect
-              x={caliperX - 22}
-              y="4"
-              width="44"
-              height="16"
-              rx="3"
-              style={{
-                fill: 'var(--theme-instrument-caliper-badge-bg)',
-                stroke: 'var(--theme-instrument-caliper)'
-              }}
-              strokeWidth="1"
-              fillOpacity="1"
-              className="drop-shadow"
-            />
-            <text
-              x={caliperX}
-              y="15"
-              textAnchor="middle"
-              style={{ fill: 'var(--theme-instrument-caliper-badge-text)' }}
-              fontSize="7.5"
-              fontFamily="monospace"
-              fontWeight="bold"
-            >
-              T+{leadTimeHours}h
-            </text>
-
-            {/* Bottom Caliper Diamond */}
-            <polygon
-              points={`${caliperX},112 ${caliperX + 4},116 ${caliperX},120 ${caliperX - 4},116`}
-              style={{ fill: 'var(--theme-instrument-caliper)' }}
-            />
-          </g>
-
-          {/* Vignette overlay to fade out edges if they overflow */}
-          <rect x="0" y="0" width="280" height="140" fill="url(#fade-edges)" className="pointer-events-none" />
-        </svg>
-        </div>
-      </div>
-
-      {/* 4. Lagrangian Advection Dynamics */}
-      {showWindDynamics && (
-        <div className="space-y-1.5 pt-1.5 border-t border-[var(--theme-card-border-30)]">
-          <div className="flex items-center justify-between text-nano font-mono px-0.5">
+      {/* 3. Interactive Variable Matrix */}
+      {isWeatherNext && (
+        <div className="space-y-1 pt-1 border-t border-[var(--theme-card-border-30)] mt-2.5">
+          <div className="flex items-center justify-between text-nano font-mono px-0.5 pb-1">
             <span className="font-bold text-[var(--theme-text-secondary)] uppercase tracking-wider">
-              Lagrangian Advection
+              Prognostic Matrix
             </span>
-            <span className="text-[var(--theme-text-muted)] text-nano uppercase tracking-widest font-mono">
-              Geodesic RK2
+            <span className="text-[var(--theme-text-muted)] text-nano">
+              {normalizedVariable === 'wind_10m_vector'
+                ? '10m Velocity Vector'
+                : normalizedVariable === 'temperature_2m_mean'
+                ? '2m Ambient Surface'
+                : normalizedVariable === 'geopotential_500hpa'
+                ? '500hPa Geopotential'
+                : 'Total Column Water'}
             </span>
           </div>
-          <VernierSlider
-            id="wind-speed-multiplier-slider"
-            label="Speed Multiplier"
-            sublabel="Eulerian flow magnitude"
-            value={curWindSpeed}
-            defaultValue={1.0}
-            min={0.1}
-            max={10.0}
-            step={0.1}
-            unit="×"
-            readout={`${curWindSpeed.toFixed(1)}×`}
-            onChange={handleWindSpeedChange}
-          />
-          <VernierSlider
-            id="wind-particle-lifetime-slider"
-            label="Particle Lifetime"
-            sublabel="Lagrangian decay"
-            value={curWindLifetime}
-            defaultValue={6.0}
-            min={0.5}
-            max={20.0}
-            step={0.5}
-            unit="s"
-            readout={`${curWindLifetime.toFixed(1)}s`}
-            onChange={handleWindLifetimeChange}
-          />
+          
+          <div className="grid grid-cols-2 grid-rows-2 gap-[2px] w-full h-[144px]">
+            {/* RAIN */}
+            <button
+              id="sidebar-variable-rain"
+              onClick={() => handleVariableSelect('total_precipitation_1hr_mean')}
+              className={`relative flex flex-col justify-between p-1.5 text-left rounded-[2px] overflow-hidden transition-all duration-300 outline-none border focus:ring-1 focus:ring-[var(--theme-text-accent)] ${
+                normalizedVariable === 'total_precipitation_1hr_mean'
+                  ? 'bg-[var(--theme-card-bg)] border-[var(--theme-text-accent)] shadow-[0_0_8px_rgba(0,0,0,0.1)]'
+                  : 'bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)] opacity-60 hover:opacity-100 hover:bg-[var(--theme-card-bg)]'
+              }`}
+            >
+              <div className="relative z-10 w-full">
+                <div className="font-mono text-[9px] font-bold text-[var(--theme-text-primary)] leading-tight tracking-wide">PRECIPITATION</div>
+                <div className="font-mono text-[7px] text-[var(--theme-text-muted)] leading-tight mt-[2px]">Total Column Pluvial Mass</div>
+              </div>
+              <div className="relative z-10 font-mono text-[7px] text-[var(--theme-instrument-ink-secondary)] opacity-70">kg/m² (Σ)</div>
+              
+              <svg viewBox="0 0 140 70" className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                  <linearGradient id="rain-grad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--theme-text-accent)" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="var(--theme-text-accent)" stopOpacity="0.05" />
+                  </linearGradient>
+                </defs>
+                <g transform="translate(112, 38) scale(0.85)">
+                  <path d="M 0,-15 L 25,-5 L 0,5 L -25,-5 Z" fill="url(#rain-grad)" stroke="var(--theme-text-accent)" strokeWidth="0.5" opacity="0.6"/>
+                  <path d="M 0,-15 L 0,15 L -25,5 L -25,-5 Z" fill="url(#rain-grad)" stroke="var(--theme-text-accent)" strokeWidth="0.25" opacity="0.4"/>
+                  <path d="M 0,-15 L 0,15 L 25,5 L 25,-5 Z" fill="url(#rain-grad)" stroke="var(--theme-text-accent)" strokeWidth="0.25" opacity="0.2"/>
+                  
+                  {/* Grid Base */}
+                  <path d="M 0,15 L 25,5 L 0,-5 L -25,5 Z" fill="none" stroke="var(--theme-instrument-ink-secondary)" strokeWidth="0.5" opacity="0.4" strokeDasharray="1,1"/>
+                  <path d="M -12.5,10 L 12.5,0 M -12.5,0 L 12.5,10 M 0,15 L 0,-5 M -25,5 L 25,5" stroke="var(--theme-instrument-ink-secondary)" strokeWidth="0.25" opacity="0.3"/>
+                  
+                  {/* Rain Stippling inside volume */}
+                  <path d="M -10,-2 L -10,10 M 0,-5 L 0,5 M 10,-2 L 10,10 M -5,2 L -5,8 M 5,2 L 5,8" stroke="var(--theme-text-accent)" strokeWidth="0.75" strokeDasharray="1,2" opacity="0.8" strokeLinecap="round" />
+                  
+                  {/* Integral Brackets */}
+                  <path d="M -30,-5 L -33,-5 L -33,15 L -30,15" fill="none" stroke="var(--theme-instrument-ink-secondary)" strokeWidth="0.5" opacity="0.5" />
+                  <text x="-37" y="8" fill="var(--theme-instrument-ink-secondary)" fontSize="8" fontFamily="serif" opacity="0.8">∫</text>
+                </g>
+              </svg>
+            </button>
+
+            {/* TEMP */}
+            <button
+              id="sidebar-variable-temp"
+              onClick={() => handleVariableSelect('temperature_2m_mean')}
+              className={`relative flex flex-col justify-between p-1.5 text-left rounded-[2px] overflow-hidden transition-all duration-300 outline-none border focus:ring-1 focus:ring-[var(--theme-status-amber)] ${
+                normalizedVariable === 'temperature_2m_mean'
+                  ? 'bg-[var(--theme-card-bg)] border-[var(--theme-status-amber)] shadow-[0_0_8px_rgba(0,0,0,0.1)]'
+                  : 'bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)] opacity-60 hover:opacity-100 hover:bg-[var(--theme-card-bg)]'
+              }`}
+            >
+              <div className="relative z-10 w-full">
+                <div className="font-mono text-[9px] font-bold text-[var(--theme-text-primary)] leading-tight tracking-wide">TEMPERATURE</div>
+                <div className="font-mono text-[7px] text-[var(--theme-text-muted)] leading-tight mt-[2px]">2m Surface Thermal Flux</div>
+              </div>
+              <div className="relative z-10 w-full text-right font-mono text-[7px] text-[var(--theme-instrument-ink-secondary)] opacity-70">°C / K</div>
+              
+              <svg viewBox="0 0 140 70" className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                  <linearGradient id="temp-fill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--theme-status-amber)" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="var(--theme-status-amber)" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+                <g transform="translate(60, 5) scale(0.85)">
+                  {/* Gaussian Distribution Plot */}
+                  <path d="M 0,60 Q 20,60 35,40 T 50,15 T 65,40 T 80,60" fill="url(#temp-fill)" opacity="0.6" />
+                  <path d="M 0,60 Q 20,60 35,40 T 50,15 T 65,40 T 80,60" fill="none" stroke="var(--theme-status-amber)" strokeWidth="1.5" opacity="0.9" />
+                  
+                  {/* Plot Axes & Ticks */}
+                  <path d="M -10,60 L 90,60" fill="none" stroke="var(--theme-instrument-ink-secondary)" strokeWidth="0.5" opacity="0.5" />
+                  <line x1="50" y1="15" x2="50" y2="60" stroke="var(--theme-status-amber)" strokeWidth="0.5" strokeDasharray="2,2" opacity="0.6" />
+                  <text x="52" y="22" fill="var(--theme-status-amber)" fontSize="5" fontFamily="monospace" opacity="0.9">μ</text>
+                  
+                  <line x1="65" y1="40" x2="65" y2="60" stroke="var(--theme-instrument-ink-secondary)" strokeWidth="0.5" strokeDasharray="1,1" opacity="0.6" />
+                  <text x="67" y="48" fill="var(--theme-instrument-ink-secondary)" fontSize="5" fontFamily="monospace" opacity="0.9">+1σ</text>
+                  
+                  {/* Baseline gradient */}
+                  <path d="M -10,40 L 90,40" fill="none" stroke="var(--theme-instrument-ink-secondary)" strokeWidth="0.25" opacity="0.3" strokeDasharray="1,2" />
+                </g>
+              </svg>
+            </button>
+
+            {/* WIND */}
+            <button
+              id="sidebar-variable-wind"
+              onClick={() => handleVariableSelect('wind_10m_vector')}
+              className={`relative flex flex-col justify-between p-1.5 text-left rounded-[2px] overflow-hidden transition-all duration-300 outline-none border focus:ring-1 focus:ring-[var(--theme-status-sage)] ${
+                normalizedVariable === 'wind_10m_vector'
+                  ? 'bg-[var(--theme-card-bg)] border-[var(--theme-status-sage)] shadow-[0_0_8px_rgba(0,0,0,0.1)]'
+                  : 'bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)] opacity-60 hover:opacity-100 hover:bg-[var(--theme-card-bg)]'
+              }`}
+            >
+              <div className="relative z-10 w-full">
+                <div className="font-mono text-[9px] font-bold text-[var(--theme-text-primary)] leading-tight tracking-wide">SURFACE WIND</div>
+                <div className="font-mono text-[7px] text-[var(--theme-text-muted)] leading-tight mt-[2px]">10m Velocity Vector Field</div>
+              </div>
+              <div className="relative z-10 font-mono text-[7px] text-[var(--theme-instrument-ink-secondary)] opacity-70">m/s (uv)</div>
+              
+              <svg viewBox="0 0 140 70" className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                  <linearGradient id="wind-grad1" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="var(--theme-status-sage)" stopOpacity="0.1" />
+                    <stop offset="100%" stopColor="var(--theme-status-sage)" stopOpacity="0.9" />
+                  </linearGradient>
+                  <linearGradient id="wind-grad2" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="var(--theme-status-sage)" stopOpacity="0.0" />
+                    <stop offset="100%" stopColor="var(--theme-status-sage)" stopOpacity="0.6" />
+                  </linearGradient>
+                </defs>
+                <g transform="translate(75, 22) scale(0.85)">
+                  <path d="M 0,35 C 20,10 50,15 70,35" fill="none" stroke="url(#wind-grad1)" strokeWidth="1.5" />
+                  <polygon points="70,35 66,29 63,33" fill="var(--theme-status-sage)" />
+                  
+                  <path d="M -15,45 C 5,20 35,25 55,45" fill="none" stroke="url(#wind-grad2)" strokeWidth="1" strokeDasharray="3,2" />
+                  <polygon points="55,45 51,39 48,43" fill="var(--theme-status-sage)" opacity="0.6" />
+                  
+                  <path d="M -30,55 C -10,30 20,35 40,55" fill="none" stroke="url(#wind-grad2)" strokeWidth="0.5" strokeDasharray="1,2" opacity="0.7"/>
+                  <polygon points="40,55 36,49 33,53" fill="var(--theme-status-sage)" opacity="0.4" />
+                  
+                  <path d="M 75,18 A 5 5 0 1 1 70,13" fill="none" stroke="var(--theme-instrument-ink-secondary)" strokeWidth="0.5" opacity="0.6" />
+                  <polygon points="70,13 72,10 74,14" fill="var(--theme-instrument-ink-secondary)" opacity="0.6" />
+                  <text x="56" y="16" fill="var(--theme-instrument-ink-secondary)" fontSize="5" fontFamily="monospace" opacity="0.8">∇×V</text>
+                </g>
+              </svg>
+            </button>
+
+            {/* HEIGHT */}
+            <button
+              id="sidebar-variable-z500"
+              onClick={() => handleVariableSelect('geopotential_500hpa')}
+              className={`relative flex flex-col justify-between p-1.5 text-left rounded-[2px] overflow-hidden transition-all duration-300 outline-none border focus:ring-1 focus:ring-[var(--theme-text-accent)] ${
+                normalizedVariable === 'geopotential_500hpa'
+                  ? 'bg-[var(--theme-card-bg)] border-[var(--theme-text-accent)] shadow-[0_0_8px_rgba(0,0,0,0.1)]'
+                  : 'bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)] opacity-60 hover:opacity-100 hover:bg-[var(--theme-card-bg)]'
+              }`}
+            >
+              <div className="relative z-10 w-full">
+                <div className="font-mono text-[9px] font-bold text-[var(--theme-text-primary)] leading-tight tracking-wide">Z500 HEIGHT</div>
+                <div className="font-mono text-[7px] text-[var(--theme-text-muted)] leading-tight mt-[2px]">500 hPa Geopotential</div>
+              </div>
+              <div className="relative z-10 font-mono text-[7px] text-[var(--theme-instrument-ink-secondary)] opacity-70">Z (gpm)</div>
+              
+              <svg viewBox="0 0 140 70" className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                  <radialGradient id="height-grad" cx="50%" cy="100%" r="100%">
+                    <stop offset="0%" stopColor="var(--theme-text-accent)" stopOpacity="0.2" />
+                    <stop offset="100%" stopColor="var(--theme-text-accent)" stopOpacity="0.0" />
+                  </radialGradient>
+                </defs>
+                <g transform="translate(70, 5) scale(0.85)">
+                  {/* Hypsometric Gradient Fill */}
+                  <path d="M -10,30 C 20,10 50,10 80,30 L 80,74 L -10,74 Z" fill="url(#height-grad)" opacity="0.6" />
+                  
+                  {/* Contour Lines */}
+                  <path d="M -10,30 C 20,10 50,10 80,30" fill="none" stroke="var(--theme-instrument-ink-secondary)" strokeWidth="0.5" opacity="0.3" strokeDasharray="2,2" />
+                  <path d="M 0,40 C 25,25 45,25 70,40" fill="none" stroke="var(--theme-instrument-ink-secondary)" strokeWidth="0.75" opacity="0.5" />
+                  <path d="M 10,50 C 30,40 40,40 60,50" fill="none" stroke="var(--theme-text-accent)" strokeWidth="1" opacity="0.8" />
+                  <path d="M 20,60 C 27,55 33,55 40,60" fill="none" stroke="var(--theme-instrument-ink-secondary)" strokeWidth="1.25" opacity="1.0" strokeDasharray="4,2" />
+                  
+                  {/* Ridge Axis */}
+                  <path d="M 35,20 L 35,70" fill="none" stroke="var(--theme-text-accent)" strokeWidth="0.75" strokeDasharray="1,2" opacity="0.6" />
+                  <polygon points="35,20 33,24 37,24" fill="var(--theme-text-accent)" opacity="0.6" />
+                  
+                  {/* Data Labels */}
+                  <rect x="25" y="37" width="20" height="6" fill="var(--theme-card-bg)" stroke="none" opacity="0.8" />
+                  <text x="35" y="42" fill="var(--theme-instrument-ink-secondary)" textAnchor="middle" fontSize="4.5" fontFamily="monospace" opacity="0.9">5800</text>
+                  
+                  <text x="35" y="62" fill="var(--theme-text-accent)" textAnchor="middle" fontSize="6" fontFamily="monospace" fontWeight="bold">H</text>
+                </g>
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
