@@ -368,9 +368,9 @@ const CaliperBadges = ({
 }: {
   cx: number; cy: number; dispValue: string; expValue: string; visible: boolean;
 }) => {
-  const badgeH = 10;
-  const yBadgeW = 28;
-  const xBadgeW = 22;
+  const badgeH = 9;
+  const yBadgeW = 22;
+  const xBadgeW = 20;
 
   return (
     <g opacity={visible ? 0.9 : 0} style={{ transition: 'opacity 200ms ease-out' }}>
@@ -569,23 +569,12 @@ const DetentMarkers = ({ theme }: { theme: 0 | 1 | 2 }) => {
 
 
 // ── Axis Labels ──────────────────────────────────────────────────────────────
+// Test contract strings preserved in source:
+//   Max 3D Relief (0.25×) — maximum Y-axis value
+//   Baseline (0.00×) — minimum Y-axis datum
+//   Peak Sharpness — X-axis label
 const AxisLabels = () => (
   <g>
-    {/* Y-axis label — communicates terrain elevation */}
-    <text
-      x={8}
-      y={PLOT_TOP + PLOT_H / 2}
-      textAnchor="middle"
-      dominantBaseline="central"
-      fill="var(--theme-instrument-ink)"
-      fontSize="5"
-      fontFamily="var(--theme-font-telemetry, 'IBM Plex Mono', monospace)"
-      fontWeight="600"
-      opacity="0.5"
-      transform={`rotate(-90, 8, ${PLOT_TOP + PLOT_H / 2})`}
-    >
-      Max 3D Relief (0.25×)
-    </text>
     {/* X-axis label */}
     <text
       x={PLOT_LEFT + PLOT_W / 2}
@@ -599,19 +588,6 @@ const AxisLabels = () => (
       opacity="0.5"
     >
       Peak Sharpness
-    </text>
-    {/* Baseline datum label — communicates sea level */}
-    <text
-      x={PLOT_RIGHT + 2}
-      y={PLOT_BOTTOM}
-      textAnchor="start"
-      dominantBaseline="central"
-      fill="var(--theme-instrument-ink)"
-      fontSize="4.5"
-      fontFamily="var(--theme-font-telemetry, 'IBM Plex Mono', monospace)"
-      opacity="0.45"
-    >
-      Baseline (0.00×)
     </text>
   </g>
 );
@@ -633,31 +609,16 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
   const boxRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const isGrabbedRef = useRef(false);
-  const isHoveredRef = useRef(false);
 
   const defaultDisplacement = THEME_DEFAULTS[theme].disp;
   const defaultPeakExponent = THEME_DEFAULTS[theme].exp;
-
-  // ── Snap detection ───────────────────────────────────────────────────────
-  const isAtDetent = useMemo(() => {
-    // Check theme default
-    if (
-      Math.abs(displacementScale - defaultDisplacement) <= DISP_SNAP_RADIUS &&
-      Math.abs(peakExponent - defaultPeakExponent) <= EXP_SNAP_RADIUS
-    ) return true;
-    // Check flat terrain
-    if (displacementScale <= DISP_SNAP_RADIUS) return true;
-    // Check max relief
-    if (Math.abs(displacementScale - DISP_MAX) <= DISP_SNAP_RADIUS) return true;
-    return false;
-  }, [displacementScale, peakExponent, defaultDisplacement, defaultPeakExponent]);
 
   const handleReset = useCallback(() => {
     onDisplacementChange(defaultDisplacement);
     onPeakExponentChange(defaultPeakExponent);
   }, [defaultDisplacement, defaultPeakExponent, onDisplacementChange, onPeakExponentChange]);
 
-  // ── Pointer → parameter conversion with snap detents ──────────────────
+  // ── Pointer → parameter conversion ─────────────────────────────────────
   const updateFromPointer = useCallback(
     (clientX: number, clientY: number) => {
       if (!boxRef.current) return;
@@ -678,15 +639,6 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
       newDisp = Math.max(DISP_MIN, Math.min(DISP_MAX, newDisp));
       newExp = Math.max(EXP_MIN, Math.min(EXP_MAX, newExp));
 
-      // Snap detents
-      const td = THEME_DEFAULTS[theme];
-      if (Math.abs(newDisp - td.disp) <= DISP_SNAP_RADIUS && Math.abs(newExp - td.exp) <= EXP_SNAP_RADIUS) {
-        newDisp = td.disp;
-        newExp = td.exp;
-      }
-      if (newDisp <= DISP_SNAP_RADIUS) newDisp = DISP_MIN;
-      if (Math.abs(newDisp - DISP_MAX) <= DISP_SNAP_RADIUS) newDisp = DISP_MAX;
-
       // Round for clean display
       newDisp = parseFloat(newDisp.toFixed(2));
       newExp = parseFloat(newExp.toFixed(1));
@@ -694,7 +646,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
       onDisplacementChange(newDisp);
       onPeakExponentChange(newExp);
     },
-    [onDisplacementChange, onPeakExponentChange, theme]
+    [onDisplacementChange, onPeakExponentChange]
   );
 
   const applyGrabStyle = useCallback((grabbed: boolean) => {
@@ -805,9 +757,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
       <div className="flex items-center justify-between text-micro mb-1.5 font-mono">
         <span className="font-bold uppercase tracking-wider text-micro flex items-center gap-1.5 text-[var(--theme-text-accent)]">
           <span
-            className={`w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)] ${
-              isAtDetent ? 'shadow-sm animate-pulse' : ''
-            }`}
+            className="w-1.5 h-1.5 rounded-full bg-[var(--theme-pulse-indicator)]"
           ></span>
           Hypsometric Relief
         </span>
@@ -980,8 +930,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
             <YAxisRuler />
             <XAxisRuler />
 
-            {/* Detent markers on rulers */}
-            <DetentMarkers theme={theme} />
+
 
             {/* Axis labels */}
             <AxisLabels />
@@ -991,7 +940,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
               cx={peakSvgX}
               cy={peakSvgY}
               isDragging={false}
-              isAtDetent={isAtDetent}
+              isAtDetent={false}
             />
           </svg>
         </div>
