@@ -334,7 +334,7 @@ describe('Milestone 6: AtmosphereDrawer Precision Instruments Suite', () => {
       });
 
       const viewports = container.querySelectorAll('[role="slider"]');
-      expect(viewports.length).toBe(5);
+      expect(viewports.length).toBe(4);
 
       viewports.forEach((vp) => {
         expect(vp.className).toContain('hover:shadow-[0_0_12px_var(--theme-focus-ring)]');
@@ -882,7 +882,7 @@ describe('Milestone 6: AtmosphereDrawer Precision Instruments Suite', () => {
       });
 
       const sliders = container.querySelectorAll('div[role="slider"]');
-      expect(sliders.length).toBe(5);
+      expect(sliders.length).toBe(4);
 
       sliders.forEach((slider) => {
         expect(slider.getAttribute('tabindex')).toBe('0');
@@ -1055,15 +1055,17 @@ describe('Milestone 6: AtmosphereDrawer Precision Instruments Suite', () => {
       expect(drawerSrc).toContain("theme === 1 ? 'var(--theme-text-accent)' : '#38BDF8'");
     });
 
-    it('R15-AUDIT-04: verifies VernierSlider sublabels are concise to eliminate UI ellipsis truncations', () => {
-      const drawerPath = path.resolve(__dirname, '../../src/components/AtmosphereDrawer.tsx');
-      const drawerSrc = fs.readFileSync(drawerPath, 'utf-8');
+    it('R15-AUDIT-04: verifies VolumetricCloudDynamicsInstrument labels are concise to eliminate UI ellipsis truncations', () => {
+      const instrPath = path.resolve(__dirname, '../../src/components/hud/instruments/VolumetricCloudDynamicsInstrument.tsx');
+      const src = fs.readFileSync(instrPath, 'utf-8');
 
-      expect(drawerSrc).toContain('sublabel="Tropospheric bounding shell"');
-      expect(drawerSrc).toContain('sublabel="Low cumulus deck ceiling"');
-      expect(drawerSrc).toContain('sublabel="Worley noise carving strength"');
-      expect(drawerSrc).toContain('sublabel="Raymarch extinction coefficient"');
-      expect(drawerSrc).not.toContain('Expands tropospheric bounding shell');
+      expect(src).toContain('Thick:');
+      expect(src).toContain('Ceil:');
+      expect(src).toContain('Eros:');
+      expect(src).toContain('Extn:');
+      expect(src).toContain('Horz:');
+      expect(src).toContain('Vert:');
+      expect(src).not.toContain('sublabel="Tropospheric bounding shell"');
     });
 
     it('R15-AUDIT-05: verifies TimelineScrubber radar zone ticks do not collide (-60 and -30 labeled only)', () => {

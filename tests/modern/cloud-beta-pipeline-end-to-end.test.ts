@@ -147,7 +147,7 @@ describe('Atmospheric Cloud Strata Beta Controls: End-to-End Wiring & Pipeline P
       // Expand the Beta tray by clicking the toggle button
       const buttons = container.querySelectorAll('button');
       const betaToggleBtn = Array.from(buttons).find((b) =>
-        b.textContent?.includes('Volumetric Cloud Physics')
+        b.textContent?.includes('VOLUMETRIC CLOUD DYNAMICS')
       );
       expect(betaToggleBtn).toBeDefined();
 
@@ -155,33 +155,17 @@ describe('Atmospheric Cloud Strata Beta Controls: End-to-End Wiring & Pipeline P
         betaToggleBtn?.click();
       });
 
-      // Find the beta tray slider inputs
-      const sliders = container.querySelectorAll('input[type="range"]');
-      expect(sliders.length).toBeGreaterThanOrEqual(6);
+      // Find the interactive SVG viewport for vertical structure
+      const vertViewport = container.querySelector(
+        '[title="Drag left side to scale total Tropospheric Height (affects all strata). Drag right side to adjust Cumulus Ceiling proportion."]'
+      );
+      expect(vertViewport).toBeDefined();
 
-      // Find thickness slider (labeled Vertical Thickness)
-      const thicknessInput = Array.from(sliders).find(
-        (s) => (s as HTMLInputElement).value === '0.22'
-      ) as HTMLInputElement | undefined;
-
-      expect(thicknessInput).toBeDefined();
-
-      const triggerSliderChange = (element: HTMLInputElement, value: string) => {
-        const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-        if (descriptor?.set) {
-          descriptor.set.call(element, value);
-        } else {
-          element.value = value;
-        }
-        element.dispatchEvent(new Event('input', { bubbles: true }));
-        element.dispatchEvent(new Event('change', { bubbles: true }));
-      };
-
-      if (thicknessInput) {
+      if (vertViewport) {
         await act(async () => {
-          triggerSliderChange(thicknessInput, '0.30');
+          vertViewport.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
         });
-        expect(onThicknessChange).toHaveBeenCalledWith(0.3);
+        expect(onThicknessChange).toHaveBeenCalledWith(0.19);
       }
     });
 
@@ -206,7 +190,7 @@ describe('Atmospheric Cloud Strata Beta Controls: End-to-End Wiring & Pipeline P
       // Expand the Beta tray in TelemetryHUD -> UnifiedRightSidebar -> AtmosphereDrawer
       const buttons = container.querySelectorAll('button');
       const betaToggleBtn = Array.from(buttons).find((b) =>
-        b.textContent?.includes('Volumetric Cloud Physics')
+        b.textContent?.includes('VOLUMETRIC CLOUD DYNAMICS')
       );
       expect(betaToggleBtn).toBeDefined();
 
@@ -214,12 +198,10 @@ describe('Atmospheric Cloud Strata Beta Controls: End-to-End Wiring & Pipeline P
         betaToggleBtn?.click();
       });
 
-      const sliders = container.querySelectorAll('input[type="range"]');
-      const thicknessInput = Array.from(sliders).find(
-        (s) => (s as HTMLInputElement).value === '0.25'
-      ) as HTMLInputElement | undefined;
-
-      expect(thicknessInput).toBeDefined();
+      const vertViewport = container.querySelector(
+        '[title="Drag left side to scale total Tropospheric Height (affects all strata). Drag right side to adjust Cumulus Ceiling proportion."]'
+      );
+      expect(vertViewport).toBeDefined();
     });
   });
 

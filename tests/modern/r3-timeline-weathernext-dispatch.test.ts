@@ -112,9 +112,16 @@ describe('Milestone 3 (R3) - Timeline Scrubber setTime Dispatch & Ring Buffer', 
         isForecastZone: true,
       });
 
-      // t = 2880m (+48h terminal) -> Hour 47, tau = 1.0
+      // t = 2880m (+48h) -> Hour 48, tau = 0.0
       expect(computeTimelineState(2880, false)).toMatchObject({
-        bracketHour: 47,
+        bracketHour: 48,
+        tau: 0.0,
+        isForecastZone: true,
+      });
+
+      // t = 14400m (+240h terminal) -> Hour 239, tau = 1.0
+      expect(computeTimelineState(14400, false)).toMatchObject({
+        bracketHour: 239,
         tau: 1.0,
         isForecastZone: true,
       });
@@ -127,9 +134,9 @@ describe('Milestone 3 (R3) - Timeline Scrubber setTime Dispatch & Ring Buffer', 
         isRadarZone: true,
       });
 
-      // Overflow (>2880m) clamps to bracketHour = 47, tau = 1.0
-      expect(computeTimelineState(5000, false)).toMatchObject({
-        bracketHour: 47,
+      // Overflow (>14400m) clamps to bracketHour = 239, tau = 1.0
+      expect(computeTimelineState(20000, false)).toMatchObject({
+        bracketHour: 239,
         tau: 1.0,
       });
     });
@@ -252,25 +259,25 @@ describe('Milestone 3 (R3) - Timeline Scrubber setTime Dispatch & Ring Buffer', 
       });
 
       const scrubberState: TimelineScrubberState = {
-        absoluteMinutes: 720,
+        absoluteMinutes: 1440,
         isRadarZone: false,
         isForecastZone: true,
         tau: 0.0,
-        bracketHour: 12,
+        bracketHour: 24,
         isPlaying: false,
       };
 
       await act(async () => {
-        const btn12h = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('+12h'));
-        if (btn12h) {
-          btn12h.click();
+        const btn24h = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('+24h'));
+        if (btn24h) {
+          btn24h.click();
         } else if ((window as any).__INDICATRIX_SET_TIMELINE_MINUTES__) {
-          (window as any).__INDICATRIX_SET_TIMELINE_MINUTES__(720);
+          (window as any).__INDICATRIX_SET_TIMELINE_MINUTES__(1440);
         }
       });
 
-      expect(setTimeSpy).toHaveBeenCalledWith(12, 0.0);
-      expect(ds.getCurrentHour()).toBe(12);
+      expect(setTimeSpy).toHaveBeenCalledWith(24, 0.0);
+      expect(ds.getCurrentHour()).toBe(24);
 
       delete (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__;
     });

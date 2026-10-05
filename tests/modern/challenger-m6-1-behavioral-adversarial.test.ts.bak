@@ -577,7 +577,7 @@ describe('Challenger 1: Final Behavioral Adversarial Stress Suite (Milestone 6)'
       expect(onChange).toHaveBeenCalledWith(500);
     });
 
-    it.skip('M6-RESET-05: PrognosticModelCard resets lead time to 24h', async () => {
+    it('M6-RESET-05: PrognosticModelCard resets lead time to 24h', async () => {
       const onLeadTime = vi.fn();
       await act(async () => {
         root.render(
@@ -826,7 +826,7 @@ describe('Challenger 1: Final Behavioral Adversarial Stress Suite (Milestone 6)'
       expect(onChange).toHaveBeenCalledWith(500);
     });
 
-    it.skip('M6-KEY-05: PrognosticModelCard calls e.preventDefault() on all lead time stepping keys', async () => {
+    it('M6-KEY-05: PrognosticModelCard calls e.preventDefault() on all lead time stepping keys', async () => {
       const onLeadTime = vi.fn();
       await act(async () => {
         root.render(
@@ -881,7 +881,7 @@ describe('Challenger 1: Final Behavioral Adversarial Stress Suite (Milestone 6)'
 
       // Confirm all 5 precision instrument viewports are mounted
       let sliders = container.querySelectorAll('[role="slider"]');
-      expect(sliders.length).toBe(4);
+      expect(sliders.length).toBe(5);
 
       // Verify master switch is ON
       const masterSwitch = container.querySelector('[role="switch"]') as HTMLElement;
@@ -930,7 +930,7 @@ describe('Challenger 1: Final Behavioral Adversarial Stress Suite (Milestone 6)'
 
       // Verify accordion restored: all 5 slider viewports remounted
       sliders = container.querySelectorAll('[role="slider"]');
-      expect(sliders.length).toBe(4);
+      expect(sliders.length).toBe(5);
       expect(masterSwitch.getAttribute('aria-checked')).toBe('true');
 
       // Verify custom values were preserved and not reset to defaults
@@ -961,7 +961,7 @@ describe('Challenger 1: Final Behavioral Adversarial Stress Suite (Milestone 6)'
       // 50 clicks on initially true -> ends on true (even number of toggles)
       expect(masterSwitch.getAttribute('aria-checked')).toBe('true');
       const sliders = container.querySelectorAll('[role="slider"]');
-      expect(sliders.length).toBe(4);
+      expect(sliders.length).toBe(5);
     });
   });
 
@@ -1328,7 +1328,7 @@ describe('Challenger 1: Final Behavioral Adversarial Stress Suite (Milestone 6)'
       });
     });
 
-    it.skip('M6-FUZZ-04: PrognosticModelCard leadTime strictly bounded [0, 240] under chaotic moves', async () => {
+    it('M6-FUZZ-04: PrognosticModelCard leadTime strictly bounded [0, 240] under chaotic moves', async () => {
       let lastLead = 24;
       const onLead = vi.fn((l: number) => { lastLead = l; });
 

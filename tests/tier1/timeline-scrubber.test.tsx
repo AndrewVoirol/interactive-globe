@@ -88,7 +88,7 @@ describe('Atmospheric TimelineScrubber Component', () => {
       const below = computeTimelineState(-200, false);
       expect(below.absoluteMinutes).toBe(-60);
 
-      const above = computeTimelineState(5000, false);
+      const above = computeTimelineState(20000, false);
       expect(above.absoluteMinutes).toBe(14400);
       expect(above.bracketHour).toBe(239);
       expect(above.tau).toBe(1.0);
@@ -434,16 +434,16 @@ describe('Atmospheric TimelineScrubber Component', () => {
         })
       );
 
-      // Pointer move to x=600 (60% of track, which is 50% through 80% forecast zone -> +24h = 1440m)
+      // Pointer move to x=600 (60% of track, which is 50% through 80% forecast zone -> +120h = 7200m)
       await act(async () => {
         track.dispatchEvent(new PointerEvent('pointermove', { clientX: 600, bubbles: true }));
       });
 
       expect(onTimeChange).toHaveBeenCalledWith(
         expect.objectContaining({
-          absoluteMinutes: 1440,
+          absoluteMinutes: 7200,
           isForecastZone: true,
-          bracketHour: 24,
+          bracketHour: 120,
         })
       );
     });

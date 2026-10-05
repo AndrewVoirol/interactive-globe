@@ -202,14 +202,14 @@ describe('Milestone 3 (R3) - AtmosphereDrawer Prognostic Model Selector', () => 
       expect(tempBtn).not.toBeNull();
       expect(windBtn).not.toBeNull();
 
-      expect(rainBtn?.textContent).toContain('Rain');
-      expect(tempBtn?.textContent).toContain('Temp');
-      expect(windBtn?.textContent).toContain('10m Wind');
+      expect(rainBtn?.textContent).toContain('PRECIPITATION');
+      expect(tempBtn?.textContent).toContain('TEMPERATURE');
+      expect(windBtn?.textContent).toContain('SURFACE WIND');
 
       // Rain is currently active
-      expect(rainBtn?.className).toContain('bg-[var(--theme-control-active-bg)]');
-      expect(tempBtn?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
-      expect(windBtn?.className).not.toContain('bg-[var(--theme-control-active-bg)]');
+      expect(rainBtn?.className).toContain('shadow-');
+      expect(tempBtn?.className).not.toContain('shadow-');
+      expect(windBtn?.className).not.toContain('shadow-');
     });
 
     it('DRAWER-09: dispatches onPrognosticVariableChange, window bridge, and auto-enables wind layer on click', async () => {

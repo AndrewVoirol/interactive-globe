@@ -452,8 +452,8 @@ describe('Challenger 2 Empirical Verification: Milestone 6 DOM & ARIA', () => {
       });
 
       const sliders = container.querySelectorAll('div[role="slider"]');
-      // Exactly 4 precision instrument viewports when scrubber is hidden
-      expect(sliders.length).toBe(4);
+      // Exactly 5 precision instrument viewports when scrubber is hidden
+      expect(sliders.length).toBe(5);
 
       sliders.forEach((slider, idx) => {
         expect(slider.getAttribute('tabindex'), `Slider ${idx} must have tabIndex="0"`).toBe('0');
@@ -641,7 +641,7 @@ describe('Challenger 2 Empirical Verification: Milestone 6 DOM & ARIA', () => {
       expect(onChange).toHaveBeenCalledWith(0.45);
     });
 
-    it.skip('verifies keyboard stepping and reset on PrognosticModelCard viewport', async () => {
+    it('verifies keyboard stepping and reset on PrognosticModelCard viewport', async () => {
       const onLeadTimeChange = vi.fn();
       await act(async () => {
         root.render(

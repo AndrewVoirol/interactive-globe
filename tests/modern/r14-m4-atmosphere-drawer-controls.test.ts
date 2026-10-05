@@ -369,7 +369,7 @@ describe('R14 Milestone 4: Atmosphere Drawer Controls & Horizon Cross-Section Pr
       // Check readout text contains 6.0x or 6.0×
       const card = sliderInput.closest('.p-2');
       expect(card?.textContent).toMatch(/6\.0[x×]/);
-      expect(card?.textContent).toContain('Horizon Standoff');
+      expect(card?.textContent).toContain('Atmospheric Scale');
     });
 
     it('M4-HUD-02: renders Shadow Intensity slider with range [0.0 .. 0.60], step 0.05, and correct readout', async () => {

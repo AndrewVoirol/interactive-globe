@@ -538,7 +538,7 @@ describe('Milestone 1 Iteration 2: Challenger 1 Adversarial Stress-Testing', () 
       expect(container.querySelector('#sidebar-variable-rain')).toBeNull();
 
       const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="radio"]'));
-      const weatherNextBtn = buttons.find((b) => b.textContent?.includes('DeepMind WeatherNext 3'));
+      const weatherNextBtn = buttons.find((b) => b.textContent?.includes('WeatherNext 3'));
       expect(weatherNextBtn).toBeDefined();
 
       // Switch to WeatherNext 3

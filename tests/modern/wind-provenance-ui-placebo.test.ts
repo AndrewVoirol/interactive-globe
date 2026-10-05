@@ -264,7 +264,7 @@ describe('Stage 3: Wind Advection & Provenance Architecture - Placebo Test & Tel
     expect((engine as any).windUniformFloats[11]).toBeCloseTo(11.0, 4);
 
     // Also test fine-increment vernier stepper button (+0.1 from base 1.0)
-    const speedIncButton = container.querySelector('button[title="Increase Speed Multiplier"]') as HTMLButtonElement;
+    const speedIncButton = container.querySelector('button[title="Increase Vector Wind Flow Advection"]') as HTMLButtonElement;
     expect(speedIncButton).not.toBeNull();
     await act(async () => {
       speedIncButton.click();

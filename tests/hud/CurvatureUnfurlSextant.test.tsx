@@ -28,27 +28,34 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
   });
 
   it('verifies arc-geometry to pointer-domain alignment calibrates pointer clientX relative to active arc bounds (R1)', () => {
-    // Check source code implementation
-    expect(sourceCode).toContain('preserveAspectRatio="xMidYMid meet"');
-    expect(sourceCode).toContain('const leftMargin = rect.width * (15 / 240);');
-    expect(sourceCode).toContain('const arcWidth = rect.width * (210 / 240);');
-    expect(sourceCode).toContain('(clientX - (rect.left + leftMargin)) / arcWidth');
+    // Check source code implementation for letterbox padding
+    expect(sourceCode).toContain('const renderedSvgWidth = 240 * svgScale;');
+    expect(sourceCode).toContain('const svgLeftPadding = (rect.width - renderedSvgWidth) / 2;');
+    expect(sourceCode).toContain('const arcStartX_px = svgLeftPadding + (15 * svgScale);');
+    expect(sourceCode).toContain('const arcWidth_px = 210 * svgScale;');
 
     // Simulate pointer mapping calculation
-    const mapPointer = (clientX: number, left: number, width: number) => {
-      const leftMargin = width * (15 / 240);
-      const arcWidth = width * (210 / 240);
-      return Math.max(0.0, Math.min(1.0, (clientX - (left + leftMargin)) / arcWidth));
+    const mapPointer = (clientX: number, rectWidth: number, rectHeight: number, rectLeft: number) => {
+      const svgScale = rectHeight / 36;
+      const renderedSvgWidth = 240 * svgScale;
+      const svgLeftPadding = (rectWidth - renderedSvgWidth) / 2;
+      
+      const arcStartX_px = svgLeftPadding + (15 * svgScale);
+      const arcWidth_px = 210 * svgScale;
+      
+      return Math.max(0.0, Math.min(1.0, (clientX - (rectLeft + arcStartX_px)) / arcWidth_px));
     };
 
     const left = 100;
     const width = 240;
+    const height = 36;
+    // No letterboxing: scale = 1, padding = 0, arc start = 15, width = 210
     // Left tick marker (x = 15): clientX = 100 + 15 = 115 -> 0.000
-    expect(mapPointer(115, left, width)).toBe(0.0);
+    expect(mapPointer(115, width, height, left)).toBe(0.0);
     // Midpoint (x = 120): clientX = 100 + 120 = 220 -> 0.500
-    expect(mapPointer(220, left, width)).toBeCloseTo(0.50, 4);
+    expect(mapPointer(220, width, height, left)).toBeCloseTo(0.50, 4);
     // Right tick marker (x = 225): clientX = 100 + 225 = 325 -> 1.000
-    expect(mapPointer(325, left, width)).toBe(1.0);
+    expect(mapPointer(325, width, height, left)).toBe(1.0);
   });
 
   it('verifies slider container contains touch-none class and style (R2)', async () => {
@@ -299,7 +306,7 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
     expect(onAlphaChange).toHaveBeenLastCalledWith(1.0);
   });
 
-  it('verifies magnetic milestone detents snap when slow, and break away when fast (R3)', async () => {
+  it('verifies linear slider without magnetic snapping (R3)', async () => {
     const onAlphaChange = vi.fn();
     await act(async () => {
       root.render(
@@ -325,9 +332,6 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
     });
 
     // Start drag at x=78 (alpha = 0.300)
-    let fakeNow = 1000;
-    const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => fakeNow);
-
     await act(async () => {
       slider.dispatchEvent(
         new PointerEvent('pointerdown', {
@@ -339,9 +343,7 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
     });
     expect(onAlphaChange).toHaveBeenLastCalledWith(0.3);
 
-    // Slow move within [0.285, 0.315]: clientX = 15 + 0.310 * 210 = 80.1
-    // dt = 100ms, dx = (80.1 - 78) / 210 = 0.010, vel = 0.00010 <= 0.0004
-    fakeNow += 100;
+    // Move to clientX = 80.1 (alpha = 0.31)
     await act(async () => {
       slider.dispatchEvent(
         new PointerEvent('pointermove', {
@@ -351,38 +353,9 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
         })
       );
     });
-    // Snapped directly to 0.300!
-    expect(onAlphaChange).toHaveBeenLastCalledWith(0.3);
-
-    // High-speed move through detent:
-    // dt = 10ms, clientX jumps to 15 + 0.310 * 210 = 80.1 from clientX = 20
-    // Reset position to clientX = 20 (alpha = 0.024)
-    fakeNow += 10;
-    await act(async () => {
-      slider.dispatchEvent(
-        new PointerEvent('pointermove', {
-          clientX: 20,
-          pointerId: 1,
-          bubbles: true,
-        })
-      );
-    });
-
-    // Now fast drag into 80.1 over 10ms: dx = (80.1 - 20) / 210 = 0.286, vel = 0.0286 > 0.0004
-    fakeNow += 10;
-    await act(async () => {
-      slider.dispatchEvent(
-        new PointerEvent('pointermove', {
-          clientX: 80.1,
-          pointerId: 1,
-          bubbles: true,
-        })
-      );
-    });
-    // Breaks away smoothly without snapping to 0.300! Registers raw 0.31
+    
+    // It should NOT snap to 0.300! It must be exact 0.31
     expect(onAlphaChange).toHaveBeenLastCalledWith(0.31);
-
-    nowSpy.mockRestore();
   });
 
   it('verifies aria-valuetext reflects milestone label and sub (R5)', async () => {
@@ -595,7 +568,7 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
     expect(onAlphaChange.mock.calls.length).toBe(callsAfterUp);
   });
 
-  it('verifies momentum coasting decelerating into milestone snap properly emits onAlphaChange with milestone value', async () => {
+  it('verifies momentum coasting decelerating properly emits onAlphaChange', async () => {
     let callbacks: Array<FrameRequestCallback> = [];
     let rafId = 0;
     const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
@@ -644,7 +617,7 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
       );
     });
 
-    // Move to x = 73.5 (alpha = 0.278) over 10ms: dx = 1.5 / 210 = 0.00714, vel = 0.00071 > breakaway 0.0004
+    // Move to x = 73.5 (alpha = 0.278) over 10ms
     fakeNow += 10;
     await act(async () => {
       slider.dispatchEvent(
@@ -656,7 +629,7 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
       );
     });
 
-    // Release pointer: velocity coasts into [0.285, 0.315] and drops below breakaway
+    // Release pointer: velocity coasts
     await act(async () => {
       slider.dispatchEvent(
         new PointerEvent('pointerup', {
@@ -678,8 +651,11 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
       });
     }
 
-    // Must have snapped and emitted exact 0.300 milestone!
-    expect(onAlphaChange).toHaveBeenLastCalledWith(0.3);
+    // Must have coasted beyond 0.278
+    const lastCallArg = onAlphaChange.mock.calls[onAlphaChange.mock.calls.length - 1][0];
+    expect(lastCallArg).toBeGreaterThan(0.278);
+    // But it should NOT snap exactly to 0.3
+    expect(lastCallArg).not.toBe(0.3);
 
     rafSpy.mockRestore();
     cancelRafSpy.mockRestore();
@@ -821,7 +797,7 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
     rafSpy.mockRestore();
   });
 
-  it('verifies fast drag stopping inside detent radius without pointer release snaps to milestone after pause (adversarial test)', async () => {
+  it('verifies fast drag stopping zeroes velocity without snapping to milestone after pause (adversarial test)', async () => {
     vi.useFakeTimers();
     let fakeNow = 1000;
     const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => fakeNow);
@@ -862,8 +838,7 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
       );
     });
 
-    // High-speed drag into x = 79.68 (normX = 0.308, inside [0.285, 0.315]) over 10ms
-    // vel = (79.68 - 15) / 210 / 10 = 0.0308 > 0.0004 breakaway
+    // High-speed drag into x = 79.68 (normX = 0.308) over 10ms
     fakeNow += 10;
     await act(async () => {
       slider.dispatchEvent(
@@ -874,7 +849,6 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
         })
       );
     });
-    // While moving fast, it broke away and did not snap
     expect(onAlphaChange).toHaveBeenLastCalledWith(0.308);
 
     // Pointer now STOPS stationary at 79.68 without releasing mouse
@@ -883,8 +857,8 @@ describe('CurvatureUnfurlSextant (Milestone 1 Verification)', () => {
       vi.advanceTimersByTime(50);
     });
 
-    // Snapped directly to milestone 0.300 while holding stationary!
-    expect(onAlphaChange).toHaveBeenLastCalledWith(0.3);
+    // It should STILL be exactly 0.308, no snapping!
+    expect(onAlphaChange).toHaveBeenLastCalledWith(0.308);
 
     nowSpy.mockRestore();
     vi.useRealTimers();
