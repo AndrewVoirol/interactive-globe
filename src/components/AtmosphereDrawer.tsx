@@ -1,6 +1,6 @@
 // ============================================================================
 // File: src/components/AtmosphereDrawer.tsx
-// Atmospheric Cloud Strata Controls & Horizon Cross-Section Preset Drawer
+// Atmospheric Cloud Strata Controls Drawer
 // Calibrated Atmospheric Scale [1.0 .. 12.0] & Shadow Intensity [0.0 .. 0.60]
 // Invariants: §2 (10px Moat/20px Gutters), §4 (Single-Border), §6 (Ivory Vellum), §21 (Collapsing)
 // ============================================================================
@@ -73,7 +73,7 @@ export interface AtmosphereDrawerProps {
   weatherNextDataSource?: any;
   timelineMinutes?: number;
   onTimelineChange?: (state: TimelineScrubberState) => void;
-  onHorizonPresetClick?: () => void;
+
   onSnapCamera?: (snap: 'equator' | 'pole' | 'seam' | 'isometric' | 'horizon') => void;
   onTogglePlanetaryLayer?: (id: string, force?: boolean) => void;
   isRadarActive?: boolean;
@@ -149,7 +149,7 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   weatherNextDataSource,
   timelineMinutes,
   onTimelineChange,
-  onHorizonPresetClick,
+
   onSnapCamera,
   onTogglePlanetaryLayer,
   className = '',
@@ -591,29 +591,6 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
     }
   };
 
-  const handleHorizonCrossSectionPreset = useCallback(() => {
-    // 1. Ensure master clouds are enabled
-    if (!curShowClouds) {
-      handleToggleClouds(true);
-    }
-    // 2. Ensure Jet Stream is active
-    onTogglePlanetaryLayer?.('noaa-gfs-jetstream', true);
-
-    // 3. Set atmospheric scale >= 6.0x for clear visual strata separation
-    handleAtmosphericScaleChange(Math.max(curAtmosphericScale, 6.0));
-
-    // 4. Custom preset callback or snap camera
-    if (onHorizonPresetClick) {
-      onHorizonPresetClick();
-    } else if (onSnapCamera) {
-      onSnapCamera('horizon');
-    }
-
-    // 5. Invoke programmatic hook if available in window
-    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_CAMERA__?.snapHorizonCrossSection) {
-      (window as any).__INDICATRIX_CAMERA__.snapHorizonCrossSection(1.6);
-    }
-  }, [curShowClouds, curAtmosphericScale, onHorizonPresetClick, onSnapCamera, onTogglePlanetaryLayer]);
 
   return (
     <div className={`space-y-2.5 ${className}`}>
