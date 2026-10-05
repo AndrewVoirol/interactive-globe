@@ -71,19 +71,33 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
     updateFromPointer(e.clientY);
   };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDraggingRef.current) return;
-    updateFromPointer(e.clientY);
-  };
+  useEffect(() => {
+    const handleWindowPointerMove = (e: PointerEvent) => {
+      if (!isDraggingRef.current) return;
+      e.preventDefault(); // Prevent scroll while dragging
+      updateFromPointer(e.clientY);
+    };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
-    isDraggingRef.current = false;
-    try {
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      // Ignore
-    }
-  };
+    const handleWindowPointerUp = (e: PointerEvent) => {
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+      try {
+        if (boxRef.current) boxRef.current.releasePointerCapture(e.pointerId);
+      } catch {
+        // Ignore
+      }
+    };
+
+    window.addEventListener('pointermove', handleWindowPointerMove, { passive: false });
+    window.addEventListener('pointerup', handleWindowPointerUp);
+    window.addEventListener('pointercancel', handleWindowPointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handleWindowPointerMove);
+      window.removeEventListener('pointerup', handleWindowPointerUp);
+      window.removeEventListener('pointercancel', handleWindowPointerUp);
+    };
+  }, [updateFromPointer]);
 
   const waterPct = Math.max(0, Math.min(100, ((localSeaLevel + 150) / 250) * 100));
 
@@ -152,8 +166,6 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           }
         }}
         onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
         onDoubleClick={() => onSeaLevelChange(0)}
         title="Drag waterline caliper vertically to raise/lower sea level (Double-click or Enter to reset to 0m, Arrow keys to nudge)"
         className={`relative w-full h-28 rounded-[2px] overflow-hidden cursor-ns-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)]`}
@@ -332,21 +344,21 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           <div
             className={`absolute left-2 top-1.5 text-nano font-mono transition-opacity duration-150 ${
               localSeaLevel >= 80 ? 'opacity-40' : 'opacity-95'
-            } ${theme === 1 ? 'text-[#FCF9F2]' : 'text-[var(--theme-text-secondary)]'} drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]`}
+            } ${theme === 1 ? 'text-[#FCF9F2] drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]' : 'text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]'}`}
           >
             +100 m (Highstand)
           </div>
           <div
             className={`absolute left-2 top-[calc(40%+4px)] text-nano font-mono font-bold ${
-              theme === 1 ? 'text-white' : 'text-[var(--theme-text-accent)]'
-            } drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]`}
+              theme === 1 ? 'text-[#FCF9F2] drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]' : 'text-[var(--theme-text-accent)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]'
+            }`}
           >
             0 m (Mean Sea Level)
           </div>
           <div
             className={`absolute left-2 bottom-1.5 text-nano font-mono transition-opacity duration-150 ${
-              localSeaLevel <= -135 ? 'opacity-40' : 'opacity-95'
-            } ${theme === 1 ? 'text-[#FCF9F2]' : 'text-[var(--theme-text-secondary)]'} font-medium drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]`}
+              localSeaLevel <= -135 ? 'opacity-40' : 'opacity-90'
+            } text-[var(--theme-text-secondary)] font-medium drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]`}
           >
             -150 m (Glacial Maximum)
           </div>
