@@ -532,292 +532,259 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
           onDoubleClick={handleReset}
           onKeyDown={handleKeyDown}
           title="Drag lead time cursor horizontally (T+0h to T+240h) • Arrow keys step • Double-click to reset"
-          className={`relative w-full h-28 rounded-[2px] overflow-hidden cursor-ew-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)]`}
+          className={`relative w-full h-36 rounded-[2px] overflow-hidden cursor-ew-resize select-none touch-none shadow-inner transition-all duration-200 hover:shadow-[0_0_12px_var(--theme-focus-ring)] hover:border-[var(--theme-card-border-hover)] focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)]`}
         >
           <svg
           className="w-full h-full pointer-events-none"
-          viewBox="0 0 280 110"
+          viewBox="0 0 280 140"
           preserveAspectRatio="xMidYMid meet"
         >
           <defs>
-            <pattern id="prog-cyanotype-grid" width="16" height="16" patternUnits="userSpaceOnUse" x={-t * 32}>
-              <line x1="0" y1="0" x2="16" y2="0" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.3" strokeOpacity="0.25" />
-              <line x1="0" y1="0" x2="0" y2="16" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.3" strokeOpacity="0.25" />
+            <pattern id="prog-cyanotype-grid" width="20" height="20" patternUnits="userSpaceOnUse" x={-t * 40}>
+              <line x1="0" y1="0" x2="20" y2="0" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.4" strokeOpacity="0.2" />
+              <line x1="0" y1="0" x2="0" y2="20" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.4" strokeOpacity="0.2" />
             </pattern>
+            <linearGradient id="fade-edges" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="var(--theme-instrument-viewport-bg)" stopOpacity="1" />
+              <stop offset="10%" stopColor="var(--theme-instrument-viewport-bg)" stopOpacity="0" />
+              <stop offset="90%" stopColor="var(--theme-instrument-viewport-bg)" stopOpacity="0" />
+              <stop offset="100%" stopColor="var(--theme-instrument-viewport-bg)" stopOpacity="1" />
+            </linearGradient>
           </defs>
 
-          {/* Caliper Vertical Guideline (Rendered in background stratum so precision annotations float with halos above it) */}
+          {/* Background Strata */}
+          {activeTheme === 2 && (
+            <rect x="0" y="0" width="280" height="140" fill="url(#prog-cyanotype-grid)" />
+          )}
+
+          {/* Caliper Vertical Guideline */}
           <line
             x1={caliperX}
-            y1="18"
+            y1="22"
             x2={caliperX}
-            y2="96"
+            y2="115"
             style={{ stroke: 'var(--theme-instrument-caliper)' }}
             strokeWidth="1.2"
-            strokeDasharray="3 1.5"
+            strokeDasharray="4 2"
+            opacity="0.8"
           />
 
           {/* 3-Medium Adaptive Visual Artifacts */}
           {activeTheme === 1 ? (
             // Theme 1 (Cream Rag Paper): 19th-Century Synoptic Chart Isobar Engraving
             <g className="prognostic-model-cream text-[var(--theme-instrument-ink)]">
-              {/* Title Cartouche Inscription */}
+              
+              {/* Dynamic Components */}
+              <g transform={`translate(${t * 50}, 0)`}>
+                {/* Low Pressure Cyclonic Isobars */}
+                <circle cx="75" cy="70" r="16" fill="none" stroke="currentColor" strokeWidth="0.8" />
+                <circle cx="75" cy="70" r="32" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 2" />
+                <circle cx="75" cy="70" r="48" fill="none" stroke="currentColor" strokeWidth="0.4" strokeDasharray="5 3" />
+                <text x="75" y="74" textAnchor="middle" fill="currentColor" fontSize="12" fontFamily="serif" fontWeight="bold">B</text>
+                <text x="75" y="83" textAnchor="middle" fill="currentColor" fontSize="5.5" fontFamily="serif" fontStyle="italic">996 hPa</text>
+                <text x="100" y="66" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1000</text>
+                <text x="115" y="55" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1004</text>
+                
+                {/* Wind Barbs */}
+                <g stroke="currentColor" strokeWidth="0.6" fill="none">
+                  <line x1="45" y1="45" x2="60" y2="55" />
+                  <line x1="45" y1="45" x2="43" y2="50" />
+                  <line x1="49" y1="47" x2="47" y2="52" />
+                  <line x1="100" y1="90" x2="85" y2="80" />
+                  <line x1="100" y1="90" x2="102" y2="85" />
+                </g>
+              </g>
+
+              <g transform={`translate(${-t * 30}, ${t * 15})`}>
+                {/* High Pressure Anticyclonic Isobars */}
+                <circle cx="210" cy="65" r="20" fill="none" stroke="currentColor" strokeWidth="0.8" />
+                <circle cx="210" cy="65" r="40" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="4 2" />
+                <text x="210" y="69" textAnchor="middle" fill="currentColor" fontSize="12" fontFamily="serif" fontWeight="bold">H</text>
+                <text x="210" y="78" textAnchor="middle" fill="currentColor" fontSize="5.5" fontFamily="serif" fontStyle="italic">1024 hPa</text>
+                <text x="238" y="58" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1020</text>
+                
+                {/* Wind Barbs */}
+                <g stroke="currentColor" strokeWidth="0.6" fill="none">
+                  <line x1="180" y1="45" x2="195" y2="55" />
+                  <line x1="180" y1="45" x2="182" y2="50" />
+                  <line x1="235" y1="85" x2="220" y2="75" />
+                  <line x1="235" y1="85" x2="233" y2="80" />
+                </g>
+              </g>
+
+              <g transform={`translate(${t * 70}, 0)`}>
+                {/* Frontal Boundary */}
+                <path d="M 130 25 Q 140 65 155 115" fill="none" stroke="currentColor" strokeWidth="1.2" />
+                <polygon points="133,40 141,45 135,49" fill="currentColor" />
+                <polygon points="138,70 146,75 140,79" fill="currentColor" />
+                <polygon points="146,100 154,105 148,109" fill="currentColor" />
+              </g>
+
+              {/* Static Labels */}
               <text
-                x="18"
-                y="27"
+                x="24"
+                y="108"
                 fill="currentColor"
-                fontSize="6"
+                fontSize="6.5"
                 fontFamily="serif"
                 fontStyle="italic"
                 fontWeight="bold"
+                opacity="0.6"
                 paintOrder="stroke"
                 style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }}
                 strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
               >
                 Charta Synoptica Barometrica
               </text>
-
-                            {/* Low Pressure Depressions with Cyclonic Isobars */}
-              <g transform={`translate(${t * 60}, 0)`}>
-                <circle cx="75" cy="55" r="14" fill="none" stroke="currentColor" strokeWidth="0.75" />
-                <circle cx="75" cy="55" r="26" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 1.5" />
-                <circle cx="75" cy="55" r="38" fill="none" stroke="currentColor" strokeWidth="0.5" strokeDasharray="4 2" />
-                <text x="75" y="58" textAnchor="middle" fill="currentColor" fontSize="10" fontFamily="serif" fontWeight="bold">
-                  B
-                </text>
-                <text x="75" y="66" textAnchor="middle" fill="currentColor" fontSize="5" fontFamily="serif" fontStyle="italic">
-                  996 hPa
-                </text>
-                <text x="96" y="52" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1000</text>
-                <text x="106" y="44" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1004</text>
-              </g>
-
-                            {/* High Pressure Anticyclone with Divergent Isobars */}
-              <g transform={`translate(${-t * 40}, ${t * 15})`}>
-                <circle cx="210" cy="50" r="16" fill="none" stroke="currentColor" strokeWidth="0.75" />
-                <circle cx="210" cy="50" r="30" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="3 1.5" />
-                <text x="210" y="53" textAnchor="middle" fill="currentColor" fontSize="10" fontFamily="serif" fontWeight="bold">
-                  H
-                </text>
-                <text x="210" y="61" textAnchor="middle" fill="currentColor" fontSize="5" fontFamily="serif" fontStyle="italic">
-                  1024 hPa
-                </text>
-                <text x="232" y="46" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.75" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">1020</text>
-              </g>
-
-              {/* Beaufort Wind Barbs */}
-              <g stroke="currentColor" strokeWidth="0.6" fill="none">
-                <line x1="50" y1="36" x2="62" y2="44" />
-                <line x1="50" y1="36" x2="48" y2="40" />
-                <line x1="53" y1="38" x2="51" y2="42" />
-
-                <line x1="95" y1="72" x2="84" y2="64" />
-                <line x1="95" y1="72" x2="97" y2="68" />
-                <line x1="92" y1="70" x2="94" y2="66" />
-
-                <line x1="185" y1="38" x2="175" y2="45" />
-                <line x1="185" y1="38" x2="187" y2="42" />
-                <line x1="230" y1="65" x2="242" y2="58" />
-                <line x1="230" y1="65" x2="228" y2="61" />
-              </g>
-
-                            {/* Frontal Boundary Incline Line with Intaglio Teeth */}
-              <g transform={`translate(${t * 80}, 0)`}>
-                <path d="M 125 18 Q 135 52 152 92" fill="none" stroke="currentColor" strokeWidth="1" />
-                <polygon points="128,30 134,34 130,37" fill="currentColor" />
-                <polygon points="135,55 141,59 137,62" fill="currentColor" />
-                <polygon points="144,80 150,84 146,87" fill="currentColor" />
-              </g>
-
-              {/* Bottom Chronometric Horizon Axis */}
-              <line x1="24" y1="96" x2="256" y2="96" stroke="currentColor" strokeWidth="0.75" />
-              {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
-                const tx = 24 + (h / 240) * 232;
-                const isMilestone = h % 48 === 0;
-                return (
-                  <g key={h}>
-                    <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" stroke="currentColor" strokeWidth={isMilestone ? "0.8" : "0.5"} />
-                    {isMilestone && (
-                      <text x={tx} y="104" textAnchor="middle" fill="currentColor" fontSize="5.5" fontFamily="monospace">
-                        +{h}h
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
             </g>
           ) : activeTheme === 2 ? (
             // Theme 2 (Prussian Cyanotype): CAD Computational Mesh & Tensor Lattice
             <g className="prognostic-model-cyanotype text-[var(--theme-instrument-ink)]">
-              {/* CAD Background Grid */}
-              <rect x="0" y="0" width="280" height="110" fill="url(#prog-cyanotype-grid)" />
+              {/* Chunk Boundaries */}
+              <line x1="100" y1="25" x2="100" y2="115" stroke="currentColor" strokeWidth="0.8" strokeDasharray="4 4" opacity="0.5" />
+              <line x1="180" y1="25" x2="180" y2="115" stroke="currentColor" strokeWidth="0.8" strokeDasharray="4 4" opacity="0.5" />
+              <line x1="16" y1="70" x2="264" y2="70" stroke="currentColor" strokeWidth="0.8" strokeDasharray="4 4" opacity="0.5" />
 
-              {/* Zarr v3 Chunk Boundary Partitions */}
-              <line x1="90" y1="12" x2="90" y2="96" stroke="currentColor" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
-              <line x1="180" y1="12" x2="180" y2="96" stroke="currentColor" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
-              <line x1="16" y1="54" x2="264" y2="54" stroke="currentColor" strokeWidth="0.75" strokeDasharray="3 3" opacity="0.6" />
+              {/* Dynamic Chunk Highlights */}
+              <g transform={`translate(${-t * 10}, 0)`}>
+                <text x="24" y="35" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity={leadTimeHours < 80 ? 1 : 0.4} paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  CHUNK [0, 0] • 256×256
+                </text>
+                <text x="106" y="35" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity={leadTimeHours >= 80 && leadTimeHours < 160 ? 1 : 0.4} paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  CHUNK [0, 1] • 256×256
+                </text>
+                <text x="186" y="35" fill="currentColor" fontSize="6.5" fontFamily="monospace" opacity={leadTimeHours >= 160 ? 1 : 0.4} paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  CHUNK [0, 2] • 256×256
+                </text>
 
-              <text x="20" y="27" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity={leadTimeHours < 80 ? 1 : 0.35} paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                CHUNK [0, 0] • 256×256
-              </text>
-              <text x="105" y="27" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity={leadTimeHours >= 80 && leadTimeHours < 160 ? 1 : 0.35} paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                CHUNK [0, 1] • 256×256
-              </text>
-              <text x="195" y="27" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity={leadTimeHours >= 160 ? 1 : 0.35} paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                CHUNK [0, 2] • 256×256
-              </text>
+                {/* Voronoi Mesh */}
+                <g stroke="currentColor" strokeWidth="0.6" fill="none" opacity="0.75">
+                  {/* Left Cluster */}
+                  <polygon points="45,50 55,42 65,50 65,65 55,73 45,65" />
+                  <polygon points="65,50 75,42 85,50 85,65 75,73 65,65" />
+                  <polygon points="55,73 65,65 75,73 75,88 65,96 55,88" />
+                  
+                  {/* Middle Cluster */}
+                  <polygon points="125,50 135,42 145,50 145,65 135,73 125,65" />
+                  <polygon points="145,50 155,42 165,50 165,65 155,73 145,65" />
+                  <polygon points="135,73 145,65 155,73 155,88 145,96 135,88" />
 
-              {/* Icosahedral-Hexagonal Voronoi Nodes & Connections */}
-              <g stroke="currentColor" strokeWidth="0.5" fill="none" opacity="0.7">
-                <polygon points="45,38 55,32 65,38 65,50 55,56 45,50" />
-                <polygon points="65,38 75,32 85,38 85,50 75,56 65,50" />
-                <polygon points="55,56 65,50 75,56 75,68 65,74 55,68" />
+                  {/* Right Cluster */}
+                  <polygon points="205,50 215,42 225,50 225,65 215,73 205,65" />
+                  <polygon points="225,50 235,42 245,50 245,65 235,73 225,65" />
+                </g>
 
-                <polygon points="135,38 145,32 155,38 155,50 145,56 135,50" />
-                <polygon points="155,38 165,32 175,38 175,50 165,56 155,50" />
-                <polygon points="145,56 155,50 165,56 165,68 155,74 145,68" />
-
-                <polygon points="215,38 225,32 235,38 235,50 225,56 215,50" />
+                {/* Mesh Nodes */}
+                {[
+                  [45, 50], [55, 42], [65, 50], [75, 42], [85, 50],
+                  [125, 50], [135, 42], [145, 50], [155, 42], [165, 50],
+                  [205, 50], [215, 42], [225, 50], [235, 42], [245, 50]
+                ].map(([cx, cy], i) => (
+                  <circle key={i} cx={cx} cy={cy} r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
+                ))}
               </g>
 
-              {/* Node Vertex Dots */}
-              {[
-                [45, 38], [55, 32], [65, 38], [75, 32], [85, 38],
-                [135, 38], [145, 32], [155, 38], [165, 32], [175, 38],
-                [215, 38], [225, 32], [235, 38]
-              ].map(([cx, cy], i) => (
-                <circle key={i} cx={cx} cy={cy} r="1.5" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
-              ))}
-
-              {/* Tensor Metadata Inscriptions */}
-              <text x="20" y="74" style={{ fill: 'var(--theme-instrument-ink-secondary)', stroke: 'var(--theme-instrument-caliper-badge-bg)' }} fontSize="5.5" fontFamily="monospace" fontWeight="bold" paintOrder="stroke" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              {/* Static Metadata */}
+              <text x="256" y="99" textAnchor="end" style={{ fill: 'var(--theme-instrument-ink-secondary)', stroke: 'var(--theme-instrument-caliper-badge-bg)' }} fontSize="6.5" fontFamily="monospace" fontWeight="bold" paintOrder="stroke" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 TENSOR: [B=1, T=24, C=6] FP16
               </text>
-              <text x="20" y="83" fill="currentColor" fontSize="5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <text x="256" y="108" textAnchor="end" fill="currentColor" fontSize="5.5" fontFamily="monospace" opacity="0.7" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 Tco1279 / N640 • 7424B ROW PITCH
               </text>
-
-              {/* Bottom Lead Time Scale */}
-              <line x1="24" y1="96" x2="256" y2="96" stroke="currentColor" strokeWidth="0.75" />
-              {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
-                const tx = 24 + (h / 240) * 232;
-                const isMilestone = h % 48 === 0;
-                return (
-                  <g key={h}>
-                    <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth={isMilestone ? "0.8" : "0.5"} />
-                    {isMilestone && (
-                      <text x={tx} y="104" textAnchor="middle" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} fontSize="5.5" fontFamily="monospace">
-                        +{h}h
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
             </g>
           ) : (
             // Theme 0 (Marie Tharp): Baroclinic Fluid Contours & Heat Flux Streamlines
             <g className="prognostic-model-tharp text-[var(--theme-instrument-ink)]">
-                            {/* Baroclinic Undulating Rossby Wave Flow Streamlines */}
-              <g transform={`translate(${-t * 100}, 0)`}>
+              {/* Dynamic Flow */}
+              <g transform={`translate(${-t * 120}, 0)`}>
+                {/* Rossby Waves */}
                 <path
-                  d="M -50 40 Q 55 15 95 45 T 180 40 T 350 35"
+                  d="M -50 55 Q 55 25 95 60 T 180 55 T 380 50"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="1.2"
+                  strokeWidth="1.5"
                   opacity="0.85"
                 />
                 <path
-                  d="M -50 55 Q 55 30 95 60 T 180 55 T 350 50"
+                  d="M -50 75 Q 55 45 95 80 T 180 75 T 380 70"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="0.8"
+                  strokeWidth="1.0"
                   opacity="0.6"
                 />
                 <path
-                  d="M -50 70 Q 55 45 95 75 T 180 70 T 350 65"
+                  d="M -50 95 Q 55 65 95 100 T 180 95 T 380 90"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="0.6"
+                  strokeWidth="0.8"
                   opacity="0.4"
                 />
+
+                {/* Heat Flux Vectors */}
+                <path d="M 40 100 Q 85 80 120 50" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1.2" strokeDasharray="5 3" />
+                <path d="M 160 100 Q 205 80 240 50" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1.2" strokeDasharray="5 3" />
+                <path d="M 280 100 Q 325 80 360 50" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1.2" strokeDasharray="5 3" />
+                
+                <polyline points="75,88 82,85 76,79" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1.2" />
+                <polyline points="195,88 202,85 196,79" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1.2" />
+                <polyline points="315,88 322,85 316,79" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1.2" />
               </g>
 
-              {/* Oceanic Heat Flux Divergence Streamlines with Emerald Chevrons */}
-              <path
-                d="M 40 85 Q 85 70 120 45"
-                fill="none"
-                style={{ stroke: 'var(--theme-instrument-ink-secondary)' }}
-                strokeWidth="1"
-                strokeDasharray="4 2"
-              />
-              <path
-                d="M 140 85 Q 185 70 220 45"
-                fill="none"
-                style={{ stroke: 'var(--theme-instrument-ink-secondary)' }}
-                strokeWidth="1"
-                strokeDasharray="4 2"
-              />
-              <polyline points="75,76 80,74 76,70" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1" />
-              <polyline points="175,76 180,74 176,70" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1" />
+              {/* Sounding Trace */}
+              <polyline points="230,110 240,80 248,55 255,30" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="1" strokeDasharray="3 2" opacity="0.8" />
+              <circle cx="240" cy="80" r="2.5" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
+              <circle cx="248" cy="55" r="2.5" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
+              <circle cx="255" cy="30" r="2.5" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
 
-              {/* Oceanographic Sounding Telemetry Inscriptions */}
-              <text x="18" y="27" fill="currentColor" fontSize="6.5" fontFamily="monospace" fontWeight="bold" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              {/* Static Annotations (Moved out of caliper path) */}
+              <text x="24" y="100" fill="currentColor" fontSize="7" fontFamily="monospace" fontWeight="bold" opacity="0.9" paintOrder="stroke" style={{ stroke: 'var(--theme-instrument-caliper-badge-bg)' }} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 BAROCLINIC • Rossby λ = 4200 km
               </text>
-              <text x="18" y="35" style={{ fill: 'var(--theme-instrument-ink-secondary)', stroke: 'var(--theme-instrument-caliper-badge-bg)' }} fontSize="6" fontFamily="monospace" opacity="0.9" paintOrder="stroke" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <text x="24" y="108" style={{ fill: 'var(--theme-instrument-ink-secondary)', stroke: 'var(--theme-instrument-caliper-badge-bg)' }} fontSize="6.5" fontFamily="monospace" opacity="0.8" paintOrder="stroke" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 OCEANIC FLUX: Q = +142 W/m²
               </text>
-
-              {/* Radiosonde Sounding Ascent Trace */}
-              <polyline points="230,88 240,65 248,45 255,25" fill="none" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth="0.75" strokeDasharray="2 2" />
-              <circle cx="240" cy="65" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
-              <circle cx="248" cy="45" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
-              <circle cx="255" cy="25" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />
-
-              {/* Bottom Horizon Track */}
-              <line x1="24" y1="96" x2="256" y2="96" stroke="currentColor" strokeWidth="0.75" />
-              {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
-                const tx = 24 + (h / 240) * 232;
-                const isMilestone = h % 48 === 0;
-                return (
-                  <g key={h}>
-                    <line x1={tx} y1={isMilestone ? "91" : "93"} x2={tx} y2="96" stroke="currentColor" strokeWidth={isMilestone ? "0.8" : "0.5"} />
-                    {isMilestone && (
-                      <text x={tx} y="104" textAnchor="middle" fill="currentColor" fontSize="5.5" fontFamily="monospace">
-                        +{h}h
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
             </g>
           )}
 
-          {/* Interactive Lead-Time Caliper Indicator Cursor */}
+          {/* Timeline Axis (Always at bottom) */}
+          <line x1="24" y1="115" x2="256" y2="115" stroke="currentColor" strokeWidth="1" opacity="0.8" />
+          {[0, 24, 48, 72, 96, 120, 144, 168, 192, 216, 240].map((h) => {
+            const tx = 24 + (h / 240) * 232;
+            const isMilestone = h % 48 === 0;
+            return (
+              <g key={h}>
+                <line x1={tx} y1={isMilestone ? "110" : "112"} x2={tx} y2="115" style={{ stroke: 'var(--theme-instrument-ink-secondary)' }} strokeWidth={isMilestone ? "1" : "0.5"} />
+                {isMilestone && (
+                  <text x={tx} y="125" textAnchor="middle" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} fontSize="6.5" fontFamily="monospace" fontWeight="bold">
+                    +{h}h
+                  </text>
+                )}
+              </g>
+            );
+          })}
+
+          {/* Interactive Lead-Time Caliper Flag (Always at top, separated from data) */}
           <g>
-            {/* Top Indicator Flag with Readout */}
             <rect
-              x={Math.max(4, Math.min(238, caliperX - 19))}
-              y="6"
-              width="38"
-              height="12"
-              rx="2"
+              x={caliperX - 22}
+              y="4"
+              width="44"
+              height="16"
+              rx="3"
               style={{
                 fill: 'var(--theme-instrument-caliper-badge-bg)',
                 stroke: 'var(--theme-instrument-caliper)'
               }}
-              strokeWidth="0.8"
-              fillOpacity="0.95"
+              strokeWidth="1"
+              fillOpacity="1"
               className="drop-shadow"
             />
             <text
-              x={Math.max(4, Math.min(238, caliperX - 19)) + 19}
-              y="14.5"
+              x={caliperX}
+              y="15"
               textAnchor="middle"
               style={{ fill: 'var(--theme-instrument-caliper-badge-text)' }}
-              fontSize="6.5"
+              fontSize="7.5"
               fontFamily="monospace"
               fontWeight="bold"
             >
@@ -826,10 +793,13 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
 
             {/* Bottom Caliper Diamond */}
             <polygon
-              points={`${caliperX},90 ${caliperX + 3.5},94 ${caliperX},98 ${caliperX - 3.5},94`}
+              points={`${caliperX},112 ${caliperX + 4},116 ${caliperX},120 ${caliperX - 4},116`}
               style={{ fill: 'var(--theme-instrument-caliper)' }}
             />
           </g>
+
+          {/* Vignette overlay to fade out edges if they overflow */}
+          <rect x="0" y="0" width="280" height="140" fill="url(#fade-edges)" className="pointer-events-none" />
         </svg>
         </div>
       </div>

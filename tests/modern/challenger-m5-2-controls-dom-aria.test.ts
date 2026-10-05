@@ -479,7 +479,7 @@ describe('Challenger 2: Milestone 5 DOM, ARIA & Medium Artifact Verification', (
       expect(x240 + width240 / 2).toBe(256);
     });
 
-    it('M5-DOM-19: Frontal boundary line terminates above chronometric axis line (y <= 92)', async () => {
+    it('M5-DOM-19: Frontal boundary line terminates at or above chronometric axis line (y <= 115)', async () => {
       await act(async () => {
         root.render(React.createElement(PrognosticModelCard, { theme: 1 }));
       });
@@ -487,9 +487,9 @@ describe('Challenger 2: Milestone 5 DOM, ARIA & Medium Artifact Verification', (
       const frontPath = container.querySelector('.prognostic-model-cream path');
       expect(frontPath).not.toBeNull();
       const d = frontPath?.getAttribute('d') || '';
-      expect(d).toContain('152 92');
+      expect(d).toContain('155 115');
       // Must not plunge to y=100
-      expect(d).not.toContain('155 100');
+      expect(d).not.toContain('160 120');
     });
 
     it('M5-DOM-20: Archival text annotations in Theme 1 embed cartographic halos (paintOrder=stroke)', async () => {
