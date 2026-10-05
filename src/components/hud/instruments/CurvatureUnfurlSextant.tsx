@@ -52,20 +52,7 @@ const MILESTONES_BY_MODE: Record<number, MilestoneStage[]> = {
 };
 
 const MILESTONE_DETENTS = [0.000, 0.300, 0.700, 1.000];
-const SNAP_RADIUS = 0.015;
 const VELOCITY_BREAKAWAY = 0.0004;
-
-const snapToDetent = (val: number, velocity: number): number => {
-  if (Math.abs(velocity) > VELOCITY_BREAKAWAY) {
-    return val;
-  }
-  for (const m of MILESTONE_DETENTS) {
-    if (Math.abs(val - m) <= SNAP_RADIUS) {
-      return m;
-    }
-  }
-  return val;
-};
 
 export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
   alpha = 0,
@@ -106,15 +93,20 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
       if (!boxRef.current) return;
       const rect = boxRef.current.getBoundingClientRect();
       if (rect.width <= 0) return;
-      // Active arc span: calibrated pointer clientX relative to SVG arc path [15, 225] inside 240 viewBox
-      const leftMargin = rect.width * (15 / 240);
-      const arcWidth = rect.width * (210 / 240);
-      const rawFrac = (clientX - (rect.left + leftMargin)) / arcWidth;
+      // Active arc span: calibrated pointer clientX relative to SVG arc path [15, 225] inside 240 viewBox.
+      // Because the SVG uses xMidYMid meet, it is letterboxed inside the container. We must calculate the 
+      // actual rendered dimensions and centering padding to project the screen coordinate to the arc correctly.
+      const svgScale = rect.height / 36;
+      const renderedSvgWidth = 240 * svgScale;
+      const svgLeftPadding = (rect.width - renderedSvgWidth) / 2;
+      
+      const arcStartX_px = svgLeftPadding + (15 * svgScale);
+      const arcWidth_px = 210 * svgScale;
+      
+      const rawFrac = (clientX - (rect.left + arcStartX_px)) / arcWidth_px;
       let normX = Math.max(0.0, Math.min(1.0, rawFrac));
 
-      // Magnetic milestone detents with velocity breakaway
-      const snappedX = snapToDetent(normX, velocityRef.current);
-      const nextAlpha = parseFloat(snappedX.toFixed(3));
+      const nextAlpha = parseFloat(normX.toFixed(4));
 
       // Render reticle thumb using local drag coordinates, bypassing 30Hz React throttle
       lastInteractedAlphaRef.current = nextAlpha;
@@ -158,8 +150,9 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
     if (dt > 4 && boxRef.current) {
       const rect = boxRef.current.getBoundingClientRect();
       if (rect.width > 0) {
-        const arcWidth = rect.width * (210 / 240);
-        const dx = (e.clientX - lastClientXRef.current) / arcWidth;
+        const svgScale = rect.height / 36;
+        const arcWidth_px = 210 * svgScale;
+        const dx = (e.clientX - lastClientXRef.current) / arcWidth_px;
         velocityRef.current = dx / dt; // normalized fraction per ms
         lastClientXRef.current = e.clientX;
         lastTimeRef.current = now;
@@ -202,12 +195,6 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
     if (lastInteractedAlphaRef.current !== null && lastInteractedAlphaRef.current !== undefined) {
       currentAlpha = lastInteractedAlphaRef.current;
     }
-    if (Math.abs(velocityRef.current) <= VELOCITY_BREAKAWAY) {
-      currentAlpha = snapToDetent(currentAlpha, velocityRef.current);
-      if (MILESTONE_DETENTS.some((m) => Math.abs(currentAlpha - m) <= SNAP_RADIUS)) {
-        velocityRef.current = 0;
-      }
-    }
 
     // Micro-momentum coasting (20-50ms inertia decay, strictly clamped to 2-5 alpha units)
     let vel = velocityRef.current;
@@ -217,14 +204,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
       const step = () => {
         vel *= 0.60; // rapid friction damping over 20-50ms (2-3 frames)
         currentAlpha = Math.max(0.0, Math.min(1.0, currentAlpha + vel * 16));
-        if (Math.abs(vel) <= VELOCITY_BREAKAWAY) {
-          const snapped = snapToDetent(currentAlpha, vel);
-          if (snapped !== currentAlpha) {
-            currentAlpha = snapped;
-            vel = 0;
-          }
-        }
-        const clampedAlpha = parseFloat(currentAlpha.toFixed(3));
+        const clampedAlpha = parseFloat(currentAlpha.toFixed(4));
         setDragAlpha(clampedAlpha);
         onAlphaChange(clampedAlpha);
         if (Math.abs(vel) < 0.00008) {
@@ -282,7 +262,7 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
         aria-label="Topological Curvature Unfurl Sextant"
         aria-valuemin={0}
         aria-valuemax={1}
-        aria-valuenow={parseFloat(activeAlpha.toFixed(3))}
+        aria-valuenow={parseFloat(activeAlpha.toFixed(4))}
         aria-valuetext={`${(activeAlpha * 100).toFixed(0)}% — ${currentMilestone.label}: ${currentMilestone.sub}`}
         onKeyDown={(e) => {
           onCancelGlide?.();
@@ -296,11 +276,11 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
           if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
             e.preventDefault();
             e.stopPropagation();
-            onAlphaChange(parseFloat(Math.max(0.0, activeAlpha - step).toFixed(3)));
+            onAlphaChange(parseFloat(Math.max(0.0, activeAlpha - step).toFixed(4)));
           } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
             e.preventDefault();
             e.stopPropagation();
-            onAlphaChange(parseFloat(Math.min(1.0, activeAlpha + step).toFixed(3)));
+            onAlphaChange(parseFloat(Math.min(1.0, activeAlpha + step).toFixed(4)));
           } else if (e.key === 'Home') {
             e.preventDefault();
             e.stopPropagation();
@@ -313,12 +293,12 @@ export const CurvatureUnfurlSextant: React.FC<CurvatureUnfurlSextantProps> = ({
             e.preventDefault();
             e.stopPropagation();
             const next = MILESTONE_DETENTS.find((m) => m > activeAlpha + 0.001) ?? 1.0;
-            onAlphaChange(parseFloat(next.toFixed(3)));
+            onAlphaChange(parseFloat(next.toFixed(4)));
           } else if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === 'PageDown') {
             e.preventDefault();
             e.stopPropagation();
             const prev = [...MILESTONE_DETENTS].reverse().find((m) => m < activeAlpha - 0.001) ?? 0.0;
-            onAlphaChange(parseFloat(prev.toFixed(3)));
+            onAlphaChange(parseFloat(prev.toFixed(4)));
           } else if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key === '1') {
             e.preventDefault();
             e.stopPropagation();

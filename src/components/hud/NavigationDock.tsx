@@ -360,7 +360,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
         <div className="h-4 w-px shrink-0 z-10 border-[var(--theme-card-border)]" style={{ backgroundColor: 'var(--theme-neatline-border)', opacity: 0.45 }} />
 
         <span className="text-micro tabular-nums text-[var(--theme-text-secondary)] min-w-[3.25rem] text-right shrink-0 z-10">
-          {alpha.toFixed(3)}
+          {alpha.toFixed(4)}
         </span>
       </div>
 
