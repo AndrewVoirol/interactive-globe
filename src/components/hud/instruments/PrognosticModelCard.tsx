@@ -218,7 +218,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
       if (isWeatherNext) {
         const ds = weatherNextDataSource || (typeof window !== 'undefined' && (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__);
         if (ds && typeof ds.setTime === 'function') {
-          ds.setTime(Math.min(47, clampedHours), 0.0);
+          ds.setTime(clampedHours, 0.0);
         }
       }
     },
@@ -296,7 +296,7 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
       if (isWeatherNext) {
         const ds = weatherNextDataSource || (typeof window !== 'undefined' && (window as any).__INDICATRIX_WEATHERNEXT_DATA_SOURCE__);
         if (ds && typeof ds.setTime === 'function') {
-          ds.setTime(Math.min(47, next), 0.0);
+          ds.setTime(next, 0.0);
         }
       }
     }
