@@ -13,7 +13,11 @@ import { SimulationMode } from '../../src/types';
 describe('Challenger 1 Empirical Verification: Phase 2.2 Mode 4 Excision & Transitions', () => {
   it('TRANSITION-01: verifies all 16 pairwise mode transitions (0..3 -> 0..3) across alpha [0, 0.5, 1.0]', async () => {
     const mockGPU = createMockNavigatorGPU();
-    (globalThis as any).navigator = { gpu: mockGPU };
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { gpu: mockGPU },
+      writable: true,
+      configurable: true,
+    });
 
     const engine = new WebGPUEngine();
     const canvas = {

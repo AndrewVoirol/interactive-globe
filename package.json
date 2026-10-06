@@ -34,8 +34,8 @@
     "d3-geo-voronoi": "^2.1.0",
     "geojson": "^0.5.0",
     "lucide-react": "^1.39.0",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "topojson-client": "^3.1.0"
   },
   "devDependencies": {
@@ -43,8 +43,8 @@
     "@types/d3": "^7.4.3",
     "@types/geojson": "^7946.0.16",
     "@types/node": "^24.19.1",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@types/three": "^0.185.4",
     "@types/topojson-client": "^3.1.5",
     "@types/topojson-specification": "^1.0.5",
@@ -57,7 +57,10 @@
     "three": "^0.185.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.3",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.3"
+  },
+  "overrides": {
+    "tar": "^7.5.22"
   },
   "volta": {
     "node": "24.21.0",

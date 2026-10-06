@@ -28,7 +28,11 @@ describe('Phase 2 Interactive Unfurl & Loaders Verification Suite', () => {
 
   it('UNFURL-02: smoothly unfurls across all 5 projection modes at full pipeline depth', async () => {
     const mockGPU = createMockNavigatorGPU();
-    (globalThis as any).navigator = { gpu: mockGPU };
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { gpu: mockGPU },
+      writable: true,
+      configurable: true,
+    });
 
     const engine = new WebGPUEngine();
     const canvas = {
@@ -95,7 +99,11 @@ describe('Phase 2 Interactive Unfurl & Loaders Verification Suite', () => {
 
   it('UNFURL-03: stress-tests rapid scrubbing across slider values without frame drops or leaks', async () => {
     const mockGPU = createMockNavigatorGPU();
-    (globalThis as any).navigator = { gpu: mockGPU };
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { gpu: mockGPU },
+      writable: true,
+      configurable: true,
+    });
 
     const engine = new WebGPUEngine();
     const canvas = {
@@ -166,7 +174,11 @@ describe('Phase 2 Interactive Unfurl & Loaders Verification Suite', () => {
 
   it('UNFURL-05: verifies asynchronous loaders handle mid-stream disposal and uninitialized state gracefully', async () => {
     const mockGPU = createMockNavigatorGPU();
-    (globalThis as any).navigator = { gpu: mockGPU };
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { gpu: mockGPU },
+      writable: true,
+      configurable: true,
+    });
 
     const originalFetch = globalThis.fetch;
     globalThis.fetch = vi.fn().mockImplementation(() =>
