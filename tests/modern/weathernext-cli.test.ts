@@ -14,6 +14,14 @@ import { WEATHERNEXT_GRID_SPEC } from '../../src/core/data/WeatherNextDataSource
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const SCRIPT_PATH = path.join(PROJECT_ROOT, 'scripts', 'fetch-weathernext3.py');
 
+const hasADC = (() => {
+  const envAdc = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (envAdc && fs.existsSync(envAdc)) return true;
+  const home = process.env.HOME || process.env.USERPROFILE || '';
+  const defaultAdc = path.join(home, '.config', 'gcloud', 'application_default_credentials.json');
+  return fs.existsSync(defaultAdc);
+})();
+
 describe('WeatherNext 3 Pipeline CLI (scripts/fetch-weathernext3.py)', () => {
   it('WN3-CLI-01: script exists and is marked executable', () => {
     expect(fs.existsSync(SCRIPT_PATH)).toBe(true);
@@ -21,7 +29,7 @@ describe('WeatherNext 3 Pipeline CLI (scripts/fetch-weathernext3.py)', () => {
     expect(stat.size).toBeGreaterThan(1000);
   });
 
-  it('WN3-CLI-02: dry-run executes cleanly with exit code 0 and verifies ADC auth and requester-pays GCS bucket', () => {
+  it.runIf(hasADC)('WN3-CLI-02: dry-run executes cleanly with exit code 0 and verifies ADC auth and requester-pays GCS bucket', () => {
     const cmd = `uv run --with zarr --with gcsfs --with numpy python scripts/fetch-weathernext3.py --dry-run`;
     const stdout = execSync(cmd, { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 30000 });
 
@@ -58,7 +66,7 @@ describe('WeatherNext 3 Pipeline CLI (scripts/fetch-weathernext3.py)', () => {
     expect(stdout).toContain('[OK] DRY-RUN VERIFICATION PASSED');
   }, 40000);
 
-  it('WN3-CLI-03: dry-run with --unpadded correctly calculates unpadded storage footprint and disables zero-copy', () => {
+  it.runIf(hasADC)('WN3-CLI-03: dry-run with --unpadded correctly calculates unpadded storage footprint and disables zero-copy', () => {
     const cmd = `uv run --with zarr --with gcsfs --with numpy python scripts/fetch-weathernext3.py --dry-run --unpadded`;
     const stdout = execSync(cmd, { cwd: PROJECT_ROOT, encoding: 'utf-8', timeout: 60000 });
 

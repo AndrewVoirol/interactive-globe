@@ -16,6 +16,14 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const SCRIPT_PATH = path.join(PROJECT_ROOT, 'scripts', 'fetch-weathernext3.py');
 const PUBLIC_WEATHERNEXT_DIR = path.join(PROJECT_ROOT, 'public', 'data', 'weathernext');
 
+const hasADC = (() => {
+  const envAdc = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (envAdc && fs.existsSync(envAdc)) return true;
+  const home = process.env.HOME || process.env.USERPROFILE || '';
+  const defaultAdc = path.join(home, '.config', 'gcloud', 'application_default_credentials.json');
+  return fs.existsSync(defaultAdc);
+})();
+
 describe('Adversarial Challenge: scripts/fetch-weathernext3.py', () => {
   it('ADV-CLI-01: --help exits with code 0 and documents all essential CLI options', () => {
     const res = spawnSync('uv', ['run', '--with', 'zarr', '--with', 'gcsfs', '--with', 'numpy', 'python', SCRIPT_PATH, '--help'], {
@@ -62,7 +70,7 @@ describe('Adversarial Challenge: scripts/fetch-weathernext3.py', () => {
     expect(res.stderr).toContain('unrecognized arguments: 2 3');
   });
 
-  it('ADV-CLI-05: nonexistent cycle name throws ValueError and exits with non-zero code', () => {
+  it.runIf(hasADC)('ADV-CLI-05: nonexistent cycle name throws ValueError and exits with non-zero code', () => {
     const res = spawnSync('uv', ['run', '--with', 'zarr', '--with', 'gcsfs', '--with', 'numpy', 'python', SCRIPT_PATH, '--dry-run', '--cycle', 'nonexistent_cycle_test_9999'], {
       cwd: PROJECT_ROOT,
       encoding: 'utf-8',
@@ -73,7 +81,7 @@ describe('Adversarial Challenge: scripts/fetch-weathernext3.py', () => {
     expect(combinedOutput).toContain('ValueError: Requested cycle directory does not exist');
   }, 35000);
 
-  it('ADV-CLI-06: invalid variable name throws KeyError and exits with non-zero code', () => {
+  it.runIf(hasADC)('ADV-CLI-06: invalid variable name throws KeyError and exits with non-zero code', () => {
     const res = spawnSync('uv', ['run', '--with', 'zarr', '--with', 'gcsfs', '--with', 'numpy', 'python', SCRIPT_PATH, '--dry-run', '--variables', 'completely_invalid_field'], {
       cwd: PROJECT_ROOT,
       encoding: 'utf-8',
@@ -84,7 +92,7 @@ describe('Adversarial Challenge: scripts/fetch-weathernext3.py', () => {
     expect(combinedOutput).toContain("KeyError: \"Requested variable 'completely_invalid_field' not found in predictions.zarr!\"");
   }, 35000);
 
-  it('ADV-CLI-07: custom variable subset and trailing comma whitespace executes cleanly', () => {
+  it.runIf(hasADC)('ADV-CLI-07: custom variable subset and trailing comma whitespace executes cleanly', () => {
     const res = spawnSync('uv', ['run', '--with', 'zarr', '--with', 'gcsfs', '--with', 'numpy', 'python', SCRIPT_PATH, '--dry-run', '--hours', '1', '--variables', 'temperature_2m_mean, '], {
       cwd: PROJECT_ROOT,
       encoding: 'utf-8',
@@ -96,7 +104,7 @@ describe('Adversarial Challenge: scripts/fetch-weathernext3.py', () => {
     expect(res.stdout).toContain('[OK] DRY-RUN VERIFICATION PASSED');
   }, 35000);
 
-  it('ADV-CLI-08: --dry-run guarantees zero filesystem mutation in public/data/weathernext/', () => {
+  it.runIf(hasADC)('ADV-CLI-08: --dry-run guarantees zero filesystem mutation in public/data/weathernext/', () => {
     const existsBefore = fs.existsSync(PUBLIC_WEATHERNEXT_DIR);
     const filesBefore = existsBefore ? fs.readdirSync(PUBLIC_WEATHERNEXT_DIR) : [];
 
