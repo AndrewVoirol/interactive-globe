@@ -408,3 +408,25 @@ The test suite contains over 268 test files and 3,815+ tests, taking 35–45 sec
   npx vitest run tests/modern/target-feature.test.ts tests/modern/challenger-anti-bypass.test.ts
   ```
 - **Preservation of Base Formulations in Shader ASTs**: When extending or modulating an established WGSL color equation tested by Challenger anti-bypass scanners, structure the modification as an explicit modulation of the established base formulation (`cloudColor = baseColor; cloudColor = (stratumPigment / baseColor) * cloudColor;`) rather than replacing the base assignment outright, preventing AST regex collisions while guaranteeing active non-placebo execution.
+
+## 63. Heavy Tooling Quarantine & Dynamic Resolution Invariant
+Heavy data ingestion, GIS, or native CLI dependencies (e.g. `duckdb`, `duckdb-async`, `canvas`) must NEVER pollute the root application's runtime `dependencies` or root `devDependencies`.
+- **Root Zero-Vulnerability Invariant**: Root `package.json` must maintain 0 high/critical audit vulnerabilities and require zero native `node-gyp` compilation steps on clean `npm install`.
+- **Subpackage Containment**: Offline precomputation pipelines must be quarantined in `tools/<tool-name>/package.json` with an explanatory `README.md`.
+- **Dynamic Consumer Bridges**: Consuming developer scripts in `scripts/` must NEVER statically import from quarantined packages. Use dynamic `await import(...)` wrapped in a resolver. If the module is not found, print clear, actionable instructions:
+  ```text
+  [tools/<tool-name>] Package is isolated to preserve zero-vulnerability root hygiene.
+  To run this workflow:
+    1. cd tools/<tool-name>
+    2. npm install
+    3. npm run precompute
+  ```
+- **Runtime Purity**: `canvas` belongs strictly in `devDependencies` (for precomputation); runtime web packages must rely exclusively on browser-native WebGL2/WebGPU canvases.
+
+## 64. Cloud CI Environment Parity & Binary LFS Invariant
+When configuring GitHub Actions workflows (`.github/workflows/ci.yml`) or authoring test suites for the Indicatrix Engine:
+- **Mandatory Git LFS Checkout**: Repositories containing `.bin`, `.dds`, or `.webp` binary assets tracked in `.gitattributes` MUST configure `actions/checkout@v4` with `with: { lfs: true }`. Omitting this leaves 130-byte text pointer files that cause fatal runtime deserialization errors.
+- **Polyglot Toolchain Provisioning**: When test suites execute Python scripts via `uv run`, CI must explicitly install the toolchain using `astral-sh/setup-uv@v5`.
+- **Cloud ADC Credential Gating**: Tests probing live cloud services (e.g., Google Cloud Storage requester-pays buckets) MUST gate network assertions with `it.runIf(hasADC)` / `it.skipIf(!hasADC)`. CLI flag parsers, offline `--mock` modes, and data math must execute unconditionally on unauthenticated CI runners.
+- **Stress Test Timeout Scaling**: Tests executing Monte Carlo loops ($\ge 5,000$ iterations) must declare an explicit 120s timeout (`}, 120000);`) and CI test runners must pass `--testTimeout 120000` to prevent false-positive timeouts on constrained runners.
+
