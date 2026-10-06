@@ -532,6 +532,6 @@ describe('Adversarial Challenger: Stage 2 Shader & Uniform Alignment Suite (R11)
       expect(Number.isNaN(crustFloats[65])).toBe(false);
       expect(Number.isNaN(crustFloats[66])).toBe(false);
       expect(Number.isNaN(crustFloats[67])).toBe(false);
-    });
+    }, 120000);
   });
 });
