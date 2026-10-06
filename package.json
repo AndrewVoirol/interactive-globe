@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "precompute": "node scripts/precompute.js",
@@ -55,6 +56,7 @@
     "happy-dom": "^20.13.2",
     "tailwindcss": "^4.3.3",
     "three": "^0.185.1",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.3",
     "vitest": "^5.0.3"
