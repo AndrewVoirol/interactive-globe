@@ -47,7 +47,7 @@
     "@types/three": "^0.185.4",
     "@types/topojson-client": "^3.1.5",
     "@types/topojson-specification": "^1.0.5",
-    "@vitejs/plugin-react": "^5.0.0",
+    "@vitejs/plugin-react": "^6.1.2",
     "@webgpu/types": "^0.1.72",
     "autoprefixer": "^10.4.19",
     "duckdb": "^1.4.4",
@@ -56,8 +56,8 @@
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
     "three": "^0.185.1",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.3",
     "vitest": "^4.1.11"
   },
   "volta": {

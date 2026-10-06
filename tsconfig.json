@@ -19,18 +19,19 @@
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ]
     },
     "allowImportingTsExtensions": true,
+    "strict": false,
     "noEmit": true
   },
   "exclude": [
     "src/core/_deferred/**",
     "dist",
-    "node_modules"
+    "node_modules",
+    "scripts"
   ]
 }

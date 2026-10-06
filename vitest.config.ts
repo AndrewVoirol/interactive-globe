@@ -7,7 +7,7 @@ export default defineConfig({
     environment: 'happy-dom',
     include: ['tests/**/*.{test,spec}.{ts,js,tsx,jsx}'],
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
     testTimeout: 30000,
     hookTimeout: 30000,

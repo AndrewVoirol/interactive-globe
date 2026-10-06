@@ -141,22 +141,21 @@ describe('Challenger 1 (Round 4 / Milestone 3): Architecture Cleanup Empirical S
 
     it('2.4: vite.config.ts configures resolve.alias["@"] pointing strictly to ./src', () => {
       const viteConfigContent = fs.readFileSync(path.join(projectRoot, 'vite.config.ts'), 'utf8');
-      expect(viteConfigContent).toMatch(/['"]@['"]\s*:\s*path\.resolve\(__dirname,\s*['"]\.\/src['"]\)/);
-      expect(viteConfigContent).not.toMatch(/['"]@['"]\s*:\s*path\.resolve\(__dirname,\s*['"]\.['"]\)/);
+      expect(viteConfigContent).toMatch(/['"]@['"]\s*:\s*path\.resolve\((?:__dirname|import\.meta\.dirname),\s*['"]\.\/src['"]\)/);
+      expect(viteConfigContent).not.toMatch(/['"]@['"]\s*:\s*path\.resolve\((?:__dirname|import\.meta\.dirname),\s*['"]\.['"]\)/);
     });
 
     it('2.5: vitest.config.ts configures test.alias["@"] pointing strictly to ./src', () => {
       const vitestConfigContent = fs.readFileSync(path.join(projectRoot, 'vitest.config.ts'), 'utf8');
-      expect(vitestConfigContent).toMatch(/['"]@['"]\s*:\s*path\.resolve\(__dirname,\s*['"]\.\/src['"]\)/);
-      expect(vitestConfigContent).not.toMatch(/['"]@['"]\s*:\s*path\.resolve\(__dirname,\s*['"]\.['"]\)/);
+      expect(vitestConfigContent).toMatch(/['"]@['"]\s*:\s*path\.resolve\((?:__dirname|import\.meta\.dirname),\s*['"]\.\/src['"]\)/);
+      expect(vitestConfigContent).not.toMatch(/['"]@['"]\s*:\s*path\.resolve\((?:__dirname|import\.meta\.dirname),\s*['"]\.['"]\)/);
     });
 
-    it('2.6: tsconfig.json configures baseUrl "." and paths {"@/*": ["src/*"]}', () => {
+    it('2.6: tsconfig.json configures paths {"@/*": ["./src/*"]}', () => {
       const tsconfigContent = fs.readFileSync(path.join(projectRoot, 'tsconfig.json'), 'utf8');
       const tsconfig = JSON.parse(tsconfigContent);
-      expect(tsconfig.compilerOptions.baseUrl).toBe('.');
       expect(tsconfig.compilerOptions.paths).toBeDefined();
-      expect(tsconfig.compilerOptions.paths['@/*']).toEqual(['src/*']);
+      expect(tsconfig.compilerOptions.paths['@/*']).toEqual(['./src/*']);
     });
 
     it('2.7: Vite resolveConfig programmatically verifies "@" maps to absolute path of src', async () => {
@@ -263,7 +262,7 @@ describe('Challenger 1 (Round 4 / Milestone 3): Architecture Cleanup Empirical S
       expect(output).toBeDefined();
       const entryChunk = output.find((o: any) => o.isEntry);
       expect(entryChunk).toBeDefined();
-      expect(entryChunk.code).toMatch(/getElementById\(["']root["']\)/);
+      expect(entryChunk.code).toMatch(/getElementById\([`"']root[`"']\)/);
       expect(entryChunk.code).toContain('createRoot');
     });
   });
