@@ -27,6 +27,7 @@ import { OrographicMoistureProfile } from '../../src/components/hud/instruments/
 import { CloudShadowInstrument } from '../../src/components/hud/instruments/CloudShadowInstrument';
 import { CloudDriftSpeedInstrument } from '../../src/components/hud/instruments/CloudDriftSpeedInstrument';
 import { PrognosticModelCard } from '../../src/components/hud/instruments/PrognosticModelCard';
+import { VolumetricCloudDynamicsInstrument } from '../../src/components/hud/instruments/VolumetricCloudDynamicsInstrument';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -497,6 +498,86 @@ describe('Milestone 6: AtmosphereDrawer Precision Instruments Suite', () => {
       });
       expect(container.querySelector('.prognostic-model-cyanotype')).not.toBeNull();
       expect(container.querySelector('.prognostic-model-cream')).toBeNull();
+    });
+
+    it('R15-THEME-05: VolumetricCloudDynamicsInstrument renders 3-medium adaptive SVG artifacts across Themes 0, 1, and 2', async () => {
+      // Theme 0 (Marie Tharp)
+      await act(async () => {
+        root.render(
+          React.createElement(VolumetricCloudDynamicsInstrument, {
+            cloudThickness: 0.19,
+            onCloudThicknessChange: () => {},
+            cloudLowTop: 0.45,
+            onCloudLowTopChange: () => {},
+            cloudErosion: 0.85,
+            onCloudErosionChange: () => {},
+            cloudExtinction: 28,
+            onCloudExtinctionChange: () => {},
+            cloudFreqHoriz: 32,
+            onCloudFreqHorizChange: () => {},
+            cloudFreqVert: 12,
+            onCloudFreqVertChange: () => {},
+            theme: 0,
+          })
+        );
+      });
+      expect(container.querySelector('.vertical-structure-tharp')).not.toBeNull();
+      expect(container.querySelector('.billow-detail-tharp')).not.toBeNull();
+      expect(container.querySelector('.planetary-scale-tharp')).not.toBeNull();
+      expect(container.querySelector('.vertical-structure-cream')).toBeNull();
+      expect(container.querySelector('.vertical-structure-cyanotype')).toBeNull();
+
+      // Theme 1 (Cream Rag)
+      await act(async () => {
+        root.render(
+          React.createElement(VolumetricCloudDynamicsInstrument, {
+            cloudThickness: 0.19,
+            onCloudThicknessChange: () => {},
+            cloudLowTop: 0.45,
+            onCloudLowTopChange: () => {},
+            cloudErosion: 0.85,
+            onCloudErosionChange: () => {},
+            cloudExtinction: 28,
+            onCloudExtinctionChange: () => {},
+            cloudFreqHoriz: 32,
+            onCloudFreqHorizChange: () => {},
+            cloudFreqVert: 12,
+            onCloudFreqVertChange: () => {},
+            theme: 1,
+          })
+        );
+      });
+      expect(container.querySelector('.vertical-structure-cream')).not.toBeNull();
+      expect(container.querySelector('.billow-detail-cream')).not.toBeNull();
+      expect(container.querySelector('.planetary-scale-cream')).not.toBeNull();
+      expect(container.querySelector('.vertical-structure-tharp')).toBeNull();
+      expect(container.querySelector('.vertical-structure-cyanotype')).toBeNull();
+
+      // Theme 2 (Prussian Cyanotype)
+      await act(async () => {
+        root.render(
+          React.createElement(VolumetricCloudDynamicsInstrument, {
+            cloudThickness: 0.19,
+            onCloudThicknessChange: () => {},
+            cloudLowTop: 0.45,
+            onCloudLowTopChange: () => {},
+            cloudErosion: 0.85,
+            onCloudErosionChange: () => {},
+            cloudExtinction: 28,
+            onCloudExtinctionChange: () => {},
+            cloudFreqHoriz: 32,
+            onCloudFreqHorizChange: () => {},
+            cloudFreqVert: 12,
+            onCloudFreqVertChange: () => {},
+            theme: 2,
+          })
+        );
+      });
+      expect(container.querySelector('.vertical-structure-cyanotype')).not.toBeNull();
+      expect(container.querySelector('.billow-detail-cyanotype')).not.toBeNull();
+      expect(container.querySelector('.planetary-scale-cyanotype')).not.toBeNull();
+      expect(container.querySelector('.vertical-structure-tharp')).toBeNull();
+      expect(container.querySelector('.vertical-structure-cream')).toBeNull();
     });
   });
 

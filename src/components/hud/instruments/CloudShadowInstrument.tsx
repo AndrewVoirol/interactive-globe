@@ -197,6 +197,17 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
               <line x1="0" y1="0" x2="0" y2="4" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.8" />
             </pattern>
 
+            {/* Theme 2: Prussian Cyanotype Architectural Ray-Trace Grid Pattern */}
+            <pattern
+              id="cyanotype-shadow-hatch"
+              width="6"
+              height="6"
+              patternTransform="rotate(45 0 0)"
+              patternUnits="userSpaceOnUse"
+            >
+              <line x1="0" y1="0" x2="0" y2="6" style={{ stroke: 'var(--theme-instrument-ink)' }} strokeWidth="0.5" strokeDasharray="3 1" />
+            </pattern>
+
             {/* Theme 0: Marie Tharp Volumetric Extinction Gradient */}
             <linearGradient id="tharp-extinction-grad" x1="0" y1="0" x2="0" y2="1">
               <stop
@@ -430,6 +441,15 @@ export const CloudShadowInstrument: React.FC<CloudShadowInstrumentProps> = ({
           ) : theme === 2 ? (
             // Theme 2 (Prussian Cyanotype): Optical Ray-Trace & CAD Division Grid
             <g className="shadow-projection-cyanotype">
+              {/* CAD Ray-Trace Hatching over Shadow Projection Cone */}
+              {shadowIntensity > 0.001 && (
+                <polygon
+                  points="28,22 98,22 128,50 58,50"
+                  fill="url(#cyanotype-shadow-hatch)"
+                  opacity={0.35 + normIntensity * 0.65}
+                />
+              )}
+
               {/* 45° Solar Angle Arc at Origin (28, 22) */}
               <path
                 d="M 28 22 L 40 22 A 12 12 0 0 1 36.5 30.5 Z"

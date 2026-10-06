@@ -262,6 +262,13 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             </g>
           ) : theme === 2 ? (
             <g className="atmospheric-column-cyanotype isobar-grid-cyanotype text-[var(--theme-instrument-ink)]">
+              {/* Left Altitude Scale Axis — CAD Isobaric Grid */}
+              <line x1="40" y1="14" x2="40" y2="122" stroke="currentColor" strokeWidth="0.75" />
+              <line x1="34" y1="14" x2="40" y2="14" stroke="currentColor" strokeWidth="0.75" />
+              <line x1="34" y1="34" x2="40" y2="34" stroke="currentColor" strokeWidth="0.75" />
+              <line x1="34" y1="70" x2="40" y2="70" stroke="currentColor" strokeWidth="0.75" />
+              <line x1="34" y1="104" x2="40" y2="104" stroke="currentColor" strokeWidth="0.75" />
+              <line x1="34" y1="122" x2="40" y2="122" stroke="currentColor" strokeWidth="0.75" />
               {/* Isobaric level lines */}
               <line x1="40" y1="14" x2="272" y2="14" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
               <line x1="40" y1="34" x2="272" y2="34" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
@@ -273,11 +280,11 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
                 <line key={i} x1={50 + i * 18} y1="14" x2={50 + i * 18} y2="122" stroke="currentColor" strokeWidth="0.3" strokeDasharray="1 3" opacity="0.2" />
               ))}
               <g style={{ paintOrder: 'stroke', stroke: 'var(--theme-instrument-viewport-bg)', strokeWidth: '4px', strokeLinejoin: 'round' }}>
-                <text x="38" y="17" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">150hPa</text>
-                <text x="38" y="34" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">250hPa</text>
-                <text x="38" y="70" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">500hPa</text>
-                <text x="38" y="106" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">850hPa</text>
-                <text x="38" y="124" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">1013</text>
+                <text x="31" y="17" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">150hPa</text>
+                <text x="31" y="37" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">250hPa</text>
+                <text x="31" y="73" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">500hPa</text>
+                <text x="31" y="107" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">850hPa</text>
+                <text x="31" y="124" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">1013</text>
               </g>
               <g style={{ opacity: showCloudHigh ? 1.0 : 0.0, transition: 'opacity 0.2s' }}>
                 <circle cx="195" cy="31" r="2" style={{ fill: 'var(--theme-instrument-ink-secondary)' }} />

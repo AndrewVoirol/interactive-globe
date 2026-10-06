@@ -250,6 +250,62 @@ export const VolumetricCloudDynamicsInstrument: React.FC<VolumetricCloudDynamics
             <rect x="40" y={cY} width="160" height={Math.max(0, 80 - cY)} fill="var(--theme-instrument-ink)" fillOpacity="0.2" />
             <text x="120" y={cY + (80 - cY)/2 + 2} textAnchor="middle" fill="var(--theme-instrument-ink)" fillOpacity="0.7" fontSize="4.5" fontFamily="monospace" fontWeight="bold">LOW (CUMULUS / STRATUS)</text>
 
+            {/* 3-Medium Adaptive Graphic Groups for Vertical Structure */}
+            {activeTheme === 1 ? (
+              // Theme 1: Archival Cream Rag intaglio engraving & geological hachures
+              <g className="vertical-structure-cream text-[var(--theme-instrument-ink)]">
+                {/* Bedrock Intaglio Hachures under planetary crust */}
+                {Array.from({ length: 20 }).map((_, i) => {
+                  const x = 20 + i * 10;
+                  const curveY = 80 - Math.sin((x / 240) * Math.PI) * 5;
+                  return (
+                    <line
+                      key={`hachure-${i}`}
+                      x1={x}
+                      y1={curveY}
+                      x2={x - 4}
+                      y2={curveY + 8}
+                      stroke="currentColor"
+                      strokeWidth="0.6"
+                      opacity="0.45"
+                    />
+                  );
+                })}
+                {/* High Cirrus Engraving Wisps */}
+                <path d="M 60 22 Q 90 18 130 23 T 180 20" fill="none" stroke="currentColor" strokeWidth="0.5" strokeDasharray="3 2" opacity="0.4" />
+                {/* Mid Altocumulus Engraving Ripples */}
+                <path d="M 55 48 Q 70 44 85 48 Q 100 52 115 48 Q 130 44 145 48 Q 160 52 175 48" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.35" />
+              </g>
+            ) : activeTheme === 2 ? (
+              // Theme 2: Prussian Cyanotype CAD technical drafting & isobaric guides
+              <g className="vertical-structure-cyanotype text-[var(--theme-instrument-ink)]">
+                {/* CAD Isobaric Station Ticks */}
+                <line x1="20" y1="20" x2="30" y2="20" stroke="currentColor" strokeWidth="0.6" opacity="0.7" />
+                <text x="18" y="22" textAnchor="end" fill="currentColor" fontSize="4.5" fontFamily="monospace" opacity="0.7">250hPa</text>
+                <line x1="20" y1="50" x2="30" y2="50" stroke="currentColor" strokeWidth="0.6" opacity="0.7" />
+                <text x="18" y="52" textAnchor="end" fill="currentColor" fontSize="4.5" fontFamily="monospace" opacity="0.7">500hPa</text>
+                <line x1="20" y1="75" x2="30" y2="75" stroke="currentColor" strokeWidth="0.6" opacity="0.7" />
+                <text x="18" y="77" textAnchor="end" fill="currentColor" fontSize="4.5" fontFamily="monospace" opacity="0.7">850hPa</text>
+                {/* Crust Baseline CAD division ticks */}
+                {Array.from({ length: 11 }).map((_, i) => (
+                  <line key={`cad-tick-${i}`} x1={20 + i * 20} y1="80" x2={20 + i * 20} y2="85" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
+                ))}
+              </g>
+            ) : (
+              // Theme 0: Marie Tharp Physiographic acoustic sounding & sonar returns
+              <g className="vertical-structure-tharp text-[var(--theme-instrument-ink)]">
+                {/* Radiosonde Temperature Profile Curve */}
+                <path d="M 85 80 Q 75 60 90 48 Q 115 35 105 18" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="3 2" opacity="0.6" />
+                {/* Sonar Acoustic Pulse Echo Rings at Cumulus Deck Ceiling */}
+                <circle cx="120" cy={cY} r="6" stroke="var(--theme-instrument-ink-secondary)" strokeWidth="0.5" strokeDasharray="1 2" fill="none" opacity="0.55" />
+                <circle cx="120" cy={cY} r="12" stroke="var(--theme-instrument-ink-secondary)" strokeWidth="0.4" strokeDasharray="2 3" fill="none" opacity="0.35" />
+                {/* Fathometer Bathymetric Station Ticks */}
+                {Array.from({ length: 9 }).map((_, i) => (
+                  <line key={`tharp-tick-${i}`} x1={30 + i * 22} y1="82" x2={30 + i * 22} y2="88" stroke="var(--theme-instrument-ink-secondary)" strokeWidth="0.6" opacity="0.5" />
+                ))}
+              </g>
+            )}
+
             {/* Left Caliper: Absolute Troposphere Thickness (scales entire column) */}
             <line x1="10" y1={tY} x2="40" y2={tY} stroke="var(--theme-instrument-caliper)" strokeWidth="1.5" />
             <line x1="38" y1={tY} x2="38" y2="80" stroke="var(--theme-instrument-caliper)" strokeWidth="1" strokeDasharray="2 2" />
@@ -322,6 +378,49 @@ export const VolumetricCloudDynamicsInstrument: React.FC<VolumetricCloudDynamics
               <circle cx="8" cy="10" r={normErosion * 5} fill="var(--theme-instrument-viewport-bg)" />
             </g>
 
+            {/* 3-Medium Adaptive Graphic Groups for Billow Detail */}
+            {activeTheme === 1 ? (
+              // Theme 1: Archival Cream Rag intaglio shading and stipple
+              <g className="billow-detail-cream text-[var(--theme-instrument-ink)]">
+                {/* Intaglio shading arcs across billow boundary */}
+                <g transform="translate(120, 45) scale(1.5)" opacity="0.45" stroke="currentColor" fill="none">
+                  <path d="M -8 0 A 8 8 0 0 0 8 0" strokeWidth="0.5" strokeDasharray="1.5 1.5" />
+                  <path d="M -12 6 A 12 12 0 0 0 12 6" strokeWidth="0.4" strokeDasharray="2 2" />
+                  <path d="M -6 -6 A 6 6 0 0 0 6 -6" strokeWidth="0.5" strokeDasharray="1 1" />
+                </g>
+              </g>
+            ) : activeTheme === 2 ? (
+              // Theme 2: Prussian Cyanotype CAD precision radius circles & coordinate ticks
+              <g className="billow-detail-cyanotype text-[var(--theme-instrument-ink)]">
+                {/* Blueprint radial tolerance circles */}
+                <g transform="translate(120, 45)" stroke="currentColor" fill="none" opacity="0.35">
+                  <circle cx="0" cy="0" r="18" strokeWidth="0.5" strokeDasharray="2 3" />
+                  <circle cx="0" cy="0" r="32" strokeWidth="0.4" strokeDasharray="3 3" />
+                  {/* Cardinal crosshair markers */}
+                  <line x1="-36" y1="0" x2="-28" y2="0" strokeWidth="0.6" />
+                  <line x1="28" y1="0" x2="36" y2="0" strokeWidth="0.6" />
+                  <line x1="0" y1="-36" x2="0" y2="-28" strokeWidth="0.6" />
+                  <line x1="0" y1="28" x2="0" y2="36" strokeWidth="0.6" />
+                </g>
+              </g>
+            ) : (
+              // Theme 0: Marie Tharp Physiographic stippling & acoustic attenuation
+              <g className="billow-detail-tharp text-[var(--theme-instrument-ink-secondary)]">
+                {/* Physiographic stipple points inside density core */}
+                <g transform="translate(120, 45)" fill="currentColor" opacity="0.5">
+                  <circle cx="-5" cy="-2" r="1.2" />
+                  <circle cx="4" cy="3" r="1.0" />
+                  <circle cx="-2" cy="6" r="1.1" />
+                  <circle cx="6" cy="-4" r="0.9" />
+                  <circle cx="0" cy="-6" r="1.0" />
+                  <circle cx="-8" cy="2" r="0.8" />
+                  <circle cx="8" cy="1" r="0.8" />
+                </g>
+                {/* Acoustic Doppler sound echo envelope */}
+                <path d="M 95 45 Q 120 30 145 45" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="2 2" opacity="0.5" />
+              </g>
+            )}
+
             {/* Reticle / Crosshair */}
             <line x1="0" y1={eY} x2="240" y2={eY} stroke="var(--theme-instrument-caliper)" strokeWidth="0.8" strokeDasharray="2 2" />
             <line x1={bX} y1="0" x2={bX} y2="90" stroke="var(--theme-instrument-caliper)" strokeWidth="0.8" strokeDasharray="2 2" />
@@ -381,6 +480,32 @@ export const VolumetricCloudDynamicsInstrument: React.FC<VolumetricCloudDynamics
                 });
               })}
             </g>
+
+            {/* 3-Medium Adaptive Graphic Groups for Planetary Scale */}
+            {activeTheme === 1 ? (
+              // Theme 1: Archival Cream Rag intaglio atmospheric flow filaments
+              <g className="planetary-scale-cream text-[var(--theme-instrument-ink)]" fill="none" stroke="currentColor" opacity="0.4">
+                <path d="M 25 25 C 60 20, 100 35, 140 25 S 200 30, 220 25" strokeWidth="0.6" strokeDasharray="3 2" />
+                <path d="M 25 55 C 60 50, 100 65, 140 55 S 200 60, 220 55" strokeWidth="0.6" strokeDasharray="3 2" />
+              </g>
+            ) : activeTheme === 2 ? (
+              // Theme 2: Prussian Cyanotype CAD orthogonal dimension frame
+              <g className="planetary-scale-cyanotype text-[var(--theme-instrument-ink)]" fill="none" stroke="currentColor" opacity="0.35">
+                {/* CAD Grid Outer Alignment Frame */}
+                <rect x="18" y="8" width="204" height="64" strokeWidth="0.5" strokeDasharray="4 2" />
+                {/* Corner registration crosshairs */}
+                <line x1="14" y1="8" x2="22" y2="8" strokeWidth="0.75" />
+                <line x1="18" y1="4" x2="18" y2="12" strokeWidth="0.75" />
+                <line x1="218" y1="8" x2="226" y2="8" strokeWidth="0.75" />
+                <line x1="222" y1="4" x2="222" y2="12" strokeWidth="0.75" />
+              </g>
+            ) : (
+              // Theme 0: Marie Tharp Physiographic acoustic cell soundings
+              <g className="planetary-scale-tharp text-[var(--theme-instrument-ink-secondary)]" fill="none" stroke="currentColor" opacity="0.45">
+                {/* Acoustic wavelets simulating cellular advection */}
+                <path d="M 30 70 A 15 8 0 0 1 60 70 A 15 8 0 0 1 90 70 A 15 8 0 0 1 120 70 A 15 8 0 0 1 150 70 A 15 8 0 0 1 180 70 A 15 8 0 0 1 210 70" strokeWidth="0.6" strokeDasharray="2 3" />
+              </g>
+            )}
 
             {/* Crosshair Caliper */}
             <line x1="0" y1={vY} x2="240" y2={vY} stroke="var(--theme-instrument-caliper)" strokeWidth="0.8" strokeDasharray="2 2" />
