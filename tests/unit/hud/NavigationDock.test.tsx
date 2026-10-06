@@ -40,7 +40,7 @@ describe('NavigationDock Mode Selector (Milestone 4 Verification)', () => {
     expect(dockCode).toContain('text-nano');
 
     // Ivory vellum background
-    expect(dockCode).toContain('rgba(252, 249, 242, 0.94)');
+    expect(dockCode).toContain('var(--theme-card-bg)');
 
     // 10px breathing clearance (gap-2.5 = 10px, pt-2.5 = 10px)
     expect(dockCode).toContain('gap-2.5');

@@ -47,7 +47,7 @@ export const CatalogSheet: React.FC<CatalogSheetProps> = ({
         <div className="flex items-center justify-between pb-3 border-b border-[var(--theme-panel-border)]">
           <div>
             <h3 className="text-micro font-semibold uppercase tracking-wider text-[var(--theme-text-primary)]">Catalog</h3>
-            <span className="text-nano opacity-60 text-[var(--theme-text-muted)]">
+            <span className="text-nano text-[var(--theme-text-tertiary)]">
               {DATA_LAYER_CATALOG.length} datasets
             </span>
           </div>
@@ -131,7 +131,7 @@ export const CatalogSheet: React.FC<CatalogSheetProps> = ({
                         {preset.name}
                       </span>
                     </div>
-                    <span className="text-nano opacity-60 text-[var(--theme-text-muted)] block mt-0.5 truncate">
+                    <span className="text-nano text-[var(--theme-text-tertiary)] block mt-0.5 truncate">
                       {preset.type}
                     </span>
                   </div>
@@ -151,12 +151,12 @@ export const CatalogSheet: React.FC<CatalogSheetProps> = ({
                   </span>
                 </div>
 
-                <p className="text-nano opacity-75 text-[var(--theme-text-secondary)] mt-1.5 leading-relaxed line-clamp-2">
+                <p className="text-nano text-[var(--theme-text-tertiary)] mt-1.5 leading-relaxed line-clamp-2">
                   {preset.details}
                 </p>
 
                 <div className="mt-2.5 pt-2 border-t flex items-center justify-between gap-2 border-[var(--theme-card-border)]">
-                  <span className="text-nano opacity-50 text-[var(--theme-text-muted)]">
+                  <span className="text-nano text-[var(--theme-text-tertiary)]">
                     {preset.elevationEncoding ? `Format: ${preset.elevationEncoding.toUpperCase()}` : 'Format: Float32'}
                   </span>
 
@@ -190,17 +190,9 @@ export const CatalogSheet: React.FC<CatalogSheetProps> = ({
                     }}
                     className={`px-3 py-1.5 rounded-[2px] text-nano font-bold border transition-all flex items-center gap-1.5 ${
                       preset.unsupported
-                        ? theme === 1
-                          ? 'opacity-50 cursor-not-allowed bg-[#e2dcce] text-[#787062] border-[#c4bcac]'
-                          : theme === 2
-                          ? 'opacity-40 cursor-not-allowed bg-[#142334] text-[#6b8aa8] border-[#20364d]'
-                          : 'opacity-40 cursor-not-allowed bg-zinc-800 text-zinc-400 border-zinc-700'
+                        ? 'opacity-40 cursor-not-allowed bg-[var(--theme-instrument-viewport-bg)] text-[var(--theme-text-muted)] border-[var(--theme-instrument-viewport-border)]'
                         : isAlreadyAdded
-                        ? theme === 1
-                          ? 'bg-[#2e6b47]/15 text-[#1b432b] border-[#2e6b47]/30 cursor-default font-semibold'
-                          : theme === 2
-                          ? 'bg-[#38bdf8]/20 text-[#7dd3fc] border-[#38bdf8]/40 cursor-default font-semibold'
-                          : 'bg-[#34d399]/20 text-[#34d399] border-[#34d399]/40 cursor-default ring-1 ring-[#34d399]/30 font-semibold'
+                        ? 'bg-[var(--theme-status-sage)]/20 text-[var(--theme-status-sage)] border-[var(--theme-status-sage)]/40 cursor-default ring-1 ring-[var(--theme-status-sage)]/30 font-semibold'
                         : 'cursor-pointer bg-[var(--theme-control-active-bg)] text-[var(--theme-control-active-text)] border-[var(--theme-control-active-border)] hover:border-[var(--theme-card-border-hover)] shadow-sm font-semibold'
                     }`}
                   >

@@ -690,10 +690,10 @@ export default function App() {
         {/* Outer Archival Neatline & Geodetic Corner Marks */}
         <div className="absolute inset-2 pointer-events-none border border-[var(--theme-neatline-border)] z-20 transition-colors duration-500">
           <div className="absolute inset-[2px] border border-current/15" />
-          <span className="absolute top-[1px] left-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80">⌜ 00.00°</span>
-          <span className={`absolute top-[1px] right-2 ${isSidebarActive ? 'max-md:hidden' : ''} text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌝ 90.00°</span>
-          <span className="absolute bottom-1 left-2 text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300">⌞ 180.00°</span>
-          <span className={`absolute bottom-1 right-2 ${isSidebarActive ? 'max-md:hidden' : ''} text-nano font-mono tracking-widest text-[var(--theme-text-muted)] opacity-80 transition-all duration-300`}>⌟ 270.00°</span>
+          <span className="absolute top-[1px] left-2 text-nano font-mono tracking-widest text-[var(--theme-text-tertiary)]">⌜ 00.00°</span>
+          <span className={`absolute top-[1px] right-2 ${isSidebarActive ? 'max-md:hidden' : ''} text-nano font-mono tracking-widest text-[var(--theme-text-tertiary)] transition-all duration-300`}>⌝ 90.00°</span>
+          <span className="absolute bottom-1 left-2 text-nano font-mono tracking-widest text-[var(--theme-text-tertiary)] transition-all duration-300">⌞ 180.00°</span>
+          <span className={`absolute bottom-1 right-2 ${isSidebarActive ? 'max-md:hidden' : ''} text-nano font-mono tracking-widest text-[var(--theme-text-tertiary)] transition-all duration-300`}>⌟ 270.00°</span>
         </div>
 
         {/* Top Technical Calibration Bar (Aligned on 20px grid axis with 10px neatline clearance moat) */}

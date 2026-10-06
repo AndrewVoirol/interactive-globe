@@ -16,6 +16,7 @@ export default {
         'serif-book': ['Newsreader', 'Georgia', 'serif'],
       },
       fontSize: {
+        pico: ['7px', { lineHeight: '9px', letterSpacing: '0.00em' }],
         nano: ['8px', { lineHeight: '10px', letterSpacing: '0.04em' }],
         micro: ['9px', { lineHeight: '12px', letterSpacing: '0.03em' }],
         body: ['10px', { lineHeight: '13px', letterSpacing: '0.02em' }],

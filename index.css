@@ -9,7 +9,8 @@
 [data-theme="tharp"] {
   --theme-text-primary: #F0EDE6;
   --theme-text-secondary: #A2998A;
-  --theme-text-muted: #686257;
+  --theme-text-muted: #908980;
+  --theme-text-tertiary: #968F85;
   --theme-text-accent: #C5A059;
   --theme-text-inverse: #0C1219;
 
@@ -139,8 +140,9 @@
 
 [data-theme="cream"] {
   --theme-text-primary: #2B241A;
-  --theme-text-secondary: #7D715D;
+  --theme-text-secondary: #736750;
   --theme-text-muted: #7A6E5A;
+  --theme-text-tertiary: #746849;
   --theme-text-accent: #8C4820;
   --theme-text-inverse: #FDFCF9;
 
@@ -239,6 +241,7 @@
   --theme-text-primary: #E8EDF2;
   --theme-text-secondary: #8EA4BD;
   --theme-text-muted: #6B94BD;
+  --theme-text-tertiary: #7B9FBF;
   --theme-text-accent: #A5D5FF;
   --theme-text-inverse: #0C1520;
 
@@ -355,11 +358,12 @@ html, body, #root {
 .font-serif-book { font-family: 'Newsreader', Georgia, serif; }
 .font-mono-draft { font-family: 'IBM Plex Mono', 'Courier New', monospace; }
 
-/* 4-Tier Semantic Typography Scale */
+/* 5-Tier Semantic Typography Scale */
 .text-archival-title { font-size: 11px; line-height: 14px; letter-spacing: 0.05em; font-weight: 600; }
 .text-archival-body  { font-size: 10px; line-height: 13px; letter-spacing: 0.02em; font-weight: 500; }
 .text-archival-micro { font-size: 9px;  line-height: 12px; letter-spacing: 0.03em; font-weight: 400; }
 .text-archival-nano  { font-size: 8px;  line-height: 10px; letter-spacing: 0.04em; font-weight: 500; }
+.text-archival-pico  { font-size: 7px;  line-height: 9px;  letter-spacing: 0.00em; font-weight: 400; }
 
 /* Theme-Responsive Cartographic Classes */
 .cartouche-title {

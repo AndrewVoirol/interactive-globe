@@ -3737,16 +3737,16 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         ambientOcclusion={layer.ambientOcclusion}
       */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-10">
-          <div className="flex flex-col items-center gap-2 text-sky-400 font-mono text-xs">
-            <span className="w-6 h-6 border-2 border-sky-400 border-t-transparent rounded-full animate-spin"></span>
+        <div className="absolute inset-0 flex items-center justify-center bg-[var(--theme-panel-bg)]/80 backdrop-blur-sm z-10">
+          <div className="flex flex-col items-center gap-2 text-[var(--theme-status-info)] font-mono text-micro">
+            <span className="w-6 h-6 border-2 border-[var(--theme-status-info)] border-t-transparent rounded-full animate-spin"></span>
             <span>Allocating WebGPU 1M Matrix Storage...</span>
           </div>
         </div>
       )}
       {loadError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
-          <div className="p-4 rounded-[3px] border border-rose-500/50 bg-rose-950/40 text-rose-300 font-mono text-xs max-w-md">
+        <div className="absolute inset-0 flex items-center justify-center bg-[var(--theme-panel-bg)]/90 z-20">
+          <div className="p-4 rounded-[3px] border border-[var(--theme-status-error)]/50 bg-[var(--theme-instrument-viewport-bg)] text-[var(--theme-status-error)] font-mono text-micro max-w-md">
             <p className="font-bold mb-1">WebGPU Initialization Error</p>
             <p>{loadError}</p>
           </div>

@@ -173,7 +173,7 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
       {/* 1. Resolution Tier Selector */}
       <div className="space-y-1">
         <div className="flex items-center justify-between text-nano font-mono">
-          <span className="uppercase font-bold tracking-wider opacity-60">Resolution</span>
+          <span className="uppercase font-bold tracking-wider text-[var(--theme-text-tertiary)]">Resolution</span>
           <span
             className="text-[var(--theme-text-accent)] font-medium cursor-help"
             title={
@@ -211,7 +211,7 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
       {/* 2. Geodetic Coordinates & Nominal Scale */}
       <div className="grid grid-cols-2 gap-2 tabular-nums text-[var(--theme-text-secondary)]">
         <div>
-          <span className="block text-nano uppercase font-bold tracking-wider opacity-60">
+          <span className="block text-nano uppercase font-bold tracking-wider text-[var(--theme-text-tertiary)]">
             Center Coordinate
           </span>
           <span className="font-bold text-[var(--theme-text-primary)]">
@@ -219,7 +219,7 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
           </span>
         </div>
         <div className="text-right">
-          <span className="block text-nano uppercase font-bold tracking-wider opacity-60">
+          <span className="block text-nano uppercase font-bold tracking-wider text-[var(--theme-text-tertiary)]">
             Nominal Scale
           </span>
           <span className="font-bold text-[var(--theme-text-primary)]">{mapScaleStr}</span>
@@ -229,7 +229,7 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
       {/* 3. Manifold & Medium Provenance (Always-Visible Cross-Tab Readout) */}
       <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-[var(--theme-card-border)] font-mono text-nano">
         <div>
-          <span className="block text-nano uppercase font-bold tracking-wider opacity-60">Medium</span>
+          <span className="block text-nano uppercase font-bold tracking-wider text-[var(--theme-text-tertiary)]">Medium</span>
           <span
             data-testid="telemetry-medium"
             className="font-bold text-[var(--theme-text-primary)] truncate block"
@@ -239,7 +239,7 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
           </span>
         </div>
         <div>
-          <span className="block text-nano uppercase font-bold tracking-wider opacity-60">Projection</span>
+          <span className="block text-nano uppercase font-bold tracking-wider text-[var(--theme-text-tertiary)]">Projection</span>
           <span
             data-testid="telemetry-projection"
             className="font-bold text-[var(--theme-text-primary)] truncate block"
@@ -249,7 +249,7 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
           </span>
         </div>
         <div className="text-right">
-          <span className="block text-nano uppercase font-bold tracking-wider opacity-60">Manifold</span>
+          <span className="block text-nano uppercase font-bold tracking-wider text-[var(--theme-text-tertiary)]">Manifold</span>
           <span
             data-testid="telemetry-manifold"
             className="font-bold text-[var(--theme-text-accent)] truncate block"
@@ -263,7 +263,7 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
       {/* 4. Atmospheric & Kinematic Telemetry (Always-Visible Cross-Tab Readout) */}
       <div className="grid grid-cols-3 gap-1.5 font-mono text-nano">
         <div>
-          <span className="block text-nano uppercase font-bold tracking-wider opacity-60">Stratum</span>
+          <span className="block text-nano uppercase font-bold tracking-wider text-[var(--theme-text-tertiary)]">Stratum</span>
           <span
             data-testid="telemetry-stratum"
             className="font-bold text-[var(--theme-status-amber)] truncate block"
@@ -273,7 +273,7 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
           </span>
         </div>
         <div>
-          <span className="block text-nano uppercase font-bold tracking-wider opacity-60">Grid</span>
+          <span className="block text-nano uppercase font-bold tracking-wider text-[var(--theme-text-tertiary)]">Grid</span>
           <span
             data-testid="telemetry-grid-resolution"
             className="font-bold text-[var(--theme-text-secondary)] truncate block tabular-nums"
@@ -283,7 +283,7 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
           </span>
         </div>
         <div className="text-right">
-          <span className="block text-nano uppercase font-bold tracking-wider opacity-60">Wind Field</span>
+          <span className="block text-nano uppercase font-bold tracking-wider text-[var(--theme-text-tertiary)]">Wind Field</span>
           <span
             data-testid="telemetry-wind-field"
             className={`font-bold truncate block ${isWindActive ? 'text-[var(--theme-status-sage)]' : 'text-[var(--theme-text-muted)]'}`}
@@ -317,7 +317,7 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
               >
                 {fps}
               </span>
-              <span className="text-nano font-normal opacity-60">FPS</span>
+              <span className="text-nano font-normal text-[var(--theme-text-tertiary)]">FPS</span>
             </div>
           </div>
           {backend === 'webgpu' && gpuReport && (
@@ -325,7 +325,7 @@ export const SidebarTelemetry: React.FC<SidebarTelemetryProps> = ({
           )}
         </div>
         {backend === 'webgpu' && gpuReport && (
-          <div className="grid grid-cols-4 gap-1 font-mono opacity-80 text-nano">
+          <div className="grid grid-cols-4 gap-1 font-mono text-[var(--theme-text-tertiary)] text-nano">
             <span>Sim: {(gpuReport.computeMs ?? 0).toFixed(1)}ms</span>
             <span>Crust: {(gpuReport.reliefMs ?? 0).toFixed(1)}ms</span>
             <span>Lines: {(gpuReport.linesMs ?? 0).toFixed(1)}ms</span>

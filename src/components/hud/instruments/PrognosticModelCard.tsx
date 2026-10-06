@@ -357,15 +357,15 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               onClick={() => handleVariableSelect('total_precipitation_1hr_mean')}
               className={`relative flex flex-col justify-between p-1.5 text-left rounded-[2px] overflow-hidden transition-all duration-300 outline-none border focus:ring-1 focus:ring-[var(--theme-text-accent)] ${
                 normalizedVariable === 'total_precipitation_1hr_mean'
-                  ? 'bg-[var(--theme-card-bg)] border-[var(--theme-text-accent)] shadow-[0_0_8px_rgba(0,0,0,0.1)]'
+                  ? 'bg-[var(--theme-card-bg)] border-[var(--theme-text-accent)] shadow-[0_0_8px_var(--theme-panel-shadow)]'
                   : 'bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)] opacity-60 hover:opacity-100 hover:bg-[var(--theme-card-bg)]'
               }`}
             >
               <div className="relative z-10 w-full">
-                <div className="font-mono text-[9px] font-bold text-[var(--theme-text-primary)] leading-tight tracking-wide">PRECIPITATION</div>
-                <div className="font-mono text-[7px] text-[var(--theme-text-muted)] leading-tight mt-[2px]">Total Column Pluvial Mass</div>
+                <div className="font-mono text-micro font-bold text-[var(--theme-text-primary)] leading-tight tracking-wide">PRECIPITATION</div>
+                <div className="font-mono text-pico text-[var(--theme-text-muted)] leading-tight mt-[2px]">Total Column Pluvial Mass</div>
               </div>
-              <div className="relative z-10 font-mono text-[7px] text-[var(--theme-instrument-ink-secondary)] opacity-70">kg/m² (Σ)</div>
+              <div className="relative z-10 font-mono text-pico text-[var(--theme-instrument-ink-secondary)] opacity-70">kg/m² (Σ)</div>
               
               <svg viewBox="0 0 140 70" className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="xMidYMid slice">
                 <defs>
@@ -402,15 +402,15 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               onClick={() => handleVariableSelect('temperature_2m_mean')}
               className={`relative flex flex-col justify-between p-1.5 text-left rounded-[2px] overflow-hidden transition-all duration-300 outline-none border focus:ring-1 focus:ring-[var(--theme-status-amber)] ${
                 normalizedVariable === 'temperature_2m_mean'
-                  ? 'bg-[var(--theme-card-bg)] border-[var(--theme-status-amber)] shadow-[0_0_8px_rgba(0,0,0,0.1)]'
+                  ? 'bg-[var(--theme-card-bg)] border-[var(--theme-status-amber)] shadow-[0_0_8px_var(--theme-panel-shadow)]'
                   : 'bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)] opacity-60 hover:opacity-100 hover:bg-[var(--theme-card-bg)]'
               }`}
             >
               <div className="relative z-10 w-full">
-                <div className="font-mono text-[9px] font-bold text-[var(--theme-text-primary)] leading-tight tracking-wide">TEMPERATURE</div>
-                <div className="font-mono text-[7px] text-[var(--theme-text-muted)] leading-tight mt-[2px]">2m Surface Thermal Flux</div>
+                <div className="font-mono text-micro font-bold text-[var(--theme-text-primary)] leading-tight tracking-wide">TEMPERATURE</div>
+                <div className="font-mono text-pico text-[var(--theme-text-muted)] leading-tight mt-[2px]">2m Surface Thermal Flux</div>
               </div>
-              <div className="relative z-10 w-full text-right font-mono text-[7px] text-[var(--theme-instrument-ink-secondary)] opacity-70">°C / K</div>
+              <div className="relative z-10 w-full text-right font-mono text-pico text-[var(--theme-instrument-ink-secondary)] opacity-70">°C / K</div>
               
               <svg viewBox="0 0 140 70" className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="xMidYMid slice">
                 <defs>
@@ -447,15 +447,15 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               onClick={() => handleVariableSelect('wind_10m_vector')}
               className={`relative flex flex-col justify-between p-1.5 text-left rounded-[2px] overflow-hidden transition-all duration-300 outline-none border focus:ring-1 focus:ring-[var(--theme-status-sage)] ${
                 normalizedVariable === 'wind_10m_vector'
-                  ? 'bg-[var(--theme-card-bg)] border-[var(--theme-status-sage)] shadow-[0_0_8px_rgba(0,0,0,0.1)]'
+                  ? 'bg-[var(--theme-card-bg)] border-[var(--theme-status-sage)] shadow-[0_0_8px_var(--theme-panel-shadow)]'
                   : 'bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)] opacity-60 hover:opacity-100 hover:bg-[var(--theme-card-bg)]'
               }`}
             >
               <div className="relative z-10 w-full">
-                <div className="font-mono text-[9px] font-bold text-[var(--theme-text-primary)] leading-tight tracking-wide">SURFACE WIND</div>
-                <div className="font-mono text-[7px] text-[var(--theme-text-muted)] leading-tight mt-[2px]">10m Velocity Vector Field</div>
+                <div className="font-mono text-micro font-bold text-[var(--theme-text-primary)] leading-tight tracking-wide">SURFACE WIND</div>
+                <div className="font-mono text-pico text-[var(--theme-text-muted)] leading-tight mt-[2px]">10m Velocity Vector Field</div>
               </div>
-              <div className="relative z-10 font-mono text-[7px] text-[var(--theme-instrument-ink-secondary)] opacity-70">m/s (uv)</div>
+              <div className="relative z-10 font-mono text-pico text-[var(--theme-instrument-ink-secondary)] opacity-70">m/s (uv)</div>
               
               <svg viewBox="0 0 140 70" className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="xMidYMid slice">
                 <defs>
@@ -494,15 +494,15 @@ export const PrognosticModelCard: React.FC<PrognosticModelCardProps> = ({
               onClick={() => handleVariableSelect('geopotential_500hpa')}
               className={`relative flex flex-col justify-between p-1.5 text-left rounded-[2px] overflow-hidden transition-all duration-300 outline-none border focus:ring-1 focus:ring-[var(--theme-text-accent)] ${
                 normalizedVariable === 'geopotential_500hpa'
-                  ? 'bg-[var(--theme-card-bg)] border-[var(--theme-text-accent)] shadow-[0_0_8px_rgba(0,0,0,0.1)]'
+                  ? 'bg-[var(--theme-card-bg)] border-[var(--theme-text-accent)] shadow-[0_0_8px_var(--theme-panel-shadow)]'
                   : 'bg-[var(--theme-instrument-viewport-bg)] border-[var(--theme-instrument-viewport-border)] opacity-60 hover:opacity-100 hover:bg-[var(--theme-card-bg)]'
               }`}
             >
               <div className="relative z-10 w-full">
-                <div className="font-mono text-[9px] font-bold text-[var(--theme-text-primary)] leading-tight tracking-wide">Z500 HEIGHT</div>
-                <div className="font-mono text-[7px] text-[var(--theme-text-muted)] leading-tight mt-[2px]">500 hPa Geopotential</div>
+                <div className="font-mono text-micro font-bold text-[var(--theme-text-primary)] leading-tight tracking-wide">Z500 HEIGHT</div>
+                <div className="font-mono text-pico text-[var(--theme-text-muted)] leading-tight mt-[2px]">500 hPa Geopotential</div>
               </div>
-              <div className="relative z-10 font-mono text-[7px] text-[var(--theme-instrument-ink-secondary)] opacity-70">Z (gpm)</div>
+              <div className="relative z-10 font-mono text-pico text-[var(--theme-instrument-ink-secondary)] opacity-70">Z (gpm)</div>
               
               <svg viewBox="0 0 140 70" className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="xMidYMid slice">
                 <defs>

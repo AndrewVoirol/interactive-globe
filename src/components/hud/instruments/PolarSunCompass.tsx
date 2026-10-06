@@ -520,10 +520,10 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
       <div className="flex items-center justify-center py-1">
         <div className="relative" style={{ width: 172, height: 172 }}>
           {/* Cardinal direction labels — outside the bezel ring */}
-          <span className="absolute left-1/2 -translate-x-1/2 top-0 text-[9px] font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]" style={{ letterSpacing: '0.08em' }}>N</span>
-          <span className="absolute top-1/2 -translate-y-1/2 right-0 text-[9px] font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]" style={{ letterSpacing: '0.08em' }}>E</span>
-          <span className="absolute left-1/2 -translate-x-1/2 bottom-0 text-[9px] font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]" style={{ letterSpacing: '0.08em' }}>S</span>
-          <span className="absolute top-1/2 -translate-y-1/2 left-0 text-[9px] font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]" style={{ letterSpacing: '0.08em' }}>W</span>
+          <span className="absolute left-1/2 -translate-x-1/2 top-0 text-micro font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]" style={{ letterSpacing: '0.08em' }}>N</span>
+          <span className="absolute top-1/2 -translate-y-1/2 right-0 text-micro font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]" style={{ letterSpacing: '0.08em' }}>E</span>
+          <span className="absolute left-1/2 -translate-x-1/2 bottom-0 text-micro font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]" style={{ letterSpacing: '0.08em' }}>S</span>
+          <span className="absolute top-1/2 -translate-y-1/2 left-0 text-micro font-cartouche font-bold pointer-events-none text-[var(--theme-text-secondary)]" style={{ letterSpacing: '0.08em' }}>W</span>
 
           {/* The dial itself — centered inside the label frame */}
           <div
@@ -558,7 +558,7 @@ export const PolarSunCompass: React.FC<PolarSunCompassProps> = ({
             title="Drag reticle to position sun vector (Double-click to reset to Imhof 315° / 45°, Arrow keys to nudge)"
             className={`absolute inset-[14px] rounded-full cursor-crosshair select-none touch-none focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none`}
             style={{
-              boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.2)',
+              boxShadow: 'inset 0 2px 6px var(--theme-panel-shadow)',
             }}
           >
             {/* Full SVG dial face */}

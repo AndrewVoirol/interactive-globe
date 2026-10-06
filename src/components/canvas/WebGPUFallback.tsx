@@ -22,25 +22,13 @@ export const WebGPUFallback: React.FC<WebGPUFallbackProps> = ({
   return (
     <div
       data-theme={themeName}
-      className={`w-full h-full flex flex-col items-center justify-center p-6 select-none transition-colors duration-500 font-mono ${
-        theme === 2
-          ? 'paper-cyanotype bg-[#0C1520] text-[#E8EDF2]'
-          : theme === 1
-          ? 'paper-cream bg-[#F8F3E8] text-[#2B241A]'
-          : 'paper-tharp bg-[#090B10] text-[#F0EDE6]'
-      }`}
+      className="w-full h-full flex flex-col items-center justify-center p-6 select-none transition-colors duration-500 font-mono bg-[var(--theme-panel-bg)] text-[var(--theme-text-primary)]"
     >
       {/* Decorative SVG Vector Globe Wireframe */}
       <div className="relative w-64 h-64 mb-8 flex items-center justify-center">
         <svg
           viewBox="0 0 200 200"
-          className={`w-full h-full animate-spin-slow ${
-            theme === 2
-              ? 'text-[#4F79A3]/60'
-              : theme === 1
-              ? 'text-[#8C4820]/40'
-              : 'text-cyan-500/40'
-          }`}
+          className="w-full h-full animate-spin-slow text-[var(--theme-control-accent)] opacity-40"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.2"
@@ -51,13 +39,7 @@ export const WebGPUFallback: React.FC<WebGPUFallbackProps> = ({
             cy="100"
             r="90"
             strokeWidth="1.8"
-            className={
-              theme === 2
-                ? 'text-[#4F79A3]'
-                : theme === 1
-                ? 'text-[#8C4820]'
-                : 'text-cyan-400/80'
-            }
+            className="text-[var(--theme-control-accent)] opacity-80"
           />
           
           {/* Parallels (Latitudes) */}
@@ -80,13 +62,7 @@ export const WebGPUFallback: React.FC<WebGPUFallbackProps> = ({
         {/* Central Geometric Indicator */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div
-            className={`w-16 h-16 rounded-full border border-dashed flex items-center justify-center font-mono text-micro font-bold tracking-wider ${
-              theme === 2
-                ? 'border-[#4F79A3] bg-[#101C2B]/80 text-[#E8EDF2]'
-                : theme === 1
-                ? 'border-[#B8AD98] bg-[#FDFCF9]/80 text-[#2B241A]'
-                : 'border-cyan-400/60 bg-cyan-950/30 text-cyan-300'
-            }`}
+            className="w-16 h-16 rounded-full border border-dashed flex items-center justify-center font-mono text-micro font-bold tracking-wider border-[var(--theme-instrument-viewport-border)] bg-[var(--theme-instrument-viewport-bg)] text-[var(--theme-status-info)]"
           >
             S² ⟷ ℝ²
           </div>
@@ -117,7 +93,7 @@ export const WebGPUFallback: React.FC<WebGPUFallbackProps> = ({
           </div>
           <div className="flex justify-between items-center">
             <span className="text-[var(--theme-text-secondary)]">Hardware Compute:</span>
-            <span className="text-emerald-500 font-bold">Storage Buffers @ 256</span>
+            <span className="text-[var(--theme-status-sage)] font-bold">Storage Buffers @ 256</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-[var(--theme-text-secondary)]">Supported Browsers:</span>

@@ -168,7 +168,7 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
               <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
                 Flyover Tour
               </span>
-              <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+              <span className="text-nano font-mono text-[var(--theme-text-tertiary)]">
                 Cinematic orbital & regional insets
               </span>
             </div>
@@ -344,7 +344,7 @@ export const KinematicsTab: React.FC<KinematicsTabProps> = ({
               <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
                 Distortion Indicatrix
               </span>
-              <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)]">
+              <span className="text-nano font-mono text-[var(--theme-text-tertiary)]">
                 Tissot deformation ellipses
               </span>
             </div>

@@ -564,7 +564,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
           >
             <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[var(--theme-text-accent)] rotate-45" />
             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[var(--theme-text-accent)] rotate-45" />
-            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-1 py-px rounded-[1px] bg-[var(--theme-panel-bg)] border border-[var(--theme-text-accent)] text-[var(--theme-text-accent)] text-[8px] font-mono font-bold uppercase tracking-wider leading-none shadow-xs">
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-1 py-px rounded-[1px] bg-[var(--theme-panel-bg)] border border-[var(--theme-text-accent)] text-[var(--theme-text-accent)] text-nano font-mono font-bold uppercase tracking-wider leading-none shadow-xs">
               NOW
             </div>
           </div>
@@ -575,7 +575,7 @@ export const TimelineScrubber: React.FC<TimelineScrubberProps> = ({
             style={{ left: `${thumbPositionPct}%` }}
           >
             <div
-              className={`w-2.5 h-7 rounded-[1px] shadow-[0_1px_4px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all ${
+              className={`w-2.5 h-7 rounded-[1px] shadow-[var(--theme-panel-shadow)] flex items-center justify-center transition-all ${
                 currentMinutes < 0
                   ? 'bg-[var(--theme-status-amber)] border border-[var(--theme-status-amber)] shadow-[0_0_10px_var(--theme-status-amber)] text-[var(--theme-text-inverse)]'
                   : currentMinutes > 0

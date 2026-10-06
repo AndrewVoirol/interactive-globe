@@ -27,6 +27,7 @@ export interface UIThemeTokens {
   textPrimary: string;
   textSecondary: string;
   textMuted: string;
+  textTertiary: string;  // WCAG AA-compliant label color (replaces opacity-60 on muted)
   textAccent: string;
   textInverse: string;
 
@@ -126,7 +127,8 @@ export interface ThemePalette {
 export const DARK_CYBER_UI_TOKENS: UIThemeTokens = {
   textPrimary: '#F0EDE6',
   textSecondary: '#A2998A',
-  textMuted: '#686257',
+  textMuted: '#908980',      // 4.86:1 on card bg (was #686257 = 2.78:1)
+  textTertiary: '#968F85',   // 5.26:1 on card bg — replaces opacity-60 on muted
   textAccent: '#C5A059',
   textInverse: '#0C1219',
 
@@ -243,8 +245,9 @@ export const MARIE_THARP_THEME = DARK_CYBER_THEME;
 
 export const LIGHT_MONOCHROME_UI_TOKENS: UIThemeTokens = {
   textPrimary: '#2B241A',
-  textSecondary: '#7D715D',
+  textSecondary: '#736750',  // 5.01:1 on composited control bg (was #7D715D = 4.32:1)
   textMuted: '#7A6E5A',
+  textTertiary: '#746849',   // 5.23:1 on card bg — replaces opacity-60 on muted
   textAccent: '#8C4820',
   textInverse: '#FDFCF9',
 
@@ -363,6 +366,7 @@ export const PRUSSIAN_CYANOTYPE_UI_TOKENS: UIThemeTokens = {
   textPrimary: '#E8EDF2',
   textSecondary: '#8EA4BD',
   textMuted: '#6B94BD',
+  textTertiary: '#7B9FBF',   // 6.19:1 on card bg — replaces opacity-60 on muted
   textAccent: '#A5D5FF',
   textInverse: '#0C1520',
 
@@ -585,6 +589,7 @@ export class ThemeManager {
     target.style.setProperty('--theme-text-primary', ui.textPrimary);
     target.style.setProperty('--theme-text-secondary', ui.textSecondary);
     target.style.setProperty('--theme-text-muted', ui.textMuted);
+    target.style.setProperty('--theme-text-tertiary', ui.textTertiary);
     if (this.activePigment) {
       target.style.setProperty('--theme-active-pigment', this.activePigment.hex);
       target.style.setProperty('--theme-text-accent', this.activePigment.hex);

@@ -670,8 +670,8 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
   const applyGrabStyle = useCallback((grabbed: boolean) => {
     if (!boxRef.current) return;
     boxRef.current.style.boxShadow = grabbed
-      ? '0 0 16px var(--theme-focus-ring), 0 4px 12px rgba(0,0,0,0.25)'
-      : '0 2px 6px rgba(0,0,0,0.12)';
+      ? '0 0 16px var(--theme-focus-ring), 0 4px 12px var(--theme-panel-shadow)'
+      : '0 2px 6px var(--theme-panel-shadow)';
   }, []);
 
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -840,7 +840,7 @@ export const HypsometricReliefCurve: React.FC<HypsometricReliefCurveProps> = ({
           className="relative w-full cursor-crosshair select-none touch-none focus-visible:ring-2 focus-visible:ring-[var(--theme-focus-ring)] focus-visible:outline-none"
           style={{
             height: 130,
-            boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+            boxShadow: '0 2px 6px var(--theme-panel-shadow)',
           }}
         >
           <svg

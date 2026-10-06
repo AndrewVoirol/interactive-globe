@@ -61,7 +61,7 @@ const ToastItem: React.FC<{
     );
   } else if (toast.type === 'error') {
     icon = (
-      <svg className="w-4 h-4 text-rose-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-4 h-4 text-[var(--theme-status-error)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     );
@@ -82,7 +82,7 @@ const ToastItem: React.FC<{
                 background: toast.type === 'success'
                   ? 'linear-gradient(to bottom, var(--theme-status-sage), var(--theme-text-accent))'
                   : toast.type === 'error'
-                  ? 'linear-gradient(to bottom, #ef4444, #f43f5e)'
+                  ? 'linear-gradient(to bottom, var(--theme-status-error), var(--theme-status-alert))'
                   : toast.type === 'warning'
                   ? 'linear-gradient(to bottom, var(--theme-status-amber), var(--theme-text-accent))'
                   : 'linear-gradient(to bottom, var(--theme-status-slate), var(--theme-pulse-indicator))'

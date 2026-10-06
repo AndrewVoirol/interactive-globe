@@ -285,7 +285,7 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
 
         {/* Sea Level Caliper Reticle Line with Centered Precision Badge */}
         <div
-          className={`absolute left-0 right-0 h-0.5 pointer-events-none z-30 bg-[var(--theme-instrument-caliper)] shadow-[0_1px_4px_rgba(0,0,0,0.4)]`}
+          className={`absolute left-0 right-0 h-0.5 pointer-events-none z-30 bg-[var(--theme-instrument-caliper)] shadow-[var(--theme-panel-shadow)]`}
           style={{ bottom: `${waterPct}%` }}
         >
           <div
@@ -316,17 +316,17 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
           style={{ clipPath: `inset(0 0 ${waterPct}% 0)` }}
         >
           <div
-            className={`absolute left-2 top-1.5 text-nano font-mono opacity-85 text-[var(--theme-text-secondary)] ${theme === 1 ? 'drop-shadow-none' : 'drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]'}`}
+            className={`absolute left-2 top-1.5 text-nano font-mono text-[var(--theme-text-tertiary)] ${theme === 1 ? 'drop-shadow-none' : 'drop-shadow-[0_1px_2px_var(--theme-panel-shadow)]'}`}
           >
             +100 m (Highstand)
           </div>
           <div
-            className={`absolute left-2 top-[calc(40%+4px)] text-nano font-mono font-bold text-[var(--theme-text-accent)] ${theme === 1 ? 'drop-shadow-none' : 'drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]'}`}
+            className={`absolute left-2 top-[calc(40%+4px)] text-nano font-mono font-bold text-[var(--theme-text-accent)] ${theme === 1 ? 'drop-shadow-none' : 'drop-shadow-[0_1px_2px_var(--theme-panel-shadow)]'}`}
           >
             0 m (Mean Sea Level)
           </div>
           <div
-            className={`absolute left-2 bottom-1.5 text-nano font-mono opacity-90 text-[var(--theme-text-secondary)] font-medium ${theme === 1 ? 'drop-shadow-none' : 'drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]'}`}
+            className={`absolute left-2 bottom-1.5 text-nano font-mono text-[var(--theme-text-tertiary)] font-medium ${theme === 1 ? 'drop-shadow-none' : 'drop-shadow-[0_1px_2px_var(--theme-panel-shadow)]'}`}
           >
             -150 m (Glacial Maximum)
           </div>
@@ -339,21 +339,21 @@ export const BathymetricTideGauge: React.FC<BathymetricTideGaugeProps> = ({
         >
           <div
             className={`absolute left-2 top-1.5 text-nano font-mono ${
-              theme === 1 ? 'bg-[var(--theme-instrument-viewport-bg-center)]/80 text-[var(--theme-text-primary)] px-1 py-px rounded-[1px] shadow-xs backdrop-blur-[1px]' : 'opacity-95 text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]'
+              theme === 1 ? 'bg-[var(--theme-instrument-viewport-bg-center)]/80 text-[var(--theme-text-primary)] px-1 py-px rounded-[1px] shadow-xs backdrop-blur-[1px]' : 'text-[var(--theme-text-tertiary)] drop-shadow-[0_1px_2px_var(--theme-panel-shadow)]'
             }`}
           >
             +100 m (Highstand)
           </div>
           <div
             className={`absolute left-2 top-[calc(40%+4px)] text-nano font-mono font-bold ${
-              theme === 1 ? 'bg-[var(--theme-instrument-viewport-bg-center)]/80 text-[var(--theme-text-primary)] px-1 py-px rounded-[1px] shadow-xs backdrop-blur-[1px]' : 'text-[var(--theme-text-accent)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]'
+              theme === 1 ? 'bg-[var(--theme-instrument-viewport-bg-center)]/80 text-[var(--theme-text-primary)] px-1 py-px rounded-[1px] shadow-xs backdrop-blur-[1px]' : 'text-[var(--theme-text-accent)] drop-shadow-[0_1px_2px_var(--theme-panel-shadow)]'
             }`}
           >
             0 m (Mean Sea Level)
           </div>
           <div
             className={`absolute left-2 bottom-1.5 text-nano font-mono font-medium ${
-              theme === 1 ? 'bg-[var(--theme-instrument-viewport-bg-center)]/80 text-[var(--theme-text-primary)] px-1 py-px rounded-[1px] shadow-xs backdrop-blur-[1px]' : 'opacity-90 text-[var(--theme-text-secondary)] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]'
+              theme === 1 ? 'bg-[var(--theme-instrument-viewport-bg-center)]/80 text-[var(--theme-text-primary)] px-1 py-px rounded-[1px] shadow-xs backdrop-blur-[1px]' : 'text-[var(--theme-text-tertiary)] drop-shadow-[0_1px_2px_var(--theme-panel-shadow)]'
             }`}
           >
             -150 m (Glacial Maximum)

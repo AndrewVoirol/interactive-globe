@@ -50,7 +50,7 @@ export const TactileSwitch: React.FC<TactileSwitchProps> = ({
       onKeyDown={handleKeyDown}
       title={title || label}
       role="switch"
-      aria-label={sublabel ? `${label} ${sublabel}` : label}
+      aria-label={label}
       aria-checked={checked}
       aria-disabled={disabled}
       tabIndex={disabled ? -1 : 0}
@@ -78,7 +78,7 @@ export const TactileSwitch: React.FC<TactileSwitchProps> = ({
             {label}
           </span>
           {sublabel && (
-            <span className="text-nano opacity-65 font-mono truncate">
+            <span className={`text-nano font-mono truncate ${checked ? 'opacity-75' : 'text-[var(--theme-text-tertiary)]'}`}>
               {sublabel}
             </span>
           )}

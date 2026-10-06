@@ -178,7 +178,7 @@ export const TactileSelect: React.FC<TactileSelectProps> = ({
         <div className="flex items-center gap-2 min-w-0 pr-1">
           <span className="font-bold tracking-wide truncate">{selectedOption?.label}</span>
           {selectedOption?.coordinates && (
-            <span className="text-nano opacity-65 font-mono text-[var(--theme-text-accent)] truncate">
+            <span className="text-nano font-mono text-[var(--theme-text-accent)] truncate">
               ⌞ {selectedOption.coordinates}
             </span>
           )}
@@ -234,7 +234,7 @@ export const TactileSelect: React.FC<TactileSelectProps> = ({
                       )}
                     </div>
                     {opt.description && (
-                      <span className="text-nano opacity-65 font-mono truncate">{opt.description}</span>
+                      <span className="text-nano font-mono text-[var(--theme-text-tertiary)] truncate">{opt.description}</span>
                     )}
                   </div>
                   {opt.coordinates && (

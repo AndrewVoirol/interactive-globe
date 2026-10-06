@@ -539,7 +539,7 @@ export const CrustHydrosphereTab: React.FC<CrustHydrosphereTabProps> = ({
           <div className="text-micro uppercase font-bold tracking-wider text-[var(--theme-text-secondary)]">
             Manifold Strata
           </div>
-          <span className="text-nano font-mono opacity-60 text-[var(--theme-text-muted)]">
+          <span className="text-nano font-mono text-[var(--theme-text-tertiary)]">
             {layerMode === 0 ? '0 · Composite' : layerMode === 1 ? '1 · Stipple' : '2 · Lattice'}
           </span>
         </div>

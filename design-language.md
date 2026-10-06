@@ -48,31 +48,14 @@ vec3 oklch2rgb(vec3 c) {
 
 ### 1.2 Color Palette Specifications
 
-#### Theme 0: Dark Cyber ("Obsidian & Celestial Platinum")
-Designed for low-ambient observation, high-contrast node visibility, and zero eye fatigue during dense 1,000,000-particle inspection.
+#### Theme 0: Marie Tharp
+Warm earth tones, physiographic stippling, `#090B10` / `#EAE6DE`
 
-| Element Role | Hex Code | RGB Vector | OKLCH Coordinates | Opacity ($\alpha$) | Purpose & Contrast Ratio |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Viewport Background** | `#090B10` | `rgb(9, 11, 16)` | `oklch(0.12, 0.01, 260.0)` | `1.00` | Base optical abyss |
-| **HUD Panel Surface** | `#0F121A` | `rgba(15, 18, 26, 0.85)` | `oklch(0.15, 0.01, 255.0)` | `0.85` | Glassmorphic interface backing |
-| **HUD Panel Border** | `rgba(255, 255, 255, 0.10)` | `rgba(255, 255, 255, 0.10)` | `N/A` | `0.10` | 1px Structural edge boundary |
-| **Geographic Coastlines** | `#EAE6DE` | `rgb(234, 230, 222)` | `oklch(0.92, 0.01, 85.0)` | `0.95` | **102:1 contrast ratio** vs ocean |
-| **Structural Ocean Nodes** | `#1E2633` | `rgb(30, 38, 51)` | `oklch(0.22, 0.02, 240.0)` | `0.03` | Subordinate marine grid |
-| **Geographic Wireframe** | `#596B85` | `rgb(89, 107, 133)` | `oklch(0.48, 0.04, 240.0)` | `0.45 * sqrt(100k/N)` | Attenuated mesh lattice |
-| **Structural Wireframe** | `#242E3D` | `rgb(36, 46, 61)` | `oklch(0.24, 0.03, 240.0)` | `0.025 * sqrt(100k/N)` | Sub-surface grid lines |
+#### Theme 1: Cream Rag
+310 GSM ivory cotton rag, sepia ink, `#F3ECE0` / `#38302A`
 
-#### Theme 1: Light Monochrome ("Architectural Graphite & Archival Paper")
-Optimized for print-like cartographic publishing, high-resolution documentation displays, and daylight review.
-
-| Element Role | Hex Code | RGB Vector | OKLCH Coordinates | Opacity ($\alpha$) | Purpose & Contrast Ratio |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Viewport Background** | `#F8FAFC` | `rgb(248, 250, 252)` | `oklch(0.98, 0.002, 247.0)` | `1.00` | Archival paper base |
-| **HUD Panel Surface** | `#FFFFFF` | `rgba(255, 255, 255, 0.85)` | `oklch(1.00, 0.0, 0.0)` | `0.85` | Clean frosted card overlay |
-| **HUD Panel Border** | `#E2E8F0` | `rgb(226, 232, 240)` | `oklch(0.92, 0.005, 247.0)` | `1.00` | Subtle gray container border |
-| **Geographic Coastlines** | `#14171C` | `rgb(20, 23, 28)` | `oklch(0.12, 0.005, 260.0)` | `0.95` | Carbon ink landmass nodes |
-| **Structural Ocean Nodes** | `#D1D5DB` | `rgb(209, 213, 219)` | `oklch(0.86, 0.005, 250.0)` | `0.12` | Light graphite sea grid |
-| **Geographic Wireframe** | `#A0A6B0` | `rgb(160, 166, 176)` | `oklch(0.68, 0.008, 250.0)` | `0.40 * sqrt(100k/N)` | Technical pencil coastline |
-| **Structural Wireframe** | `#DCDFE4` | `rgb(220, 223, 228)` | `oklch(0.89, 0.004, 250.0)` | `0.04 * sqrt(100k/N)` | Subtly ruled coordinate lines |
+#### Theme 2: Prussian Cyanotype
+Cold Prussian blue, blueprint precision, `#101C2B` / `#E8EDF2`
 
 ---
 
@@ -118,11 +101,12 @@ The interface enforces strict monospaced alignment (`font-mono`) for all telemet
 
 ```css
 /* Typography Scale & Layout Tokens */
---font-mono: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', ui-monospace, monospace;
---text-title: 11px;    /* Line-height: 14px | Tracking: 0.08em uppercase | Weight: 700 */
---text-body:  10px;    /* Line-height: 13px | Tracking: 0.02em           | Weight: 400 */
---text-micro:  9px;    /* Line-height: 11px | Tracking: 0.04em uppercase | Weight: 500 */
---text-nano:   8px;    /* Line-height: 10px | Tracking: 0.00em           | Weight: 400 */
+--font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+--text-title: 11px;    /* Line-height: 14px | Tracking: 0.05em | Weight: 600 */
+--text-body:  10px;    /* Line-height: 13px | Tracking: 0.02em | Weight: 500 */
+--text-micro:  9px;    /* Line-height: 12px | Tracking: 0.03em | Weight: 400 */
+--text-nano:   8px;    /* Line-height: 10px | Tracking: 0.04em | Weight: 500 */
+--text-pico:   7px;    /* Line-height:  9px | Tracking: 0.00em | Weight: 400 */
 ```
 
 - **Tabular Numerals**: All floating-point telemetry strings (`latStr`, `lonStr`, `mapScaleStr`, `fps`, `vramMb`, `alpha`) utilize `font-variant-numeric: tabular-nums` to guarantee pixel-stable layout width regardless of numerical digit variations.

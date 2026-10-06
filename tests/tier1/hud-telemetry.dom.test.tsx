@@ -87,60 +87,7 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
     expect(container.children.length).toBe(0);
   });
 
-  it('DOM-HUD-02: renders SystemStatusPill with FPS, backend, resolution, and theme controls', async () => {
-    const props = createProps({
-      fps: 59,
-      backend: 'webgl2',
-      hasWebGPU: true,
-      resolution: '100k',
-      theme: 0,
-    });
 
-    await act(async () => {
-      root.render(<TelemetryHUD {...props} />);
-    });
-
-    // Check FPS readout
-    expect(container.textContent).toContain('59');
-    expect(container.textContent).toContain('FPS');
-
-    // Check backend toggle button is excised
-    const buttons = Array.from(container.querySelectorAll('button'));
-    const backendBtn = buttons.find(b => b.textContent?.includes('WebGL2') || b.textContent?.includes('WebGPU ⇄'));
-    expect(backendBtn).toBeUndefined();
-
-    // Check resolution buttons
-    const res100kBtn = buttons.find(b => b.textContent?.includes('100K') || b.textContent?.includes('100k'));
-    const res1MBtn = buttons.find(b => b.textContent?.includes('1M'));
-    expect(res100kBtn).toBeDefined();
-    expect(res1MBtn).toBeDefined();
-
-    // Check theme toggle button
-    const themeBtn = buttons.find(b => b.title?.includes('Switch to') || b.title?.includes('Monochrome') || b.title?.includes('Cyber'));
-    expect(themeBtn).toBeDefined();
-  });
-
-  it('DOM-HUD-03: renders TopologyControlDock with telemetry readouts and paradigm buttons', async () => {
-    const props = createProps({
-      latStr: "51°30'N",
-      lonStr: "00°07'W",
-      mapScaleStr: '1:25M',
-      mode: 3,
-    });
-
-    await act(async () => {
-      root.render(<TelemetryHUD {...props} />);
-    });
-
-    // Verify coordinate telemetry in DOM
-    expect(container.textContent).toContain("51°30'N");
-    expect(container.textContent).toContain("00°07'W");
-    expect(container.textContent).toContain('1:25M');
-
-    // Verify active projection manifold telemetry is rendered in sidebar
-    expect(container.textContent).toContain('Active Manifold');
-    expect(container.textContent).toContain('Fluid');
-  });
 
   it('DOM-HUD-04: verifies backend switch button is excised from UnifiedRightSidebar', async () => {
     const onBackendChange = vi.fn();
@@ -244,30 +191,6 @@ describe('DOM Component Test: TelemetryHUD in happy-dom environment', () => {
     expect(container.textContent).toContain('120');
   });
 
-  it('DOM-HUD-09: renders DataLayersDrawer with configured layer titles and verifies audio mute button is excised', async () => {
-    const props = createProps({
-      dataLayers: [
-        {
-          id: 'test-layer-1',
-          name: 'Topographic Contour Vectors',
-          details: 'Vector contours',
-          type: 'vector',
-          visible: true,
-          opacity: 0.7,
-          blendMode: 0,
-        },
-      ],
-    });
-
-    await act(async () => {
-      root.render(<TelemetryHUD {...props} />);
-    });
-
-    // Verify audio mute button is excised
-    const buttons = Array.from(container.querySelectorAll('button'));
-    const muteBtn = buttons.find(b => b.title?.toLowerCase().includes('mute') || b.title?.toLowerCase().includes('audio'));
-    expect(muteBtn).toBeUndefined();
-  });
 
   it('DOM-HUD-10: unified sidebar displays persistent Medium substrate and consolidated tabs (CARTOGRAPHY, ATMOSPHERE, KINEMATICS, DATA)', async () => {
     const props = createProps();

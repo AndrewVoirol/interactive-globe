@@ -223,7 +223,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
             theme === 1 ? 'paper-cream-panel' : theme === 2 ? 'paper-cyanotype' : 'paper-tharp'
           }`}
           style={{
-            backgroundColor: theme === 1 ? 'rgba(252, 249, 242, 0.94)' : undefined,
+            backgroundColor: theme === 1 ? 'var(--theme-card-bg)' : undefined,
           }}
         >
           {PROJECTION_MODES.map((m) => {

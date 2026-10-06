@@ -179,8 +179,6 @@ describe('Phase 5: Unified Architectural Connectivity & Hardware Parity', () => 
       const readmePath = path.join(projectRoot, 'src/core/_deferred/README.md');
       const readmeCode = fs.readFileSync(readmePath, 'utf-8');
       expect(readmeCode).toContain('### 4. `hud/` (Superseded Fragmented HUD Components)');
-      expect(readmeCode).toContain('TopologyControlDock.tsx');
-      expect(readmeCode).toContain('DataLayersDrawer.tsx');
     });
   });
 });

@@ -94,7 +94,7 @@ export const VernierSlider: React.FC<VernierSliderProps> = ({
             {label}
           </label>
           {sublabel && (
-            <span className="text-nano opacity-65 font-mono text-[var(--theme-text-secondary)] truncate">
+            <span className="text-nano font-mono text-[var(--theme-text-tertiary)] truncate">
               {sublabel}
             </span>
           )}

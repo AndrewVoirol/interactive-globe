@@ -22,9 +22,6 @@ import { CatalogSheet } from './tabs/CatalogSheet';
 import { SidebarTelemetry } from './tabs/SidebarTelemetry';
 import { VernierSlider } from '../ui/VernierSlider';
 
-export * from './legacy/SystemStatusPill';
-export * from './legacy/TopologyControlDock';
-export * from './legacy/DataLayersDrawer';
 
 export interface DataLayerItem {
   id: string; name: string; category?: string; type: string; details: string; visible: boolean;
@@ -258,10 +255,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
             isSidebarOpen ? 'max-h-[calc(100vh-2.5rem)]' : 'max-h-[144px] overflow-hidden'
           } ${
             theme === 1
-              ? 'paper-cream-panel border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#d8cfbc]/40'
+              ? 'paper-cream-panel border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl'
               : theme === 2
-              ? 'paper-cyanotype border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#071320]/80'
-              : 'paper-tharp border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl shadow-[#080d12]/80'
+              ? 'paper-cyanotype border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl'
+              : 'paper-tharp border-[var(--theme-panel-border)] text-[var(--theme-text-primary)] shadow-2xl'
           }`}
         >
           {/* Header Row 1: Title & Window Controls */}
@@ -324,7 +321,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
                   }`}
                 >
                   <span className="text-body font-medium tracking-tight">{m.title}</span>
-                  <span className="text-nano uppercase font-medium tracking-tight opacity-75">{m.sub}</span>
+                  <span className={`text-nano uppercase font-medium tracking-tight ${theme === m.id && !purityMode ? 'opacity-75' : 'text-[var(--theme-text-tertiary)]'}`}>{m.sub}</span>
                 </button>
               ))}
               {/* 4th Medium: Purity / Raw DEM — shows the mathematical machinery */}
@@ -339,7 +336,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
                 title="Raw DEM — pure mathematical substrate, zero atmosphere/water"
               >
                 <span className="text-body font-medium tracking-tight">Purity</span>
-                <span className="text-nano uppercase font-medium tracking-tight opacity-75">Raw DEM</span>
+                <span className="text-nano uppercase font-medium tracking-tight text-[var(--theme-text-tertiary)]">Raw DEM</span>
               </button>
             </div>
             {/* Paper Substrate — medium grain control (always visible with medium switcher) */}
