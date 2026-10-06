@@ -292,6 +292,26 @@ export const AtmosphericColumnInstrument: React.FC<AtmosphericColumnInstrumentPr
             </g>
           ) : (
             <g className="atmospheric-column-tharp acoustic-trace-tharp text-[var(--theme-instrument-ink)]">
+              {/* Left Altitude Scale Axis — Acoustic Sounding Grid */}
+              <line x1="40" y1="14" x2="40" y2="122" stroke="currentColor" strokeWidth="0.75" opacity="0.6" />
+              <line x1="34" y1="14" x2="40" y2="14" stroke="currentColor" strokeWidth="0.75" opacity="0.6" />
+              <line x1="34" y1="34" x2="40" y2="34" stroke="currentColor" strokeWidth="0.75" opacity="0.6" />
+              <line x1="34" y1="70" x2="40" y2="70" stroke="currentColor" strokeWidth="0.75" opacity="0.6" />
+              <line x1="34" y1="104" x2="40" y2="104" stroke="currentColor" strokeWidth="0.75" opacity="0.6" />
+              <line x1="34" y1="122" x2="40" y2="122" stroke="currentColor" strokeWidth="0.75" opacity="0.6" />
+              {/* Horizontal Echo-Sonar Grid Lines */}
+              <line x1="40" y1="14" x2="272" y2="14" stroke="currentColor" strokeWidth="0.3" strokeDasharray="1 4" opacity="0.25" />
+              <line x1="40" y1="34" x2="272" y2="34" stroke="currentColor" strokeWidth="0.3" strokeDasharray="1 4" opacity="0.25" />
+              <line x1="40" y1="70" x2="272" y2="70" stroke="currentColor" strokeWidth="0.3" strokeDasharray="1 4" opacity="0.25" />
+              <line x1="40" y1="104" x2="272" y2="104" stroke="currentColor" strokeWidth="0.3" strokeDasharray="1 4" opacity="0.25" />
+              {/* Altitude Labels with viewport-bg knockout stroke */}
+              <g style={{ paintOrder: 'stroke', stroke: 'var(--theme-instrument-viewport-bg)', strokeWidth: '4px', strokeLinejoin: 'round' }}>
+                <text x="31" y="17" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">15 km</text>
+                <text x="31" y="37" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">11 km</text>
+                <text x="31" y="73" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">5 km</text>
+                <text x="31" y="107" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">1.5 km</text>
+                <text x="31" y="124" textAnchor="end" fill="currentColor" stroke="none" fontSize="6.5" fontFamily="monospace" opacity="0.8">0 m</text>
+              </g>
               {/* Radiosonde Temperature Curve */}
               <path d="M 120 122 Q 100 104 125 88 Q 160 70 140 50 Q 130 34 165 14" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.85" />
               {/* Temperature Inversion Boundary Line (LCL) */}
