@@ -246,8 +246,8 @@ describe('Dual-Surface Lithosphere Crust & Liquid Hydrosphere (M1-T3)', () => {
       device.createCommandEncoder = () => {
         const enc = origCreateCommandEncoder();
         const origBeginRenderPass = enc.beginRenderPass.bind(enc);
-        enc.beginRenderPass = (desc: any) => {
-          const pass = origBeginRenderPass(desc);
+        (enc as any).beginRenderPass = (desc?: any) => {
+          const pass = (origBeginRenderPass as any)(desc);
           const origSetPipeline = pass.setPipeline.bind(pass);
           const origDrawIndexed = pass.drawIndexed.bind(pass);
           const origDraw = pass.draw.bind(pass);

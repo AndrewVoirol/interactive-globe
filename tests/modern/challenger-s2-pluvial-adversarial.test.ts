@@ -145,8 +145,8 @@ describe('Adversarial Challenger: Stage 2 Pluvial Coupling Stress Suite', () => 
       const calls = writeBufferSpy.mock.calls;
       const crustCall = calls.find((c: any[]) => c[0] === (engine as any).crustUniformBuffer);
       expect(crustCall).toBeDefined();
-      expect(crustCall[1]).toBe(0);
-      expect(crustCall[2].byteLength).toBe(320);
+      expect(crustCall![1]).toBe(0);
+      expect(crustCall![2].byteLength).toBe(320);
     });
   });
 });

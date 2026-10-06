@@ -184,15 +184,15 @@ export class MockGPUDevice {
     return new MockGPUBindGroup(descriptor);
   }
 
-  createCommandEncoder() {
+  createCommandEncoder(_descriptor?: any) {
     return {
-      beginComputePass: () => ({
+      beginComputePass: (_pDesc?: any) => ({
         setPipeline: (..._args: any[]) => {},
         setBindGroup: (..._args: any[]) => {},
         dispatchWorkgroups: (..._args: any[]) => {},
         end: (..._args: any[]) => {},
       }),
-      beginRenderPass: () => ({
+      beginRenderPass: (_rDesc?: any) => ({
         setPipeline: (..._args: any[]) => {},
         setBindGroup: (..._args: any[]) => {},
         setVertexBuffer: (..._args: any[]) => {},

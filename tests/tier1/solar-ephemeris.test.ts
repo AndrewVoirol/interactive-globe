@@ -223,7 +223,7 @@ describe('Tier 1: Solar Ephemeris & Astronomical Illumination Engine', () => {
     expect(writeBufferSpy).toHaveBeenCalled();
     const lastCall = writeBufferSpy.mock.calls.find((c: any[]) => c[0] === (engine as any).crustUniformBuffer);
     expect(lastCall).toBeDefined();
-    expect(lastCall[1]).toBe(0); // offset 0
-    expect(lastCall[2].byteLength).toBe(320); // exactly 320 bytes written
+    expect(lastCall![1]).toBe(0); // offset 0
+    expect(lastCall![2].byteLength).toBe(320); // exactly 320 bytes written
   });
 });

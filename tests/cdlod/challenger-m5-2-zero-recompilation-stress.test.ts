@@ -334,7 +334,7 @@ describe('Milestone 5 Challenger (challenger_m5_2): Zero-Recompilation & Diagnos
         const call = instrumented.writeBufferSpy.mock.calls.find((c: any) => c[0] === crustBuf);
         expect(call).toBeDefined();
 
-        const [buffer, offset, data] = call;
+        const [buffer, offset, data] = call!;
         expect(buffer).toBe(crustBuf);
         expect(offset).toBe(0);
 

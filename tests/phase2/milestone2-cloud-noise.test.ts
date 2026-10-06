@@ -79,7 +79,7 @@ describe('Milestone 2: 3D Perlin-Worley Compute Generator', () => {
       writable: true,
       configurable: true,
     });
-    await mockGPU.requestAdapter().then((a: any) => a.requestDevice());
+    await mockGPU!.requestAdapter().then((a: any) => a.requestDevice());
     engine = new WebGPUEngine();
   });
 

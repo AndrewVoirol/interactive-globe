@@ -174,7 +174,7 @@ describe('Milestone Section 6: Cartographic Intaglio Printing Haptics & Paper To
       const lightBuf = (engine as any).compositionLightingUniformBuffer;
 
       expect(paperBuf).not.toBeNull();
-      expect(paperBuf.size).toBe(32); // 8 f32 = 32 bytes
+      expect(paperBuf!.size).toBe(32); // 8 f32 = 32 bytes
 
       expect(configBuf).not.toBeNull();
       expect(configBuf.size).toBe(16); // 4 f32 = 16 bytes
@@ -216,17 +216,17 @@ describe('Milestone Section 6: Cartographic Intaglio Printing Haptics & Paper To
         const origBeginComputePass = enc.beginComputePass.bind(enc);
         const origBeginRenderPass = enc.beginRenderPass.bind(enc);
 
-        enc.beginComputePass = (pDesc: any) => {
+        (enc as any).beginComputePass = (pDesc?: any) => {
           executedComputePasses++;
-          return origBeginComputePass(pDesc);
+          return (origBeginComputePass as any)(pDesc);
         };
 
-        enc.beginRenderPass = (rDesc: any) => {
+        (enc as any).beginRenderPass = (rDesc?: any) => {
           executedRenderPasses++;
           if (rDesc?.label === 'paper_composition_pass') {
             compositionPassExecuted = true;
           }
-          return origBeginRenderPass(rDesc);
+          return (origBeginRenderPass as any)(rDesc);
         };
 
         return enc;
@@ -282,8 +282,8 @@ describe('Milestone Section 6: Cartographic Intaglio Printing Haptics & Paper To
         const enc = origCreateCommandEncoder(desc);
         const origBeginComputePass = enc.beginComputePass.bind(enc);
 
-        enc.beginComputePass = (pDesc: any) => {
-          const cPass = origBeginComputePass(pDesc);
+        (enc as any).beginComputePass = (pDesc?: any) => {
+          const cPass = (origBeginComputePass as any)(pDesc);
           const origDispatch = cPass.dispatchWorkgroups.bind(cPass);
           cPass.dispatchWorkgroups = (...args: any[]) => {
             computeDispatches++;

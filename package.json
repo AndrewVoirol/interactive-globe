@@ -30,7 +30,6 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "canvas": "^3.2.3",
     "d3": "^7.9.0",
     "d3-geo-voronoi": "^2.1.0",
     "geojson": "^0.5.0",
@@ -51,8 +50,7 @@
     "@types/topojson-specification": "^1.0.5",
     "@vitejs/plugin-react": "^6.1.2",
     "@webgpu/types": "^0.1.72",
-    "duckdb": "^1.4.4",
-    "duckdb-async": "^1.4.2",
+    "canvas": "^3.2.3",
     "happy-dom": "^20.13.2",
     "tailwindcss": "^4.3.3",
     "three": "^0.185.1",
@@ -60,9 +58,6 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.3",
     "vitest": "^5.0.3"
-  },
-  "overrides": {
-    "tar": "^7.5.22"
   },
   "volta": {
     "node": "24.21.0",

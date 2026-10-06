@@ -67,7 +67,7 @@ describe('Milestone 1: Camera Unlock & Depth Pipeline Alignment', () => {
       writable: true,
       configurable: true,
     });
-    mockDevice = (await mockGPU.requestAdapter().then((a: any) => a.requestDevice())) as MockGPUDevice;
+    mockDevice = (await mockGPU!.requestAdapter().then((a: any) => a.requestDevice())) as MockGPUDevice;
 
     engine = new WebGPUEngine();
   });

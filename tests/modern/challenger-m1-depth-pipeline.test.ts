@@ -319,15 +319,15 @@ describe('Challenger M1-2: Adversarial Depth Pipeline & Buffer Verification', ()
       const device = (engine as any).device as MockGPUDevice;
       const originalCreateCommandEncoder = device.createCommandEncoder.bind(device);
 
-      device.createCommandEncoder = (desc?: any) => {
-        const encoder = originalCreateCommandEncoder(desc);
+      device.createCommandEncoder = ((desc?: any) => {
+        const encoder = (originalCreateCommandEncoder as any)(desc);
         const originalBeginRenderPass = encoder.beginRenderPass.bind(encoder);
-        encoder.beginRenderPass = (passDesc: any) => {
+        (encoder as any).beginRenderPass = (passDesc?: any) => {
           capturedRenderPassDesc = passDesc;
-          return originalBeginRenderPass(passDesc);
+          return (originalBeginRenderPass as any)(passDesc);
         };
         return encoder;
-      };
+      }) as any;
 
       const frameParams = createFrameParams();
       engine.render(frameParams);

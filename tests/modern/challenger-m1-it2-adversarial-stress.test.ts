@@ -112,7 +112,7 @@ describe('Milestone 1 Iteration 2: Challenger 1 Adversarial Stress-Testing', () 
       // Wrapper component simulating parent state management
       function TestHost() {
         const [val, setVal] = React.useState('first');
-        return React.createElement(SegmentedControl, {
+        return React.createElement(SegmentedControl<string>, {
           options: options3,
           value: val,
           onChange: (next: string) => {
@@ -150,7 +150,7 @@ describe('Milestone 1 Iteration 2: Challenger 1 Adversarial Stress-Testing', () 
     it('VERIFY-FOCUS-02: ArrowDown behaves identically to ArrowRight (forward navigation & focus)', async () => {
       function TestHost() {
         const [val, setVal] = React.useState('second');
-        return React.createElement(SegmentedControl, {
+        return React.createElement(SegmentedControl<string>, {
           options: options3,
           value: val,
           onChange: (v: string) => setVal(v),
@@ -178,7 +178,7 @@ describe('Milestone 1 Iteration 2: Challenger 1 Adversarial Stress-Testing', () 
     it('VERIFY-FOCUS-03: Forward wrap-around — ArrowRight on the last option wraps to the first option and shifts focus', async () => {
       function TestHost() {
         const [val, setVal] = React.useState('third');
-        return React.createElement(SegmentedControl, {
+        return React.createElement(SegmentedControl<string>, {
           options: options3,
           value: val,
           onChange: (v: string) => setVal(v),
@@ -208,7 +208,7 @@ describe('Milestone 1 Iteration 2: Challenger 1 Adversarial Stress-Testing', () 
     it('VERIFY-FOCUS-04: Backward wrap-around — ArrowLeft on the first option wraps to the last option and shifts focus', async () => {
       function TestHost() {
         const [val, setVal] = React.useState('first');
-        return React.createElement(SegmentedControl, {
+        return React.createElement(SegmentedControl<string>, {
           options: options3,
           value: val,
           onChange: (v: string) => setVal(v),
@@ -238,7 +238,7 @@ describe('Milestone 1 Iteration 2: Challenger 1 Adversarial Stress-Testing', () 
     it('VERIFY-FOCUS-05: ArrowUp behaves identically to ArrowLeft (backward navigation & wrap-around focus)', async () => {
       function TestHost() {
         const [val, setVal] = React.useState('first');
-        return React.createElement(SegmentedControl, {
+        return React.createElement(SegmentedControl<string>, {
           options: options3,
           value: val,
           onChange: (v: string) => setVal(v),
@@ -264,7 +264,7 @@ describe('Milestone 1 Iteration 2: Challenger 1 Adversarial Stress-Testing', () 
     it('VERIFY-FOCUS-06: Continuous multi-step cycle wraps seamlessly across multiple laps', async () => {
       function TestHost() {
         const [val, setVal] = React.useState('first');
-        return React.createElement(SegmentedControl, {
+        return React.createElement(SegmentedControl<string>, {
           options: options3,
           value: val,
           onChange: (v: string) => setVal(v),
@@ -294,7 +294,7 @@ describe('Milestone 1 Iteration 2: Challenger 1 Adversarial Stress-Testing', () 
         const [valA, setValA] = React.useState('A1');
         const [valB, setValB] = React.useState('B1');
         return React.createElement('div', null, [
-          React.createElement(SegmentedControl, {
+          React.createElement(SegmentedControl<string>, {
             key: 'grpA',
             id: 'radiogroup-a',
             options: [
@@ -304,7 +304,7 @@ describe('Milestone 1 Iteration 2: Challenger 1 Adversarial Stress-Testing', () 
             value: valA,
             onChange: (v: string) => setValA(v),
           }),
-          React.createElement(SegmentedControl, {
+          React.createElement(SegmentedControl<string>, {
             key: 'grpB',
             id: 'radiogroup-b',
             options: [

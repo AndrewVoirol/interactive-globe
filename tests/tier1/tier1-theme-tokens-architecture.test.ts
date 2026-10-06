@@ -124,10 +124,11 @@ describe('Bite 1: Theme Token Architecture & Palette Expansion', () => {
 
   it('verifies applyCSSVariables injects expected CSS properties into target element', () => {
     const mockStyle: Record<string, string> = {};
+    const mockAttributes: Record<string, string> = {};
     const mockElement = {
-      attributes: {} as Record<string, string>,
+      attributes: mockAttributes,
       setAttribute: (k: string, v: string) => {
-        mockElement.attributes[k] = v;
+        mockAttributes[k] = v;
       },
       style: {
         setProperty: (prop: string, val: string) => {

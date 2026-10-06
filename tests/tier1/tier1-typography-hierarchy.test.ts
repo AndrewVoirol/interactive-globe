@@ -95,10 +95,11 @@ describe('Bite 3: Typographic Hierarchy & Scale Enforcement', () => {
 
     it('injects typography CSS variables via applyCSSVariables', () => {
       const mockStyle: Record<string, string> = {};
+      const mockAttributes: Record<string, string> = {};
       const mockElement = {
-        attributes: {} as Record<string, string>,
+        attributes: mockAttributes,
         setAttribute: (k: string, v: string) => {
-          mockElement.attributes[k] = v;
+          mockAttributes[k] = v;
         },
         style: {
           setProperty: (prop: string, val: string) => {

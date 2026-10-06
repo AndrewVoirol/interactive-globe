@@ -380,8 +380,9 @@ describe('Adversarial Challenger: Stage 2 Shader & Uniform Alignment Suite (R11)
 
     it('R11-STRESS-03: stress-tests CSS variables synchronization on rapid medium property mutations', () => {
       // Create mock DOM element
+      const mockAttributes: Record<string, string> = {};
       const mockElement = {
-        attributes: {} as Record<string, string>,
+        attributes: mockAttributes,
         style: {
           properties: {} as Record<string, string>,
           setProperty(key: string, val: string) {
@@ -392,7 +393,7 @@ describe('Adversarial Challenger: Stage 2 Shader & Uniform Alignment Suite (R11)
           },
         },
         setAttribute(attr: string, val: string) {
-          this.attributes[attr] = val;
+          mockAttributes[attr] = val;
         },
       } as unknown as HTMLElement;
 

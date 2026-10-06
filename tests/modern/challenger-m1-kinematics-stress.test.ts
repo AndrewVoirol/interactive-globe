@@ -80,7 +80,7 @@ describe('Challenger M1: Adversarial Kinematics & Ground Clearance Stress Harnes
       writable: true,
       configurable: true,
     });
-    mockDevice = (await mockGPU.requestAdapter().then((a: any) => a.requestDevice())) as MockGPUDevice;
+    mockDevice = (await mockGPU!.requestAdapter().then((a: any) => a.requestDevice())) as MockGPUDevice;
     engine = new WebGPUEngine();
   });
 

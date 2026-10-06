@@ -290,8 +290,8 @@ describe('Challenger S2-2: WebGPU Shader Invariants & Fallback Stability', () =>
         (call: any[]) => call[0] === (engine as any).crustUniformBuffer
       );
       expect(crustWriteCall).toBeDefined();
-      expect(crustWriteCall[1]).toBe(0); // byte offset 0
-      expect((crustWriteCall[2] as ArrayBuffer).byteLength).toBe(320);
+      expect(crustWriteCall![1]).toBe(0); // byte offset 0
+      expect((crustWriteCall![2] as ArrayBuffer).byteLength).toBe(320);
     });
   });
 
@@ -346,11 +346,11 @@ describe('Challenger S2-2: WebGPU Shader Invariants & Fallback Stability', () =>
         (call: any) => call.destination.texture === dummyTex
       );
       expect(writeCall).toBeDefined();
-      expect(writeCall.dataLayout.bytesPerRow).toBe(256);
-      expect(writeCall.dataLayout.bytesPerRow % 256).toBe(0);
+      expect(writeCall!.dataLayout.bytesPerRow).toBe(256);
+      expect(writeCall!.dataLayout.bytesPerRow % 256).toBe(0);
 
       // Verify data written is 16-bit 0
-      const writtenData = writeCall.data;
+      const writtenData = writeCall!.data;
       const uint16Val = new Uint16Array(writtenData.buffer, writtenData.byteOffset, 1)[0];
       expect(uint16Val).toBe(0);
       expect(decodeFloat16(uint16Val)).toBe(0.0);

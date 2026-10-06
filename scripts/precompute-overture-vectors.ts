@@ -29,11 +29,31 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as topojson from 'topojson-client';
-import { Database } from 'duckdb-async';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
+
+async function getDuckDB(): Promise<any> {
+  try {
+    // Attempt standard resolution if installed
+    const duckdb = await import('duckdb-async');
+    return duckdb.Database;
+  } catch {
+    // Attempt to load from isolated tools/vector-pipeline
+    const localDuckdbPath = path.resolve(projectRoot, 'tools/vector-pipeline/node_modules/duckdb-async/dist/duckdb-async.js');
+    if (fs.existsSync(localDuckdbPath)) {
+      const duckdb = await import(localDuckdbPath);
+      return duckdb.Database;
+    }
+    console.error('\n[vector-pipeline] DuckDB is isolated in tools/vector-pipeline to preserve zero-vulnerability root hygiene.');
+    console.error('To run Overture Maps GeoParquet vector precomputations:');
+    console.error('  1. cd tools/vector-pipeline');
+    console.error('  2. npm install');
+    console.error('  3. npm run precompute\n');
+    throw new Error('DuckDB not installed. Run "npm install" inside tools/vector-pipeline/');
+  }
+}
 
 const RADIUS_SPHERE = 5.015;
 const RADIUS_MERCATOR = 5.0;
@@ -96,6 +116,7 @@ async function fetchOvertureFeatures(forceFetch = false): Promise<OvertureFeatur
   }
 
   console.log('  Connecting to DuckDB in-memory database with spatial + httpfs...');
+  const Database = await getDuckDB();
   const db = await Database.create(':memory:');
   await db.exec(`
     INSTALL spatial; LOAD spatial;

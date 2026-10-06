@@ -72,7 +72,7 @@ describe('Milestone 3: Pass 2 Volumetric Clouds & Rainier Inversion', () => {
       writable: true,
       configurable: true,
     });
-    await mockGPU.requestAdapter().then((a: any) => a.requestDevice());
+    await mockGPU!.requestAdapter().then((a: any) => a.requestDevice());
     engine = new WebGPUEngine();
   });
 

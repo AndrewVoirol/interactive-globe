@@ -6143,9 +6143,9 @@ export class WebGPUEngine {
       const drainageView = this.drainageTextureView || dummyDrainageView;
       const drainageBuf = this.drainageUniformBuffer;
 
-      if (this.terrainShadowBindGroupLayout && this.terrainShadowSampler && drainageBuf && dummyDrainageView) {
-        const shadowView = this.terrainShadowTextureView || this.dummyTerrainShadowTextureView;
-        const dummyShadowView = this.dummyTerrainShadowTextureView;
+      const dummyShadowView = this.dummyTerrainShadowTextureView;
+      if (this.terrainShadowBindGroupLayout && this.terrainShadowSampler && drainageBuf && dummyDrainageView && dummyShadowView) {
+        const shadowView = this.terrainShadowTextureView || dummyShadowView;
 
         // [0]: shadow=false, drainage=false
         this.crustGroup1BindGroups[0] = this.device.createBindGroup({
@@ -8377,7 +8377,7 @@ export class WebGPUEngine {
       simFloats[12] = params.cursorVel.x;
       simFloats[13] = params.cursorVel.y;
       simFloats[14] = params.cursorVel.z;
-      const speed = 'w' in params.cursorVel ? params.cursorVel.w : Math.hypot(params.cursorVel.x, params.cursorVel.y, params.cursorVel.z);
+      const speed = ('w' in params.cursorVel && typeof params.cursorVel.w === 'number') ? params.cursorVel.w : Math.hypot(params.cursorVel.x, params.cursorVel.y, params.cursorVel.z);
       simFloats[15] = speed;
     } else {
       simFloats[12] = 0.0;
@@ -8473,7 +8473,7 @@ export class WebGPUEngine {
         ribF[16] = params.cursorVel.x;
         ribF[17] = params.cursorVel.y;
         ribF[18] = params.cursorVel.z;
-        ribF[19] = 'w' in params.cursorVel ? params.cursorVel.w : Math.hypot(params.cursorVel.x, params.cursorVel.y, params.cursorVel.z);
+        ribF[19] = ('w' in params.cursorVel && typeof params.cursorVel.w === 'number') ? params.cursorVel.w : Math.hypot(params.cursorVel.x, params.cursorVel.y, params.cursorVel.z);
       } else {
         ribF[16] = 0.0; ribF[17] = 0.0; ribF[18] = 0.0; ribF[19] = 0.0;
       }
@@ -8553,7 +8553,7 @@ export class WebGPUEngine {
         cf[16] = params.cursorVel.x;
         cf[17] = params.cursorVel.y;
         cf[18] = params.cursorVel.z;
-        const speed = 'w' in params.cursorVel ? params.cursorVel.w : Math.hypot(params.cursorVel.x, params.cursorVel.y, params.cursorVel.z);
+        const speed = ('w' in params.cursorVel && typeof params.cursorVel.w === 'number') ? params.cursorVel.w : Math.hypot(params.cursorVel.x, params.cursorVel.y, params.cursorVel.z);
         cf[19] = speed;
       } else {
         cf[16] = 0.0; cf[17] = 0.0; cf[18] = 0.0; cf[19] = 0.0;
@@ -9219,6 +9219,9 @@ export class WebGPUEngine {
       }
       if (
         useCDLOD &&
+        this.patchVertexBuffer &&
+        this.patchIndexBuffer &&
+        this.cdlodIndirectBuffer &&
         typeof renderPass.drawIndexedIndirect === 'function'
       ) {
         renderPass.setVertexBuffer(0, this.patchVertexBuffer);
@@ -10021,21 +10024,23 @@ export class WebGPUEngine {
     this.ensureWindTexture();
 
     if (this.device && this.crustBindGroupLayout && this.crustUniformBuffer && this.orbitalTextureView && this.orbitalSampler) {
-      const regView = this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || this.demTextureView);
+      const regView = this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || this.demTextureView || this.orbitalTextureView);
       const regBuffer = (this.activeRegionalDEM && this.regionalUniformBuffer)
         ? this.regionalUniformBuffer
-        : (this.regionalUniformBuffer || this.reliefUniformBuffer || this.simUniformBuffer);
-      const cloudView = this.cloudTextures?.low
+        : (this.regionalUniformBuffer || this.reliefUniformBuffer || this.simUniformBuffer || this.crustUniformBuffer);
+      const cloudView = (this.cloudTextures?.low
         ? this.cloudTextures.low.createView({ label: 'crust_cloud_texture_view' })
-        : this.dummyCloudTextureView;
-      const highCloudView = this.cloudTextures?.high
+        : (this.dummyCloudTextureView || this.orbitalTextureView))!;
+      const highCloudView = (this.cloudTextures?.high
         ? this.cloudTextures.high.createView({ label: 'crust_high_cloud_texture_view' })
-        : this.dummyCloudTextureView;
-      const cloudSampler = this.cloudSampler || this.demSampler;
-      const precipSampler = this.precipSampler || this.dummyPrecipSampler || this.demSampler;
-      const tempView = this.tempTextureView || this.dummyTempTextureView;
-      const dewpointView = this.dewpointTextureView || this.dummyDewpointTextureView;
-      const windView = this.windTextureView || this.dummyWindTextureView;
+        : (this.dummyCloudTextureView || this.orbitalTextureView))!;
+      const cloudSampler = (this.cloudSampler || this.demSampler || this.orbitalSampler)!;
+      const precipSampler = (this.precipSampler || this.dummyPrecipSampler || this.demSampler || this.orbitalSampler)!;
+      const tempView = (this.tempTextureView || this.dummyTempTextureView || this.orbitalTextureView)!;
+      const dewpointView = (this.dewpointTextureView || this.dummyDewpointTextureView || this.orbitalTextureView)!;
+      const windView = (this.windTextureView || this.dummyWindTextureView || this.orbitalTextureView)!;
+      const demView = (this.demTextureView || this.orbitalTextureView)!;
+      const demSamp = (this.demSampler || this.orbitalSampler)!;
 
       this.crustPrecipBindGroups = [
         this.device.createBindGroup({
@@ -10043,20 +10048,20 @@ export class WebGPUEngine {
           layout: this.crustBindGroupLayout,
           entries: [
             { binding: 0, resource: { buffer: this.crustUniformBuffer } },
-            { binding: 1, resource: this.demTextureView },
-            { binding: 2, resource: this.demSampler },
+            { binding: 1, resource: demView },
+            { binding: 2, resource: demSamp },
             { binding: 3, resource: this.orbitalTextureView },
             { binding: 4, resource: this.orbitalSampler },
-            { binding: 5, resource: regView },
-            { binding: 6, resource: { buffer: regBuffer } },
+            { binding: 5, resource: regView! },
+            { binding: 6, resource: { buffer: regBuffer! } },
             { binding: 7, resource: cloudView },
             { binding: 8, resource: cloudSampler },
             { binding: 9, resource: ring.getPhysicalTextureView(0) },
-            { binding: 10, resource: precipSampler! },
-            { binding: 11, resource: tempView! },
-            { binding: 12, resource: dewpointView! },
+            { binding: 10, resource: precipSampler },
+            { binding: 11, resource: tempView },
+            { binding: 12, resource: dewpointView },
             { binding: 13, resource: ring.getPhysicalTextureView(1) },
-            { binding: 14, resource: windView! },
+            { binding: 14, resource: windView },
             { binding: 15, resource: highCloudView },
           ],
         }),
@@ -10065,20 +10070,20 @@ export class WebGPUEngine {
           layout: this.crustBindGroupLayout,
           entries: [
             { binding: 0, resource: { buffer: this.crustUniformBuffer } },
-            { binding: 1, resource: this.demTextureView },
-            { binding: 2, resource: this.demSampler },
+            { binding: 1, resource: demView },
+            { binding: 2, resource: demSamp },
             { binding: 3, resource: this.orbitalTextureView },
             { binding: 4, resource: this.orbitalSampler },
-            { binding: 5, resource: regView },
-            { binding: 6, resource: { buffer: regBuffer } },
+            { binding: 5, resource: regView! },
+            { binding: 6, resource: { buffer: regBuffer! } },
             { binding: 7, resource: cloudView },
             { binding: 8, resource: cloudSampler },
             { binding: 9, resource: ring.getPhysicalTextureView(1) },
-            { binding: 10, resource: precipSampler! },
-            { binding: 11, resource: tempView! },
-            { binding: 12, resource: dewpointView! },
+            { binding: 10, resource: precipSampler },
+            { binding: 11, resource: tempView },
+            { binding: 12, resource: dewpointView },
             { binding: 13, resource: ring.getPhysicalTextureView(2) },
-            { binding: 14, resource: windView! },
+            { binding: 14, resource: windView },
             { binding: 15, resource: highCloudView },
           ],
         }),
@@ -10087,20 +10092,20 @@ export class WebGPUEngine {
           layout: this.crustBindGroupLayout,
           entries: [
             { binding: 0, resource: { buffer: this.crustUniformBuffer } },
-            { binding: 1, resource: this.demTextureView },
-            { binding: 2, resource: this.demSampler },
+            { binding: 1, resource: demView },
+            { binding: 2, resource: demSamp },
             { binding: 3, resource: this.orbitalTextureView },
             { binding: 4, resource: this.orbitalSampler },
-            { binding: 5, resource: regView },
-            { binding: 6, resource: { buffer: regBuffer } },
+            { binding: 5, resource: regView! },
+            { binding: 6, resource: { buffer: regBuffer! } },
             { binding: 7, resource: cloudView },
             { binding: 8, resource: cloudSampler },
             { binding: 9, resource: ring.getPhysicalTextureView(2) },
-            { binding: 10, resource: precipSampler! },
-            { binding: 11, resource: tempView! },
-            { binding: 12, resource: dewpointView! },
+            { binding: 10, resource: precipSampler },
+            { binding: 11, resource: tempView },
+            { binding: 12, resource: dewpointView },
             { binding: 13, resource: ring.getPhysicalTextureView(0) },
-            { binding: 14, resource: windView! },
+            { binding: 14, resource: windView },
             { binding: 15, resource: highCloudView },
           ],
         }),
@@ -10155,31 +10160,35 @@ export class WebGPUEngine {
       const oldMid = this.cloudTextures.mid;
       const oldHigh = this.cloudTextures.high;
 
+      const lowTex = this.device.createTexture({
+        label: 'cloud_texture_low',
+        size: [targetWidth, targetHeight, 1],
+        format: 'r16float',
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
+      });
+      const midTex = this.device.createTexture({
+        label: 'cloud_texture_mid',
+        size: [targetWidth, targetHeight, 1],
+        format: 'r16float',
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
+      });
+      const highTex = this.device.createTexture({
+        label: 'cloud_texture_high',
+        size: [targetWidth, targetHeight, 1],
+        format: 'r16float',
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
+      });
+
       this.cloudTextures = {
-        low: this.device.createTexture({
-          label: 'cloud_texture_low',
-          size: [targetWidth, targetHeight, 1],
-          format: 'r16float',
-          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
-        }),
-        mid: this.device.createTexture({
-          label: 'cloud_texture_mid',
-          size: [targetWidth, targetHeight, 1],
-          format: 'r16float',
-          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
-        }),
-        high: this.device.createTexture({
-          label: 'cloud_texture_high',
-          size: [targetWidth, targetHeight, 1],
-          format: 'r16float',
-          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
-        }),
+        low: lowTex,
+        mid: midTex,
+        high: highTex,
       };
 
       this.cloudTextureViews = {
-        low: this.cloudTextures.low.createView({ label: 'cloud_view_low' }),
-        mid: this.cloudTextures.mid.createView({ label: 'cloud_view_mid' }),
-        high: this.cloudTextures.high.createView({ label: 'cloud_view_high' }),
+        low: lowTex.createView({ label: 'cloud_view_low' }),
+        mid: midTex.createView({ label: 'cloud_view_mid' }),
+        high: highTex.createView({ label: 'cloud_view_high' }),
       };
       this.volumetricCloudBindGroup = null;
 
@@ -10228,15 +10237,15 @@ export class WebGPUEngine {
     }
 
     const sampler = this.cloudSampler;
-    const demView = this.demTextureView || this.orbitalTextureView;
-    const demSamp = this.demSampler || sampler;
-    const regView = this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || demView);
-    const regBuffer = (this.activeRegionalDEM && this.regionalUniformBuffer)
+    const demView = (this.demTextureView || this.orbitalTextureView)!;
+    const demSamp = (this.demSampler || sampler)!;
+    const regView = (this.activeRegionalDEM ? this.activeRegionalDEM.view : (this.dummyRegionalTextureView || demView))!;
+    const regBuffer = ((this.activeRegionalDEM && this.regionalUniformBuffer)
       ? this.regionalUniformBuffer
-      : (this.regionalUniformBuffer || this.reliefUniformBuffer || this.cloudUniformBuffers[0] || this.simUniformBuffer);
+      : (this.regionalUniformBuffer || this.reliefUniformBuffer || this.cloudUniformBuffers[0] || this.simUniformBuffer))!;
 
-    const windView = this.windTextureView || demView;
-    const windSamp = this.windSampler || this.demSampler || sampler;
+    const windView = (this.windTextureView || demView)!;
+    const windSamp = (this.windSampler || this.demSampler || sampler)!;
     const jetView = this.jetStreamTextureView || windView;
 
     const midView = this.cloudTextures.mid.createView();

@@ -81,7 +81,7 @@ describe('Challenger 2: DOM, Accessibility & ARIA Semantics Verification', () =>
       const renderControl = async (val: string) => {
         await act(async () => {
           root.render(
-            React.createElement(SegmentedControl, {
+            React.createElement(SegmentedControl<string>, {
               options: [
                 { id: 'alpha', label: 'Alpha' },
                 { id: 'beta', label: 'Beta' },

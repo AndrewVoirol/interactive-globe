@@ -218,6 +218,6 @@ describe('Tier 2: Semi-Lagrangian Advection on S² Manifold', () => {
     expect(crustFloats[76]).toBeCloseTo(0.65, 5);
     const crustCall = writeBufferSpy.mock.calls.find((c: any[]) => c[0] === (engine as any).crustUniformBuffer);
     expect(crustCall).toBeDefined();
-    expect(crustCall[2].byteLength).toBe(320);
+    expect(crustCall![2].byteLength).toBe(320);
   });
 });

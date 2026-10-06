@@ -71,7 +71,7 @@ describe('Milestone 4: Dual-Phase Optical Scattering & Multi-Medium Archival Ink
       writable: true,
       configurable: true,
     });
-    await mockGPU.requestAdapter().then((a: any) => a.requestDevice());
+    await mockGPU!.requestAdapter().then((a: any) => a.requestDevice());
     engine = new WebGPUEngine();
   });
 

@@ -364,8 +364,8 @@ describe('Adversarial Challenger: WeatherNext 3 Binary & Mathematical Invariants
       expect(meta.gridDimensions.lonMax).toBe(179.9);
 
       // Provenance must explicitly declare that col 0 is antimeridian rolled by 1800 columns
-      expect(meta.provenance.longitudeOrientation).toBe('col_0_antimeridian_rolled_1800');
-      expect(meta.provenance.latitudeOrientation).toBe('row_0_north_inverted');
+      expect(meta.provenance?.longitudeOrientation).toBe('col_0_antimeridian_rolled_1800');
+      expect(meta.provenance?.latitudeOrientation).toBe('row_0_north_inverted');
 
       // The roll delta required to map Prime Meridian (0.0°) from Zarr column 0 to its correct equirectangular column:
       const primeMeridianCol = Math.round((0.0 - meta.gridDimensions.lonMin) / meta.gridDimensions.resolutionDeg);

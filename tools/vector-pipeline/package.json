@@ -1,0 +1,15 @@
+{
+  "name": "vector-pipeline",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Isolated vector precomputation pipeline using DuckDB and Overture Maps GeoParquet",
+  "scripts": {
+    "precompute": "npx tsx ../../scripts/precompute-overture-vectors.ts",
+    "precompute:overture": "npx tsx ../../scripts/precompute-overture-vectors.ts"
+  },
+  "dependencies": {
+    "duckdb": "^1.4.4",
+    "duckdb-async": "^1.4.2"
+  }
+}

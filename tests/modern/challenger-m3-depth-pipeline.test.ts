@@ -228,8 +228,8 @@ describe('Challenger M3-2: WebGPU Pass 2 Depth Occlusion & Anti-Cheating Verific
       expect(depthTex).not.toBeNull();
       expect(depthView).not.toBeNull();
       expect(depthTex?.format).toBe('depth32float');
-      expect(depthTex?.usage & GPUTextureUsage.RENDER_ATTACHMENT).toBeTruthy();
-      expect(depthTex?.usage & GPUTextureUsage.TEXTURE_BINDING).toBeTruthy();
+      expect(((depthTex?.usage ?? 0) & GPUTextureUsage.RENDER_ATTACHMENT)).toBeTruthy();
+      expect(((depthTex?.usage ?? 0) & GPUTextureUsage.TEXTURE_BINDING)).toBeTruthy();
 
       // Spy on commandEncoder.beginRenderPass
       const dev = (engine as any).device as MockGPUDevice;
@@ -240,12 +240,12 @@ describe('Challenger M3-2: WebGPU Pass 2 Depth Occlusion & Anti-Cheating Verific
         const enc = origCreateCommandEncoder();
         const origBeginRenderPass = enc.beginRenderPass.bind(enc);
         let passIndex = 0;
-        enc.beginRenderPass = (desc: any) => {
+        (enc as any).beginRenderPass = (desc: any) => {
           if (passIndex === 0) {
             pass1DepthAttachment = desc.depthStencilAttachment;
           }
           passIndex++;
-          return origBeginRenderPass(desc);
+          return (origBeginRenderPass as any)(desc);
         };
         return enc;
       };
@@ -268,11 +268,11 @@ describe('Challenger M3-2: WebGPU Pass 2 Depth Occlusion & Anti-Cheating Verific
       dev.createCommandEncoder = () => {
         const enc = origCreateCommandEncoder();
         const origBeginRenderPass = enc.beginRenderPass.bind(enc);
-        enc.beginRenderPass = (desc: any) => {
+        (enc as any).beginRenderPass = (desc: any) => {
           if (desc.label === 'volumetric_cloud_pass_pass2') {
             pass2Descriptor = desc;
           }
-          return origBeginRenderPass(desc);
+          return (origBeginRenderPass as any)(desc);
         };
         return enc;
       };

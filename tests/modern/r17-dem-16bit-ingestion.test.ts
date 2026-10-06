@@ -133,7 +133,7 @@ describe('R17 Stage 1: True 16-Bit Texture Ingestion (rgba16float)', () => {
 
       // Verify cpuDEMData retains 16-bit type
       expect(engine.cpuDEMData).toBeInstanceOf(Uint16Array);
-      expect(engine.cpuDEMData.byteLength).toBe(u16Buffer.byteLength);
+      expect(engine.cpuDEMData!.byteLength).toBe(u16Buffer.byteLength);
 
       engine.dispose();
     });
