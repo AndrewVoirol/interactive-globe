@@ -155,6 +155,7 @@ Using Chrome DevTools MCP on `http://localhost:3000`:
 ---
 
 ## 7. Checkpoint Verification
+- **Commit SHA**: `a4decd3`
 - **Gate 3 Status**: Satisfied.
 - The repository is fully prepared for **Phase 4: Framework & Test Runner Harmonization (Vitest 5.0 and React 19.3)**.
 
