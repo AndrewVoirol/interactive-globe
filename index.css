@@ -1,6 +1,74 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="tharp"], [data-theme="cyanotype"], [data-theme="tharp"] *, [data-theme="cyanotype"] *));
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-cartouche: 'Cinzel', 'Times New Roman', serif;
+  --font-serif-body: "Cormorant Garamond", Georgia, serif;
+  --font-serif-book: 'Newsreader', Georgia, serif;
+
+  --text-pico: 7px;
+  --text-pico--line-height: 9px;
+  --text-pico--letter-spacing: 0.00em;
+
+  --text-nano: 8px;
+  --text-nano--line-height: 10px;
+  --text-nano--letter-spacing: 0.04em;
+
+  --text-micro: 9px;
+  --text-micro--line-height: 12px;
+  --text-micro--letter-spacing: 0.03em;
+
+  --text-body: 10px;
+  --text-body--line-height: 13px;
+  --text-body--letter-spacing: 0.02em;
+
+  --text-title: 11px;
+  --text-title--line-height: 14px;
+  --text-title--letter-spacing: 0.05em;
+
+  --color-theme-text-primary: var(--theme-text-primary);
+  --color-theme-text-secondary: var(--theme-text-secondary);
+  --color-theme-text-muted: var(--theme-text-muted);
+  --color-theme-text-accent: var(--theme-text-accent);
+  --color-theme-text-inverse: var(--theme-text-inverse);
+
+  --color-theme-panel-bg: var(--theme-panel-bg);
+  --color-theme-panel-border: var(--theme-panel-border);
+  --color-theme-card-bg: var(--theme-card-bg);
+  --color-theme-card-border: var(--theme-card-border);
+  --color-theme-card-border-hover: var(--theme-card-border-hover);
+  --color-theme-neatline-border: var(--theme-neatline-border);
+  --color-theme-neatline-accent: var(--theme-neatline-accent);
+
+  --color-theme-control-bg: var(--theme-control-bg);
+  --color-theme-control-border: var(--theme-control-border);
+  --color-theme-control-text: var(--theme-control-text);
+  --color-theme-control-hover-bg: var(--theme-control-hover-bg);
+  --color-theme-control-hover-border: var(--theme-control-hover-border);
+  --color-theme-control-hover-text: var(--theme-control-hover-text);
+  --color-theme-control-active-bg: var(--theme-control-active-bg);
+  --color-theme-control-active-border: var(--theme-control-active-border);
+  --color-theme-control-active-text: var(--theme-control-active-text);
+
+  --color-theme-switch-track-bg: var(--theme-switch-track-bg);
+  --color-theme-switch-track-active-bg: var(--theme-switch-track-active-bg);
+  --color-theme-switch-thumb-bg: var(--theme-switch-thumb-bg);
+  --color-theme-switch-thumb-active-bg: var(--theme-switch-thumb-active-bg);
+
+  --color-theme-slider-track-bg: var(--theme-slider-track-bg);
+  --color-theme-slider-track-fill: var(--theme-slider-track-fill);
+  --color-theme-slider-thumb-bg: var(--theme-slider-thumb-bg);
+
+  --color-theme-status-sage: var(--theme-status-sage);
+  --color-theme-status-slate: var(--theme-status-slate);
+  --color-theme-status-amber: var(--theme-status-amber);
+  --color-theme-focus-ring: var(--theme-focus-ring);
+
+  --animate-spin-slow: spin 20s linear infinite;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Master Archival Design Tokens & Dynamic Theme Custom Properties            */

@@ -7,7 +7,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import React, { act } from 'react';
 import { createRoot, Root } from 'react-dom/client';
-import tailwindConfig from '../../tailwind.config.js';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   ThemeManager,
   DARK_CYBER_UI_TOKENS,
@@ -28,6 +29,9 @@ describe('Bite 3: Typographic Hierarchy & Scale Enforcement', () => {
   let container: HTMLDivElement;
   let root: Root;
 
+  const cssPath = path.resolve(__dirname, '../../index.css');
+  const cssContent = fs.readFileSync(cssPath, 'utf-8');
+
   beforeEach(() => {
     themeMgr = ThemeManager.getInstance(0);
     themeMgr.setMode(0);
@@ -46,34 +50,29 @@ describe('Bite 3: Typographic Hierarchy & Scale Enforcement', () => {
 
   describe('Tailwind Typographic Configuration', () => {
     it('defines semantic 4-tier font sizes (title, body, micro, nano)', () => {
-      const fontSize = tailwindConfig.theme?.extend?.fontSize as Record<
-        string,
-        [string, { lineHeight: string; letterSpacing: string }]
-      >;
-      expect(fontSize).toBeDefined();
+      expect(cssContent).toMatch(/--text-nano:\s*8px;/);
+      expect(cssContent).toMatch(/--text-nano--line-height:\s*10px;/);
+      expect(cssContent).toMatch(/--text-nano--letter-spacing:\s*0\.04em;/);
 
-      expect(fontSize.nano[0]).toBe('8px');
-      expect(fontSize.nano[1].lineHeight).toBe('10px');
+      expect(cssContent).toMatch(/--text-micro:\s*9px;/);
+      expect(cssContent).toMatch(/--text-micro--line-height:\s*12px;/);
+      expect(cssContent).toMatch(/--text-micro--letter-spacing:\s*0\.03em;/);
 
-      expect(fontSize.micro[0]).toBe('9px');
-      expect(fontSize.micro[1].lineHeight).toBe('12px');
+      expect(cssContent).toMatch(/--text-body:\s*10px;/);
+      expect(cssContent).toMatch(/--text-body--line-height:\s*13px;/);
+      expect(cssContent).toMatch(/--text-body--letter-spacing:\s*0\.02em;/);
 
-      expect(fontSize.body[0]).toBe('10px');
-      expect(fontSize.body[1].lineHeight).toBe('13px');
-
-      expect(fontSize.title[0]).toBe('11px');
-      expect(fontSize.title[1].lineHeight).toBe('14px');
+      expect(cssContent).toMatch(/--text-title:\s*11px;/);
+      expect(cssContent).toMatch(/--text-title--line-height:\s*14px;/);
+      expect(cssContent).toMatch(/--text-title--letter-spacing:\s*0\.05em;/);
     });
 
     it('defines semantic font families for cartouche, monospace drafting, and body sans', () => {
-      const fontFamily = tailwindConfig.theme?.extend?.fontFamily as Record<string, string[]>;
-      expect(fontFamily).toBeDefined();
-
-      expect(fontFamily.sans[0]).toBe('Inter');
-      expect(fontFamily.mono[0]).toBe('"IBM Plex Mono"');
-      expect(fontFamily.cartouche[0]).toBe('Cinzel');
-      expect(fontFamily['serif-body'][0]).toBe('"Cormorant Garamond"');
-      expect(fontFamily['serif-book'][0]).toBe('Newsreader');
+      expect(cssContent).toMatch(/--font-sans:\s*['"]Inter['"]/);
+      expect(cssContent).toMatch(/--font-mono:\s*["']IBM Plex Mono["']/);
+      expect(cssContent).toMatch(/--font-cartouche:\s*['"]Cinzel['"]/);
+      expect(cssContent).toMatch(/--font-serif-body:\s*["']Cormorant Garamond["']/);
+      expect(cssContent).toMatch(/--font-serif-book:\s*['"]Newsreader['"]/);
     });
   });
 

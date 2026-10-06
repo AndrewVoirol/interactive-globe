@@ -73,9 +73,9 @@ describe('Milestone 1 Empirical Stress-Test: Dead Code Surgery & Clean Up', () =
       const cssPath = path.join(rootDir, 'index.css');
       const content = fs.readFileSync(cssPath, 'utf8');
 
-      expect(content).toContain('@tailwind base;');
-      expect(content).toContain('@tailwind components;');
-      expect(content).toContain('@tailwind utilities;');
+      expect(content).toContain('@import "tailwindcss";');
+      expect(content).toContain('@custom-variant dark');
+      expect(content).toContain('@theme {');
     });
   });
 

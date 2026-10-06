@@ -19,13 +19,11 @@ import { DataLayerItem } from '../../src/types';
 describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety', () => {
   const rootDir = path.resolve(__dirname, '../..');
   const indexCssPath = path.join(rootDir, 'index.css');
-  const tailwindConfigPath = path.join(rootDir, 'tailwind.config.js');
   const themeManagerPath = path.join(rootDir, 'src/core/themes/ThemeManager.ts');
   const appPath = path.join(rootDir, 'src/App.tsx');
   const sidebarPath = path.join(rootDir, 'src/components/hud/UnifiedRightSidebar.tsx');
 
   const indexCss = fs.readFileSync(indexCssPath, 'utf-8');
-  const tailwindConfig = fs.readFileSync(tailwindConfigPath, 'utf-8');
   const themeManagerCode = fs.readFileSync(themeManagerPath, 'utf-8');
   const appCode = fs.readFileSync(appPath, 'utf-8');
   const sidebarCode = [
@@ -52,8 +50,8 @@ describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety',
       expect(themeManagerCode).toContain("target.style.setProperty('--theme-card-border-hover', ui.cardBorderHover);");
     });
 
-    it('exposes theme-card-border-hover in tailwind.config.js', () => {
-      expect(tailwindConfig).toContain("'theme-card-border-hover': 'var(--theme-card-border-hover)'");
+    it('exposes theme-card-border-hover in index.css @theme', () => {
+      expect(indexCss).toContain('--color-theme-card-border-hover: var(--theme-card-border-hover);');
     });
   });
 
@@ -119,8 +117,8 @@ describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety',
   });
 
   describe('Defect 9: Tailwind Dark Mode Decoupling', () => {
-    it('configures selector-based darkMode targeting tharp and cyanotype attributes', () => {
-      expect(tailwindConfig).toMatch(/darkMode:\s*\[['"]selector['"],\s*['"]\[data-theme=["']tharp["']\],\s*\[data-theme=["']cyanotype["']\]['"]\]/);
+    it('configures selector-based darkMode targeting tharp and cyanotype attributes in index.css', () => {
+      expect(indexCss).toMatch(/@custom-variant\s+dark\s+\(&:\s*where\(\s*\[data-theme=["']tharp["']\],\s*\[data-theme=["']cyanotype["']\]/);
     });
   });
 
@@ -161,10 +159,10 @@ describe('Round 6: Design System Ergonomics, Hover Transitions & Layout Safety',
       expect(themeManagerCode).toContain("target.style.setProperty('--theme-status-amber', ui.statusAmber);");
     });
 
-    it('exposes semantic status tokens in tailwind.config.js', () => {
-      expect(tailwindConfig).toContain("'theme-status-sage': 'var(--theme-status-sage)'");
-      expect(tailwindConfig).toContain("'theme-status-slate': 'var(--theme-status-slate)'");
-      expect(tailwindConfig).toContain("'theme-status-amber': 'var(--theme-status-amber)'");
+    it('exposes semantic status tokens in index.css @theme', () => {
+      expect(indexCss).toContain('--color-theme-status-sage: var(--theme-status-sage);');
+      expect(indexCss).toContain('--color-theme-status-slate: var(--theme-status-slate);');
+      expect(indexCss).toContain('--color-theme-status-amber: var(--theme-status-amber);');
     });
 
     it('uses var(--theme-status-sage) in engine status and telemetry', () => {
