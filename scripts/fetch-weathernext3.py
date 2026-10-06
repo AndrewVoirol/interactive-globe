@@ -942,9 +942,12 @@ def main():
             selected_vars
             if any(a.startswith("--variables") for a in sys.argv)
             else [
+                "u_component_of_wind_10m_mean",
+                "v_component_of_wind_10m_mean",
                 "total_precipitation_1hr_mean",
                 "temperature_2m_mean",
                 "dewpoint_temperature_2m_mean",
+                "total_cloud_cover_mean",
                 "wind_10m_vector",
             ]
         )

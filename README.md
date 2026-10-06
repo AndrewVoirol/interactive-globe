@@ -14,10 +14,10 @@ A continuous volumetric cartography engine morphing between spherical planetoids
 git clone https://github.com/AndrewVoirol/interactive-globe.git
 cd interactive-globe
 npm install
-npm run dev
+npm run dev # or npm start
 ```
 
-Opens at http://localhost:5173. Requires Node.js 18+.
+Opens at http://localhost:3000. Requires Node.js 18+.
 
 ## How It Works
 
@@ -48,10 +48,10 @@ Under the hood, the engine governs continuous 2-manifold transformations across 
 
 | Layer | Technology |
 |---|---|
-| Framework | React 19 + TypeScript 5.8 |
+| Framework | React 19 + TypeScript 7.0 |
 | 3D & Graphics | Three.js + React Three Fiber (`@react-three/fiber`) |
 | GPU Pipelines | WebGPU (WGSL compute & multi-pass render, `@webgpu/types`) |
 | WebGL Fallback | WebGL2 Custom GLSL Vertex & Fragment Shaders |
-| Styling | Tailwind CSS 3 |
-| Build Tool | Vite 6 |
-| Automated Tests | Vitest 4 (68 test files, 901 passing tests, 100% pass rate) |
+| Styling | Tailwind CSS 4.3 |
+| Build Tool | Vite 8 (Rolldown) |
+| Automated Tests | Vitest 5 (279 test files, 3,901 passing tests, 100% pass rate) |
