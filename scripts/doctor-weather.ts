@@ -17,6 +17,7 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { WEATHERNEXT_GRID_SPEC } from '../src/core/data/WeatherNextDataSource';
+import { mountWorktreeAssets } from './mount-worktree-assets';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -144,6 +145,11 @@ function checkGCSConnectivity() {
 // 3. Staged Local Dataset Inspection (public/data/weathernext/)
 // ---------------------------------------------------------------------------
 function checkStagedDataset() {
+  // Rule 64: Mount worktree assets from canonical root if in linked worktree
+  try {
+    mountWorktreeAssets(PROJECT_ROOT);
+  } catch {}
+
   const dirExists = fs.existsSync(WEATHERNEXT_DATA_DIR);
   recordCheck(
     'Storage',

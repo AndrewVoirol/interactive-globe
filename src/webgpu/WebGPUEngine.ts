@@ -5012,18 +5012,23 @@ export class WebGPUEngine {
     } else if (typeof fetch !== 'undefined') {
       try {
         const res = await fetch(urlOrBuffer);
-        if (res.ok) {
+        const isHtml = res.headers.get('content-type')?.includes('text/html');
+        if (res.ok && !isHtml) {
           buffer = await res.arrayBuffer();
         } else if (typeof urlOrBuffer === 'string' && urlOrBuffer.includes('wind_10m_vector')) {
           // Fallback to GFS wind if WeatherNext wind slice is absent
           const fallbackRes = await fetch('/data/gfs-wind-latest.bin');
-          if (fallbackRes.ok) buffer = await fallbackRes.arrayBuffer();
+          if (fallbackRes.ok && !fallbackRes.headers.get('content-type')?.includes('text/html')) {
+            buffer = await fallbackRes.arrayBuffer();
+          }
         }
       } catch {
         if (typeof urlOrBuffer === 'string' && urlOrBuffer.includes('wind_10m_vector')) {
           try {
             const fallbackRes = await fetch('/data/gfs-wind-latest.bin');
-            if (fallbackRes.ok) buffer = await fallbackRes.arrayBuffer();
+            if (fallbackRes.ok && !fallbackRes.headers.get('content-type')?.includes('text/html')) {
+              buffer = await fallbackRes.arrayBuffer();
+            }
           } catch {}
         }
       }
@@ -10401,7 +10406,13 @@ export class WebGPUEngine {
     if (typeof fetch !== 'undefined') {
       try {
         const res = await fetch(targetUrl);
-        if (res.ok) buffer = await res.arrayBuffer();
+        const isHtml = res.headers.get('content-type')?.includes('text/html');
+        if (res.ok && !isHtml) {
+          const buf = await res.arrayBuffer();
+          if (buf.byteLength >= 100000) {
+            buffer = buf;
+          }
+        }
       } catch {
         // Fallback
       }
@@ -10416,6 +10427,9 @@ export class WebGPUEngine {
   }
 
   public async loadAllCloudLayers(isWeatherNext: boolean = true): Promise<void> {
+    const PADDED_SLICE_BYTES = 13370624;
+    const UNPADDED_SLICE_BYTES = 12967200;
+
     if (isWeatherNext) {
       try {
         const [lowRes, midRes, highRes] = await Promise.all([
@@ -10424,20 +10438,39 @@ export class WebGPUEngine {
           fetch('/data/weathernext/high_cloud_cover_mean-0.bin'),
         ]);
 
-        if (lowRes.ok && midRes.ok && highRes.ok) {
+        const isValidBinary = (res: Response): boolean => {
+          if (!res.ok) return false;
+          const ct = res.headers.get('content-type');
+          if (ct && (ct.includes('text/html') || ct.includes('text/plain'))) return false;
+          return true;
+        };
+
+        if (isValidBinary(lowRes) && isValidBinary(midRes) && isValidBinary(highRes)) {
           const [lowBuf, midBuf, highBuf] = await Promise.all([
             lowRes.arrayBuffer(),
             midRes.arrayBuffer(),
             highRes.arrayBuffer(),
           ]);
-          this.setCloudData('low', lowBuf, 3600, 1801);
-          this.setCloudData('mid', midBuf, 3600, 1801);
-          this.setCloudData('high', highBuf, 3600, 1801);
-          this.lastLoadedWeatherNextHour = 0;
-          return;
+
+          const isValidSliceSize = (buf: ArrayBuffer): boolean =>
+            buf.byteLength === PADDED_SLICE_BYTES || buf.byteLength === UNPADDED_SLICE_BYTES;
+
+          if (isValidSliceSize(lowBuf) && isValidSliceSize(midBuf) && isValidSliceSize(highBuf)) {
+            this.setCloudData('low', lowBuf, 3600, 1801);
+            this.setCloudData('mid', midBuf, 3600, 1801);
+            this.setCloudData('high', highBuf, 3600, 1801);
+            this.lastLoadedWeatherNextHour = 0;
+            return;
+          } else {
+            console.warn(
+              `[WebGPU] WeatherNext cloud slice size violation (Invariant §40: expected ${PADDED_SLICE_BYTES} or ${UNPADDED_SLICE_BYTES} bytes, got low=${lowBuf.byteLength}, mid=${midBuf.byteLength}, high=${highBuf.byteLength}). Triggering fallback to NOAA GFS.`
+            );
+          }
+        } else {
+          console.warn('[WebGPU] WeatherNext cloud binary fetch returned invalid content-type or non-200 status. Triggering fallback to NOAA GFS.');
         }
       } catch (e) {
-        console.warn('WeatherNext cloud layers failed to load, falling back to GFS:', e);
+        console.warn('[WebGPU] WeatherNext cloud layers failed to load, triggering fallback to NOAA GFS:', e);
       }
     }
     
@@ -10452,25 +10485,49 @@ export class WebGPUEngine {
   public async loadWeatherNextCloudLayers(hour: number): Promise<void> {
     const clampedHour = Math.max(0, Math.min(11, Math.floor(hour)));
     if (this.lastLoadedWeatherNextHour === clampedHour) return;
+
+    const PADDED_SLICE_BYTES = 13370624;
+    const UNPADDED_SLICE_BYTES = 12967200;
+
     try {
       const [lowRes, midRes, highRes] = await Promise.all([
         fetch(`/data/weathernext/low_cloud_cover_mean-${clampedHour}.bin`),
         fetch(`/data/weathernext/medium_cloud_cover_mean-${clampedHour}.bin`),
         fetch(`/data/weathernext/high_cloud_cover_mean-${clampedHour}.bin`),
       ]);
-      if (lowRes.ok && midRes.ok && highRes.ok) {
+      const isValidBinary = (res: Response): boolean => {
+        if (!res.ok) return false;
+        const ct = res.headers.get('content-type');
+        if (ct && (ct.includes('text/html') || ct.includes('text/plain'))) return false;
+        return true;
+      };
+
+      if (isValidBinary(lowRes) && isValidBinary(midRes) && isValidBinary(highRes)) {
         const [lowBuf, midBuf, highBuf] = await Promise.all([
           lowRes.arrayBuffer(),
           midRes.arrayBuffer(),
           highRes.arrayBuffer(),
         ]);
-        this.setCloudData('low', lowBuf, 3600, 1801);
-        this.setCloudData('mid', midBuf, 3600, 1801);
-        this.setCloudData('high', highBuf, 3600, 1801);
-        this.lastLoadedWeatherNextHour = clampedHour;
+
+        const isValidSliceSize = (buf: ArrayBuffer): boolean =>
+          buf.byteLength === PADDED_SLICE_BYTES || buf.byteLength === UNPADDED_SLICE_BYTES;
+
+        if (isValidSliceSize(lowBuf) && isValidSliceSize(midBuf) && isValidSliceSize(highBuf)) {
+          this.setCloudData('low', lowBuf, 3600, 1801);
+          this.setCloudData('mid', midBuf, 3600, 1801);
+          this.setCloudData('high', highBuf, 3600, 1801);
+          this.lastLoadedWeatherNextHour = clampedHour;
+          return;
+        } else {
+          console.warn(
+            `[WebGPU] WeatherNext cloud hour ${clampedHour} slice size violation (expected ${PADDED_SLICE_BYTES} or ${UNPADDED_SLICE_BYTES}). Retaining previous stratum textures.`
+          );
+        }
+      } else {
+        console.warn(`[WebGPU] WeatherNext cloud hour ${clampedHour} fetch returned non-binary response.`);
       }
     } catch (e) {
-      console.warn(`WeatherNext cloud layers failed to load for hour ${clampedHour}:`, e);
+      console.warn(`[WebGPU] WeatherNext cloud layers failed to load for hour ${clampedHour}:`, e);
     }
   }
 

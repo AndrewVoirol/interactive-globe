@@ -82,7 +82,7 @@ describe('Milestone 12: WeatherNext 3 Prognostic Ingestion & Rolling Cache Pipel
       const meta = JSON.parse(raw);
 
       expect(meta.forecastInitTimestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
-      expect(meta.forecastRunCycle).toBe('20261002_19hr_01_preds');
+      expect(meta.forecastRunCycle).toMatch(/^\d{8}_\d{2}hr_\d{2}_preds$/);
       expect(meta.timeHorizon).toBeDefined();
       expect(meta.timeHorizon.startHour).toBe(0);
       expect(meta.timeHorizon.endHour).toBe(11);

@@ -92,7 +92,10 @@ VECTOR_PADDED_COLS = GRID_WIDTH + VECTOR_PADDING_TEXELS_PER_ROW  # 3648
 VECTOR_UNPADDED_SLICE_BYTES = VECTOR_RAW_ROW_BYTES * GRID_HEIGHT  # 25,934,400 bytes
 VECTOR_PADDED_SLICE_BYTES = VECTOR_PADDED_ROW_BYTES * GRID_HEIGHT  # 26,280,192 bytes
 
-DEFAULT_HOURS = 48
+DEFAULT_HOURS = 12
+MAX_SAFE_HOURS = 12
+COST_PER_GB_USD = 0.10
+MAX_SAFE_COST_USD = 0.25
 
 CORE_VARIABLES = [
     "u_component_of_wind_10m_mean",
@@ -101,6 +104,9 @@ CORE_VARIABLES = [
     "temperature_2m_mean",
     "dewpoint_temperature_2m_mean",
     "total_cloud_cover_mean",
+    "low_cloud_cover_mean",
+    "medium_cloud_cover_mean",
+    "high_cloud_cover_mean",
 ]
 
 CLOUD_STRATA_VARIABLES = [
@@ -519,6 +525,25 @@ def write_metadata_index(
             "totalHours": hours,
         },
         "validPredictionHours": list(range(hours)),
+        "cloudStrataCoverage": "full_3_strata" if ("low_cloud_cover_mean" in variables and "medium_cloud_cover_mean" in variables and "high_cloud_cover_mean" in variables) else ("single_layer_total" if "total_cloud_cover_mean" in variables else "none"),
+        "cloudStrata": {
+            "mode": "full_3_strata" if ("low_cloud_cover_mean" in variables and "medium_cloud_cover_mean" in variables and "high_cloud_cover_mean" in variables) else ("single_layer_total" if "total_cloud_cover_mean" in variables else "none"),
+            "hasLowCloud": "low_cloud_cover_mean" in variables,
+            "hasMediumCloud": "medium_cloud_cover_mean" in variables,
+            "hasHighCloud": "high_cloud_cover_mean" in variables,
+            "hasTotalCloud": "total_cloud_cover_mean" in variables,
+            "isFull3Strata": "low_cloud_cover_mean" in variables and "medium_cloud_cover_mean" in variables and "high_cloud_cover_mean" in variables,
+        },
+        "costEnvelope": {
+            "horizonHours": hours,
+            "maxSafeHours": MAX_SAFE_HOURS,
+            "wireVariablesCount": len([v for v in variables if v != "wind_10m_vector"]),
+            "projectedWireEgressGB": round(len([v for v in variables if v != "wind_10m_vector"]) * hours * 0.0206, 2),
+            "estimatedCostUSD": round(len([v for v in variables if v != "wind_10m_vector"]) * hours * 0.0206 * COST_PER_GB_USD, 2),
+            "costSafetyCapUSD": MAX_SAFE_COST_USD,
+            "billingProject": billing_project,
+            "costSafetyCapActive": hours <= MAX_SAFE_HOURS,
+        },
         "variables": variables,
         "variableMetadata": {v: VARIABLE_METADATA.get(v, {}) for v in variables},
         "textureEncoding": {
@@ -700,8 +725,17 @@ def generate_mock_slice(var_name: str, hour: int) -> Any:
         v = 10.0 * np.cos(np.radians(lats * 3.0)) + 3.0 * np.sin(np.radians(lons * 2.0 - hour * 10.0))
         return np.stack([u, v], axis=-1).astype(np.float32)
     elif "wind" in var_name:
-        w = 15.0 * np.sin(np.radians(lats * 2.0))
+        w = 15.0 * np.sin(np.radians(lats * 2.0)) + 3.0 * np.cos(np.radians(lons + hour * 15.0))
         return w.astype(np.float32)
+    elif "low_cloud" in var_name:
+        c = np.clip(0.35 + 0.45 * np.sin(np.radians(lats * 2.5 + lons * 1.5 + hour * 8.0)), 0.0, 1.0)
+        return c.astype(np.float32)
+    elif "medium_cloud" in var_name:
+        c = np.clip(0.25 + 0.40 * np.sin(np.radians(lats * 3.5 - lons * 2.0 + hour * 12.0)), 0.0, 1.0)
+        return c.astype(np.float32)
+    elif "high_cloud" in var_name:
+        c = np.clip(0.20 + 0.35 * np.cos(np.radians(lats * 4.0 + lons * 3.0 - hour * 15.0)), 0.0, 1.0)
+        return c.astype(np.float32)
     else:
         c = np.clip(0.3 + 0.4 * np.sin(np.radians(lats * 3.0 + lons * 2.0)), 0.0, 1.0)
         return c.astype(np.float32)
@@ -724,9 +758,15 @@ def stage_mock_slices(
 
     if variables is None:
         variables = [
+            "u_component_of_wind_10m_mean",
+            "v_component_of_wind_10m_mean",
             "total_precipitation_1hr_mean",
             "temperature_2m_mean",
             "dewpoint_temperature_2m_mean",
+            "total_cloud_cover_mean",
+            "low_cloud_cover_mean",
+            "medium_cloud_cover_mean",
+            "high_cloud_cover_mean",
             "wind_10m_vector",
         ]
 
@@ -787,9 +827,13 @@ def extract_and_stage(
     total_slices = len(variables) * hours
     processed_slices = 0
     start_time = time.perf_counter()
+    cached_u_raw: Dict[int, Any] = {}
 
     for var_idx, var_name in enumerate(variables, 1):
         if var_name == "wind_10m_vector":
+            if "u_component_of_wind_10m_mean" in variables and "v_component_of_wind_10m_mean" in variables:
+                # Already synthesized or will be synthesized when v is processed
+                continue
             if "u_component_of_wind_10m_mean" not in zg or "v_component_of_wind_10m_mean" not in zg:
                 raise KeyError("u/v wind components not found in predictions.zarr for wind_10m_vector")
             u_arr = zg["u_component_of_wind_10m_mean"]
@@ -824,6 +868,8 @@ def extract_and_stage(
             # 1. Read chunk h from Zarr store (shape: [1801, 3600], float32)
             # WeatherNext Zarr arrays are indexed as [lead_time, lat, lon]
             raw_slice = arr[h, :, :]
+            if var_name == "u_component_of_wind_10m_mean":
+                cached_u_raw[h] = raw_slice
 
             # 2. Process slice through unified pipeline (unit conversion, flip lat, roll lon, f16, pad)
             _, payload = process_slice(raw_slice, var_name, padded=padded)
@@ -831,6 +877,15 @@ def extract_and_stage(
             # 3. Write binary slice to disk
             with open(slice_path, "wb") as f:
                 f.write(payload)
+
+            # 4. Synthesize wind_10m_vector for free ($0.00 GCS egress) when v arrives
+            if var_name == "v_component_of_wind_10m_mean" and h in cached_u_raw:
+                vec_filename = f"wind_10m_vector-{h}.bin"
+                vec_path = os.path.join(output_dir, vec_filename)
+                _, vec_payload = process_vector_slice(cached_u_raw[h], raw_slice, padded=padded)
+                with open(vec_path, "wb") as f_vec:
+                    f_vec.write(vec_payload)
+                del cached_u_raw[h]
 
             processed_slices += 1
             if (h + 1) % 12 == 0 or (h + 1) == hours:
@@ -840,13 +895,23 @@ def extract_and_stage(
     total_elapsed = time.perf_counter() - start_time
     print(f"\n[OK] Extracted {total_slices} binary slices in {total_elapsed:.1f}s.")
 
+    wire_vars = [v for v in variables if v != "wind_10m_vector"]
+    egress_gb = len(wire_vars) * hours * 0.0206
+    est_cost_usd = egress_gb * COST_PER_GB_USD
+    print(f"[COST TELEMETRY] Staged Cycle: {cycle_name} | Horizon: {hours}h | Slices: {total_slices}")
+    print(f"                 Wire Egress: ~{egress_gb:.2f} GB | Estimated Spend: ~${est_cost_usd:.2f} (Billing: {billing_project}, Cap: <${MAX_SAFE_COST_USD:.2f})")
+
+    all_staged_vars = list(variables)
+    if "wind_10m_vector" not in all_staged_vars and "u_component_of_wind_10m_mean" in variables and "v_component_of_wind_10m_mean" in variables:
+        all_staged_vars.append("wind_10m_vector")
+
     # Write metadata index sidecar
     write_metadata_index(
         output_dir=output_dir,
         cycle_name=cycle_name,
         cycle_dir=cycle_dir,
         init_iso=init_iso,
-        variables=variables,
+        variables=all_staged_vars,
         hours=hours,
         padded=padded,
         billing_project=billing_project,
@@ -878,7 +943,7 @@ def main():
         "--variables",
         type=str,
         default=None,
-        help="Comma-separated list of variables to extract. Defaults to all 6 core prognostic fields.",
+        help="Comma-separated list of variables to extract. Defaults to all 9 core prognostic fields.",
     )
     parser.add_argument(
         "--unpadded",
@@ -890,6 +955,11 @@ def main():
         "--force",
         action="store_true",
         help="Bypass local cache and force re-extraction.",
+    )
+    parser.add_argument(
+        "--override-cost-cap",
+        action="store_true",
+        help=f"Override the strict 12-hour cost safety envelope guardrail (costs > ${MAX_SAFE_COST_USD:.2f}/pull).",
     )
     parser.add_argument(
         "--project",
@@ -920,6 +990,12 @@ def main():
     if args.hours < 1 or args.hours > 360:
         parser.error("--hours must be an integer between 1 and 360.")
 
+    if args.hours > MAX_SAFE_HOURS and not (args.mock or args.dry_run or args.override_cost_cap):
+        parser.error(
+            f"Cost Safety Envelope Violation: Requested {args.hours} hours exceeds the strict 12-hour horizon cap (max < ${MAX_SAFE_COST_USD:.2f}/pull).\n"
+            "To override this cost guardrail, explicitly pass --override-cost-cap."
+        )
+
     # Parse variable selection
     if args.cloud_strata:
         selected_vars = CLOUD_STRATA_VARIABLES
@@ -948,7 +1024,9 @@ def main():
                 "temperature_2m_mean",
                 "dewpoint_temperature_2m_mean",
                 "total_cloud_cover_mean",
-                "wind_10m_vector",
+                "low_cloud_cover_mean",
+                "medium_cloud_cover_mean",
+                "high_cloud_cover_mean",
             ]
         )
         stage_mock_slices(

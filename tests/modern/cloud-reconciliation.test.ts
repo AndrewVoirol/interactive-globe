@@ -236,6 +236,72 @@ describe('Volumetric Cloud & Data Reconciliation Suite', () => {
     }, camera);
     expect(floats[36]).toBe(1.0); // falseColor is 1.0
   });
+
+  it('G8: loadWeatherNextCloudLayers rejects text/html responses and falls back to NOAA GFS', async () => {
+    const originalFetch = globalThis.fetch;
+    // Mock fetch returning HTML (e.g. Vite SPA fallback on missing route)
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes('/data/weathernext/')) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => 'text/html' },
+          arrayBuffer: async () => new TextEncoder().encode('<!DOCTYPE html><html><body>SPA</body></html>').buffer,
+        };
+      }
+      // Fallback GFS request
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/octet-stream' },
+        arrayBuffer: async () => new ArrayBuffer(1440 * 721 * 2),
+      };
+    });
+
+    try {
+      await engine.loadAllCloudLayers(true);
+      // Because WeatherNext returned text/html, it must cleanly fallback to GFS 1440x721
+      expect((engine as any).cloudTextures.low.width).toBe(1440);
+      expect((engine as any).cloudTextures.low.height).toBe(721);
+      expect((engine as any).lastLoadedWeatherNextHour).toBe(-1);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('G9: dual-model ground shadow coupling activates whenever showClouds and showCloudLow are true', () => {
+    // 1. WeatherNext 3 active with low cloud -> ground shadow must project onto crust
+    engine.render({
+      camera,
+      unfurl: 0,
+      mode: 0,
+      time: 0,
+      dt: 0.016,
+      showClouds: true,
+      showCloudLow: true,
+      showCloudMid: true,
+      showCloudHigh: true,
+      prognosticModel: 'google-weathernext3',
+      shadowIntensity: 0.45,
+    });
+    expect((engine as any).crustFloats[68]).toBeCloseTo(0.45, 2);
+
+    // 2. NOAA GFS active with low cloud -> ground shadow must project onto crust
+    engine.render({
+      camera,
+      unfurl: 0,
+      mode: 0,
+      time: 0,
+      dt: 0.016,
+      showClouds: true,
+      showCloudLow: true,
+      showCloudMid: true,
+      showCloudHigh: true,
+      prognosticModel: 'noaa-gfs',
+      shadowIntensity: 0.45,
+    });
+    expect((engine as any).crustFloats[68]).toBeCloseTo(0.45, 2);
+  });
 });
 
 
