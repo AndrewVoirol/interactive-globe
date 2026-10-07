@@ -3121,16 +3121,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
           ? liveOverrides.showCloudLow
           : (stateRef.current.showCloudLow ?? true);
 
-        const isGfsActive =
-          stateRef.current.prognosticModel === 'gfs' ||
-          stateRef.current.prognosticModel === 'noaa-gfs' ||
-          Boolean(layerCache.cloudLayer?.visible && (layerCache.cloudLayer.id === 'noaa-gfs-clouds' || !stateRef.current.prognosticModel));
-
         const shouldCastShadows =
           effectiveShowClouds &&
           effectiveShowCloudLow &&
-          (liveOverrides?.cloudShadows !== false) &&
-          isGfsActive;
+          (liveOverrides?.cloudShadows !== false);
 
         const effectiveShadowIntensity = shouldCastShadows
           ? (liveOverrides?.shadowIntensity !== undefined

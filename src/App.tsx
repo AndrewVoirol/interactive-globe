@@ -275,6 +275,10 @@ export default function App() {
       window.__INDICATRIX_SET_PROGNOSTIC_MODEL__ = (model: PrognosticModelBackend) => {
         handlePrognosticModelChange(model);
       };
+      (window as any).__INDICATRIX_TOGGLE_PLANETARY_LAYER__ = (id: string, force?: boolean) => {
+        handleTogglePlanetaryLayer(id, force);
+      };
+      (window as any).__INDICATRIX_DATA_LAYERS__ = dataLayers;
       (window as any).__INDICATRIX_PURITY_MODE__ = purityMode;
       (window as any).setPurityMode = setPurityMode;
       (window as any).__INDICATRIX_SET_PURITY_MODE__ = setPurityMode;
@@ -385,9 +389,29 @@ export default function App() {
       }
       if (layer.id === 'noaa-gfs-clouds') {
         setShowClouds(true);
+        setPrognosticModel('noaa-gfs');
       }
     },
     [handleAddDataLayer, setPrognosticModel, setShowClouds]
+  );
+
+  const handleToggleDataLayerWithModelSync = useCallback(
+    (id: string) => {
+      handleToggleDataLayer(id);
+      const layer = dataLayers.find((l) => l.id === id);
+      const nextVisible = !layer?.visible;
+      if (id === 'noaa-gfs-clouds') {
+        setShowClouds(nextVisible);
+        if (nextVisible) {
+          setPrognosticModel('noaa-gfs');
+        }
+      } else if (id === 'google-weathernext3' || id === 'weathernext3') {
+        if (nextVisible) {
+          setPrognosticModel('google-weathernext3');
+        }
+      }
+    },
+    [dataLayers, handleToggleDataLayer, setShowClouds, setPrognosticModel]
   );
 
   const handleTogglePlanetaryLayer = useCallback(
@@ -395,7 +419,7 @@ export default function App() {
       const existing = dataLayers.find((l) => l.id === id);
       if (existing) {
         if (force === true && existing.visible) return;
-        handleToggleDataLayer(id);
+        handleToggleDataLayerWithModelSync(id);
       } else {
         const preset = getPresetById(id);
         if (preset) {
@@ -418,7 +442,7 @@ export default function App() {
         }
       }
     },
-    [dataLayers, handleToggleDataLayer, handleAddDataLayerWithModelSync]
+    [dataLayers, handleToggleDataLayerWithModelSync, handleAddDataLayerWithModelSync]
   );
 
   const fractureDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -477,7 +501,8 @@ export default function App() {
   const handlePrognosticModelChange = useCallback(
     (model: PrognosticModelBackend) => {
       setPrognosticModel(model);
-      if (isWeatherNextModel(model)) {
+      const isWn = isWeatherNextModel(model);
+      if (isWn) {
         const exists = dataLayers.find((l) => l.id === 'google-weathernext3');
         if (exists && !exists.visible) {
           handleToggleDataLayer('google-weathernext3');
@@ -497,15 +522,40 @@ export default function App() {
             });
           }
         }
+      } else if (model === 'noaa-gfs' || model === 'gfs') {
+        const exists = dataLayers.find((l) => l.id === 'noaa-gfs-clouds');
+        if (exists && !exists.visible) {
+          handleToggleDataLayer('noaa-gfs-clouds');
+        } else if (!exists) {
+          const preset = getPresetById('noaa-gfs-clouds');
+          if (preset) {
+            handleAddDataLayer({
+              id: preset.id,
+              name: preset.name,
+              category: preset.category,
+              type: preset.type,
+              details: preset.details,
+              visible: true,
+              url: preset.url,
+              opacity: preset.defaultOpacity,
+              blendMode: preset.defaultBlendMode,
+            });
+          }
+        }
       }
 
       if (typeof window !== 'undefined') {
         const engine = window.__INDICATRIX_WEBGPU_ENGINE__ || window.__ENGINE;
-        if (engine && typeof engine.loadWindTexture === 'function') {
-          if (isWeatherNextModel(model)) {
-            engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {});
-          } else {
-            engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+        if (engine) {
+          if (typeof engine.loadWindTexture === 'function') {
+            if (isWn) {
+              engine.loadWindTexture('/data/weathernext/wind_10m_vector-0.bin').catch(() => {});
+            } else {
+              engine.loadWindTexture('/data/gfs-wind-latest.bin').catch(() => {});
+            }
+          }
+          if (typeof engine.loadAllCloudLayers === 'function') {
+            engine.loadAllCloudLayers(isWn).catch(() => {});
           }
         }
       }
@@ -872,7 +922,7 @@ export default function App() {
           toasts={toasts}
           onDismissToast={dismissToast}
           onAddDataLayer={handleAddDataLayerWithModelSync}
-          onToggleDataLayer={handleToggleDataLayer}
+          onToggleDataLayer={handleToggleDataLayerWithModelSync}
           onRemoveDataLayer={handleRemoveDataLayer}
           onTogglePlanetaryLayer={handleTogglePlanetaryLayer}
           onOpacityChangeDataLayer={handleOpacityChangeDataLayer}

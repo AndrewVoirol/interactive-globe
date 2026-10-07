@@ -105,6 +105,26 @@ export interface WeatherNextTextureEncoding {
   paddedSliceByteLength: number;
 }
 
+export interface WeatherNextCloudStrataMeta {
+  mode: 'full_3_strata' | 'single_layer_total' | 'none';
+  hasLowCloud: boolean;
+  hasMediumCloud: boolean;
+  hasHighCloud: boolean;
+  hasTotalCloud: boolean;
+  isFull3Strata: boolean;
+}
+
+export interface WeatherNextCostEnvelopeMeta {
+  horizonHours: number;
+  maxSafeHours: number;
+  wireVariablesCount: number;
+  projectedWireEgressGB: number;
+  estimatedCostUSD: number;
+  costSafetyCapUSD: number;
+  billingProject: string;
+  costSafetyCapActive: boolean;
+}
+
 export interface WeatherNextMeta {
   source: string;
   model: string;
@@ -113,12 +133,16 @@ export interface WeatherNextMeta {
   forecastRunCycle: string;
   ingestedAtUTC: string;
   billingProject: string;
+  cloudStrataCoverage?: 'full_3_strata' | 'single_layer_total' | 'none';
+  cloudStrata?: WeatherNextCloudStrataMeta;
+  costEnvelope?: WeatherNextCostEnvelopeMeta;
   gridDimensions: WeatherNextGridDimensions;
   timeHorizon: WeatherNextTimeHorizon;
   validPredictionHours: number[];
   variables: string[];
   variableMetadata: Record<string, WeatherNextVariableInfo>;
   textureEncoding: WeatherNextTextureEncoding;
+  vectorTextureEncoding?: WeatherNextTextureEncoding;
   filePattern: string;
   provenance?: Record<string, any>;
 }

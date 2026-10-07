@@ -225,9 +225,11 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
     }
   };
 
-  const isNoaaActive = dataLayers.some((l) => l.id === 'noaa-gfs-wind' && l.visible);
+  const isNoaaActive = dataLayers.some((l) => (l.id === 'noaa-gfs-wind' || l.id === 'noaa-gfs-clouds') && l.visible);
   const isRadarActive = dataLayers.some((l) => l.id === 'live-doppler-radar' && l.visible);
   const isWindActive = prognosticVariable === 'wind_10m_vector' || prognosticVariable === 'ivt' || dataLayers.some((l) => (l.id.includes('wind') || l.id === 'noaa-gfs-wind') && l.visible);
+  const isWeatherNextActive = dataLayers.some((l) => l.id === 'google-weathernext3' && l.visible) || isWeatherNextModel(prognosticModel);
+  const isWeatherActive = isNoaaActive || isWeatherNextActive || Boolean(isWindActive);
 
   const handleEnableRadar = () => {
     const existing = dataLayers.find((l) => l.id === 'live-doppler-radar');
@@ -496,7 +498,7 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
                   onToggleDataLayer={onToggleDataLayer} onRemoveDataLayer={onRemoveDataLayer}
                   onOpacityChangeDataLayer={onOpacityChangeDataLayer}
                   onAmbientOcclusionChangeDataLayer={onAmbientOcclusionChangeDataLayer}
-                  propShowClouds={propShowClouds} isNoaaActive={isNoaaActive} isRadarActive={isRadarActive}
+                  propShowClouds={propShowClouds} isNoaaActive={isNoaaActive} isWeatherActive={isWeatherActive} isRadarActive={isRadarActive}
                 />
                 <InspectionTab
                   theme={theme} purityMode={purityMode} onPurityModeToggle={onPurityModeToggle}

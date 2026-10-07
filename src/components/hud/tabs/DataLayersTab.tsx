@@ -15,6 +15,7 @@ export interface DataLayersTabProps {
   propShowClouds?: boolean;
   isNoaaActive: boolean;
   isRadarActive: boolean;
+  isWeatherActive?: boolean;
 }
 
 export const DataLayersTab: React.FC<DataLayersTabProps> = ({
@@ -29,6 +30,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
   propShowClouds,
   isNoaaActive,
   isRadarActive,
+  isWeatherActive,
 }) => {
   const [expandedLayerId, setExpandedLayerId] = useState<string | null>(null);
 
@@ -164,6 +166,18 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                               title={`Pigment Preview: ${legend.minLabel || ''} → ${legend.maxLabel || ''} (${legend.unit || ''})`}
                             />
                           )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 pl-0.5 text-pico font-mono text-[var(--theme-text-muted)] truncate">
+                          <span title={`Attribution: ${preset?.attribution || layer.type}`}>
+                            {layer.id === 'google-weathernext3'
+                              ? 'Google DeepMind WeatherNext 3 (0.1°)'
+                              : layer.id.includes('gfs')
+                              ? 'NOAA GFS (0.25°)'
+                              : layer.id === 'live-doppler-radar'
+                              ? 'RainViewer (Doppler Radar)'
+                              : preset?.attribution || layer.type}
+                          </span>
                         </div>
 
                         {(isPrimaryRaster || isShadowedRaster || preset?.unsupported) && (
@@ -313,6 +327,21 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
                         />
                       </div>
                     )}
+
+                    {preset?.attribution && (
+                      <div className="flex items-center justify-between text-nano pt-1.5 border-t border-[var(--theme-panel-header-border)]">
+                        <span className="text-[var(--theme-text-primary)] font-bold text-nano uppercase tracking-wider">Source:</span>
+                        <span className="font-mono text-[var(--theme-text-accent)] text-nano font-semibold truncate max-w-[210px]" title={preset.attribution}>
+                          {layer.id === 'google-weathernext3'
+                            ? 'Google DeepMind WeatherNext 3 (0.1°)'
+                            : layer.id.includes('gfs')
+                            ? 'NOAA GFS (0.25°)'
+                            : layer.id === 'live-doppler-radar'
+                            ? 'RainViewer (Doppler Radar)'
+                            : preset.attribution}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -328,7 +357,7 @@ export const DataLayersTab: React.FC<DataLayersTabProps> = ({
       {/* Archival Footer Colophon */}
       <CuratorsColophon
         theme={theme}
-        isWeatherActive={Boolean(propShowClouds || isNoaaActive)}
+        isWeatherActive={Boolean(propShowClouds || isWeatherActive || isNoaaActive)}
         isRadarActive={isRadarActive}
       />
     </>

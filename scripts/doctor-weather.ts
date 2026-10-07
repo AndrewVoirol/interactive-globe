@@ -17,6 +17,7 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { WEATHERNEXT_GRID_SPEC } from '../src/core/data/WeatherNextDataSource';
+import { mountWorktreeAssets } from './mount-worktree-assets';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -144,6 +145,11 @@ function checkGCSConnectivity() {
 // 3. Staged Local Dataset Inspection (public/data/weathernext/)
 // ---------------------------------------------------------------------------
 function checkStagedDataset() {
+  // Rule 64: Mount worktree assets from canonical root if in linked worktree
+  try {
+    mountWorktreeAssets(PROJECT_ROOT);
+  } catch {}
+
   const dirExists = fs.existsSync(WEATHERNEXT_DATA_DIR);
   recordCheck(
     'Storage',
@@ -182,12 +188,20 @@ function checkStagedDataset() {
   }
 
   // Check staged binary slices
-  const targetVars = [
-    'total_precipitation_1hr_mean',
-    'temperature_2m_mean',
-    'dewpoint_temperature_2m_mean',
-    'wind_10m_vector',
-  ];
+  const targetVars: string[] = meta?.variables && Array.isArray(meta.variables) && meta.variables.length > 0
+    ? meta.variables
+    : [
+        'u_component_of_wind_10m_mean',
+        'v_component_of_wind_10m_mean',
+        'total_precipitation_1hr_mean',
+        'temperature_2m_mean',
+        'dewpoint_temperature_2m_mean',
+        'total_cloud_cover_mean',
+        'low_cloud_cover_mean',
+        'medium_cloud_cover_mean',
+        'high_cloud_cover_mean',
+        'wind_10m_vector',
+      ];
 
   const hoursToCheck = meta?.timeHorizon?.totalHours || 24;
   let totalChecked = 0;
@@ -220,12 +234,13 @@ function checkStagedDataset() {
   }
 
   const allValid = missingFiles.length === 0 && corruptFiles.length === 0;
+  const hoursLabel = Math.min(hoursToCheck, 24);
   recordCheck(
     'Slices',
-    'Staged Binary Slices (0..23h)',
+    `Staged Binary Slices (0..${hoursLabel - 1}h)`,
     allValid,
     allValid
-      ? `All ${totalValid}/${totalChecked} slices validated (4 variables × 24h)`
+      ? `All ${totalValid}/${totalChecked} slices validated (${targetVars.length} variables × ${hoursLabel}h)`
       : `${totalValid}/${totalChecked} valid. Missing: ${missingFiles.length}, Size mismatch: ${corruptFiles.length}`,
     missingFiles.length > 0 ? `First missing: ${missingFiles.slice(0, 5).join(', ')}` : undefined
   );
@@ -312,6 +327,34 @@ function checkWebGPUStrideInvariants() {
         nonZeroCount === 0
           ? `Sampled vector row padding strictly zero-filled (10 rows × 192B)`
           : `Corrupt padding: found ${nonZeroCount} non-zero bytes in vector row padding`
+      );
+    }
+  }
+
+  const sampleCloudPath = path.join(WEATHERNEXT_DATA_DIR, 'low_cloud_cover_mean-0.bin');
+  if (fs.existsSync(sampleCloudPath)) {
+    const stat = fs.statSync(sampleCloudPath);
+    if (stat.size === SCALAR_PADDED_SLICE_BYTES) {
+      const fd = fs.openSync(sampleCloudPath, 'r');
+      const padBuffer = Buffer.alloc(scalarPadding);
+      let nonZeroCount = 0;
+
+      for (let r = 0; r < SCALAR_HEIGHT; r += Math.floor(SCALAR_HEIGHT / 10)) {
+        const padOffset = r * scalarPaddedPitch + scalarRawPitch;
+        fs.readSync(fd, padBuffer, 0, scalarPadding, padOffset);
+        for (let b = 0; b < scalarPadding; b++) {
+          if (padBuffer[b] !== 0) nonZeroCount++;
+        }
+      }
+      fs.closeSync(fd);
+
+      recordCheck(
+        'WebGPU',
+        'Cloud Strata Stride Zero-Padding Sampling',
+        nonZeroCount === 0,
+        nonZeroCount === 0
+          ? `Sampled cloud row padding strictly zero-filled (10 rows × 224B)`
+          : `Corrupt padding: found ${nonZeroCount} non-zero bytes in cloud row padding`
       );
     }
   }

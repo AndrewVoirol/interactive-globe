@@ -1,7 +1,9 @@
 import path from 'path';
+import fs from 'fs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { mountWorktreeAssets } from './scripts/mount-worktree-assets';
 
 export default defineConfig({
   server: {
@@ -10,7 +12,29 @@ export default defineConfig({
   },
   plugins: [
     tailwindcss(),
-    react()
+    react(),
+    {
+      name: 'worktree-asset-guard',
+      configureServer(server) {
+        try {
+          mountWorktreeAssets(import.meta.dirname);
+        } catch {}
+
+        server.middlewares.use((req, res, next) => {
+          const rawUrl = req.url?.split('?')[0] || '';
+          if (rawUrl.endsWith('.bin')) {
+            const publicPath = path.join(import.meta.dirname, 'public', rawUrl.replace(/^\//, ''));
+            if (!fs.existsSync(publicPath)) {
+              res.statusCode = 404;
+              res.setHeader('Content-Type', 'text/plain');
+              res.end(`Binary asset not found: ${rawUrl}`);
+              return;
+            }
+          }
+          next();
+        });
+      },
+    },
   ],
   resolve: {
     alias: {
