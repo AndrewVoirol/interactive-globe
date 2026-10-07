@@ -5004,6 +5004,7 @@ export class WebGPUEngine {
    */
   public async loadWindTexture(urlOrBuffer: string | ArrayBuffer = '/data/gfs-wind-latest.bin', slot: 0 | 1 = 0): Promise<void> {
     if (!this.device || !this.isInitialized) return;
+    this.ensureWindBuffers();
 
     const seq = ++this.windTextureLoadSeq;
     let buffer: ArrayBuffer | null = null;
@@ -5166,6 +5167,7 @@ export class WebGPUEngine {
    */
   public loadWindTextureSlot(slot: 0 | 1, buffer: ArrayBuffer | Uint8Array): void {
     if (!this.device || !this.isInitialized) return;
+    this.ensureWindBuffers();
     const byteLength = buffer.byteLength;
     const isWn0p1Padded = byteLength === 26280192; // 14592 * 1801
     const isWn0p1Raw = byteLength === 25934400;    // 14400 * 1801

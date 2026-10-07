@@ -156,9 +156,20 @@ export const CatalogSheet: React.FC<CatalogSheetProps> = ({
                 </p>
 
                 <div className="mt-2.5 pt-2 border-t flex items-center justify-between gap-2 border-[var(--theme-card-border)]">
-                  <span className="text-nano text-[var(--theme-text-tertiary)]">
-                    {preset.elevationEncoding ? `Format: ${preset.elevationEncoding.toUpperCase()}` : 'Format: Float32'}
-                  </span>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-nano font-mono text-[var(--theme-text-secondary)] truncate" title={preset.attribution}>
+                      Source: {preset.id === 'google-weathernext3'
+                        ? 'Google DeepMind WeatherNext 3 (0.1°)'
+                        : preset.id.includes('gfs')
+                        ? 'NOAA GFS (0.25°)'
+                        : preset.id === 'live-doppler-radar'
+                        ? 'RainViewer (Doppler Radar)'
+                        : preset.attribution}
+                    </span>
+                    <span className="text-pico text-[var(--theme-text-muted)]">
+                      {preset.elevationEncoding ? `Format: ${preset.elevationEncoding.toUpperCase()}` : 'Format: Float32'}
+                    </span>
+                  </div>
 
                   <button
                     type="button"

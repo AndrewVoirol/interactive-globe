@@ -275,6 +275,10 @@ export default function App() {
       window.__INDICATRIX_SET_PROGNOSTIC_MODEL__ = (model: PrognosticModelBackend) => {
         handlePrognosticModelChange(model);
       };
+      (window as any).__INDICATRIX_TOGGLE_PLANETARY_LAYER__ = (id: string, force?: boolean) => {
+        handleTogglePlanetaryLayer(id, force);
+      };
+      (window as any).__INDICATRIX_DATA_LAYERS__ = dataLayers;
       (window as any).__INDICATRIX_PURITY_MODE__ = purityMode;
       (window as any).setPurityMode = setPurityMode;
       (window as any).__INDICATRIX_SET_PURITY_MODE__ = setPurityMode;

@@ -76,10 +76,18 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
         if (prev.some((l) => l.id === layer.id)) return prev;
         return [...prev, layer];
       });
+      const presetForAttribution = getPresetById(layer.id);
+      const source = layer.id === 'google-weathernext3'
+        ? 'Google DeepMind WeatherNext 3 (0.1°)'
+        : layer.id.includes('gfs')
+        ? 'NOAA GFS (0.25°)'
+        : layer.id === 'live-doppler-radar'
+        ? 'RainViewer (Doppler Radar)'
+        : presetForAttribution?.attribution;
       addToast({
         type: 'success',
         title: 'Dataset Layer Added',
-        message: `Activated ${layer.name} (${layer.type})`,
+        message: source ? `${layer.name} • ${source}` : `Activated ${layer.name} (${layer.type})`,
       });
     },
     [addToast]
@@ -92,10 +100,18 @@ export function useGlobeLayerManager(initialLayers?: DataLayerItem[]) {
         const next = prev.map((l) => (l.id === id ? { ...l, visible: !l.visible } : l));
         const target = next.find((l) => l.id === id);
         if (target) {
+          const preset = getPresetById(target.id);
+          const source = target.id === 'google-weathernext3'
+            ? 'Google DeepMind WeatherNext 3 (0.1°)'
+            : target.id.includes('gfs')
+            ? 'NOAA GFS (0.25°)'
+            : target.id === 'live-doppler-radar'
+            ? 'RainViewer (Doppler Radar)'
+            : preset?.attribution;
           addToast({
             type: 'info',
             title: `Layer ${target.visible ? 'Visible' : 'Hidden'}`,
-            message: target.name,
+            message: source ? `${target.name} [${source}]` : target.name,
           });
         }
         return next;
