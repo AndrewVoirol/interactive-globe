@@ -1,0 +1,491 @@
+{
+  "timestamp": "2026-10-08T02:14:30.219Z",
+  "engineBackend": "WebGPU (Metal)",
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "dpr": 2
+  },
+  "benchmarks": [
+    {
+      "themeId": 0,
+      "themeName": "cream_rag_swiss_relief",
+      "locationId": "everest",
+      "locationName": "Mount Everest (Summit)",
+      "lat": 27.9881,
+      "lon": 86.925,
+      "metrics": {
+        "mean": 56.83,
+        "p95": 60.1,
+        "min": 33.2,
+        "max": 60.2,
+        "fps": 17.6,
+        "memory": {
+          "usedJSHeapMB": 860.59,
+          "totalJSHeapMB": 910.07
+        }
+      },
+      "screenshot": "cream_rag_swiss_relief_everest.png"
+    },
+    {
+      "themeId": 0,
+      "themeName": "cream_rag_swiss_relief",
+      "locationId": "mariana",
+      "locationName": "Mariana Trench (Challenger Deep)",
+      "lat": 11.3733,
+      "lon": 142.5917,
+      "metrics": {
+        "mean": 68.42,
+        "p95": 72,
+        "min": 30.9,
+        "max": 72.8,
+        "fps": 14.6,
+        "memory": {
+          "usedJSHeapMB": 859.89,
+          "totalJSHeapMB": 914.07
+        }
+      },
+      "screenshot": "cream_rag_swiss_relief_mariana.png"
+    },
+    {
+      "themeId": 0,
+      "themeName": "cream_rag_swiss_relief",
+      "locationId": "grand_canyon",
+      "locationName": "Grand Canyon National Park",
+      "lat": 36.0544,
+      "lon": -112.1401,
+      "metrics": {
+        "mean": 51.52,
+        "p95": 54.8,
+        "min": 5.9,
+        "max": 56,
+        "fps": 19.4,
+        "memory": {
+          "usedJSHeapMB": 864.42,
+          "totalJSHeapMB": 925.69
+        }
+      },
+      "screenshot": "cream_rag_swiss_relief_grand_canyon.png"
+    },
+    {
+      "themeId": 0,
+      "themeName": "cream_rag_swiss_relief",
+      "locationId": "hawaii",
+      "locationName": "Hawaii (Mauna Kea Rift)",
+      "lat": 19.8206,
+      "lon": -155.4681,
+      "metrics": {
+        "mean": 69.25,
+        "p95": 74.1,
+        "min": 51.1,
+        "max": 75.6,
+        "fps": 14.4,
+        "memory": {
+          "usedJSHeapMB": 729.71,
+          "totalJSHeapMB": 791.25
+        }
+      },
+      "screenshot": "cream_rag_swiss_relief_hawaii.png"
+    },
+    {
+      "themeId": 0,
+      "themeName": "cream_rag_swiss_relief",
+      "locationId": "cape_cod",
+      "locationName": "Cape Cod Barrier Spit",
+      "lat": 41.6688,
+      "lon": -70.2962,
+      "metrics": {
+        "mean": 107.43,
+        "p95": 113,
+        "min": 67.4,
+        "max": 115,
+        "fps": 9.3,
+        "memory": {
+          "usedJSHeapMB": 419.77,
+          "totalJSHeapMB": 485.24
+        }
+      },
+      "screenshot": "cream_rag_swiss_relief_cape_cod.png"
+    },
+    {
+      "themeId": 0,
+      "themeName": "cream_rag_swiss_relief",
+      "locationId": "amazon_mouth",
+      "locationName": "Amazon River Estuary",
+      "lat": 0,
+      "lon": -50,
+      "metrics": {
+        "mean": 81.48,
+        "p95": 85.3,
+        "min": 6.5,
+        "max": 86.9,
+        "fps": 12.3,
+        "memory": {
+          "usedJSHeapMB": 414.82,
+          "totalJSHeapMB": 480.74
+        }
+      },
+      "screenshot": "cream_rag_swiss_relief_amazon_mouth.png"
+    },
+    {
+      "themeId": 0,
+      "themeName": "cream_rag_swiss_relief",
+      "locationId": "titicaca",
+      "locationName": "Lake Titicaca (High Altitude)",
+      "lat": -15.9254,
+      "lon": -69.3354,
+      "metrics": {
+        "mean": 89.53,
+        "p95": 94,
+        "min": 70.1,
+        "max": 95,
+        "fps": 11.2,
+        "memory": {
+          "usedJSHeapMB": 421.95,
+          "totalJSHeapMB": 484.57
+        }
+      },
+      "screenshot": "cream_rag_swiss_relief_titicaca.png"
+    },
+    {
+      "themeId": 0,
+      "themeName": "cream_rag_swiss_relief",
+      "locationId": "matterhorn",
+      "locationName": "Matterhorn (Swiss Alps)",
+      "lat": 45.9763,
+      "lon": 7.6586,
+      "metrics": {
+        "mean": 80.93,
+        "p95": 89.9,
+        "min": 31.4,
+        "max": 92.7,
+        "fps": 12.4,
+        "memory": {
+          "usedJSHeapMB": 442.23,
+          "totalJSHeapMB": 482.9
+        }
+      },
+      "screenshot": "cream_rag_swiss_relief_matterhorn.png"
+    },
+    {
+      "themeId": 1,
+      "themeName": "marie_tharp_bathymetry",
+      "locationId": "everest",
+      "locationName": "Mount Everest (Summit)",
+      "lat": 27.9881,
+      "lon": 86.925,
+      "metrics": {
+        "mean": 67.75,
+        "p95": 74.1,
+        "min": 41.3,
+        "max": 76.3,
+        "fps": 14.8,
+        "memory": {
+          "usedJSHeapMB": 432.7,
+          "totalJSHeapMB": 483.15
+        }
+      },
+      "screenshot": "marie_tharp_bathymetry_everest.png"
+    },
+    {
+      "themeId": 1,
+      "themeName": "marie_tharp_bathymetry",
+      "locationId": "mariana",
+      "locationName": "Mariana Trench (Challenger Deep)",
+      "lat": 11.3733,
+      "lon": 142.5917,
+      "metrics": {
+        "mean": 79.59,
+        "p95": 86.1,
+        "min": 73.7,
+        "max": 95.4,
+        "fps": 12.6,
+        "memory": {
+          "usedJSHeapMB": 433.35,
+          "totalJSHeapMB": 484.9
+        }
+      },
+      "screenshot": "marie_tharp_bathymetry_mariana.png"
+    },
+    {
+      "themeId": 1,
+      "themeName": "marie_tharp_bathymetry",
+      "locationId": "grand_canyon",
+      "locationName": "Grand Canyon National Park",
+      "lat": 36.0544,
+      "lon": -112.1401,
+      "metrics": {
+        "mean": 69.26,
+        "p95": 74.6,
+        "min": 45.6,
+        "max": 76.8,
+        "fps": 14.4,
+        "memory": {
+          "usedJSHeapMB": 424.17,
+          "totalJSHeapMB": 483.49
+        }
+      },
+      "screenshot": "marie_tharp_bathymetry_grand_canyon.png"
+    },
+    {
+      "themeId": 1,
+      "themeName": "marie_tharp_bathymetry",
+      "locationId": "hawaii",
+      "locationName": "Hawaii (Mauna Kea Rift)",
+      "lat": 19.8206,
+      "lon": -155.4681,
+      "metrics": {
+        "mean": 67.47,
+        "p95": 72.1,
+        "min": 60.5,
+        "max": 75.7,
+        "fps": 14.8,
+        "memory": {
+          "usedJSHeapMB": 418.87,
+          "totalJSHeapMB": 482.07
+        }
+      },
+      "screenshot": "marie_tharp_bathymetry_hawaii.png"
+    },
+    {
+      "themeId": 1,
+      "themeName": "marie_tharp_bathymetry",
+      "locationId": "cape_cod",
+      "locationName": "Cape Cod Barrier Spit",
+      "lat": 41.6688,
+      "lon": -70.2962,
+      "metrics": {
+        "mean": 95.43,
+        "p95": 102.7,
+        "min": 7,
+        "max": 103.4,
+        "fps": 10.5,
+        "memory": {
+          "usedJSHeapMB": 439.51,
+          "totalJSHeapMB": 485.15
+        }
+      },
+      "screenshot": "marie_tharp_bathymetry_cape_cod.png"
+    },
+    {
+      "themeId": 1,
+      "themeName": "marie_tharp_bathymetry",
+      "locationId": "amazon_mouth",
+      "locationName": "Amazon River Estuary",
+      "lat": 0,
+      "lon": -50,
+      "metrics": {
+        "mean": 82.59,
+        "p95": 86.9,
+        "min": 7.5,
+        "max": 87.3,
+        "fps": 12.1,
+        "memory": {
+          "usedJSHeapMB": 416.91,
+          "totalJSHeapMB": 483.82
+        }
+      },
+      "screenshot": "marie_tharp_bathymetry_amazon_mouth.png"
+    },
+    {
+      "themeId": 1,
+      "themeName": "marie_tharp_bathymetry",
+      "locationId": "titicaca",
+      "locationName": "Lake Titicaca (High Altitude)",
+      "lat": -15.9254,
+      "lon": -69.3354,
+      "metrics": {
+        "mean": 93.56,
+        "p95": 98.4,
+        "min": 36,
+        "max": 98.6,
+        "fps": 10.7,
+        "memory": {
+          "usedJSHeapMB": 434.83,
+          "totalJSHeapMB": 483.65
+        }
+      },
+      "screenshot": "marie_tharp_bathymetry_titicaca.png"
+    },
+    {
+      "themeId": 1,
+      "themeName": "marie_tharp_bathymetry",
+      "locationId": "matterhorn",
+      "locationName": "Matterhorn (Swiss Alps)",
+      "lat": 45.9763,
+      "lon": 7.6586,
+      "metrics": {
+        "mean": 80.18,
+        "p95": 84.6,
+        "min": 29.7,
+        "max": 85.7,
+        "fps": 12.5,
+        "memory": {
+          "usedJSHeapMB": 419.55,
+          "totalJSHeapMB": 486.32
+        }
+      },
+      "screenshot": "marie_tharp_bathymetry_matterhorn.png"
+    },
+    {
+      "themeId": 2,
+      "themeName": "prussian_cyanotype_blueprint",
+      "locationId": "everest",
+      "locationName": "Mount Everest (Summit)",
+      "lat": 27.9881,
+      "lon": 86.925,
+      "metrics": {
+        "mean": 73.6,
+        "p95": 78.3,
+        "min": 58.9,
+        "max": 80.4,
+        "fps": 13.6,
+        "memory": {
+          "usedJSHeapMB": 419.98,
+          "totalJSHeapMB": 484.07
+        }
+      },
+      "screenshot": "prussian_cyanotype_blueprint_everest.png"
+    },
+    {
+      "themeId": 2,
+      "themeName": "prussian_cyanotype_blueprint",
+      "locationId": "mariana",
+      "locationName": "Mariana Trench (Challenger Deep)",
+      "lat": 11.3733,
+      "lon": 142.5917,
+      "metrics": {
+        "mean": 80.95,
+        "p95": 87.3,
+        "min": 9.6,
+        "max": 88.3,
+        "fps": 12.4,
+        "memory": {
+          "usedJSHeapMB": 438.35,
+          "totalJSHeapMB": 484.16
+        }
+      },
+      "screenshot": "prussian_cyanotype_blueprint_mariana.png"
+    },
+    {
+      "themeId": 2,
+      "themeName": "prussian_cyanotype_blueprint",
+      "locationId": "grand_canyon",
+      "locationName": "Grand Canyon National Park",
+      "lat": 36.0544,
+      "lon": -112.1401,
+      "metrics": {
+        "mean": 64.26,
+        "p95": 68.1,
+        "min": 27,
+        "max": 68.7,
+        "fps": 15.6,
+        "memory": {
+          "usedJSHeapMB": 417.18,
+          "totalJSHeapMB": 484.74
+        }
+      },
+      "screenshot": "prussian_cyanotype_blueprint_grand_canyon.png"
+    },
+    {
+      "themeId": 2,
+      "themeName": "prussian_cyanotype_blueprint",
+      "locationId": "hawaii",
+      "locationName": "Hawaii (Mauna Kea Rift)",
+      "lat": 19.8206,
+      "lon": -155.4681,
+      "metrics": {
+        "mean": 54.78,
+        "p95": 58.5,
+        "min": 9.6,
+        "max": 60.1,
+        "fps": 18.3,
+        "memory": {
+          "usedJSHeapMB": 432.33,
+          "totalJSHeapMB": 484.66
+        }
+      },
+      "screenshot": "prussian_cyanotype_blueprint_hawaii.png"
+    },
+    {
+      "themeId": 2,
+      "themeName": "prussian_cyanotype_blueprint",
+      "locationId": "cape_cod",
+      "locationName": "Cape Cod Barrier Spit",
+      "lat": 41.6688,
+      "lon": -70.2962,
+      "metrics": {
+        "mean": 55.73,
+        "p95": 59.5,
+        "min": 2.3,
+        "max": 59.9,
+        "fps": 17.9,
+        "memory": {
+          "usedJSHeapMB": 436.09,
+          "totalJSHeapMB": 483.41
+        }
+      },
+      "screenshot": "prussian_cyanotype_blueprint_cape_cod.png"
+    },
+    {
+      "themeId": 2,
+      "themeName": "prussian_cyanotype_blueprint",
+      "locationId": "amazon_mouth",
+      "locationName": "Amazon River Estuary",
+      "lat": 0,
+      "lon": -50,
+      "metrics": {
+        "mean": 66.47,
+        "p95": 70.5,
+        "min": 48.6,
+        "max": 70.7,
+        "fps": 15,
+        "memory": {
+          "usedJSHeapMB": 416.1,
+          "totalJSHeapMB": 484.99
+        }
+      },
+      "screenshot": "prussian_cyanotype_blueprint_amazon_mouth.png"
+    },
+    {
+      "themeId": 2,
+      "themeName": "prussian_cyanotype_blueprint",
+      "locationId": "titicaca",
+      "locationName": "Lake Titicaca (High Altitude)",
+      "lat": -15.9254,
+      "lon": -69.3354,
+      "metrics": {
+        "mean": 83.69,
+        "p95": 90.2,
+        "min": 9.8,
+        "max": 91.3,
+        "fps": 11.9,
+        "memory": {
+          "usedJSHeapMB": 426.56,
+          "totalJSHeapMB": 486.91
+        }
+      },
+      "screenshot": "prussian_cyanotype_blueprint_titicaca.png"
+    },
+    {
+      "themeId": 2,
+      "themeName": "prussian_cyanotype_blueprint",
+      "locationId": "matterhorn",
+      "locationName": "Matterhorn (Swiss Alps)",
+      "lat": 45.9763,
+      "lon": 7.6586,
+      "metrics": {
+        "mean": 82.92,
+        "p95": 89.3,
+        "min": 16.3,
+        "max": 91.2,
+        "fps": 12.1,
+        "memory": {
+          "usedJSHeapMB": 428.36,
+          "totalJSHeapMB": 483.64
+        }
+      },
+      "screenshot": "prussian_cyanotype_blueprint_matterhorn.png"
+    }
+  ]
+}
