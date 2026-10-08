@@ -219,7 +219,39 @@ async function main() {
 
   await browser.close();
 
+  const DELTA_PATH = path.join(projectRoot, 'reports', 'stage1-gebco-delta.json');
+  let baselinePrior = null;
+  if (fs.existsSync(REPORT_PATH)) {
+    try {
+      baselinePrior = JSON.parse(fs.readFileSync(REPORT_PATH, 'utf-8'));
+    } catch {}
+  }
+
   fs.writeFileSync(REPORT_PATH, JSON.stringify(benchmarkReport, null, 2));
+
+  if (baselinePrior && baselinePrior.benchmarks) {
+    const deltaReport = {
+      timestamp: new Date().toISOString(),
+      baselineTimestamp: baselinePrior.timestamp,
+      postGebcoTimestamp: benchmarkReport.timestamp,
+      comparisons: benchmarkReport.benchmarks.map((cur, i) => {
+        const base = baselinePrior.benchmarks?.[i] || {};
+        return {
+          locationId: cur.locationId,
+          themeName: cur.themeName,
+          baselineFps: base.metrics?.fps,
+          postGebcoFps: cur.metrics.fps,
+          fpsDelta: parseFloat((cur.metrics.fps - (base.metrics?.fps || 0)).toFixed(2)),
+          baselineMeanMs: base.metrics?.mean,
+          postGebcoMeanMs: cur.metrics.mean,
+          meanMsDelta: parseFloat((cur.metrics.mean - (base.metrics?.mean || 0)).toFixed(2)),
+        };
+      })
+    };
+    fs.writeFileSync(DELTA_PATH, JSON.stringify(deltaReport, null, 2));
+    console.log(`Delta report written to: ${DELTA_PATH}`);
+  }
+
   console.log(`\n================================================================`);
   console.log(`BASELINE BENCHMARK COMPLETE!`);
   console.log(`Report written to: ${REPORT_PATH}`);
