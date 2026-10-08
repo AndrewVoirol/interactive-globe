@@ -490,7 +490,7 @@ export class WebGPUEngine {
   private vectorSegmentBuffer!: GPUBuffer;
   public vectorSegmentCount: number = 0;
   private ribbonUniformBuffer!: GPUBuffer;
-  private ribbonFloats: Float32Array = new Float32Array(64);
+  private ribbonFloats: Float32Array = new Float32Array(104);
   private ribbonUints: Uint32Array = new Uint32Array(this.ribbonFloats.buffer);
   private vectorRibbonPipeline!: GPURenderPipeline;
   private ribbonBindGroupLayout!: GPUBindGroupLayout;
@@ -3340,7 +3340,7 @@ export class WebGPUEngine {
 
     if (!this.ribbonUniformBuffer) {
       this.ribbonUniformBuffer = this.device.createBuffer({
-        size: 256,
+        size: 416,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
     }
@@ -3442,7 +3442,7 @@ export class WebGPUEngine {
       try {
         this.ribbonUniformBuffer = this.device.createBuffer({
           label: 'vector_ribbon_uniform_buffer',
-          size: 240,
+          size: 416,
           usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
       } catch {}
@@ -8540,6 +8540,43 @@ export class WebGPUEngine {
 
       // u_projectionMatrix (offset 176 = 44 floats)
       params.camera?.projectionMatrix?.toArray(ribF, 44);
+
+      // Decomposed camera coordinates in SimUniforms (floats 80..87, offsets 320..336, Phase 3 RTE)
+      const camPos = params.camera?.position;
+      const px = camPos?.x ?? 0.0;
+      const py = camPos?.y ?? 0.0;
+      const pz = camPos?.z ?? 0.0;
+      const highX = Math.fround(px);
+      const highY = Math.fround(py);
+      const highZ = Math.fround(pz);
+      const lowX = px - highX;
+      const lowY = py - highY;
+      const lowZ = pz - highZ;
+
+      ribF[80] = highX;
+      ribF[81] = highY;
+      ribF[82] = highZ;
+      ribF[83] = 1.0;
+
+      ribF[84] = lowX;
+      ribF[85] = lowY;
+      ribF[86] = lowZ;
+      ribF[87] = 0.0;
+
+      // Relative-to-Eye View-Projection Matrix (floats 88..103, offset 352):
+      // Zero out translation column of view matrix to prevent duplicate position subtraction
+      if (params.camera?.matrixWorldInverse && params.camera?.projectionMatrix) {
+        params.camera.matrixWorldInverse.toArray(this.rteViewMatrix.elements, 0);
+        const rteEls = this.rteViewMatrix.elements;
+        rteEls[12] = 0.0;
+        rteEls[13] = 0.0;
+        rteEls[14] = 0.0;
+        rteEls[15] = 1.0;
+
+        params.camera.projectionMatrix.toArray(this.rteViewProjectionMatrix.elements, 0);
+        this.rteViewProjectionMatrix.multiply(this.rteViewMatrix);
+        this.rteViewProjectionMatrix.toArray(ribF, 88);
+      }
 
       this.device.queue.writeBuffer(this.ribbonUniformBuffer, 0, ribF.buffer);
     }

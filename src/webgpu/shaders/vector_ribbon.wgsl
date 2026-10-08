@@ -24,6 +24,14 @@ struct SimUniforms {
     u_pad2: f32,
     u_viewMatrix: mat4x4<f32>,
     u_projectionMatrix: mat4x4<f32>,
+    _padRte0: vec4<f32>,
+    _padRte1: vec4<f32>,
+    _padRte2: vec4<f32>,
+    _padRte3: vec4<f32>,
+    _padRte4: vec4<f32>,
+    u_cameraPosHigh: vec4<f32>,
+    u_cameraPosLow: vec4<f32>,
+    u_viewProjectionMatrix: mat4x4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> sim: SimUniforms;
@@ -152,8 +160,8 @@ fn applyVectorDisplacement(basePos: vec3<f32>, baseNormal: vec3<f32>, pointType:
     let dispScale = sim.u_displacementScale * 2.8;
 
     if (pointType >= 0.75) {
-        let coastDatum = max(0.0, sim.u_seaLevel);
-        normalDisplacement = (coastDatum / 8848.0) * dispScale * poleAtten;
+        let normH = max(0.0, elevMeters) / 8848.0;
+        normalDisplacement = normH * dispScale * poleAtten;
     } else {
         if (sim.u_pad2 > 0.5) {
             if (elevMeters >= 0.0) {
@@ -328,11 +336,9 @@ fn vs_main(in: VertexInput) -> VertexOutput {
         -(totalOffsetPx.y / halfVp.y)
     );
 
-    out.clipPos = vec4<f32>(
-        baseClip.xy + offsetNdc * baseClip.w,
-        baseClip.z,
-        baseClip.w
-    );
+    let posWorld = baseClip.xyz;
+    let posRelative = (posWorld - sim.u_cameraPosHigh.xyz) - sim.u_cameraPosLow.xyz;
+    out.clipPos = sim.u_viewProjectionMatrix * vec4<f32>(posRelative, 1.0);
 
     // Interpolated Shading Coordinates
     out.uv = vec2<f32>(baseU, in.corner.y);
