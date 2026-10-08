@@ -463,6 +463,10 @@ export const UnifiedRightSidebar: React.FC<UnifiedRightSidebarProps> = (props) =
                   onSnapCamera={onSnapCamera} handleTogglePlanetaryLayer={handleTogglePlanetaryLayer} provenance={provenance} windSpeedMultiplier={windSpeedMultiplier}
                   onWindSpeedMultiplierChange={onWindSpeedMultiplierChange} windParticleLifetime={windParticleLifetime} onWindParticleLifetimeChange={onWindParticleLifetimeChange}
                   isWindActive={isWindActive}
+                  roughness={primaryLayer?.paperTooth}
+                  onRoughnessChange={(v) => onPaperToothChangeDataLayer?.(primaryLayerId, v)}
+                  paperTooth={primaryLayer?.paperTooth}
+                  onPaperToothChange={(v) => onPaperToothChangeDataLayer?.(primaryLayerId, v)}
                 />
               </div>
 

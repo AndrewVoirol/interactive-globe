@@ -97,6 +97,10 @@ export interface AtmosphereDrawerProps {
   onCloudExtinctionChange?: (v: number) => void;
   volumetricClouds?: boolean;
   onVolumetricCloudsChange?: (v: boolean) => void;
+  roughness?: number;
+  onRoughnessChange?: (v: number) => void;
+  paperTooth?: number;
+  onPaperToothChange?: (v: number) => void;
   provenance?: MeteorologicalProvenance;
   windSpeedMultiplier?: number;
   onWindSpeedMultiplierChange?: (v: number) => void;
@@ -108,6 +112,10 @@ export interface AtmosphereDrawerProps {
 export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   theme = 0,
   isLight = false,
+  roughness: propRoughness,
+  onRoughnessChange,
+  paperTooth: propPaperTooth,
+  onPaperToothChange,
   hideScrubber = false,
   isRadarActive = false,
   isWindActive = false,
@@ -171,6 +179,39 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
   volumetricClouds: propVolumetricClouds,
   onVolumetricCloudsChange,
 }) => {
+  const [internalRoughness, setInternalRoughness] = useState<number>(() => {
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__?.roughness !== undefined) {
+      return (window as any).__INDICATRIX_LIVE_UNIFORMS__.roughness;
+    }
+    if (typeof window !== 'undefined' && (window as any).__INDICATRIX_LIVE_UNIFORMS__?.paperTooth !== undefined) {
+      return (window as any).__INDICATRIX_LIVE_UNIFORMS__.paperTooth;
+    }
+    return propRoughness ?? propPaperTooth ?? 1.0;
+  });
+
+  const curRoughness = propRoughness !== undefined ? propRoughness : (propPaperTooth !== undefined ? propPaperTooth : internalRoughness);
+
+  const handleRoughnessChange = (val: number) => {
+    const clamped = Math.max(0.0, Math.min(1.0, val));
+    setInternalRoughness(clamped);
+    onRoughnessChange?.(clamped);
+    onPaperToothChange?.(clamped);
+    if (typeof window !== 'undefined') {
+      if (!(window as any).__INDICATRIX_LIVE_UNIFORMS__) {
+        (window as any).__INDICATRIX_LIVE_UNIFORMS__ = {};
+      }
+      (window as any).__INDICATRIX_LIVE_UNIFORMS__.roughness = clamped;
+      (window as any).__INDICATRIX_LIVE_UNIFORMS__.paperTooth = clamped;
+      const engine = (window as any).__INDICATRIX_WEBGPU_ENGINE__ || (window as any).__ENGINE;
+      if (engine && typeof engine.updateUniforms === 'function') {
+        engine.updateUniforms({ roughness: clamped, paperTooth: clamped });
+      }
+    }
+  };
+
+  const handleRoughnessToggle = (enabled: boolean) => {
+    handleRoughnessChange(enabled ? 1.0 : 0.0);
+  };
   const [internalShowClouds, setInternalShowClouds] = useState<boolean>(true);
   const [internalShowCloudLow, setInternalShowCloudLow] = useState<boolean>(true);
   const [internalShowCloudMid, setInternalShowCloudMid] = useState<boolean>(true);
@@ -809,6 +850,55 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
               onChange={handleAtmosphereScatterToggle}
               title="Toggle Rayleigh & Mie atmospheric limb scattering"
               indicatorColor={theme === 1 ? 'var(--theme-text-accent)' : '#38BDF8'}
+            />
+          </div>
+
+          {/* Appearance / Medium Controls: Parchment Texture / Paper Tooth */}
+          <div
+            className="p-2 rounded-[3px] border border-[var(--theme-card-border)] bg-[var(--theme-card-bg)] space-y-2 transition-all shadow-sm"
+            data-instrument="appearance-medium-controls"
+          >
+            <div className="flex items-center justify-between text-nano">
+              <span className="font-bold text-[var(--theme-text-primary)] uppercase tracking-wider">
+                Appearance / Medium
+              </span>
+              <span className="text-[var(--theme-text-muted)] font-mono text-nano">
+                {curRoughness === 0 ? 'Clean Digital GIS' : 'Archival Paper Tooth'}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-micro font-bold uppercase tracking-wider text-[var(--theme-text-primary)]">
+                  Parchment Texture / Paper Tooth
+                </span>
+                <span className="text-nano text-[var(--theme-text-secondary)] font-mono">
+                  {curRoughness > 0.0
+                    ? `${Math.round(curRoughness * 100)}% · Historical archival print tooth`
+                    : '0% · Clean digital viewing (grain suppressed)'}
+                </span>
+              </div>
+              <TactileSwitch
+                id="sidebar-paper-tooth-toggle"
+                label={curRoughness > 0.0 ? 'Archival' : 'Digital'}
+                checked={curRoughness > 0.0}
+                onChange={handleRoughnessToggle}
+                title="Parchment Texture / Paper Tooth"
+                indicatorColor={theme === 1 ? 'var(--theme-text-accent)' : '#38BDF8'}
+              />
+            </div>
+
+            <VernierSlider
+              id="sidebar-paper-tooth-slider"
+              label="Parchment Texture / Paper Tooth"
+              sublabel="Procedural grain & stipple amplitude"
+              min={0.0}
+              max={1.0}
+              step={0.05}
+              value={curRoughness}
+              readout={`${Math.round(curRoughness * 100)}%`}
+              onChange={handleRoughnessChange}
+              className="!border-0 !bg-transparent !p-0 !shadow-none"
             />
           </div>
 

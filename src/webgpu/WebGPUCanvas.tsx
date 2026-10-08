@@ -2982,7 +2982,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         const ambientOcclusion = liveOverrides?.ambientOcclusion ?? activeDataLayer?.ambientOcclusion ?? layerCache.primaryReliefLayer?.ambientOcclusion ?? 0.65;
         const waterClarity = liveOverrides?.waterClarity ?? activeDataLayer?.waterClarity ?? layerCache.primaryReliefLayer?.waterClarity ?? 0.75;
         const peakExponent = liveOverrides?.peakExponent ?? activeDataLayer?.peakExponent ?? layerCache.primaryReliefLayer?.peakExponent ?? 1.4;
-        const paperTooth = liveOverrides?.paperTooth ?? activeDataLayer?.paperTooth ?? layerCache.primaryReliefLayer?.paperTooth ?? 0.40;
+        const paperTooth = liveOverrides?.roughness !== undefined
+          ? liveOverrides.roughness
+          : (liveOverrides?.paperTooth ?? activeDataLayer?.paperTooth ?? layerCache.primaryReliefLayer?.paperTooth ?? 0.40);
         const opacity = activeDataLayer?.opacity ?? 1.0;
         const renderStyle = activeDataLayer?.renderStyle ?? (activeDataLayer?.id === 'hybrid-crust-hydrosphere' ? 'hybrid' : 'architectural');
 
@@ -3161,6 +3163,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
           waterClarity,
           peakExponent,
           paperTooth,
+          roughness: paperTooth,
           cdlodDiagnosticMode: stateRef.current.cdlodDiagnosticMode ?? 0,
           opacity,
           renderStyle,

@@ -69,11 +69,19 @@ export interface AtmosphereTabProps {
   windParticleLifetime?: number;
   onWindParticleLifetimeChange?: (v: number) => void;
   isWindActive: boolean;
+  roughness?: number;
+  onRoughnessChange?: (v: number) => void;
+  paperTooth?: number;
+  onPaperToothChange?: (v: number) => void;
 }
 
 export const AtmosphereTab: React.FC<AtmosphereTabProps> = ({
   theme,
   isLight,
+  roughness,
+  onRoughnessChange,
+  paperTooth,
+  onPaperToothChange,
   resolution,
   timelineMinutes,
   onTimelineChange,
@@ -213,6 +221,10 @@ export const AtmosphereTab: React.FC<AtmosphereTabProps> = ({
         windParticleLifetime={windParticleLifetime}
         onWindParticleLifetimeChange={onWindParticleLifetimeChange}
         isWindActive={isWindActive}
+        roughness={roughness}
+        onRoughnessChange={onRoughnessChange}
+        paperTooth={paperTooth}
+        onPaperToothChange={onPaperToothChange}
       />
     </>
   );

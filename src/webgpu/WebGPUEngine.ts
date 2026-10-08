@@ -123,6 +123,7 @@ export interface WebGPUFrameParams {
   fractureIntensity?: number;
   isolatedStratum?: number | null;
   paperTooth?: number;
+  roughness?: number;
   shadowIntensity?: number;
   prognosticModel?: string;
   atmosphericScale?: number;
@@ -8659,6 +8660,9 @@ export class WebGPUEngine {
       cf[21] = params.displacementScale !== undefined ? params.displacementScale : 0.055;
       cf[22] = params.seaLevel !== undefined ? params.seaLevel : 0.0;
       const defaultTooth = params.theme === 1 ? 0.40 : params.theme === 0 ? 0.25 : 0.15;
+      if (params.roughness !== undefined && params.paperTooth === undefined) {
+        params.paperTooth = params.roughness;
+      }
       cf[23] = params.paperTooth !== undefined ? params.paperTooth : defaultTooth;
 
       // u_viewMatrix (offset 96 = 24 floats)

@@ -452,14 +452,20 @@ fn computeHydrosphereShading(
         let cDeepWash  = vec3<f32>(0.24, 0.35, 0.46);
         let washTone = mix(cShoreWash, cDeepWash, depthBlend) * sunIllum;
         let fiberFreq = 1800.0 * max(0.1, sim.u_mediumProperties.y);
-        let fiberTooth = (hashPaper2D(uvCoord * fiberFreq) - 0.5) * (sim.u_roughness * 0.35);
+        var fiberTooth = 0.0;
+        if (sim.u_roughness > 0.0) {
+            fiberTooth = (hashPaper2D(uvCoord * fiberFreq) - 0.5) * (sim.u_roughness * 0.35);
+        }
         waterColor = mix(waterColor, washTone * (1.0 + fiberTooth), 0.70);
     } else if (sim.u_theme == 2u) {
         let cShallowCyan = vec3<f32>(0.20, 0.36, 0.54);
         let cDeepIndigo  = vec3<f32>(0.04, 0.09, 0.18);
         let cyanWash = mix(cShallowCyan, cDeepIndigo, depthBlend) * sunIllum;
         let linenFreq = 1400.0 * max(0.1, sim.u_mediumProperties.y);
-        let linenTooth = (hashPaper2D(uvCoord * linenFreq) - 0.5) * (sim.u_roughness * 0.30);
+        var linenTooth = 0.0;
+        if (sim.u_roughness > 0.0) {
+            linenTooth = (hashPaper2D(uvCoord * linenFreq) - 0.5) * (sim.u_roughness * 0.30);
+        }
         waterColor = mix(waterColor, cyanWash * (1.0 + linenTooth), 0.65);
     } else if (sim.u_renderStyle < 2u) {
         // Theme 0 (Marie Tharp): Bruce Heezen & Marie Tharp / Heinrich Berann painted bathymetric wash
@@ -467,7 +473,10 @@ fn computeHydrosphereShading(
         let cTharpDeep    = vec3<f32>(0.02, 0.06, 0.14);
         let tharpWash = mix(cTharpCoastal, cTharpDeep, depthBlend) * sunIllum;
         let boardFreq = 750.0 * max(0.1, sim.u_mediumProperties.y);
-        let boardTooth = (hashPaper2D(uvCoord * boardFreq) - 0.5) * (sim.u_roughness * 0.25);
+        var boardTooth = 0.0;
+        if (sim.u_roughness > 0.0) {
+            boardTooth = (hashPaper2D(uvCoord * boardFreq) - 0.5) * (sim.u_roughness * 0.25);
+        }
         waterColor = mix(waterColor, tharpWash * (1.0 + boardTooth), 0.65);
     }
 
@@ -1480,28 +1489,34 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // 3. Physiographic stippling on lowland transitions and plateaus modulated by stippleDensity (1.0)
         let stippleFreq = 1600.0 * max(0.1, sim.u_mediumProperties.w);
         let stippleCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * stippleFreq;
-        let cellId = floor(stippleCoord);
-        let cellFract = fract(stippleCoord);
-        let dotCenter = vec2<f32>(
-            hashPaper2D(cellId + vec2<f32>(3.0, 11.0)),
-            hashPaper2D(cellId + vec2<f32>(17.0, 31.0))
-        ) * 0.6 + vec2<f32>(0.2);
-        let distToDot = length(cellFract - dotCenter);
+        var dotMask = 0.0;
+        if (sim.u_roughness > 0.0) {
+            let cellId = floor(stippleCoord);
+            let cellFract = fract(stippleCoord);
+            let dotCenter = vec2<f32>(
+                hashPaper2D(cellId + vec2<f32>(3.0, 11.0)),
+                hashPaper2D(cellId + vec2<f32>(17.0, 31.0))
+            ) * 0.6 + vec2<f32>(0.2);
+            let distToDot = length(cellFract - dotCenter);
 
-        let dotProb = clamp(0.10 + landSlope * 3.6 + (1.0 - diffuseTotal) * 0.20, 0.04, 0.82);
-        let cellRng = hashPaper2D(cellId * 2.83 + vec2<f32>(11.7, 23.4));
-        let hasDot = cellRng < dotProb;
-        let dotRadius = mix(0.10, 0.22, clamp(landSlope * 3.2, 0.0, 1.0));
-        let dotMask = select(0.0, 1.0 - smoothstep(dotRadius - 0.04, dotRadius + 0.04, distToDot), hasDot) * fragPoleAtten;
+            let dotProb = clamp(0.10 + landSlope * 3.6 + (1.0 - diffuseTotal) * 0.20, 0.04, 0.82);
+            let cellRng = hashPaper2D(cellId * 2.83 + vec2<f32>(11.7, 23.4));
+            let hasDot = cellRng < dotProb;
+            let dotRadius = mix(0.10, 0.22, clamp(landSlope * 3.2, 0.0, 1.0));
+            dotMask = select(0.0, 1.0 - smoothstep(dotRadius - 0.04, dotRadius + 0.04, distToDot), hasDot) * fragPoleAtten;
+        }
         let stippleTone = mix(cParchmentInk * 0.40, cInkTharp, smoothstep(0.05, 0.25, landSlope));
-        finalLand = mix(finalLand, stippleTone, dotMask * 0.40 * sim.u_mediumProperties.w);
+        finalLand = mix(finalLand, stippleTone, dotMask * 0.40 * sim.u_mediumProperties.w * sim.u_roughness);
 
         // 4. Illustration board substrate: smoother, less fibrous than cotton rag, with lower frequency broader grain
         let boardFreq = 750.0 * max(0.1, sim.u_mediumProperties.y);
         let boardCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * boardFreq;
-        let boardFleck1 = hashPaper2D(boardCoord);
-        let boardFleck2 = hashPaper2D(boardCoord * 0.45 + vec2<f32>(19.3, 57.1));
-        let boardTooth = (boardFleck1 * 0.65 + boardFleck2 * 0.35 - 0.50) * (sim.u_roughness * 0.40);
+        var boardTooth = 0.0;
+        if (sim.u_roughness > 0.0) {
+            let boardFleck1 = hashPaper2D(boardCoord);
+            let boardFleck2 = hashPaper2D(boardCoord * 0.45 + vec2<f32>(19.3, 57.1));
+            boardTooth = (boardFleck1 * 0.65 + boardFleck2 * 0.35 - 0.50) * (sim.u_roughness * 0.40);
+        }
         finalLand = clamp(finalLand * (1.0 + boardTooth), vec3<f32>(0.0), vec3<f32>(1.0));
 
         // Subtractive ink absorption into warm parchment illustration board
@@ -1516,9 +1531,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // 1. Dual-scale anisotropic cellulose fibers modulated by fiberDensity & u_roughness
         let fiberFreq = 1800.0 * max(0.1, sim.u_mediumProperties.y);
         let fiberCoord = input.uv * fiberFreq;
-        let fiberFleck = hashPaper2D(fiberCoord);
-        let fiberStrand = hashPaper2D(vec2<f32>(fiberCoord.x * 0.45 + 37.0, fiberCoord.y * 1.95 + 83.0));
-        let fiberTooth = (fiberFleck * 0.60 + fiberStrand * 0.40 - 0.50) * (sim.u_roughness * 0.85);
+        var fiberTooth = 0.0;
+        if (sim.u_roughness > 0.0) {
+            let fiberFleck = hashPaper2D(fiberCoord);
+            let fiberStrand = hashPaper2D(vec2<f32>(fiberCoord.x * 0.45 + 37.0, fiberCoord.y * 1.95 + 83.0));
+            fiberTooth = (fiberFleck * 0.60 + fiberStrand * 0.40 - 0.50) * (sim.u_roughness * 0.85);
+        }
 
         // Grazing raking light amplifies micro-shadows behind individual fibers under oblique sun angles
         let rakingOblique = mix(0.70, 1.40, clamp((1.0 - NdotL1) * 1.5, 0.0, 1.0));
@@ -1580,9 +1598,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // High-frequency crystalline granularity in deep exposure regions — NOT smooth gradients
         let crystalFreq = 2600.0 * max(0.1, sim.u_mediumProperties.y);
         let crystalCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * crystalFreq;
-        let crystal1 = hashPaper2D(crystalCoord);
-        let crystal2 = hashPaper2D(crystalCoord * 1.618 + vec2<f32>(13.7, 47.3));
-        let crystalGranularity = (crystal1 * crystal2 - 0.22) * 2.2;
+        var crystalGranularity = 0.0;
+        if (sim.u_roughness > 0.0) {
+            let crystal1 = hashPaper2D(crystalCoord);
+            let crystal2 = hashPaper2D(crystalCoord * 1.618 + vec2<f32>(13.7, 47.3));
+            crystalGranularity = (crystal1 * crystal2 - 0.22) * 2.2 * sim.u_roughness;
+        }
         let crystalStrength = smoothstep(0.25, 0.85, landExposure) * (0.32 * sim.u_roughness);
         let cPrussianCrystal = vec3<f32>(0.06, 0.11, 0.18); // Deep Prussian blue crystal precipitate #0F1C2E
         finalLand = mix(finalLand, cPrussianCrystal, clamp(crystalGranularity * crystalStrength, 0.0, 0.40));
@@ -1599,13 +1620,16 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // Rough linen cloth weave texture with distinct regular structural grid (strictly monochromatic)
         let linenFreq = 1400.0 * max(0.1, sim.u_mediumProperties.y);
         let linenCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * linenFreq;
-        let warp = cos(linenCoord.x * 3.14159265);
-        let weft = cos(linenCoord.y * 3.14159265);
-        let cellCoord = floor(linenCoord);
-        let isWarpOver = select(-1.0, 1.0, fract((cellCoord.x + cellCoord.y) * 0.5) < 0.25 || fract((cellCoord.x + cellCoord.y) * 0.5) > 0.75);
-        let weaveGrid = (warp - weft) * isWarpOver * 0.35 + (warp * weft) * 0.15;
-        let linenSlub = (hashPaper2D(linenCoord * 0.5) - 0.5) * 0.40;
-        let linenTooth = (weaveGrid + linenSlub) * (sim.u_roughness * 0.65);
+        var linenTooth = 0.0;
+        if (sim.u_roughness > 0.0) {
+            let warp = cos(linenCoord.x * 3.14159265);
+            let weft = cos(linenCoord.y * 3.14159265);
+            let cellCoord = floor(linenCoord);
+            let isWarpOver = select(-1.0, 1.0, fract((cellCoord.x + cellCoord.y) * 0.5) < 0.25 || fract((cellCoord.x + cellCoord.y) * 0.5) > 0.75);
+            let weaveGrid = (warp - weft) * isWarpOver * 0.35 + (warp * weft) * 0.15;
+            let linenSlub = (hashPaper2D(linenCoord * 0.5) - 0.5) * 0.40;
+            linenTooth = (weaveGrid + linenSlub) * (sim.u_roughness * 0.65);
+        }
         finalLand = clamp(finalLand * (1.0 + linenTooth), vec3<f32>(0.0), vec3<f32>(1.0));
 
         // Calibrated ferric blueprint slope contrast:
@@ -1830,7 +1854,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
                 // Ocean trench Prussian crystal precipitation noise (colloidal insoluble ferroprussiate micro-crystals)
                 let bCrystalCoord = vec2<f32>(input.uv.x * cosLat, input.uv.y) * (2600.0 * max(0.1, sim.u_mediumProperties.y));
-                let bCrystal = (hashPaper2D(bCrystalCoord) * hashPaper2D(bCrystalCoord * 1.618 + vec2<f32>(7.1, 31.9)) - 0.22) * 2.0;
+                var bCrystal = 0.0;
+                if (sim.u_roughness > 0.0) {
+                    bCrystal = (hashPaper2D(bCrystalCoord) * hashPaper2D(bCrystalCoord * 1.618 + vec2<f32>(7.1, 31.9)) - 0.22) * 2.0;
+                }
                 let bCrystalWeight = smoothstep(0.35, 0.95, deepExposure) * (0.28 * sim.u_roughness);
                 cBathy = mix(cBathy, vec3<f32>(0.03, 0.06, 0.10), clamp(bCrystal * bCrystalWeight, 0.0, 0.35));
             }
@@ -1855,29 +1882,32 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 let bathySlope = length(vec2<f32>(effDHx, effDHy));
                 let stippleFreq = 1400.0 * max(0.1, sim.u_mediumProperties.w);
                 let stippleCoord = vec2<f32>(input.uv.x * safeCosLat, input.uv.y) * stippleFreq;
-                let cellId = floor(stippleCoord);
-                let cellFract = fract(stippleCoord);
+                var dotMask = 0.0;
+                if (sim.u_roughness > 0.0) {
+                    let cellId = floor(stippleCoord);
+                    let cellFract = fract(stippleCoord);
 
-                // Authentic Tharp abyssal plain stippling: sediment dot pattern on abyssal plains and slopes
-                let abyssalPlainFactor = smoothstep(0.10, 0.35, normDepth);
-                let slopeFactor = smoothstep(0.02, 0.30, bathySlope);
-                let dotProb = (abyssalPlainFactor * 0.25 + slopeFactor * 0.55) * (sim.u_mediumProperties.w * 0.85);
-                let cellRng = hashPaper2D(cellId * 3.17 + vec2<f32>(43.1, 89.3));
-                let hasDot = cellRng < dotProb;
+                    // Authentic Tharp abyssal plain stippling: sediment dot pattern on abyssal plains and slopes
+                    let abyssalPlainFactor = smoothstep(0.10, 0.35, normDepth);
+                    let slopeFactor = smoothstep(0.02, 0.30, bathySlope);
+                    let dotProb = (abyssalPlainFactor * 0.25 + slopeFactor * 0.55) * (sim.u_mediumProperties.w * 0.85);
+                    let cellRng = hashPaper2D(cellId * 3.17 + vec2<f32>(43.1, 89.3));
+                    let hasDot = cellRng < dotProb;
 
-                let jitter = (vec2<f32>(
-                    hashPaper2D(cellId * 1.73 + vec2<f32>(13.3, 71.9)),
-                    hashPaper2D(cellId * 2.41 + vec2<f32>(97.1, 31.7))
-                ) - 0.50) * 0.65;
-                let dotCenter = vec2<f32>(0.5, 0.5) + jitter;
-                let distToDot = length(cellFract - dotCenter);
+                    let jitter = (vec2<f32>(
+                        hashPaper2D(cellId * 1.73 + vec2<f32>(13.3, 71.9)),
+                        hashPaper2D(cellId * 2.41 + vec2<f32>(97.1, 31.7))
+                    ) - 0.50) * 0.65;
+                    let dotCenter = vec2<f32>(0.5, 0.5) + jitter;
+                    let distToDot = length(cellFract - dotCenter);
 
-                // Dot radius slightly larger on steeper slopes
-                let dotRadius = mix(0.11, 0.24, clamp(bathySlope * 3.2, 0.0, 1.0));
-                let dotMask = select(0.0, 1.0 - smoothstep(dotRadius - 0.04, dotRadius + 0.04, distToDot), hasDot) * fragPoleAtten;
+                    // Dot radius slightly larger on steeper slopes
+                    let dotRadius = mix(0.11, 0.24, clamp(bathySlope * 3.2, 0.0, 1.0));
+                    dotMask = select(0.0, 1.0 - smoothstep(dotRadius - 0.04, dotRadius + 0.04, distToDot), hasDot) * fragPoleAtten;
+                }
 
                 let cStippleInk = vec3<f32>(0.03, 0.05, 0.07);
-                cBathy = mix(cBathy, cStippleInk, dotMask * 0.70);
+                cBathy = mix(cBathy, cStippleInk, dotMask * 0.70 * sim.u_roughness);
 
                 // Mid-ocean ridge crests: concentrated transform fault hatching (decoupled from kValley)
                 let uRidgeStrike = dot(vec2<f32>(input.uv.x * safeCosLat, input.uv.y) * 950.0, strikeDir);
@@ -1893,22 +1923,28 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             } else if (sim.u_theme == 1u) {
                 // Cream Rag: Subtractive paper tooth and ink absorption into cotton rag ground
                 let fiberFreq = 1800.0 * max(0.1, sim.u_mediumProperties.y);
-                let bFiberTooth = (hashPaper2D(input.uv * fiberFreq) - 0.5) * (sim.u_roughness * 0.40);
+                var bFiberTooth = 0.0;
+                if (sim.u_roughness > 0.0) {
+                    bFiberTooth = (hashPaper2D(input.uv * fiberFreq) - 0.5) * (sim.u_roughness * 0.40);
+                }
                 cBathy = clamp(cBathy * (1.0 + bFiberTooth), vec3<f32>(0.0), vec3<f32>(1.0));
             } else if (sim.u_theme == 2u) {
                 // Prussian Cyanotype: Structured blueprint linen weave tooth on bathymetric ground
                 let linenFreq = 1400.0 * max(0.1, sim.u_mediumProperties.y);
                 let linenCoord = vec2<f32>(input.uv.x * safeCosLat, input.uv.y) * linenFreq;
-                let warp = cos(linenCoord.x * 3.14159265);
-                let weft = cos(linenCoord.y * 3.14159265);
-                let cellCoord = floor(linenCoord);
-                let isWarpOver = select(-1.0, 1.0, fract((cellCoord.x + cellCoord.y) * 0.5) < 0.25 || fract((cellCoord.x + cellCoord.y) * 0.5) > 0.75);
-                let weaveGrid = (warp - weft) * isWarpOver * 0.30 + (warp * weft) * 0.12;
-                let bLinenTooth = (weaveGrid + (hashPaper2D(linenCoord * 0.5) - 0.5) * 0.35) * (sim.u_roughness * 0.50);
+                var bLinenTooth = 0.0;
+                if (sim.u_roughness > 0.0) {
+                    let warp = cos(linenCoord.x * 3.14159265);
+                    let weft = cos(linenCoord.y * 3.14159265);
+                    let cellCoord = floor(linenCoord);
+                    let isWarpOver = select(-1.0, 1.0, fract((cellCoord.x + cellCoord.y) * 0.5) < 0.25 || fract((cellCoord.x + cellCoord.y) * 0.5) > 0.75);
+                    let weaveGrid = (warp - weft) * isWarpOver * 0.30 + (warp * weft) * 0.12;
+                    bLinenTooth = (weaveGrid + (hashPaper2D(linenCoord * 0.5) - 0.5) * 0.35) * (sim.u_roughness * 0.50);
+                }
                 cBathy = clamp(cBathy * (1.0 + bLinenTooth), vec3<f32>(0.0), vec3<f32>(1.0));
 
                 // 1842 Technical Blueprint Bathymetric Stippling on continental slope and shelf break
-                if (sim.u_mediumProperties.w > 0.1) {
+                if (sim.u_mediumProperties.w > 0.1 && sim.u_roughness > 0.0) {
                     let bathySlope = length(vec2<f32>(effDHx, effDHy));
                     let stippleFreq = 1800.0 * sim.u_mediumProperties.w;
                     let stippleCoord = vec2<f32>(input.uv.x * safeCosLat, input.uv.y) * stippleFreq;
@@ -1920,7 +1956,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                     let distToDot = length(cellFract - vec2<f32>(0.5));
                     let dotMask = select(0.0, 1.0 - smoothstep(0.10, 0.22, distToDot), hasDot) * fragPoleAtten;
                     let cChalkDot = vec3<f32>(0.91, 0.93, 0.96); // Chalk ruling pen sounding dot
-                    cBathy = mix(cBathy, cChalkDot, dotMask * 0.65);
+                    cBathy = mix(cBathy, cChalkDot, dotMask * 0.65 * sim.u_roughness);
                 }
             }
 
