@@ -604,7 +604,7 @@ fn sampleRegionalComposite(uv: vec2<f32>, globalSample: vec4<f32>, lod: f32) -> 
     let regU = clamp((lon - minLon) / (maxLon - minLon), 0.0, 1.0);
     let regV = clamp((maxLat - lat) / (maxLat - minLat), 0.0, 1.0);
 
-    let regSample = textureSampleLevel(u_regionalDEMTexture, u_demSampler, vec2<f32>(regU, regV), lod);
+    let regSample = textureSampleLevel(u_regionalDEMTexture, u_demSampler, vec2<f32>(regU, regV), 0.0);
     return mix(globalSample, regSample, weight);
 }
 
@@ -666,7 +666,7 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
     let patchLOD = clamp(log2(max(1.0, patchDist * 0.2)), 0.0, 4.0);
 
     let uv = inUv;
-    let demSample = textureSampleLevel(u_demTexture, u_demSampler, uv, inst.lodFraction);
+    let demSample = textureSampleLevel(u_demTexture, u_demSampler, uv, min(patchLOD * 0.25, 1.0));
     let demSampleComp = sampleRegionalComposite(uv, demSample, 0.0);
     let elevMeters = decodeElevation(demSampleComp);
     output.elevation = elevMeters;

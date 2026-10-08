@@ -1095,7 +1095,7 @@ export class WebGPUEngine {
       minFilter: 'linear',
       magFilter: 'linear',
       mipmapFilter: 'linear',
-      maxAnisotropy: 4,
+      maxAnisotropy: 16,
     });
 
     // Default 2x2 placeholder texture (rgba16float)
