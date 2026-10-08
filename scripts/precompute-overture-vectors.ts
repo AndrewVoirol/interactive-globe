@@ -12,7 +12,7 @@
  *    Extracts high-resolution ocean coastline boundaries (subtype = 'ocean') and major rivers (subtype = 'river' AND class = 'river').
  * 2. Natural Earth 1:10m Physical Coastlines (via world-atlas land-10m.json)
  * 3. Natural Earth 1:10m Major Rivers & Lake Centerlines
- * 4. Local ETOPO 2022 16-bit DEM (public/earth-etopo2022-dem-u16.bin) for elevation sampling & topographic densification
+ * 4. Local GEBCO 2024 / ETOPO 2022 16-bit DEM (public/earth-gebco2024-dem-u16.bin prioritized over earth-etopo2022-dem-u16.bin) for elevation sampling & topographic densification
  * 
  * Computes:
  * - positions3D: Cartesian coordinates on sphere at R = 5.015 (sub-millimeter standoff)
@@ -207,16 +207,18 @@ async function run() {
   console.log('Precomputing Overture Maps High-Res Vectors (geo-vectors.bin)');
   console.log('================================================================');
 
-  // Step 0: Ingest Local ETOPO 2022 DEM for Topographic Relief Sampling
-  console.log('\n[1/6] Ingesting Local ETOPO 2022 DEM for Topographic Relief Sampling...');
-  const demPath = path.join(projectRoot, 'public', 'earth-etopo2022-dem-u16.bin');
+  // Step 0: Ingest Local GEBCO 2024 / ETOPO 2022 DEM for Topographic Relief Sampling
+  console.log('\n[1/6] Ingesting Local High-Resolution DEM for Topographic Relief Sampling...');
+  const gebcoDemPath = path.join(projectRoot, 'public', 'earth-gebco2024-dem-u16.bin');
+  const etopoDemPath = path.join(projectRoot, 'public', 'earth-etopo2022-dem-u16.bin');
+  const demPath = fs.existsSync(gebcoDemPath) ? gebcoDemPath : (fs.existsSync(etopoDemPath) ? etopoDemPath : null);
   let demU16: Uint16Array | null = null;
-  if (fs.existsSync(demPath)) {
+  if (demPath && fs.existsSync(demPath)) {
     const demBuf = fs.readFileSync(demPath);
     demU16 = new Uint16Array(demBuf.buffer, demBuf.byteOffset, demBuf.byteLength / 2);
-    console.log(`  ✓ Loaded DEM grid: ${(demBuf.byteLength / (1024 * 1024)).toFixed(1)} MB (${demU16.length / 4} pixels)`);
+    console.log(`  ✓ Loaded DEM grid (${path.basename(demPath)}): ${(demBuf.byteLength / (1024 * 1024)).toFixed(1)} MB (${demU16.length / 4} pixels)`);
   } else {
-    console.warn(`  ⚠️ DEM file not found at ${demPath}, continuing with flat sea-level sampling`);
+    console.warn(`  ⚠️ DEM file not found at ${gebcoDemPath} or ${etopoDemPath}, continuing with flat sea-level sampling`);
   }
 
   function sampleElevation(lon: number, lat: number): number {
