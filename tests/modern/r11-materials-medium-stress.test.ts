@@ -114,11 +114,11 @@ describe('Adversarial Challenger: Stage 2 Shader & Uniform Alignment Suite (R11)
 
     it('R11-ALIGN-03: verifies WebGPUEngine allocation and buffer registration matches 68 to 80 floats (272 to 320 bytes)', () => {
       // 1. Float32Array size
-      expect(engineSrc).toMatch(/private\s+crustFloats\s*=\s*new\s+Float32Array\((68|72|76|80)\)/);
+      expect(engineSrc).toMatch(/private\s+crustFloats\s*=\s*new\s+Float32Array\((68|72|76|80|104)\)/);
       // 2. Uint32Array overlay for u32 fields
       expect(engineSrc).toMatch(/private\s+crustUints\s*=\s*new\s+Uint32Array\(this\.crustFloats\.buffer\)/);
-      // 3. GPUBuffer size = 272 to 320
-      expect(engineSrc).toMatch(/this\.crustUniformBuffer\s*=\s*this\.device\.createBuffer\(\{\s*size:\s*(272|288|304|320)/);
+      // 3. GPUBuffer size = 272 to 416
+      expect(engineSrc).toMatch(/this\.crustUniformBuffer\s*=\s*this\.device\.createBuffer\(\{\s*size:\s*(272|288|304|320|416)/);
       // 4. writeBuffer with exact buffer
       expect(engineSrc).toMatch(/this\.device\.queue\.writeBuffer\(this\.crustUniformBuffer,\s*0,\s*cf\.buffer\)/);
     });

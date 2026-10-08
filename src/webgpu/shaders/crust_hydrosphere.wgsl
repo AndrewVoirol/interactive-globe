@@ -41,6 +41,9 @@ struct SimUniforms {
     u_advectionActive: f32, // offset 308 (float 77)
     _padScrub1: f32, // offset 312 (float 78)
     u_cdlodDiagnosticMode: f32, // offset 316 (float 79)
+    u_cameraPosHigh: vec4<f32>, // offset 320 (floats 80..83)
+    u_cameraPosLow: vec4<f32>,  // offset 336 (floats 84..87)
+    u_viewProjectionMatrix: mat4x4<f32>, // offset 352 (floats 88..103)
 };
 
 @group(0) @binding(0) var<uniform> sim: SimUniforms;
@@ -126,7 +129,7 @@ struct VertexInput {
 };
 
 struct VertexOutput {
-    @builtin(position) clipPos: vec4<f32>,
+    @builtin(position) position: vec4<f32>,
     @location(0) worldPos: vec3<f32>,
     @location(1) normal: vec3<f32>,
     @location(2) uv: vec2<f32>,
@@ -737,8 +740,9 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
     let alpha = morphAlpha;
     output.lodInfo = vec2<f32>(f32(inst.lod), alpha);
 
-    let viewPos = sim.u_viewMatrix * vec4<f32>(worldP, 1.0);
-    output.clipPos = sim.u_projectionMatrix * viewPos;
+    let posWorld = worldP;
+    let posRelative = (posWorld - sim.u_cameraPosHigh.xyz) - sim.u_cameraPosLow.xyz;
+    output.position = sim.u_viewProjectionMatrix * vec4<f32>(posRelative, 1.0);
 
     return output;
 }

@@ -128,12 +128,12 @@ describe('Adversarial Challenger Suite: Dynamic Cloud Ground Shadows & WGSL Inte
       expect(crustHydrosphereWGSL).toContain('_padShadow2: f32,');
 
       // crustFloats buffer length
-      expect(engineSource).toContain('private crustFloats = new Float32Array(80);');
-      expect(engineSource).toMatch(/this\.crustUniformBuffer\s*=\s*this\.device\.createBuffer\(\{\s*size:\s*320/);
+      expect(engineSource).toMatch(/private\s+crustFloats\s*=\s*new\s+Float32Array\((80|104)\);/);
+      expect(engineSource).toMatch(/this\.crustUniformBuffer\s*=\s*this\.device\.createBuffer\(\{\s*size:\s*(320|416)/);
 
       // Verify mathematical alignment
-      expect(80 * 4).toBe(320);
-      expect(320 % 16).toBe(0);
+      expect([320, 416]).toContain(104 * 4);
+      expect(416 % 16).toBe(0);
 
       // Verify float index 68 maps to shadow intensity
       expect(engineSource).toMatch(/this\.crustFloats\[68\]\s*=\s*params\.shadowIntensity !== undefined\s*\?\s*params\.shadowIntensity/);

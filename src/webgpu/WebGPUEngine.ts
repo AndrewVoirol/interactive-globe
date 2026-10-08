@@ -6,7 +6,7 @@
 //              and screen-space anti-aliased vector ribbons on Apple Silicon M4 Pro.
 // ============================================================================
 
-import { Vector3, Vector4, PerspectiveCamera } from '../core/math/cameraMath';
+import { Vector3, Vector4, PerspectiveCamera, Matrix4 } from '../core/math/cameraMath';
 import { isWebGPUSupported, getWebGPUDevice, getWebGPUAdapter } from './support';
 import { decodeContourMesh } from '../utils/contour-topology';
 
@@ -501,9 +501,11 @@ export class WebGPUEngine {
   public crustVertexBuffer: GPUBuffer | null = null;
   public crustIndexBuffer: GPUBuffer | null = null;
   public crustIndexCount: number = 0;
-  // SimUniforms: 320 bytes (80 floats), 16-byte aligned (Invariant §20)
-  private crustFloats = new Float32Array(80);
+  // SimUniforms: 416 bytes (104 floats), 16-byte aligned (Invariant §20, Precision Terrain Phase 3 RTE)
+  private crustFloats = new Float32Array(104);
   private crustUints = new Uint32Array(this.crustFloats.buffer);
+  private rteViewMatrix = new Matrix4();
+  private rteViewProjectionMatrix = new Matrix4();
   private crustHydrospherePipeline!: GPURenderPipeline;
   private crustBindGroupLayout!: GPUBindGroupLayout;
   private crustBindGroup!: GPUBindGroup;
@@ -3353,9 +3355,9 @@ export class WebGPUEngine {
       this.ensureTerrainShadowResources();
     }
 
-    // 3. Lithosphere Crust & Hydrosphere Uniform Buffer (320 bytes, 16-byte aligned) (M1-T3, STAGE 2)
+    // 3. Lithosphere Crust & Hydrosphere Uniform Buffer (416 bytes, 16-byte aligned) (M1-T3, Precision Terrain Phase 3 RTE)
     this.crustUniformBuffer = this.device.createBuffer({
-      size: 320,
+      size: 416,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -8401,13 +8403,37 @@ export class WebGPUEngine {
       // [32..47]: projectionMatrix (16 floats)
       params.camera.projectionMatrix?.toArray(simFloats, 32);
 
-      // [48..51]: cameraPos (xyz) + pad
+      // [48..55]: cameraPos decomposed into high and low float32 components (Phase 3 RTE)
       if (params.camera.position) {
-        simFloats[48] = params.camera.position.x;
-        simFloats[49] = params.camera.position.y;
-        simFloats[50] = params.camera.position.z;
+        const px = params.camera.position.x;
+        const py = params.camera.position.y;
+        const pz = params.camera.position.z;
+        const highX = Math.fround(px);
+        const highY = Math.fround(py);
+        const highZ = Math.fround(pz);
+        const lowX = px - highX;
+        const lowY = py - highY;
+        const lowZ = pz - highZ;
+
+        simFloats[48] = highX;
+        simFloats[49] = highY;
+        simFloats[50] = highZ;
+        simFloats[51] = 1.0;
+
+        simFloats[52] = lowX;
+        simFloats[53] = lowY;
+        simFloats[54] = lowZ;
+        simFloats[55] = 0.0;
+      } else {
+        simFloats[48] = 0.0;
+        simFloats[49] = 0.0;
+        simFloats[50] = 0.0;
+        simFloats[51] = 1.0;
+        simFloats[52] = 0.0;
+        simFloats[53] = 0.0;
+        simFloats[54] = 0.0;
+        simFloats[55] = 0.0;
       }
-      simFloats[51] = 1.0;
     }
 
     this.device.queue.writeBuffer(this.simUniformBuffer, 0, simFloats.buffer);
@@ -8542,8 +8568,34 @@ export class WebGPUEngine {
         cf[8] = params.camera.position.x;
         cf[9] = params.camera.position.y;
         cf[10] = params.camera.position.z;
+      } else {
+        cf[8] = 0.0;
+        cf[9] = 0.0;
+        cf[10] = 0.0;
       }
       cf[11] = 1.0;
+
+      // Decomposed camera coordinates in SimUniforms (floats 80..87, offsets 320..336, Phase 3 RTE)
+      const camPos = params.camera?.position;
+      const px = camPos?.x ?? 0.0;
+      const py = camPos?.y ?? 0.0;
+      const pz = camPos?.z ?? 0.0;
+      const highX = Math.fround(px);
+      const highY = Math.fround(py);
+      const highZ = Math.fround(pz);
+      const lowX = px - highX;
+      const lowY = py - highY;
+      const lowZ = pz - highZ;
+
+      cf[80] = highX;
+      cf[81] = highY;
+      cf[82] = highZ;
+      cf[83] = 1.0;
+
+      cf[84] = lowX;
+      cf[85] = lowY;
+      cf[86] = lowZ;
+      cf[87] = 0.0;
 
       // cursorHitPos (floats 12..15)
       if (params.cursorHitPos) {
@@ -8576,6 +8628,19 @@ export class WebGPUEngine {
       if (params.camera?.matrixWorldInverse && params.camera?.projectionMatrix) {
         params.camera.matrixWorldInverse.toArray(cf, 24);
         params.camera.projectionMatrix.toArray(cf, 40);
+
+        // Relative-to-Eye View-Projection Matrix (floats 88..103, offset 352):
+        // Zero out translation column of view matrix to prevent duplicate position subtraction
+        params.camera.matrixWorldInverse.toArray(this.rteViewMatrix.elements, 0);
+        const rteEls = this.rteViewMatrix.elements;
+        rteEls[12] = 0.0;
+        rteEls[13] = 0.0;
+        rteEls[14] = 0.0;
+        rteEls[15] = 1.0;
+
+        params.camera.projectionMatrix.toArray(this.rteViewProjectionMatrix.elements, 0);
+        this.rteViewProjectionMatrix.multiply(this.rteViewMatrix);
+        this.rteViewProjectionMatrix.toArray(cf, 88);
       }
 
       // Extended Cartographic UI Controls (floats 56..63, offsets 224..252)
