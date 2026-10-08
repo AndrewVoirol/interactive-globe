@@ -482,12 +482,13 @@ fn computeHydrosphereShading(
 
     let NdotV = max(0.0, dot(perturbedNormal, viewDir));
     const F0_WATER: f32 = 0.0204;
-    let fresnel = F0_WATER + (1.0 - F0_WATER) * pow(1.0 - NdotV, uniforms.u_fresnelPower);
+    let fresnelWater = F0_WATER + (1.0 - F0_WATER) * pow(1.0 - max(0.0, dot(perturbedNormal, viewDir)), 5.0);
+    let fresnel = fresnelWater;
 
-    let halfVec = normalize(sunDir + viewDir);
-    let NdotH = max(0.0, dot(perturbedNormal, halfVec));
-    let specPower = mix(128.0, 16.0, uniforms.u_roughness);
-    let sunSpecular = pow(NdotH, specPower) * ((specPower + 8.0) / (8.0 * 3.14159265));
+    let H_spec = normalize(sunDir + viewDir);
+    let NdotH = max(0.0, dot(perturbedNormal, H_spec));
+    let specularSun = pow(NdotH, 64.0) * sunIllum;
+    let sunSpecular = pow(NdotH, 64.0);
 
     // Dampen sky glare on the unfurled flat map so the ocean stays deep, clear, and visible
     let mapFresnelAtten = mix(1.0, 0.20, sim.u_unfurl);
@@ -495,17 +496,20 @@ fn computeHydrosphereShading(
     let skyReflection = select(vec3<f32>(0.75, 0.85, 0.95), vec3<f32>(0.20, 0.38, 0.55), isDark) * (fresnel * mapFresnelAtten);
     let specAtten = mix(1.0, 0.35, sim.u_unfurl);
 
-    let photorealSpecular = vec3<f32>(sunSpecular * fresnel * specAtten * shadowFactor);
-    let archivalMatteSpecular = vec3<f32>(0.92, 0.95, 0.98) * (sunSpecular * fresnel * specAtten * shadowFactor * 0.20);
-    let defaultSpecular = archivalMatteSpecular * 0.35;
+    // Physically-based Fresnel sun glint on water surfaces:
+    // Couplings: direct solar radiance, cloud shadow attenuation, flat-sheet unfurl dampening, and paper substrate tooth
+    let waterGlint = (sunSpecular * fresnel * specAtten * shadowFactor) * sunIllum * (1.0 - sim.u_roughness * 0.8);
 
     var mediumSpecular: vec3<f32>;
     if (sim.u_theme == 1u) {
-        mediumSpecular = vec3<f32>(0.95, 0.92, 0.85) * (sunSpecular * 0.02 * fresnel);
+        // Theme 1 (Cream Rag): Warm archival ivory/vellum ink luster
+        mediumSpecular = waterGlint * vec3<f32>(0.96, 0.94, 0.88);
     } else if (sim.u_theme == 2u) {
-        mediumSpecular = vec3<f32>(0.85, 0.92, 1.00) * (sunSpecular * fresnel * specAtten * shadowFactor * 0.15);
+        // Theme 2 (Prussian Cyanotype): Photochemical actinic blue-white exposure
+        mediumSpecular = waterGlint * vec3<f32>(0.85, 0.92, 1.00);
     } else {
-        mediumSpecular = defaultSpecular;
+        // Theme 0 (Marie Tharp) / Base: Direct oceanic sun glint
+        mediumSpecular = waterGlint * vec3<f32>(1.00, 0.98, 0.94);
     }
 
     let finalColor = waterColor * (1.0 - fresnel * 0.4) + skyReflection + mediumSpecular;
