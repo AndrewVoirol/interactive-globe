@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-10-08T04:25:04.245Z",
-  "baselineTimestamp": "2026-10-08T02:35:10.978Z",
-  "postGebcoTimestamp": "2026-10-08T04:22:08.242Z",
+  "timestamp": "2026-10-08T20:32:16.705Z",
+  "baselineTimestamp": "2026-10-08T04:22:08.242Z",
+  "postGebcoTimestamp": "2026-10-08T20:28:49.054Z",
   "comparisons": [
     {
       "locationId": "everest",
@@ -10,238 +10,238 @@
       "postGebcoFps": 14.4,
       "fpsDelta": -3.2,
       "baselineMeanMs": 56.83,
-      "postGebcoMeanMs": 69.23,
-      "meanMsDelta": 12.4
+      "postGebcoMeanMs": 69.45,
+      "meanMsDelta": 12.62
     },
     {
       "locationId": "mariana",
       "themeName": "cream_rag_swiss_relief",
       "baselineFps": 14.6,
-      "postGebcoFps": 17.7,
-      "fpsDelta": 3.1,
+      "postGebcoFps": 10.2,
+      "fpsDelta": -4.4,
       "baselineMeanMs": 68.42,
-      "postGebcoMeanMs": 56.37,
-      "meanMsDelta": -12.05
+      "postGebcoMeanMs": 98.33,
+      "meanMsDelta": 29.91
     },
     {
       "locationId": "grand_canyon",
       "themeName": "cream_rag_swiss_relief",
       "baselineFps": 19.4,
-      "postGebcoFps": 14.3,
-      "fpsDelta": -5.1,
+      "postGebcoFps": 19.4,
+      "fpsDelta": 0,
       "baselineMeanMs": 51.52,
-      "postGebcoMeanMs": 69.86,
-      "meanMsDelta": 18.34
+      "postGebcoMeanMs": 51.61,
+      "meanMsDelta": 0.09
     },
     {
       "locationId": "hawaii",
       "themeName": "cream_rag_swiss_relief",
       "baselineFps": 14.4,
-      "postGebcoFps": 22.7,
-      "fpsDelta": 8.3,
+      "postGebcoFps": 9.2,
+      "fpsDelta": -5.2,
       "baselineMeanMs": 69.25,
-      "postGebcoMeanMs": 44.06,
-      "meanMsDelta": -25.19
+      "postGebcoMeanMs": 108.7,
+      "meanMsDelta": 39.45
     },
     {
       "locationId": "cape_cod",
       "themeName": "cream_rag_swiss_relief",
       "baselineFps": 9.3,
-      "postGebcoFps": 8.8,
-      "fpsDelta": -0.5,
+      "postGebcoFps": 8.3,
+      "fpsDelta": -1,
       "baselineMeanMs": 107.43,
-      "postGebcoMeanMs": 113.64,
-      "meanMsDelta": 6.21
+      "postGebcoMeanMs": 120.03,
+      "meanMsDelta": 12.6
     },
     {
       "locationId": "amazon_mouth",
       "themeName": "cream_rag_swiss_relief",
       "baselineFps": 12.3,
-      "postGebcoFps": 20.2,
-      "fpsDelta": 7.9,
+      "postGebcoFps": 9,
+      "fpsDelta": -3.3,
       "baselineMeanMs": 81.48,
-      "postGebcoMeanMs": 49.4,
-      "meanMsDelta": -32.08
+      "postGebcoMeanMs": 111.62,
+      "meanMsDelta": 30.14
     },
     {
       "locationId": "titicaca",
       "themeName": "cream_rag_swiss_relief",
       "baselineFps": 11.2,
-      "postGebcoFps": 24,
-      "fpsDelta": 12.8,
+      "postGebcoFps": 8.3,
+      "fpsDelta": -2.9,
       "baselineMeanMs": 89.53,
-      "postGebcoMeanMs": 41.58,
-      "meanMsDelta": -47.95
+      "postGebcoMeanMs": 120.97,
+      "meanMsDelta": 31.44
     },
     {
       "locationId": "matterhorn",
       "themeName": "cream_rag_swiss_relief",
       "baselineFps": 12.4,
-      "postGebcoFps": 5.8,
-      "fpsDelta": -6.6,
+      "postGebcoFps": 12.5,
+      "fpsDelta": 0.1,
       "baselineMeanMs": 80.93,
-      "postGebcoMeanMs": 172.64,
-      "meanMsDelta": 91.71
+      "postGebcoMeanMs": 80.02,
+      "meanMsDelta": -0.91
     },
     {
       "locationId": "everest",
       "themeName": "marie_tharp_bathymetry",
       "baselineFps": 14.8,
-      "postGebcoFps": 15.2,
-      "fpsDelta": 0.4,
+      "postGebcoFps": 11.2,
+      "fpsDelta": -3.6,
       "baselineMeanMs": 67.75,
-      "postGebcoMeanMs": 65.61,
-      "meanMsDelta": -2.14
+      "postGebcoMeanMs": 89.5,
+      "meanMsDelta": 21.75
     },
     {
       "locationId": "mariana",
       "themeName": "marie_tharp_bathymetry",
       "baselineFps": 12.6,
-      "postGebcoFps": 19.7,
-      "fpsDelta": 7.1,
+      "postGebcoFps": 8.1,
+      "fpsDelta": -4.5,
       "baselineMeanMs": 79.59,
-      "postGebcoMeanMs": 50.86,
-      "meanMsDelta": -28.73
+      "postGebcoMeanMs": 122.92,
+      "meanMsDelta": 43.33
     },
     {
       "locationId": "grand_canyon",
       "themeName": "marie_tharp_bathymetry",
       "baselineFps": 14.4,
-      "postGebcoFps": 13.7,
-      "fpsDelta": -0.7,
+      "postGebcoFps": 11.5,
+      "fpsDelta": -2.9,
       "baselineMeanMs": 69.26,
-      "postGebcoMeanMs": 72.92,
-      "meanMsDelta": 3.66
+      "postGebcoMeanMs": 87.17,
+      "meanMsDelta": 17.91
     },
     {
       "locationId": "hawaii",
       "themeName": "marie_tharp_bathymetry",
       "baselineFps": 14.8,
-      "postGebcoFps": 23.3,
-      "fpsDelta": 8.5,
+      "postGebcoFps": 10.8,
+      "fpsDelta": -4,
       "baselineMeanMs": 67.47,
-      "postGebcoMeanMs": 42.94,
-      "meanMsDelta": -24.53
+      "postGebcoMeanMs": 92.64,
+      "meanMsDelta": 25.17
     },
     {
       "locationId": "cape_cod",
       "themeName": "marie_tharp_bathymetry",
       "baselineFps": 10.5,
-      "postGebcoFps": 8.6,
-      "fpsDelta": -1.9,
+      "postGebcoFps": 10.9,
+      "fpsDelta": 0.4,
       "baselineMeanMs": 95.43,
-      "postGebcoMeanMs": 115.92,
-      "meanMsDelta": 20.49
+      "postGebcoMeanMs": 91.42,
+      "meanMsDelta": -4.01
     },
     {
       "locationId": "amazon_mouth",
       "themeName": "marie_tharp_bathymetry",
       "baselineFps": 12.1,
-      "postGebcoFps": 19.3,
-      "fpsDelta": 7.2,
+      "postGebcoFps": 9.9,
+      "fpsDelta": -2.2,
       "baselineMeanMs": 82.59,
-      "postGebcoMeanMs": 51.71,
-      "meanMsDelta": -30.88
+      "postGebcoMeanMs": 100.73,
+      "meanMsDelta": 18.14
     },
     {
       "locationId": "titicaca",
       "themeName": "marie_tharp_bathymetry",
       "baselineFps": 10.7,
-      "postGebcoFps": 22.2,
-      "fpsDelta": 11.5,
+      "postGebcoFps": 8.8,
+      "fpsDelta": -1.9,
       "baselineMeanMs": 93.56,
-      "postGebcoMeanMs": 45.15,
-      "meanMsDelta": -48.41
+      "postGebcoMeanMs": 113.43,
+      "meanMsDelta": 19.87
     },
     {
       "locationId": "matterhorn",
       "themeName": "marie_tharp_bathymetry",
       "baselineFps": 12.5,
-      "postGebcoFps": 6.5,
-      "fpsDelta": -6,
+      "postGebcoFps": 10.7,
+      "fpsDelta": -1.8,
       "baselineMeanMs": 80.18,
-      "postGebcoMeanMs": 154.61,
-      "meanMsDelta": 74.43
+      "postGebcoMeanMs": 93.23,
+      "meanMsDelta": 13.05
     },
     {
       "locationId": "everest",
       "themeName": "prussian_cyanotype_blueprint",
       "baselineFps": 13.6,
-      "postGebcoFps": 15.7,
-      "fpsDelta": 2.1,
+      "postGebcoFps": 10,
+      "fpsDelta": -3.6,
       "baselineMeanMs": 73.6,
-      "postGebcoMeanMs": 63.77,
-      "meanMsDelta": -9.83
+      "postGebcoMeanMs": 99.78,
+      "meanMsDelta": 26.18
     },
     {
       "locationId": "mariana",
       "themeName": "prussian_cyanotype_blueprint",
       "baselineFps": 12.4,
-      "postGebcoFps": 21.1,
-      "fpsDelta": 8.7,
+      "postGebcoFps": 8.5,
+      "fpsDelta": -3.9,
       "baselineMeanMs": 80.95,
-      "postGebcoMeanMs": 47.5,
-      "meanMsDelta": -33.45
+      "postGebcoMeanMs": 117.15,
+      "meanMsDelta": 36.2
     },
     {
       "locationId": "grand_canyon",
       "themeName": "prussian_cyanotype_blueprint",
       "baselineFps": 15.6,
-      "postGebcoFps": 13.4,
-      "fpsDelta": -2.2,
+      "postGebcoFps": 15.4,
+      "fpsDelta": -0.2,
       "baselineMeanMs": 64.26,
-      "postGebcoMeanMs": 74.75,
-      "meanMsDelta": 10.49
+      "postGebcoMeanMs": 65.01,
+      "meanMsDelta": 0.75
     },
     {
       "locationId": "hawaii",
       "themeName": "prussian_cyanotype_blueprint",
       "baselineFps": 18.3,
-      "postGebcoFps": 21.8,
-      "fpsDelta": 3.5,
+      "postGebcoFps": 12.9,
+      "fpsDelta": -5.4,
       "baselineMeanMs": 54.78,
-      "postGebcoMeanMs": 45.82,
-      "meanMsDelta": -8.96
+      "postGebcoMeanMs": 77.64,
+      "meanMsDelta": 22.86
     },
     {
       "locationId": "cape_cod",
       "themeName": "prussian_cyanotype_blueprint",
       "baselineFps": 17.9,
-      "postGebcoFps": 7.7,
-      "fpsDelta": -10.2,
+      "postGebcoFps": 16,
+      "fpsDelta": -1.9,
       "baselineMeanMs": 55.73,
-      "postGebcoMeanMs": 130.48,
-      "meanMsDelta": 74.75
+      "postGebcoMeanMs": 62.47,
+      "meanMsDelta": 6.74
     },
     {
       "locationId": "amazon_mouth",
       "themeName": "prussian_cyanotype_blueprint",
       "baselineFps": 15,
-      "postGebcoFps": 19.3,
-      "fpsDelta": 4.3,
+      "postGebcoFps": 11.4,
+      "fpsDelta": -3.6,
       "baselineMeanMs": 66.47,
-      "postGebcoMeanMs": 51.75,
-      "meanMsDelta": -14.72
+      "postGebcoMeanMs": 87.45,
+      "meanMsDelta": 20.98
     },
     {
       "locationId": "titicaca",
       "themeName": "prussian_cyanotype_blueprint",
       "baselineFps": 11.9,
-      "postGebcoFps": 22.6,
-      "fpsDelta": 10.7,
+      "postGebcoFps": 9.1,
+      "fpsDelta": -2.8,
       "baselineMeanMs": 83.69,
-      "postGebcoMeanMs": 44.24,
-      "meanMsDelta": -39.45
+      "postGebcoMeanMs": 110.26,
+      "meanMsDelta": 26.57
     },
     {
       "locationId": "matterhorn",
       "themeName": "prussian_cyanotype_blueprint",
       "baselineFps": 12.1,
-      "postGebcoFps": 6.3,
-      "fpsDelta": -5.8,
+      "postGebcoFps": 8.3,
+      "fpsDelta": -3.8,
       "baselineMeanMs": 82.92,
-      "postGebcoMeanMs": 158.01,
-      "meanMsDelta": 75.09
+      "postGebcoMeanMs": 120.63,
+      "meanMsDelta": 37.71
     }
   ]
 }
