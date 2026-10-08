@@ -1,6 +1,7 @@
 import { chromium } from 'playwright';
 import path from 'path';
 import fs from 'fs';
+import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -219,7 +220,25 @@ async function main() {
 
   await browser.close();
 
+  const FINAL_DELTA_PATH = path.join(projectRoot, 'reports', 'final-precision-delta.json');
   const DELTA_PATH = path.join(projectRoot, 'reports', 'stage1-gebco-delta.json');
+
+  // Load Phase 1 baseline (commit 6530978) for authoritative comparison
+  let phase1Baseline = null;
+  try {
+    const raw = execSync('git show 6530978:reports/baseline-v1-measurements.json', {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
+    phase1Baseline = JSON.parse(raw);
+  } catch {
+    if (fs.existsSync(REPORT_PATH)) {
+      try {
+        phase1Baseline = JSON.parse(fs.readFileSync(REPORT_PATH, 'utf-8'));
+      } catch {}
+    }
+  }
+
   let baselinePrior = null;
   if (fs.existsSync(REPORT_PATH)) {
     try {
@@ -229,24 +248,58 @@ async function main() {
 
   fs.writeFileSync(REPORT_PATH, JSON.stringify(benchmarkReport, null, 2));
 
-  if (baselinePrior && baselinePrior.benchmarks) {
-    const deltaReport = {
+  const baseSource = phase1Baseline || baselinePrior;
+  if (baseSource && baseSource.benchmarks) {
+    const finalDeltaReport = {
       timestamp: new Date().toISOString(),
-      baselineTimestamp: baselinePrior.timestamp,
-      postGebcoTimestamp: benchmarkReport.timestamp,
+      phase1BaselineTimestamp: baseSource.timestamp,
+      finalPrecisionTimestamp: benchmarkReport.timestamp,
+      summary: {
+        totalBenchmarks: benchmarkReport.benchmarks.length,
+        baselineMeanFps: parseFloat(
+          (baseSource.benchmarks.reduce((acc, b) => acc + (b.metrics?.fps || 0), 0) / baseSource.benchmarks.length).toFixed(2)
+        ),
+        finalMeanFps: parseFloat(
+          (benchmarkReport.benchmarks.reduce((acc, b) => acc + (b.metrics?.fps || 0), 0) / benchmarkReport.benchmarks.length).toFixed(2)
+        ),
+      },
       comparisons: benchmarkReport.benchmarks.map((cur, i) => {
-        const base = baselinePrior.benchmarks?.[i] || {};
+        const base =
+          baseSource.benchmarks?.find((b) => b.locationId === cur.locationId && b.themeName === cur.themeName) ||
+          baseSource.benchmarks?.[i] ||
+          {};
         return {
           locationId: cur.locationId,
+          locationName: cur.locationName,
           themeName: cur.themeName,
           baselineFps: base.metrics?.fps,
-          postGebcoFps: cur.metrics.fps,
+          finalFps: cur.metrics.fps,
           fpsDelta: parseFloat((cur.metrics.fps - (base.metrics?.fps || 0)).toFixed(2)),
           baselineMeanMs: base.metrics?.mean,
-          postGebcoMeanMs: cur.metrics.mean,
+          finalMeanMs: cur.metrics.mean,
           meanMsDelta: parseFloat((cur.metrics.mean - (base.metrics?.mean || 0)).toFixed(2)),
+          baselineP95Ms: base.metrics?.p95,
+          finalP95Ms: cur.metrics.p95,
         };
-      })
+      }),
+    };
+    fs.writeFileSync(FINAL_DELTA_PATH, JSON.stringify(finalDeltaReport, null, 2));
+    console.log(`Final precision delta report written to: ${FINAL_DELTA_PATH}`);
+
+    const deltaReport = {
+      timestamp: new Date().toISOString(),
+      baselineTimestamp: baselinePrior ? baselinePrior.timestamp : baseSource.timestamp,
+      postGebcoTimestamp: benchmarkReport.timestamp,
+      comparisons: finalDeltaReport.comparisons.map((c) => ({
+        locationId: c.locationId,
+        themeName: c.themeName,
+        baselineFps: c.baselineFps,
+        postGebcoFps: c.finalFps,
+        fpsDelta: c.fpsDelta,
+        baselineMeanMs: c.baselineMeanMs,
+        postGebcoMeanMs: c.finalMeanMs,
+        meanMsDelta: c.meanMsDelta,
+      })),
     };
     fs.writeFileSync(DELTA_PATH, JSON.stringify(deltaReport, null, 2));
     console.log(`Delta report written to: ${DELTA_PATH}`);

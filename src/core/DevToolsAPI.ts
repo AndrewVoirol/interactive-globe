@@ -1,6 +1,17 @@
 import { EngineStateHook } from '../hooks/useEngineState';
 import { runComprehensiveProfilingSuite } from '../webgpu/profiling/runComprehensiveProfilingSuite';
 
+export interface ProvenanceTelemetryData {
+  baseDataset: string;
+  insetDataset: string;
+  verticalDatum: string;
+  latitude: number;
+  longitude: number;
+  altitudeMeters: number;
+  groundElevationMeters: number;
+  waterDepthMeters: number;
+}
+
 export interface IndicatrixEngineDevTools {
   getState: () => any;
   setAlpha: (alpha: number) => void;
@@ -12,6 +23,9 @@ export interface IndicatrixEngineDevTools {
   setShowVectors: (show: boolean) => void;
   setCursorPhysicsEnabled: (enabled: boolean) => void;
   getActiveRegionalDEM?: () => string | null;
+  getProvenanceTelemetry?: () => ProvenanceTelemetryData;
+  updateProvenanceTelemetry?: (data: Partial<ProvenanceTelemetryData>) => ProvenanceTelemetryData;
+  subscribeProvenanceTelemetry?: (cb: (data: ProvenanceTelemetryData) => void) => () => void;
 }
 
 export interface IndicatrixCameraDevTools {
@@ -35,6 +49,7 @@ export interface IndicatrixWeatherDiagnostics {
 declare global {
   interface Window {
     __INDICATRIX_ENGINE__?: IndicatrixEngineDevTools;
+    __INDICATRIX_PROVENANCE_TELEMETRY__?: ProvenanceTelemetryData;
     __INDICATRIX_WEBGPU_ENGINE__?: any;
     __ENGINE?: any;
     __WEBGPU_ENGINE__?: any;
@@ -94,6 +109,50 @@ declare global {
 }
 
 
+export const DEFAULT_PROVENANCE_TELEMETRY: ProvenanceTelemetryData = {
+  baseDataset: 'GEBCO 2024 / FABDEM Bare-Earth (15 arc-sec / 30m)',
+  insetDataset: 'None (Global Topobathy)',
+  verticalDatum: 'WGS84 Ellipsoidal / EGM2008 Geoid Corrected',
+  latitude: 0,
+  longitude: 0,
+  altitudeMeters: 12742000,
+  groundElevationMeters: 0,
+  waterDepthMeters: 0,
+};
+
+type ProvenanceListener = (data: ProvenanceTelemetryData) => void;
+const provenanceListeners = new Set<ProvenanceListener>();
+let currentProvenanceData: ProvenanceTelemetryData = { ...DEFAULT_PROVENANCE_TELEMETRY };
+
+export function updateProvenanceTelemetry(data: Partial<ProvenanceTelemetryData>): ProvenanceTelemetryData {
+  currentProvenanceData = { ...currentProvenanceData, ...data };
+  if (typeof window !== 'undefined') {
+    (window as any).__INDICATRIX_PROVENANCE_TELEMETRY__ = currentProvenanceData;
+  }
+  for (const listener of provenanceListeners) {
+    try {
+      listener(currentProvenanceData);
+    } catch (err) {
+      console.warn('Error in provenance telemetry listener:', err);
+    }
+  }
+  return currentProvenanceData;
+}
+
+export function getProvenanceTelemetry(): ProvenanceTelemetryData {
+  return currentProvenanceData;
+}
+
+export function subscribeProvenanceTelemetry(listener: ProvenanceListener): () => void {
+  provenanceListeners.add(listener);
+  try {
+    listener(currentProvenanceData);
+  } catch {}
+  return () => {
+    provenanceListeners.delete(listener);
+  };
+}
+
 export function registerDevToolsAPI(state: EngineStateHook): void {
   if (typeof window === 'undefined') return;
 
@@ -117,9 +176,13 @@ export function registerDevToolsAPI(state: EngineStateHook): void {
     setTheme: state.setTheme,
     setShowVectors: state.setShowVectors,
     setCursorPhysicsEnabled: state.setCursorPhysicsEnabled,
+    getProvenanceTelemetry,
+    updateProvenanceTelemetry,
+    subscribeProvenanceTelemetry,
   };
 
   window.__INDICATRIX_ENGINE__ = devTools;
+  (window as any).__INDICATRIX_PROVENANCE_TELEMETRY__ = currentProvenanceData;
 
   // Backwards compatible aliases
   window.setAlpha = state.setAlpha;

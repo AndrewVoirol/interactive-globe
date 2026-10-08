@@ -15,6 +15,7 @@ import type { MeteorologicalProvenance } from '../../core/data/WeatherNextDataSo
 
 export type { DataLayerItem, ToastMessage, LoadedDataInfo, ResolutionTier, PrognosticModelBackend, MeteorologicalProvenance };
 export { isWeatherNextModel };
+export { DataProvenanceOverlay } from './DataProvenanceOverlay';
 
 export interface TelemetryHUDProps {
   isZenMode: boolean;

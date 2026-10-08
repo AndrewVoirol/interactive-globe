@@ -16,6 +16,7 @@ import { CloudShadowInstrument } from './hud/instruments/CloudShadowInstrument';
 import { CloudDriftSpeedInstrument } from './hud/instruments/CloudDriftSpeedInstrument';
 import { PrognosticModelCard } from './hud/instruments/PrognosticModelCard';
 import { StratosphericTelemetryInstrument } from './hud/instruments/StratosphericTelemetryInstrument';
+import { DataProvenanceOverlay } from './hud/DataProvenanceOverlay';
 import { VolumetricCloudDynamicsInstrument } from './hud/instruments/VolumetricCloudDynamicsInstrument';
 import type { ResolutionTier } from '../types';
 import type { MeteorologicalProvenance } from '../core/data/WeatherNextDataSource';
@@ -763,6 +764,12 @@ export const AtmosphereDrawer: React.FC<AtmosphereDrawerProps> = ({
             isLight={isLight}
             cloudFalseColor={curCloudFalseColor}
             resolution={resolution}
+          />
+
+          {/* Data Provenance & Geodetic Authority Overlay Card (Phase 5) */}
+          <DataProvenanceOverlay
+            theme={theme}
+            isLight={isLight}
           />
 
           {/* 3D Volumetric Raymarch Station (Graduated from Beta) */}

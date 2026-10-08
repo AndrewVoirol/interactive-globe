@@ -12,6 +12,7 @@ import { CursorTracker } from '../utils/raycast';
 import { invertMacroChart } from '../core/math/volumetricMath';
 import { useCursorTracker } from '../core/CursorContext';
 import { DataLayerItem, PrognosticModelBackend, isWeatherNextModel } from '../components/hud/TelemetryHUD';
+import { updateProvenanceTelemetry } from '../core/DevToolsAPI';
 
 import { GeodesicOverlayMode, ResolutionTier, SimulationMode } from '../types';
 import { WhimsicalEffectsManager } from '../core/effects/WhimsicalEffectsManager';
@@ -3620,8 +3621,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
           lastFpsTimeRef.current = now;
         }
 
-        // Cartographic Navigation Telemetry
-        if (callbacksRef.current.onCoordsChange && now - lastTelemetryTimeRef.current >= 100) {
+        // Cartographic Navigation Telemetry & Data Provenance (Phase 5)
+        if (now - lastTelemetryTimeRef.current >= 100) {
           lastTelemetryTimeRef.current = now;
           let latDeg = 0;
           let lonDeg = 0;
@@ -3650,7 +3651,47 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
             lonDeg = Math.round(activeCoordsRef.current.lon);
           }
           lonDeg = ((((lonDeg + 180) % 360) + 360) % 360) - 180;
-          callbacksRef.current.onCoordsChange(latDeg, lonDeg);
+          if (callbacksRef.current.onCoordsChange) {
+            callbacksRef.current.onCoordsChange(latDeg, lonDeg);
+          }
+
+          // Provenance Telemetry Update (Zero-recompilation, zero React thrash)
+          const curCoords = cursorCoordsRef.current || activeCoordsRef.current || { lat: latDeg, lon: lonDeg };
+          const targetLat = curCoords.lat ?? latDeg;
+          const targetLon = curCoords.lon ?? lonDeg;
+          const camDist = camera.position.length();
+          const altitudeMeters = Math.max(0, (camDist - 5.0) * 1274200);
+
+          let elevM = 0;
+          if (engine && typeof engine.sampleCPUElevation === 'function') {
+            const elevRes = engine.sampleCPUElevation(targetLon, targetLat);
+            elevM = elevRes?.elevationMeters ?? 0;
+          }
+
+          let inset = 'None (Global Topobathy)';
+          const regId = activeRegionIdRef.current || (engine.getActiveRegionalDEM ? engine.getActiveRegionalDEM() : null);
+          if (regId === 'hawaii' || regId === 'capecod' || regId === 'cape-cod') {
+            inset = 'NOAA CUDEM (3m LiDAR)';
+          } else if (regId === 'grand-canyon') {
+            inset = 'USGS 3DEP (30m)';
+          } else if (targetLon >= -161.0 && targetLon <= -154.0 && targetLat >= 18.0 && targetLat <= 23.0) {
+            inset = 'NOAA CUDEM (3m LiDAR)';
+          } else if (targetLon >= -71.0 && targetLon <= -69.0 && targetLat >= 41.0 && targetLat <= 43.0) {
+            inset = 'NOAA CUDEM (3m LiDAR)';
+          } else if (targetLon >= -112.5 && targetLon <= -111.5 && targetLat >= 35.9 && targetLat <= 36.5) {
+            inset = 'USGS 3DEP (30m)';
+          }
+
+          updateProvenanceTelemetry({
+            baseDataset: 'GEBCO 2024 / FABDEM Bare-Earth (15 arc-sec / 30m)',
+            insetDataset: inset,
+            verticalDatum: 'WGS84 Ellipsoidal / EGM2008 Geoid Corrected',
+            latitude: targetLat,
+            longitude: targetLon,
+            altitudeMeters,
+            groundElevationMeters: elevM,
+            waterDepthMeters: elevM < 0 ? -elevM : 0,
+          });
         }
       }
 
