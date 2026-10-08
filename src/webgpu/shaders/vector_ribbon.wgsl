@@ -284,6 +284,17 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
     let deltaPx = pxB - pxA;
     let lenPx = length(deltaPx);
+
+    let camDist = length(sim.u_cameraPos.xyz);
+
+    // Cull segments whose projected screen-space length is under 0.25 pixels at orbital altitudes
+    let projectedLenPx = lenPx;
+    let isOrbit = camDist > 16.0;
+    if (isOrbit && projectedLenPx < 0.35 && in.posA_3d.w < 0.75) {
+        out.clipPos = vec4<f32>(0.0, 0.0, -1.0, 0.0); // Cull subpixel river rills from orbit
+        return out;
+    }
+
     let tangent = select(vec2<f32>(1.0, 0.0), deltaPx / lenPx, lenPx > 1e-4);
     let normal = vec2<f32>(-tangent.y, tangent.x);
 
@@ -299,7 +310,6 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     // Camera-distance adaptive stroke scaling:
     // 0.45px physical/CSS stroke scaling at planetary orbit (camDist >= 25.0)
     // 1.30px zoomed in (camDist <= 8.0)
-    let camDist = length(sim.u_cameraPos.xyz);
     let orbitT = clamp((camDist - 8.0) / (25.0 - 8.0), 0.0, 1.0);
     let targetHalfWidthCss = mix(0.65, 0.225, orbitT); // 1.30px -> 0.45px full stroke width
     let effectiveHalfWidthCss = select(targetHalfWidthCss, sim.u_halfWidthPx, sim.u_halfWidthPx > 0.001);
@@ -346,7 +356,9 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     out.pointType = select(in.posA_3d.w, in.posB_3d.w, isEndB);
 
     // Subpixel peak alpha attenuation to preserve radiometric flux
-    out.alphaPeak = min(1.0, 2.0 * nominalHalfWidthPhys);
+    // Smoothly fade vector ribbon stroke alpha as camera distance increases beyond orbit (camDist > 25.0)
+    let orbitAlphaFade = 1.0 - smoothstep(25.0, 45.0, camDist);
+    out.alphaPeak = min(1.0, 2.0 * nominalHalfWidthPhys) * orbitAlphaFade;
 
     // 8. Surface Facing & Horizon Culling
     out.facing = facingEnd;
