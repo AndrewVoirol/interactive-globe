@@ -687,8 +687,8 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
     // Liquid Hydrosphere shell: conforms to dynamic lake datum or global sea level
     let hydroSample = textureSampleLevel(u_hydroTexture, u_demSampler, inUv, 0.0);
     let z_lake = hydroSample.g * 9000.0;
-    let isLake = z_lake > 0.0;
-    let localWaterDatum = select(sim.u_seaLevel, z_lake, z_lake > 0.0);
+    let isLake = demSampleComp.b > 0.45 && z_lake > 1.0;
+    let localWaterDatum = select(sim.u_seaLevel, z_lake, isLake);
 
     // Calculate sea level displacement
     let depth = max(0.0, localWaterDatum - elevMeters);
@@ -741,7 +741,6 @@ fn vs_main(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> Ver
     if (normalDisplacement < 0.0) {
         normalDisplacement = normalDisplacement * limbAtten;
     }
-
     let isCrust = inSurfaceType < 0.5;
     let abyssalDrop = max(0.02, dispScale * 1.05 + 0.015);
     let skirtDepth = select(0.0, max(abyssalDrop, inst.sizeUV.y * 0.35 * dispScale), isCrust && skirtFactor > 0.0);
@@ -1125,11 +1124,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         if (sim.u_purityMode > 0.5) {
             discard;
         }
-        if (sim.u_renderStyle == 0u && abs(sim.u_seaLevel) <= 0.01 && z_lake <= 0.0) {
+        let isLake = finalDemC.b > 0.45 && z_lake > 1.0;
+        if (sim.u_renderStyle == 0u && abs(sim.u_seaLevel) <= 0.01 && !isLake) {
             discard;
         }
         // Dynamic lake datum evaluation: preserve water shell for inland lakes (e.g. Lake Titicaca at +3812m)
-        let localWaterDatum = select(sim.u_seaLevel, z_lake, z_lake > 0.0);
+        let localWaterDatum = select(sim.u_seaLevel, z_lake, isLake);
         let depthMeters = max(0.0, localWaterDatum - elevMeters);
         if (depthMeters <= 0.001) {
             discard;
