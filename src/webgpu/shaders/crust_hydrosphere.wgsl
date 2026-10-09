@@ -1159,6 +1159,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             shadowFactor
         );
 
+        if (hydroColor.a <= 0.001) {
+            discard;
+        }
+
         var hydroRgb = hydroColor.rgb;
         var hydroOverlay: vec4<f32>;
         if (sim.u_weatherOpticalMode == 1u) {
@@ -1176,7 +1180,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         return vec4<f32>(hydroRgb, hydroColor.a);
     }
 
-    // Lithosphere Crust Pass with Eduard Imhof Swiss Relief Shading
     let n0 = normalize(input.normal);
 
     // Continuous orthonormal tangent frame on sphere & planar manifold

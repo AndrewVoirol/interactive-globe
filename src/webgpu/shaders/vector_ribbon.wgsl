@@ -159,27 +159,25 @@ fn applyVectorDisplacement(basePos: vec3<f32>, baseNormal: vec3<f32>, pointType:
     var normalDisplacement: f32 = 0.0;
     let dispScale = sim.u_displacementScale * 2.8;
 
-    if (pointType >= 0.75) {
-        let normH = max(0.0, elevMeters) / 8848.0;
-        normalDisplacement = normH * dispScale * poleAtten;
-    } else {
-        if (sim.u_pad2 > 0.5) {
-            if (elevMeters >= 0.0) {
-                let logNormH = log(1.0 + elevMeters / 1200.0) / log(1.0 + 8848.0 / 1200.0);
-                normalDisplacement = logNormH * dispScale * poleAtten;
-            } else {
-                let logNormD = log(1.0 + (-elevMeters) / 1500.0) / log(1.0 + 10924.0 / 1500.0);
-                normalDisplacement = -logNormD * dispScale * poleAtten;
-            }
+    let exponent = select(1.0, clamp(sim.u_peakExponent, 0.2, 4.0), sim.u_peakExponent > 0.01);
+    if (sim.u_pad2 > 0.5) {
+        if (elevMeters >= 0.0) {
+            let logNormH = log(1.0 + elevMeters / 1200.0) / log(1.0 + 8848.0 / 1200.0);
+            let expLogNormH = pow(clamp(logNormH, 0.0, 1.0), exponent);
+            normalDisplacement = expLogNormH * dispScale * poleAtten;
         } else {
-            if (elevMeters >= 0.0) {
-                let normH = elevMeters / 8848.0;
-                normalDisplacement = normH * dispScale * poleAtten;
-            } else {
-                let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
-                let shelfD = normD / (1.0 + 1.5 * (1.0 - normD));
-                normalDisplacement = -shelfD * dispScale * poleAtten;
-            }
+            let logNormD = log(1.0 + (-elevMeters) / 1500.0) / log(1.0 + 10924.0 / 1500.0);
+            normalDisplacement = -logNormD * dispScale * poleAtten;
+        }
+    } else {
+        if (elevMeters >= 0.0) {
+            let normH = elevMeters / 8848.0;
+            let expNormH = pow(clamp(normH, 0.0, 1.0), exponent);
+            normalDisplacement = expNormH * dispScale * poleAtten;
+        } else {
+            let normD = clamp(-elevMeters / 10924.0, 0.0, 1.0);
+            let shelfD = normD / (1.0 + 1.5 * (1.0 - normD));
+            normalDisplacement = -shelfD * dispScale * poleAtten;
         }
     }
 
@@ -210,19 +208,21 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     }
 
     // 1. Manifold Deformations
+    let normPosA = normalize(in.posA_3d.xyz) * RADIUS;
     let defA = evaluateManifoldCore(
-        in.posA_3d.xyz, in.posA_target2d.xy,
+        normPosA, in.posA_target2d.xy,
         sim.u_unfurl, sim.u_mode, sim.u_time,
         sim.u_cursorHitPos, sim.u_cursorActive, sim.u_cursorVel
     );
-    let dispPosA = applyVectorDisplacement(defA.pos, defA.normal, in.posA_3d.w, in.posA_3d.xyz);
+    let dispPosA = applyVectorDisplacement(defA.pos, defA.normal, in.posA_3d.w, normPosA);
 
+    let normPosB = normalize(in.posB_3d.xyz) * RADIUS;
     let defB = evaluateManifoldCore(
-        in.posB_3d.xyz, in.posB_target2d.xy,
+        normPosB, in.posB_target2d.xy,
         sim.u_unfurl, sim.u_mode, sim.u_time,
         sim.u_cursorHitPos, sim.u_cursorActive, sim.u_cursorVel
     );
-    let dispPosB = applyVectorDisplacement(defB.pos, defB.normal, in.posB_3d.w, in.posB_3d.xyz);
+    let dispPosB = applyVectorDisplacement(defB.pos, defB.normal, in.posB_3d.w, normPosB);
 
     // Compute view-space positions, normals, and horizon facing for both endpoints
     let viewPosA = sim.u_viewMatrix * vec4<f32>(dispPosA, 1.0);
@@ -346,9 +346,11 @@ fn vs_main(in: VertexInput) -> VertexOutput {
         -(totalOffsetPx.y / halfVp.y)
     );
 
-    let posWorld = baseClip.xyz;
-    let posRelative = (posWorld - sim.u_cameraPosHigh.xyz) - sim.u_cameraPosLow.xyz;
-    out.clipPos = sim.u_viewProjectionMatrix * vec4<f32>(posRelative, 1.0);
+    out.clipPos = vec4<f32>(
+        baseClip.xy + offsetNdc * baseClip.w,
+        baseClip.z,
+        baseClip.w
+    );
 
     // Interpolated Shading Coordinates
     out.uv = vec2<f32>(baseU, in.corner.y);
@@ -398,12 +400,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let sphereFactor = 1.0 - smoothstep(0.0, 0.35, sim.u_unfurl);
 
     // Smooth limb horizon falloff: cleanly attenuates to 0.0 at the silhouette
-    // Completely eliminates detached spikes, floating slivers, or disconnected geometry
-    let horizonAtten = horizonFalloff(in.facing, 0.15, 0.0, 0.08);
+    // Rule 7: Vector fragments attenuate to zero before crossing the planetary horizon limb (smoothstep(0.02, 0.20, in.facing))
+    let limbFalloff = smoothstep(0.02, 0.20, in.facing);
+    let horizonAtten = horizonFalloff(in.facing, 0.15, 0.0, 0.08) * limbFalloff;
     let facingFade = mix(1.0, horizonAtten, sphereFactor);
 
     // Discard non-covered pixels or geometry behind the planetary horizon
-    if (coverage <= 0.0 || (sphereFactor > 0.0 && in.facing <= 0.0)) {
+    if (coverage <= 0.0 || (sphereFactor > 0.0 && in.facing <= 0.02)) {
         discard;
     }
 

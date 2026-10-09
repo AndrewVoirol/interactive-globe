@@ -3707,7 +3707,7 @@ export class WebGPUEngine {
         },
         depthStencil: {
           depthWriteEnabled: false,
-          depthCompare: 'always',
+          depthCompare: 'less-equal',
           format: 'depth32float',
         },
         primitive: {
