@@ -27,6 +27,28 @@ export interface GeoTIFFMetadata {
   isCOG?: boolean;
 }
 
+export interface COGPyramidLevel {
+  level: number;
+  width: number;
+  height: number;
+  tileWidth: number;
+  tileHeight: number;
+  tilesAcross: number;
+  tilesDown: number;
+  tileOffsets: number[];
+  tileByteCounts: number[];
+  compression: number;
+  sampleFormat: number;
+  bitsPerSample: number;
+}
+
+export interface ParsedTIFFData {
+  metadata: GeoTIFFMetadata;
+  tileOffsets: number[];
+  tileByteCounts: number[];
+  levels: COGPyramidLevel[];
+}
+
 /**
  * Cloud-Optimized GeoTIFF (COG) streaming data source.
  * Issues asynchronous HTTP range requests (Range: bytes=...) to query individual
@@ -44,6 +66,9 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
   // Tile index mapping from COG IFDs (byte offset and length per tile)
   public tileOffsets: number[] = [];
   public tileByteCounts: number[] = [];
+
+  // Multi-IFD pyramid levels (LOD 0 = full resolution, LOD 1..N = overview pyramids)
+  public levels: COGPyramidLevel[] = [];
 
   // In-memory 256x256 tile cache to eliminate redundant network transfers
   private tileCache: Map<string, Float32Array> = new Map();
@@ -110,6 +135,7 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
         this.metadata = parsed.metadata;
         this.tileOffsets = parsed.tileOffsets;
         this.tileByteCounts = parsed.tileByteCounts;
+        this.levels = parsed.levels;
         this.isConnected = true;
         return true;
       }
@@ -119,6 +145,7 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
 
     this.isConnected = false;
     this.metadata = null;
+    this.levels = [];
     return false;
   }
 
@@ -139,13 +166,9 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
   }
 
   /**
-   * Parse TIFF / BigTIFF header and extract tile pyramid geometry and offsets
+   * Parse TIFF / BigTIFF header and extract tile pyramid geometry and offsets across all IFD overview levels
    */
-  public parseTIFFHeaderAndIFD(buffer: ArrayBuffer): {
-    metadata: GeoTIFFMetadata;
-    tileOffsets: number[];
-    tileByteCounts: number[];
-  } | null {
+  public parseTIFFHeaderAndIFD(buffer: ArrayBuffer): ParsedTIFFData | null {
     if (buffer.byteLength < 8) return null;
     const view = new DataView(buffer);
 
@@ -178,120 +201,177 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
 
     if (firstIFDOffset <= 0 || firstIFDOffset >= buffer.byteLength) return null;
 
-    let numEntries = 0;
-    let entryPtr = 0;
-    if (isBigTIFF) {
-      numEntries = Number(view.getBigUint64(firstIFDOffset, le));
-      entryPtr = firstIFDOffset + 8;
-    } else {
-      numEntries = view.getUint16(firstIFDOffset, le);
-      entryPtr = firstIFDOffset + 2;
-    }
-
-    let width = 256;
-    let height = 256;
-    let tileWidth = 256;
-    let tileHeight = 256;
-    let bitsPerSample = 32;
-    let compression = 1;
-    let sampleFormat = 3; // 3 = float32, 2 = int16, 1 = uint16
-    let nodata = -9999;
-    let tileOffsets: number[] = [];
-    let tileByteCounts: number[] = [];
-    let pixelScale: number[] = [];
-    let tiepoint: number[] = [];
-
+    let currentIFDOffset = firstIFDOffset;
+    let levelIndex = 0;
+    const levels: COGPyramidLevel[] = [];
+    let masterMetadata: GeoTIFFMetadata | null = null;
+    let masterTileOffsets: number[] = [];
+    let masterTileByteCounts: number[] = [];
     const entrySize = isBigTIFF ? 20 : 12;
 
-    for (let i = 0; i < numEntries; i++) {
-      const p = entryPtr + i * entrySize;
-      if (p + entrySize > buffer.byteLength) break;
-
-      const tag = view.getUint16(p, le);
-      const type = view.getUint16(p + 2, le);
-      let count = 0;
-      let valOrOffset = 0;
-
+    while (currentIFDOffset > 0 && currentIFDOffset < buffer.byteLength) {
+      let numEntries = 0;
+      let entryPtr = 0;
       if (isBigTIFF) {
-        count = Number(view.getBigUint64(p + 4, le));
-        valOrOffset = Number(view.getBigUint64(p + 12, le));
+        if (currentIFDOffset + 8 > buffer.byteLength) break;
+        numEntries = Number(view.getBigUint64(currentIFDOffset, le));
+        entryPtr = currentIFDOffset + 8;
       } else {
-        count = view.getUint32(p + 4, le);
-        valOrOffset = view.getUint32(p + 8, le);
+        if (currentIFDOffset + 2 > buffer.byteLength) break;
+        numEntries = view.getUint16(currentIFDOffset, le);
+        entryPtr = currentIFDOffset + 2;
       }
 
-      switch (tag) {
-        case 256: // ImageWidth
-          width = valOrOffset;
-          break;
-        case 257: // ImageLength
-          height = valOrOffset;
-          break;
-        case 258: // BitsPerSample
-          bitsPerSample = valOrOffset;
-          break;
-        case 259: // Compression
-          compression = valOrOffset;
-          break;
-        case 322: // TileWidth
-          tileWidth = valOrOffset;
-          break;
-        case 323: // TileLength
-          tileHeight = valOrOffset;
-          break;
-        case 324: // TileOffsets
-          tileOffsets = this.readTIFFValues(view, type, count, valOrOffset, p + 8, le);
-          break;
-        case 325: // TileByteCounts
-          tileByteCounts = this.readTIFFValues(view, type, count, valOrOffset, p + 8, le);
-          break;
-        case 339: // SampleFormat
-          sampleFormat = valOrOffset;
-          break;
-        case 33550: // ModelPixelScaleTag
-          pixelScale = this.readTIFFDoubleValues(view, type, count, valOrOffset, p + 8, buffer.byteLength, le, isBigTIFF);
-          break;
-        case 33922: // ModelTiepointTag
-          tiepoint = this.readTIFFDoubleValues(view, type, count, valOrOffset, p + 8, buffer.byteLength, le, isBigTIFF);
-          break;
-        case 42113: // GDAL_NODATA
-          if (count <= 4) {
-            nodata = valOrOffset;
-          }
-          break;
+      if (numEntries <= 0 || numEntries > 1000) break;
+
+      const entriesEnd = entryPtr + numEntries * entrySize;
+      if (entriesEnd > buffer.byteLength) break;
+
+      let width = 256;
+      let height = 256;
+      let tileWidth = 256;
+      let tileHeight = 256;
+      let bitsPerSample = 32;
+      let compression = 1;
+      let sampleFormat = 3; // 3 = float32, 2 = int16, 1 = uint16
+      let nodata = -9999;
+      let tileOffsets: number[] = [];
+      let tileByteCounts: number[] = [];
+      let pixelScale: number[] = [];
+      let tiepoint: number[] = [];
+
+      for (let i = 0; i < numEntries; i++) {
+        const p = entryPtr + i * entrySize;
+        const tag = view.getUint16(p, le);
+        const type = view.getUint16(p + 2, le);
+        let count = 0;
+        let valOrOffset = 0;
+
+        if (isBigTIFF) {
+          count = Number(view.getBigUint64(p + 4, le));
+          valOrOffset = Number(view.getBigUint64(p + 12, le));
+        } else {
+          count = view.getUint32(p + 4, le);
+          valOrOffset = view.getUint32(p + 8, le);
+        }
+
+        switch (tag) {
+          case 256: // ImageWidth
+            width = valOrOffset;
+            break;
+          case 257: // ImageLength
+            height = valOrOffset;
+            break;
+          case 258: // BitsPerSample
+            bitsPerSample = valOrOffset;
+            break;
+          case 259: // Compression
+            compression = valOrOffset;
+            break;
+          case 322: // TileWidth
+            tileWidth = valOrOffset;
+            break;
+          case 323: // TileLength
+            tileHeight = valOrOffset;
+            break;
+          case 324: // TileOffsets
+            tileOffsets = this.readTIFFValues(view, type, count, valOrOffset, p + 8, le);
+            break;
+          case 325: // TileByteCounts
+            tileByteCounts = this.readTIFFValues(view, type, count, valOrOffset, p + 8, le);
+            break;
+          case 339: // SampleFormat
+            sampleFormat = valOrOffset;
+            break;
+          case 33550: // ModelPixelScaleTag
+            pixelScale = this.readTIFFDoubleValues(view, type, count, valOrOffset, p + 8, buffer.byteLength, le, isBigTIFF);
+            break;
+          case 33922: // ModelTiepointTag
+            tiepoint = this.readTIFFDoubleValues(view, type, count, valOrOffset, p + 8, buffer.byteLength, le, isBigTIFF);
+            break;
+          case 42113: // GDAL_NODATA
+            if (count <= 4) {
+              nodata = valOrOffset;
+            }
+            break;
+        }
       }
+
+      const tilesAcross = Math.max(1, Math.ceil(width / tileWidth));
+      const tilesDown = Math.max(1, Math.ceil(height / tileHeight));
+
+      const pyramidLevel: COGPyramidLevel = {
+        level: levelIndex,
+        width,
+        height,
+        tileWidth,
+        tileHeight,
+        tilesAcross,
+        tilesDown,
+        tileOffsets,
+        tileByteCounts,
+        compression,
+        sampleFormat,
+        bitsPerSample,
+      };
+      levels.push(pyramidLevel);
+
+      if (levelIndex === 0) {
+        let bounds: BoundingBox3D | undefined = undefined;
+        if (tiepoint.length >= 6 && pixelScale.length >= 2) {
+          const minLon = tiepoint[3];
+          const maxLat = tiepoint[4];
+          const maxLon = minLon + width * pixelScale[0];
+          const minLat = maxLat - height * pixelScale[1];
+          bounds = { minLon, maxLon, minLat, maxLat, minAlt: -10924, maxAlt: 8848 };
+        }
+
+        masterMetadata = {
+          projection: 'EPSG:4326',
+          bands: 1,
+          width,
+          height,
+          tileWidth,
+          tileHeight,
+          tilesAcross,
+          tilesDown,
+          nodata,
+          bounds,
+          compression,
+          sampleFormat,
+          bitsPerSample,
+          isCOG: tileOffsets.length > 0,
+        };
+        masterTileOffsets = tileOffsets;
+        masterTileByteCounts = tileByteCounts;
+      }
+
+      // Read next IFD offset pointer
+      if (isBigTIFF) {
+        if (entriesEnd + 8 <= buffer.byteLength) {
+          currentIFDOffset = Number(view.getBigUint64(entriesEnd, le));
+        } else {
+          break;
+        }
+      } else {
+        if (entriesEnd + 4 <= buffer.byteLength) {
+          currentIFDOffset = view.getUint32(entriesEnd, le);
+        } else {
+          break;
+        }
+      }
+      levelIndex++;
     }
 
-    const tilesAcross = Math.max(1, Math.ceil(width / tileWidth));
-    const tilesDown = Math.max(1, Math.ceil(height / tileHeight));
+    if (!masterMetadata) return null;
 
-    let bounds: BoundingBox3D | undefined = undefined;
-    if (tiepoint.length >= 6 && pixelScale.length >= 2) {
-      const minLon = tiepoint[3];
-      const maxLat = tiepoint[4];
-      const maxLon = minLon + width * pixelScale[0];
-      const minLat = maxLat - height * pixelScale[1];
-      bounds = { minLon, maxLon, minLat, maxLat, minAlt: -10924, maxAlt: 8848 };
-    }
-
-    const metadata: GeoTIFFMetadata = {
-      projection: 'EPSG:4326',
-      bands: 1,
-      width,
-      height,
-      tileWidth,
-      tileHeight,
-      tilesAcross,
-      tilesDown,
-      nodata,
-      bounds,
-      compression,
-      sampleFormat,
-      bitsPerSample,
-      isCOG: tileOffsets.length > 0,
+    this.levels = levels;
+    return {
+      metadata: masterMetadata,
+      tileOffsets: masterTileOffsets,
+      tileByteCounts: masterTileByteCounts,
+      levels,
     };
-
-    return { metadata, tileOffsets, tileByteCounts };
   }
 
   /**
@@ -384,6 +464,22 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
       bitsPerSample: 32,
       isCOG: false,
     };
+    this.levels = [
+      {
+        level: 0,
+        width,
+        height,
+        tileWidth,
+        tileHeight,
+        tilesAcross: 1,
+        tilesDown: 1,
+        tileOffsets: [0],
+        tileByteCounts: [tileWidth * tileHeight * 4],
+        compression: 1,
+        sampleFormat: 3,
+        bitsPerSample: 32,
+      },
+    ];
   }
 
   /**
@@ -426,12 +522,16 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
   /**
    * Calculate tile coordinates (tileX, tileY) from geographic bounding box
    */
-  public calculateTileCoords(bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number; minAlt?: number; maxAlt?: number }): { tileX: number; tileY: number } {
+  public calculateTileCoords(
+    bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number; minAlt?: number; maxAlt?: number },
+    level: number = 0
+  ): { tileX: number; tileY: number } {
     const centerLon = (bounds.minLon + bounds.maxLon) * 0.5;
     const centerLat = (bounds.minLat + bounds.maxLat) * 0.5;
 
-    const tilesAcross = this.metadata?.tilesAcross || 1;
-    const tilesDown = this.metadata?.tilesDown || 1;
+    const targetLevel = (level >= 0 && level < this.levels.length) ? this.levels[level] : null;
+    const tilesAcross = targetLevel ? targetLevel.tilesAcross : (this.metadata?.tilesAcross || 1);
+    const tilesDown = targetLevel ? targetLevel.tilesDown : (this.metadata?.tilesDown || 1);
 
     let tileX: number;
     let tileY: number;
@@ -495,20 +595,29 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
       return this.tileCache.get(cacheKey)!;
     }
 
+    const targetLevel = (level >= 0 && level < this.levels.length) ? this.levels[level] : null;
+    const offsets = targetLevel ? targetLevel.tileOffsets : this.tileOffsets;
+    const byteCounts = targetLevel ? targetLevel.tileByteCounts : this.tileByteCounts;
+    const tilesAcross = targetLevel ? targetLevel.tilesAcross : (this.metadata?.tilesAcross || 1);
+    const compression = targetLevel ? targetLevel.compression : (this.metadata?.compression || 1);
+    const sampleFormat = targetLevel ? targetLevel.sampleFormat : (this.metadata?.sampleFormat || 3);
+    const bitsPerSample = targetLevel ? targetLevel.bitsPerSample : (this.metadata?.bitsPerSample || 32);
+    const tileW = targetLevel ? targetLevel.tileWidth : (this.metadata?.tileWidth || 256);
+    const tileH = targetLevel ? targetLevel.tileHeight : (this.metadata?.tileHeight || 256);
+
     // Attempt real HTTP range query if tile offsets are present
-    if (this.tileOffsets.length > 0 && this.endpointUrl) {
-      const tilesAcross = this.metadata?.tilesAcross || 1;
+    if (offsets.length > 0 && this.endpointUrl) {
       const tileIndex = tileY * tilesAcross + tileX;
 
-      if (tileIndex >= 0 && tileIndex < this.tileOffsets.length) {
-        const offset = this.tileOffsets[tileIndex];
-        const byteCount = this.tileByteCounts[tileIndex] || 0;
+      if (tileIndex >= 0 && tileIndex < offsets.length) {
+        const offset = offsets[tileIndex];
+        const byteCount = byteCounts[tileIndex] || 0;
 
         if (offset > 0 && byteCount > 0) {
           try {
             const rawTile = await this.readRange(offset, byteCount);
-            const decompressed = await this.decompressTile(new Uint8Array(rawTile), this.metadata?.compression || 1);
-            const elevation = this.decodeTileSamples(decompressed);
+            const decompressed = await this.decompressTile(new Uint8Array(rawTile), compression);
+            const elevation = this.decodeTileSamples(decompressed, tileW, tileH, sampleFormat, bitsPerSample);
             this.tileCache.set(cacheKey, elevation);
             return elevation;
           } catch {
@@ -525,7 +634,7 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
       return synthetic;
     }
 
-    throw new Error(`Failed to fetch tile ${tileX},${tileY} from COG endpoint: ${this.endpointUrl}`);
+    throw new Error(`Failed to fetch tile ${tileX},${tileY} (level ${level}) from COG endpoint: ${this.endpointUrl}`);
   }
 
   /**
@@ -591,13 +700,14 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
   /**
    * Decode raw bytes into 256x256 Float32Array elevation samples in meters
    */
-  private decodeTileSamples(bytes: Uint8Array): Float32Array {
-    const tileW = this.metadata?.tileWidth || 256;
-    const tileH = this.metadata?.tileHeight || 256;
+  private decodeTileSamples(
+    bytes: Uint8Array,
+    tileW: number = this.metadata?.tileWidth || 256,
+    tileH: number = this.metadata?.tileHeight || 256,
+    sampleFormat: number = this.metadata?.sampleFormat || 3,
+    bits: number = this.metadata?.bitsPerSample || 32
+  ): Float32Array {
     const count = tileW * tileH;
-    const sampleFormat = this.metadata?.sampleFormat || 3;
-    const bits = this.metadata?.bitsPerSample || 32;
-
     const out = new Float32Array(count);
 
     if (sampleFormat === 3 && bits === 32 && bytes.byteLength >= count * 4) {
@@ -706,6 +816,7 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
     this.lastChunk = null;
     this.gpuBuffer = null;
     this.tileCache.clear();
+    this.levels = [];
     this.isConnected = false;
   }
 }

@@ -960,5 +960,251 @@ describe('Cloud-Optimized GeoTIFF (COG) Regional Streaming Pipeline', () => {
       }
     });
   });
+
+  // ==========================================================================
+  // Section 8: Progressive On-Demand Global Basemap COG Streaming (Stage 3)
+  // ==========================================================================
+  describe('8. Progressive On-Demand Global Basemap COG Streaming (Stage 3)', () => {
+    const globalCogPath = path.resolve(__dirname, '../../public/earth-etopo2022.cog.tif');
+    let engine: WebGPUEngine;
+
+    beforeEach(() => {
+      if (typeof (globalThis as any).GPUBufferUsage === 'undefined') {
+        (globalThis as any).GPUBufferUsage = {
+          MAP_READ: 1,
+          MAP_WRITE: 2,
+          COPY_SRC: 4,
+          COPY_DST: 8,
+          INDEX: 16,
+          VERTEX: 32,
+          UNIFORM: 64,
+          STORAGE: 128,
+          INDIRECT: 256,
+          QUERY_RESOLVE: 512,
+        };
+      }
+      if (typeof (globalThis as any).GPUTextureUsage === 'undefined') {
+        (globalThis as any).GPUTextureUsage = {
+          COPY_SRC: 1,
+          COPY_DST: 2,
+          TEXTURE_BINDING: 4,
+          STORAGE_BINDING: 8,
+          RENDER_ATTACHMENT: 16,
+        };
+      }
+      engine = new WebGPUEngine();
+    });
+
+    afterEach(() => {
+      engine.dispose();
+    });
+
+    it('parses all 6 multi-IFD overview pyramid levels from earth-etopo2022.cog.tif header', () => {
+      const fileBuf = fs.readFileSync(globalCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const source = new GeoTIFFDataSource('global-etopo-multi-ifd', '/earth-etopo2022.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab.slice(0, 65536));
+      expect(parsed).not.toBeNull();
+      expect(parsed?.levels).toHaveLength(6);
+
+      // Level 0: 8192x4096 (512 tiles)
+      expect(parsed?.levels[0].width).toBe(8192);
+      expect(parsed?.levels[0].height).toBe(4096);
+      expect(parsed?.levels[0].tilesAcross).toBe(32);
+      expect(parsed?.levels[0].tilesDown).toBe(16);
+      expect(parsed?.levels[0].tileOffsets).toHaveLength(512);
+
+      // Level 1: 4096x2048 (128 tiles)
+      expect(parsed?.levels[1].width).toBe(4096);
+      expect(parsed?.levels[1].height).toBe(2048);
+      expect(parsed?.levels[1].tilesAcross).toBe(16);
+      expect(parsed?.levels[1].tilesDown).toBe(8);
+      expect(parsed?.levels[1].tileOffsets).toHaveLength(128);
+
+      // Level 2: 2048x1024 (32 tiles)
+      expect(parsed?.levels[2].width).toBe(2048);
+      expect(parsed?.levels[2].height).toBe(1024);
+      expect(parsed?.levels[2].tilesAcross).toBe(8);
+      expect(parsed?.levels[2].tilesDown).toBe(4);
+      expect(parsed?.levels[2].tileOffsets).toHaveLength(32);
+
+      // Level 3: 1024x512 (8 tiles)
+      expect(parsed?.levels[3].width).toBe(1024);
+      expect(parsed?.levels[3].height).toBe(512);
+      expect(parsed?.levels[3].tilesAcross).toBe(4);
+      expect(parsed?.levels[3].tilesDown).toBe(2);
+      expect(parsed?.levels[3].tileOffsets).toHaveLength(8);
+
+      // Level 4: 512x256 (2 tiles)
+      expect(parsed?.levels[4].width).toBe(512);
+      expect(parsed?.levels[4].height).toBe(256);
+      expect(parsed?.levels[4].tilesAcross).toBe(2);
+      expect(parsed?.levels[4].tilesDown).toBe(1);
+      expect(parsed?.levels[4].tileOffsets).toHaveLength(2);
+
+      // Level 5: 256x128 (1 tile)
+      expect(parsed?.levels[5].width).toBe(256);
+      expect(parsed?.levels[5].height).toBe(128);
+      expect(parsed?.levels[5].tilesAcross).toBe(1);
+      expect(parsed?.levels[5].tilesDown).toBe(1);
+      expect(parsed?.levels[5].tileOffsets).toHaveLength(1);
+    });
+
+    it('fetches overview tiles across pyramid levels (LOD 4 Western & Eastern hemispheres)', async () => {
+      const fileBuf = fs.readFileSync(globalCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const source = new GeoTIFFDataSource('global-etopo-lod4', '/earth-etopo2022.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab.slice(0, 65536));
+      expect(parsed).not.toBeNull();
+
+      source.metadata = parsed!.metadata;
+      source.tileOffsets = parsed!.tileOffsets;
+      source.tileByteCounts = parsed!.tileByteCounts;
+      source.levels = parsed!.levels;
+      source.readRange = async (offset, length) => ab.slice(offset, offset + length);
+
+      // LOD 4 Tile 0 (Western Hemisphere, -180 to 0 lon): Andes / Rockies / Pacific
+      const tile0 = await source.fetchTile(0, 0, 4);
+      expect(tile0).toHaveLength(256 * 256);
+      expect(Math.min(...tile0)).toBeLessThan(-7000.0);
+      expect(Math.max(...tile0)).toBeGreaterThan(4000.0);
+
+      // LOD 4 Tile 1 (Eastern Hemisphere, 0 to +180 lon): Everest / Mariana Trench
+      const tile1 = await source.fetchTile(1, 0, 4);
+      expect(tile1).toHaveLength(256 * 256);
+      expect(Math.min(...tile1)).toBeLessThan(-7000.0);
+      expect(Math.max(...tile1)).toBeGreaterThan(5000.0);
+    });
+
+    it('streams global COG basemap and populates demTexture and cpuDEMData (WebGPUEngine)', async () => {
+      const fileBuf = fs.readFileSync(globalCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        const rangeHeader = (init?.headers as any)?.Range || '';
+        const match = rangeHeader.match(/bytes=(\d+)-(\d+)/);
+        if (match) {
+          const start = parseInt(match[1], 10);
+          const end = parseInt(match[2], 10);
+          return new Response(ab.slice(start, end + 1), { status: 206 });
+        }
+        return new Response(ab, { status: 200 });
+      });
+
+      try {
+        const mockTextureView = { label: 'dem_view' } as any;
+        const mockTexture = {
+          label: 'dem_texture',
+          format: 'rgba16float',
+          createView: vi.fn().mockReturnValue(mockTextureView),
+          destroy: vi.fn(),
+        } as any;
+
+        const createTextureSpy = vi.fn().mockReturnValue(mockTexture);
+        const writeTextureSpy = vi.fn();
+
+        (engine as any).device = {
+          createTexture: createTextureSpy,
+          createSampler: vi.fn().mockReturnValue({}),
+          createBuffer: vi.fn().mockReturnValue({ destroy: vi.fn() }),
+          createBindGroup: vi.fn().mockReturnValue({}),
+          queue: {
+            writeTexture: writeTextureSpy,
+            writeBuffer: vi.fn(),
+          },
+        };
+        (engine as any).isInitialized = true;
+
+        // Ingest Level 3 (1024x512, 8 tiles) for fast verification
+        const ok = await engine.streamGlobalCOGBasemap('/earth-etopo2022.cog.tif', 3);
+        expect(ok).toBe(true);
+        expect(engine.demWidth).toBe(1024);
+        expect(engine.demHeight).toBe(512);
+
+        // Verify cpuDEMData is populated with packed uint16 elevations
+        expect(engine.cpuDEMData).not.toBeNull();
+        expect(engine.cpuDEMData).toBeInstanceOf(Uint16Array);
+        expect(engine.cpuDEMData!.length).toBe(1024 * 512 * 4);
+
+        // Verify physical elevation sampling via sampleCPUElevation
+        // Everest: approx (86.925, 27.988) -> elevation should be > 5000m
+        const everestSample = engine.sampleCPUElevation(86.925, 27.988);
+        expect(everestSample.elevationMeters).toBeGreaterThan(5000);
+
+        // Mariana Trench: approx (142.2, 11.35) -> elevation should be < -7000m
+        const marianaSample = engine.sampleCPUElevation(142.2, 11.35);
+        expect(marianaSample.elevationMeters).toBeLessThan(-7000);
+
+        // Verify writeTexture was called to upload mip levels
+        expect(writeTextureSpy).toHaveBeenCalled();
+        const demTextureCalls = createTextureSpy.mock.calls.filter((call: any) => call[0]?.label?.startsWith('dem_global_cog'));
+        expect(demTextureCalls).toHaveLength(1);
+        expect(demTextureCalls[0][0].format).toBe('rgba16float');
+        expect(demTextureCalls[0][0].size).toEqual([1024, 512, 1]);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('streams individual global tiles on demand with in-place writeTexture (Zero-GC)', async () => {
+      const fileBuf = fs.readFileSync(globalCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        const rangeHeader = (init?.headers as any)?.Range || '';
+        const match = rangeHeader.match(/bytes=(\d+)-(\d+)/);
+        if (match) {
+          const start = parseInt(match[1], 10);
+          const end = parseInt(match[2], 10);
+          return new Response(ab.slice(start, end + 1), { status: 206 });
+        }
+        return new Response(ab, { status: 200 });
+      });
+
+      try {
+        const mockTexture = {
+          label: 'dem_texture',
+          format: 'rgba16float',
+          createView: vi.fn(),
+          destroy: vi.fn(),
+        } as any;
+
+        const writeTextureSpy = vi.fn();
+
+        (engine as any).device = {
+          createTexture: vi.fn().mockReturnValue(mockTexture),
+          createSampler: vi.fn().mockReturnValue({}),
+          createBuffer: vi.fn().mockReturnValue({ destroy: vi.fn() }),
+          createBindGroup: vi.fn().mockReturnValue({}),
+          queue: {
+            writeTexture: writeTextureSpy,
+            writeBuffer: vi.fn(),
+          },
+        };
+        (engine as any).isInitialized = true;
+
+        // Initialize basemap at Level 4 (512x256, 2 tiles)
+        await engine.streamGlobalCOGBasemap('/earth-etopo2022.cog.tif', 4);
+        writeTextureSpy.mockClear();
+
+        // Stream on-demand global tile at Level 4 for Everest
+        const ok = await engine.streamGlobalCOGTile(86.9, 27.9, 4);
+        expect(ok).toBe(true);
+        expect(writeTextureSpy).toHaveBeenCalledTimes(1);
+
+        // Verify writeTexture parameters: origin, bytesPerRow 2048, tile 256x256
+        const writeCall = writeTextureSpy.mock.calls[0];
+        expect(writeCall[0].origin).toEqual([256, 0, 0]); // tileX=1 for East, tileY=0
+        expect(writeCall[2].bytesPerRow).toBe(256 * 8); // 2048 bytes
+        expect(writeCall[3]).toEqual([256, 256, 1]);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
 });
 
