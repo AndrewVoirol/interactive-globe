@@ -62,12 +62,30 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
    */
   public normalizeUrl(urlOrRegion: string): string {
     if (!urlOrRegion) return '';
-    if (urlOrRegion.startsWith('http://') || urlOrRegion.startsWith('https://') || urlOrRegion.startsWith('/')) {
+    if (
+      urlOrRegion.startsWith('http://') ||
+      urlOrRegion.startsWith('https://') ||
+      urlOrRegion.startsWith('mock://') ||
+      urlOrRegion.startsWith('test://') ||
+      urlOrRegion.startsWith('/')
+    ) {
       return urlOrRegion;
     }
     // Bare region ID (e.g. 'hawaii' -> '/regional/hawaii.cog.tif')
     const cleanId = urlOrRegion.replace(/\.cog\.tif$/, '').replace(/\.tif$/, '');
     return `/regional/${cleanId}.cog.tif`;
+  }
+
+  /**
+   * Identifies whether the current endpoint is an explicit synthetic/mock test fixture
+   */
+  public isMockOrTestEndpoint(): boolean {
+    return (
+      this.endpointUrl.startsWith('mock://') ||
+      this.endpointUrl.includes('test.local') ||
+      this.endpointUrl.includes('synthetic') ||
+      this.endpointUrl.includes('nasa.eosdis')
+    );
   }
 
   /**
@@ -77,8 +95,8 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
   public async connect(endpointUrl: string): Promise<boolean> {
     this.endpointUrl = this.normalizeUrl(endpointUrl);
 
-    // Mock/synthetic testing endpoint bypass (avoids DNS ENOTFOUND console logs in test environments)
-    if (this.endpointUrl.includes('nasa.eosdis') || this.endpointUrl.includes('mock') || this.endpointUrl.includes('test.local')) {
+    // Mock/synthetic testing endpoint bypass (avoids DNS ENOTFOUND in test environments)
+    if (this.isMockOrTestEndpoint()) {
       this.initSyntheticMetadata();
       this.isConnected = true;
       return true;
@@ -96,13 +114,12 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
         return true;
       }
     } catch {
-      // Network failure, 404, or mock/test URL: activate procedural fallback
+      // Network failure, 404, or unreadable header: do NOT swallow as success
     }
 
-    // Initialize synthetic procedural metadata for deterministic fallback
-    this.initSyntheticMetadata();
-    this.isConnected = true;
-    return true;
+    this.isConnected = false;
+    this.metadata = null;
+    return false;
   }
 
   /**
@@ -414,10 +431,14 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
       }
     }
 
-    // Procedural/synthetic fallback
-    const synthetic = this.generateSyntheticTile(tileX, tileY);
-    this.tileCache.set(cacheKey, synthetic);
-    return synthetic;
+    // Procedural/synthetic fallback strictly for mock/test environments
+    if (this.isMockOrTestEndpoint()) {
+      const synthetic = this.generateSyntheticTile(tileX, tileY);
+      this.tileCache.set(cacheKey, synthetic);
+      return synthetic;
+    }
+
+    throw new Error(`Failed to fetch tile ${tileX},${tileY} from COG endpoint: ${this.endpointUrl}`);
   }
 
   /**

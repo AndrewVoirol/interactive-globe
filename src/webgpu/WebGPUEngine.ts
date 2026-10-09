@@ -1968,7 +1968,7 @@ export class WebGPUEngine {
     this.cdlodIndirectBuffer = this.device.createBuffer({
       label: 'cdlod_indirect_draw_buffer',
       size: 20,
-      usage: GPUBufferUsage.INDIRECT | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      usage: GPUBufferUsage.INDIRECT | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
     this.device.queue.writeBuffer(this.cdlodIndirectBuffer, 0, this.cdlodIndirectInitFloats);
 
@@ -1976,7 +1976,7 @@ export class WebGPUEngine {
     this.cdlodInstanceBuffer = this.device.createBuffer({
       label: 'cdlod_instance_buffer',
       size: WebGPUEngine.CDLOD_MAX_INSTANCES * 32,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
 
     // 5. Culling uniforms buffer (144 bytes)
@@ -2350,7 +2350,7 @@ export class WebGPUEngine {
       const ease = clampedUnfurl;
 
       // 1. Developable base macro chart F(lambda, phi, 0; alpha)
-      const base = WebGPUEngine.evaluateMacroChart(lonRad, latRad, 0.0, alpha, radius);
+      const base = evaluateMacroChartCPU(lonRad, latRad, 0.0, alpha, radius);
 
       // 2. Tactile personality layer d(lambda, phi; alpha)
       const normLon = lonRad / PI;
@@ -3005,8 +3005,11 @@ export class WebGPUEngine {
       // all boundary vertices on the subdivided patch have reached distance >= morphEnd (alpha = 1.0), closing all seam gaps.
       const diagMargin = (1.0 - globeWeight) * (maxDist * 0.6);
       const phase1Cap = Math.floor(WebGPUEngine.CDLOD_MAX_NODES * 0.75); // 3072 slots
+      // No-Hole Invariant: Only permit subdivision if there is headroom for all 4 children (+4) within phase1Cap.
+      // If capacity is reached, clamp subdivision and render as a coarser leaf to guarantee zero mesh holes.
+      const hasSubdivisionCapacity = (this.cdlodActiveNodeCount + 4) <= phase1Cap;
       const shouldSubdivide = lod < effectiveMaxLod &&
-        this.cdlodActiveNodeCount < phase1Cap &&
+        hasSubdivisionCapacity &&
         surfaceDist < (childRangeL + diagMargin);
 
       if (shouldSubdivide) {
@@ -3017,6 +3020,7 @@ export class WebGPUEngine {
         traverseNode(lod + 1, x * 2,     y * 2 + 1, minU,         minV + halfV, halfU, halfV);
         traverseNode(lod + 1, x * 2 + 1, y * 2 + 1, minU + halfU, minV + halfV, halfU, halfV);
       } else {
+        if (this.cdlodActiveNodeCount >= WebGPUEngine.CDLOD_MAX_NODES) return;
         if (lod > maxLodSeen) maxLodSeen = lod;
         const poolIdx = this.cdlodActiveNodeCount++;
         const node = this.cdlodNodePool[poolIdx];
@@ -4395,7 +4399,10 @@ export class WebGPUEngine {
 
     try {
       if (!this.geoTIFFDataSource.isConnected || this.geoTIFFDataSource.endpointUrl !== this.geoTIFFDataSource.normalizeUrl(url)) {
-        await this.geoTIFFDataSource.connect(url);
+        const connected = await this.geoTIFFDataSource.connect(url);
+        if (!connected) {
+          return false;
+        }
       }
 
       const chunk = await this.geoTIFFDataSource.fetch(

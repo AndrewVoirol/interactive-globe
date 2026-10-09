@@ -211,6 +211,34 @@ describe('Cloud-Optimized GeoTIFF (COG) Regional Streaming Pipeline', () => {
         globalThis.fetch = originalFetch;
       }
     });
+
+    it('strictly fails and returns false on HTTP 404 without activating procedural fallback', async () => {
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async () => {
+        return new Response('Not Found', { status: 404, statusText: 'Not Found' });
+      });
+
+      try {
+        const source = new GeoTIFFDataSource('hawaii-404');
+        const connected = await source.connect('/regional/missing.cog.tif');
+        expect(connected).toBe(false);
+        expect(source.isConnected).toBe(false);
+        expect(source.metadata).toBeNull();
+        await expect(source.fetchTile(0, 0, 0)).rejects.toThrow();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('activates procedural synthetic metadata for explicit mock:// endpoints', async () => {
+      const source = new GeoTIFFDataSource('mock-cog');
+      const connected = await source.connect('mock://hawaii.cog.tif');
+      expect(connected).toBe(true);
+      expect(source.isConnected).toBe(true);
+      expect(source.metadata?.width).toBe(256);
+      const tile = await source.fetchTile(0, 0, 0);
+      expect(tile).toHaveLength(256 * 256);
+    });
   });
 
   // ==========================================================================

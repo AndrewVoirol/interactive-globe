@@ -2892,23 +2892,29 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
               const engine = engineRef.current;
               if (!engine.getRegionalDEMTexture(regId) && !loadingRegionsRef.current.has(regId)) {
                 loadingRegionsRef.current.add(regId);
-                const cogPath = matchedRegion.cogUrl || `/regional/${regId}.cog.tif`;
-                const streamPromise = engine
-                  .streamRegionalCOGTile(regId, matchedRegion.bounds, 10, cogPath)
-                  .then((success) => {
-                    if (!success) {
-                      // Fallback to monolithic binary if COG range streaming is unavailable
-                      return engine.loadRegionalDEMTexture(
-                        matchedRegion.binUrl,
-                        matchedRegion.bounds,
-                        matchedRegion.width,
-                        matchedRegion.height,
-                        regId
-                      );
-                    }
-                  });
+                const loadPromise = matchedRegion.cogUrl
+                  ? engine
+                      .streamRegionalCOGTile(regId, matchedRegion.bounds, 10, matchedRegion.cogUrl)
+                      .then((success) => {
+                        if (!success) {
+                          return engine.loadRegionalDEMTexture(
+                            matchedRegion.webpUrl || matchedRegion.binUrl,
+                            matchedRegion.bounds,
+                            matchedRegion.width,
+                            matchedRegion.height,
+                            regId
+                          );
+                        }
+                      })
+                  : engine.loadRegionalDEMTexture(
+                      matchedRegion.webpUrl || matchedRegion.binUrl,
+                      matchedRegion.bounds,
+                      matchedRegion.width,
+                      matchedRegion.height,
+                      regId
+                    );
 
-                streamPromise
+                loadPromise
                   .then(() => {
                     loadingRegionsRef.current.delete(regId);
                     if (activeRegionIdRef.current === regId) {

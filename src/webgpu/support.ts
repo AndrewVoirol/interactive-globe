@@ -55,9 +55,20 @@ export async function getWebGPUDevice(): Promise<GPUDevice | null> {
         if (adapter.features && adapter.features.has('timestamp-query')) {
           requiredFeatures.push('timestamp-query');
         }
-        const device = await adapter.requestDevice(
-          requiredFeatures.length > 0 ? { requiredFeatures } : undefined
-        );
+        const requiredLimits: Record<string, number> = {};
+        if (adapter.limits) {
+          if (adapter.limits.maxBufferSize) {
+            requiredLimits.maxBufferSize = adapter.limits.maxBufferSize;
+          }
+          if (adapter.limits.maxStorageBufferBindingSize) {
+            requiredLimits.maxStorageBufferBindingSize = adapter.limits.maxStorageBufferBindingSize;
+          }
+        }
+
+        const device = await adapter.requestDevice({
+          ...(requiredFeatures.length > 0 ? { requiredFeatures } : {}),
+          ...(Object.keys(requiredLimits).length > 0 ? { requiredLimits } : {}),
+        });
         if (device && device.lost) {
           device.lost.then(() => {
             globalDevicePromise = null;
