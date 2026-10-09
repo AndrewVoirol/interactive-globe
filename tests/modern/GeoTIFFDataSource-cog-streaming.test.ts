@@ -492,6 +492,202 @@ describe('Cloud-Optimized GeoTIFF (COG) Regional Streaming Pipeline', () => {
       expect(minElev).toBeLessThan(0.0);
       expect(maxElev).toBeLessThan(200.0);
     });
+
+    it('verifies production grand-canyon COG exists and parses spatial bounds correctly', () => {
+      const gcCogPath = path.resolve(__dirname, '../../public/regional/dem-grand-canyon-30m.cog.tif');
+      const gcSymlinkPath = path.resolve(__dirname, '../../public/regional/grand-canyon.cog.tif');
+      expect(fs.existsSync(gcCogPath)).toBe(true);
+      expect(fs.existsSync(gcSymlinkPath)).toBe(true);
+
+      const fileBuf = fs.readFileSync(gcCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + 65536);
+
+      const source = new GeoTIFFDataSource('grand-canyon-prod', '/regional/grand-canyon.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab);
+
+      expect(parsed).not.toBeNull();
+      expect(parsed?.metadata.width).toBe(900);
+      expect(parsed?.metadata.height).toBe(540);
+      expect(parsed?.metadata.tileWidth).toBe(256);
+      expect(parsed?.metadata.tileHeight).toBe(256);
+      expect(parsed?.metadata.tilesAcross).toBe(4);
+      expect(parsed?.metadata.tilesDown).toBe(3);
+      expect(parsed?.tileOffsets).toHaveLength(12);
+      expect(parsed?.metadata.compression).toBe(8); // DEFLATE
+
+      const bounds = parsed?.metadata.bounds;
+      expect(bounds).toBeDefined();
+      expect(bounds?.minLon).toBeCloseTo(-112.5, 2);
+      expect(bounds?.maxLon).toBeCloseTo(-111.5, 2);
+      expect(bounds?.minLat).toBeCloseTo(35.9, 2);
+      expect(bounds?.maxLat).toBeCloseTo(36.5, 2);
+    });
+
+    it('fetches real Colorado River incision tile and plateau rim from grand canyon COG', async () => {
+      const gcCogPath = path.resolve(__dirname, '../../public/regional/dem-grand-canyon-30m.cog.tif');
+      const fileBuf = fs.readFileSync(gcCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const source = new GeoTIFFDataSource('grand-canyon-prod', '/regional/grand-canyon.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab.slice(0, 65536));
+      expect(parsed).not.toBeNull();
+
+      source.metadata = parsed!.metadata;
+      source.tileOffsets = parsed!.tileOffsets;
+      source.tileByteCounts = parsed!.tileByteCounts;
+      source.readRange = async (offset, length) => ab.slice(offset, offset + length);
+
+      // Tile 0 contains the deepest canyon floor incision (~605m) and plateau elevation (>2600m)
+      const tile = await source.fetchTile(0, 0, 0);
+      expect(tile).toHaveLength(256 * 256);
+      const validElevs = Array.from(tile).filter((v) => v > -9000);
+      const minElev = Math.min(...validElevs);
+      const maxElev = Math.max(...validElevs);
+
+      expect(minElev).toBeGreaterThan(600.0);
+      expect(minElev).toBeLessThan(620.0);
+      expect(maxElev).toBeGreaterThan(2600.0);
+      expect(maxElev).toBeLessThan(2850.0);
+    });
+
+    it('verifies production mount fuji COG exists and parses spatial bounds correctly', () => {
+      const fujiCogPath = path.resolve(__dirname, '../../public/regional/dem-fuji-30m.cog.tif');
+      const fujiSymlinkPath = path.resolve(__dirname, '../../public/regional/fuji.cog.tif');
+      expect(fs.existsSync(fujiCogPath)).toBe(true);
+      expect(fs.existsSync(fujiSymlinkPath)).toBe(true);
+
+      const fileBuf = fs.readFileSync(fujiCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + 65536);
+
+      const source = new GeoTIFFDataSource('fuji-prod', '/regional/fuji.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab);
+
+      expect(parsed).not.toBeNull();
+      expect(parsed?.metadata.width).toBe(900);
+      expect(parsed?.metadata.height).toBe(540);
+      expect(parsed?.metadata.tileWidth).toBe(256);
+      expect(parsed?.metadata.tileHeight).toBe(256);
+      expect(parsed?.metadata.tilesAcross).toBe(4);
+      expect(parsed?.metadata.tilesDown).toBe(3);
+      expect(parsed?.tileOffsets).toHaveLength(12);
+      expect(parsed?.metadata.compression).toBe(8); // DEFLATE
+
+      const bounds = parsed?.metadata.bounds;
+      expect(bounds).toBeDefined();
+      expect(bounds?.minLon).toBeCloseTo(138.5, 2);
+      expect(bounds?.maxLon).toBeCloseTo(139.0, 2);
+      expect(bounds?.minLat).toBeCloseTo(35.2, 2);
+      expect(bounds?.maxLat).toBeCloseTo(35.5, 2);
+    });
+
+    it('fetches real Mount Fuji summit caldera tile (>3,700m) from fuji COG', async () => {
+      const fujiCogPath = path.resolve(__dirname, '../../public/regional/dem-fuji-30m.cog.tif');
+      const fileBuf = fs.readFileSync(fujiCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const source = new GeoTIFFDataSource('fuji-prod', '/regional/fuji.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab.slice(0, 65536));
+      expect(parsed).not.toBeNull();
+
+      source.metadata = parsed!.metadata;
+      source.tileOffsets = parsed!.tileOffsets;
+      source.tileByteCounts = parsed!.tileByteCounts;
+      source.readRange = async (offset, length) => ab.slice(offset, offset + length);
+
+      // Tile 1 (tileX=1, tileY=0) contains the northern summit caldera peak (3,756m)
+      const tile = await source.fetchTile(1, 0, 0);
+      expect(tile).toHaveLength(256 * 256);
+      const validElevs = Array.from(tile).filter((v) => v > -9000);
+      const maxElev = Math.max(...validElevs);
+
+      expect(maxElev).toBeGreaterThan(3700.0);
+      expect(maxElev).toBeLessThan(3800.0);
+    });
+
+    it('verifies all 4 regional manifest entries define valid COG URLs pointing to existing files', () => {
+      const manifestPath = path.resolve(__dirname, '../../public/regional/manifest.json');
+      expect(fs.existsSync(manifestPath)).toBe(true);
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+
+      expect(manifest.regions).toHaveLength(4);
+      for (const reg of manifest.regions) {
+        expect(reg.cogUrl).toBeDefined();
+        const diskPath = path.resolve(__dirname, '../../public', reg.cogUrl.replace(/^\//, ''));
+        expect(fs.existsSync(diskPath)).toBe(true);
+      }
+    });
+
+    it('calculates exact tile bounds and coordinate mapping for Grand Canyon and Fuji', () => {
+      const gcSource = new GeoTIFFDataSource('grand-canyon-bounds');
+      gcSource.metadata = {
+        projection: 'EPSG:4326',
+        bands: 1,
+        width: 900,
+        height: 540,
+        tileWidth: 256,
+        tileHeight: 256,
+        tilesAcross: 4,
+        tilesDown: 3,
+        bounds: { minLon: -112.5, maxLon: -111.5, minLat: 35.9, maxLat: 36.5 },
+      };
+
+      // Grand Canyon South Rim approach (-112.14, 36.06)
+      const gcCoords = gcSource.calculateTileCoords({
+        minLon: -112.15,
+        maxLon: -112.13,
+        minLat: 36.05,
+        maxLat: 36.07,
+      });
+      expect(gcCoords.tileX).toBe(1);
+      expect(gcCoords.tileY).toBe(2);
+
+      const gcTileBounds = gcSource.getTileBounds(gcCoords.tileX, gcCoords.tileY);
+      expect(gcTileBounds).not.toBeNull();
+      expect(gcTileBounds?.minLon).toBeCloseTo(-112.25, 2);
+      expect(gcTileBounds?.maxLon).toBeCloseTo(-112.0, 2);
+      expect(gcTileBounds?.minLat).toBeCloseTo(35.9, 2);
+      expect(gcTileBounds?.maxLat).toBeCloseTo(36.1, 2);
+
+      // Mount Fuji summit caldera (138.73, 35.36)
+      const fujiSource = new GeoTIFFDataSource('fuji-bounds');
+      fujiSource.metadata = {
+        projection: 'EPSG:4326',
+        bands: 1,
+        width: 900,
+        height: 540,
+        tileWidth: 256,
+        tileHeight: 256,
+        tilesAcross: 4,
+        tilesDown: 3,
+        bounds: { minLon: 138.5, maxLon: 139.0, minLat: 35.2, maxLat: 35.5 },
+      };
+
+      const fujiCoords = fujiSource.calculateTileCoords({
+        minLon: 138.72,
+        maxLon: 138.74,
+        minLat: 35.35,
+        maxLat: 35.37,
+      });
+      expect(fujiCoords.tileX).toBe(1);
+      expect(fujiCoords.tileY).toBe(1);
+
+      const fujiTileBounds = fujiSource.getTileBounds(fujiCoords.tileX, fujiCoords.tileY);
+      expect(fujiTileBounds).not.toBeNull();
+      expect(fujiTileBounds?.minLon).toBeCloseTo(138.625, 3);
+      expect(fujiTileBounds?.maxLon).toBeCloseTo(138.75, 3);
+      expect(fujiTileBounds?.minLat).toBeCloseTo(35.3, 2);
+      expect(fujiTileBounds?.maxLat).toBeCloseTo(35.4, 2);
+    });
+
+    it('verifies GeoTIFFDataSource normalizes bare region identifiers to standard COG paths', () => {
+      const source = new GeoTIFFDataSource();
+      expect(source.normalizeUrl('hawaii')).toBe('/regional/hawaii.cog.tif');
+      expect(source.normalizeUrl('capecod')).toBe('/regional/capecod.cog.tif');
+      expect(source.normalizeUrl('cape-cod')).toBe('/regional/cape-cod.cog.tif');
+      expect(source.normalizeUrl('grand-canyon')).toBe('/regional/grand-canyon.cog.tif');
+      expect(source.normalizeUrl('fuji')).toBe('/regional/fuji.cog.tif');
+      expect(source.normalizeUrl('/regional/hawaii.cog.tif')).toBe('/regional/hawaii.cog.tif');
+    });
   });
 });
 
