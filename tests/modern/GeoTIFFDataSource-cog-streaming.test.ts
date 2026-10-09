@@ -689,5 +689,120 @@ describe('Cloud-Optimized GeoTIFF (COG) Regional Streaming Pipeline', () => {
       expect(source.normalizeUrl('/regional/hawaii.cog.tif')).toBe('/regional/hawaii.cog.tif');
     });
   });
+
+  // ==========================================================================
+  // Section 6: Global Basemap Cloud-Optimized GeoTIFF Streaming & Overviews
+  // ==========================================================================
+  describe('6. Global Basemap Cloud-Optimized GeoTIFF Streaming', () => {
+    const globalCogPath = path.resolve(__dirname, '../../public/earth-etopo2022.cog.tif');
+
+    it('verifies production earth-etopo2022.cog.tif exists and parses global 8K metadata', () => {
+      expect(fs.existsSync(globalCogPath)).toBe(true);
+      const fileBuf = fs.readFileSync(globalCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + 65536);
+
+      const source = new GeoTIFFDataSource('global-etopo-cog', '/earth-etopo2022.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab);
+
+      expect(parsed).not.toBeNull();
+      expect(parsed?.metadata.width).toBe(8192);
+      expect(parsed?.metadata.height).toBe(4096);
+      expect(parsed?.metadata.tileWidth).toBe(256);
+      expect(parsed?.metadata.tileHeight).toBe(256);
+      expect(parsed?.metadata.tilesAcross).toBe(32);
+      expect(parsed?.metadata.tilesDown).toBe(16);
+      expect(parsed?.tileOffsets).toHaveLength(512); // 32 * 16 = 512 tiles at level 0
+
+      const bounds = parsed?.metadata.bounds;
+      expect(bounds).toBeDefined();
+      expect(bounds?.minLon).toBeCloseTo(-180.0, 1);
+      expect(bounds?.maxLon).toBeCloseTo(180.0, 1);
+      expect(bounds?.minLat).toBeCloseTo(-90.0, 1);
+      expect(bounds?.maxLat).toBeCloseTo(90.0, 1);
+    });
+
+    it('maps global litmus benchmark coordinates to exact 256x256 tile indices', () => {
+      const source = new GeoTIFFDataSource('global-etopo-coords');
+      source.metadata = {
+        projection: 'EPSG:4326',
+        bands: 1,
+        width: 8192,
+        height: 4096,
+        tileWidth: 256,
+        tileHeight: 256,
+        tilesAcross: 32,
+        tilesDown: 16,
+        bounds: { minLon: -180.0, maxLon: 180.0, minLat: -90.0, maxLat: 90.0 },
+      };
+
+      // Mount Everest (27.988°N, 86.925°E) -> Tile (23, 5)
+      const everest = source.calculateTileCoords({
+        minLon: 86.92,
+        maxLon: 86.93,
+        minLat: 27.98,
+        maxLat: 27.99,
+      });
+      expect(everest.tileX).toBe(23);
+      expect(everest.tileY).toBe(5);
+
+      // Mariana Trench Challenger Deep (11.373°N, 142.592°E) -> Tile (28, 6)
+      const mariana = source.calculateTileCoords({
+        minLon: 142.59,
+        maxLon: 142.60,
+        minLat: 11.37,
+        maxLat: 11.38,
+      });
+      expect(mariana.tileX).toBe(28);
+      expect(mariana.tileY).toBe(6);
+
+      // Matterhorn / Swiss Alps (45.976°N, 7.659°E) -> Tile (16, 3)
+      const matterhorn = source.calculateTileCoords({
+        minLon: 7.65,
+        maxLon: 7.66,
+        minLat: 45.97,
+        maxLat: 45.98,
+      });
+      expect(matterhorn.tileX).toBe(16);
+      expect(matterhorn.tileY).toBe(3);
+
+      // Lake Titicaca (-15.8°N, -69.4°W) -> Tile (9, 9)
+      const titicaca = source.calculateTileCoords({
+        minLon: -69.41,
+        maxLon: -69.39,
+        minLat: -15.81,
+        maxLat: -15.79,
+      });
+      expect(titicaca.tileX).toBe(9);
+      expect(titicaca.tileY).toBe(9);
+    });
+
+    it('fetches real global elevation tiles for Everest and Mariana Trench using range requests', async () => {
+      const fileBuf = fs.readFileSync(globalCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const source = new GeoTIFFDataSource('global-etopo-prod', '/earth-etopo2022.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab.slice(0, 65536));
+      expect(parsed).not.toBeNull();
+
+      source.metadata = parsed!.metadata;
+      source.tileOffsets = parsed!.tileOffsets;
+      source.tileByteCounts = parsed!.tileByteCounts;
+      source.readRange = async (offset, length) => ab.slice(offset, offset + length);
+
+      // Everest tile (23, 5): peak elevation > 7,000m
+      const everestTile = await source.fetchTile(23, 5, 0);
+      expect(everestTile).toHaveLength(256 * 256);
+      const everestMax = Math.max(...everestTile);
+      expect(everestMax).toBeGreaterThan(7000.0);
+      expect(everestMax).toBeLessThan(8850.0);
+
+      // Mariana Trench tile (28, 6): oceanic abyss < -10,000m
+      const marianaTile = await source.fetchTile(28, 6, 0);
+      expect(marianaTile).toHaveLength(256 * 256);
+      const marianaMin = Math.min(...marianaTile);
+      expect(marianaMin).toBeLessThan(-10000.0);
+      expect(marianaMin).toBeGreaterThan(-11000.0);
+    });
+  });
 });
 
