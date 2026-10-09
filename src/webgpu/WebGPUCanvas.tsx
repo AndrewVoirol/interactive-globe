@@ -500,6 +500,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
   // Regional High-Resolution DEM Overlay State (NOAA CUDEM ~10m)
   const regionalManifestRef = useRef<RegionalManifestEntry[]>([]);
   const activeRegionIdRef = useRef<string | null>(null);
+  const activeTileKeyRef = useRef<string | null>(null);
   const loadingRegionsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -2886,52 +2887,98 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
           }
 
           if (matchedRegion) {
-            if (activeRegionIdRef.current !== matchedRegion.id) {
-              activeRegionIdRef.current = matchedRegion.id;
-              const regId = matchedRegion.id;
-              const engine = engineRef.current;
-              if (!engine.getRegionalDEMTexture(regId) && !loadingRegionsRef.current.has(regId)) {
-                loadingRegionsRef.current.add(regId);
-                const loadPromise = matchedRegion.cogUrl
-                  ? engine
-                      .streamRegionalCOGTile(regId, matchedRegion.bounds, 10, matchedRegion.cogUrl)
-                      .then((success) => {
-                        if (!success) {
-                          return engine.loadRegionalDEMTexture(
-                            matchedRegion.webpUrl || matchedRegion.binUrl,
-                            matchedRegion.bounds,
-                            matchedRegion.width,
-                            matchedRegion.height,
-                            regId
-                          );
-                        }
-                      })
-                  : engine.loadRegionalDEMTexture(
-                      matchedRegion.webpUrl || matchedRegion.binUrl,
-                      matchedRegion.bounds,
-                      matchedRegion.width,
-                      matchedRegion.height,
-                      regId
-                    );
+            const regId = matchedRegion.id;
+            const engine = engineRef.current;
 
-                loadPromise
-                  .then(() => {
+            if (matchedRegion.cogUrl) {
+              const cameraPointBounds = {
+                minLon: currentLon,
+                maxLon: currentLon,
+                minLat: currentLat,
+                maxLat: currentLat,
+              };
+
+              // Determine target tile key for camera position
+              const tileCoords =
+                engine.geoTIFFDataSource.isConnected && engine.geoTIFFDataSource.metadata
+                  ? engine.geoTIFFDataSource.calculateTileCoords(cameraPointBounds)
+                  : null;
+              const targetTileKey = tileCoords
+                ? `${regId}:${tileCoords.tileX}:${tileCoords.tileY}`
+                : `${regId}:init`;
+
+              if (activeRegionIdRef.current !== regId) {
+                activeRegionIdRef.current = regId;
+                activeTileKeyRef.current = null;
+              }
+
+              if (activeTileKeyRef.current !== targetTileKey && !loadingRegionsRef.current.has(regId)) {
+                loadingRegionsRef.current.add(regId);
+                engine
+                  .streamRegionalCOGTile(regId, cameraPointBounds, 10, matchedRegion.cogUrl)
+                  .then((success) => {
                     loadingRegionsRef.current.delete(regId);
-                    if (activeRegionIdRef.current === regId) {
-                      engine.setActiveRegionalDEM(regId);
+                    if (success) {
+                      activeTileKeyRef.current = engine.activeRegionalTileKey || targetTileKey;
+                      if (activeRegionIdRef.current === regId) {
+                        engine.setActiveRegionalDEM(regId);
+                      }
+                    } else if (!engine.getRegionalDEMTexture(regId)) {
+                      // Fallback to monolithic webp / bin if COG tile stream fails
+                      return engine
+                        .loadRegionalDEMTexture(
+                          matchedRegion.webpUrl || matchedRegion.binUrl,
+                          matchedRegion.bounds,
+                          matchedRegion.width,
+                          matchedRegion.height,
+                          regId
+                        )
+                        .then(() => {
+                          if (activeRegionIdRef.current === regId) {
+                            engine.setActiveRegionalDEM(regId);
+                          }
+                        });
                     }
                   })
                   .catch(() => {
                     loadingRegionsRef.current.delete(regId);
                   });
-              } else if (engine.getRegionalDEMTexture(regId)) {
+              } else if (engine.getRegionalDEMTexture(regId) && !engine.getActiveRegionalDEM()) {
                 engine.setActiveRegionalDEM(regId);
+              }
+            } else {
+              if (activeRegionIdRef.current !== regId) {
+                activeRegionIdRef.current = regId;
+                activeTileKeyRef.current = `${regId}:monolithic`;
+                if (!engine.getRegionalDEMTexture(regId) && !loadingRegionsRef.current.has(regId)) {
+                  loadingRegionsRef.current.add(regId);
+                  engine
+                    .loadRegionalDEMTexture(
+                      matchedRegion.webpUrl || matchedRegion.binUrl,
+                      matchedRegion.bounds,
+                      matchedRegion.width,
+                      matchedRegion.height,
+                      regId
+                    )
+                    .then(() => {
+                      loadingRegionsRef.current.delete(regId);
+                      if (activeRegionIdRef.current === regId) {
+                        engine.setActiveRegionalDEM(regId);
+                      }
+                    })
+                    .catch(() => {
+                      loadingRegionsRef.current.delete(regId);
+                    });
+                } else if (engine.getRegionalDEMTexture(regId)) {
+                  engine.setActiveRegionalDEM(regId);
+                }
               }
             }
           } else {
             if (activeRegionIdRef.current !== null) {
               const prevId = activeRegionIdRef.current;
               activeRegionIdRef.current = null;
+              activeTileKeyRef.current = null;
               const engine = engineRef.current;
               engine.setActiveRegionalDEM(null);
               if (currentRadius > 14.0) {
@@ -3693,12 +3740,16 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
             inset = 'NOAA CUDEM (3m LiDAR)';
           } else if (regId === 'grand-canyon') {
             inset = 'USGS 3DEP (30m)';
+          } else if (regId === 'fuji') {
+            inset = 'Copernicus GLO-30 (30m)';
           } else if (targetLon >= -161.0 && targetLon <= -154.0 && targetLat >= 18.0 && targetLat <= 23.0) {
             inset = 'NOAA CUDEM (3m LiDAR)';
           } else if (targetLon >= -71.0 && targetLon <= -69.0 && targetLat >= 41.0 && targetLat <= 43.0) {
             inset = 'NOAA CUDEM (3m LiDAR)';
           } else if (targetLon >= -112.5 && targetLon <= -111.5 && targetLat >= 35.9 && targetLat <= 36.5) {
             inset = 'USGS 3DEP (30m)';
+          } else if (targetLon >= 138.5 && targetLon <= 139.0 && targetLat >= 35.2 && targetLat <= 35.5) {
+            inset = 'Copernicus GLO-30 (30m)';
           }
 
           updateProvenanceTelemetry({

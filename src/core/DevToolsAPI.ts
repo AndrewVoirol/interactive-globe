@@ -104,6 +104,7 @@ declare global {
     theme?: number;
     setShowVectors?: (show: boolean) => void;
     setCursorPhysicsEnabled?: (enabled: boolean) => void;
+    setCdlodDiagnosticMode?: (mode: number | ((prev: number) => number)) => void;
     backend?: string;
   }
 }

@@ -804,5 +804,161 @@ describe('Cloud-Optimized GeoTIFF (COG) Regional Streaming Pipeline', () => {
       expect(marianaMin).toBeGreaterThan(-11000.0);
     });
   });
+
+  describe('7. Camera-Coupled Dynamic Tile Paging & Zero-GC Texture Overwrites (Stage 2)', () => {
+    let engine: WebGPUEngine;
+
+    beforeEach(() => {
+      engine = new WebGPUEngine();
+    });
+
+    afterEach(() => {
+      engine.dispose();
+    });
+
+    it('calculates dynamic camera-coupled tile coordinates across multi-island transects in Hawaii', () => {
+      const source = new GeoTIFFDataSource('hawaii-camera-paging');
+      source.metadata = {
+        projection: 'EPSG:4326',
+        bands: 1,
+        width: 3840,
+        height: 5632,
+        tileWidth: 256,
+        tileHeight: 256,
+        tilesAcross: 15,
+        tilesDown: 22,
+        bounds: { minLon: -160.5, maxLon: -154.5, minLat: 18.8, maxLat: 22.5 },
+      };
+
+      // 1. Big Island / Mauna Kea: (-155.468, 19.82)
+      const bigIsland = source.calculateTileCoords({
+        minLon: -155.468,
+        maxLon: -155.468,
+        minLat: 19.82,
+        maxLat: 19.82,
+      });
+      expect(bigIsland.tileX).toBe(12);
+      expect(bigIsland.tileY).toBe(15);
+
+      // 2. Maui / Haleakala: (-156.25, 20.71)
+      const maui = source.calculateTileCoords({
+        minLon: -156.25,
+        maxLon: -156.25,
+        minLat: 20.71,
+        maxLat: 20.71,
+      });
+      expect(maui.tileX).toBe(10);
+      expect(maui.tileY).toBe(10);
+
+      // 3. Oahu / Honolulu: (-157.85, 21.30)
+      const oahu = source.calculateTileCoords({
+        minLon: -157.85,
+        maxLon: -157.85,
+        minLat: 21.30,
+        maxLat: 21.30,
+      });
+      expect(oahu.tileX).toBe(6);
+      expect(oahu.tileY).toBe(7);
+
+      // 4. Kauai / Waimea: (-159.66, 22.07)
+      const kauai = source.calculateTileCoords({
+        minLon: -159.66,
+        maxLon: -159.66,
+        minLat: 22.07,
+        maxLat: 22.07,
+      });
+      expect(kauai.tileX).toBe(2);
+      expect(kauai.tileY).toBe(2);
+    });
+
+    it('overwrites existing GPUTexture in-place without destruction during adjacent tile camera panning (Zero-GC)', async () => {
+      const syntheticCOG = createSyntheticCOG(512, 512, 256, 256);
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        const rangeHeader = (init?.headers as any)?.Range || '';
+        const match = rangeHeader.match(/bytes=(\d+)-(\d+)/);
+        if (match) {
+          const start = parseInt(match[1], 10);
+          const end = parseInt(match[2], 10);
+          return new Response(syntheticCOG.buffer.slice(start, end + 1), { status: 206 });
+        }
+        return new Response(syntheticCOG.buffer, { status: 200 });
+      });
+
+      try {
+        const mockTextureView = { label: 'shared_view' } as any;
+        const destroySpy = vi.fn();
+        const mockTexture = {
+          label: 'shared_texture',
+          format: 'rgba16float',
+          createView: vi.fn().mockReturnValue(mockTextureView),
+          destroy: destroySpy,
+        } as any;
+        const mockBuffer = { destroy: vi.fn() } as any;
+
+        const createTextureSpy = vi.fn().mockReturnValue(mockTexture);
+        const writeTextureSpy = vi.fn();
+
+        (engine as any).device = {
+          createTexture: createTextureSpy,
+          createBuffer: vi.fn().mockReturnValue(mockBuffer),
+          createBindGroup: vi.fn().mockReturnValue({}),
+          queue: {
+            writeTexture: writeTextureSpy,
+            writeBuffer: vi.fn(),
+          },
+        };
+        (engine as any).isInitialized = true;
+
+        // Step 1: Stream Tile A
+        const pointA = { minLon: -159.0, maxLon: -159.0, minLat: 21.0, maxLat: 21.0 };
+        const ok1 = await engine.streamRegionalCOGTile('hawaii', pointA, 10);
+        expect(ok1).toBe(true);
+        expect(createTextureSpy).toHaveBeenCalledTimes(1);
+        expect(destroySpy).not.toHaveBeenCalled();
+
+        // Assign regional bounds to synthetic metadata so calculateTileCoords evaluates 2x2 tiles
+        engine.geoTIFFDataSource.metadata!.bounds = { minLon: -160.0, maxLon: -154.0, minLat: 18.0, maxLat: 22.0 };
+
+        const entryA = engine.getRegionalDEMTexture('hawaii');
+        expect(entryA?.texture).toBe(mockTexture);
+        expect(entryA?.view).toBe(mockTextureView);
+        const tileKeyA = engine.getActiveRegionalTileKey();
+        expect(tileKeyA).toBe('hawaii:0:0');
+
+        // Step 2: Stream Tile B (adjacent tile panning across 2x2 synthetic grid)
+        const pointB = { minLon: -155.0, maxLon: -155.0, minLat: 19.0, maxLat: 19.0 };
+        const ok2 = await engine.streamRegionalCOGTile('hawaii', pointB, 10);
+        expect(ok2).toBe(true);
+
+        // Crucial Invariant: createTexture must NOT be called again, and destroy must NOT be called!
+        expect(createTextureSpy).toHaveBeenCalledTimes(1);
+        expect(destroySpy).not.toHaveBeenCalled();
+
+        // writeTexture must have been called twice (once per tile)
+        expect(writeTextureSpy).toHaveBeenCalledTimes(2);
+
+        // Texture and view references remain identical (zero-GC)
+        const entryB = engine.getRegionalDEMTexture('hawaii');
+        expect(entryB?.texture).toBe(mockTexture);
+        expect(entryB?.view).toBe(mockTextureView);
+
+        // Tile key and active bounds updated to Tile B
+        const tileKeyB = engine.getActiveRegionalTileKey();
+        expect(tileKeyB).toMatch(/^hawaii:/);
+        expect(tileKeyB).not.toBe(tileKeyA);
+
+        // Step 3: Deactivate & Release clears activeRegionalTileKey
+        engine.setActiveRegionalDEM(null);
+        expect(engine.getActiveRegionalTileKey()).toBeNull();
+
+        engine.releaseRegionalDEMTexture('hawaii');
+        expect(destroySpy).toHaveBeenCalledTimes(1);
+        expect(engine.getRegionalDEMTexture('hawaii')).toBeNull();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
 });
 

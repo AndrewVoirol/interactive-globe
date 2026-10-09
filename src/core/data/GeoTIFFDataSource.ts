@@ -20,7 +20,7 @@ export interface GeoTIFFMetadata {
   tilesAcross: number;
   tilesDown: number;
   nodata?: number;
-  bounds?: BoundingBox3D;
+  bounds?: BoundingBox3D | { minLon: number; maxLon: number; minLat: number; maxLat: number; minAlt?: number; maxAlt?: number };
   compression?: number;
   sampleFormat?: number;
   bitsPerSample?: number;
@@ -426,7 +426,7 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
   /**
    * Calculate tile coordinates (tileX, tileY) from geographic bounding box
    */
-  public calculateTileCoords(bounds: BoundingBox3D): { tileX: number; tileY: number } {
+  public calculateTileCoords(bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number; minAlt?: number; maxAlt?: number }): { tileX: number; tileY: number } {
     const centerLon = (bounds.minLon + bounds.maxLon) * 0.5;
     const centerLat = (bounds.minLat + bounds.maxLat) * 0.5;
 
@@ -541,7 +541,7 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
       try {
         const ds = new DecompressionStream('deflate');
         const writer = ds.writable.getWriter();
-        writer.write(data);
+        writer.write(data as unknown as BufferSource);
         writer.close();
         const reader = ds.readable.getReader();
         const chunks: Uint8Array[] = [];
@@ -562,7 +562,7 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
         try {
           const dsRaw = new DecompressionStream('deflate-raw');
           const writer = dsRaw.writable.getWriter();
-          writer.write(data);
+          writer.write(data as unknown as BufferSource);
           writer.close();
           const reader = dsRaw.readable.getReader();
           const chunks: Uint8Array[] = [];

@@ -853,6 +853,10 @@ export class WebGPUEngine {
   private windBuffersInitialized: boolean = false;
   private windDataSource: VectorFieldDataSource = new VectorFieldDataSource();
   public geoTIFFDataSource: GeoTIFFDataSource = new GeoTIFFDataSource('cog-regional-streaming');
+  public activeRegionalTileKey: string | null = null;
+  private regionalUniformData: Float32Array = new Float32Array(16);
+  private regionalUniformU32: Uint32Array = new Uint32Array(this.regionalUniformData.buffer);
+  private regionalTileF16Data: Uint16Array = new Uint16Array(256 * 256 * 4);
   public cpuDEMData: Uint16Array | Uint8Array | Uint8ClampedArray | null = null;
   public static readonly DEFAULT_DEM_WIDTH = 1024 * 8;
   public static readonly DEFAULT_DEM_HEIGHT = 1024 * 4;
@@ -4419,8 +4423,8 @@ export class WebGPUEngine {
       const tileH = 256;
 
       if (this.device && this.isInitialized) {
-        // Encode 256x256 elevation into rgba16float GPU texture matching regional encoding
-        const f16Data = new Uint16Array(tileW * tileH * 4);
+        // Zero-GC: populate preallocated f16 array matching regional encoding
+        const f16Data = this.regionalTileF16Data;
         for (let i = 0; i < tileW * tileH; i++) {
           const elev = elevData[i];
           const rNorm = Math.max(0.0, Math.min(1.0, elev / 8848.0));
@@ -4434,15 +4438,29 @@ export class WebGPUEngine {
           f16Data[i * 4 + 3] = encodeFloat16(aNorm);
         }
 
-        const texture = this.device.createTexture({
-          label: `regional_dem_${id}`,
-          size: [tileW, tileH, 1],
-          mipLevelCount: 1,
-          format: 'rgba16float',
-          usage: (typeof GPUTextureUsage !== 'undefined'
-            ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
-            : (4 | 8)),
-        });
+        const existing = this.regionalDEMTextures.get(id);
+        let texture: GPUTexture;
+        let view: GPUTextureView;
+
+        if (existing && existing.width === tileW && existing.height === tileH) {
+          // Zero-GC in-place reuse of existing GPUTexture and GPUTextureView
+          texture = existing.texture;
+          view = existing.view;
+        } else {
+          if (existing) {
+            try { existing.texture.destroy(); } catch {}
+          }
+          texture = this.device.createTexture({
+            label: `regional_dem_${id}`,
+            size: [tileW, tileH, 1],
+            mipLevelCount: 1,
+            format: 'rgba16float',
+            usage: (typeof GPUTextureUsage !== 'undefined'
+              ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
+              : (4 | 8)),
+          });
+          view = texture.createView();
+        }
 
         // 256 * 4 channels * 2 bytes = 2048 bytes per row (perfect 256-byte alignment)
         const rowBytes = tileW * 8;
@@ -4453,12 +4471,6 @@ export class WebGPUEngine {
           [tileW, tileH, 1]
         );
 
-        const view = texture.createView();
-        const existing = this.regionalDEMTextures.get(id);
-        if (existing) {
-          try { existing.texture.destroy(); } catch {}
-        }
-
         const effectiveBounds = chunk.bounds || bounds;
         this.regionalDEMTextures.set(id, {
           texture,
@@ -4468,6 +4480,16 @@ export class WebGPUEngine {
           height: tileH,
           id,
         });
+
+        const { tileX, tileY } = this.geoTIFFDataSource.calculateTileCoords({
+          minLon: bounds.minLon,
+          maxLon: bounds.maxLon,
+          minLat: bounds.minLat,
+          maxLat: bounds.maxLat,
+          minAlt: 0,
+          maxAlt: 0,
+        });
+        this.activeRegionalTileKey = `${id}:${tileX}:${tileY}`;
 
         this.setActiveRegionalDEM(id);
       }
@@ -4732,6 +4754,7 @@ export class WebGPUEngine {
   public setActiveRegionalDEM(id: string | null): void {
     if (id && this.regionalDEMTextures.has(id)) {
       const entry = this.regionalDEMTextures.get(id)!;
+      const isSameTextureView = this.activeRegionalDEM && this.activeRegionalDEM.view === entry.view;
       this.activeRegionalDEM = {
         texture: entry.texture,
         view: entry.view,
@@ -4746,14 +4769,15 @@ export class WebGPUEngine {
       this.activeRegionalMaxLat = entry.bounds.maxLat;
       this.hasActiveRegionalDEM = true;
       const regBuf = this.ensureRegionalBuffer();
-      const data = new Float32Array(16);
-      data[0] = entry.bounds.minLon;
-      data[1] = entry.bounds.minLat;
-      data[2] = entry.bounds.maxLon;
-      data[3] = entry.bounds.maxLat;
-      const u32View = new Uint32Array(data.buffer);
-      u32View[12] = 1; // u_regionalActive = 1
-      this.device.queue.writeBuffer(regBuf, 0, data);
+      this.regionalUniformData[0] = entry.bounds.minLon;
+      this.regionalUniformData[1] = entry.bounds.minLat;
+      this.regionalUniformData[2] = entry.bounds.maxLon;
+      this.regionalUniformData[3] = entry.bounds.maxLat;
+      this.regionalUniformU32[12] = 1; // u_regionalActive = 1
+      this.device.queue.writeBuffer(regBuf, 0, this.regionalUniformData);
+      if (!isSameTextureView) {
+        this.updateDEMBindGroups();
+      }
     } else {
       this.activeRegionalDEM = null;
       this.activeRegionalMinLon = 0;
@@ -4761,16 +4785,33 @@ export class WebGPUEngine {
       this.activeRegionalMaxLon = 0;
       this.activeRegionalMaxLat = 0;
       this.hasActiveRegionalDEM = false;
+      this.activeRegionalTileKey = null;
       if (this.regionalUniformBuffer) {
-        const data = new Float32Array(16); // all zeros, u_regionalActive = 0
-        this.device.queue.writeBuffer(this.regionalUniformBuffer, 0, data);
+        this.regionalUniformData.fill(0);
+        this.device.queue.writeBuffer(this.regionalUniformBuffer, 0, this.regionalUniformData);
       }
+      this.updateDEMBindGroups();
     }
-    this.updateDEMBindGroups();
   }
 
   public getActiveRegionalDEM(): string | null {
     return this.activeRegionalDEM ? this.activeRegionalDEM.id : null;
+  }
+
+  public getActiveRegionalTileKey(): string | null {
+    return this.activeRegionalTileKey;
+  }
+
+  public getRegionalCOGTileCoords(bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number }): { tileX: number; tileY: number } | null {
+    if (!this.geoTIFFDataSource.isConnected) return null;
+    return this.geoTIFFDataSource.calculateTileCoords({
+      minLon: bounds.minLon,
+      maxLon: bounds.maxLon,
+      minLat: bounds.minLat,
+      maxLat: bounds.maxLat,
+      minAlt: 0,
+      maxAlt: 0,
+    });
   }
 
   public releaseRegionalDEMTexture(id: string): void {
@@ -4783,9 +4824,10 @@ export class WebGPUEngine {
         this.activeRegionalMaxLon = 0;
         this.activeRegionalMaxLat = 0;
         this.hasActiveRegionalDEM = false;
+        this.activeRegionalTileKey = null;
         if (this.regionalUniformBuffer) {
-          const data = new Float32Array(16);
-          this.device.queue.writeBuffer(this.regionalUniformBuffer, 0, data);
+          this.regionalUniformData.fill(0);
+          this.device.queue.writeBuffer(this.regionalUniformBuffer, 0, this.regionalUniformData);
         }
       }
       try {
