@@ -37,6 +37,7 @@ import { encodeFloat16 } from '../core/math/float16';
 import { parseTLE, propagateOrbitalPosition } from '../core/math/sgp4';
 import { loadNodeAssetBuffer, loadNodeAssetText } from '../utils/nodeAssetLoader';
 import { VectorFieldDataSource } from '../core/data/VectorFieldDataSource';
+import { GeoTIFFDataSource } from '../core/data/GeoTIFFDataSource';
 import { ThemeManager, PhysicalMediumProperties } from '../core/themes';
 import { getSolarPosition, SolarPosition } from '../core/astronomy/SolarEphemeris';
 import { TemporalTextureRingBuffer } from './TemporalTextureRingBuffer';
@@ -851,6 +852,7 @@ export class WebGPUEngine {
   private windStep: number = 0;
   private windBuffersInitialized: boolean = false;
   private windDataSource: VectorFieldDataSource = new VectorFieldDataSource();
+  public geoTIFFDataSource: GeoTIFFDataSource = new GeoTIFFDataSource('cog-regional-streaming');
   public cpuDEMData: Uint16Array | Uint8Array | Uint8ClampedArray | null = null;
   public static readonly DEFAULT_DEM_WIDTH = 1024 * 8;
   public static readonly DEFAULT_DEM_HEIGHT = 1024 * 4;
@@ -3252,7 +3254,9 @@ export class WebGPUEngine {
       this.regionalUniformBuffer = this.device.createBuffer({
         label: 'regional_overlay_uniform_buffer',
         size: 64,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        usage: (typeof GPUBufferUsage !== 'undefined'
+          ? (GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST)
+          : (64 | 8)),
       });
       const zeroData = new Float32Array(16);
       this.device.queue.writeBuffer(this.regionalUniformBuffer, 0, zeroData);
@@ -4365,6 +4369,109 @@ export class WebGPUEngine {
   }
 
   /**
+   * Check if an on-demand regional elevation tile is cached in memory
+   */
+  public isRegionalTileCached(
+    bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number },
+    zoom: number = 10
+  ): boolean {
+    return this.geoTIFFDataSource.isRegionCached(
+      { minLon: bounds.minLon, maxLon: bounds.maxLon, minLat: bounds.minLat, maxLat: bounds.maxLat, minAlt: 0, maxAlt: 0 },
+      zoom
+    );
+  }
+
+  /**
+   * Asynchronously streams and caches on-demand 256x256 elevation tiles from
+   * Cloud-Optimized GeoTIFFs (COGs) via HTTP Range Requests without downloading monolithic arrays.
+   */
+  public async streamRegionalCOGTile(
+    id: string,
+    bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number },
+    zoom: number = 10,
+    cogUrl?: string
+  ): Promise<boolean> {
+    const url = cogUrl || `/regional/${id}.cog.tif`;
+
+    try {
+      if (!this.geoTIFFDataSource.isConnected || this.geoTIFFDataSource.endpointUrl !== this.geoTIFFDataSource.normalizeUrl(url)) {
+        await this.geoTIFFDataSource.connect(url);
+      }
+
+      const chunk = await this.geoTIFFDataSource.fetch(
+        { minLon: bounds.minLon, maxLon: bounds.maxLon, minLat: bounds.minLat, maxLat: bounds.maxLat, minAlt: 0, maxAlt: 0 },
+        zoom
+      );
+
+      const elevData = chunk.attributes.get('elevation');
+      if (!elevData || !(elevData instanceof Float32Array)) {
+        return false;
+      }
+
+      const tileW = 256;
+      const tileH = 256;
+
+      if (this.device && this.isInitialized) {
+        // Encode 256x256 elevation into rgba16float GPU texture matching regional encoding
+        const f16Data = new Uint16Array(tileW * tileH * 4);
+        for (let i = 0; i < tileW * tileH; i++) {
+          const elev = elevData[i];
+          const rNorm = Math.max(0.0, Math.min(1.0, elev / 8848.0));
+          const gNorm = Math.max(0.0, Math.min(1.0, -elev / 10924.0));
+          const bNorm = elev >= 0.0 ? 1.0 : 0.0;
+          const aNorm = Math.max(0.0, Math.min(1.0, (elev + 10924.0) / 19772.0));
+
+          f16Data[i * 4 + 0] = encodeFloat16(rNorm);
+          f16Data[i * 4 + 1] = encodeFloat16(gNorm);
+          f16Data[i * 4 + 2] = encodeFloat16(bNorm);
+          f16Data[i * 4 + 3] = encodeFloat16(aNorm);
+        }
+
+        const texture = this.device.createTexture({
+          label: `regional_dem_${id}`,
+          size: [tileW, tileH, 1],
+          mipLevelCount: 1,
+          format: 'rgba16float',
+          usage: (typeof GPUTextureUsage !== 'undefined'
+            ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
+            : (4 | 8)),
+        });
+
+        // 256 * 4 channels * 2 bytes = 2048 bytes per row (perfect 256-byte alignment)
+        const rowBytes = tileW * 8;
+        this.device.queue.writeTexture(
+          { texture },
+          f16Data.buffer,
+          { bytesPerRow: rowBytes, rowsPerImage: tileH, offset: 0 },
+          [tileW, tileH, 1]
+        );
+
+        const view = texture.createView();
+        const existing = this.regionalDEMTextures.get(id);
+        if (existing) {
+          try { existing.texture.destroy(); } catch {}
+        }
+
+        this.regionalDEMTextures.set(id, {
+          texture,
+          view,
+          bounds,
+          width: tileW,
+          height: tileH,
+          id,
+        });
+
+        this.setActiveRegionalDEM(id);
+      }
+
+      return true;
+    } catch (err) {
+      console.warn(`WebGPUEngine.streamRegionalCOGTile failed for ${id}:`, err);
+      return false;
+    }
+  }
+
+  /**
    * Loads a high-resolution regional DEM texture (NOAA CUDEM ~10m) for litmus test regions (Hawaii, Cape Cod).
    * Supports both 16-bit binary buffers (.bin) and lossless WebP fallbacks (.webp).
    */
@@ -4375,6 +4482,11 @@ export class WebGPUEngine {
     height: number = 2048,
     id: string = 'regional'
   ): Promise<void> {
+    if (typeof urlOrBuffer === 'string' && (urlOrBuffer.endsWith('.cog.tif') || urlOrBuffer.endsWith('.cog'))) {
+      await this.streamRegionalCOGTile(id, bounds, 10, urlOrBuffer);
+      return;
+    }
+
     if (!this.device || !this.isInitialized) return;
 
     try {

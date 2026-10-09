@@ -172,6 +172,7 @@ interface RegionalManifestEntry {
   height: number;
   binUrl: string;
   webpUrl: string;
+  cogUrl?: string;
 }
 
 const textMetricsCache = new Map<string, number>();
@@ -2891,14 +2892,23 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
               const engine = engineRef.current;
               if (!engine.getRegionalDEMTexture(regId) && !loadingRegionsRef.current.has(regId)) {
                 loadingRegionsRef.current.add(regId);
-                engine
-                  .loadRegionalDEMTexture(
-                    matchedRegion.binUrl,
-                    matchedRegion.bounds,
-                    matchedRegion.width,
-                    matchedRegion.height,
-                    regId
-                  )
+                const cogPath = matchedRegion.cogUrl || `/regional/${regId}.cog.tif`;
+                const streamPromise = engine
+                  .streamRegionalCOGTile(regId, matchedRegion.bounds, 10, cogPath)
+                  .then((success) => {
+                    if (!success) {
+                      // Fallback to monolithic binary if COG range streaming is unavailable
+                      return engine.loadRegionalDEMTexture(
+                        matchedRegion.binUrl,
+                        matchedRegion.bounds,
+                        matchedRegion.width,
+                        matchedRegion.height,
+                        regId
+                      );
+                    }
+                  });
+
+                streamPromise
                   .then(() => {
                     loadingRegionsRef.current.delete(regId);
                     if (activeRegionIdRef.current === regId) {
