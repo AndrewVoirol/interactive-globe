@@ -26,6 +26,7 @@
       "height": 3600,
       "binUrl": "/regional/hawaii-dem-u16.bin",
       "webpUrl": "/regional/hawaii-dem.webp",
+      "cogUrl": "/regional/hawaii.cog.tif",
       "minElevationMeters": -5800.205078125,
       "maxElevationMeters": 4011.4248046875
     },
@@ -42,6 +43,7 @@
       "height": 2400,
       "binUrl": "/regional/capecod-dem-u16.bin",
       "webpUrl": "/regional/capecod-dem.webp",
+      "cogUrl": "/regional/capecod.cog.tif",
       "minElevationMeters": -286.0087890625,
       "maxElevationMeters": 97.7548828125
     },
@@ -58,6 +60,7 @@
       "height": 540,
       "binUrl": "/regional/dem-grand-canyon-30m.bin",
       "webpUrl": "/regional/dem-grand-canyon-30m.webp",
+      "cogUrl": "/regional/dem-grand-canyon-30m.cog.tif",
       "minElevationMeters": 605.63623046875,
       "maxElevationMeters": 2805.953857421875
     },
@@ -74,6 +77,7 @@
       "height": 540,
       "binUrl": "/regional/dem-fuji-30m.bin",
       "webpUrl": "/regional/dem-fuji-30m.webp",
+      "cogUrl": "/regional/dem-fuji-30m.cog.tif",
       "minElevationMeters": 51.855995178222656,
       "maxElevationMeters": 3756.53369140625
     }

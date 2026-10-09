@@ -4459,10 +4459,11 @@ export class WebGPUEngine {
           try { existing.texture.destroy(); } catch {}
         }
 
+        const effectiveBounds = chunk.bounds || bounds;
         this.regionalDEMTextures.set(id, {
           texture,
           view,
-          bounds,
+          bounds: effectiveBounds,
           width: tileW,
           height: tileH,
           id,

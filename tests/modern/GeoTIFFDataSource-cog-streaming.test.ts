@@ -369,4 +369,129 @@ describe('Cloud-Optimized GeoTIFF (COG) Regional Streaming Pipeline', () => {
       }).toThrow();
     });
   });
+
+  // ==========================================================================
+  // Section 5: Production Cloud-Optimized GeoTIFF File & Spatial Tag Verification
+  // ==========================================================================
+  describe('5. Production COG Files & Spatial Tag Verification', () => {
+    const hawaiiCogPath = path.resolve(__dirname, '../../public/regional/hawaii.cog.tif');
+    const capecodCogPath = path.resolve(__dirname, '../../public/regional/capecod.cog.tif');
+
+    it('verifies production hawaii.cog.tif exists and parses spatial bounds correctly', () => {
+      expect(fs.existsSync(hawaiiCogPath)).toBe(true);
+      const fileBuf = fs.readFileSync(hawaiiCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + 65536);
+
+      const source = new GeoTIFFDataSource('hawaii-prod', '/regional/hawaii.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab);
+
+      expect(parsed).not.toBeNull();
+      expect(parsed?.metadata.width).toBe(5400);
+      expect(parsed?.metadata.height).toBe(3600);
+      expect(parsed?.metadata.tileWidth).toBe(256);
+      expect(parsed?.metadata.tileHeight).toBe(256);
+      expect(parsed?.metadata.tilesAcross).toBe(22);
+      expect(parsed?.metadata.tilesDown).toBe(15);
+      expect(parsed?.tileOffsets).toHaveLength(330);
+      expect(parsed?.metadata.compression).toBe(8); // DEFLATE
+
+      // Spatial bounds verification from ModelTiepointTag / ModelPixelScaleTag
+      const bounds = parsed?.metadata.bounds;
+      expect(bounds).toBeDefined();
+      expect(bounds?.minLon).toBeCloseTo(-161.0, 1);
+      expect(bounds?.maxLon).toBeCloseTo(-154.0, 1);
+      expect(bounds?.minLat).toBeCloseTo(18.0, 1);
+      expect(bounds?.maxLat).toBeCloseTo(23.0, 1);
+    });
+
+    it('normalizes regional tile coordinates relative to regional bounding box', () => {
+      const source = new GeoTIFFDataSource('hawaii-prod');
+      source.metadata = {
+        projection: 'EPSG:4326',
+        bands: 1,
+        width: 5400,
+        height: 3600,
+        tileWidth: 256,
+        tileHeight: 256,
+        tilesAcross: 22,
+        tilesDown: 15,
+        bounds: { minLon: -161.0, maxLon: -154.0, minLat: 18.0, maxLat: 23.0 },
+      };
+
+      // Center of Hawaii archipelago (-157.5, 20.5) should map to center tile (11, 7)
+      const centerCoords = source.calculateTileCoords({
+        minLon: -158.0,
+        maxLon: -157.0,
+        minLat: 20.0,
+        maxLat: 21.0,
+      });
+      expect(centerCoords.tileX).toBe(11);
+      expect(centerCoords.tileY).toBe(7);
+
+      // Mauna Kea on Big Island (~ -155.47, 19.82) should map to tile (17, 9) or (16, 9)
+      const maunaKeaCoords = source.calculateTileCoords({
+        minLon: -155.5,
+        maxLon: -155.4,
+        minLat: 19.8,
+        maxLat: 19.9,
+      });
+      expect(maunaKeaCoords.tileX).toBe(17);
+      expect(maunaKeaCoords.tileY).toBe(9);
+    });
+
+    it('fetches real Mauna Kea elevation tile (>4,000m) from hawaii.cog.tif using byte ranges', async () => {
+      const fileBuf = fs.readFileSync(hawaiiCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const source = new GeoTIFFDataSource('hawaii-prod', '/regional/hawaii.cog.tif');
+      const headerAb = ab.slice(0, 65536);
+      const parsed = source.parseTIFFHeaderAndIFD(headerAb);
+      expect(parsed).not.toBeNull();
+
+      source.metadata = parsed!.metadata;
+      source.tileOffsets = parsed!.tileOffsets;
+      source.tileByteCounts = parsed!.tileByteCounts;
+
+      // Mock readRange with arrayBuffer slice
+      source.readRange = async (offset: number, length: number) => {
+        return ab.slice(offset, offset + length);
+      };
+
+      // Query tile (16, 9) containing Mauna Kea summit
+      const tile = await source.fetchTile(16, 9, 0);
+      expect(tile).toHaveLength(256 * 256);
+      const maxElev = Math.max(...tile);
+      expect(maxElev).toBeGreaterThan(4000.0);
+      expect(maxElev).toBeLessThan(4250.0);
+    });
+
+    it('verifies production capecod.cog.tif exists and has correct coastal elevation bounds', async () => {
+      expect(fs.existsSync(capecodCogPath)).toBe(true);
+      const fileBuf = fs.readFileSync(capecodCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const source = new GeoTIFFDataSource('capecod-prod', '/regional/capecod.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab.slice(0, 65536));
+      expect(parsed).not.toBeNull();
+      expect(parsed?.metadata.width).toBe(2400);
+      expect(parsed?.metadata.height).toBe(2400);
+      expect(parsed?.metadata.bounds?.minLon).toBeCloseTo(-71.0, 1);
+      expect(parsed?.metadata.bounds?.maxLon).toBeCloseTo(-69.0, 1);
+
+      source.metadata = parsed!.metadata;
+      source.tileOffsets = parsed!.tileOffsets;
+      source.tileByteCounts = parsed!.tileByteCounts;
+      source.readRange = async (offset, length) => ab.slice(offset, offset + length);
+
+      // Query center tile (5, 5)
+      const tile = await source.fetchTile(5, 5, 0);
+      expect(tile).toHaveLength(256 * 256);
+      const minElev = Math.min(...tile);
+      const maxElev = Math.max(...tile);
+      // Coastal Cape Cod / Atlantic waters: negative depths and low coastal elevations
+      expect(minElev).toBeLessThan(0.0);
+      expect(maxElev).toBeLessThan(200.0);
+    });
+  });
 });
+

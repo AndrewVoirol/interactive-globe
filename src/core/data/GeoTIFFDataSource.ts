@@ -198,6 +198,8 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
     let nodata = -9999;
     let tileOffsets: number[] = [];
     let tileByteCounts: number[] = [];
+    let pixelScale: number[] = [];
+    let tiepoint: number[] = [];
 
     const entrySize = isBigTIFF ? 20 : 12;
 
@@ -246,6 +248,12 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
         case 339: // SampleFormat
           sampleFormat = valOrOffset;
           break;
+        case 33550: // ModelPixelScaleTag
+          pixelScale = this.readTIFFDoubleValues(view, type, count, valOrOffset, p + 8, buffer.byteLength, le, isBigTIFF);
+          break;
+        case 33922: // ModelTiepointTag
+          tiepoint = this.readTIFFDoubleValues(view, type, count, valOrOffset, p + 8, buffer.byteLength, le, isBigTIFF);
+          break;
         case 42113: // GDAL_NODATA
           if (count <= 4) {
             nodata = valOrOffset;
@@ -257,6 +265,15 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
     const tilesAcross = Math.max(1, Math.ceil(width / tileWidth));
     const tilesDown = Math.max(1, Math.ceil(height / tileHeight));
 
+    let bounds: BoundingBox3D | undefined = undefined;
+    if (tiepoint.length >= 6 && pixelScale.length >= 2) {
+      const minLon = tiepoint[3];
+      const maxLat = tiepoint[4];
+      const maxLon = minLon + width * pixelScale[0];
+      const minLat = maxLat - height * pixelScale[1];
+      bounds = { minLon, maxLon, minLat, maxLat, minAlt: -10924, maxAlt: 8848 };
+    }
+
     const metadata: GeoTIFFMetadata = {
       projection: 'EPSG:4326',
       bands: 1,
@@ -267,6 +284,7 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
       tilesAcross,
       tilesDown,
       nodata,
+      bounds,
       compression,
       sampleFormat,
       bitsPerSample,
@@ -314,6 +332,31 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
         values.push(view.getUint8(ptr));
         ptr += 1;
       }
+    }
+    return values;
+  }
+
+  /**
+   * Helper to read IEEE 754 double precision (64-bit) values from TIFF entries
+   */
+  private readTIFFDoubleValues(
+    view: DataView,
+    type: number,
+    count: number,
+    valOrOffset: number,
+    inlineOffset: number,
+    bufLen: number,
+    le: boolean,
+    isBigTIFF: boolean = false
+  ): number[] {
+    if (type !== 12 || count <= 0) return [];
+    const isInline = isBigTIFF && count * 8 <= 8;
+    const offset = isInline ? inlineOffset : valOrOffset;
+
+    if (offset + count * 8 > bufLen) return [];
+    const values: number[] = [];
+    for (let i = 0; i < count; i++) {
+      values.push(view.getFloat64(offset + i * 8, le));
     }
     return values;
   }
@@ -390,13 +433,57 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
     const tilesAcross = this.metadata?.tilesAcross || 1;
     const tilesDown = this.metadata?.tilesDown || 1;
 
-    let tileX = Math.floor(((centerLon + 180.0) / 360.0) * tilesAcross);
-    let tileY = Math.floor(((90.0 - centerLat) / 180.0) * tilesDown);
+    let tileX: number;
+    let tileY: number;
+
+    const metaBounds = this.metadata?.bounds;
+    if (
+      metaBounds &&
+      metaBounds.maxLon > metaBounds.minLon &&
+      metaBounds.maxLat > metaBounds.minLat &&
+      (metaBounds.maxLon - metaBounds.minLon < 350.0 || metaBounds.maxLat - metaBounds.minLat < 170.0)
+    ) {
+      const spanLon = metaBounds.maxLon - metaBounds.minLon;
+      const spanLat = metaBounds.maxLat - metaBounds.minLat;
+      const normX = Math.max(0.0, Math.min(1.0, (centerLon - metaBounds.minLon) / spanLon));
+      const normY = Math.max(0.0, Math.min(1.0, (metaBounds.maxLat - centerLat) / spanLat));
+      tileX = Math.floor(normX * tilesAcross);
+      tileY = Math.floor(normY * tilesDown);
+    } else {
+      tileX = Math.floor(((centerLon + 180.0) / 360.0) * tilesAcross);
+      tileY = Math.floor(((90.0 - centerLat) / 180.0) * tilesDown);
+    }
 
     tileX = Math.max(0, Math.min(tilesAcross - 1, tileX));
     tileY = Math.max(0, Math.min(tilesDown - 1, tileY));
 
     return { tileX, tileY };
+  }
+
+  /**
+   * Calculate geographic bounding box for an individual 256x256 tile
+   */
+  public getTileBounds(tileX: number, tileY: number): BoundingBox3D | null {
+    if (!this.metadata?.bounds) return null;
+    const { minLon, maxLon, minLat, maxLat } = this.metadata.bounds;
+    const tilesAcross = this.metadata.tilesAcross || 1;
+    const tilesDown = this.metadata.tilesDown || 1;
+    const spanLon = maxLon - minLon;
+    const spanLat = maxLat - minLat;
+
+    const tileMinLon = minLon + (tileX / tilesAcross) * spanLon;
+    const tileMaxLon = minLon + ((tileX + 1) / tilesAcross) * spanLon;
+    const tileMaxLat = maxLat - (tileY / tilesDown) * spanLat;
+    const tileMinLat = maxLat - ((tileY + 1) / tilesDown) * spanLat;
+
+    return {
+      minLon: tileMinLon,
+      maxLon: tileMaxLon,
+      minLat: tileMinLat,
+      maxLat: tileMaxLat,
+      minAlt: -10924,
+      maxAlt: 8848,
+    };
   }
 
   /**
@@ -577,9 +664,11 @@ export class GeoTIFFDataSource implements IDataSource<GeoTIFFMetadata> {
       nodata: -9999,
     };
 
+    const chunkBounds = (this.metadata?.bounds ? this.getTileBounds(tileX, tileY) : null) || bounds;
+
     this.lastChunk = {
-      chunkId: `cog-${zoom}-${bounds.minLon.toFixed(1)}-${bounds.minLat.toFixed(1)}`,
-      bounds,
+      chunkId: `cog-${zoom}-${tileX}-${tileY}`,
+      bounds: chunkBounds,
       vertexCount,
       attributes,
       meta,
