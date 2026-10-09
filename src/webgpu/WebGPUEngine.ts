@@ -4489,7 +4489,7 @@ export class WebGPUEngine {
           [tileW, tileH, 1]
         );
 
-        const effectiveBounds = chunk.bounds || bounds;
+        const effectiveBounds = (bounds.maxLon - bounds.minLon > 0.05) ? bounds : (chunk.bounds || bounds);
         this.regionalDEMTextures.set(id, {
           texture,
           view,
@@ -4515,6 +4515,125 @@ export class WebGPUEngine {
       return true;
     } catch (err) {
       console.warn(`WebGPUEngine.streamRegionalCOGTile failed for ${id}:`, err);
+      return false;
+    }
+  }
+
+  /**
+   * Asynchronously streams and mosaics all tiles for a regional Cloud-Optimized GeoTIFF (COG),
+   * providing full geographic boundary coverage at 30m resolution without tile seams or feather smudges.
+   */
+  public async streamRegionalCOG(
+    id: string,
+    bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number },
+    cogUrl?: string
+  ): Promise<boolean> {
+    const url = cogUrl || `/regional/${id}.cog.tif`;
+
+    try {
+      if (!this.geoTIFFDataSource.isConnected || this.geoTIFFDataSource.endpointUrl !== this.geoTIFFDataSource.normalizeUrl(url)) {
+        const connected = await this.geoTIFFDataSource.connect(url);
+        if (!connected) {
+          return false;
+        }
+      }
+
+      const meta = this.geoTIFFDataSource.metadata;
+      if (!meta || !this.device || !this.isInitialized) {
+        return false;
+      }
+
+      const tilesAcross = meta.tilesAcross || 1;
+      const tilesDown = meta.tilesDown || 1;
+      const regW = meta.width;
+      const regH = meta.height;
+      const tileW = meta.tileWidth || 256;
+      const tileH = meta.tileHeight || 256;
+      const regBounds = meta.bounds || bounds;
+
+      const tilePromises: Promise<{ tx: number; ty: number; data: Float32Array }>[] = [];
+      for (let ty = 0; ty < tilesDown; ty++) {
+        for (let tx = 0; tx < tilesAcross; tx++) {
+          tilePromises.push(
+            this.geoTIFFDataSource.fetchTile(tx, ty, 0).then((data) => ({ tx, ty, data }))
+          );
+        }
+      }
+      const fetchedTiles = await Promise.all(tilePromises);
+
+      const rawRowBytes = regW * 8;
+      const paddedRowBytes = Math.ceil(rawRowBytes / 256) * 256;
+      const rowElements = paddedRowBytes / 2;
+      const dstData = new Uint16Array(rowElements * regH);
+
+      for (const { tx, ty, data } of fetchedTiles) {
+        const startX = tx * tileW;
+        const startY = ty * tileH;
+        const wToWrite = Math.min(tileW, regW - startX);
+        const hToWrite = Math.min(tileH, regH - startY);
+
+        for (let y = 0; y < hToWrite; y++) {
+          const srcRowOffset = y * tileW;
+          const dstRowOffset = (startY + y) * rowElements + startX * 4;
+          for (let x = 0; x < wToWrite; x++) {
+            const elev = data[srcRowOffset + x];
+            const rNorm = Math.max(0.0, Math.min(1.0, elev / 8848.0));
+            const gNorm = Math.max(0.0, Math.min(1.0, -elev / 10924.0));
+            const bNorm = elev >= 0.0 ? 1.0 : 0.0;
+            const aNorm = Math.max(0.0, Math.min(1.0, (elev + 10924.0) / 19772.0));
+
+            dstData[dstRowOffset + x * 4 + 0] = encodeFloat16(rNorm);
+            dstData[dstRowOffset + x * 4 + 1] = encodeFloat16(gNorm);
+            dstData[dstRowOffset + x * 4 + 2] = encodeFloat16(bNorm);
+            dstData[dstRowOffset + x * 4 + 3] = encodeFloat16(aNorm);
+          }
+        }
+      }
+
+      const existing = this.regionalDEMTextures.get(id);
+      let texture: GPUTexture;
+      let view: GPUTextureView;
+
+      if (existing && existing.width === regW && existing.height === regH) {
+        texture = existing.texture;
+        view = existing.view;
+      } else {
+        if (existing) {
+          try { existing.texture.destroy(); } catch {}
+        }
+        texture = this.device.createTexture({
+          label: `regional_dem_${id}`,
+          size: [regW, regH, 1],
+          mipLevelCount: 1,
+          format: 'rgba16float',
+          usage: (typeof GPUTextureUsage !== 'undefined'
+            ? (GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST)
+            : (4 | 8)),
+        });
+        view = texture.createView();
+      }
+
+      this.device.queue.writeTexture(
+        { texture },
+        dstData.buffer,
+        { bytesPerRow: paddedRowBytes, rowsPerImage: regH, offset: 0 },
+        [regW, regH, 1]
+      );
+
+      this.regionalDEMTextures.set(id, {
+        texture,
+        view,
+        bounds: regBounds,
+        width: regW,
+        height: regH,
+        id,
+      });
+
+      this.activeRegionalTileKey = `${id}:full`;
+      this.setActiveRegionalDEM(id);
+      return true;
+    } catch (err) {
+      console.warn(`WebGPUEngine.streamRegionalCOG failed for ${id}:`, err);
       return false;
     }
   }

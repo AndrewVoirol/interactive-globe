@@ -2395,10 +2395,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         // Configure dual-surface crust resolution dynamically across 100k .. 16M tiers
         const sphereInfo = engine.rebuildSphereMesh(tier.lat, tier.lon);
 
-        // Asynchronously ingest ETOPO 2022 Cloud-Optimized GeoTIFF (COG) with GEBCO/ETOPO .bin fallback
-        engine.loadDEMTexture('/earth-etopo2022.cog.tif').catch(() => {
-          engine.loadDEMTexture('/earth-gebco2024-dem-u16.bin').catch(() => {
-            engine.loadDEMTexture('/earth-etopo2022-dem-u16.bin').catch(() => {});
+        // Asynchronously ingest GEBCO 2024 16-bit DEM texture with ETOPO 2022 fallback (Phase 2)
+        engine.loadDEMTexture('/earth-gebco2024-dem-u16.bin').catch(() => {
+          engine.loadDEMTexture('/earth-etopo2022-dem-u16.bin').catch(() => {
+            engine.loadDEMTexture('/earth-etopo2022.cog.tif').catch(() => {});
           });
         });
         engine.loadHydroTexture('/earth-hydrology-bc5.dds').catch(() => {});
@@ -2483,10 +2483,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
 
           const sphereInfo = engine.rebuildSphereMesh(tier.lat, tier.lon);
 
-          // Asynchronously ingest ETOPO 2022 Cloud-Optimized GeoTIFF (COG) with GEBCO/ETOPO .bin fallback
-          engine.loadDEMTexture('/earth-etopo2022.cog.tif').catch(() => {
-            engine.loadDEMTexture('/earth-gebco2024-dem-u16.bin').catch(() => {
-              engine.loadDEMTexture('/earth-etopo2022-dem-u16.bin').catch(() => {});
+          // Asynchronously ingest GEBCO 2024 16-bit DEM texture with ETOPO 2022 fallback (Phase 2)
+          engine.loadDEMTexture('/earth-gebco2024-dem-u16.bin').catch(() => {
+            engine.loadDEMTexture('/earth-etopo2022-dem-u16.bin').catch(() => {
+              engine.loadDEMTexture('/earth-etopo2022.cog.tif').catch(() => {});
             });
           });
           engine.loadHydroTexture('/earth-hydrology-bc5.dds').catch(() => {});
@@ -2919,7 +2919,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
               if (activeTileKeyRef.current !== targetTileKey && !loadingRegionsRef.current.has(regId)) {
                 loadingRegionsRef.current.add(regId);
                 engine
-                  .streamRegionalCOGTile(regId, cameraPointBounds, 10, matchedRegion.cogUrl)
+                  .streamRegionalCOG(regId, matchedRegion.bounds, matchedRegion.cogUrl)
                   .then((success) => {
                     loadingRegionsRef.current.delete(regId);
                     if (success) {
