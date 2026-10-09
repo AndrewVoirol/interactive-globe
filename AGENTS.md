@@ -52,6 +52,10 @@ No shader, geometry, or thematic refactor is complete based solely on compilatio
 - Vector fragments attenuate to zero before crossing the planetary horizon limb (`smoothstep(0.02, 0.20, in.facing)`).
 - Resolve z-fighting exclusively through hardware depth bias (`depthBias: -120`, `depthBiasSlopeScale: -1.0`) on **polygonal pipelines** (`triangle-list`, `triangle-strip`), not geometric standoffs.
 - **W3C WebGPU §10.3.3 Primitive Invariant**: Hardware `depthBias` is strictly prohibited on non-polygonal primitive topologies (`point-list`, `line-list`). Point and line render pipelines must specify `depthBias: 0` or omit the property entirely.
+- **Forward Overlay Depth Occlusion Invariant (`depthCompare: 'less-equal'`)**: All forward-rendered overlay pipelines (streamline ribbons, particle trails, orbital tracks, atmospheric flow vectors, and geographic vector ink) MUST configure `depthCompare: 'less-equal'` with `depthWriteEnabled: false`. Configuring transparent or additive overlays with `'always'` completely bypasses hardware depth testing: back-facing streams and distant particles on the far side of the planet render directly on top of foreground terrain and project across the open sky at grazing camera angles.
+- **Perspective-Correct Screen-Space Ribbon Expansion ($W$-Clip Scaling)**: When vertex shaders expand 3D line segments into camera-facing 2D screen-space triangle ribbons:
+  1. Pre-normalize spherical endpoints to canonical radius $R_0$ before manifold evaluation: $\mathbf{p}_{\text{norm}} = \frac{\mathbf{p}}{\|\mathbf{p}\|} \cdot R_0$.
+  2. Apply screen-space pixel expansion offsets directly to clip coordinates scaled by the homogeneous $W$ component (`out.clipPos = vec4<f32>(baseClip.xy + offsetNdc * baseClip.w, baseClip.z, baseClip.w)`). Unscaled offsets distort perspective interpolation and produce geometric tears at screen boundaries.
 
 ## 8. Cross-Pipeline DEM Parity
 Any secondary WebGPU render pass that conforms to the planetary crust must use the identical geoid decoding formula as `crust_hydrosphere.wgsl`:
@@ -100,6 +104,9 @@ When in doubt, present 2-3 parameter options rather than picking one extreme.
 - Inland waterways must be derived from the DEM's discrete Laplacian curvature, not decoupled 2D vector river networks.
 - Waterway widths scale according to Leopold-Maddock hydraulic power laws, naturally tapering from headwater rills to coastal estuaries.
 - Rivers must sit in actual DEM valley floors, not wander across valley sidewalls.
+- **Exposed Bathymetry Shell Discard & Compressed Texture Noise Gating**: In cartographic relief modes where ocean basins expose bathymetry ($R < R_0$, such as Swiss Relief or physiographic charts), secondary concentric shells (e.g. the liquid hydrosphere at datum $R = R_0$) MUST conditionally discard over ocean fragments:
+  1. *Compressed DEM Texture Noise Gating*: Bilinear interpolation and block-compression artifacts in 2-channel DDS textures (e.g. BC5 decompressed lake elevation) produce small non-zero values ($z_{\text{lake}} > 0.0$) in ocean basins. Inland lake detection must be strictly coupled with land-mask classification (`isLake = demSampleComp.b > 0.45 && z_lake > 1.0`).
+  2. *Relief Mode Basin Discard*: When sea level elevation is nominal and the fragment is not a classified inland lake, the water shell must discard (`if (sim.u_renderStyle == 0u && abs(sim.u_seaLevel) <= 0.01 && !isLake) { discard; }` and `if (hydroColor.a <= 0.001) { discard; }`). This prevents redundant water shells from writing depth at $R = R_0$ over deep ocean trenches ($R \approx 4.85$), which flattens bathymetric relief and creates severe z-buffer fighting.
 
 ## 15. WebGPU Canvas Compositing
 When `alphaMode: 'premultiplied'` is enabled, all render passes targeting the swapchain texture MUST set `clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }`. Non-zero RGB with $a=0.0$ causes additive blowout against DOM paper backgrounds.
