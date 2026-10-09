@@ -384,6 +384,7 @@ export interface RegionalInsetMetadata {
   height: number;
   binUrl: string;
   webpUrl: string;
+  cogUrl?: string;
 }
 
 export const SAMPLE_REGIONAL_INSETS: RegionalInsetMetadata[] = [
@@ -395,6 +396,7 @@ export const SAMPLE_REGIONAL_INSETS: RegionalInsetMetadata[] = [
     height: 3600,
     binUrl: '/regional/hawaii-dem-u16.bin',
     webpUrl: '/regional/hawaii-dem.webp',
+    cogUrl: '/regional/hawaii.cog.tif',
   },
   {
     id: 'capecod',
@@ -404,6 +406,7 @@ export const SAMPLE_REGIONAL_INSETS: RegionalInsetMetadata[] = [
     height: 2400,
     binUrl: '/regional/capecod-dem-u16.bin',
     webpUrl: '/regional/capecod-dem.webp',
+    cogUrl: '/regional/capecod.cog.tif',
   },
   {
     id: 'grand-canyon',
@@ -413,6 +416,7 @@ export const SAMPLE_REGIONAL_INSETS: RegionalInsetMetadata[] = [
     height: 540,
     binUrl: '/regional/dem-grand-canyon-30m.bin',
     webpUrl: '/regional/dem-grand-canyon-30m.webp',
+    cogUrl: '/regional/dem-grand-canyon-30m.cog.tif',
   },
   {
     id: 'fuji',
@@ -422,5 +426,6 @@ export const SAMPLE_REGIONAL_INSETS: RegionalInsetMetadata[] = [
     height: 540,
     binUrl: '/regional/dem-fuji-30m.bin',
     webpUrl: '/regional/dem-fuji-30m.webp',
+    cogUrl: '/regional/dem-fuji-30m.cog.tif',
   },
 ];

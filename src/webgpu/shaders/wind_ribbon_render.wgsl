@@ -319,6 +319,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         alphaBase = alphaBase + condensation * 0.18;
     }
 
-    let finalAlpha = in.alpha * capillaryFeather * alphaBase + dVertVel * 0.000001;
+    let sphereFactor = 1.0 - smoothstep(0.0, 0.35, sim.u_unfurl);
+    let limbFalloff = mix(1.0, smoothstep(0.02, 0.20, in.facing), sphereFactor);
+    let finalAlpha = in.alpha * capillaryFeather * alphaBase * limbFalloff + dVertVel * 0.000001;
     return vec4<f32>(color, finalAlpha);
 }

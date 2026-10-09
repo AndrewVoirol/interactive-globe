@@ -41,3 +41,4 @@ public/data/weathernext/*.bin
 AGENTS.md.archive-113-rules
 artifacts/
 .worktrees/
+.vitest/

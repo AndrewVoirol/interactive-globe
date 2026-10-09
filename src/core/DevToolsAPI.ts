@@ -104,6 +104,7 @@ declare global {
     theme?: number;
     setShowVectors?: (show: boolean) => void;
     setCursorPhysicsEnabled?: (enabled: boolean) => void;
+    setCdlodDiagnosticMode?: (mode: number | ((prev: number) => number)) => void;
     backend?: string;
   }
 }
@@ -194,6 +195,7 @@ export function registerDevToolsAPI(state: EngineStateHook): void {
   window.theme = state.theme;
   window.setShowVectors = state.setShowVectors;
   window.setCursorPhysicsEnabled = state.setCursorPhysicsEnabled;
+  window.setCdlodDiagnosticMode = state.setCdlodDiagnosticMode;
   window.backend = state.backend;
   (window as any).runComprehensiveProfilingSuite = runComprehensiveProfilingSuite;
 }

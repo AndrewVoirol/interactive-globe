@@ -101,6 +101,15 @@ describe('DataProvenanceOverlay & Provenance Telemetry (Phase 5)', () => {
     expect(getActiveInsetDataset(0, 0, 'grand-canyon')).toBe('USGS 3DEP (30m)');
   });
 
+  it('PROV-03b: dynamically switches to Copernicus GLO-30 (30m) in Mount Fuji litmus zone', () => {
+    // Mount Fuji bounds (35.2°N-35.5°N, 138.5°E-139.0°E)
+    expect(getActiveInsetDataset(35.3606, 138.7274)).toBe('Copernicus GLO-30 (30m)');
+    expect(getActiveInsetDataset(35.4, 138.8)).toBe('Copernicus GLO-30 (30m)');
+
+    // Engine regional active override
+    expect(getActiveInsetDataset(0, 0, 'fuji')).toBe('Copernicus GLO-30 (30m)');
+  });
+
   it('PROV-04: defaults to None (Global Topobathy) outside regional litmus bounds', () => {
     // Mount Everest
     expect(getActiveInsetDataset(27.9881, 86.9250)).toBe('None (Global Topobathy)');

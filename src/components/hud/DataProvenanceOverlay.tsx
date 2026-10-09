@@ -44,6 +44,9 @@ export function getActiveInsetDataset(lat?: number, lon?: number, activeRegionId
   if (activeRegionId === 'grand-canyon') {
     return 'USGS 3DEP (30m)';
   }
+  if (activeRegionId === 'fuji') {
+    return 'Copernicus GLO-30 (30m)';
+  }
 
   if (lat !== undefined && lon !== undefined) {
     // Hawaii litmus bounds: 18°N-23°N, 161°W-154°W
@@ -57,6 +60,10 @@ export function getActiveInsetDataset(lat?: number, lon?: number, activeRegionId
     // Grand Canyon litmus bounds: 35.9°N-36.5°N, 112.5°W-111.5°W
     if (lon >= -112.5 && lon <= -111.5 && lat >= 35.9 && lat <= 36.5) {
       return 'USGS 3DEP (30m)';
+    }
+    // Mount Fuji litmus bounds: 35.2°N-35.5°N, 138.5°E-139.0°E
+    if (lon >= 138.5 && lon <= 139.0 && lat >= 35.2 && lat <= 35.5) {
+      return 'Copernicus GLO-30 (30m)';
     }
   }
 

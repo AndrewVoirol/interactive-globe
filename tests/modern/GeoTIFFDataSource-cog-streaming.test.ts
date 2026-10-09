@@ -211,6 +211,34 @@ describe('Cloud-Optimized GeoTIFF (COG) Regional Streaming Pipeline', () => {
         globalThis.fetch = originalFetch;
       }
     });
+
+    it('strictly fails and returns false on HTTP 404 without activating procedural fallback', async () => {
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async () => {
+        return new Response('Not Found', { status: 404, statusText: 'Not Found' });
+      });
+
+      try {
+        const source = new GeoTIFFDataSource('hawaii-404');
+        const connected = await source.connect('/regional/missing.cog.tif');
+        expect(connected).toBe(false);
+        expect(source.isConnected).toBe(false);
+        expect(source.metadata).toBeNull();
+        await expect(source.fetchTile(0, 0, 0)).rejects.toThrow();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('activates procedural synthetic metadata for explicit mock:// endpoints', async () => {
+      const source = new GeoTIFFDataSource('mock-cog');
+      const connected = await source.connect('mock://hawaii.cog.tif');
+      expect(connected).toBe(true);
+      expect(source.isConnected).toBe(true);
+      expect(source.metadata?.width).toBe(256);
+      const tile = await source.fetchTile(0, 0, 0);
+      expect(tile).toHaveLength(256 * 256);
+    });
   });
 
   // ==========================================================================
@@ -341,4 +369,842 @@ describe('Cloud-Optimized GeoTIFF (COG) Regional Streaming Pipeline', () => {
       }).toThrow();
     });
   });
+
+  // ==========================================================================
+  // Section 5: Production Cloud-Optimized GeoTIFF File & Spatial Tag Verification
+  // ==========================================================================
+  describe('5. Production COG Files & Spatial Tag Verification', () => {
+    const hawaiiCogPath = path.resolve(__dirname, '../../public/regional/hawaii.cog.tif');
+    const capecodCogPath = path.resolve(__dirname, '../../public/regional/capecod.cog.tif');
+
+    it('verifies production hawaii.cog.tif exists and parses spatial bounds correctly', () => {
+      expect(fs.existsSync(hawaiiCogPath)).toBe(true);
+      const fileBuf = fs.readFileSync(hawaiiCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + 65536);
+
+      const source = new GeoTIFFDataSource('hawaii-prod', '/regional/hawaii.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab);
+
+      expect(parsed).not.toBeNull();
+      expect(parsed?.metadata.width).toBe(5400);
+      expect(parsed?.metadata.height).toBe(3600);
+      expect(parsed?.metadata.tileWidth).toBe(256);
+      expect(parsed?.metadata.tileHeight).toBe(256);
+      expect(parsed?.metadata.tilesAcross).toBe(22);
+      expect(parsed?.metadata.tilesDown).toBe(15);
+      expect(parsed?.tileOffsets).toHaveLength(330);
+      expect(parsed?.metadata.compression).toBe(8); // DEFLATE
+
+      // Spatial bounds verification from ModelTiepointTag / ModelPixelScaleTag
+      const bounds = parsed?.metadata.bounds;
+      expect(bounds).toBeDefined();
+      expect(bounds?.minLon).toBeCloseTo(-161.0, 1);
+      expect(bounds?.maxLon).toBeCloseTo(-154.0, 1);
+      expect(bounds?.minLat).toBeCloseTo(18.0, 1);
+      expect(bounds?.maxLat).toBeCloseTo(23.0, 1);
+    });
+
+    it('normalizes regional tile coordinates relative to regional bounding box', () => {
+      const source = new GeoTIFFDataSource('hawaii-prod');
+      source.metadata = {
+        projection: 'EPSG:4326',
+        bands: 1,
+        width: 5400,
+        height: 3600,
+        tileWidth: 256,
+        tileHeight: 256,
+        tilesAcross: 22,
+        tilesDown: 15,
+        bounds: { minLon: -161.0, maxLon: -154.0, minLat: 18.0, maxLat: 23.0 },
+      };
+
+      // Center of Hawaii archipelago (-157.5, 20.5) should map to center tile (11, 7)
+      const centerCoords = source.calculateTileCoords({
+        minLon: -158.0,
+        maxLon: -157.0,
+        minLat: 20.0,
+        maxLat: 21.0,
+      });
+      expect(centerCoords.tileX).toBe(11);
+      expect(centerCoords.tileY).toBe(7);
+
+      // Mauna Kea on Big Island (~ -155.47, 19.82) should map to tile (17, 9) or (16, 9)
+      const maunaKeaCoords = source.calculateTileCoords({
+        minLon: -155.5,
+        maxLon: -155.4,
+        minLat: 19.8,
+        maxLat: 19.9,
+      });
+      expect(maunaKeaCoords.tileX).toBe(17);
+      expect(maunaKeaCoords.tileY).toBe(9);
+    });
+
+    it('fetches real Mauna Kea elevation tile (>4,000m) from hawaii.cog.tif using byte ranges', async () => {
+      const fileBuf = fs.readFileSync(hawaiiCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const source = new GeoTIFFDataSource('hawaii-prod', '/regional/hawaii.cog.tif');
+      const headerAb = ab.slice(0, 65536);
+      const parsed = source.parseTIFFHeaderAndIFD(headerAb);
+      expect(parsed).not.toBeNull();
+
+      source.metadata = parsed!.metadata;
+      source.tileOffsets = parsed!.tileOffsets;
+      source.tileByteCounts = parsed!.tileByteCounts;
+
+      // Mock readRange with arrayBuffer slice
+      source.readRange = async (offset: number, length: number) => {
+        return ab.slice(offset, offset + length);
+      };
+
+      // Query tile (16, 9) containing Mauna Kea summit
+      const tile = await source.fetchTile(16, 9, 0);
+      expect(tile).toHaveLength(256 * 256);
+      const maxElev = Math.max(...tile);
+      expect(maxElev).toBeGreaterThan(4000.0);
+      expect(maxElev).toBeLessThan(4250.0);
+    });
+
+    it('verifies production capecod.cog.tif exists and has correct coastal elevation bounds', async () => {
+      expect(fs.existsSync(capecodCogPath)).toBe(true);
+      const fileBuf = fs.readFileSync(capecodCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const source = new GeoTIFFDataSource('capecod-prod', '/regional/capecod.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab.slice(0, 65536));
+      expect(parsed).not.toBeNull();
+      expect(parsed?.metadata.width).toBe(2400);
+      expect(parsed?.metadata.height).toBe(2400);
+      expect(parsed?.metadata.bounds?.minLon).toBeCloseTo(-71.0, 1);
+      expect(parsed?.metadata.bounds?.maxLon).toBeCloseTo(-69.0, 1);
+
+      source.metadata = parsed!.metadata;
+      source.tileOffsets = parsed!.tileOffsets;
+      source.tileByteCounts = parsed!.tileByteCounts;
+      source.readRange = async (offset, length) => ab.slice(offset, offset + length);
+
+      // Query center tile (5, 5)
+      const tile = await source.fetchTile(5, 5, 0);
+      expect(tile).toHaveLength(256 * 256);
+      const minElev = Math.min(...tile);
+      const maxElev = Math.max(...tile);
+      // Coastal Cape Cod / Atlantic waters: negative depths and low coastal elevations
+      expect(minElev).toBeLessThan(0.0);
+      expect(maxElev).toBeLessThan(200.0);
+    });
+
+    it('verifies production grand-canyon COG exists and parses spatial bounds correctly', () => {
+      const gcCogPath = path.resolve(__dirname, '../../public/regional/dem-grand-canyon-30m.cog.tif');
+      const gcSymlinkPath = path.resolve(__dirname, '../../public/regional/grand-canyon.cog.tif');
+      expect(fs.existsSync(gcCogPath)).toBe(true);
+      expect(fs.existsSync(gcSymlinkPath)).toBe(true);
+
+      const fileBuf = fs.readFileSync(gcCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + 65536);
+
+      const source = new GeoTIFFDataSource('grand-canyon-prod', '/regional/grand-canyon.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab);
+
+      expect(parsed).not.toBeNull();
+      expect(parsed?.metadata.width).toBe(900);
+      expect(parsed?.metadata.height).toBe(540);
+      expect(parsed?.metadata.tileWidth).toBe(256);
+      expect(parsed?.metadata.tileHeight).toBe(256);
+      expect(parsed?.metadata.tilesAcross).toBe(4);
+      expect(parsed?.metadata.tilesDown).toBe(3);
+      expect(parsed?.tileOffsets).toHaveLength(12);
+      expect(parsed?.metadata.compression).toBe(8); // DEFLATE
+
+      const bounds = parsed?.metadata.bounds;
+      expect(bounds).toBeDefined();
+      expect(bounds?.minLon).toBeCloseTo(-112.5, 2);
+      expect(bounds?.maxLon).toBeCloseTo(-111.5, 2);
+      expect(bounds?.minLat).toBeCloseTo(35.9, 2);
+      expect(bounds?.maxLat).toBeCloseTo(36.5, 2);
+    });
+
+    it('fetches real Colorado River incision tile and plateau rim from grand canyon COG', async () => {
+      const gcCogPath = path.resolve(__dirname, '../../public/regional/dem-grand-canyon-30m.cog.tif');
+      const fileBuf = fs.readFileSync(gcCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const source = new GeoTIFFDataSource('grand-canyon-prod', '/regional/grand-canyon.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab.slice(0, 65536));
+      expect(parsed).not.toBeNull();
+
+      source.metadata = parsed!.metadata;
+      source.tileOffsets = parsed!.tileOffsets;
+      source.tileByteCounts = parsed!.tileByteCounts;
+      source.readRange = async (offset, length) => ab.slice(offset, offset + length);
+
+      // Tile 0 contains the deepest canyon floor incision (~605m) and plateau elevation (>2600m)
+      const tile = await source.fetchTile(0, 0, 0);
+      expect(tile).toHaveLength(256 * 256);
+      const validElevs = Array.from(tile).filter((v) => v > -9000);
+      const minElev = Math.min(...validElevs);
+      const maxElev = Math.max(...validElevs);
+
+      expect(minElev).toBeGreaterThan(600.0);
+      expect(minElev).toBeLessThan(620.0);
+      expect(maxElev).toBeGreaterThan(2600.0);
+      expect(maxElev).toBeLessThan(2850.0);
+    });
+
+    it('verifies production mount fuji COG exists and parses spatial bounds correctly', () => {
+      const fujiCogPath = path.resolve(__dirname, '../../public/regional/dem-fuji-30m.cog.tif');
+      const fujiSymlinkPath = path.resolve(__dirname, '../../public/regional/fuji.cog.tif');
+      expect(fs.existsSync(fujiCogPath)).toBe(true);
+      expect(fs.existsSync(fujiSymlinkPath)).toBe(true);
+
+      const fileBuf = fs.readFileSync(fujiCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + 65536);
+
+      const source = new GeoTIFFDataSource('fuji-prod', '/regional/fuji.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab);
+
+      expect(parsed).not.toBeNull();
+      expect(parsed?.metadata.width).toBe(900);
+      expect(parsed?.metadata.height).toBe(540);
+      expect(parsed?.metadata.tileWidth).toBe(256);
+      expect(parsed?.metadata.tileHeight).toBe(256);
+      expect(parsed?.metadata.tilesAcross).toBe(4);
+      expect(parsed?.metadata.tilesDown).toBe(3);
+      expect(parsed?.tileOffsets).toHaveLength(12);
+      expect(parsed?.metadata.compression).toBe(8); // DEFLATE
+
+      const bounds = parsed?.metadata.bounds;
+      expect(bounds).toBeDefined();
+      expect(bounds?.minLon).toBeCloseTo(138.5, 2);
+      expect(bounds?.maxLon).toBeCloseTo(139.0, 2);
+      expect(bounds?.minLat).toBeCloseTo(35.2, 2);
+      expect(bounds?.maxLat).toBeCloseTo(35.5, 2);
+    });
+
+    it('fetches real Mount Fuji summit caldera tile (>3,700m) from fuji COG', async () => {
+      const fujiCogPath = path.resolve(__dirname, '../../public/regional/dem-fuji-30m.cog.tif');
+      const fileBuf = fs.readFileSync(fujiCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const source = new GeoTIFFDataSource('fuji-prod', '/regional/fuji.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab.slice(0, 65536));
+      expect(parsed).not.toBeNull();
+
+      source.metadata = parsed!.metadata;
+      source.tileOffsets = parsed!.tileOffsets;
+      source.tileByteCounts = parsed!.tileByteCounts;
+      source.readRange = async (offset, length) => ab.slice(offset, offset + length);
+
+      // Tile 1 (tileX=1, tileY=0) contains the northern summit caldera peak (3,756m)
+      const tile = await source.fetchTile(1, 0, 0);
+      expect(tile).toHaveLength(256 * 256);
+      const validElevs = Array.from(tile).filter((v) => v > -9000);
+      const maxElev = Math.max(...validElevs);
+
+      expect(maxElev).toBeGreaterThan(3700.0);
+      expect(maxElev).toBeLessThan(3800.0);
+    });
+
+    it('verifies all 4 regional manifest entries define valid COG URLs pointing to existing files', () => {
+      const manifestPath = path.resolve(__dirname, '../../public/regional/manifest.json');
+      expect(fs.existsSync(manifestPath)).toBe(true);
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+
+      expect(manifest.regions).toHaveLength(4);
+      for (const reg of manifest.regions) {
+        expect(reg.cogUrl).toBeDefined();
+        const diskPath = path.resolve(__dirname, '../../public', reg.cogUrl.replace(/^\//, ''));
+        expect(fs.existsSync(diskPath)).toBe(true);
+      }
+    });
+
+    it('calculates exact tile bounds and coordinate mapping for Grand Canyon and Fuji', () => {
+      const gcSource = new GeoTIFFDataSource('grand-canyon-bounds');
+      gcSource.metadata = {
+        projection: 'EPSG:4326',
+        bands: 1,
+        width: 900,
+        height: 540,
+        tileWidth: 256,
+        tileHeight: 256,
+        tilesAcross: 4,
+        tilesDown: 3,
+        bounds: { minLon: -112.5, maxLon: -111.5, minLat: 35.9, maxLat: 36.5 },
+      };
+
+      // Grand Canyon South Rim approach (-112.14, 36.06)
+      const gcCoords = gcSource.calculateTileCoords({
+        minLon: -112.15,
+        maxLon: -112.13,
+        minLat: 36.05,
+        maxLat: 36.07,
+      });
+      expect(gcCoords.tileX).toBe(1);
+      expect(gcCoords.tileY).toBe(2);
+
+      const gcTileBounds = gcSource.getTileBounds(gcCoords.tileX, gcCoords.tileY);
+      expect(gcTileBounds).not.toBeNull();
+      expect(gcTileBounds?.minLon).toBeCloseTo(-112.25, 2);
+      expect(gcTileBounds?.maxLon).toBeCloseTo(-112.0, 2);
+      expect(gcTileBounds?.minLat).toBeCloseTo(35.9, 2);
+      expect(gcTileBounds?.maxLat).toBeCloseTo(36.1, 2);
+
+      // Mount Fuji summit caldera (138.73, 35.36)
+      const fujiSource = new GeoTIFFDataSource('fuji-bounds');
+      fujiSource.metadata = {
+        projection: 'EPSG:4326',
+        bands: 1,
+        width: 900,
+        height: 540,
+        tileWidth: 256,
+        tileHeight: 256,
+        tilesAcross: 4,
+        tilesDown: 3,
+        bounds: { minLon: 138.5, maxLon: 139.0, minLat: 35.2, maxLat: 35.5 },
+      };
+
+      const fujiCoords = fujiSource.calculateTileCoords({
+        minLon: 138.72,
+        maxLon: 138.74,
+        minLat: 35.35,
+        maxLat: 35.37,
+      });
+      expect(fujiCoords.tileX).toBe(1);
+      expect(fujiCoords.tileY).toBe(1);
+
+      const fujiTileBounds = fujiSource.getTileBounds(fujiCoords.tileX, fujiCoords.tileY);
+      expect(fujiTileBounds).not.toBeNull();
+      expect(fujiTileBounds?.minLon).toBeCloseTo(138.625, 3);
+      expect(fujiTileBounds?.maxLon).toBeCloseTo(138.75, 3);
+      expect(fujiTileBounds?.minLat).toBeCloseTo(35.3, 2);
+      expect(fujiTileBounds?.maxLat).toBeCloseTo(35.4, 2);
+    });
+
+    it('verifies GeoTIFFDataSource normalizes bare region identifiers to standard COG paths', () => {
+      const source = new GeoTIFFDataSource();
+      expect(source.normalizeUrl('hawaii')).toBe('/regional/hawaii.cog.tif');
+      expect(source.normalizeUrl('capecod')).toBe('/regional/capecod.cog.tif');
+      expect(source.normalizeUrl('cape-cod')).toBe('/regional/cape-cod.cog.tif');
+      expect(source.normalizeUrl('grand-canyon')).toBe('/regional/grand-canyon.cog.tif');
+      expect(source.normalizeUrl('fuji')).toBe('/regional/fuji.cog.tif');
+      expect(source.normalizeUrl('/regional/hawaii.cog.tif')).toBe('/regional/hawaii.cog.tif');
+    });
+  });
+
+  // ==========================================================================
+  // Section 6: Global Basemap Cloud-Optimized GeoTIFF Streaming & Overviews
+  // ==========================================================================
+  describe('6. Global Basemap Cloud-Optimized GeoTIFF Streaming', () => {
+    const globalCogPath = path.resolve(__dirname, '../../public/earth-etopo2022.cog.tif');
+
+    it('verifies production earth-etopo2022.cog.tif exists and parses global 8K metadata', () => {
+      expect(fs.existsSync(globalCogPath)).toBe(true);
+      const fileBuf = fs.readFileSync(globalCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + 65536);
+
+      const source = new GeoTIFFDataSource('global-etopo-cog', '/earth-etopo2022.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab);
+
+      expect(parsed).not.toBeNull();
+      expect(parsed?.metadata.width).toBe(8192);
+      expect(parsed?.metadata.height).toBe(4096);
+      expect(parsed?.metadata.tileWidth).toBe(256);
+      expect(parsed?.metadata.tileHeight).toBe(256);
+      expect(parsed?.metadata.tilesAcross).toBe(32);
+      expect(parsed?.metadata.tilesDown).toBe(16);
+      expect(parsed?.tileOffsets).toHaveLength(512); // 32 * 16 = 512 tiles at level 0
+
+      const bounds = parsed?.metadata.bounds;
+      expect(bounds).toBeDefined();
+      expect(bounds?.minLon).toBeCloseTo(-180.0, 1);
+      expect(bounds?.maxLon).toBeCloseTo(180.0, 1);
+      expect(bounds?.minLat).toBeCloseTo(-90.0, 1);
+      expect(bounds?.maxLat).toBeCloseTo(90.0, 1);
+    });
+
+    it('maps global litmus benchmark coordinates to exact 256x256 tile indices', () => {
+      const source = new GeoTIFFDataSource('global-etopo-coords');
+      source.metadata = {
+        projection: 'EPSG:4326',
+        bands: 1,
+        width: 8192,
+        height: 4096,
+        tileWidth: 256,
+        tileHeight: 256,
+        tilesAcross: 32,
+        tilesDown: 16,
+        bounds: { minLon: -180.0, maxLon: 180.0, minLat: -90.0, maxLat: 90.0 },
+      };
+
+      // Mount Everest (27.988°N, 86.925°E) -> Tile (23, 5)
+      const everest = source.calculateTileCoords({
+        minLon: 86.92,
+        maxLon: 86.93,
+        minLat: 27.98,
+        maxLat: 27.99,
+      });
+      expect(everest.tileX).toBe(23);
+      expect(everest.tileY).toBe(5);
+
+      // Mariana Trench Challenger Deep (11.373°N, 142.592°E) -> Tile (28, 6)
+      const mariana = source.calculateTileCoords({
+        minLon: 142.59,
+        maxLon: 142.60,
+        minLat: 11.37,
+        maxLat: 11.38,
+      });
+      expect(mariana.tileX).toBe(28);
+      expect(mariana.tileY).toBe(6);
+
+      // Matterhorn / Swiss Alps (45.976°N, 7.659°E) -> Tile (16, 3)
+      const matterhorn = source.calculateTileCoords({
+        minLon: 7.65,
+        maxLon: 7.66,
+        minLat: 45.97,
+        maxLat: 45.98,
+      });
+      expect(matterhorn.tileX).toBe(16);
+      expect(matterhorn.tileY).toBe(3);
+
+      // Lake Titicaca (-15.8°N, -69.4°W) -> Tile (9, 9)
+      const titicaca = source.calculateTileCoords({
+        minLon: -69.41,
+        maxLon: -69.39,
+        minLat: -15.81,
+        maxLat: -15.79,
+      });
+      expect(titicaca.tileX).toBe(9);
+      expect(titicaca.tileY).toBe(9);
+    });
+
+    it('fetches real global elevation tiles for Everest and Mariana Trench using range requests', async () => {
+      const fileBuf = fs.readFileSync(globalCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const source = new GeoTIFFDataSource('global-etopo-prod', '/earth-etopo2022.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab.slice(0, 65536));
+      expect(parsed).not.toBeNull();
+
+      source.metadata = parsed!.metadata;
+      source.tileOffsets = parsed!.tileOffsets;
+      source.tileByteCounts = parsed!.tileByteCounts;
+      source.readRange = async (offset, length) => ab.slice(offset, offset + length);
+
+      // Everest tile (23, 5): peak elevation > 7,000m
+      const everestTile = await source.fetchTile(23, 5, 0);
+      expect(everestTile).toHaveLength(256 * 256);
+      const everestMax = Math.max(...everestTile);
+      expect(everestMax).toBeGreaterThan(7000.0);
+      expect(everestMax).toBeLessThan(8850.0);
+
+      // Mariana Trench tile (28, 6): oceanic abyss < -10,000m
+      const marianaTile = await source.fetchTile(28, 6, 0);
+      expect(marianaTile).toHaveLength(256 * 256);
+      const marianaMin = Math.min(...marianaTile);
+      expect(marianaMin).toBeLessThan(-10000.0);
+      expect(marianaMin).toBeGreaterThan(-11000.0);
+    });
+  });
+
+  describe('7. Camera-Coupled Dynamic Tile Paging & Zero-GC Texture Overwrites (Stage 2)', () => {
+    let engine: WebGPUEngine;
+
+    beforeEach(() => {
+      engine = new WebGPUEngine();
+    });
+
+    afterEach(() => {
+      engine.dispose();
+    });
+
+    it('calculates dynamic camera-coupled tile coordinates across multi-island transects in Hawaii', () => {
+      const source = new GeoTIFFDataSource('hawaii-camera-paging');
+      source.metadata = {
+        projection: 'EPSG:4326',
+        bands: 1,
+        width: 3840,
+        height: 5632,
+        tileWidth: 256,
+        tileHeight: 256,
+        tilesAcross: 15,
+        tilesDown: 22,
+        bounds: { minLon: -160.5, maxLon: -154.5, minLat: 18.8, maxLat: 22.5 },
+      };
+
+      // 1. Big Island / Mauna Kea: (-155.468, 19.82)
+      const bigIsland = source.calculateTileCoords({
+        minLon: -155.468,
+        maxLon: -155.468,
+        minLat: 19.82,
+        maxLat: 19.82,
+      });
+      expect(bigIsland.tileX).toBe(12);
+      expect(bigIsland.tileY).toBe(15);
+
+      // 2. Maui / Haleakala: (-156.25, 20.71)
+      const maui = source.calculateTileCoords({
+        minLon: -156.25,
+        maxLon: -156.25,
+        minLat: 20.71,
+        maxLat: 20.71,
+      });
+      expect(maui.tileX).toBe(10);
+      expect(maui.tileY).toBe(10);
+
+      // 3. Oahu / Honolulu: (-157.85, 21.30)
+      const oahu = source.calculateTileCoords({
+        minLon: -157.85,
+        maxLon: -157.85,
+        minLat: 21.30,
+        maxLat: 21.30,
+      });
+      expect(oahu.tileX).toBe(6);
+      expect(oahu.tileY).toBe(7);
+
+      // 4. Kauai / Waimea: (-159.66, 22.07)
+      const kauai = source.calculateTileCoords({
+        minLon: -159.66,
+        maxLon: -159.66,
+        minLat: 22.07,
+        maxLat: 22.07,
+      });
+      expect(kauai.tileX).toBe(2);
+      expect(kauai.tileY).toBe(2);
+    });
+
+    it('overwrites existing GPUTexture in-place without destruction during adjacent tile camera panning (Zero-GC)', async () => {
+      const syntheticCOG = createSyntheticCOG(512, 512, 256, 256);
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        const rangeHeader = (init?.headers as any)?.Range || '';
+        const match = rangeHeader.match(/bytes=(\d+)-(\d+)/);
+        if (match) {
+          const start = parseInt(match[1], 10);
+          const end = parseInt(match[2], 10);
+          return new Response(syntheticCOG.buffer.slice(start, end + 1), { status: 206 });
+        }
+        return new Response(syntheticCOG.buffer, { status: 200 });
+      });
+
+      try {
+        const mockTextureView = { label: 'shared_view' } as any;
+        const destroySpy = vi.fn();
+        const mockTexture = {
+          label: 'shared_texture',
+          format: 'rgba16float',
+          createView: vi.fn().mockReturnValue(mockTextureView),
+          destroy: destroySpy,
+        } as any;
+        const mockBuffer = { destroy: vi.fn() } as any;
+
+        const createTextureSpy = vi.fn().mockReturnValue(mockTexture);
+        const writeTextureSpy = vi.fn();
+
+        (engine as any).device = {
+          createTexture: createTextureSpy,
+          createBuffer: vi.fn().mockReturnValue(mockBuffer),
+          createBindGroup: vi.fn().mockReturnValue({}),
+          queue: {
+            writeTexture: writeTextureSpy,
+            writeBuffer: vi.fn(),
+          },
+        };
+        (engine as any).isInitialized = true;
+
+        // Step 1: Stream Tile A
+        const pointA = { minLon: -159.0, maxLon: -159.0, minLat: 21.0, maxLat: 21.0 };
+        const ok1 = await engine.streamRegionalCOGTile('hawaii', pointA, 10);
+        expect(ok1).toBe(true);
+        expect(createTextureSpy).toHaveBeenCalledTimes(1);
+        expect(destroySpy).not.toHaveBeenCalled();
+
+        // Assign regional bounds to synthetic metadata so calculateTileCoords evaluates 2x2 tiles
+        engine.geoTIFFDataSource.metadata!.bounds = { minLon: -160.0, maxLon: -154.0, minLat: 18.0, maxLat: 22.0 };
+
+        const entryA = engine.getRegionalDEMTexture('hawaii');
+        expect(entryA?.texture).toBe(mockTexture);
+        expect(entryA?.view).toBe(mockTextureView);
+        const tileKeyA = engine.getActiveRegionalTileKey();
+        expect(tileKeyA).toBe('hawaii:0:0');
+
+        // Step 2: Stream Tile B (adjacent tile panning across 2x2 synthetic grid)
+        const pointB = { minLon: -155.0, maxLon: -155.0, minLat: 19.0, maxLat: 19.0 };
+        const ok2 = await engine.streamRegionalCOGTile('hawaii', pointB, 10);
+        expect(ok2).toBe(true);
+
+        // Crucial Invariant: createTexture must NOT be called again, and destroy must NOT be called!
+        expect(createTextureSpy).toHaveBeenCalledTimes(1);
+        expect(destroySpy).not.toHaveBeenCalled();
+
+        // writeTexture must have been called twice (once per tile)
+        expect(writeTextureSpy).toHaveBeenCalledTimes(2);
+
+        // Texture and view references remain identical (zero-GC)
+        const entryB = engine.getRegionalDEMTexture('hawaii');
+        expect(entryB?.texture).toBe(mockTexture);
+        expect(entryB?.view).toBe(mockTextureView);
+
+        // Tile key and active bounds updated to Tile B
+        const tileKeyB = engine.getActiveRegionalTileKey();
+        expect(tileKeyB).toMatch(/^hawaii:/);
+        expect(tileKeyB).not.toBe(tileKeyA);
+
+        // Step 3: Deactivate & Release clears activeRegionalTileKey
+        engine.setActiveRegionalDEM(null);
+        expect(engine.getActiveRegionalTileKey()).toBeNull();
+
+        engine.releaseRegionalDEMTexture('hawaii');
+        expect(destroySpy).toHaveBeenCalledTimes(1);
+        expect(engine.getRegionalDEMTexture('hawaii')).toBeNull();
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
+
+  // ==========================================================================
+  // Section 8: Progressive On-Demand Global Basemap COG Streaming (Stage 3)
+  // ==========================================================================
+  describe('8. Progressive On-Demand Global Basemap COG Streaming (Stage 3)', () => {
+    const globalCogPath = path.resolve(__dirname, '../../public/earth-etopo2022.cog.tif');
+    let engine: WebGPUEngine;
+
+    beforeEach(() => {
+      if (typeof (globalThis as any).GPUBufferUsage === 'undefined') {
+        (globalThis as any).GPUBufferUsage = {
+          MAP_READ: 1,
+          MAP_WRITE: 2,
+          COPY_SRC: 4,
+          COPY_DST: 8,
+          INDEX: 16,
+          VERTEX: 32,
+          UNIFORM: 64,
+          STORAGE: 128,
+          INDIRECT: 256,
+          QUERY_RESOLVE: 512,
+        };
+      }
+      if (typeof (globalThis as any).GPUTextureUsage === 'undefined') {
+        (globalThis as any).GPUTextureUsage = {
+          COPY_SRC: 1,
+          COPY_DST: 2,
+          TEXTURE_BINDING: 4,
+          STORAGE_BINDING: 8,
+          RENDER_ATTACHMENT: 16,
+        };
+      }
+      engine = new WebGPUEngine();
+    });
+
+    afterEach(() => {
+      engine.dispose();
+    });
+
+    it('parses all 6 multi-IFD overview pyramid levels from earth-etopo2022.cog.tif header', () => {
+      const fileBuf = fs.readFileSync(globalCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const source = new GeoTIFFDataSource('global-etopo-multi-ifd', '/earth-etopo2022.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab.slice(0, 65536));
+      expect(parsed).not.toBeNull();
+      expect(parsed?.levels).toHaveLength(6);
+
+      // Level 0: 8192x4096 (512 tiles)
+      expect(parsed?.levels[0].width).toBe(8192);
+      expect(parsed?.levels[0].height).toBe(4096);
+      expect(parsed?.levels[0].tilesAcross).toBe(32);
+      expect(parsed?.levels[0].tilesDown).toBe(16);
+      expect(parsed?.levels[0].tileOffsets).toHaveLength(512);
+
+      // Level 1: 4096x2048 (128 tiles)
+      expect(parsed?.levels[1].width).toBe(4096);
+      expect(parsed?.levels[1].height).toBe(2048);
+      expect(parsed?.levels[1].tilesAcross).toBe(16);
+      expect(parsed?.levels[1].tilesDown).toBe(8);
+      expect(parsed?.levels[1].tileOffsets).toHaveLength(128);
+
+      // Level 2: 2048x1024 (32 tiles)
+      expect(parsed?.levels[2].width).toBe(2048);
+      expect(parsed?.levels[2].height).toBe(1024);
+      expect(parsed?.levels[2].tilesAcross).toBe(8);
+      expect(parsed?.levels[2].tilesDown).toBe(4);
+      expect(parsed?.levels[2].tileOffsets).toHaveLength(32);
+
+      // Level 3: 1024x512 (8 tiles)
+      expect(parsed?.levels[3].width).toBe(1024);
+      expect(parsed?.levels[3].height).toBe(512);
+      expect(parsed?.levels[3].tilesAcross).toBe(4);
+      expect(parsed?.levels[3].tilesDown).toBe(2);
+      expect(parsed?.levels[3].tileOffsets).toHaveLength(8);
+
+      // Level 4: 512x256 (2 tiles)
+      expect(parsed?.levels[4].width).toBe(512);
+      expect(parsed?.levels[4].height).toBe(256);
+      expect(parsed?.levels[4].tilesAcross).toBe(2);
+      expect(parsed?.levels[4].tilesDown).toBe(1);
+      expect(parsed?.levels[4].tileOffsets).toHaveLength(2);
+
+      // Level 5: 256x128 (1 tile)
+      expect(parsed?.levels[5].width).toBe(256);
+      expect(parsed?.levels[5].height).toBe(128);
+      expect(parsed?.levels[5].tilesAcross).toBe(1);
+      expect(parsed?.levels[5].tilesDown).toBe(1);
+      expect(parsed?.levels[5].tileOffsets).toHaveLength(1);
+    });
+
+    it('fetches overview tiles across pyramid levels (LOD 4 Western & Eastern hemispheres)', async () => {
+      const fileBuf = fs.readFileSync(globalCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const source = new GeoTIFFDataSource('global-etopo-lod4', '/earth-etopo2022.cog.tif');
+      const parsed = source.parseTIFFHeaderAndIFD(ab.slice(0, 65536));
+      expect(parsed).not.toBeNull();
+
+      source.metadata = parsed!.metadata;
+      source.tileOffsets = parsed!.tileOffsets;
+      source.tileByteCounts = parsed!.tileByteCounts;
+      source.levels = parsed!.levels;
+      source.readRange = async (offset, length) => ab.slice(offset, offset + length);
+
+      // LOD 4 Tile 0 (Western Hemisphere, -180 to 0 lon): Andes / Rockies / Pacific
+      const tile0 = await source.fetchTile(0, 0, 4);
+      expect(tile0).toHaveLength(256 * 256);
+      expect(Math.min(...tile0)).toBeLessThan(-7000.0);
+      expect(Math.max(...tile0)).toBeGreaterThan(4000.0);
+
+      // LOD 4 Tile 1 (Eastern Hemisphere, 0 to +180 lon): Everest / Mariana Trench
+      const tile1 = await source.fetchTile(1, 0, 4);
+      expect(tile1).toHaveLength(256 * 256);
+      expect(Math.min(...tile1)).toBeLessThan(-7000.0);
+      expect(Math.max(...tile1)).toBeGreaterThan(5000.0);
+    });
+
+    it('streams global COG basemap and populates demTexture and cpuDEMData (WebGPUEngine)', async () => {
+      const fileBuf = fs.readFileSync(globalCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        const rangeHeader = (init?.headers as any)?.Range || '';
+        const match = rangeHeader.match(/bytes=(\d+)-(\d+)/);
+        if (match) {
+          const start = parseInt(match[1], 10);
+          const end = parseInt(match[2], 10);
+          return new Response(ab.slice(start, end + 1), { status: 206 });
+        }
+        return new Response(ab, { status: 200 });
+      });
+
+      try {
+        const mockTextureView = { label: 'dem_view' } as any;
+        const mockTexture = {
+          label: 'dem_texture',
+          format: 'rgba16float',
+          createView: vi.fn().mockReturnValue(mockTextureView),
+          destroy: vi.fn(),
+        } as any;
+
+        const createTextureSpy = vi.fn().mockReturnValue(mockTexture);
+        const writeTextureSpy = vi.fn();
+
+        (engine as any).device = {
+          createTexture: createTextureSpy,
+          createSampler: vi.fn().mockReturnValue({}),
+          createBuffer: vi.fn().mockReturnValue({ destroy: vi.fn() }),
+          createBindGroup: vi.fn().mockReturnValue({}),
+          queue: {
+            writeTexture: writeTextureSpy,
+            writeBuffer: vi.fn(),
+          },
+        };
+        (engine as any).isInitialized = true;
+
+        // Ingest Level 3 (1024x512, 8 tiles) for fast verification
+        const ok = await engine.streamGlobalCOGBasemap('/earth-etopo2022.cog.tif', 3);
+        expect(ok).toBe(true);
+        expect(engine.demWidth).toBe(1024);
+        expect(engine.demHeight).toBe(512);
+
+        // Verify cpuDEMData is populated with packed uint16 elevations
+        expect(engine.cpuDEMData).not.toBeNull();
+        expect(engine.cpuDEMData).toBeInstanceOf(Uint16Array);
+        expect(engine.cpuDEMData!.length).toBe(1024 * 512 * 4);
+
+        // Verify physical elevation sampling via sampleCPUElevation
+        // Everest: approx (86.925, 27.988) -> elevation should be > 5000m
+        const everestSample = engine.sampleCPUElevation(86.925, 27.988);
+        expect(everestSample.elevationMeters).toBeGreaterThan(5000);
+
+        // Mariana Trench: approx (142.2, 11.35) -> elevation should be < -7000m
+        const marianaSample = engine.sampleCPUElevation(142.2, 11.35);
+        expect(marianaSample.elevationMeters).toBeLessThan(-7000);
+
+        // Verify writeTexture was called to upload mip levels
+        expect(writeTextureSpy).toHaveBeenCalled();
+        const demTextureCalls = createTextureSpy.mock.calls.filter((call: any) => call[0]?.label?.startsWith('dem_global_cog'));
+        expect(demTextureCalls).toHaveLength(1);
+        expect(demTextureCalls[0][0].format).toBe('rgba16float');
+        expect(demTextureCalls[0][0].size).toEqual([1024, 512, 1]);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it('streams individual global tiles on demand with in-place writeTexture (Zero-GC)', async () => {
+      const fileBuf = fs.readFileSync(globalCogPath);
+      const ab = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
+
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        const rangeHeader = (init?.headers as any)?.Range || '';
+        const match = rangeHeader.match(/bytes=(\d+)-(\d+)/);
+        if (match) {
+          const start = parseInt(match[1], 10);
+          const end = parseInt(match[2], 10);
+          return new Response(ab.slice(start, end + 1), { status: 206 });
+        }
+        return new Response(ab, { status: 200 });
+      });
+
+      try {
+        const mockTexture = {
+          label: 'dem_texture',
+          format: 'rgba16float',
+          createView: vi.fn(),
+          destroy: vi.fn(),
+        } as any;
+
+        const writeTextureSpy = vi.fn();
+
+        (engine as any).device = {
+          createTexture: vi.fn().mockReturnValue(mockTexture),
+          createSampler: vi.fn().mockReturnValue({}),
+          createBuffer: vi.fn().mockReturnValue({ destroy: vi.fn() }),
+          createBindGroup: vi.fn().mockReturnValue({}),
+          queue: {
+            writeTexture: writeTextureSpy,
+            writeBuffer: vi.fn(),
+          },
+        };
+        (engine as any).isInitialized = true;
+
+        // Initialize basemap at Level 4 (512x256, 2 tiles)
+        await engine.streamGlobalCOGBasemap('/earth-etopo2022.cog.tif', 4);
+        writeTextureSpy.mockClear();
+
+        // Stream on-demand global tile at Level 4 for Everest
+        const ok = await engine.streamGlobalCOGTile(86.9, 27.9, 4);
+        expect(ok).toBe(true);
+        expect(writeTextureSpy).toHaveBeenCalledTimes(1);
+
+        // Verify writeTexture parameters: origin, bytesPerRow 2048, tile 256x256
+        const writeCall = writeTextureSpy.mock.calls[0];
+        expect(writeCall[0].origin).toEqual([256, 0, 0]); // tileX=1 for East, tileY=0
+        expect(writeCall[2].bytesPerRow).toBe(256 * 8); // 2048 bytes
+        expect(writeCall[3]).toEqual([256, 256, 1]);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+  });
 });
+
