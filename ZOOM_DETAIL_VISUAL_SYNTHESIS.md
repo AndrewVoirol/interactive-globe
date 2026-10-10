@@ -4,9 +4,9 @@
 
 ## §1: System Integration — How the Options Parlay Together
 
-The individual tracks in `ZOOM_DETAIL_SPEC_LEDGER.md` (Track A: Procedural Geomorphology, Track B: Global Tile Streaming, Track C: Multi-Tier Vectors, Track D: Archival Toponymy, Track E: Topocentric Camera) are not mutually exclusive features. They are complementary layers of a multi-scale cartographic stack.
+The individual tracks in `ZOOM_DETAIL_SPEC_LEDGER.md` (Track A: Procedural Geomorphology, Track B: Global Tile Streaming, Track C: Multi-Tier Vectors, Track D: Archival Toponymy, Track E: Topocentric Camera) are not mutually exclusive features. They are complementary layers of a unified multi-scale cartographic stack.
 
-Below are the **three unified architectural combinations** that demonstrate how these systems parlay together into cohesive visual systems.
+Below are the **three combined architectural combinations** that demonstrate how these systems parlay together into cohesive visual systems.
 
 ```
 +---------------------------------------------------------------------------------------+
@@ -66,17 +66,15 @@ Below are the **three unified architectural combinations** that demonstrate how 
 
 * **The Integration**:
   - Combines the empirical macroscopic fidelity of **Track B** (real 30m elevation geometry) with the artisanal drafting details of **Track A** (procedural Imhof rock drawing on cliffs, analytical dynamic contour lines), **Track C** (Strahler river hierarchy with Leopold-Maddock width tapering), **Track D** (SDF archival typography), and **Track E** (topocentric 0°–85° oblique camera kinematics).
-  - Where empirical data exists down to 30m, it provides the true structural landform. Below 30m (where satellite rasters would otherwise become blurry blocks), procedural Imhof rock strata and micro-relief seamlessly synthesize rock face texture, preventing any digital pixelation.
+  - Where empirical data exists down to 30m, it provides the true structural landform. Below 30m (where satellite rasters would otherwise become blurry blocks), procedural Imhof rock strata and micro-relief seamlessly synthesize rock face texture, preventing digital pixelation.
 * **How It Looks on Screen**:
-  - At orbit, the planet appears as an authentic library globe (ivory cotton rag, deep Prussian cyanotype, or Tharp ocean painting).
+  - At orbit, the planet appears as an archival library globe (ivory cotton rag, deep Prussian cyanotype, or Tharp ocean painting).
   - Descending toward a mountain range, terrain does not morph into a video game heightmap; it resolves into an archival Swiss topographic sheet (Swisstopo style).
   - Clifftops show authentic rock hachuring; valleys have razor-sharp 20m contour lines; rivers branch naturally into headwater streams; mountain peaks are labeled with spot heights; and tilting the camera reveals the mountain horizon silhouetted against the neatline.
 
 ---
 
 ## §2: Altitude Progression — What You Actually See at Every Zoom Tier
-
-The table below describes the concrete visual appearance at each scale across the three unified archival mediums.
 
 | Altitude & Camera Radius | Scale & Physical Footprint | Cream Rag (Theme 1, 310 GSM Cotton Rag) | Prussian Cyanotype (Theme 2, 1842 Blueprint) | Marie Tharp (Theme 0, 1977 Physiographic Chart) |
 | :--- | :--- | :--- | :--- | :--- |
@@ -105,57 +103,78 @@ The target hardware (Apple Silicon M4 Pro: 20-core GPU, 24 GB Unified Memory Arc
 
 ---
 
-## §4: The Autonomous Visual Verification & Qualification Protocol
+## §4: The Model Qualification Pipeline
 
-### 4.1 Why Past Measures Failed
-In previous iterations, verification was frequently reduced to:
-1. "Test passed" (unit tests verifying uniform struct byte offsets, but not confirming if the shader consumed the data).
-2. "Screenshot taken (>50KB)" (a dark, muddy, or glitching screenshot passes a file size check).
-3. "Active regional DEM != null" (verifying a flag was set without inspecting whether the terrain actually rendered high-resolution cliffs).
+### 4.1 The "Headless WebGPU" Trap & The Empirical Solution
 
-### 4.2 The 4-Stage Verification & Model Qualification Pipeline
+**The Trap**:
+Default headless browser execution (e.g. running `chromium.launch({ headless: true })` with bundled Chromium) fails for WebGPU on modern OSes:
+1. Bundled Chromium in headless mode either disables `navigator.gpu` entirely or falls back to Google SwiftShader CPU software emulation (`"architecture": "swiftshader"`).
+2. SwiftShader lacks Apple Metal hardware support, crashes on complex WGSL compute passes, and frequently produces blank black screenshots (`#000000`).
+3. Furthermore, Chrome strictly disables `navigator.gpu` on insecure origins (such as `about:blank`, where `window.isSecureContext === false`).
+4. An automated test script that naively launches bundled headless Chromium will capture empty frames or fallback WebGL, leading models and agents into endless loops of false failures.
+
+**The Empirical Solution (Verified on M4 Pro)**:
+WebGPU hardware acceleration functions in browser automation when configured with three strict requirements:
+1. **Target the Real System Google Chrome Binary**:
+   Specify `executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'`.
+2. **Configure Native Apple Metal Flags**:
+   Pass `args: ['--enable-unsafe-webgpu', '--use-webgpu-adapter=default', '--use-angle=metal', '--use-gpu-in-tests', '--ignore-gpu-blocklist']`.
+3. **Execute in a Secure Context**:
+   The browser must navigate to `http://localhost:<port>` (where `window.isSecureContext === true`).
+   *Verified Result*: The browser initializes with `adapter.info = { vendor: 'apple', architecture: 'metal-3' }` and captures hardware-rendered WebGPU framebuffers at full Retina resolution.
+
+---
+
+### 4.2 The 4-Stage Model Qualification Pipeline
 
 Every zoom detail implementation must pass this multi-stage empirical verification pipeline before completion can be certified.
 
 ```mermaid
 flowchart TD
-    A["1. Automated Headless Capture (Playwright/Chrome MCP)"] --> B["2. Quantitative Computer Vision Metrics"]
-    B --> C["3. Comparative Pixel Delta & Heatmap"]
-    C --> D["4. Multimodal Agent Visual Critique (Strict Rubric)"]
-    D -->|Pass| E["Certified Completed"]
-    D -->|Fail| F["Targeted Parameter Adjustment & Recapture"]
-    F --> A
+    A["1. Automated Harness Boot (Chrome + Metal Flags)"] --> B["2. Hardware Canary & Active Framebuffer Check"]
+    B -->|Canary Fail| C["Abort Immediately (Exit 1)"]
+    B -->|Canary Pass| D["3. Litmus Viewpoint Navigation (3 Sites)"]
+    D --> E["4. Quantitative Metrics (Laplacian Edge Energy + Delta Heatmap)"]
+    E --> F["5. Multimodal Agent Visual Inspection (view_file)"]
+    F -->|Pass Rubric| G["Certified Completed"]
+    F -->|Fail Rubric| H["Targeted Parameter Adjustment & Recapture"]
+    H --> D
 ```
 
-#### Stage 1: Standardized Litmus Viewpoint Captures
-Captures must be recorded at calibrated geodetic coordinates and camera altitudes across **all 3 mediums** (Cream Rag, Prussian Cyanotype, Marie Tharp):
+#### Stage 1: Hardware Canary & Active Framebuffer Verification (Fail-Safe Checks)
+Before recording or evaluating any screenshots, `scripts/verify-zoom-qualification.mjs` executes two non-negotiable assertions:
+1. **Hardware Metal Canary Assertion**:
+   ```javascript
+   const adapter = await navigator.gpu.requestAdapter();
+   if (!adapter || adapter.info.vendor.toLowerCase() !== 'apple') {
+     throw new Error(`Non-Metal adapter detected (${adapter?.info?.vendor}). Hardware WebGPU acceleration failed.`);
+   }
+   ```
+   If the browser falls back to SwiftShader or software emulation, the test **aborts immediately**.
+2. **Non-Zero Framebuffer Pixel Canary**:
+   The script samples the captured canvas pixels. If $>95\%$ of pixels are pitch black (`#000000`), the test **aborts immediately as a Blank Framebuffer Defect**.
+
+#### Stage 2: Standardized Litmus Viewpoint Captures
+Captures are recorded at calibrated geodetic coordinates and camera altitudes across **all 3 mediums** (Cream Rag, Prussian Cyanotype, Marie Tharp):
 * **Litmus 1: Alpine Massif (Matterhorn / Mont Blanc)**: `[45.976°N, 7.658°E]`, Altitude $h = 4.5\text{ km}$, Pitch $65^\circ$. (Tests alpine rock strata, couloir fluting, peak spot heights).
 * **Litmus 2: Fluvial Canyon Incision (Grand Canyon)**: `[36.057°N, -112.143°W]`, Altitude $h = 3.2\text{ km}$, Pitch $72^\circ$. (Tests stepped terrace cliff shading, river width power law, dense contours).
 * **Litmus 3: Oceanic Trench & Island Arc (Hawaii / Mariana)**: `[19.650°N, -155.550°W]`, Altitude $h = 8.0\text{ km}$, Pitch $50^\circ$. (Tests Jerlov water clarity, coral sand glow, bathymetric depth soundings).
 
-#### Stage 2: Quantitative Computer Vision & Signal Metrics
-The capture analysis script (`scripts/measure-zoom-metrics.mjs`) evaluates mathematical image sharpness and structural density on the canvas region:
-
+#### Stage 3: Quantitative Signal Metrics & Visual Difference Heatmaps
+The harness evaluates mathematical image sharpness and structural density on the canvas region:
 1. **Brenner Gradient / Modified Laplacian Sharpness ($\mu_{\text{sharp}}$)**:
    $$\text{Sharpness} = \frac{1}{W \cdot H} \sum_{x,y} \left( |2I(x,y) - I(x-1,y) - I(x+1,y)| + |2I(x,y) - I(x,y-1) - I(x,y+1)| \right)$$
    - *Passing Invariant*: Zoomed-in alpine terrain must demonstrate $\ge 4.5\times$ higher high-frequency edge energy compared to the interpolated 8K baseline. If edge energy does not increase, the shader is sampling smoothed data (Placebo Failure).
-2. **Comparative Pixel Delta ($\Delta \bar{I}$)**:
-   - Evaluates $|I_{\text{after}} - I_{\text{before}}|$ between the baseline and the enhanced zoom state.
-   - *Passing Invariant*: Active moving pixel ratio $\ge 35\%$ across terrain; delta on static HUD chrome (sidebar dock, neatline) identically $0.00$.
-3. **Contrast Ratio (Michelson & RMS Contrast)**:
-   $$C_{\text{RMS}} = \sqrt{\frac{1}{N} \sum_{i=1}^N (I_i - \bar{I})^2}$$
-   - *Passing Invariant*: Rock face highlights and shadowed couloirs must achieve $C_{\text{RMS}} \ge 0.28$ without clipping to pure black/white clamp artifacts.
-
-#### Stage 3: Visual Difference Heatmaps
-The verification script generates a color-mapped delta heatmap (`screenshots/delta-heatmap-<viewpoint>.png`) highlighting exactly where detail was added:
-* **Green/Cyan**: New high-frequency rock strata and sharp contour lines.
-* **Yellow/Amber**: Dynamic vector stream adjustments and spot height labels.
-* **Black**: Unchanged regions (flat plains, static UI).
-* *Audit Rule*: If the heatmap shows changes only at the canvas boundary, the test fails (Edge Gaming Rejection).
+2. **Comparative Pixel Delta Heatmap ($\Delta \bar{I}$)**:
+   - Evaluates $|I_{\text{after}} - I_{\text{before}}|$ and generates a false-color heatmap (`screenshots/qualification/heatmap_<viewpoint>.png`):
+     * *Green/Cyan*: High-frequency rock strata and sharp contour lines.
+     * *Yellow/Amber*: Dynamic vector stream adjustments and spot height labels.
+     * *Black*: Unchanged flat plains and static UI.
+   - *Passing Invariant*: Active terrain pixel ratio $\ge 35\%$; delta on static HUD chrome identically $0.00$.
 
 #### Stage 4: Multimodal Agent Visual Critique (The Aesthetic Audit)
 The reviewing agent directly inspects the captured image files using `view_file` and evaluates the result against four concrete qualitative questions:
-
 1. **Cartographic Authenticity**: Does the terrain evoke an authentic museum survey map (Eduard Imhof / 1842 Blueprint) or a synthetic 1990s fractal game heightmap?
    - *Pass criteria*: Strata lines follow geological bedding orientation and slope gravity; contours are smooth mathematical isolines; linework resembles intaglio copperplate.
    - *Fail criteria*: Disconnected static noise swimming across the camera, spiky needle artifacts, or blurry linear gradients.
@@ -174,12 +193,12 @@ The reviewing agent directly inspects the captured image files using `view_file`
 
 The path to an exceptional visual result is an iterative calibration loop:
 
-1. **Step 1 (Baseline Capture)**: Capture the current un-enhanced zoom state at the 3 litmus viewpoints across all 3 themes. Save as `baseline_<viewpoint>_<theme>.png`.
+1. **Step 1 (Baseline Capture)**: Run `node scripts/verify-zoom-qualification.mjs --baseline` to capture and record the un-enhanced zoom state at all 3 litmus viewpoints.
 2. **Step 2 (Incremental Implementation)**: Implement one layer at a time (e.g. Track A.1 Imhof rock face shading first).
-3. **Step 3 (Automated Execution & Capture)**: Launch dev server, execute Playwright capture script, compute quantitative metrics ($\mu_{\text{sharp}}$, $\Delta \bar{I}$).
-4. **Step 4 (Model Inspection & Critique)**: Agent inspects the image using `view_file`.
+3. **Step 3 (Automated Execution & Capture)**: Run `node scripts/verify-zoom-qualification.mjs --evaluate` to compute $\mu_{\text{sharp}}$, $\Delta \bar{I}$, and generate heatmaps.
+4. **Step 4 (Model Inspection & Critique)**: Agent inspects the images via `view_file`:
    - If rock lines are too subtle: Increase strata frequency and normal perturbation strength by 20%.
-   - If rock lines produce high-frequency shimmering or noise: Add screen-space derivative dampening ($fwidth()$).
+   - If rock lines produce high-frequency shimmering: Add screen-space derivative dampening ($fwidth()$).
    - If medium contrast regressed: Rebalance lighting ambient/diffuse ratios.
 5. **Step 5 (Next Layer Integration)**: Once Track A passes visual and metric gates, layer Track A.2 (analytical contours) and Track D (typography), re-verifying side-by-side.
 6. **Step 6 (Final Multi-Medium Gate)**: Certify that all 3 themes pass visual inspection before merging to `main`.
