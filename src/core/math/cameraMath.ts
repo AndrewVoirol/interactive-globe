@@ -888,17 +888,35 @@ export type GroundClearanceFloorDetails = GroundClearanceDetails;
  *
  * @param elevationMeters - Surface elevation in meters above sea level (clamped >= 0)
  * @param displacementScale - Normal terrain displacement multiplier (default 0.08)
- * @param _reliefActive - Optional legacy flag for backward compatibility
+ * @param _reliefActiveOrCameraRadius - Optional legacy boolean or camera radius in world units
+ * @param cameraRadiusArg - Optional explicit camera radius in world units
  * @returns Breakdown including h_floor, trueElevUnits, dispUnits, and h_DEM
  */
 export function computeGroundClearanceFloorDetails(
   elevationMeters: number,
   displacementScale: number = DEFAULT_DISPLACEMENT_SCALE,
-  _reliefActive?: boolean
+  _reliefActiveOrCameraRadius?: boolean | number,
+  cameraRadiusArg?: number
 ): GroundClearanceDetails {
   const elevM = Math.max(0, elevationMeters);
   const trueElevUnits = (elevM / EARTH_RADIUS_METERS) * EARTH_RADIUS_UNITS;
-  const dispScale = displacementScale * RELIEF_DISPLACEMENT_MULTIPLIER;
+
+  // Resolve camera radius (defaulting to orbital scale 6.0 if omitted)
+  let cameraRadius = 6.0;
+  if (typeof _reliefActiveOrCameraRadius === 'number') {
+    cameraRadius = _reliefActiveOrCameraRadius;
+  } else if (typeof cameraRadiusArg === 'number') {
+    cameraRadius = cameraRadiusArg;
+  }
+
+  // Camera-Coupled Dynamic Relief Attenuation:
+  // Orbital scale (r >= 5.50): 2.8x displacement multiplier for dramatic global topography.
+  // Close-up survey (r <= 5.05): Attenuates smoothly to 1.0x (true physical crust relief),
+  // preventing 144km spire displacement and allowing close-range inspection down to 1km AGL.
+  const alphaRelief = Math.min(1.0, Math.max(0.0, (cameraRadius - 5.05) / (5.50 - 5.05)));
+  const reliefMultiplier = 1.0 + 1.8 * alphaRelief;
+  const dispScale = displacementScale * reliefMultiplier;
+
   const normH = Math.min(1.0, elevM / EVEREST_MAX_ELEVATION_METERS);
   const dispUnits = Math.pow(normH, 1.0) * dispScale;
   const h_DEM = Math.max(trueElevUnits, dispUnits);
@@ -917,14 +935,21 @@ export const computeGroundClearanceDetails = computeGroundClearanceFloorDetails;
  *
  * @param elevationMeters - Surface elevation in meters above sea level (clamped >= 0)
  * @param displacementScale - Normal terrain displacement multiplier (default 0.08)
- * @param _reliefActive - Optional legacy flag for backward compatibility
+ * @param _reliefActiveOrCameraRadius - Optional legacy boolean or camera radius in world units
+ * @param cameraRadiusArg - Optional explicit camera radius in world units
  * @returns Minimum safe camera radius in world units
  */
 export function computeGroundClearanceFloor(
   elevationMeters: number,
   displacementScale: number = DEFAULT_DISPLACEMENT_SCALE,
-  _reliefActive?: boolean
+  _reliefActiveOrCameraRadius?: boolean | number,
+  cameraRadiusArg?: number
 ): number {
-  return computeGroundClearanceFloorDetails(elevationMeters, displacementScale, _reliefActive).h_floor;
+  return computeGroundClearanceFloorDetails(
+    elevationMeters,
+    displacementScale,
+    _reliefActiveOrCameraRadius,
+    cameraRadiusArg
+  ).h_floor;
 }
 

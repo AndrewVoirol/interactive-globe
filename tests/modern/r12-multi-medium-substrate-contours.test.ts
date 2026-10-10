@@ -126,15 +126,16 @@ describe('Requirement R12: Multi-Medium Physical Substrate & Analytical Contours
   // ==========================================================================
   describe('4. Scopes 3, 4, 5: Contours and Oceanographic Isobaths', () => {
     it('R12-CONTOUR-01: generates Eduard Imhof Swiss relief contours in sepia ink for Cream Rag (Theme 1)', () => {
-      expect(shaderSrc).toContain('creamFreq');
+      expect(shaderSrc).toContain('deltaH');
+      expect(shaderSrc).toContain('elevIndex');
       expect(shaderSrc).toContain('distMinor');
       expect(shaderSrc).toContain('distMajor');
       expect(shaderSrc).toContain('cCopperplateSepia');
     });
 
-    it('R12-CONTOUR-02: fades Cream Rag contours on steep slopes (>20°) where Lehmann hachures dominate', () => {
+    it('R12-CONTOUR-02: fades Cream Rag contours on steep slopes (>45°) transitioning to Imhof rock hachures', () => {
       expect(shaderSrc).toContain('hachureFade');
-      expect(shaderSrc).toMatch(/hachureFade\s*=\s*1\.0\s*-\s*smoothstep\(\s*0\.30\s*,\s*0\.42\s*,\s*slopeAngle\s*\)/);
+      expect(shaderSrc).toMatch(/hachureFade\s*=\s*1\.0\s*-\s*smoothstep\(\s*0\.70\s*,\s*0\.98\s*,\s*slopeAngle\s*\)/);
     });
 
     it('R12-CONTOUR-03: generates oceanographic isobaths (1000m) in marine turquoise for Marie Tharp (Theme 0)', () => {
@@ -155,8 +156,9 @@ describe('Requirement R12: Multi-Medium Physical Substrate & Analytical Contours
       expect(theme0Block).not.toContain('isLand > 0.45');
     });
 
-    it('R12-CONTOUR-05: tunes Cyanotype contours with view-dependent frequency and screen-space anti-Moiré feathering', () => {
-      expect(shaderSrc).toContain('cyanoFreq');
+    it('R12-CONTOUR-05: tunes Cyanotype contours with decimal interval series and screen-space anti-Moiré feathering', () => {
+      expect(shaderSrc).toContain('cyanoIndex');
+      expect(shaderSrc).toContain('deltaH');
       expect(shaderSrc).toContain('moireGuard');
       expect(shaderSrc).toContain('cChalkContour');
     });

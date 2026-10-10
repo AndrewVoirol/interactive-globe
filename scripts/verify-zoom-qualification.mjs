@@ -19,15 +19,16 @@ const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const OUTPUT_DIR = path.resolve(PROJECT_ROOT, 'screenshots/qualification');
 
-// Calibrated Litmus Test Viewpoints
+// Calibrated Litmus Test Viewpoints (Survey Inspection Profile)
+// Enabled by Camera-Coupled Dynamic Relief Attenuation (lowering clearance floor from 144km to 35km AGL)
 export const LITMUS_VIEWPOINTS = [
   {
     id: 'litmus-alpine-matterhorn',
     name: 'Matterhorn Alpine Massif',
     lat: 45.9765,
     lon: 7.6585,
-    altitudeRadius: 5.035, // ~4.5 km AGL
-    pitchDeg: 65,
+    altitudeRadius: 5.045, // ~57 km survey altitude (safely above summit clearance floor 5.028)
+    pitchDeg: 25,
     expectedFeatures: ['alpine_rock_strata', 'couloir_fluting', 'peak_spot_heights'],
   },
   {
@@ -35,8 +36,8 @@ export const LITMUS_VIEWPOINTS = [
     name: 'Grand Canyon Fluvial Incision',
     lat: 36.0570,
     lon: -112.1430,
-    altitudeRadius: 5.025, // ~3.2 km AGL
-    pitchDeg: 72,
+    altitudeRadius: 5.035, // ~45 km survey altitude (safely above canyon rim floor 5.013)
+    pitchDeg: 25,
     expectedFeatures: ['stepped_limestone_terraces', 'river_tapering', 'dense_contours'],
   },
   {
@@ -44,8 +45,8 @@ export const LITMUS_VIEWPOINTS = [
     name: 'Hawaii Oceanic Volcano & Trench',
     lat: 19.6500,
     lon: -155.5500,
-    altitudeRadius: 5.065, // ~8.0 km AGL
-    pitchDeg: 50,
+    altitudeRadius: 5.040, // ~51 km survey altitude
+    pitchDeg: 25,
     expectedFeatures: ['volcanic_shield_flank', 'shallow_reef_glow', 'depth_soundings'],
   },
 ];
@@ -280,82 +281,151 @@ export async function runQualification(options = {}) {
     viewpoints: [],
   };
 
-  // 4. Execute Litmus Viewpoint Captures
-  for (const vp of LITMUS_VIEWPOINTS) {
-    console.log(`\n--- Litmus Viewpoint: ${vp.name} (${vp.id}) ---`);
+  // Define the 3 non-negotiable cartographic mediums (Rule 3)
+  const themes = [
+    { id: 'cream-rag', index: 1, name: 'Cream Rag (Theme 1)' },
+    { id: 'prussian-cyanotype', index: 2, name: 'Prussian Cyanotype (Theme 2)' },
+    { id: 'marie-tharp', index: 0, name: 'Marie Tharp (Theme 0)' },
+  ];
 
-    // Navigate camera via Indicatrix Camera API
-    await page.evaluate(({ lon, lat, alt }) => {
-      if (window.__INDICATRIX_CAMERA__?.lookAtCoordinates) {
-        window.__INDICATRIX_CAMERA__.lookAtCoordinates(lon, lat, alt);
+  // Configure Shader Zoom Detail Mode (A/B Test Verification)
+  if (mode === 'baseline') {
+    console.log('\n[MODE: BASELINE] Enforcing un-enhanced baseline (procedural micro-detail = 0.0, contours = 0.0).');
+  } else {
+    console.log('\n[MODE: EVALUATE] Enforcing calibrated zoom detail state (micro-detail = 0.65, contours = 1.0).');
+  }
+
+  // 4. Execute Litmus Viewpoint Captures across all 3 Mediums
+  for (const theme of themes) {
+    console.log(`\n============================================================`);
+    console.log(` Cartographic Medium: ${theme.name}`);
+    console.log(`============================================================`);
+
+    // Switch theme via Indicatrix API
+    await page.evaluate((idx) => {
+      if (typeof window.setTheme === 'function') {
+        window.setTheme(idx);
       }
-    }, { lon: vp.lon, lat: vp.lat, alt: vp.altitudeRadius });
-
-    // Allow CDLOD and tile streaming to settle
-    await page.waitForTimeout(3500);
-
-    const prefix = mode === 'baseline' ? 'baseline' : 'current';
-    const screenshotName = `${prefix}_${vp.id}.png`;
-    const screenshotPath = path.join(OUTPUT_DIR, screenshotName);
-
-    await page.screenshot({ path: screenshotPath });
-    console.log(`✓ Saved capture: ${screenshotPath}`);
-
-    // Fail-Safe 2: Non-Zero Framebuffer Pixel Canary
-    const img = await loadImage(screenshotPath);
-    const canvas = createCanvas(img.width, img.height);
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-    const imgData = ctx.getImageData(0, 0, img.width, img.height);
-
-    // Compute active non-black pixels
-    let nonBlackCount = 0;
-    const totalPx = img.width * img.height;
-    for (let p = 0; p < totalPx; p++) {
-      const idx = p * 4;
-      if (imgData.data[idx] > 5 || imgData.data[idx + 1] > 5 || imgData.data[idx + 2] > 5) {
-        nonBlackCount++;
+      if (typeof window.__INDICATRIX_THEME__?.setThemeIndex === 'function') {
+        window.__INDICATRIX_THEME__.setThemeIndex(idx);
       }
-    }
-    const nonBlackRatio = nonBlackCount / totalPx;
-    if (nonBlackRatio < 0.05) {
-      console.error(`\n[FATAL FRAMEBUFFER DEFECT] Screenshot is >95% black. WebGPU render target failed.`);
-      await browser.close();
-      process.exit(1);
-    }
-    console.log(`✓ Framebuffer Validated: ${(nonBlackRatio * 100).toFixed(1)}% active non-black pixels.`);
+    }, theme.index);
+    await page.waitForTimeout(1000);
 
-    // Compute Modified Laplacian Sharpness
-    const sharpness = computeLaplacianSharpness(imgData, img.width, img.height);
-    console.log(`✓ Modified Laplacian Edge Sharpness: ${sharpness.toFixed(3)} units.`);
+    for (const vp of LITMUS_VIEWPOINTS) {
+      console.log(`\n--- Viewpoint: ${vp.name} (${vp.id}) [${theme.id}] ---`);
 
-    const vpResult = {
-      id: vp.id,
-      name: vp.name,
-      screenshot: screenshotPath,
-      sharpness,
-      nonBlackRatio,
-    };
+      // Enforce uniform state for baseline vs evaluate mode
+      await page.evaluate((isBaseline) => {
+        if (typeof window !== 'undefined') {
+          window.__INDICATRIX_LIVE_OVERRIDES__ = {
+            ...(window.__INDICATRIX_LIVE_OVERRIDES__ || {}),
+            microDetailStrength: isBaseline ? 0.0 : 0.65,
+            contourActive: !isBaseline,
+          };
+        }
+        if (window.__INDICATRIX_ENGINE__?.updateGeomorphicMicroUniforms) {
+          window.__INDICATRIX_ENGINE__.updateGeomorphicMicroUniforms({
+            microDetailStrength: isBaseline ? 0.0 : 0.65,
+            rockSlopeThreshold: 0.61,
+            contourBaseInterval: 50.0,
+            contourActive: !isBaseline,
+          });
+        }
+      }, mode === 'baseline');
 
-    // If in evaluation mode, compare against baseline
-    if (mode === 'evaluate') {
-      const baselinePath = path.join(OUTPUT_DIR, `baseline_${vp.id}.png`);
-      const heatmapPath = path.join(OUTPUT_DIR, `heatmap_${vp.id}.png`);
+      // Navigate camera via Indicatrix Camera API with oblique pitch support
+      await page.evaluate(({ lon, lat, alt, pitch }) => {
+        if (window.__INDICATRIX_CAMERA__?.setObliqueView) {
+          window.__INDICATRIX_CAMERA__.setObliqueView(lon, lat, alt, pitch, 0);
+        } else if (window.__INDICATRIX_CAMERA__?.lookAtCoordinates) {
+          window.__INDICATRIX_CAMERA__.lookAtCoordinates(lon, lat, alt);
+        }
+      }, { lon: vp.lon, lat: vp.lat, alt: vp.altitudeRadius, pitch: vp.pitchDeg });
 
-      if (fs.existsSync(baselinePath)) {
-        const delta = await computeDeltaHeatmap(baselinePath, screenshotPath, heatmapPath);
-        vpResult.baselineSharpness = 'available in baseline report';
-        vpResult.meanDelta = delta.meanDelta;
-        vpResult.activeDeltaRatio = delta.activeRatio;
-        vpResult.heatmap = heatmapPath;
-        console.log(`✓ Delta vs Baseline: Mean Δ = ${delta.meanDelta.toFixed(2)}, Active Area = ${(delta.activeRatio * 100).toFixed(1)}%`);
-        console.log(`✓ Generated Heatmap: ${heatmapPath}`);
-      } else {
-        console.log(`ℹ Baseline capture not found for ${vp.id}; run with --baseline first for delta metrics.`);
+      // Allow CDLOD and tile streaming to settle
+      await page.waitForTimeout(3500);
+
+      const prefix = mode === 'baseline' ? 'baseline' : 'current';
+      const screenshotName = `${prefix}_${theme.id}_${vp.id}.png`;
+      const screenshotPath = path.join(OUTPUT_DIR, screenshotName);
+
+      await page.screenshot({ path: screenshotPath });
+      console.log(`✓ Saved capture: ${screenshotPath}`);
+
+      // Also save default theme (Cream Rag) to legacy path for backward compatibility
+      if (theme.index === 1) {
+        const legacyPath = path.join(OUTPUT_DIR, `${prefix}_${vp.id}.png`);
+        fs.copyFileSync(screenshotPath, legacyPath);
       }
-    }
 
-    report.viewpoints.push(vpResult);
+      // Fail-Safe 2: Non-Zero Framebuffer Pixel Canary
+      const img = await loadImage(screenshotPath);
+      const canvas = createCanvas(img.width, img.height);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const imgData = ctx.getImageData(0, 0, img.width, img.height);
+
+      // Compute active non-black pixels
+      let nonBlackCount = 0;
+      const totalPx = img.width * img.height;
+      for (let p = 0; p < totalPx; p++) {
+        const idx = p * 4;
+        if (imgData.data[idx] > 5 || imgData.data[idx + 1] > 5 || imgData.data[idx + 2] > 5) {
+          nonBlackCount++;
+        }
+      }
+      const nonBlackRatio = nonBlackCount / totalPx;
+      if (nonBlackRatio < 0.05) {
+        console.error(`\n[FATAL FRAMEBUFFER DEFECT] Screenshot is >95% black. WebGPU render target failed.`);
+        await browser.close();
+        process.exit(1);
+      }
+      console.log(`✓ Framebuffer Validated: ${(nonBlackRatio * 100).toFixed(1)}% active non-black pixels.`);
+
+      // Compute Modified Laplacian Sharpness
+      const sharpness = computeLaplacianSharpness(imgData, img.width, img.height);
+      console.log(`✓ Modified Laplacian Edge Sharpness: ${sharpness.toFixed(3)} units.`);
+
+      const vpResult = {
+        id: vp.id,
+        theme: theme.id,
+        name: vp.name,
+        screenshot: screenshotPath,
+        sharpness,
+        nonBlackRatio,
+      };
+
+      // If in evaluation mode, compare against baseline
+      if (mode === 'evaluate') {
+        const baselinePath = path.join(OUTPUT_DIR, `baseline_${theme.id}_${vp.id}.png`);
+        const heatmapPath = path.join(OUTPUT_DIR, `heatmap_${theme.id}_${vp.id}.png`);
+
+        if (fs.existsSync(baselinePath)) {
+          const delta = await computeDeltaHeatmap(baselinePath, screenshotPath, heatmapPath);
+          const baseImg = await loadImage(baselinePath);
+          const bCanvas = createCanvas(baseImg.width, baseImg.height);
+          const bCtx = bCanvas.getContext('2d');
+          bCtx.drawImage(baseImg, 0, 0);
+          const bData = bCtx.getImageData(0, 0, baseImg.width, baseImg.height);
+          const baseSharpness = computeLaplacianSharpness(bData, baseImg.width, baseImg.height);
+          const sharpnessRatio = baseSharpness > 1e-4 ? (sharpness / baseSharpness) : 1.0;
+
+          vpResult.baselineSharpness = baseSharpness;
+          vpResult.sharpnessRatio = sharpnessRatio;
+          vpResult.meanDelta = delta.meanDelta;
+          vpResult.activeDeltaRatio = delta.activeRatio;
+          vpResult.heatmap = heatmapPath;
+          console.log(`✓ Delta vs Baseline: Mean Δ = ${delta.meanDelta.toFixed(2)}, Active Area = ${(delta.activeRatio * 100).toFixed(1)}%`);
+          console.log(`✓ Sharpness Progression: Baseline = ${baseSharpness.toFixed(3)}, Evaluated = ${sharpness.toFixed(3)} (${sharpnessRatio.toFixed(2)}x)`);
+          console.log(`✓ Generated Heatmap: ${heatmapPath}`);
+        } else {
+          console.log(`ℹ Baseline capture not found for ${vp.id} (${theme.id}); run with --baseline first for delta metrics.`);
+        }
+      }
+
+      report.viewpoints.push(vpResult);
+    }
   }
 
   // 5. Emit Machine-Readable Report

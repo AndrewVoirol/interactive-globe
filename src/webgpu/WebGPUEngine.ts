@@ -179,6 +179,10 @@ export interface WebGPUFrameParams {
   cdlodDiagnosticMode?: number;
   resolution?: ResolutionTier;
   cloudMaxSteps?: number;
+  microDetailStrength?: number;
+  rockSlopeThreshold?: number;
+  contourBaseInterval?: number;
+  contourActive?: boolean;
 }
 
 export const RESOLUTION_TIER_CLOUD_STEPS: Record<ResolutionTier, number> = {
@@ -512,6 +516,9 @@ export class WebGPUEngine {
   private crustBindGroupLayout!: GPUBindGroupLayout;
   private crustBindGroup!: GPUBindGroup;
   private _shadowIntensity: number = 0.45;
+  // Geomorphic Micro Uniforms (Track A.1, A.2, A.3: Imhof rock hachures, couloir fluting, dynamic contours)
+  public geomorphicMicroFloats = new Float32Array([0.65, 0.61, 50.0, 1.0]);
+  public geomorphicMicroUniformBuffer: GPUBuffer | null = null;
   public get shadowIntensity(): number {
     return this._shadowIntensity;
   }
@@ -6537,6 +6544,7 @@ export class WebGPUEngine {
             { binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
             { binding: 5, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
             { binding: 6, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+            { binding: 7, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
           ],
         });
       }
@@ -6558,6 +6566,17 @@ export class WebGPUEngine {
         this.terrainShadowUints[6] = 16;
         this.terrainShadowUints[7] = 0;
         this.device.queue.writeBuffer(this.terrainShadowUniformBuffer, 0, this.terrainShadowMirror);
+      }
+
+      if (!this.geomorphicMicroUniformBuffer) {
+        this.geomorphicMicroUniformBuffer = this.device.createBuffer({
+          label: 'geomorphic_micro_uniform_buffer',
+          size: 16,
+          usage: typeof GPUBufferUsage !== 'undefined'
+            ? (GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST)
+            : (64 | 8),
+        });
+        this.device.queue.writeBuffer(this.geomorphicMicroUniformBuffer, 0, this.geomorphicMicroFloats.buffer);
       }
 
       if (!this.terrainShadowSampler) {
@@ -6700,6 +6719,7 @@ export class WebGPUEngine {
             { binding: 4, resource: normalView },
             { binding: 5, resource: dummyDrainageView },
             { binding: 6, resource: { buffer: drainageBuf } },
+            { binding: 7, resource: { buffer: this.geomorphicMicroUniformBuffer! } },
           ],
         });
 
@@ -6716,6 +6736,7 @@ export class WebGPUEngine {
               { binding: 4, resource: normalView },
               { binding: 5, resource: dummyDrainageView },
               { binding: 6, resource: { buffer: drainageBuf } },
+              { binding: 7, resource: { buffer: this.geomorphicMicroUniformBuffer! } },
             ],
           });
         }
@@ -6733,6 +6754,7 @@ export class WebGPUEngine {
               { binding: 4, resource: normalView },
               { binding: 5, resource: drainageView },
               { binding: 6, resource: { buffer: drainageBuf } },
+              { binding: 7, resource: { buffer: this.geomorphicMicroUniformBuffer! } },
             ],
           });
         }
@@ -6750,6 +6772,7 @@ export class WebGPUEngine {
               { binding: 4, resource: normalView },
               { binding: 5, resource: drainageView },
               { binding: 6, resource: { buffer: drainageBuf } },
+              { binding: 7, resource: { buffer: this.geomorphicMicroUniformBuffer! } },
             ],
           });
         }
@@ -6791,6 +6814,44 @@ export class WebGPUEngine {
     if (enabled && this.device) {
       this.ensureTerrainShadowResources();
     }
+  }
+
+  public updateGeomorphicMicroUniforms(params: {
+    microDetailStrength?: number;
+    rockSlopeThreshold?: number;
+    contourBaseInterval?: number;
+    contourActive?: boolean;
+  }): void {
+    if (!this.geomorphicMicroUniformBuffer || !this.device) return;
+
+    let dirty = false;
+    if (params.microDetailStrength !== undefined && params.microDetailStrength !== this.geomorphicMicroFloats[0]) {
+      this.geomorphicMicroFloats[0] = params.microDetailStrength;
+      dirty = true;
+    }
+    if (params.rockSlopeThreshold !== undefined && params.rockSlopeThreshold !== this.geomorphicMicroFloats[1]) {
+      this.geomorphicMicroFloats[1] = params.rockSlopeThreshold;
+      dirty = true;
+    }
+    if (params.contourBaseInterval !== undefined && params.contourBaseInterval !== this.geomorphicMicroFloats[2]) {
+      this.geomorphicMicroFloats[2] = params.contourBaseInterval;
+      dirty = true;
+    }
+    if (params.contourActive !== undefined) {
+      const activeVal = params.contourActive ? 1.0 : 0.0;
+      if (activeVal !== this.geomorphicMicroFloats[3]) {
+        this.geomorphicMicroFloats[3] = activeVal;
+        dirty = true;
+      }
+    }
+
+    if (dirty) {
+      this.device.queue.writeBuffer(this.geomorphicMicroUniformBuffer, 0, this.geomorphicMicroFloats.buffer);
+    }
+  }
+
+  public getGeomorphicMicroUniformBuffer(): GPUBuffer | null {
+    return this.geomorphicMicroUniformBuffer;
   }
 
   public isTerrainShadowsEnabled(): boolean {
@@ -8674,6 +8735,7 @@ export class WebGPUEngine {
           { binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
           { binding: 5, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: '2d' } },
           { binding: 6, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+          { binding: 7, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
         ],
       });
     }
@@ -9465,6 +9527,10 @@ export class WebGPUEngine {
       compF[11] = 0.0;
       this.device.queue.writeBuffer(this.compositionLightingUniformBuffer, 0, compF.buffer);
     }
+
+    if (this.geomorphicMicroUniformBuffer) {
+      this.updateGeomorphicMicroUniforms(params as any);
+    }
   }
 
   /**
@@ -9588,6 +9654,7 @@ export class WebGPUEngine {
     // 2. Update Sim, Relief, Ribbon, Wind, Shadow, and Drainage Uniforms
     this.updateUniforms(params);
     this.updateTerrainShadowUniforms(params);
+    this.updateGeomorphicMicroUniforms(params as any);
     this.updateDrainageUniforms({
       bedrockIncision: params.bedrockIncision,
       pluvialCoupling: params.pluvialDischargeCoupling ?? this.pluvialCouplingFactor,
@@ -11786,6 +11853,8 @@ export class WebGPUEngine {
     this.terrainShadowSampler = null;
     this.terrainShadowUniformBuffer?.destroy();
     this.terrainShadowUniformBuffer = null;
+    this.geomorphicMicroUniformBuffer?.destroy();
+    this.geomorphicMicroUniformBuffer = null;
     this.horizonOcclusionPipeline = null;
     this.horizonOcclusionBindGroupLayout = null;
     this.horizonOcclusionBindGroup = null;

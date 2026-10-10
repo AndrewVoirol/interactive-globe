@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-10-10T04:38:34.396Z",
+  "canary": {
+    "ok": true,
+    "vendor": "apple",
+    "architecture": "metal-3",
+    "description": ""
+  },
+  "viewpoints": [
+    {
+      "id": "litmus-alpine-matterhorn",
+      "theme": "cream-rag",
+      "name": "Matterhorn Alpine Massif",
+      "screenshot": "/Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/zoom_detail_plan_phase_one/screenshots/qualification/baseline_cream-rag_litmus-alpine-matterhorn.png",
+      "sharpness": 20.550674958838563,
+      "nonBlackRatio": 1
+    },
+    {
+      "id": "litmus-canyon-grandcanyon",
+      "theme": "cream-rag",
+      "name": "Grand Canyon Fluvial Incision",
+      "screenshot": "/Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/zoom_detail_plan_phase_one/screenshots/qualification/baseline_cream-rag_litmus-canyon-grandcanyon.png",
+      "sharpness": 18.590178216114882,
+      "nonBlackRatio": 1
+    },
+    {
+      "id": "litmus-oceanic-hawaii",
+      "theme": "cream-rag",
+      "name": "Hawaii Oceanic Volcano & Trench",
+      "screenshot": "/Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/zoom_detail_plan_phase_one/screenshots/qualification/baseline_cream-rag_litmus-oceanic-hawaii.png",
+      "sharpness": 14.293234102619017,
+      "nonBlackRatio": 1
+    },
+    {
+      "id": "litmus-alpine-matterhorn",
+      "theme": "prussian-cyanotype",
+      "name": "Matterhorn Alpine Massif",
+      "screenshot": "/Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/zoom_detail_plan_phase_one/screenshots/qualification/baseline_prussian-cyanotype_litmus-alpine-matterhorn.png",
+      "sharpness": 11.185893514397662,
+      "nonBlackRatio": 1
+    },
+    {
+      "id": "litmus-canyon-grandcanyon",
+      "theme": "prussian-cyanotype",
+      "name": "Grand Canyon Fluvial Incision",
+      "screenshot": "/Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/zoom_detail_plan_phase_one/screenshots/qualification/baseline_prussian-cyanotype_litmus-canyon-grandcanyon.png",
+      "sharpness": 10.178099680744314,
+      "nonBlackRatio": 1
+    },
+    {
+      "id": "litmus-oceanic-hawaii",
+      "theme": "prussian-cyanotype",
+      "name": "Hawaii Oceanic Volcano & Trench",
+      "screenshot": "/Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/zoom_detail_plan_phase_one/screenshots/qualification/baseline_prussian-cyanotype_litmus-oceanic-hawaii.png",
+      "sharpness": 5.791411797668377,
+      "nonBlackRatio": 1
+    },
+    {
+      "id": "litmus-alpine-matterhorn",
+      "theme": "marie-tharp",
+      "name": "Matterhorn Alpine Massif",
+      "screenshot": "/Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/zoom_detail_plan_phase_one/screenshots/qualification/baseline_marie-tharp_litmus-alpine-matterhorn.png",
+      "sharpness": 14.267093438630566,
+      "nonBlackRatio": 1
+    },
+    {
+      "id": "litmus-canyon-grandcanyon",
+      "theme": "marie-tharp",
+      "name": "Grand Canyon Fluvial Incision",
+      "screenshot": "/Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/zoom_detail_plan_phase_one/screenshots/qualification/baseline_marie-tharp_litmus-canyon-grandcanyon.png",
+      "sharpness": 15.024789749651852,
+      "nonBlackRatio": 1
+    },
+    {
+      "id": "litmus-oceanic-hawaii",
+      "theme": "marie-tharp",
+      "name": "Hawaii Oceanic Volcano & Trench",
+      "screenshot": "/Users/andrewvoirol/.gemini/antigravity/worktrees/ais-interactive-globe-to-map/zoom_detail_plan_phase_one/screenshots/qualification/baseline_marie-tharp_litmus-oceanic-hawaii.png",
+      "sharpness": 10.186397470243966,
+      "nonBlackRatio": 1
+    }
+  ]
+}

@@ -437,3 +437,27 @@ When configuring GitHub Actions workflows (`.github/workflows/ci.yml`) or author
 - **Cloud ADC Credential Gating**: Tests probing live cloud services (e.g., Google Cloud Storage requester-pays buckets) MUST gate network assertions with `it.runIf(hasADC)` / `it.skipIf(!hasADC)`. CLI flag parsers, offline `--mock` modes, and data math must execute unconditionally on unauthenticated CI runners.
 - **Stress Test Timeout Scaling**: Tests executing Monte Carlo loops ($\ge 5,000$ iterations) must declare an explicit 120s timeout (`}, 120000);`) and CI test runners must pass `--testTimeout 120000` to prevent false-positive timeouts on constrained runners.
 
+## 65. Zero UI / HUD Bloat Before Visual & Kinematic Qualification
+Agents must NEVER add new buttons, sliders, toggle switches, or floating instrument cards to the HUD or sidebar during active shader, geometry, or camera kinematics development phases.
+- **Uniform-Driven Math**: All experimental parameters (micro-detail strength, rock slope threshold, contour intervals, relief scale curves) must be governed strictly through uniform buffers (`GeomorphicMicroUniforms`, `SimUniforms`) using calibrated mathematical defaults and camera-altitude equations.
+- **Backlog Containment**: Future interactive controls must be documented exclusively in a long-term UI to-do roadmap within planning artifacts, remaining out of the live DOM until visual fidelity, frame rate, and medium identities have been certified.
+
+## 66. Camera-Coupled Dynamic Relief Attenuation & Altitude Clearance
+At planetary orbital scale ($r \ge 5.50$), macro relief exaggeration ($2.8\times$) is necessary to give mountain ranges visible 3D presence on a global globe. However, maintaining $2.8\times$ relief at close range ($r \le 5.05$) creates artificial mountains $>100\text{ km}$ high, which clamps the terrain ground clearance safety floor to stratospheric altitudes ($\ge 144\text{ km}$ AGL) and physically blocks local alpine inspection.
+- **Dynamic Attenuation Invariant**: Relief displacement scale MUST attenuate continuously based on camera radius:
+  $$\alpha = \operatorname{clamp}\left(\frac{r - 5.05}{5.50 - 5.05}, 0.0, 1.0\right), \quad k_{\text{relief}}(r) = 1.0 + 1.8 \cdot \alpha$$
+- **GPU-CPU Lockstep Execution**: The vertex shader displacement scale in `WebGPUFrameParams` (`u_displacementScale * (reliefMultiplier / 2.8)`) and CPU terrain ground clearance calculation in `cameraMath.ts` (`computeGroundClearanceFloor`) must evaluate the identical attenuation formula in lockstep, lowering minimum clearance from $144\text{ km}$ down to safe terrain-following clearance ($<5\text{ km}$ AGL) at alpine scale.
+
+## 67. Dual Camera Profiles for Topographical Inspection vs. Horizon Limb
+Oblique camera pitches $>60^\circ$ orient the camera tangent to the curved planetary horizon into the empty sky/space void.
+- **Profile Specialization**:
+  - `PROFILE_SURVEY_INSPECTION`: Pitch $20^\circ\text{--}30^\circ$ (calibrated default $25^\circ$), with look-ahead target distance scaled proportionally to surface altitude ($d_{\text{target}} = \min(3.5, \max(0.08, (r_{\text{safe}} - R_0) \cdot 1.5))$), keeping the camera target pinned securely to the mountain valley or canyon floor.
+  - `PROFILE_LIMB_CROSS_SECTION`: Pitch $65^\circ\text{--}75^\circ$ reserved strictly for stratospheric limb cross-sections, atmospheric raymarching, and twilight scattering profiles.
+
+## 68. Hardware-Canary WebGPU Qualification & Automated A/B Baseline Injection
+Avoid the "Headless WebGPU Trap" where default headless Chromium either disables `navigator.gpu` or falls back to Google SwiftShader software emulation, crashing on complex WGSL passes and emitting black framebuffers.
+- **Real Browser Binary**: Automated test scripts must target the real system Google Chrome binary (`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`) with native Apple Metal flags (`--enable-unsafe-webgpu`, `--use-angle=metal`, `--use-webgpu-adapter=default`) over `http://localhost:<port>`.
+- **Automated A/B Baseline Injection**: Verification scripts must programmatically inject uniform overrides for baseline (`microDetailStrength = 0.0, contourActive = false`) versus evaluate state (`0.65, 1.0`). Comparing un-overridden states compares active shaders against themselves ($\Delta \approx 0$).
+- **Substrate Noise Masking Invariant**: Procedural paper substrates (cotton rag cellulose fibers, illustration board tooth) contribute high native Laplacian edge energy ($\approx 15\text{--}20$ units) across the entire sheet. When evaluating edge energy gains for vector linework or rock hachures, evaluate across monochromatic smooth mediums (such as Prussian Cyanotype) or isolate substrate baseline noise to avoid false-negative placebo classifications.
+
+

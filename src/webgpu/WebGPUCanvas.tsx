@@ -912,7 +912,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
   }, []);
 
   // Geodetic terrain-following ground clearance safety floor (~127m AGL floor)
-  const getGroundClearanceFloor = useCallback((lonDeg: number, latDeg: number): number => {
+  const getGroundClearanceFloor = useCallback((lonDeg: number, latDeg: number, camRadius?: number): number => {
     let elevM = 0;
     let dispScale = 0.08;
     if (engineRef.current) {
@@ -923,7 +923,8 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         : null;
       dispScale = liveProps?.displacementScale ?? 0.055;
     }
-    return computeGroundClearanceFloor(elevM, dispScale);
+    const r = camRadius ?? sphericalRef.current.radius;
+    return computeGroundClearanceFloor(elevM, dispScale, r);
   }, []);
 
   // Orbital Kinematics updates
@@ -976,13 +977,14 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
     const vDirY = -Math.cos(pRad) * ny + Math.sin(pRad) * forwardY;
     const vDirZ = -Math.cos(pRad) * nz + Math.sin(pRad) * forwardZ;
 
-    const h_floor = getGroundClearanceFloor(lonDeg, latDeg);
+    const h_floor = getGroundClearanceFloor(lonDeg, latDeg, altitudeRadius);
     const safeRadius = Math.max(h_floor, altitudeRadius);
     const sphereCamX = nx * safeRadius;
     const sphereCamY = ny * safeRadius;
     const sphereCamZ = nz * safeRadius;
 
-    const targetDist = 3.5;
+    // Altitude-proportional look-ahead distance keeps target anchored to terrain surface
+    const targetDist = Math.min(3.5, Math.max(0.08, (safeRadius - 5.0) * 1.5));
     const sphereTargetX = sphereCamX + vDirX * targetDist;
     const sphereTargetY = sphereCamY + vDirY * targetDist;
     const sphereTargetZ = sphereCamZ + vDirZ * targetDist;
@@ -1190,7 +1192,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
             deformed[2] - standoff * (dirZ * invLen)
           );
         }
-        const h_floor = getGroundClearanceFloor(lonDeg, latDeg);
+        const h_floor = getGroundClearanceFloor(lonDeg, latDeg, zoomRadius);
         sphericalRef.current.radius = Math.max(h_floor, Math.min(zoomRadius, 30.0));
         sphericalRef.current.theta = theta;
         sphericalRef.current.phi = phi;
@@ -1211,7 +1213,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         const sinTheta = Math.sin(theta);
         const cosTheta = Math.cos(theta);
 
-        const h_floor = getGroundClearanceFloor(lonDeg, latDeg);
+        const h_floor = getGroundClearanceFloor(lonDeg, latDeg, zoomRadius);
         const safeRadius = Math.max(h_floor, Math.min(zoomRadius, 30.0));
 
         const scrubAlpha = typeof window !== 'undefined' ? (window as any).__INDICATRIX_SCRUB_ALPHA__ : undefined;
@@ -2162,8 +2164,9 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
           return;
         }
 
-        // Orbit rotation: unrestricted 360-degree spherical orbit across all morph stages
-        const rotateSpeed = 0.005;
+        // Orbit rotation: adaptively damped with camera altitude above the geoid
+        const altRatio = Math.max(0.04, Math.min(1.0, (sphericalRef.current.radius - 5.0) / 7.0));
+        const rotateSpeed = 0.005 * (curUnfurl < 0.01 ? (0.04 + 0.96 * altRatio) : 1.0);
         const dTheta = -dx * rotateSpeed;
         const dPhi = -dy * rotateSpeed;
 
@@ -2187,7 +2190,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         camLon = ((((camLon + 180) % 360) + 360) % 360) - 180;
         const camLat = Math.max(-85, Math.min(85, 90 - (sphericalRef.current.phi * 180) / Math.PI));
         activeCoordsRef.current = { lat: camLat, lon: camLon };
-        if (curUnfurl < 0.01) {
+        if (curUnfurl < 0.01 && sphericalRef.current.radius >= 16.0) {
           targetRef.current.set(0, 0, 0);
         }
       } else if (dragButtonRef.current === 2 || dragButtonRef.current === 1) {
@@ -2774,7 +2777,7 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
               const currentLat = 90 - (currentPhi * 180) / Math.PI;
               let currentLon = (currentTheta * 180) / Math.PI;
               currentLon = (((currentLon + 180) % 360) + 360) % 360 - 180;
-              const h_floor = getGroundClearanceFloor(currentLon, currentLat);
+              const h_floor = getGroundClearanceFloor(currentLon, currentLat, sphericalRef.current.radius + vel.velRadius);
               sphericalRef.current.radius = Math.min(
                 Math.max(sphericalRef.current.radius + vel.velRadius, h_floor),
                 50.0
@@ -3038,9 +3041,19 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
         const layerCache = cachedLayersRef.current;
         const activeDataLayer = layerCache.activeDataLayer;
 
-        const liveOverrides = typeof window !== 'undefined' ? (window as any).__INDICATRIX_LIVE_UNIFORMS__ : null;
+        const liveOverrides = typeof window !== 'undefined'
+          ? ((window as any).__INDICATRIX_LIVE_UNIFORMS__ || (window as any).__INDICATRIX_LIVE_OVERRIDES__)
+          : null;
 
-        const displacementScale = liveOverrides?.displacementScale ?? activeDataLayer?.displacementScale ?? layerCache.primaryReliefLayer?.displacementScale ?? 0.055;
+        const baseDisplacementScale = liveOverrides?.displacementScale ?? activeDataLayer?.displacementScale ?? layerCache.primaryReliefLayer?.displacementScale ?? 0.055;
+        // Camera-Coupled Dynamic Relief Attenuation:
+        // Orbital scale (r >= 5.50): 2.8x displacement multiplier for dramatic global topography.
+        // Close-up survey (r <= 5.05): Attenuates smoothly to 1.0x (true physical crust relief),
+        // preventing 144km spire displacement and allowing close-range inspection down to 1km AGL.
+        const currentCamRadius = sphericalRef.current.radius;
+        const alphaRelief = Math.min(1.0, Math.max(0.0, (currentCamRadius - 5.05) / (5.50 - 5.05)));
+        const reliefMultiplier = 1.0 + 1.8 * alphaRelief;
+        const displacementScale = baseDisplacementScale * (reliefMultiplier / 2.8);
         const hillshadeIntensity = liveOverrides?.hillshadeIntensity ?? activeDataLayer?.hillshadeIntensity ?? layerCache.primaryReliefLayer?.hillshadeIntensity ?? 1.0;
         const reliefActive = activeDataLayer ? layerCache.reliefActive : false;
         const seaLevel = liveOverrides?.seaLevelOffset ?? activeDataLayer?.seaLevelOffset ?? layerCache.primaryReliefLayer?.seaLevelOffset ?? 0.0;
@@ -3296,6 +3309,10 @@ export const WebGPUCanvas: React.FC<WebGPUCanvasProps> = React.memo(({
           cloudAdvectionSpeed: liveOverrides?.cloudAdvectionSpeed ?? (stateRef.current as any).cloudAdvectionSpeed,
           condensationRate: liveOverrides?.condensationRate ?? (stateRef.current as any).condensationRate,
           evaporationRate: liveOverrides?.evaporationRate ?? (stateRef.current as any).evaporationRate,
+          microDetailStrength: liveOverrides?.microDetailStrength,
+          rockSlopeThreshold: liveOverrides?.rockSlopeThreshold,
+          contourBaseInterval: liveOverrides?.contourBaseInterval,
+          contourActive: liveOverrides?.contourActive !== undefined ? liveOverrides.contourActive : showContours,
         });
 
         // Periodic GPU Profiler sampling (every 250ms)

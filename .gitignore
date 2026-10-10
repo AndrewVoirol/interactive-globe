@@ -28,6 +28,8 @@ dist-ssr
 .temp_screencasts/
 screenshots/memory-check.json
 screenshots/performance-profile.json
+screenshots/qualification/baseline_*.png
+screenshots/qualification/current_*.png
 __pycache__/
 *.pyc
 .cache/

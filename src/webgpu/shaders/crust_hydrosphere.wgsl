@@ -102,6 +102,15 @@ struct DrainageBasinUniforms {
 @group(1) @binding(5) var u_drainageTexture: texture_2d<f32>;
 @group(1) @binding(6) var<uniform> u_drainageBasin: DrainageBasinUniforms;
 
+struct GeomorphicMicroUniforms {
+    u_microDetailStrength: f32, // offset 0 (0.0 to 1.5, default 0.65)
+    u_rockSlopeThreshold: f32,  // offset 4 (radians, default 0.61 rad ~35 deg)
+    u_contourBaseInterval: f32, // offset 8 (meters, default 50.0m)
+    u_contourActive: f32,       // offset 12 (1.0 = on, 0.0 = off)
+};
+
+@group(1) @binding(7) var<uniform> u_geomorphicMicro: GeomorphicMicroUniforms;
+
 struct CDLODInstance {
     minUV: vec2<f32>,
     sizeUV: vec2<f32>,
@@ -1238,6 +1247,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let fragPoleAtten = 1.0 - smoothstep(0.85, 0.98, fragPoleDist);
     let cosLatPolar = max(0.0, cos((input.uv.y - 0.5) * PI));
     let polarLonAtten = smoothstep(0.01, 0.25, cosLatPolar);
+    let cosLat = max(0.1, cos((input.uv.y - 0.5) * PI));
 
     let scaleX = select(select(0.0, 1.0, hasR || hasL), 0.5, hasR && hasL);
     let scaleY = select(select(0.0, 1.0, hasU || hasD), 0.5, hasU && hasD);
@@ -1265,8 +1275,17 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let microScale = sim.u_displacementScale * 25.0 + 1.0;
     let microN = normalize(macroN * normZ + (tangentX * normX + tangentY * normY) * (fragPoleAtten * microScale));
 
-    let blendedN = normalize(mix(microN, macroN, multiScaleBlend));
-    let effectiveNormal = select(blendedN, macroN, length(vec2<f32>(normX, normY)) < 0.01);
+    // Multi-octave geomorphic micro-roughness normal perturbation (Track A.3)
+    let cosNormSlope = clamp(dot(perturbedN, n0), 0.0, 1.0);
+    let slopeNormWeight = (1.0 - smoothstep(0.55, 0.75, cosNormSlope));
+    let microRoughWeight = (1.0 - smoothstep(250.0, 3200.0, pixelFootprintM)) * slopeNormWeight * u_geomorphicMicro.u_microDetailStrength;
+    let pNorm = input.worldPos * 24000.0;
+    let pGradX = (sin(pNorm.x * 1.8 + pNorm.y * 1.1) * 0.45 + sin(pNorm.x * 5.6) * 0.25) * microRoughWeight;
+    let pGradY = (cos(pNorm.y * 1.8 + pNorm.z * 1.1) * 0.45 + cos(pNorm.y * 5.6) * 0.25) * microRoughWeight;
+    let microN_enhanced = normalize(microN + (tangentX * pGradX + tangentY * pGradY));
+
+    let blendedN = normalize(mix(microN_enhanced, macroN, multiScaleBlend));
+    let effectiveNormal = select(blendedN, macroN, length(vec2<f32>(normX, normY)) < 0.01 && microRoughWeight < 0.001);
 
     // Toksvig Specular Anti-Aliasing:
     // Derive the tangent-space normal and Toksvig length L = ||N_avg|| across mipmap levels.
@@ -1335,22 +1354,35 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let specCrust = (D_crust * G_crust * F_crust) / max(4.0 * NdotL_crust * NdotV_crust, 1e-4);
     let crustSpecular = specCrust * NdotL_crust * terrainShadow * shadowFactor * 1.20;
 
-    // Slope-Dependent Rock Cliff Exposure (theta > 35 degrees)
+    // Slope-Dependent Rock Cliff Exposure (theta > 35 degrees) (Track A.1)
     let cosSlope = clamp(dot(perturbedN, n0), 0.0, 1.0);
-    let rockWeight = (1.0 - smoothstep(0.66913, 0.81915, cosSlope)) * 0.75;
+    let slopeAngle = acos(cosSlope);
+    let rockThreshold = select(0.610865, u_geomorphicMicro.u_rockSlopeThreshold, u_geomorphicMicro.u_rockSlopeThreshold > 0.01);
+    let rockWeight = smoothstep(rockThreshold - 0.08, rockThreshold + 0.15, slopeAngle) * 0.95;
 
-    // Procedural Rock Strata and Joints Hachuring with isotropic metric latitude scaling
-    let cosLat = max(0.1, cos((input.uv.y - 0.5) * PI));
-    let metricUv = vec2<f32>(input.uv.x * cosLat, input.uv.y) * 800.0;
+    // Eduard Imhof Directional Rock Strata & Couloir Fluting Hachures
+    // Scaled with 3D physical metric coordinates on Riemannian manifold
+    let pMetric = input.worldPos * 18000.0;
     let gradDir = normalize(vec2<f32>(effDHx, effDHy) + vec2<f32>(1e-6, 1e-6));
     let strikeDir = vec2<f32>(-gradDir.y, gradDir.x);
-    let uFall   = dot(metricUv, gradDir);
-    let uStrike = dot(metricUv, strikeDir);
-    let strata1 = sin(uStrike * 0.85);
-    let strata2 = sin(uStrike * 2.10 + 0.8);
-    let strataTotal = strata1 * 0.6 + strata2 * 0.4;
-    let joint1 = sin(uFall * 1.40 + strataTotal * 1.2);
-    let hachurePattern = clamp(0.90 + 0.10 * (joint1 * 0.65 + strataTotal * 0.35), 0.0, 1.0);
+    let uFall = dot(pMetric.xy, gradDir) + pMetric.z * 0.45;
+    let uStrike = dot(pMetric.xy, strikeDir) + pMetric.z * 0.25;
+
+    // Multi-octave geological bedding strata along strike direction
+    let strata1 = sin(uStrike * 1.35);
+    let strata2 = sin(uStrike * 3.40 + 0.9);
+    let strata3 = sin(uStrike * 8.80 + 2.1) * 0.5;
+    let strataTotal = strata1 * 0.50 + strata2 * 0.35 + strata3 * 0.15;
+
+    // Couloir fluting gullies and joint fractures down the fall line
+    let joint1 = sin(uFall * 1.90 + strataTotal * 1.8);
+    let joint2 = sin(uFall * 4.80 + strataTotal * 2.4);
+    let couloirTotal = joint1 * 0.65 + joint2 * 0.35;
+
+    // Screen-space derivative dampening: attenuates high frequencies at orbit to prevent Moiré shimmering
+    let detailFade = (1.0 - smoothstep(1200.0, 5500.0, pixelFootprintM)) * u_geomorphicMicro.u_microDetailStrength;
+    let hachureModulation = clamp(0.55 + 0.45 * (couloirTotal * 0.60 + strataTotal * 0.40), 0.15, 1.35);
+    let hachurePattern = mix(1.0, hachureModulation, detailFade * rockWeight);
 
     var cRockDark: vec3<f32>;
     var cRockLit: vec3<f32>;
@@ -2094,9 +2126,18 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // ========================================================================
     // MEDIUM-SPECIFIC ANALYTICAL CONTOURS & OCEANOGRAPHIC ISOBATHS
     // ========================================================================
-    if (sim.u_renderStyle != 2u) {
+    if (sim.u_renderStyle != 2u && u_geomorphicMicro.u_contourActive > 0.01) {
         let camDist = length(sim.u_cameraPos.xyz);
-        let orbitZoom = clamp((25.0 - camDist) / (25.0 - 6.0), 0.0, 1.0);
+        let camAltKm = max(0.05, (camDist - 5.0) * 1274.2);
+
+        // 1-2-5 Decimal Series: 500m -> 200m -> 100m -> 50m -> 20m
+        let deltaH = select(500.0,
+                     select(200.0,
+                     select(100.0,
+                     select(50.0, 20.0, camAltKm < 12.0),
+                     camAltKm < 45.0),
+                     camAltKm < 150.0),
+                     camAltKm < 500.0);
 
         // True screen-space DEM gradient derivatives via precomputed dUV (Invariant #3)
         // Eliminates the ~42x displacement normal blowout so anti-Moiré and hairlines render correctly
@@ -2110,16 +2151,14 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
         if (sim.u_theme == 1u) {
             // --- THEME 1 (Cream Rag): Eduard Imhof Swiss Topographic Analytical Contours ---
-            // Generates copperplate sepia contours on land, fading on steep slopes where Lehmann hachures dominate
+            // Generates copperplate sepia contours on land, fading on steep slopes where Imhof rock hachures dominate
             let shoreContourFade = smoothstep(0.35, 0.65, isLand);
             if (shoreContourFade > 0.001 && landElev >= 0.0) {
-                let normLand = clamp(landElev, 0.0, 1.0);
-                let creamFreq = mix(32.0, 64.0, orbitZoom);
-                let elevIndex = normLand * creamFreq;
+                let elevIndex = elevMeters / deltaH;
 
-                // Screen-space derivative width evaluation using true unscaled DEM gradient (Invariant #3)
-                let dElevPx = length(vec2<f32>(dDemLandX * pxPerTexel.x, dDemLandY * pxPerTexel.y)) * creamFreq;
-                let halfW = max(0.008, dElevPx * 0.85);
+                let dElevMetersPx = length(vec2<f32>(dDemLandX * pxPerTexel.x, dDemLandY * pxPerTexel.y)) * 8848.0;
+                let dElevPx = dElevMetersPx / deltaH;
+                let halfW = max(0.012, dElevPx * 0.85);
 
                 // Minor contours (every interval)
                 let minorVal = fract(elevIndex);
@@ -2130,37 +2169,39 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 let majorIndex = elevIndex * 0.20;
                 let majorVal = fract(majorIndex);
                 let distMajor = min(majorVal, 1.0 - majorVal) * 5.0;
-                let isMajor = 1.0 - smoothstep(0.0, halfW * 1.5, distMajor);
+                let isMajor = 1.0 - smoothstep(0.0, halfW * 1.6, distMajor);
 
-                // Slope coordination: contours fade on slopes > 20° (0.349 rad) where Lehmann hachures dominate
-                let slopeAngle = acos(cosSlope);
-                let hachureFade = 1.0 - smoothstep(0.30, 0.42, slopeAngle);
+                // Slope coordination: contours remain visible up to ~45° alpine slopes,
+                // smoothly fading as near-vertical cliffs (>55°) transition to Imhof rock hachures
+                let hachureFade = 1.0 - smoothstep(0.70, 0.98, slopeAngle);
 
                 // Anti-Moiré suppression at orbital distance when lines crowd into sub-pixel clusters
                 let moireGuard = 1.0 - smoothstep(0.35, 0.85, dElevPx);
                 let moireGuardMajor = 1.0 - smoothstep(0.35, 0.85, dElevPx * 0.20);
 
                 let cCopperplateSepia = vec3<f32>(0.22, 0.19, 0.16); // Archival sepia-charcoal ink #38302A
-                let contourAlpha = (isMinor * 0.25 * moireGuard + isMajor * 0.35 * moireGuardMajor) * hachureFade * shoreContourFade;
-                finalCrust = mix(finalCrust, cCopperplateSepia, clamp(contourAlpha, 0.0, 0.65));
+                let contourAlpha = (isMinor * 0.30 * moireGuard + isMajor * 0.45 * moireGuardMajor) * hachureFade * shoreContourFade;
+                finalCrust = mix(finalCrust, cCopperplateSepia, clamp(contourAlpha, 0.0, 0.70));
             }
         } else if (sim.u_theme == 2u) {
             // --- THEME 2 (Prussian Cyanotype): Analytical Chalk Ruling Pen Isoline Contours ---
-            // View-dependent frequency and screen-space derivative feathering to eliminate globe-scale Moiré
-            let normElev = clamp((elevMeters + 10924.0) / 19772.0, 0.0, 1.0);
-            let cyanoFreq = mix(16.0, 44.0, orbitZoom);
-            let contourVal = fract(normElev * cyanoFreq);
-            let distToLine = min(contourVal, 1.0 - contourVal);
+            let normElev = elevMeters + 10924.0;
+            let cyanoIndex = normElev / deltaH;
+            let dElevPx = (length(vec2<f32>(dDemGlobalX * pxPerTexel.x, dDemGlobalY * pxPerTexel.y)) * 19772.0) / deltaH;
+            let halfW = max(0.012, dElevPx * 0.85);
 
-            let dElevPx = length(vec2<f32>(dDemGlobalX * pxPerTexel.x, dDemGlobalY * pxPerTexel.y)) * cyanoFreq;
-            let halfW = max(0.008, dElevPx * 0.85);
+            let contourVal = fract(cyanoIndex);
+            let distToLine = min(contourVal, 1.0 - contourVal);
             let isContour = 1.0 - smoothstep(0.0, halfW, distToLine);
 
-            // Anti-Moiré suppression when lines crowd into sub-pixel clusters
-            let moireGuard = 1.0 - smoothstep(0.35, 0.85, dElevPx);
+            let majorIndex = cyanoIndex * 0.20;
+            let distMajor = min(fract(majorIndex), 1.0 - fract(majorIndex)) * 5.0;
+            let isMajor = 1.0 - smoothstep(0.0, halfW * 1.6, distMajor);
 
+            let moireGuard = 1.0 - smoothstep(0.35, 0.85, dElevPx);
             let cChalkContour = vec3<f32>(0.91, 0.93, 0.96); // Chalk Ruling Pen Linework #E8EDF2
-            finalCrust = mix(finalCrust, cChalkContour, isContour * moireGuard * 0.60);
+            let cyanoAlpha = (isContour * 0.35 + isMajor * 0.35) * moireGuard;
+            finalCrust = mix(finalCrust, cChalkContour, clamp(cyanoAlpha, 0.0, 0.65));
         } else if (sim.u_theme == 0u) {
             // --- THEME 0 (Marie Tharp): Oceanographic Isobaths on Continental Shelf & Abyssal Plain ---
             // Land has NO contours per physiographic tradition; ocean basins feature major 1000m isobaths
